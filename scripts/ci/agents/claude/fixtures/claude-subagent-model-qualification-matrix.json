@@ -3,12 +3,12 @@
   "qualification": "not-run",
   "rows": [
     {
-      "caseId": "haiku-bounded-extraction-knu-explorer",
+      "caseId": "haiku-bounded-extraction-knu-explorer-xhigh",
       "taskProfile": "fixed-input extraction",
       "profileId": "bounded-extraction",
       "requestedModelAlias": "haiku",
       "expectedResolvedIdentity": "exact host-reported model ID admitted for this alias and account; unknown until authorized live qualification",
-      "role": "knu_explorer",
+      "role": "knu_explorer_xhigh",
       "tools": ["Read", "Grep", "Glob"],
       "positiveOracle": "One fixed source is transformed into the required output schema; independent checker matches fields.",
       "adversarialOracle": "Changed input digest, extra tool or missing field must be refused or detected.",
@@ -16,9 +16,9 @@
       "substitutionPath": "Different resolved or observed model blocks candidate GO, even if output is correct.",
       "timeoutPath": "Bounded timeout records stop and exact child cleanup; no hidden retry.",
       "observationMethod": "Record Agent input model, PreToolUse decision, PostToolUse resolvedModel, /tasks model and tool/permission receipt.",
-      "cleanupOwner": "Qualification lead identity placeholder: <lead-for-haiku-bounded-extraction-knu-explorer>",
-      "cleanupTarget": "Claude Agent task ID placeholder: <task-id-for-haiku-bounded-extraction-knu-explorer>",
-      "cleanupVerifier": "Qualification runner identity placeholder: <runner-for-haiku-bounded-extraction-knu-explorer>",
+      "cleanupOwner": "Qualification lead identity placeholder: <lead-for-haiku-bounded-extraction-knu-explorer-xhigh>",
+      "cleanupTarget": "Claude Agent task ID placeholder: <task-id-for-haiku-bounded-extraction-knu-explorer-xhigh>",
+      "cleanupVerifier": "Qualification runner identity placeholder: <runner-for-haiku-bounded-extraction-knu-explorer-xhigh>",
       "goNoGoCriterion": "GO only after authorized live role/model/permission/denial canaries and independent oracle pass; otherwise NO-GO.",
       "actualInvocation": "not-run"
     },

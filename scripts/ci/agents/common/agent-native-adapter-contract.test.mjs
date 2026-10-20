@@ -4,6 +4,8 @@ import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
+import * as policy from '../../../agents/claude/model-policy.mjs';
+
 const root = resolve(import.meta.dirname, '../../../..');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 
@@ -25,6 +27,7 @@ test('Claude entry imports the shared repository contract without copying it', (
 // Each role fixes its effort so a child never inherits the Parent session's effort.
 const ROLE_EFFORT = {
   knu_explorer: 'high',
+  knu_explorer_xhigh: 'xhigh',
   knu_researcher: 'high',
   knu_executor: 'high',
   knu_executor_xhigh: 'xhigh',
@@ -33,7 +36,7 @@ const ROLE_EFFORT = {
 const roleSource = (role) => read(`.claude/agents/${role}.md`);
 const roleBody = (source) => source.replace(/^---\n[\s\S]*?\n---\n/u, '');
 
-test('five project Claude agents declare bounded native tools and a fixed effort', () => {
+test('six project Claude agents declare bounded native tools and a fixed effort', () => {
   const readOnly = new Set(['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch']);
 
   for (const [role, effort] of Object.entries(ROLE_EFFORT)) {
@@ -76,6 +79,21 @@ test('five project Claude agents declare bounded native tools and a fixed effort
   );
 });
 
+test('the xhigh explorer is a tracked role that differs from knu_explorer only in its frontmatter', () => {
+  const path = '.claude/agents/knu_explorer_xhigh.md';
+  assert.equal(isIgnored(path), false, `${path}: project role must be portable`);
+  assert.ok(existsSync(resolve(root, path)), `${path}: role file`);
+  const frontmatter = /^---\n([\s\S]*?)\n---/u.exec(roleSource('knu_explorer_xhigh'))?.[1] ?? '';
+  assert.match(frontmatter, /^name: knu_explorer_xhigh$/mu);
+  assert.match(frontmatter, /^tools: Read, Grep, Glob$/mu);
+  assert.match(frontmatter, /^effort: xhigh$/mu);
+  assert.equal(
+    roleBody(roleSource('knu_explorer_xhigh')),
+    roleBody(roleSource('knu_explorer')),
+    'the xhigh explorer differs from knu_explorer only in its frontmatter',
+  );
+});
+
 // Official subagent frontmatter fields as of the 2026-10-01 Claude Code subagent docs. This list is a
 // pinned copy, not a live read: a new official field fails here until the disposition table covers it.
 const OFFICIAL_SUBAGENT_FIELDS = [
@@ -99,7 +117,7 @@ const OFFICIAL_SUBAGENT_FIELDS = [
   'experimental',
 ];
 
-test('effort documents cover rejection reasons, five roles, field dispositions and Parent judgment', () => {
+test('effort documents cover rejection reasons, six roles, field dispositions and Parent judgment', () => {
   const adapters = 'docs/development/agent-workflows/adapters/';
   const recovery = read(`${adapters}claude-code.md`).split('## Recovery')[1] ?? '';
   for (const stale of ['kind `extract`를 받지 않습니다', '현재 KNU 역할에는 effort 필드가 없어'])
@@ -121,7 +139,11 @@ test('effort documents cover rejection reasons, five roles, field dispositions a
   const registry = read(`${adapters}claude-native-registry.md`);
   for (const role of Object.keys(ROLE_EFFORT))
     assert.match(registry, new RegExp(`^\\| \`${role}\` +\\|`, 'mu'), `registry role row: ${role}`);
-  assert.ok(!registry.includes('네 `.claude/agents/knu_*.md`'), 'registry still counts four roles');
+  for (const stale of ['네', '다섯'])
+    assert.ok(
+      !registry.includes(`${stale} \`.claude/agents/knu_*.md\``),
+      `registry counts ${stale} roles`,
+    );
 
   for (const doc of [`${adapters}claude-same-host-review.md`, rejections]) {
     const text = doc.startsWith(adapters) ? read(doc) : doc;
@@ -376,7 +398,8 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
       return cells.slice(1, 8).join(' ');
     }),
     [
-      '`knu_explorer` `bounded-extraction` `haiku` —(미지원) `claude-haiku-4-5-20251001` 고정 입력 추출 미사용(Haiku 5.5 migration plan 대기)',
+      '`knu_explorer_xhigh` `bounded-extraction` `haiku` xhigh `claude-haiku-5-5`(2.1.296) 고정 입력 추출 Q',
+      '`knu_explorer` `bounded-extraction` `haiku` —(미지원) `claude-haiku-4-5-20251001` 고정 입력 추출 대체됨(등록 거부)',
       '`knu_explorer` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) 고정 입력 추출 관측',
       '`knu_executor` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.284) bounded 구현·검증 관측',
       '`knu_researcher` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) 공식 근거 읽기 관측',
@@ -387,10 +410,15 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
     ],
     'routine table keeps only live-observed rows adopted by the Owner',
   );
+  // The capability table, not the alias, decides which rows have no effort to compare.
   for (const row of rows) {
     const cells = row.split('|').map((cell) => cell.trim());
     const role = cells[1].replaceAll('`', '');
-    if (cells[3] !== '`haiku`') assert.equal(cells[4], ROLE_EFFORT[role], `${role}: effort column`);
+    const model = /^`(claude-[^`]+)`/u.exec(cells[5])?.[1];
+    assert.ok(model, `${role}: observed model cell`);
+    if (policy.claudeModelSupportsEffort(model))
+      assert.equal(cells[4], ROLE_EFFORT[role], `${role}: effort column`);
+    else assert.equal(cells[4], '—(미지원)', `${role} ${model}: no effort to compare`);
   }
   assert.ok(
     routine.replace(/\s+/gu, ' ').includes('Effort 열은 역할 파일의 설정값이고'),

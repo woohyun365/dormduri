@@ -37,6 +37,7 @@ import {
   settleClaudeNativeTask,
   writeClaudeReviewPacket,
 } from '../../../agents/claude/native-task-helper.mjs';
+import * as policy from '../../../agents/claude/model-policy.mjs';
 
 function setup(t) {
   const f = fixture(t);
@@ -1611,7 +1612,7 @@ for (const stopFirst of [false, true])
       session_id: f.event.session_id,
       cwd: f.root,
       agent_id: agentId,
-      agent_type: 'knu_explorer',
+      agent_type: f.registered.invocation.subagent_type,
       agent_transcript_path: childPath,
       transcript_path: parentPath,
     };
@@ -1704,7 +1705,7 @@ for (const damage of ['intact', 'oversized', 'malformed'])
       session_id: f.event.session_id,
       cwd: f.root,
       agent_id: agentId,
-      agent_type: 'knu_explorer',
+      agent_type: f.registered.invocation.subagent_type,
       agent_transcript_path: childPath,
       transcript_path: parentPath,
     });
@@ -2137,7 +2138,12 @@ test('a read-only task still refuses adapter identity drift outside its reads', 
   const f = readOnlyWithOtherFile(t);
   handle(f);
   finish(f);
-  writeRole(f.root, 'knu_explorer', 'Read, Grep, Glob', 'Changed after the child stopped.');
+  writeRole(
+    f.root,
+    f.registered.invocation.subagent_type,
+    'Read, Grep, Glob',
+    'Changed after the child stopped.',
+  );
   const checked = completeClaudeNativeTask(f.registered.taskId, semanticResult(f), {
     root: f.root,
   });
@@ -2243,7 +2249,7 @@ function asyncStopped(t, notificationRow) {
     session_id: f.event.session_id,
     cwd: f.root,
     agent_id: agentId,
-    agent_type: 'knu_explorer',
+    agent_type: f.registered.invocation.subagent_type,
     agent_transcript_path: childPath,
     transcript_path: parentPath,
   });
@@ -2392,7 +2398,7 @@ function launchedChild(t, agentId = 'async-child', preInput) {
     session_id: f.event.session_id,
     cwd: realpathSync(f.root),
     agent_id: agentId,
-    agent_type: 'knu_explorer',
+    agent_type: f.registered.invocation.subagent_type,
     agent_transcript_path: childPath,
     transcript_path: parentPath,
     stop_hook_active: false,
@@ -2592,7 +2598,11 @@ const gates = [
   [
     'adapter drift',
     /adapter\/role\/settings drift/u,
-    (e, f) => writeFileSync(join(f.root, '.claude/agents/knu_explorer.md'), 'changed role\n'),
+    (e, f) =>
+      writeFileSync(
+        join(f.root, '.claude/agents', `${f.registered.invocation.subagent_type}.md`),
+        'changed role\n',
+      ),
   ],
   [
     'expired binding',
@@ -2982,13 +2992,14 @@ const childPathOf = (f, agentId = agentIdOf(f)) =>
 
 test('registration binds the role effort and refuses a role without a supported one', (t) => {
   const f = setup(t);
-  assert.equal(recordOf(f).expectedEffort, 'high');
+  const role = f.registered.invocation.subagent_type;
+  assert.equal(recordOf(f).expectedEffort, ROLE_EFFORT[role]);
   for (const header of ['', 'effort: max\n', 'effort: low\n']) {
     const g = fixture(t);
     delete g.input.currentSnapshot;
     writeFileSync(
-      join(g.root, '.claude/agents/knu_explorer.md'),
-      `---\nname: knu_explorer\ntools: Read, Grep, Glob\n${header}---\nRead only.\n`,
+      join(g.root, '.claude/agents', `${role}.md`),
+      `---\nname: ${role}\ntools: Read, Grep, Glob\n${header}---\nRead only.\n`,
     );
     assert.throws(
       () =>
@@ -3107,6 +3118,11 @@ test('foreground child identity is checked before its transcript is trusted', (t
 
 test('Haiku is not held to an effort it does not support, but its transcript identity still is', (t) => {
   const f = setup(t);
+  assert.equal(
+    policy.claudeModelSupportsEffort(f.options.expectedResolvedModel),
+    false,
+    'the capability table lists the fixture Haiku ID without effort',
+  );
   handle(f);
   finish(f, {}, { effort: undefined });
   assert.deepEqual(effortErrors(f), []);
@@ -3148,11 +3164,12 @@ test('background completion judges effort from the settled child transcript', (t
 });
 
 // Extraction skips review only in the bounded-extraction risk range, whichever profile runs it.
+// Sonnet and Opus extract with knu_explorer; the xhigh explorer is the Haiku extraction role.
 function extraction(t, profileId, model, patch = {}) {
   const f = fixture(t);
   writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
   f.input.nativeRequest.profileId = profileId;
-  Object.assign(f.input.nativeRequest.task, patch);
+  Object.assign(f.input.nativeRequest.task, { role: 'knu_explorer', ...patch });
   f.options.expectedResolvedModel = model;
   return (required) => {
     const input = structuredClone(f.input);
@@ -3372,6 +3389,85 @@ test('step 0 re-registers the same profile and role for missing context', (t) =>
     completeClaudeNativeTask(b.registered.taskId, semanticResult(b), { root: f.root }).valid,
     true,
   );
+});
+
+// Only an exact ID the capability table lists without effort skips the effort comparison. Any other
+// Haiku ID is held to the role effort, so a child at another effort is refused at settlement and
+// cannot bind a retry. The profile and role come from the fixture extraction task.
+const EFFORT_HAIKU = 'claude-haiku-synthetic-effort';
+const otherEffort = (role) => (ROLE_EFFORT[role] === 'high' ? 'xhigh' : 'high');
+const extractionTask = (f) => ({
+  profileId: f.input.nativeRequest.profileId,
+  role: f.input.nativeRequest.task.role,
+});
+
+test('a Haiku ID with effort support is held to the role effort at settlement', (t) => {
+  const f = ladder(t);
+  const task = extractionTask(f);
+  const matched = registerAs(f, { ...task, model: EFFORT_HAIKU });
+  assert.deepEqual(handle(matched), {});
+  finish(matched);
+  assert.deepEqual(effortErrors(matched), []);
+  const other = registerAs(f, { ...task, model: EFFORT_HAIKU });
+  assert.deepEqual(handle(other), {});
+  finish(other, {}, { effort: otherEffort(task.role) });
+  assert.deepEqual(effortErrors(other), ['effort-mismatch']);
+});
+
+test('a Haiku first task with effort support binds a retry only after running at the role effort', (t) => {
+  const f = ladder(t);
+  const task = extractionTask(f);
+  const a = ranUnaccepted(registerAs(f, { ...task, model: EFFORT_HAIKU }), {
+    effort: otherEffort(task.role),
+  });
+  assert.throws(
+    () =>
+      registerAs(f, {
+        ...task,
+        model: EFFORT_HAIKU,
+        recovery: { of: a.registered.taskId, cause: 'context-missing' },
+      }),
+    /recovery-not-ran/u,
+    'the first Haiku task ran at another effort',
+  );
+  const b = ranUnaccepted(registerAs(f, { ...task, model: EFFORT_HAIKU }));
+  const retry = registerAs(f, {
+    ...task,
+    model: EFFORT_HAIKU,
+    recovery: { of: b.registered.taskId, cause: 'context-missing' },
+  });
+  assert.equal(taskInputOf(retry).recovery.step, 0, 'the first Haiku task ran at the role effort');
+});
+
+// An extraction that ran climbs one step to Sonnet in the same role and effort. It never skips to
+// Opus or changes role, and the retry is not retried again.
+test('a bound extraction retry climbs to bounded-standard in the same role and no further', (t) => {
+  const f = ladder(t);
+  const task = extractionTask(f);
+  const a = ranUnaccepted(registerAs(f, { ...task, model: f.options.expectedResolvedModel }));
+  const up = (of, profileId, role = task.role) =>
+    registerAs(f, { profileId, role, recovery: { of, cause: 'result-error' } });
+  assert.throws(() => up(a.registered.taskId, 'complex-critical'), /recovery-step/u, 'skip');
+  assert.throws(
+    () => up(a.registered.taskId, 'bounded-standard', 'knu_explorer'),
+    /recovery-step/u,
+    'another role',
+  );
+  const b = up(a.registered.taskId, 'bounded-standard');
+  assert.deepEqual(taskInputOf(b).recovery, {
+    of: a.registered.taskId,
+    cause: 'result-error',
+    step: 1,
+    fromProfileId: task.profileId,
+    fromRole: task.role,
+  });
+  assert.equal(b.registered.invocation.model, 'sonnet');
+  assert.equal(recordOf(b).expectedEffort, ROLE_EFFORT[task.role]);
+  assert.deepEqual(handle(b), {});
+  finish(b);
+  const done = completeClaudeNativeTask(b.registered.taskId, semanticResult(b), { root: f.root });
+  assert.equal(done.valid, true, JSON.stringify(done.errors));
+  assert.throws(() => up(b.registered.taskId, 'complex-critical'), /recovery-chain/u, 'chain');
 });
 
 test('recovery reasons are judged in a fixed order and each refuses on its own', (t) => {

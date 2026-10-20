@@ -101,13 +101,14 @@ function documentedFacts() {
   );
 }
 const KIND_PROBE = {
-  extract: { profileId: 'bounded-extraction', role: 'knu_explorer', request: '분석해줘' },
+  extract: { profileId: 'bounded-extraction', role: 'knu_explorer_xhigh', request: '분석해줘' },
   read: { profileId: 'bounded-standard', role: 'knu_explorer', request: '분석해줘' },
   build: { profileId: 'bounded-standard', role: 'knu_executor', request: '구현해줘' },
   review: { profileId: 'complex-critical', role: 'knu_reviewer', request: '리뷰해줘' },
 };
 const TOOLS = {
   knu_explorer: ['Read', 'Grep', 'Glob'],
+  knu_explorer_xhigh: ['Read', 'Grep', 'Glob'],
   knu_executor: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
   knu_reviewer: ['Read', 'Grep', 'Glob'],
 };
@@ -504,11 +505,16 @@ test('the delegate skill routine table matches the adapter routine rows one to o
     ['impact `high` 구현', '고위험 구현'],
   ]);
   const status = (value) => (value.startsWith('Q') ? 'Q' : value);
-  const alias = { '`sonnet`': 'Sonnet', '`opus`': 'Opus' };
+  const alias = { '`haiku`': 'Haiku', '`sonnet`': 'Sonnet', '`opus`': 'Opus' };
   const adapterRows = tableRows(routine, /^\| `knu_/u)
-    // knu_reviewer is dispatched by /knu-review, not copied into the delegate skill.
+    // knu_reviewer is dispatched by /knu-review, and a replaced row is refused at registration, so
+    // neither is copied into the delegate skill.
     .filter(
-      (row) => row[6] !== undefined && !row[6].startsWith('미사용') && row[0] !== '`knu_reviewer`',
+      (row) =>
+        row[6] !== undefined &&
+        !row[6].startsWith('미사용') &&
+        !row[6].startsWith('대체됨') &&
+        row[0] !== '`knu_reviewer`',
     )
     .map(([role, profile, model, effort, , work, state]) => [
       `${role} ${profile} ${work}`,

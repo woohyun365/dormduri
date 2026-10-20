@@ -21,7 +21,7 @@ import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { validateAdapterReview, validateCrossModelPacket } from '../common/index.mjs';
 import { resultFindingIds, validateAdjudication } from '../common/review-adjudication.mjs';
 import { prepareClaudeWorkflow, validateClaudeWorkflowResults } from './workflow-entry.mjs';
-import { claudeRecoveryStep } from './model-policy.mjs';
+import { claudeModelSupportsEffort, claudeRecoveryStep } from './model-policy.mjs';
 import {
   CHILD_TRANSCRIPT_BYTE_LIMIT,
   childTranscriptLimitReason,
@@ -581,7 +581,7 @@ function bindRecovery(root, sessionId, workflowInput, recovery) {
     existsSync(join(dir, 'attempt.json')) &&
       state.observation.valid === true &&
       errors.length === 0 &&
-      (record.expectedResolvedModel.startsWith('claude-haiku-') ||
+      (!claudeModelSupportsEffort(record.expectedResolvedModel) ||
         isDeepStrictEqual(state.observedEfforts, [record.expectedEffort])),
     `recovery-not-ran: the first task must have run and be observed valid with its effort (${errors.join(',') || 'invalid observation'})`,
   );
@@ -624,6 +624,7 @@ export function registerClaudeNativeTask({
   check(
     [
       'knu_explorer',
+      'knu_explorer_xhigh',
       'knu_researcher',
       'knu_executor',
       'knu_executor_xhigh',
@@ -1120,7 +1121,8 @@ function childTranscriptOf(dir, observation) {
   }
 }
 // Judged on every observation, so a transcript the host writes after completion is still read.
-// Pending turns into unobserved once the task lifetime ends; Haiku has no effort to compare.
+// Pending turns into unobserved once the task lifetime ends; an exact ID the capability table lists
+// without effort has no effort to compare.
 function effortObservation({ dir, record, invocation }, observation) {
   if (!observation.valid) return { errors: [], observedEfforts: [] };
   const agentId = observation.agentId;
@@ -1158,7 +1160,7 @@ function effortObservation({ dir, record, invocation }, observation) {
     const ended = Date.now() > Date.parse(record.input.nativeRequest.expiresAt);
     return { errors: [ended ? 'effort-unobserved' : 'effort-transcript-pending'], observedEfforts };
   }
-  if (record.expectedResolvedModel.startsWith('claude-haiku-'))
+  if (!claudeModelSupportsEffort(record.expectedResolvedModel))
     return { errors: [], observedEfforts };
   if (read.missing) return { errors: ['effort-unobserved'], observedEfforts };
   if (!isDeepStrictEqual(observedEfforts, [record.expectedEffort]))

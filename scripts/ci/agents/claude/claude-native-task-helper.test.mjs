@@ -77,7 +77,7 @@ function explorerSpec(r, patch = {}) {
   return {
     sessionId: r.sessionId,
     request: 'sample.txt 내용을 분석해줘.',
-    role: 'knu_explorer',
+    role: 'knu_explorer_xhigh',
     profileId: 'bounded-extraction',
     selectionBasisRef: 'plan:helper-test/extract',
     expectedResolvedModel: 'claude-haiku-4-5-20251001',
@@ -221,7 +221,7 @@ test('prepare assembles and registers a task from a minimal spec without authori
   const r = repo(t);
   const prepared = prepareClaudeNativeTask(explorerSpec(r), { root: r.root });
   assert.equal(prepared.dispatchAuthorized, false);
-  assert.equal(prepared.invocation.subagent_type, 'knu_explorer');
+  assert.equal(prepared.invocation.subagent_type, 'knu_explorer_xhigh');
   assert.equal(prepared.invocation.model, 'haiku');
   assert.ok(existsSync(join(prepared.evidenceDirectory, 'task.json')));
   const native = prepared.registerInput.workflowInput.nativeRequest;
@@ -1138,7 +1138,7 @@ test('no template is written before a background child is settled', (t) => {
       session_id: r.sessionId,
       cwd: r.root,
       agent_id: agentId,
-      agent_type: 'knu_explorer',
+      agent_type: 'knu_explorer_xhigh',
       agent_transcript_path: childPath,
       transcript_path: parentPath,
       stop_hook_active: false,
@@ -1299,11 +1299,17 @@ test('a Parent-judged reviewer whose effort differs fails settle although comple
 
 test('prepare passes a recovery spec to the registry and refuses a malformed one', (t) => {
   const r = repo(t);
-  const sonnet = { profileId: 'bounded-standard', expectedResolvedModel: 'claude-sonnet-5-5' };
+  // The Sonnet → Opus step runs in knu_explorer; the xhigh explorer is the Haiku extraction role.
+  const sonnet = {
+    role: 'knu_explorer',
+    profileId: 'bounded-standard',
+    expectedResolvedModel: 'claude-sonnet-5-5',
+  };
   const first = prepareClaudeNativeTask(explorerSpec(r, sonnet), { root: r.root });
   dispatch(r, first, 'first-1', 'partial answer');
   const retry = (recovery) =>
     explorerSpec(r, {
+      role: 'knu_explorer',
       profileId: 'complex-critical',
       expectedResolvedModel: 'claude-opus-5-5',
       recovery,
