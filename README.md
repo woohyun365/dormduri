@@ -68,12 +68,12 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    Owner[사람<br/>문제 · 결정 · 승인]:::external --> Lead[Parent 에이전트<br/>범위 · 통합]:::backend
+    Owner[사람<br/>문제 · 결정 · 승인]:::external --> Lead[총괄 에이전트<br/>범위 · 통합]:::backend
     Contract[공통 계약<br/>AGENTS.md]:::cloud -.-> Lead
-    Lead --> Writer[구현 lane<br/>정해진 파일만 수정]:::backend
+    Lead --> Writer[구현 에이전트<br/>정해진 파일만 수정]:::backend
     Writer --> Review[독립 리뷰<br/>읽기 전용 · 수정 불가]:::security
     Review -->|결함| Writer
-    Review -->|PASS| Verify[검증 · 정산<br/>test · receipt]:::security
+    Review -->|PASS| Verify[결과 · 기록 대조<br/>테스트 · 실행 기록]:::security
     Verify --> Record[(Git · PR<br/>근거 기록)]:::database
 
     classDef backend fill:#daf7ed,stroke:#059669,color:#111827
@@ -84,10 +84,10 @@ flowchart LR
 ```
 
 - **같은 지침에서 시작**: 모든 에이전트는 공통 저장소 계약 [`AGENTS.md`](./AGENTS.md)에서 시작하고, host별 실행 세부만 [host adapter](./docs/development/agent-workflows/adapters/README.md)가 연결합니다.
-- **역할별 권한 분리**: 구현 lane은 등록된 파일 범위만 고치고, 리뷰어는 읽기 전용 도구만 가집니다. 완료 판정은 코드를 고칠 수 없는 리뷰어와 실제 검증 출력이 맡습니다.
-- **기계적으로 막을 수 있는 것은 hook과 CI로**: 등록과 다른 위임 요청이나 구현 lane 실행 중 Parent의 추적 파일 쓰기처럼 결정적인 위반은 hook과 저장소 정책 테스트가 막고, 의미·경계 문제는 리뷰가 판단합니다.
+- **역할별 권한 분리**: 구현 에이전트는 등록된 파일 범위만 고치고, 리뷰어는 읽기 전용 도구만 가집니다. 완료 판정은 코드를 고칠 수 없는 리뷰어와 실제 검증 출력이 맡습니다.
+- **기계적으로 막을 수 있는 것은 hook과 CI로**: 등록과 다른 위임 요청이나 구현 에이전트 실행 중 총괄 에이전트의 추적 파일 쓰기처럼 규칙으로 판정할 수 있는 위반은 hook과 저장소 정책 테스트가 막고, 의미·경계 문제는 리뷰가 판단합니다.
 - **기준을 가진 리뷰**: 리뷰어는 바뀐 경로로 고른 [변경 유형별 리뷰 기준](./docs/development/agent-workflows/review-criteria/README.md)으로 판정하고, `critical`·`high`·`medium` finding이 남으면 통과하지 못합니다. 같은 변경이 3회 연속 통과하지 못하면 무인으로 계속하지 않고 사람에게 다음 행동을 묻습니다([리뷰 회차](./docs/development/agent-workflows/qa.md#리뷰-회차)).
-- **사람이 결정하는 것**: 제품·비용·위험 선택은 사람이, 승인된 범위의 기술 판단과 결과 통합은 Parent 에이전트가 맡습니다([협업 계약](./docs/development/agent-workflows/owner-lead-collaboration.md)). 검증하지 못한 범위는 완료로 포장하지 않고 blocker와 다음 근거로 남깁니다.
+- **사람이 결정하는 것**: 제품·비용·위험 선택은 사람이, 승인된 범위의 기술 판단과 결과 통합은 총괄 에이전트가 맡습니다([협업 계약](./docs/development/agent-workflows/owner-lead-collaboration.md)). 검증하지 못한 범위는 완료로 포장하지 않고 blocker와 다음 근거로 남깁니다.
 
 | 책임      | 사람이 맡는 것                                                  | AI 에이전트가 돕는 것                            |
 | --------- | --------------------------------------------------------------- | ------------------------------------------------ |
