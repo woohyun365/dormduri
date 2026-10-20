@@ -1,0 +1,156 @@
+{
+  "$description": "KNU primitive values. Semantic and component tokens alias them; build-tokens.mjs never exports this root.",
+  "primitive": {
+    "color": {
+      "$type": "color",
+      "neutral": {
+        "0": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [1, 1, 1],
+            "alpha": 1,
+            "hex": "#ffffff"
+          }
+        },
+        "50": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9725, 0.9804, 0.9882],
+            "alpha": 1,
+            "hex": "#f8fafc"
+          }
+        },
+        "200": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.8863, 0.9098, 0.9412],
+            "alpha": 1,
+            "hex": "#e2e8f0"
+          }
+        },
+        "500": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.3922, 0.4549, 0.5451],
+            "alpha": 1,
+            "hex": "#64748b"
+          }
+        },
+        "600": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.2784, 0.3333, 0.4118],
+            "alpha": 1,
+            "hex": "#475569"
+          }
+        },
+        "900": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.0588, 0.0902, 0.1647],
+            "alpha": 1,
+            "hex": "#0f172a"
+          }
+        }
+      },
+      "brand": {
+        "100": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.8588, 0.9176, 0.9961],
+            "alpha": 1,
+            "hex": "#dbeafe"
+          }
+        },
+        "600": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.1451, 0.3882, 0.9216],
+            "alpha": 1,
+            "hex": "#2563eb"
+          }
+        },
+        "800": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.1176, 0.251, 0.6863],
+            "alpha": 1,
+            "hex": "#1e40af"
+          }
+        }
+      },
+      "red": {
+        "50": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9961, 0.949, 0.949],
+            "alpha": 1,
+            "hex": "#fef2f2"
+          }
+        },
+        "700": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.7255, 0.1098, 0.1098],
+            "alpha": 1,
+            "hex": "#b91c1c"
+          }
+        }
+      },
+      "amber": {
+        "50": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [1, 0.9843, 0.9216],
+            "alpha": 1,
+            "hex": "#fffbeb"
+          }
+        },
+        "700": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.7059, 0.3255, 0.0353],
+            "alpha": 1,
+            "hex": "#b45309"
+          }
+        }
+      },
+      "green": {
+        "50": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9412, 0.9922, 0.9569],
+            "alpha": 1,
+            "hex": "#f0fdf4"
+          }
+        },
+        "700": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.0824, 0.502, 0.2392],
+            "alpha": 1,
+            "hex": "#15803d"
+          }
+        }
+      },
+      "sky": {
+        "50": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.9412, 0.9765, 1],
+            "alpha": 1,
+            "hex": "#f0f9ff"
+          }
+        },
+        "700": {
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.0118, 0.4118, 0.6314],
+            "alpha": 1,
+            "hex": "#0369a1"
+          }
+        }
+      }
+    }
+  }
+}
