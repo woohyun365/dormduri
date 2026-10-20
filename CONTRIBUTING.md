@@ -5,7 +5,7 @@
 
 ## 시작하기
 
-1. [Getting Started](./README.md#getting-started)로 로컬 환경을 준비합니다.
+1. README의 [시작하기](./README.md#시작하기)로 로컬 환경을 준비합니다.
 2. coding agent를 사용한다면 root [AGENTS.md](./AGENTS.md)를 먼저 읽게 합니다.
 3. 처음 참여하거나 중단된 작업을 이어받는 방법은 [Agent workflow guides](./docs/development/agent-workflows/README.md)를
    참고합니다.

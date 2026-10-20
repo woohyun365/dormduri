@@ -14,6 +14,8 @@ KNU Roommate는 강원대학교 재학생이 시즌별 기숙사 배정과 생�
 
 - 흡연, 수면, 통화, 청결, 실내 취식 같은 생활 마찰 요소를 구조적으로 비교하기 어렵다.
 - “좋은 사람”과 “같이 살기 편한 사람”을 구분하기 어렵다.
+- 재학생 여부, 같은 기숙사 배정, 지금 매칭할 수 있는지를 함께 확인하기 어렵다.
+- 대화·신청·수락·매칭 해제·과거 이력이 서로 다른 채널에 흩어진다.
 - 재학생 인증, 신고, 차단, 탈퇴 후 이력 처리 같은 안전장치가 약하다.
 - 학교의 시즌/기숙사 운영 일정과 실제 룸메이트 찾기 흐름이 분리되어 있다.
 
@@ -27,6 +29,19 @@ KNU Roommate는 이 문제를 **학교 이메일 인증 + 시즌 registration + 
 - 과거 시즌 매칭 결과와 채팅 이력을 안전하게 확인하고 싶은 사용자
 
 가입과 매칭 참여는 같은 의미가 아닙니다. 가입은 학교 이메일 인증으로 가능하지만, 실제 룸메이트 탐색·매칭 action은 시즌 상태, 기숙사 선택, 프로필 완성도, registration 완료 여부에 따라 달라집니다.
+
+## 사용자 흐름
+
+1. 학교 이메일 인증
+2. 계정과 학적 정보 생성
+3. 현재 시즌 확인
+4. 기숙사·생활패턴 입력과 시즌 등록
+5. 같은 조건의 후보 탐색
+6. 프로필 비교와 대화
+7. 매칭 신청·수락
+8. 현재 매칭 관리와 시즌 이력 확인
+
+계정이 있어도 현재 시즌, 필수 프로필, 기숙사 선택과 등록 트랜잭션이 끝나야 같은 기숙사 후보의 상세·점수·매칭·채팅 기능이 열립니다. 미등록 사용자는 시즌 중 요약 미리보기만 볼 수 있습니다. UI는 이 조건을 스스로 추측하지 않고, 서버가 계산한 가능 여부(capability)와 사유를 그대로 보여 줍니다.
 
 ## 서비스의 핵심 개념
 
@@ -162,13 +177,13 @@ KNU Roommate는 학교 기숙사 시스템을 대체하는 서비스가 아니�
 
 ## 정책 문서
 
-세부 운영 규칙은 로컬 정책 문서 세트를 source of truth로 둡니다.
+세부 운영 규칙은 [정책 문서](./docs/policies/README.md)를 source of truth로 둡니다.
 
-- `docs/policies/account-authentication.md` — 계정/인증
-- `docs/policies/profile-model.md` — account identity, season profile, field exposure
-- `docs/policies/season-participation.md` — 시즌 참여 registration
-- `docs/policies/roommate-searching.md` — search scope, manifest, summary/detail/action capability
-- `docs/policies/matching-lifecycle.md` — match request, active match, score policy
-- `docs/policies/chat-lifecycle.md` — chat thread lifecycle
-- `docs/policies/data-retention.md` — 탈퇴, RRPD retained vault, disposal
-- `docs/policies/legal-basis.md` — 법적 근거와 처리방침 기준
+- [`account-authentication.md`](./docs/policies/account-authentication.md) — 계정/인증
+- [`profile-model.md`](./docs/policies/profile-model.md) — account identity, season profile, field exposure
+- [`season-participation.md`](./docs/policies/season-participation.md) — 시즌 참여 registration
+- [`roommate-searching.md`](./docs/policies/roommate-searching.md) — search scope, manifest, summary/detail/action capability
+- [`matching-lifecycle.md`](./docs/policies/matching-lifecycle.md) — match request, active match, score policy
+- [`chat-lifecycle.md`](./docs/policies/chat-lifecycle.md) — chat thread lifecycle
+- [`data-retention.md`](./docs/policies/data-retention.md) — 탈퇴, RRPD retained vault, disposal
+- [`legal-basis.md`](./docs/policies/legal-basis.md) — 법적 근거와 처리방침 기준

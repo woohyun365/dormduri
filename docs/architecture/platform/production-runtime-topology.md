@@ -28,6 +28,76 @@ BackOffice host 2GiB
 Managed PostgreSQL
 ```
 
+## 출시 전 배포 구성도
+
+아래 그림은 **실제 배포를 마친 구성이 아니라, 출시 전 계획과 로컬 리허설의 기준**이다. 공개 ingress의 TLS 종료·경로, provider 식별자와 네트워크는 실제 운영 환경에서 검증한 뒤 출시 근거로 확정한다.
+
+다이어그램 색은 역할을 뜻한다: <b>청록</b> 사용자 화면 · <b>초록</b> 서버 애플리케이션 · <b>보라</b> 데이터베이스 · <b>주황</b> 관리형 클라우드 · <b>장미색</b> 보안·경계 · <b>회색</b> 사용자·운영 도구.
+
+```mermaid
+flowchart TB
+    Browser[사용자 브라우저]:::external
+    Secrets[AWS Secrets Manager<br/>출시 시 secret 원본]:::cloud
+    RDS[(관리형 PostgreSQL 18<br/>private network)]:::database
+    Sentry[Sentry<br/>관리형 오류 수집]:::cloud
+    Operator[운영자]:::external
+
+    subgraph UserHost[사용자 앱 host · 2vCPU/4GiB]
+        direction TB
+        Ingress[HTTPS ingress<br/>경로 · TLS 검증 예정]:::security
+        Web[Next.js standalone<br/>UI + BFF]:::frontend
+        ApiIngress[API Nginx<br/>private upstream 경계]:::security
+        API[NestJS API<br/>정책 + 트랜잭션]:::backend
+        SecretDelivery[출시 시점<br/>secret 전달]:::security
+        SecretMount[읽기 전용<br/>secret mount]:::security
+
+        subgraph Observability[관측 스택 · 장애 격리]
+            direction LR
+            Alloy[Alloy]:::ops
+            Loki[Loki]:::ops
+            Prometheus[Prometheus]:::ops
+            Grafana[Grafana]:::ops
+            Alertmanager[Alertmanager]:::ops
+        end
+
+        Ingress --> Web
+        Web -->|서버 측 BFF 요청| ApiIngress
+        ApiIngress --> API
+        SecretDelivery --> SecretMount
+        SecretMount --> API
+        Web -. 구조화 로그 .-> Alloy
+        API -. 구조화 로그 .-> Alloy
+        Alloy --> Loki
+        API -. 지표 .-> Prometheus
+        Loki --> Grafana
+        Prometheus --> Grafana
+        Prometheus --> Alertmanager
+    end
+
+    Browser -->|HTTPS| Ingress
+    Browser -. 런타임 오류 · 표본 성능 .-> Sentry
+    Secrets -->|출시 시점 조회| SecretDelivery
+    API -->|private network + TLS| RDS
+    Grafana -. 대시보드 .-> Operator
+    Alertmanager -. 알림 .-> Operator
+    Sentry -. 이슈 · 성능 .-> Operator
+
+    classDef frontend fill:#def8fc,stroke:#0891b2,color:#111827
+    classDef backend fill:#daf7ed,stroke:#059669,color:#111827
+    classDef database fill:#ede8fe,stroke:#7c3aed,color:#111827
+    classDef cloud fill:#fef4d8,stroke:#d97706,color:#111827
+    classDef security fill:#feeaed,stroke:#e11d48,color:#111827
+    classDef external fill:#eceef2,stroke:#64748b,color:#111827
+    classDef ops fill:#f8fafc,stroke:#94a3b8,color:#111827
+    style UserHost fill:#ffffff,stroke:#64748b,stroke-dasharray:6 4,color:#111827
+    style Observability fill:#f8fafc,stroke:#cbd5e1,stroke-dasharray:4 4,color:#475569
+```
+
+- 브라우저의 일반 UI·BFF 요청은 Next.js로 들어가고, BFF가 private API Nginx를 거쳐 NestJS를 호출한다.
+- API는 private 관리형 PostgreSQL에 연결하며, DB는 사용자 앱 host의 4 GiB 자원 예산에 넣지 않는다.
+- 운영 secret은 image나 Git에 넣지 않고, 출시 시점에 받아 읽기 전용 파일로 API container에 제공한다.
+- 로그·지표·브라우저 신호는 각각 Loki·Prometheus·Sentry로 나누고, 관측 장애가 제품 요청을 막지 않게 한다.
+
 ## 선택 근거
 
 - 사용자 traffic과 운영자 workload의 memory pressure 및 장애 영역을 분리한다.
@@ -117,3 +187,4 @@ CI path filter, image inventory, environment manifest와 rollback 경계를 함�
 | 날짜       | 변경 내용                                                                                          |
 | ---------- | -------------------------------------------------------------------------------------------------- |
 | 2026-08-11 | User App 4GiB와 미래 BackOffice 2GiB를 분리하고 managed PostgreSQL을 공유하는 topology를 확정했다. |
+| 2026-10-20 | 루트 README에 있던 출시 전 배포 구성도와 설명을 이 문서로 옮겼다.                                  |
