@@ -67,9 +67,15 @@ revisit trigger
 
 현재 evidence로 결정 가능한 것은 OQ로 미루지 않습니다.
 
+제품 plan은 이 작업이 정한 결정(pack 결정 id·판정·상태·고른 선택지·Owner 확인 출처)을 Decision 절에 담고, 이것이 readiness
+gate `decisions` 입력의 원본입니다. PR이 그 결정을 [결정 기록](../../../architecture/decisions/README.md)에 옮기고, 이미 기록에
+있는 결정(Inspect → `known`)은 id로만 인용합니다. Plan은 local lifecycle 기록이고 결정 기록이 durable 원본입니다. 판정과 질문은
+[Discovery](./discovery.md)를 따릅니다.
+
 Owner와 중요한 선택을 협의할 때는 이 Decision/OQ의 내용을
 [짧은 decision packet](../owner-lead-collaboration.md#짧은-협의-decision-packet)으로 제시합니다. 새 ledger/schema나
-모든 기술 선택의 재승인이 아니며, 유효한 유지안과 권장안의 반론을 현재 evidence에 맞게 포함합니다.
+모든 기술 선택의 재승인이 아니며(제품 결정의 durable 기록은 architecture owner의 결정 기록입니다), 유효한 유지안과 권장안의
+반론을 현재 evidence에 맞게 포함합니다.
 
 ### Open Question
 
@@ -267,6 +273,9 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
 9. 새로 작성하는 계획은 [Plan references](./references.md) 검사 위반이 0입니다. 이 문법 전부터 있던 계획은
    `--report-only` 건수를 기록하고 고친 참조부터 문법을 따릅니다. Readiness reviewer가 검사 출력으로 확인합니다
    (`model-mediated`).
+10. Plan이 고정하는 비가역 결정(pack 규칙. Pack 밖 결정은 plan이 비가역 여부를 적습니다)마다 Owner 명시 확인(질문 도구 답
+    또는 사용자 입력 원문)이 있고 상태가 `validated`입니다. `unknown`·`provisional`이면 승격하지 않습니다
+    ([Discovery](./discovery.md#비가역-확인-gate)).
 
 계획이 커질 때 invariant는 durable owner에 once 기록하고 plan에서는 link합니다. 같은 결정·행렬을 여러 Phase에
 복사하지 않으며, current code와 drift가 발견되면 구현 전에 baseline과 영향받는 Phase만 갱신합니다.
@@ -286,6 +295,7 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
 | mutating Phase contract               | `phases`                    |
 | required/passed acceptance evidence   | `acceptance`                |
 | blocking OQ와 handoff                 | `openQuestions`             |
+| 비가역 결정과 Owner 확인              | `decisions`                 |
 
 Validator가 green이어도 입력 자체가 Markdown과 current repository를 정확히 반영했는지는 별도 reviewer가 확인합니다.
 Normalized JSON은 durable duplicate plan이 아니라 bounded test fixture 또는 review input이며, validator 결과만으로 mutation

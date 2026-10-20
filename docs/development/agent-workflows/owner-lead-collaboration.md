@@ -35,7 +35,8 @@ Owner가 제안한 수단이 관찰한 제약과 충돌하면 근거와 가능�
 ## 짧은 협의: decision packet
 
 실제 선택이 필요한 경우 기존 [Decision/OQ](./plan-authoring/core.md#5-decision-oq-and-future-evidence) 내용을 간결하게 제시합니다.
-새 schema, 매번 남기는 회의록, 별도 decision ledger 또는 고정 답변 양식이 아닙니다.
+새 schema, 매번 남기는 회의록, 별도 decision ledger 또는 고정 답변 양식이 아닙니다(제품 설계 결정의 durable 기록은
+architecture owner의 [결정 기록](../../architecture/decisions/README.md)입니다).
 
 ```text
 무엇을 결정해야 하는가? 목표와 현재 제약
@@ -51,6 +52,12 @@ Owner가 제안한 수단이 관찰한 제약과 충돌하면 근거와 가능�
 받는 단계까지 자동 확장하지 않습니다. 필요한 질문은 조사 후에도 남는 중요한 분기 하나에 집중합니다.
 처리는 기존 [ambiguity disposition](./request-intake/ambiguity-and-authority.md)을 사용합니다. 채택한 장기 결정은 기존
 policy/architecture/PR/Issue owner에 연결하고, 미래 관찰은 [lifecycle](./development-lifecycle.md)에 맡깁니다.
+
+- 대안에 적는 phase·시점·범위 같은 전제는 묻기 전에 원천 계획·문서의 해당 문장으로 확인합니다.
+- Owner가 고른 대안의 설명 문구는 그 결정을 옮기는 계획·문서 문장의 계약입니다. 옮길 때 강도·범위를 약하게 하는 예외를 더하지
+  않고, 바꿔야 하면 다시 묻습니다.
+- 독립 리뷰 회차 사이에 받은 Owner 답은 다음 회차 리뷰를 등록하기 전에 계획 증거 위치에 질문·답·고른 대안 문구를 원문 그대로
+  남깁니다. 다음 회차가 바뀐 입력의 근거를 읽게 하는 기록이고, 위의 회의록이나 decision ledger가 아닙니다.
 
 ## 필요한 관점만 참고하기
 
