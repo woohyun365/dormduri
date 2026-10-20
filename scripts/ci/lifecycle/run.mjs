@@ -113,7 +113,9 @@ export function evaluateLifecycle(context, checks = LIFECYCLE_CHECKS) {
   };
 }
 
-const cell = (text) => String(text).replace(/\r?\n/gu, ' ').replace(/\|/gu, '\\|');
+// Backslashes first, so an input `\|` cannot turn the added `\` into an escaped backslash and free the pipe.
+const cell = (text) =>
+  String(text).replace(/\r?\n/gu, ' ').replace(/\\/gu, '\\\\').replace(/\|/gu, '\\|');
 const short = (sha) => (sha ? sha.slice(0, 12) : '-');
 
 export function renderSummary({ meta, evaluation }) {
