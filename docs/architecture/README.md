@@ -20,6 +20,10 @@ host 공통 `.plans/`, 실행 증거는 `.artifacts/`, 과거 구현 기록과 �
 - [Campus·season·dormitory operation schema](./data/campus-season-and-dormitory-operation-schema.md)
 - [Date-only 정규화 규칙](./data/date-only-normalization-rule.md)
 
+## Decisions
+
+- [Decision records](./decisions/README.md): 제품 설계·계획의 layer별 결정 기록 형식과 색인
+
 ## Frontend
 
 - [Action capability source of truth](./frontend/action-capability-source-of-truth.md)

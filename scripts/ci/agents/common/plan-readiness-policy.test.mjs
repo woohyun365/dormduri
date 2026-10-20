@@ -121,6 +121,154 @@ test('accepts an ignored tracked target when a complete tracking migration owns 
   );
 });
 
+// Irreversible decisions a plan fixes need an explicit Owner confirmation before promotion (plan-authoring core §7).
+const confirmed = { date: '2026-10-17', source: 'AskUserQuestion answer' };
+const withDecisions = (decisions) => ({ ...readFixture('implementation-ready'), decisions });
+
+test('blocks an irreversible decision left unknown or provisional', () => {
+  for (const status of ['unknown', 'provisional']) {
+    const report = assessPlanReadiness(
+      withDecisions([
+        { id: 'fe.arch.rendering-style', irreversible: true, status, ownerConfirmation: null },
+      ]),
+    );
+
+    assert.equal(report.ready, false, status);
+    assert.deepEqual(
+      report.blockingFindings.map(({ code }) => code),
+      ['irreversible-decision-unconfirmed'],
+      status,
+    );
+    assert.equal(report.blockingFindings[0].path, 'decisions[0]');
+  }
+});
+
+test('one finding names every unconfirmed irreversible decision with its own reason', () => {
+  const report = assessPlanReadiness(
+    withDecisions([
+      {
+        id: 'fe.arch.rendering-style',
+        irreversible: true,
+        status: 'provisional',
+        ownerConfirmation: confirmed,
+      },
+      { id: 'fe.a11y.baseline', irreversible: false, status: 'unknown', ownerConfirmation: null },
+      { id: 'be.api.style', irreversible: true, status: 'validated', ownerConfirmation: null },
+    ]),
+  );
+  assert.equal(report.blockingFindings.length, 1);
+  assert.equal(report.blockingFindings[0].path, 'decisions[0]');
+  assert.equal(
+    report.blockingFindings[0].message,
+    'Irreversible decisions need status validated with an Owner confirmation: ' +
+      'decisions[0] fe.arch.rendering-style (provisional), ' +
+      'decisions[2] be.api.style (validated without an Owner confirmation).',
+  );
+});
+
+test('an irreversible validated decision needs the Owner confirmation record', () => {
+  const passed = assessPlanReadiness(
+    withDecisions([
+      {
+        id: 'fe.arch.rendering-style',
+        irreversible: true,
+        status: 'validated',
+        ownerConfirmation: confirmed,
+      },
+    ]),
+  );
+  assert.equal(passed.ready, true);
+  assert.deepEqual(passed.blockingFindings, []);
+  assert.deepEqual(
+    passed.facts.find(({ code }) => code === 'irreversible-decision-count'),
+    { code: 'irreversible-decision-count', value: 1 },
+  );
+
+  for (const ownerConfirmation of [null, undefined]) {
+    const report = assessPlanReadiness(
+      withDecisions([
+        {
+          id: 'fe.arch.rendering-style',
+          irreversible: true,
+          status: 'validated',
+          ownerConfirmation,
+        },
+      ]),
+    );
+    assert.equal(report.ready, false);
+    assert.deepEqual(
+      report.blockingFindings.map(({ code }) => code),
+      ['irreversible-decision-unconfirmed'],
+    );
+  }
+});
+
+test('known, deferred and superseded irreversible decisions and reversible decisions do not block', () => {
+  const report = assessPlanReadiness(
+    withDecisions([
+      { id: 'be.api.style', irreversible: true, status: 'known', ownerConfirmation: null },
+      {
+        id: 'db.schema.id-strategy',
+        irreversible: true,
+        status: 'deferred',
+        ownerConfirmation: null,
+      },
+      { id: 'infra.obs.stack', irreversible: true, status: 'superseded', ownerConfirmation: null },
+      {
+        id: 'fe.ds.token-layer',
+        irreversible: false,
+        status: 'provisional',
+        ownerConfirmation: null,
+      },
+      { id: 'fe.a11y.baseline', irreversible: false, status: 'unknown', ownerConfirmation: null },
+      {
+        id: 'fe.comp.directory-unit',
+        irreversible: false,
+        status: 'validated',
+        ownerConfirmation: null,
+      },
+    ]),
+  );
+
+  assert.equal(report.ready, true);
+  assert.deepEqual(report.blockingFindings, []);
+  assert.deepEqual(
+    report.facts.find(({ code }) => code === 'irreversible-decision-count'),
+    { code: 'irreversible-decision-count', value: 3 },
+  );
+});
+
+test('an input without decisions keeps the previous report', () => {
+  const report = assessPlanReadiness(readFixture('implementation-ready'));
+
+  assert.deepEqual(
+    report.facts.map(({ code }) => code),
+    ['target-path-count', 'phase-count', 'blocking-finding-count'],
+  );
+});
+
+test('fails closed on an unsupported decision status or confirmation date', () => {
+  const decision = {
+    id: 'fe.arch.rendering-style',
+    irreversible: true,
+    status: 'validated',
+    ownerConfirmation: confirmed,
+  };
+  for (const [change, pattern] of [
+    [{ status: 'accepted' }, /decisions\[0\]\.status/u],
+    [{ irreversible: 'yes' }, /decisions\[0\]\.irreversible/u],
+    [{ ownerConfirmation: { date: '2026-10-1', source: 'answer' } }, /ownerConfirmation\.date/u],
+    [{ ownerConfirmation: { date: '2026-13-01', source: 'answer' } }, /ownerConfirmation\.date/u],
+    [{ ownerConfirmation: { date: '2026-10-17', source: '' } }, /ownerConfirmation\.source/u],
+  ])
+    assert.throws(
+      () => assessPlanReadiness(withDecisions([{ ...decision, ...change }])),
+      (error) => error instanceof TypeError && pattern.test(error.message),
+      JSON.stringify(change),
+    );
+  assert.throws(() => assessPlanReadiness(withDecisions({})), /decisions must be an array/u);
+});
+
 test('fails closed on an unsupported readiness schema', () => {
   assert.throws(
     () => assessPlanReadiness({ ...readFixture('implementation-ready'), schemaVersion: 2 }),

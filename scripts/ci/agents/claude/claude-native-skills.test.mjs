@@ -474,9 +474,9 @@ test('knu-review is the code review entry with automatic criteria and advisory h
     'docs/development/agent-workflows/adapters/claude-same-host-review.md',
   ])
     assert.ok(read(path).includes('`review-snapshot-mismatch`'), `${path}: logHeader comparison`);
-  const adapter = read('docs/development/agent-workflows/adapters/claude-code.md');
-  assert.ok(adapter.includes('`claude-git-baseline/v4`'), 'digest version');
-  assert.ok(!adapter.includes('`claude-git-baseline/v3`'), 'old digest version');
+  const snapshot = read('docs/development/agent-workflows/adapters/claude-workflow-entry.md');
+  assert.ok(snapshot.includes('`claude-git-baseline/v4`'), 'digest version');
+  assert.ok(!snapshot.includes('`claude-git-baseline/v3`'), 'old digest version');
 });
 
 test('the delegate skill routine table matches the adapter routine rows one to one', () => {

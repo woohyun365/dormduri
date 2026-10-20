@@ -318,10 +318,12 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
   }
   // Each pinned boundary is read from the one document that holds it after the adapter split.
   const boundaries = {
-    'claude-code.md': [
+    'claude-workflow-entry.md': [
       '`claude:workflow --native`는 완전한 task 입력 없이 상태만 진단하는 명령이므로 실행하지 않습니다',
       '`dispatchAuthorized:false`는 host 권한을 발급하지 않는다는 뜻이며',
       '`runtimeQualified:false`도 해당 실행의 전체 검증을 대신하지 않습니다',
+    ],
+    'claude-code.md': [
       '.plans/finished/',
       '.plans/cancelled/',
       'Native Plan Mode',

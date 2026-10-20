@@ -5,6 +5,14 @@ const RUNTIME_STATES = new Set(['unverified', 'verified', 'unavailable']);
 const TRACKING_STATES = new Set(['tracked', 'allowlisted', 'ignored', 'unknown']);
 const ACCEPTANCE_STATES = new Set(['required', 'passed', 'blocked']);
 const QUESTION_STATES = new Set(['open', 'decided', 'handed-off']);
+const DECISION_STATES = new Set([
+  'known',
+  'unknown',
+  'deferred',
+  'provisional',
+  'validated',
+  'superseded',
+]);
 const ENFORCEMENT_STRENGTHS = new Set([
   'deterministic-static',
   'advisory-policy',
@@ -29,6 +37,7 @@ const TOP_LEVEL_FIELDS = new Set([
   'phases',
   'acceptance',
   'openQuestions',
+  'decisions',
 ]);
 const REQUIRED_CHECKPOINT_FIELDS = [
   'branch',
@@ -54,6 +63,7 @@ export function assessPlanReadiness(input) {
   const phases = normalizePhases(input.phases ?? []);
   const acceptance = normalizeAcceptance(input.acceptance ?? []);
   const openQuestions = normalizeOpenQuestions(input.openQuestions ?? []);
+  const decisions = input.decisions === undefined ? null : normalizeDecisions(input.decisions);
 
   const blockingFindings = [];
   const warnings = [];
@@ -204,6 +214,26 @@ export function assessPlanReadiness(input) {
     }
   }
 
+  // Irreversible decisions the plan fixes need an explicit Owner confirmation (plan-authoring core §7). Decisions the
+  // repository already holds (known), this work does not fix (deferred) or no longer uses (superseded) do not block.
+  // One finding names every unconfirmed decision, so a reviewer sees them all in one run.
+  const unconfirmed = (decisions ?? []).flatMap((decision, index) =>
+    decision.irreversible &&
+    (['unknown', 'provisional'].includes(decision.status) ||
+      (decision.status === 'validated' && decision.ownerConfirmation === null))
+      ? [
+          `decisions[${index}] ${decision.id} (${decision.status === 'validated' ? 'validated without an Owner confirmation' : decision.status})`,
+        ]
+      : [],
+  );
+  if (unconfirmed.length) {
+    addBlocking(
+      'irreversible-decision-unconfirmed',
+      unconfirmed[0].split(' ')[0],
+      `Irreversible decisions need status validated with an Owner confirmation: ${unconfirmed.join(', ')}.`,
+    );
+  }
+
   return deepFreeze({
     schemaVersion: 1,
     planId,
@@ -214,6 +244,14 @@ export function assessPlanReadiness(input) {
       { code: 'target-path-count', value: targetPaths.length },
       { code: 'phase-count', value: phases.length },
       { code: 'blocking-finding-count', value: blockingFindings.length },
+      ...(decisions
+        ? [
+            {
+              code: 'irreversible-decision-count',
+              value: decisions.filter(({ irreversible }) => irreversible).length,
+            },
+          ]
+        : []),
     ],
     blockingFindings: sortFindings(blockingFindings),
     warnings: sortFindings(warnings),
@@ -385,6 +423,31 @@ function normalizeOpenQuestions(values) {
   });
 }
 
+function normalizeDecisions(values) {
+  if (!Array.isArray(values)) throw new TypeError('decisions must be an array');
+  return values.map((value, index) => {
+    assertRecord(value, `decisions[${index}]`);
+    return {
+      id: requireString(value.id, `decisions[${index}].id`),
+      irreversible: requireBoolean(value.irreversible, `decisions[${index}].irreversible`),
+      status: requireEnum(value.status, DECISION_STATES, `decisions[${index}].status`),
+      ownerConfirmation: normalizeOwnerConfirmation(
+        value.ownerConfirmation,
+        `decisions[${index}].ownerConfirmation`,
+      ),
+    };
+  });
+}
+
+function normalizeOwnerConfirmation(value, path) {
+  if (value == null) return null;
+  assertRecord(value, path);
+  return {
+    date: requireDate(value.date, `${path}.date`),
+    source: requireString(value.source, `${path}.source`),
+  };
+}
+
 function isCompleteMutatingPhase(phase) {
   return (
     phase.preconditions.length > 0 &&
@@ -436,6 +499,15 @@ function requireString(value, path) {
 function requireSha(value, path) {
   if (typeof value !== 'string' || !/^[a-f0-9]{40}$/u.test(value)) {
     throw new TypeError(`${path} must be a lowercase 40-character SHA`);
+  }
+  return value;
+}
+
+function requireDate(value, path) {
+  const date =
+    typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/u.test(value) ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new TypeError(`${path} must be a YYYY-MM-DD date`);
   }
   return value;
 }
