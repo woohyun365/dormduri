@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -55,6 +56,96 @@ describe('token source and generated CSS', () => {
         '}',
       ].join('\n'),
     );
+  });
+});
+
+type JsonObject = Record<string, unknown>;
+
+function child(object: JsonObject, ...keys: string[]): JsonObject {
+  return keys.reduce((node, key) => node[key] as JsonObject, object);
+}
+
+// Builds CSS from a copy of the token JSON after `edit` changes the parsed files (keyed by file name).
+function buildEditedCopy(edit: (files: Record<string, JsonObject>) => void) {
+  const files: Record<string, JsonObject> = {};
+  for (const name of readdirSync(tokensDir).filter((file) => file.endsWith('.json'))) {
+    files[name] = JSON.parse(readFileSync(path.join(tokensDir, name), 'utf8'));
+  }
+  edit(files);
+  const dir = mkdtempSync(path.join(tmpdir(), 'knu-tokens-'));
+  try {
+    for (const [name, json] of Object.entries(files)) {
+      writeFileSync(path.join(dir, name), JSON.stringify(json));
+    }
+    return buildTokenCss(dir);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+describe('CSS generation failures', () => {
+  const vendor = (files: Record<string, JsonObject>) =>
+    child(files, 'semantic.tokens.json', 'font', 'body', '$extensions', 'knu-roommate');
+
+  const invalidEdits: Array<[string, (files: Record<string, JsonObject>) => void, RegExp]> = [
+    [
+      'two tokens with one CSS name',
+      (files) => {
+        child(files, 'component.tokens.json').color = {
+          $type: 'color',
+          fg: { muted: srgb('#475569', [0.2784, 0.3333, 0.4118]) },
+        };
+      },
+      /both map to --color-fg-muted/,
+    ],
+    [
+      'a context without a cssContexts entry',
+      (files) => {
+        delete child(files, 'knu.resolver.json', 'modifiers', 'motion').$extensions;
+      },
+      /context "reduced" needs a \{ media \} cssContexts entry/,
+    ],
+    [
+      'a context that adds a token',
+      (files) => {
+        child(files, 'motion-reduced.tokens.json', 'duration').instant = {
+          $value: { value: 0, unit: 'ms' },
+        };
+      },
+      /adds duration\.instant/,
+    ],
+    [
+      'a context that overrides an inline theme token',
+      (files) => {
+        child(files, 'motion-reduced.tokens.json').font = {
+          $type: 'fontFamily',
+          body: { $value: ['sans-serif'] },
+        };
+      },
+      /cannot override inline theme token font\.body/,
+    ],
+    [
+      'an unknown knu-roommate extension key',
+      (files) => {
+        vendor(files).weight = 400;
+      },
+      /unsupported \$extensions\["knu-roommate"\]\.weight at font\.body/,
+    ],
+    [
+      'a cssVariables family the token does not list',
+      (files) => {
+        vendor(files).cssVariables = { Pretendard: '--font-pretendard' };
+      },
+      /cssVariables at font\.body/,
+    ],
+  ];
+
+  it('builds an unedited copy like the source directory', () => {
+    expect(buildEditedCopy(() => {})).toBe(buildTokenCss(tokensDir));
+  });
+
+  it.each(invalidEdits)('rejects %s', (_label, edit, message) => {
+    expect(() => buildEditedCopy(edit)).toThrow(message);
   });
 });
 

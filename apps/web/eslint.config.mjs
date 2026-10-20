@@ -80,7 +80,12 @@ const rawValuePatterns = [
 
 // eslint-plugin-jsx-a11y 6.10.2 recommended rules (the plugin is registered by eslint-config-next).
 const jsxA11yRecommended = {
-  'jsx-a11y/alt-text': 'error',
+  // eslint-config-next narrows alt-text to img, and a bare severity would keep that option. Restore
+  // the recommended elements and keep next/image checked.
+  'jsx-a11y/alt-text': [
+    'error',
+    { elements: ['img', 'object', 'area', 'input[type="image"]'], img: ['Image'] },
+  ],
   'jsx-a11y/anchor-has-content': 'error',
   'jsx-a11y/anchor-is-valid': 'error',
   'jsx-a11y/aria-activedescendant-has-tabindex': 'error',

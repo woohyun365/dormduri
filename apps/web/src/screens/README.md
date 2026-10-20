@@ -27,8 +27,10 @@ src/screens/
 
 ## import 규칙
 
-- 기능 밖에서는 `@/screens/<기능>`(공개 entry)와 `@/screens/ui/**`만 import합니다. `@/screens/<기능>/components/...` 같은 내부
-  경로는 lint error입니다.
+- 기능 밖에서는 `@/screens/<기능>`(공개 entry)와 `@/screens/ui/**`만 import합니다. `src/screens` 안의 파일이
+  `@/screens/<기능>/components/...` 같은 다른 기능의 내부 경로를 import하면 lint error입니다.
+- `src/app` route 파일처럼 `src/screens` 밖에 있는 파일에도 같은 규칙이 적용되지만, lint 블록은 `src/screens/**`에만 걸려 있습니다.
+  그 밖 파일의 import는 리뷰에서 확인합니다.
 - 기능 안에서는 상대 경로를 씁니다. 기능 root 밖으로 나가는 상대 경로(`../다른기능/...`, `../../ui/...`)는 lint error입니다.
   파일 깊이별 검사는 기능 root 아래 다섯 단계까지이고, 그보다 깊은 파일은 alias 규칙만 받습니다.
 - `@sentry/nextjs` 제한은 앱 전체와 같습니다.
@@ -56,8 +58,8 @@ src/screens/
 - 허용: token utility(`bg-layer-basement`, `text-fg-muted`, `text-body`, `font-body`, `max-w-page`, `rounded-card`,
   `ease-standard`, `focus-visible:focus-ring` …), static utility(`rounded-full`·`rounded-none`, `shadow-none`, `bg-transparent`·
   `bg-current`), spacing 배수(`p-4`, `gap-0.5`).
-- 센서(test 포함 `src/screens/**` 전체): 위 import 규칙, `eslint-plugin-jsx-a11y` recommended 규칙 error, 빈 block(`no-empty`, 빈
-  catch 포함) error.
+- 센서(test 포함 `src/screens/**` 전체): 위 import 규칙, `eslint-plugin-jsx-a11y` recommended 규칙과 그 option error(`alt-text`는
+  기본 element에 `next/image`의 `Image`를 더함), 빈 block(`no-empty`, 빈 catch 포함) error.
 - `src/screens` 아래에는 `.css` 파일을 두지 않습니다. 값이 lint 밖 CSS로 숨지 않게 하려는 것이고, lint test가 파일 목록으로 확인합니다.
 - 한계: 문자열을 조합해 만든 class(`` `text-${size}` ``)와 `style` 속성의 숫자 값은 lint가 보지 못합니다. 리뷰에서 확인합니다.
 

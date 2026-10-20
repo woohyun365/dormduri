@@ -30,9 +30,13 @@ function errorLines(messages: Linter.LintMessage[], ruleId: string) {
     .map((message) => message.line);
 }
 
-async function severityOf(filePath: string, ruleId: string) {
+async function ruleEntry(filePath: string, ruleId: string) {
   const config = await eslint.calculateConfigForFile(path.join(webRoot, filePath));
-  const entry = config.rules?.[ruleId];
+  return config.rules?.[ruleId];
+}
+
+async function severityOf(filePath: string, ruleId: string) {
+  const entry = await ruleEntry(filePath, ruleId);
   return Array.isArray(entry) ? entry[0] : entry;
 }
 
@@ -257,5 +261,33 @@ describe('screens sensor rules', { timeout: 60_000 }, () => {
     expect(errorLines(messages, 'no-restricted-syntax')).toEqual([]);
     expect(errorLines(messages, 'jsx-a11y/alt-text')).toEqual([2]);
     expect(errorLines(messages, 'no-empty')).toEqual([3]);
+  });
+
+  it('keeps the recommended options instead of options inherited from eslint-config-next', async () => {
+    const file = 'src/screens/landing/LandingScreen.tsx';
+    const config = await eslint.calculateConfigForFile(path.join(webRoot, file));
+    const plugin = config.plugins?.['jsx-a11y'] as
+      { configs: { recommended: { rules: Record<string, Linter.RuleEntry> } } } | undefined;
+    const recommended = Object.entries(plugin?.configs.recommended.rules ?? {}).filter(
+      ([, entry]) => (Array.isArray(entry) ? entry[0] : entry) !== 'off',
+    );
+    const altText = { elements: ['img', 'object', 'area', 'input[type="image"]'], img: ['Image'] };
+
+    for (const [ruleId, entry] of recommended) {
+      const expected =
+        ruleId === 'jsx-a11y/alt-text' ? [altText] : Array.isArray(entry) ? entry.slice(1) : [];
+      const actual = await ruleEntry(file, ruleId);
+      expect([ruleId, Array.isArray(actual) ? actual.slice(1) : []]).toEqual([ruleId, expected]);
+    }
+
+    const messages = await lint('src/screens/__fixtures__/Media.tsx', [
+      "import Image from 'next/image';",
+      'export const ImageInput = () => <input type="image" src="/a.png" />;',
+      'export const Area = () => <area href="/a" />;',
+      'export const Embed = () => <object data="/a.svg" />;',
+      'export const Picture = () => <Image src="/a.png" width={1} height={1} />;',
+    ]);
+
+    expect(errorLines(messages, 'jsx-a11y/alt-text')).toEqual([2, 3, 4, 5]);
   });
 });
