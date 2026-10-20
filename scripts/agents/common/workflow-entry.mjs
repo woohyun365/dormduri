@@ -10,6 +10,7 @@ const nodes = [
   ['intake', W + 'request-intake/README.md'],
   ['continuity', W + 'session-continuity.md'],
   ['planning', W + 'plan-authoring/core.md'],
+  ['discovery', W + 'plan-authoring/discovery.md'],
   ['orchestration', W + 'orchestration.md'],
   ['qa', W + 'qa.md'],
   ['output', W + 'request-intake/output-contracts.md'],
@@ -27,6 +28,12 @@ export const workflowGraph = Object.freeze({
       { from: 'execution', to: 'adapters', kind: 'conditional', condition: 'active-host' },
       { from: 'execution', to: 'continuity', kind: 'conditional', condition: 'resume' },
       { from: 'intake', to: 'planning', kind: 'conditional', condition: 'plan' },
+      {
+        from: 'planning',
+        to: 'discovery',
+        kind: 'conditional',
+        condition: 'plan-product-domain',
+      },
       { from: 'intake', to: 'branch', kind: 'conditional', condition: 'implement-or-debug' },
       { from: 'execution', to: 'orchestration', kind: 'conditional', condition: 'delegation' },
       { from: 'execution', to: 'visual', kind: 'conditional', condition: 'visual-work' },
@@ -35,6 +42,12 @@ export const workflowGraph = Object.freeze({
     ].map(Object.freeze),
   ),
 });
+// Product plans read the discovery flow when one of these primary guides was selected (plan-authoring/discovery.md).
+const PRODUCT_PRIMARY_GUIDES = new Set([
+  W + 'plan-authoring/frontend.md',
+  W + 'plan-authoring/backend.md',
+  W + 'plan-authoring/infrastructure.md',
+]);
 const HOST_GUIDES = Object.freeze({
   codex: { guide: W + 'adapters/codex.md' },
   'claude-code': { guide: W + 'adapters/claude-code.md' },
@@ -136,6 +149,11 @@ export function resolveWorkflowEntry({ envelope, contextPack, host, mode, adapte
         condition: 'plan-domain',
         path: guide.path,
       })),
+      ...((contextPack?.selectedGuides ?? []).some((guide) =>
+        PRODUCT_PRIMARY_GUIDES.has(guide.path),
+      )
+        ? [{ condition: 'plan-product-domain', path: byId.discovery }]
+        : []),
     ],
     hostStatus: adapter ? 'registered-guide' : 'unregistered',
     requiresHostAdmission: true,
