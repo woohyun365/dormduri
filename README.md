@@ -12,7 +12,7 @@
 
 **핵심 흐름**: 학교 이메일 인증 → 시즌 등록 → 생활패턴 기반 후보 탐색 → 대화와 매칭 → 시즌 이력 확인
 
-가입과 시즌 참여는 같은 상태가 아닙니다. 현재 시즌, 필수 프로필, 기숙사 선택과 등록 트랜잭션이 끝나야 탐색·상세·매칭 기능이 열리고, UI는 서버가 계산한 가능 여부(capability)와 사유를 그대로 보여 줍니다. 학교의 기숙사 배정이나 호실 선택은 대신하지 않습니다. 사용자, 핵심 개념, 시즌별 경험은 [서비스 소개](./SERVICE.md)에 있습니다.
+가입과 시즌 참여는 같은 상태가 아닙니다. 현재 시즌, 필수 프로필, 기숙사 선택과 등록 트랜잭션이 끝나야 같은 기숙사 후보의 상세·매칭 기능이 열리고(미등록 사용자는 시즌 중 요약 미리보기만 봅니다), UI는 서버가 계산한 가능 여부(capability)와 사유를 그대로 보여 줍니다. 학교의 기숙사 배정이나 호실 선택은 대신하지 않습니다. 사용자, 핵심 개념, 시즌별 경험은 [서비스 소개](./SERVICE.md)에 있습니다.
 
 ## 이 저장소에서 볼 수 있는 것
 
@@ -56,11 +56,11 @@ flowchart LR
 
 모든 수치는 공개 commit·PR·재현 명령으로 다시 산출할 수 있고, 측정 조건은 각 기록에 있습니다([개선 기록](./docs/evidence/README.md)).
 
-| 개선                     | 결과                                                                                                                                                                                    | 기록                                                                                         |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 동시 매칭 수락 교착 제거 | 교착 **20/20 → 0/20**, 진 쪽 응답 매핑상 500 → **409** `MATCH_REQUEST_NOT_PENDING`                                                                                                      | [잠금 순서 기록](./docs/evidence/matches/accept-lock-order-evidence.md)                      |
-| Monorepo CI 재구성       | Infra·정책 PR wall 중앙값 **79s**, 전체 lane PR wall 중앙값 616s → 최종 run **330s**(이후 자연 표본 중앙값 381s). 대신 job별 분 올림 합은 28분 → 31분(자연 표본 중앙값 34분)으로 늘어남 | [CI 재구성 기록](./docs/evidence/ci/monorepo-ci-restructuring-evidence.md)                   |
-| 에이전트 workflow 개선   | 공통 계약 + host adapter로 분리, 개선 PR 28개의 리뷰 결함·merge 뒤 결함을 공개 근거로 재산출. 시간 절감은 비교군이 없어 주장하지 않음                                                   | [workflow 개선 기록](./docs/evidence/agent-workflows/agent-workflow-improvement-evidence.md) |
+| 개선                     | 결과                                                                                                                                                                                                             | 기록                                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 동시 매칭 수락 교착 제거 | 두 수락의 경합 통합 테스트 2개 × 10회에서 교착 **20/20 → 0/20**, 진 쪽 `P2010`(오류 매핑상 500) → **409** `MATCH_REQUEST_NOT_PENDING`                                                                            | [잠금 순서 기록](./docs/evidence/matches/accept-lock-order-evidence.md)                      |
+| Monorepo CI 재구성       | Infra·정책 PR wall 중앙값 **79s**(n=5), 전체 lane PR wall 중앙값 616s(n=5) → 최종 source run 1건 **330s**(이후 자연 표본 8개 중앙값 381s). 대신 job별 분 올림 합은 28분 → 31분(자연 표본 중앙값 34분)으로 늘어남 | [CI 재구성 기록](./docs/evidence/ci/monorepo-ci-restructuring-evidence.md)                   |
+| 에이전트 workflow 개선   | 공통 계약 + host adapter로 분리, 개선 PR 28개의 리뷰 결함·merge 뒤 결함을 공개 근거로 재산출. 시간 절감은 비교군이 없어 주장하지 않음                                                                            | [workflow 개선 기록](./docs/evidence/agent-workflows/agent-workflow-improvement-evidence.md) |
 
 ## AI 에이전트 하네스
 
@@ -86,7 +86,7 @@ flowchart LR
 - **같은 지침에서 시작**: 모든 에이전트는 공통 저장소 계약 [`AGENTS.md`](./AGENTS.md)에서 시작하고, host별 실행 세부만 [host adapter](./docs/development/agent-workflows/adapters/README.md)가 연결합니다.
 - **역할별 권한 분리**: 구현 lane은 등록된 파일 범위만 고치고, 리뷰어는 읽기 전용 도구만 가집니다. 완료 판정은 코드를 고칠 수 없는 리뷰어와 실제 검증 출력이 맡습니다.
 - **기계적으로 막을 수 있는 것은 hook과 CI로**: 등록과 다른 위임 요청이나 구현 lane 실행 중 Parent의 추적 파일 쓰기처럼 결정적인 위반은 hook과 저장소 정책 테스트가 막고, 의미·경계 문제는 리뷰가 판단합니다.
-- **기준을 가진 리뷰**: 리뷰어는 바뀐 경로로 고른 [영역별 리뷰 기준](./docs/development/agent-workflows/review-criteria/README.md)으로 판정하고, `critical`·`high`·`medium` finding이 남으면 통과하지 못합니다. 같은 변경이 3회 연속 통과하지 못하면 무인으로 계속하지 않고 사람에게 다음 행동을 묻습니다([리뷰 회차](./docs/development/agent-workflows/qa.md#리뷰-회차)).
+- **기준을 가진 리뷰**: 리뷰어는 바뀐 경로로 고른 [변경 유형별 리뷰 기준](./docs/development/agent-workflows/review-criteria/README.md)으로 판정하고, `critical`·`high`·`medium` finding이 남으면 통과하지 못합니다. 같은 변경이 3회 연속 통과하지 못하면 무인으로 계속하지 않고 사람에게 다음 행동을 묻습니다([리뷰 회차](./docs/development/agent-workflows/qa.md#리뷰-회차)).
 - **사람이 결정하는 것**: 제품·비용·위험 선택은 사람이, 승인된 범위의 기술 판단과 결과 통합은 Parent 에이전트가 맡습니다([협업 계약](./docs/development/agent-workflows/owner-lead-collaboration.md)). 검증하지 못한 범위는 완료로 포장하지 않고 blocker와 다음 근거로 남깁니다.
 
 | 책임      | 사람이 맡는 것                                                  | AI 에이전트가 돕는 것                            |
@@ -160,8 +160,10 @@ Web은 `http://localhost:3000`, API는 `http://localhost:4000`에서 열립니�
 ```bash
 pnpm check:fast          # staged 파일과 작업 공간 배치
 pnpm test:repo-policy    # 저장소 경계
+pnpm shared:test         # Shared contract
 pnpm api:check           # API 정적 검사
 pnpm web:check           # Web 정적 검사
+pnpm infra:check         # 인프라 검사
 ```
 
 API·Web 테스트와 CI lane별 명령은 [Monorepo CI 아키텍처의 명령 표](./docs/architecture/platform/monorepo-ci.md#public-command와-prepared-command)와 [API README](./apps/api/README.md) · [Web README](./apps/web/README.md)에 있습니다. 전체 부하 테스트와 풀스택 리허설은 일반 PR gate보다 무거워서 명시적인 리허설에서 실행합니다([인프라 리허설 runbook](./infra/runbooks/rehearsal/full-stack.md)).
