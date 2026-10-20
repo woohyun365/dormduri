@@ -1,0 +1,382 @@
+{
+  "$description": "KNU semantic roles for the new screen layer. Judgement and usage rules live in README.md.",
+  "color": {
+    "$type": "color",
+    "layer-basement": {
+      "$value": "{primitive.color.neutral.50}"
+    },
+    "layer-default": {
+      "$value": "{primitive.color.neutral.0}"
+    },
+    "layer-floating": {
+      "$value": "{primitive.color.neutral.0}"
+    },
+    "fg-neutral": {
+      "$value": "{primitive.color.neutral.900}"
+    },
+    "fg-muted": {
+      "$value": "{primitive.color.neutral.600}"
+    },
+    "fg-subtle": {
+      "$value": "{primitive.color.neutral.500}"
+    },
+    "fg-inverted": {
+      "$value": "{primitive.color.neutral.0}"
+    },
+    "fg-brand": {
+      "$value": "{primitive.color.brand.800}"
+    },
+    "fg-critical": {
+      "$value": "{primitive.color.red.700}"
+    },
+    "fg-warning": {
+      "$value": "{primitive.color.amber.700}"
+    },
+    "fg-positive": {
+      "$value": "{primitive.color.green.700}"
+    },
+    "fg-informative": {
+      "$value": "{primitive.color.sky.700}"
+    },
+    "stroke-neutral": {
+      "$value": "{primitive.color.neutral.500}"
+    },
+    "stroke-subtle": {
+      "$value": "{primitive.color.neutral.200}"
+    },
+    "stroke-focus": {
+      "$value": "{primitive.color.brand.600}"
+    },
+    "brand-solid": {
+      "$value": "{primitive.color.brand.800}"
+    },
+    "brand-weak": {
+      "$value": "{primitive.color.brand.100}"
+    },
+    "critical-solid": {
+      "$value": "{primitive.color.red.700}"
+    },
+    "critical-weak": {
+      "$value": "{primitive.color.red.50}"
+    },
+    "warning-solid": {
+      "$value": "{primitive.color.amber.700}"
+    },
+    "warning-weak": {
+      "$value": "{primitive.color.amber.50}"
+    },
+    "positive-solid": {
+      "$value": "{primitive.color.green.700}"
+    },
+    "positive-weak": {
+      "$value": "{primitive.color.green.50}"
+    },
+    "informative-solid": {
+      "$value": "{primitive.color.sky.700}"
+    },
+    "informative-weak": {
+      "$value": "{primitive.color.sky.50}"
+    }
+  },
+  "text": {
+    "caption": {
+      "$root": {
+        "$type": "dimension",
+        "$value": {
+          "value": 0.75,
+          "unit": "rem"
+        }
+      },
+      "line-height": {
+        "$type": "number",
+        "$value": 1.5
+      }
+    },
+    "label": {
+      "$root": {
+        "$type": "dimension",
+        "$value": {
+          "value": 0.8125,
+          "unit": "rem"
+        }
+      },
+      "line-height": {
+        "$type": "number",
+        "$value": 1.5
+      }
+    },
+    "body-sm": {
+      "$root": {
+        "$type": "dimension",
+        "$value": {
+          "value": 0.875,
+          "unit": "rem"
+        }
+      },
+      "line-height": {
+        "$type": "number",
+        "$value": 1.5
+      }
+    },
+    "body": {
+      "$root": {
+        "$type": "dimension",
+        "$value": {
+          "value": 1.0,
+          "unit": "rem"
+        }
+      },
+      "line-height": {
+        "$type": "number",
+        "$value": 1.6
+      }
+    },
+    "body-long": {
+      "$root": {
+        "$type": "dimension",
+        "$value": {
+          "value": 1.0,
+          "unit": "rem"
+        }
+      },
+      "line-height": {
+        "$type": "number",
+        "$value": 1.7
+      }
+    },
+    "body-lg": {
+      "$root": {
+        "$type": "dimension",
+        "$value": {
+          "value": 1.125,
+          "unit": "rem"
+        }
+      },
+      "line-height": {
+        "$type": "number",
+        "$value": 1.55
+      }
+    },
+    "title-3": {
+      "$root": {
+        "$type": "dimension",
+        "$value": {
+          "value": 1.25,
+          "unit": "rem"
+        }
+      },
+      "line-height": {
+        "$type": "number",
+        "$value": 1.4
+      }
+    },
+    "title-2": {
+      "$root": {
+        "$type": "dimension",
+        "$value": {
+          "value": 1.5,
+          "unit": "rem"
+        }
+      },
+      "line-height": {
+        "$type": "number",
+        "$value": 1.35
+      }
+    },
+    "title-1": {
+      "$root": {
+        "$type": "dimension",
+        "$value": {
+          "value": 1.75,
+          "unit": "rem"
+        }
+      },
+      "line-height": {
+        "$type": "number",
+        "$value": 1.3
+      }
+    },
+    "display-3": {
+      "$root": {
+        "$type": "dimension",
+        "$value": {
+          "value": 2.0,
+          "unit": "rem"
+        }
+      },
+      "line-height": {
+        "$type": "number",
+        "$value": 1.25
+      },
+      "font-weight": {
+        "$type": "fontWeight",
+        "$value": 700
+      }
+    },
+    "display-2": {
+      "$root": {
+        "$type": "dimension",
+        "$value": {
+          "value": 2.5,
+          "unit": "rem"
+        }
+      },
+      "line-height": {
+        "$type": "number",
+        "$value": 1.2
+      },
+      "font-weight": {
+        "$type": "fontWeight",
+        "$value": 700
+      }
+    },
+    "display-1": {
+      "$root": {
+        "$type": "dimension",
+        "$value": {
+          "value": 3.0,
+          "unit": "rem"
+        }
+      },
+      "line-height": {
+        "$type": "number",
+        "$value": 1.15
+      },
+      "font-weight": {
+        "$type": "fontWeight",
+        "$value": 700
+      }
+    }
+  },
+  "font": {
+    "$type": "fontFamily",
+    "body": {
+      "$value": ["Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "sans-serif"],
+      "$extensions": {
+        "knu-roommate": {
+          "cssVariables": {
+            "Noto Sans KR": "--font-noto-sans-kr"
+          }
+        }
+      }
+    },
+    "display": {
+      "$value": ["Noto Serif KR", "AppleMyungjo", "Batang", "serif"],
+      "$extensions": {
+        "knu-roommate": {
+          "cssVariables": {
+            "Noto Serif KR": "--font-noto-serif-kr"
+          }
+        }
+      }
+    }
+  },
+  "spacing": {
+    "$type": "dimension",
+    "$root": {
+      "$value": {
+        "value": 0.25,
+        "unit": "rem"
+      }
+    },
+    "gutter": {
+      "$value": {
+        "value": 1,
+        "unit": "rem"
+      }
+    },
+    "gutter-wide": {
+      "$value": {
+        "value": 1.25,
+        "unit": "rem"
+      }
+    },
+    "section": {
+      "$value": {
+        "value": 2.5,
+        "unit": "rem"
+      }
+    },
+    "section-desktop": {
+      "$value": {
+        "value": 4,
+        "unit": "rem"
+      }
+    }
+  },
+  "container": {
+    "$type": "dimension",
+    "page": {
+      "$value": {
+        "value": 72,
+        "unit": "rem"
+      }
+    },
+    "reading": {
+      "$value": {
+        "value": 45,
+        "unit": "rem"
+      }
+    }
+  },
+  "radius": {
+    "$type": "dimension",
+    "input": {
+      "$value": {
+        "value": 0.25,
+        "unit": "rem"
+      }
+    },
+    "control": {
+      "$value": {
+        "value": 0.5,
+        "unit": "rem"
+      }
+    },
+    "card": {
+      "$value": {
+        "value": 0.5,
+        "unit": "rem"
+      }
+    },
+    "panel": {
+      "$value": {
+        "value": 0.75,
+        "unit": "rem"
+      }
+    },
+    "sheet": {
+      "$value": {
+        "value": 1,
+        "unit": "rem"
+      }
+    }
+  },
+  "duration": {
+    "$type": "duration",
+    "fast": {
+      "$value": {
+        "value": 120,
+        "unit": "ms"
+      }
+    },
+    "normal": {
+      "$value": {
+        "value": 200,
+        "unit": "ms"
+      }
+    },
+    "slow": {
+      "$value": {
+        "value": 320,
+        "unit": "ms"
+      }
+    }
+  },
+  "ease": {
+    "standard": {
+      "$type": "cubicBezier",
+      "$value": [0.2, 0, 0, 1]
+    }
+  }
+}

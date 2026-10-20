@@ -1,0 +1,7 @@
+/* Utilities built on the KNU tokens. Apply with a state variant, e.g. focus-visible:focus-ring. */
+@utility focus-ring {
+  outline-style: solid;
+  outline-width: var(--focus-ring-width);
+  outline-color: var(--color-stroke-focus);
+  outline-offset: var(--focus-ring-offset);
+}

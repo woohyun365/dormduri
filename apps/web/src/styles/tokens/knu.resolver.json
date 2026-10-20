@@ -1,0 +1,69 @@
+{
+  "$schema": "https://www.designtokens.org/schemas/2025.10/resolver.json",
+  "name": "KNU Roommate web tokens",
+  "version": "2025.10",
+  "description": "Token source for apps/web/src/screens. build-tokens.mjs turns it into tokens.generated.css.",
+  "sets": {
+    "primitive": {
+      "description": "Primitive values, aliased only",
+      "sources": [
+        {
+          "$ref": "primitive.tokens.json"
+        }
+      ]
+    },
+    "semantic": {
+      "description": "Roles the screens use",
+      "sources": [
+        {
+          "$ref": "semantic.tokens.json"
+        }
+      ]
+    },
+    "component": {
+      "description": "Targets and focus ring",
+      "sources": [
+        {
+          "$ref": "component.tokens.json"
+        }
+      ]
+    }
+  },
+  "modifiers": {
+    "motion": {
+      "description": "User motion preference",
+      "contexts": {
+        "preferred": [],
+        "reduced": [
+          {
+            "$ref": "motion-reduced.tokens.json"
+          }
+        ]
+      },
+      "default": "preferred",
+      "$extensions": {
+        "knu-roommate": {
+          "cssContexts": {
+            "reduced": {
+              "media": "(prefers-reduced-motion: reduce)"
+            }
+          }
+        }
+      }
+    }
+  },
+  "resolutionOrder": [
+    {
+      "$ref": "#/sets/primitive"
+    },
+    {
+      "$ref": "#/sets/semantic"
+    },
+    {
+      "$ref": "#/sets/component"
+    },
+    {
+      "$ref": "#/modifiers/motion"
+    }
+  ]
+}
