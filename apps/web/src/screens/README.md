@@ -20,7 +20,8 @@ src/screens/
 - 기본은 Desktop·Mobile이 같은 부품을 responsive class로 조정하는 shared-responsive입니다. 탐색·정보 위계·상호작용이 실질적으로
   다를 때만 그 subtree를 `desktop/`·`mobile/`로 나눕니다(split-presentation). 판정 기준은
   [표현 책임·device 검증](../../../../docs/development/agent-workflows/visual-design/device-presentation-and-verification.md)입니다.
-- `model/`은 React·DOM·Next.js·browser API를 import하지 않습니다. 이 규칙의 자동 검사는 아직 없습니다.
+- `model/`은 React·DOM·Next.js·browser API를 import하지 않는 renderer 중립 범위입니다. lint가 막는 범위와 한계는 아래
+  [model 경계](#model-경계)입니다.
 - 한 기능 안에서만 쓰는 부품은 그 기능의 `components/`에 둡니다. 두 번째 기능이 같은 부품을 쓰게 되면 `ui/`로 옮기고 두 기능이
   `@/screens/ui/...`로 import합니다.
 - `src/screens` root에는 README와 `__tests__/`만 둡니다.
@@ -34,6 +35,8 @@ src/screens/
 - 기능 안에서는 상대 경로를 씁니다. 기능 root 밖으로 나가는 상대 경로(`../다른기능/...`, `../../ui/...`)는 lint error입니다.
   파일 깊이별 검사는 기능 root 아래 다섯 단계까지이고, 그보다 깊은 파일은 alias 규칙만 받습니다.
 - `@sentry/nextjs` 제한은 앱 전체와 같습니다.
+- `model/` 파일은 이보다 좁은 허용 목록을 받습니다. `@/screens/**`와, 기능 안이지만 `model/` 밖인 상대 경로도 막힙니다
+  ([model 경계](#model-경계)).
 
 ## lint와 값 규칙
 
@@ -62,6 +65,41 @@ src/screens/
   기본 element에 `next/image`의 `Image`를 더함), 빈 block(`no-empty`, 빈 catch 포함) error.
 - `src/screens` 아래에는 `.css` 파일을 두지 않습니다. 값이 lint 밖 CSS로 숨지 않게 하려는 것이고, lint test가 파일 목록으로 확인합니다.
 - 한계: 문자열을 조합해 만든 class(`` `text-${size}` ``)와 `style` 속성의 숫자 값은 lint가 보지 못합니다. 리뷰에서 확인합니다.
+
+## model 경계
+
+`src/screens/<기능>/model/**`(test 파일 제외)는 다른 renderer(native app 등)와 함께 쓸 수 있게 둔 순수 model·use-case 자리입니다.
+`apps/web/eslint.config.mjs`의 model 블록이 `pnpm lint`·`pnpm check`·CI에서 error로 막습니다. 규칙 test는 위와 같은
+[`__tests__/presentation-lint.test.ts`](./__tests__/presentation-lint.test.ts)입니다.
+
+- import 허용 목록: 같은 `model/` 안 상대 경로, `@repo/shared/**`, `zod`. 그 밖(Next.js·React·React DOM·React Native·Expo·Node
+  builtin·`@/` alias·목록 밖 package)은 값 import뿐 아니라 `import type`·inline `type`·`export … from`·`export *`·`import x = require()`도
+  error입니다. 기능의 공개 entry(`@/screens/<기능>`)도 React 화면을 끌고 오므로 막힙니다.
+- 상대 경로: `model/` 밖으로 나가는 상대 경로(`../components/...`, 기능 root를 가리키는 `'./..'`·`'../..'`)는 error입니다. 파일 깊이별
+  검사는 `model/` 아래 네 단계까지입니다.
+  디렉터리 index는 `'.'`·`'..'` 대신 `'./index'`·`'../index'`처럼 파일 경로로 씁니다(허용 목록이 `'.'`·`'..'`를 막습니다).
+  `model/` 파일은 `.ts`·`.tsx`입니다. `.js`·`.mjs`는 type 정보 project 밖이라 lint가 parsing error로 실패합니다.
+- 전역: `window`·`document`·`navigator`·`location`·`history`·`localStorage`·`sessionStorage`·`indexedDB`·`globalThis`·`self`·`process`는
+  error입니다. 같은 이름의 지역 변수·매개변수는 통과합니다. 필요한 값은 `model/` 밖 Web 표현이 인자로 넘깁니다.
+- 문법: 동적 `import()`, `import('…')` type 표현, `require()`, JSX는 error입니다.
+- 위 import 규칙(Sentry 제한·기능 내부 import 금지)과 값 규칙도 `model/` 파일에 그대로 걸립니다.
+- `packages/shared/src/**/*.ts`도 `packages/shared/eslint.config.mjs`에서 같은 전역·문법 규칙과 허용 목록(package 안 상대 경로, `zod`)을
+  받습니다. 규칙 test는 `packages/shared/test/architecture/renderer-neutral-boundary.spec.ts`이고, 그 spec이 실제 src 전체를 lint해
+  `pnpm shared:test`·CI shared 단계에서 위반을 막습니다. `pnpm shared:lint`(`pnpm lint`·`pnpm check`가 부름)는 script glob이 shell에서
+  한 단계로 펼쳐져 src 일부만 봅니다([#660](https://github.com/woohyun365/knu_roommate/issues/660)). package 밖 상대 경로는 lint가 아니라
+  `tsc`의 `rootDir`(TS6059)가 `.ts` 파일에서 막고, package 밖 `.d.ts`를 가리키는 `import type`은 둘 다 통과합니다.
+- 경로 소속:
+  - `portable-now`: `src/screens/*/model/**`와 `packages/shared/src/**/*.ts`(둘 다 test 파일 제외)
+  - `web-only`: `src/screens`의 `model/` 밖 파일과 그 밖 `apps/web/src/**`(BFF·navigation·storage·route 포함)
+  - `second-consumer-candidate`: 지금 없음. 두 번째 renderer를 승인할 때 정합니다
+  - `not-worth-sharing`: 기존 화면 계층 model(`apps/web/src/main/model/**`). 검사하지 않습니다
+- 한계: 이 검사는 선언한 범위에서 정한 import·전역·문법을 막을 뿐이고, React Native에서 동작함을 보장하지 않습니다. 목록 밖 전역
+  (`matchMedia`·`getComputedStyle` 같은 이름), type 위치의 DOM 참조(`HTMLElement`·`MouseEvent` 같은 type 이름, `typeof window`),
+  문자열로 만든 경로, 상대 경로 중간의 `..`, `model/` 아래 네 단계보다 깊은 파일의 `model/` 밖 상대 경로, `import.meta`,
+  `/// <reference …>` 지시문, `require` 별칭 호출과 `require.resolve`는 lint가 보지 못합니다.
+  `URL`·`URLSearchParams`·`fetch`·timer·`console`은 막지 않습니다. 리뷰에서 확인합니다.
+- 결정과 기각한 대안은 [FE 결정 기록](../../../../docs/architecture/decisions/fe.md#component-architecture)입니다. 허용 목록 밖 package가
+  필요하면 그 결정을 개정합니다.
 
 ## 새 기능 디렉터리와 경로 표
 

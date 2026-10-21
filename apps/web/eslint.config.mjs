@@ -190,6 +190,91 @@ const screensRelativeDepthBlocks = [0, 1, 2, 3, 4, 5, 6].map((depth) => ({
   },
 }));
 
+// Renderer-neutral model (portable-now): src/screens/*/model/**, tests excluded. The rest of
+// src/screens and apps/web/src (BFF, navigation, storage, routes) is web-only, and the old screen
+// layer model (src/main/model) is not-worth-sharing and unchecked. Imports are an allowlist;
+// browser and Node globals, dynamic import(), import('…') types, require() and JSX are errors.
+// These blocks come after the raw value block and replace its options, so they repeat the Sentry
+// path, the feature entry pattern and the raw value patterns. Model depth blocks keep relative
+// paths inside model/ down to the last screens depth block. The allowlist rejects bare '.' and
+// '..', so directory indexes are imported as './index'; model files are .ts/.tsx (a .js file is
+// outside the type-aware project and fails to parse). Limits: globals outside the list
+// (matchMedia …), DOM references in type positions (HTMLElement, typeof window), paths built from
+// strings, a `..` in the middle of a relative path, files deeper than the last depth block
+// (allowlist only), import.meta, /// <reference> directives, aliased require and require.resolve.
+const modelRoot = 'src/screens/*/model';
+const modelTestIgnores = ['src/screens/**/__tests__/**', 'src/screens/**/*.{test,spec}.{ts,tsx}'];
+const modelAllowlist = `같은 model/ 안 상대 경로, @repo/shared/**, zod만 import합니다. ${screensReadme}`;
+const modelAllowlistPattern = {
+  regex: String.raw`^(?!\.{1,2}/|@repo/shared/|zod$)`,
+  message: `model/은 Next.js·React·React Native·Expo·Node builtin·@/ Web alias·그 밖 package를 import하지 않고 ${modelAllowlist}`,
+};
+const rendererGlobals = [
+  'window',
+  'document',
+  'navigator',
+  'location',
+  'history',
+  'localStorage',
+  'sessionStorage',
+  'indexedDB',
+  'globalThis',
+  'self',
+  'process',
+];
+const modelSyntax = [
+  ['ImportExpression', '동적 import()'],
+  ['TSImportType', "import('…') type 표현"],
+  ["CallExpression[callee.name='require']", 'require()'],
+  ['JSXElement', 'JSX'],
+  ['JSXFragment', 'JSX'],
+].map(([selector, name]) => ({
+  selector,
+  message: `model/에서 쓰지 않는 문법입니다(${name}). 화면 표현은 model 밖 component가 맡고 model은 ${modelAllowlist}`,
+}));
+
+function modelImports(patterns) {
+  return [
+    'error',
+    {
+      paths: [sentryImportPath],
+      patterns: [screensFeatureEntryPattern, modelAllowlistPattern, ...patterns],
+    },
+  ];
+}
+
+const screensModelBlocks = [
+  {
+    files: [`${modelRoot}/**`],
+    ignores: modelTestIgnores,
+    rules: {
+      'no-restricted-imports': modelImports([]),
+      'no-restricted-globals': [
+        'error',
+        ...rendererGlobals.map((name) => ({
+          name,
+          message: `model/은 browser·Node 전역을 쓰지 않습니다(${name}). 필요한 값은 model 밖 Web 표현이 인자로 넘깁니다. ${screensReadme}`,
+        })),
+      ],
+      'no-restricted-syntax': ['error', ...rawValuePatterns, ...modelSyntax],
+    },
+  },
+  // A file `depth` directories below model/ may climb `depth` levels. A trailing `..` counts as a
+  // level: '../..' from model/sub/ points at the feature root, which exports the React screen.
+  ...[0, 1, 2, 3, 4].map((depth) => ({
+    files: [`${modelRoot}/${'*/'.repeat(depth)}*.{ts,tsx}`],
+    ignores: modelTestIgnores,
+    rules: {
+      'no-restricted-imports': modelImports([
+        {
+          regex: String.raw`^(?:\./)?(?:\.\.(?:/|$)){${depth + 1}}`,
+          message: `model/ 밖의 파일은 상대 경로로 import하지 않습니다. model은 ${modelAllowlist}`,
+        },
+      ]),
+    },
+  })),
+];
+
 const eslintConfig = defineConfig([
   ...next,
   ...vitest,
@@ -296,6 +381,7 @@ const eslintConfig = defineConfig([
       'no-restricted-syntax': ['error', ...rawValuePatterns],
     },
   },
+  ...screensModelBlocks,
 
   // Override default ignores of eslint-config-next.
   globalIgnores([

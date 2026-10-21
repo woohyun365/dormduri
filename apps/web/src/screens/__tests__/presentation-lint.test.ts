@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 const webRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const tokensReadme = 'apps/web/src/styles/tokens/README.md';
+const screensReadme = 'apps/web/src/screens/README.md';
 
 // Fixture paths do not exist on disk, so the TypeScript projects cannot parse them. Every enabled
 // rule is syntactic (asserted below), so linting without type information keeps the rule set.
@@ -28,6 +29,11 @@ function errorLines(messages: Linter.LintMessage[], ruleId: string) {
   return messages
     .filter((message) => message.ruleId === ruleId && message.severity === 2)
     .map((message) => message.line);
+}
+
+// no-restricted-imports reports each matching path and pattern, so one import can report twice.
+function importErrorLines(messages: Linter.LintMessage[]) {
+  return [...new Set(errorLines(messages, 'no-restricted-imports'))];
 }
 
 async function ruleEntry(filePath: string, ruleId: string) {
@@ -125,20 +131,23 @@ const allowedClasses = [
 
 describe('screens raw value rules', { timeout: 60_000 }, () => {
   it('enables no type-aware rule, so untyped fixtures exercise the full rule set', async () => {
-    const config = await eslint.calculateConfigForFile(
-      path.join(webRoot, 'src/screens/landing/LandingScreen.tsx'),
-    );
-    const typeAware = Object.entries(config.rules ?? {}).filter(([ruleId, entry]) => {
-      const severity = Array.isArray(entry) ? entry[0] : entry;
-      if (severity === 0 || severity === 'off') return false;
-      const slash = ruleId.lastIndexOf('/');
-      const plugin = slash === -1 ? undefined : config.plugins?.[ruleId.slice(0, slash)];
-      const rule = plugin?.rules?.[ruleId.slice(slash + 1)] as
-        { meta?: { docs?: { requiresTypeChecking?: boolean } } } | undefined;
-      return rule?.meta?.docs?.requiresTypeChecking === true;
-    });
+    for (const file of [
+      'src/screens/landing/LandingScreen.tsx',
+      'src/screens/landing/model/rules.ts',
+    ]) {
+      const config = await eslint.calculateConfigForFile(path.join(webRoot, file));
+      const typeAware = Object.entries(config.rules ?? {}).filter(([ruleId, entry]) => {
+        const severity = Array.isArray(entry) ? entry[0] : entry;
+        if (severity === 0 || severity === 'off') return false;
+        const slash = ruleId.lastIndexOf('/');
+        const plugin = slash === -1 ? undefined : config.plugins?.[ruleId.slice(0, slash)];
+        const rule = plugin?.rules?.[ruleId.slice(slash + 1)] as
+          { meta?: { docs?: { requiresTypeChecking?: boolean } } } | undefined;
+        return rule?.meta?.docs?.requiresTypeChecking === true;
+      });
 
-    expect(typeAware).toEqual([]);
+      expect([file, typeAware]).toEqual([file, []]);
+    }
   });
 
   it.each(forbiddenClasses)(
@@ -289,5 +298,204 @@ describe('screens sensor rules', { timeout: 60_000 }, () => {
     ]);
 
     expect(errorLines(messages, 'jsx-a11y/alt-text')).toEqual([2, 3, 4, 5]);
+  });
+});
+
+// Renderer-neutral model (src/screens/*/model/**, tests excluded). Each forbidden case is one line
+// that the rule under test must report.
+const modelFile = 'src/screens/landing/model/Case.ts';
+const modelRuleIds = ['no-restricted-imports', 'no-restricted-globals', 'no-restricted-syntax'];
+
+function modelRuleErrors(messages: Linter.LintMessage[]) {
+  return messages.filter(
+    (message) => modelRuleIds.includes(message.ruleId ?? '') && message.severity === 2,
+  );
+}
+
+const forbiddenModelImports: Array<[string, string]> = [
+  // One value import per family.
+  ['next', "import next from 'next';"],
+  ['a next subpath', "import { useRouter } from 'next/navigation';"],
+  ['react', "import { useState } from 'react';"],
+  ['react-dom', "import { createPortal } from 'react-dom';"],
+  ['react-native', "import { Platform } from 'react-native';"],
+  ['expo', "import { router } from 'expo-router';"],
+  ['a node: builtin', "import { readFileSync } from 'node:fs';"],
+  ['a bare node builtin', "import { readFileSync } from 'fs';"],
+  ['the Web alias to a feature entry', "import { ProfileScreen } from '@/screens/profile';"],
+  ['the Web alias outside screens', "import { mainRoutes } from '@/main/model/mainRoutes';"],
+  ['a package outside the allowlist', "import { format } from 'date-fns';"],
+  // One representative family per import syntax.
+  ['a type-only import', "import type { FC } from 'react';"],
+  ['an inline type specifier', "import { type FC } from 'react';"],
+  ['a re-export', "export { useState } from 'react';"],
+  ['export *', "export * from 'react';"],
+  ['import = require', "import React = require('react');"],
+];
+
+const forbiddenModelSyntax: Array<[string, string, string]> = [
+  ['a dynamic import', modelFile, "export const load = () => import('react');"],
+  ['a dynamic import of a model file', modelFile, "export const load = () => import('./rules');"],
+  ['an import type expression', modelFile, "export type Component = import('react').FC;"],
+  ['a require call', modelFile, "export const react: unknown = require('react');"],
+  ['a JSX element', 'src/screens/landing/model/Case.tsx', 'export const view = <div />;'],
+  ['a JSX fragment', 'src/screens/landing/model/Case.tsx', 'export const view = <></>;'],
+];
+
+const forbiddenModelGlobals: Array<[string, string]> = [
+  ['window', 'export const width = () => window.innerWidth;'],
+  ['document', 'export const title = () => document.title;'],
+  ['navigator', 'export const language = () => navigator.language;'],
+  ['location', 'export const pathname = () => location.pathname;'],
+  ['history', 'export const back = () => history.back();'],
+  ['localStorage', "export const saved = () => localStorage.getItem('draft');"],
+  ['sessionStorage', "export const draft = () => sessionStorage.getItem('draft');"],
+  ['indexedDB', "export const open = () => indexedDB.open('cache');"],
+  ['globalThis', 'export const host = () => globalThis.window;'],
+  ['self', 'export const origin = () => self.origin;'],
+  ['process.env', 'export const mode = () => process.env.NODE_ENV;'],
+];
+
+describe('screens model renderer-neutral rules', { timeout: 60_000 }, () => {
+  it.each(forbiddenModelImports)('rejects %s', async (_, source) => {
+    const messages = await lint(modelFile, [source]);
+
+    expect(importErrorLines(messages)).toEqual([1]);
+    expect(
+      messages.find((message) => message.ruleId === 'no-restricted-imports')?.message,
+    ).toContain(screensReadme);
+  });
+
+  it.each([0, 1, 2, 3, 4])(
+    'rejects relative imports that leave model/ at model depth %i',
+    async (depth) => {
+      const messages = await lint(`src/screens/landing/model/${'sub/'.repeat(depth)}Case.ts`, [
+        `import { inside } from '${depth === 0 ? './' : '../'.repeat(depth)}inside';`,
+        `import { outside } from '${'../'.repeat(depth + 1)}components/outside';`,
+      ]);
+
+      expect(importErrorLines(messages)).toEqual([2]);
+    },
+  );
+
+  it.each([0, 1, 2, 3, 4])(
+    'rejects a trailing .. that leaves model/ at model depth %i',
+    async (depth) => {
+      const messages = await lint(`src/screens/landing/model/${'sub/'.repeat(depth)}Case.ts`, [
+        `import { inside } from '${depth === 0 ? './' : '../'.repeat(depth)}index';`,
+        `import { LandingScreen } from '${depth === 0 ? './' : '../'.repeat(depth)}..';`,
+      ]);
+
+      expect(importErrorLines(messages)).toEqual([2]);
+    },
+  );
+
+  it.each(forbiddenModelSyntax)('rejects %s', async (_, file, source) => {
+    const messages = await lint(file, [source]);
+
+    expect(errorLines(messages, 'no-restricted-syntax')).toEqual([1]);
+    expect(
+      messages.find((message) => message.ruleId === 'no-restricted-syntax')?.message,
+    ).toContain(screensReadme);
+  });
+
+  it.each(forbiddenModelGlobals)('rejects the %s global', async (_, source) => {
+    const messages = await lint(modelFile, [source]);
+
+    expect(errorLines(messages, 'no-restricted-globals')).toEqual([1]);
+    expect(
+      messages.find((message) => message.ruleId === 'no-restricted-globals')?.message,
+    ).toContain(screensReadme);
+  });
+
+  it('keeps the allowlist, globals and syntax rules below the last depth block', async () => {
+    const messages = await lint('src/screens/landing/model/a/b/c/d/e/Case.ts', [
+      "import { useState } from 'react';",
+      'export const width = () => window.innerWidth;',
+      "export const load = () => import('./rules');",
+    ]);
+
+    expect(importErrorLines(messages)).toEqual([1]);
+    expect(errorLines(messages, 'no-restricted-globals')).toEqual([2]);
+    expect(errorLines(messages, 'no-restricted-syntax')).toEqual([3]);
+  });
+
+  it('allows model-relative paths, @repo/shared subpaths, zod and local names', async () => {
+    const root = await lint(modelFile, [
+      "import { z } from 'zod';",
+      "import type { CollegeCode } from '@repo/shared/college';",
+      "import { isoDateSchema } from '@repo/shared/date';",
+      "import { rules } from './rules';",
+      "import type { RuleSet } from './rules/types';",
+      'export const titleOf = (document: { title: string }) => document.title;',
+      "export const query = new URLSearchParams('page=1');",
+      'export const used = [z, isoDateSchema, rules] as const;',
+      'export type Used = [CollegeCode, RuleSet];',
+    ]);
+    const nested = await lint('src/screens/landing/model/rules/Case.ts', [
+      "import { base } from '../base';",
+      "import { local } from './local';",
+      'export const used = [base, local];',
+    ]);
+
+    expect(modelRuleErrors(root)).toEqual([]);
+    expect(modelRuleErrors(nested)).toEqual([]);
+  });
+
+  it('leaves files outside model/ and model tests to the screens rules', async () => {
+    for (const file of [
+      'src/screens/landing/LandingScreen.tsx',
+      'src/screens/landing/components/Hero.tsx',
+      'src/screens/landing/model/__tests__/rules.test.ts',
+      'src/screens/landing/model/rules.test.ts',
+    ]) {
+      const messages = await lint(file, [
+        "import { useState } from 'react';",
+        "import { describe } from 'vitest';",
+        'export const width = () => window.innerWidth;',
+        "export const load = () => import('next/navigation');",
+        'export const used = [useState, describe];',
+      ]);
+
+      expect([file, modelRuleErrors(messages)]).toEqual([file, []]);
+    }
+  });
+
+  it('keeps the Sentry path, the feature entry pattern and the raw value rules', async () => {
+    const model = 'src/screens/landing/model/rules.ts';
+    const [, modelImports] = (await ruleEntry(model, 'no-restricted-imports')) as [
+      unknown,
+      { paths: unknown[]; patterns: unknown[] },
+    ];
+    const [, featureImports] = (await ruleEntry(
+      'src/screens/landing/components/Hero.tsx',
+      'no-restricted-imports',
+    )) as [unknown, { paths: unknown[]; patterns: unknown[] }];
+    const modelSyntax = (await ruleEntry(model, 'no-restricted-syntax')) as unknown[];
+    const screenSyntax = (await ruleEntry(
+      'src/screens/landing/LandingScreen.tsx',
+      'no-restricted-syntax',
+    )) as unknown[];
+
+    expect(modelImports.paths).toEqual(featureImports.paths);
+    expect(modelImports.patterns).toContainEqual(featureImports.patterns[0]);
+    expect(modelSyntax.slice(1)).toEqual(expect.arrayContaining(screenSyntax.slice(1)));
+
+    const messages = await lint(modelFile, [
+      "import * as Sentry from '@sentry/nextjs';",
+      "import { ProfileCard } from '@/screens/profile/components/ProfileCard';",
+      "export const card = 'flex bg-slate-100';",
+    ]);
+    const importMessages = messages
+      .filter((message) => message.ruleId === 'no-restricted-imports')
+      .map((message) => [message.line, message.message]);
+
+    expect(importMessages).toEqual(
+      expect.arrayContaining([
+        [1, expect.stringContaining('Sentry SDK')],
+        [2, expect.stringContaining('공개 entry')],
+      ]),
+    );
+    expect(errorLines(messages, 'no-restricted-syntax')).toEqual([3]);
   });
 });
