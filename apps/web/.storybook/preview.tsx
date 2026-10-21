@@ -1,4 +1,5 @@
 import type { Preview } from '@storybook/nextjs-vite';
+import { fontVariablesClassName } from '../src/styles/fonts';
 import '../src/app/globals.css';
 import '../src/styles/knu.css';
 
@@ -103,11 +104,19 @@ const preview: Preview = {
     },
   },
   decorators: [
-    (Story) => (
-      <div className="min-h-screen bg-(--knu-background-alt) text-(--knu-text-primary)">
-        <Story />
-      </div>
-    ),
+    // Stories tagged knu-layer (token samples, src/screens) render on the new token layer and fonts.
+    (Story, { tags }) =>
+      tags.includes('knu-layer') ? (
+        <div
+          className={`${fontVariablesClassName} min-h-screen bg-layer-basement font-body text-fg-neutral`}
+        >
+          <Story />
+        </div>
+      ) : (
+        <div className="min-h-screen bg-(--knu-background-alt) text-(--knu-text-primary)">
+          <Story />
+        </div>
+      ),
   ],
   beforeEach: ({ parameters }) => {
     const matchingBaseline = parameters.matchingBaseline as { now?: string } | undefined;

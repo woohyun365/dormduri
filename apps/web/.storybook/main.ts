@@ -13,6 +13,8 @@ const config: StorybookConfig = {
     '../src/main/tabs/chat/**/*.stories.@(ts|tsx|mdx)',
     '../src/main/tabs/matching/**/*.stories.@(ts|tsx|mdx)',
     '../src/main/tabs/roommate-list/**/*.stories.@(ts|tsx|mdx)',
+    '../src/screens/**/*.stories.@(ts|tsx|mdx)',
+    '../src/styles/tokens/**/*.stories.@(ts|tsx|mdx)',
   ],
   addons: ['@storybook/addon-docs'],
   staticDirs: [],

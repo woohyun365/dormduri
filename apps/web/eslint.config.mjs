@@ -331,6 +331,7 @@ const eslintConfig = defineConfig([
     files: [
       'playwright.config.ts',
       'playwright.fullstack.config.ts',
+      'playwright.storybook.config.ts',
       'e2e/**/*.ts',
       'tests/e2e/**/*.ts',
     ],
