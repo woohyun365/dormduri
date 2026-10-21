@@ -75,7 +75,8 @@ src/screens/
 - import 허용 목록: 같은 `model/` 안 상대 경로, `@repo/shared/**`, `zod`. 그 밖(Next.js·React·React DOM·React Native·Expo·Node
   builtin·`@/` alias·목록 밖 package)은 값 import뿐 아니라 `import type`·inline `type`·`export … from`·`export *`·`import x = require()`도
   error입니다. 기능의 공개 entry(`@/screens/<기능>`)도 React 화면을 끌고 오므로 막힙니다.
-- 상대 경로: `model/` 밖으로 나가는 상대 경로(`../components/...`)는 error입니다. 파일 깊이별 검사는 `model/` 아래 네 단계까지입니다.
+- 상대 경로: `model/` 밖으로 나가는 상대 경로(`../components/...`, 기능 root를 가리키는 `'./..'`·`'../..'`)는 error입니다. 파일 깊이별
+  검사는 `model/` 아래 네 단계까지입니다.
   디렉터리 index는 `'.'`·`'..'` 대신 `'./index'`·`'../index'`처럼 파일 경로로 씁니다(허용 목록이 `'.'`·`'..'`를 막습니다).
   `model/` 파일은 `.ts`·`.tsx`입니다. `.js`·`.mjs`는 type 정보 project 밖이라 lint가 parsing error로 실패합니다.
 - 전역: `window`·`document`·`navigator`·`location`·`history`·`localStorage`·`sessionStorage`·`indexedDB`·`globalThis`·`self`·`process`는

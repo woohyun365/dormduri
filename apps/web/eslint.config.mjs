@@ -259,14 +259,15 @@ const screensModelBlocks = [
       'no-restricted-syntax': ['error', ...rawValuePatterns, ...modelSyntax],
     },
   },
-  // A file `depth` directories below model/ may climb `depth` levels.
+  // A file `depth` directories below model/ may climb `depth` levels. A trailing `..` counts as a
+  // level: '../..' from model/sub/ points at the feature root, which exports the React screen.
   ...[0, 1, 2, 3, 4].map((depth) => ({
     files: [`${modelRoot}/${'*/'.repeat(depth)}*.{ts,tsx}`],
     ignores: modelTestIgnores,
     rules: {
       'no-restricted-imports': modelImports([
         {
-          regex: String.raw`^(?:\./)?(?:\.\./){${depth + 1}}`,
+          regex: String.raw`^(?:\./)?(?:\.\.(?:/|$)){${depth + 1}}`,
           message: `model/ 밖의 파일은 상대 경로로 import하지 않습니다. model은 ${modelAllowlist}`,
         },
       ]),
