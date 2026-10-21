@@ -1,6 +1,6 @@
 # Web Playwright E2E
 
-Web Playwright는 두 lane으로 분리한다.
+Web Playwright는 세 lane으로 분리한다.
 
 ## Web-only smoke
 
@@ -53,6 +53,21 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts
 `HOME_E2E_SEED_MODE`는 `current-matching`, `future-preview`, `season-open`, `post-match`를 지원한다.
 Playwright matrix는 mode별로 seed를 reset하고, 직접 로그인 smoke를 제외한 케이스는 test-only session cookie를 사용한다.
 Playwright auth storage state는 `apps/web/playwright/.auth/`에 생성되며 git에 올리지 않는다.
+
+## Storybook story 검사
+
+```bash
+pnpm --dir apps/web ci:storybook:build
+pnpm --dir apps/web ci:storybook:visual
+```
+
+- `apps/web/playwright.storybook.config.ts`를 사용하고 `e2e/storybook/*.storybook.ts`만 수집한다. 기본 `playwright.config.ts`는 이 접미사를 수집하지 않는다.
+- Storybook static build(`storybook-static/`)를 `e2e/storybook/static-server.ts`(`node:http`)로 열고, `index.json`에서 `importPath`가 `./src/screens/`·`./src/styles/tokens/`인 story만 검사한다. 기존 story는 대상이 아니다.
+- story마다 page error·console error 0과, `document.fonts.ready` 뒤 `#storybook-root`의 axe(`wcag2a`·`wcag2aa`·`wcag21a`·`wcag21aa`·`wcag22aa`) 위반 0을 본다.
+- `visual` tag story는 Linux에서만 `toHaveScreenshot`(full page)으로 `e2e/storybook/stories.storybook.ts-snapshots/*-linux.png`와 비교한다. macOS 등에서는 렌더·axe만 돌고 스크린샷 test는 annotation과 함께 skip된다.
+- 기준 이미지는 CI runner와 같은 Linux(ubuntu 24.04 x86_64, `playwright install --with-deps chromium`)에서 만든다. 메인 checkout에 Linux `node_modules`를 설치하지 않고 저장소 밖 독립 clone과 container를 쓴다. 의도한 시각 변경은 같은 환경에서 `--update-snapshots`로 다시 만들어 함께 commit하고, 차이를 tolerance로 넓히지 않는다.
+- Storybook의 `next/font/google`은 글꼴을 build에 포함하지 않고 실행 때 `fonts.gstatic.com`에서 받는다. 그래서 이 검사는 network가 필요하다.
+- CI는 Storybook 변경(`.storybook`·story, `src/styles`·`src/screens`, 이 config와 `e2e/storybook`)에서 Web job의 Playwright 설치 뒤 `ci:storybook:visual`을 실행한다.
 
 ## Boundary
 
