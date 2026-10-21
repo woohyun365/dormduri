@@ -35,6 +35,8 @@ src/screens/
 - 기능 안에서는 상대 경로를 씁니다. 기능 root 밖으로 나가는 상대 경로(`../다른기능/...`, `../../ui/...`)는 lint error입니다.
   파일 깊이별 검사는 기능 root 아래 다섯 단계까지이고, 그보다 깊은 파일은 alias 규칙만 받습니다.
 - `@sentry/nextjs` 제한은 앱 전체와 같습니다.
+- `model/` 파일은 이보다 좁은 허용 목록을 받습니다. `@/screens/**`와, 기능 안이지만 `model/` 밖인 상대 경로도 막힙니다
+  ([model 경계](#model-경계)).
 
 ## lint와 값 규칙
 
@@ -86,8 +88,9 @@ src/screens/
   - `second-consumer-candidate`: 지금 없음. 두 번째 renderer를 승인할 때 정합니다
   - `not-worth-sharing`: 기존 화면 계층 model(`apps/web/src/main/model/**`). 검사하지 않습니다
 - 한계: 이 검사는 선언한 범위에서 정한 import·전역·문법을 막을 뿐이고, React Native에서 동작함을 보장하지 않습니다. 목록 밖 전역
-  (`matchMedia`·`getComputedStyle` 같은 이름), 문자열로 만든 경로, 상대 경로 중간의 `..`, `model/` 아래 네 단계보다 깊은 파일의
-  `model/` 밖 상대 경로는 lint가 보지 못합니다. `URL`·`URLSearchParams`·`fetch`·timer·`console`은 막지 않습니다. 리뷰에서 확인합니다.
+  (`matchMedia`·`getComputedStyle` 같은 이름), type 위치의 DOM 참조(`HTMLElement`·`MouseEvent` 같은 type 이름, `typeof window`),
+  문자열로 만든 경로, 상대 경로 중간의 `..`, `model/` 아래 네 단계보다 깊은 파일의 `model/` 밖 상대 경로는 lint가 보지 못합니다.
+  `URL`·`URLSearchParams`·`fetch`·timer·`console`은 막지 않습니다. 리뷰에서 확인합니다.
 - 결정과 기각한 대안은 [FE 결정 기록](../../../../docs/architecture/decisions/fe.md#component-architecture)입니다. 허용 목록 밖 package가
   필요하면 그 결정을 개정합니다.
 

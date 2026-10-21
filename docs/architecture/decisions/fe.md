@@ -46,9 +46,10 @@
   지역 변수(shared `legal/contract.ts`의 `document` 매개변수)를 통과시킨다. flat config는 같은 규칙을 다시 정한 뒤 블록의 option으로
   앞 option을 바꾸므로 model 블록이 앞 규칙을 다시 담고 test가 effective config로 확인한다. 새 JSX transform은 `react/jsx-runtime`
   import를 source에 쓰지 않아 import 규칙만으로는 JSX를 못 잡으므로 JSX 문법을 막는다. `process`는 `process.env`를 포함해 전역 전체를
-  막는다(React Native에 Node `process` 계약이 없다). 불확실성은 이름 목록 밖 전역, 문자열로 만든 경로, 상대 경로 중간의 `..`, model
-  깊이별 마지막 블록보다 깊은 파일의 `model/` 밖 상대 경로이고 리뷰가 맡는다. 결정적 PASS는 선언 범위 안의 판정이고 React Native 호환
-  PASS가 아니다. 비가역이 아니고 설정 revert로 되돌린다
+  막는다(React Native에 Node `process` 계약이 없다). 불확실성은 이름 목록 밖 전역, type 위치의 DOM 참조(`HTMLElement`·`MouseEvent`
+  같은 type 이름, `typeof window`), 문자열로 만든 경로, 상대 경로 중간의 `..`, model 깊이별 마지막 블록보다 깊은 파일의 `model/` 밖
+  상대 경로이고 리뷰가 맡는다. 결정적 PASS는 선언 범위 안의 판정이고 React Native 호환 PASS가 아니다. 비가역이 아니고 설정 revert로
+  되돌린다
 - 기각한 대안: TypeScript compiler API test(전역을 scope로 가리려면 type checker가 필요하고 editor 피드백이 없으며 판정 code가 두
   package에 중복된다), 파일 문자열 scan test(`document` 매개변수 오탐, 여러 줄 import 같은 문법 한계), 새 공통 ESLint preset(각
   package config에 블록만 더한다)

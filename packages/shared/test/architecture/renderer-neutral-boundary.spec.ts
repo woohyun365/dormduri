@@ -156,6 +156,7 @@ describe('shared renderer 중립 경계', { timeout: 60_000 }, () => {
   it('src 파일의 effective config가 세 규칙을 error로 갖고 test 파일은 갖지 않는다', async () => {
     for (const ruleId of boundaryRuleIds) {
       expect([ruleId, await severityOf('src/legal/contract.ts', ruleId)]).toEqual([ruleId, 2]);
+      expect([ruleId, await severityOf(fixtureFile, ruleId)]).toEqual([ruleId, 2]);
       expect([
         ruleId,
         await severityOf('test/architecture/public-export-surface.spec.ts', ruleId),
