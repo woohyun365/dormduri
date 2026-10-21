@@ -44,7 +44,7 @@
   (`apps/web/src/screens/__tests__/presentation-lint.test.ts`, `packages/shared/test/architecture/renderer-neutral-boundary.spec.ts`)
 - 근거: 새 화면 계층 lint와 같은 방식이라 editor와 기존 lint·test 명령이 돌고 새 dependency가 없다. Web model은 `pnpm lint`·
   `pnpm check`·CI Web lint가 막고, shared src 전체는 spec의 실제 src lint가 `pnpm shared:test`·CI shared 단계에서 막는다
-  (`pnpm shared:lint`도 src 전체를 lint한다). 전역 판정이 scope를 봐서 같은 이름의 지역 변수(shared `legal/contract.ts`의
+  (`pnpm shared:lint`도 src·test 전체를 lint한다). 전역 판정이 scope를 봐서 같은 이름의 지역 변수(shared `legal/contract.ts`의
   `document` 매개변수)를 통과시킨다. flat config는 같은 규칙을 다시 정한 뒤 블록의 option으로
   앞 option을 바꾸므로 model 블록이 앞 규칙을 다시 담고 test가 effective config로 확인한다. 새 JSX transform은 `react/jsx-runtime`
   import를 source에 쓰지 않아 import 규칙만으로는 JSX를 못 잡으므로 JSX 문법을 막는다. `process`는 `process.env`를 포함해 전역 전체를
