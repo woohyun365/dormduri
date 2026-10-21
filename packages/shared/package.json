@@ -222,7 +222,7 @@
   },
   "scripts": {
     "build": "rm -rf ./dist && tsc -p tsconfig.json",
-    "lint": "eslint src/**/*.ts test/**/*.ts vitest.config.ts",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" vitest.config.ts",
     "test": "pnpm build && pnpm test:prepared",
     "test:prepared": "vitest run --config ./vitest.config.ts",
     "typecheck:test": "tsc -p test/tsconfig.json --noEmit"

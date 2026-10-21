@@ -11,10 +11,11 @@ const prettier = require('eslint-config-prettier/flat');
 // excluded. Imports are an allowlist; browser and Node globals, dynamic import(), import('…') types
 // and require() are errors. There is no depth rule: tsc rootDir ./src rejects relative .ts imports
 // that leave src (TS6059), but an import type of a .d.ts outside the package passes both. The
-// renderer-neutral spec lints all of src (pnpm shared:test, CI); the lint script glob reaches only
-// part of src (#660). Limits: globals outside the list (matchMedia …), DOM references in type
-// positions (HTMLElement, typeof window), paths built from strings, import.meta,
-// /// <reference> directives, aliased require and require.resolve.
+// renderer-neutral spec lints all of src (pnpm shared:test, CI), and pnpm shared:lint lints all of
+// src and test.
+// Limits: globals outside the list (matchMedia …), DOM references in type positions (HTMLElement,
+// typeof window), paths built from strings, import.meta, /// <reference> directives, aliased
+// require and require.resolve.
 const screensReadme = 'apps/web/src/screens/README.md';
 const allowlist = `package 안 상대 경로와 zod만 import합니다. ${screensReadme}`;
 const rendererGlobals = [
