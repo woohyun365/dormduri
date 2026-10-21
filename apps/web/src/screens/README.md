@@ -85,9 +85,9 @@ src/screens/
 - 위 import 규칙(Sentry 제한·기능 내부 import 금지)과 값 규칙도 `model/` 파일에 그대로 걸립니다.
 - `packages/shared/src/**/*.ts`도 `packages/shared/eslint.config.mjs`에서 같은 전역·문법 규칙과 허용 목록(package 안 상대 경로, `zod`)을
   받습니다. 규칙 test는 `packages/shared/test/architecture/renderer-neutral-boundary.spec.ts`이고, 그 spec이 실제 src 전체를 lint해
-  `pnpm shared:test`·CI shared 단계에서 위반을 막습니다. `pnpm shared:lint`(`pnpm lint`·`pnpm check`가 부름)는 script glob이 shell에서
-  한 단계로 펼쳐져 src 일부만 봅니다([#660](https://github.com/woohyun365/knu_roommate/issues/660)). package 밖 상대 경로는 lint가 아니라
-  `tsc`의 `rootDir`(TS6059)가 `.ts` 파일에서 막고, package 밖 `.d.ts`를 가리키는 `import type`은 둘 다 통과합니다.
+  `pnpm shared:test`·CI shared 단계에서 위반을 막습니다. `pnpm shared:lint`(`pnpm lint`·`pnpm check`가 부름)도 glob을 ESLint에 넘겨
+  src·test 전체를 lint합니다. package 밖 상대 경로는 lint가 아니라 `tsc`의 `rootDir`(TS6059)가 `.ts` 파일에서 막고, package 밖
+  `.d.ts`를 가리키는 `import type`은 둘 다 통과합니다.
 - 경로 소속:
   - `portable-now`: `src/screens/*/model/**`와 `packages/shared/src/**/*.ts`(둘 다 test 파일 제외)
   - `web-only`: `src/screens`의 `model/` 밖 파일과 그 밖 `apps/web/src/**`(BFF·navigation·storage·route 포함)
