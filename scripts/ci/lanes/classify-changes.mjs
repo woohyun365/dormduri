@@ -36,14 +36,19 @@ export function isIntendedFanOut(rawPath) {
 
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
-// Web sources that the Storybook story check renders (token sources and the new screen layer) and
-// that check's own config and specs.
+// Web sources that the Storybook story check renders (token sources and the new screen layer, plus the
+// globals.css entry that imports the generated token CSS and the PostCSS config that runs Tailwind for the
+// Storybook build) and that check's own config and specs.
 const STORYBOOK_CHECK_PREFIXES = [
   'apps/web/src/styles/',
   'apps/web/src/screens/',
   'apps/web/e2e/storybook/',
 ];
-const STORYBOOK_CHECK_PATHS = new Set(['apps/web/playwright.storybook.config.ts']);
+const STORYBOOK_CHECK_PATHS = new Set([
+  'apps/web/playwright.storybook.config.ts',
+  'apps/web/src/app/globals.css',
+  'apps/web/postcss.config.mjs',
+]);
 
 function isStorybookInput(path) {
   return (

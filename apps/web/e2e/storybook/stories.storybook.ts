@@ -44,6 +44,14 @@ test('the static build has new screen or token stories', () => {
   expect(stories.length).toBeGreaterThan(0);
 });
 
+// The preview decorator renders only knu-layer stories on the new layer background and fonts, so axe
+// contrast and screenshots of a story without the tag would be judged on the legacy wrapper.
+test('every checked story renders on the new layer', () => {
+  expect(
+    stories.filter((story) => !story.tags?.includes('knu-layer')).map((story) => story.id),
+  ).toEqual([]);
+});
+
 for (const story of stories) {
   test.describe(`${story.title} / ${story.name}`, () => {
     test('renders without errors or axe violations', async ({ page }) => {

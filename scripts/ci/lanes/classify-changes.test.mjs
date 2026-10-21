@@ -206,6 +206,7 @@ test('token, new screen and Storybook check paths select the storybook lane', ()
     'apps/web/src/screens/landing/LandingScreen.tsx',
     'apps/web/playwright.storybook.config.ts',
     'apps/web/e2e/storybook/stories.storybook.ts',
+    'apps/web/postcss.config.mjs',
   ]) {
     assert.deepEqual(
       classifyChanges([path]),
@@ -229,15 +230,21 @@ test('token, new screen and Storybook check paths select the storybook lane', ()
   ]) {
     assert.equal(classifyChanges([path]).storybook, false, path);
   }
-  assert.deepEqual(classifyChanges(['apps/web/src/styles/tokens/README.md']), {
-    web: true,
-    api: false,
-    shared: false,
-    storybook: true,
-    infra: false,
-    repoPolicy: false,
-    agentWorkflow: true,
-  });
+  for (const path of ['apps/web/src/styles/tokens/README.md', 'apps/web/src/app/globals.css']) {
+    assert.deepEqual(
+      classifyChanges([path]),
+      {
+        web: true,
+        api: false,
+        shared: false,
+        storybook: true,
+        infra: false,
+        repoPolicy: false,
+        agentWorkflow: true,
+      },
+      path,
+    );
+  }
 });
 
 test('the storybook lane runs the static build and then the story visual check', () => {

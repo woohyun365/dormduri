@@ -87,8 +87,8 @@ Playwright는 desktop/mobile Chromium smoke를 제공하고, trace/screenshot/vi
 - Runtime env parser: `apps/web/src/config/env.schema.ts`, `apps/web/src/config/env.ts`
 - BFF proxy/security helper: `apps/web/src/app/api/_bff/security.ts`, `apps/web/src/app/api/_bff/forward.ts`
 - Vitest config/setup: `apps/web/vitest.config.ts`, `apps/web/src/test-setup.ts`
-- Playwright config/spec: `apps/web/playwright.config.ts`, `apps/web/playwright.fullstack.config.ts`, `apps/web/e2e/*`
-- Storybook config/spec: `apps/web/.storybook/*`, `apps/web/tsconfig.storybook.json`, `apps/web/src/main/tabs/home/__stories__/*`
+- Playwright config/spec: `apps/web/playwright.config.ts`, `apps/web/playwright.fullstack.config.ts`, `apps/web/playwright.storybook.config.ts`, `apps/web/e2e/*`, `apps/web/e2e/storybook/*`
+- Storybook config/spec: `apps/web/.storybook/*`, `apps/web/tsconfig.storybook.json`, `apps/web/src/main/tabs/home/__stories__/*`, `apps/web/src/styles/tokens/__stories__/*`, `apps/web/src/screens/**/*.stories.tsx`
 - Web Vitals seam: `apps/web/src/observability/*`
 
 ## Authoring rules
