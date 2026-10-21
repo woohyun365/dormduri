@@ -61,4 +61,6 @@
 
 ## 색인
 
-아직 layer 파일이 없습니다. 첫 layer 파일을 만드는 변경이 이 절에 행을 더합니다.
+| Layer 파일              | Pack layer                                                                  | 하위 layer 절            |
+| ----------------------- | --------------------------------------------------------------------------- | ------------------------ |
+| [FE 결정 기록](./fe.md) | [Domain/SWE/Web/FE](../../development/agent-workflows/domain/swe-web/fe.md) | `component-architecture` |
