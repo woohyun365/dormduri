@@ -30,6 +30,7 @@
     "inlinePackages": [
       "@aws-sdk/client-secrets-manager",
       "@aws-sdk/client-sesv2",
+      "@axe-core/playwright",
       "@nestjs/cli",
       "@nestjs/common",
       "@nestjs/config",
@@ -127,6 +128,7 @@
       "tailwindcss"
     ],
     "web-test-storybook": [
+      "@axe-core/playwright",
       "@playwright/test",
       "@storybook/addon-docs",
       "@storybook/nextjs-vite",

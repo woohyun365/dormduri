@@ -36,6 +36,27 @@ export function isIntendedFanOut(rawPath) {
 
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
+// Web sources that the Storybook story check renders (token sources and the new screen layer, plus the
+// globals.css entry that imports the generated token CSS and the PostCSS config that runs Tailwind for the
+// Storybook build) and that check's own config and specs.
+const STORYBOOK_CHECK_PREFIXES = [
+  'apps/web/src/styles/',
+  'apps/web/src/screens/',
+  'apps/web/e2e/storybook/',
+];
+const STORYBOOK_CHECK_PATHS = new Set([
+  'apps/web/playwright.storybook.config.ts',
+  'apps/web/src/app/globals.css',
+  'apps/web/postcss.config.mjs',
+]);
+
+function isStorybookInput(path) {
+  return (
+    STORYBOOK_PATTERN.test(path) ||
+    STORYBOOK_CHECK_PATHS.has(path) ||
+    STORYBOOK_CHECK_PREFIXES.some((prefix) => path.startsWith(prefix))
+  );
+}
 // Repository scripts that lane jobs run or import (workflow steps, pnpm scripts, the web image build) or that files
 // of a lane package import or read. A change re-runs those lanes; classify-changes.test.mjs derives the set from the
 // workflows, package scripts, package files and imports.
@@ -91,6 +112,7 @@ export const AGENT_TEST_PRODUCT_INPUTS = {
     'apps/web/src/main/tabs/profile/ProfileCompatibility.tsx',
     'apps/web/src/main/tabs/roommate-list/components/__tests__/RoommateSummaryCard.test.tsx',
     'apps/web/src/styles/knu.css',
+    'apps/web/src/styles/tokens/README.md',
     'packages/shared/src/legal/contract.ts',
   ],
   prefixes: ['apps/web/src/main/tabs/home/sections/activity/dialogs/'],
@@ -174,7 +196,7 @@ export function classifyChanges(paths) {
 
     if (path.startsWith('apps/web/')) {
       result.web = true;
-      result.storybook ||= STORYBOOK_PATTERN.test(path);
+      result.storybook ||= isStorybookInput(path);
       matched = true;
     }
 

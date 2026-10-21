@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "epoch": {
-    "id": "api-http-cookie-surface-removal-2026-09-12",
+    "id": "web-story-visual-check-axe-2026-10-21",
     "state": "collecting",
-    "capturedAt": "2026-09-12T07:20:24.463Z",
-    "baseSha": "5aa10390c64e671c4f50db736926b896d0fd6902",
+    "capturedAt": "2026-10-21T12:56:03.829Z",
+    "baseSha": "124795825ffcf59de81ce1a7a60240720e08c793",
     "fileSha256": {
-      "pnpm-lock.yaml": "93362f972e0571a16bc5c847b3de2766c57dae16d5124b6d619a6d7fce310ca1",
+      "pnpm-lock.yaml": "91d17a0958ad43348da8a4d68b037bf85b8a96253de6788137b10a518a5d4856",
       "pnpm-workspace.yaml": "4b3345720beb3b1703b509d4ac2764eb3eb913cb5afdfb24c79c8f848c7a578c",
       "infra/image-inventory.json": "f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0"
     },
@@ -64,8 +64,9 @@
     },
     "knownGaps": [
       "No hosted samples have been collected for this dependency fingerprint; five-run provisional p50 and ten-run p95 thresholds are not met.",
-      "The direct API cookie-parser and @types/cookie-parser removal changes the lockfile without upgrading package versions, workspace settings, or runtime images. Previous dependency cohorts remain closed and are not mixed with this cohort.",
-      "baseSha records the integration baseline before the bounded removal; fileSha256 identifies the candidate inputs, not a claim that the base commit contains them. Workflow samples must retain their actual run-head source SHA.",
+      "The Web test-only devDependency @axe-core/playwright 4.14.0 (with transitive axe-core 4.14.0) changes the lockfile without upgrading existing package versions, workspace settings, or runtime images. Previous dependency cohorts remain closed and are not mixed with this cohort.",
+      "The same change adds a Storybook story check step to Web CI for Storybook-owned changes, so Web runs that select Storybook are not comparable with earlier Storybook-build-only runs.",
+      "baseSha records the integration baseline before the bounded change; fileSha256 identifies the candidate inputs, not a claim that the base commit contains them. Workflow samples must retain their actual run-head source SHA.",
       "This rotation is CI measurement bookkeeping, not production release, provider, dependency upgrade, or performance-improvement evidence."
     ]
   }

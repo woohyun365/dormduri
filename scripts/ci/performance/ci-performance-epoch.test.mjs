@@ -12,6 +12,14 @@ import {
 const epochFixture = JSON.parse(
   readFileSync(resolve('scripts/ci/performance/fixtures/ci-performance-active-epoch.json'), 'utf8'),
 );
+const closedApiCookieRemovalEpochFixture = JSON.parse(
+  readFileSync(
+    resolve(
+      'scripts/ci/performance/fixtures/ci-performance-epoch-api-http-cookie-surface-removal-2026-09-12.json',
+    ),
+    'utf8',
+  ),
+);
 const closedFinalToolingSecurityEpochFixture = JSON.parse(
   readFileSync(
     resolve(
@@ -238,15 +246,29 @@ test('active measurement epoch matches the current dependency inputs', () => {
   });
 
   assert.deepEqual(fingerprint, {
-    epochId: 'api-http-cookie-surface-removal-2026-09-12',
+    epochId: 'web-story-visual-check-axe-2026-10-21',
     fileSha256: epoch.fileSha256,
-    sourceSha: '5aa10390c64e671c4f50db736926b896d0fd6902',
+    sourceSha: '124795825ffcf59de81ce1a7a60240720e08c793',
   });
   assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
     changedInputs: [],
     comparisonBaseSha: epoch.baseSha,
     comparisonEpochId: epoch.id,
     state: 'compatible-active-epoch',
+  });
+});
+
+test('closes the API cookie-removal epoch before collecting the Web story visual-check cohort', () => {
+  const closedEpoch = parseMeasurementEpoch(closedApiCookieRemovalEpochFixture);
+  assert.equal(closedEpoch.id, 'api-http-cookie-surface-removal-2026-09-12');
+  assert.equal(closedEpoch.state, 'closed');
+  assert.equal(closedEpoch.baseSha, '5aa10390c64e671c4f50db736926b896d0fd6902');
+  assert.deepEqual(closedEpoch.versions, parseMeasurementEpoch(epochFixture).versions);
+  assert.deepEqual(closedEpoch.fileSha256, {
+    'pnpm-lock.yaml': '93362f972e0571a16bc5c847b3de2766c57dae16d5124b6d619a6d7fce310ca1',
+    'pnpm-workspace.yaml': '4b3345720beb3b1703b509d4ac2764eb3eb913cb5afdfb24c79c8f848c7a578c',
+    'infra/image-inventory.json':
+      'f684f83d541aa696e1f7c9862f93acba9c95431138a0475139b761bb3bac73f0',
   });
 });
 
