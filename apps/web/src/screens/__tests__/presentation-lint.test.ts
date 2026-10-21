@@ -378,6 +378,18 @@ describe('screens model renderer-neutral rules', { timeout: 60_000 }, () => {
     },
   );
 
+  it.each([0, 1, 2, 3, 4])(
+    'rejects a trailing .. that leaves model/ at model depth %i',
+    async (depth) => {
+      const messages = await lint(`src/screens/landing/model/${'sub/'.repeat(depth)}Case.ts`, [
+        `import { inside } from '${depth === 0 ? './' : '../'.repeat(depth)}index';`,
+        `import { LandingScreen } from '${depth === 0 ? './' : '../'.repeat(depth)}..';`,
+      ]);
+
+      expect(importErrorLines(messages)).toEqual([2]);
+    },
+  );
+
   it.each(forbiddenModelSyntax)('rejects %s', async (_, file, source) => {
     const messages = await lint(file, [source]);
 
