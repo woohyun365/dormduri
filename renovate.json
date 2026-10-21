@@ -66,6 +66,7 @@
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["minor", "patch"],
       "matchPackageNames": [
+        "@axe-core/playwright",
         "@playwright/test",
         "@storybook/addon-docs",
         "@storybook/nextjs-vite",
