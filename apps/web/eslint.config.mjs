@@ -196,10 +196,12 @@ const screensRelativeDepthBlocks = [0, 1, 2, 3, 4, 5, 6].map((depth) => ({
 // browser and Node globals, dynamic import(), import('…') types, require() and JSX are errors.
 // These blocks come after the raw value block and replace its options, so they repeat the Sentry
 // path, the feature entry pattern and the raw value patterns. Model depth blocks keep relative
-// paths inside model/ down to the last screens depth block. Limits: globals outside the list
+// paths inside model/ down to the last screens depth block. The allowlist rejects bare '.' and
+// '..', so directory indexes are imported as './index'; model files are .ts/.tsx (a .js file is
+// outside the type-aware project and fails to parse). Limits: globals outside the list
 // (matchMedia …), DOM references in type positions (HTMLElement, typeof window), paths built from
-// strings, a `..` in the middle of a relative path, and files deeper than the last depth block
-// (allowlist only).
+// strings, a `..` in the middle of a relative path, files deeper than the last depth block
+// (allowlist only), import.meta, /// <reference> directives, aliased require and require.resolve.
 const modelRoot = 'src/screens/*/model';
 const modelTestIgnores = ['src/screens/**/__tests__/**', 'src/screens/**/*.{test,spec}.{ts,tsx}'];
 const modelAllowlist = `같은 model/ 안 상대 경로, @repo/shared/**, zod만 import합니다. ${screensReadme}`;

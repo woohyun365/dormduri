@@ -76,12 +76,17 @@ src/screens/
   builtin·`@/` alias·목록 밖 package)은 값 import뿐 아니라 `import type`·inline `type`·`export … from`·`export *`·`import x = require()`도
   error입니다. 기능의 공개 entry(`@/screens/<기능>`)도 React 화면을 끌고 오므로 막힙니다.
 - 상대 경로: `model/` 밖으로 나가는 상대 경로(`../components/...`)는 error입니다. 파일 깊이별 검사는 `model/` 아래 네 단계까지입니다.
+  디렉터리 index는 `'.'`·`'..'` 대신 `'./index'`·`'../index'`처럼 파일 경로로 씁니다(허용 목록이 `'.'`·`'..'`를 막습니다).
+  `model/` 파일은 `.ts`·`.tsx`입니다. `.js`·`.mjs`는 type 정보 project 밖이라 lint가 parsing error로 실패합니다.
 - 전역: `window`·`document`·`navigator`·`location`·`history`·`localStorage`·`sessionStorage`·`indexedDB`·`globalThis`·`self`·`process`는
   error입니다. 같은 이름의 지역 변수·매개변수는 통과합니다. 필요한 값은 `model/` 밖 Web 표현이 인자로 넘깁니다.
 - 문법: 동적 `import()`, `import('…')` type 표현, `require()`, JSX는 error입니다.
 - 위 import 규칙(Sentry 제한·기능 내부 import 금지)과 값 규칙도 `model/` 파일에 그대로 걸립니다.
 - `packages/shared/src/**/*.ts`도 `packages/shared/eslint.config.mjs`에서 같은 전역·문법 규칙과 허용 목록(package 안 상대 경로, `zod`)을
-  받습니다. 규칙 test는 `packages/shared/test/architecture/renderer-neutral-boundary.spec.ts`입니다.
+  받습니다. 규칙 test는 `packages/shared/test/architecture/renderer-neutral-boundary.spec.ts`이고, 그 spec이 실제 src 전체를 lint해
+  `pnpm shared:test`·CI shared 단계에서 위반을 막습니다. `pnpm shared:lint`(`pnpm lint`·`pnpm check`가 부름)는 script glob이 shell에서
+  한 단계로 펼쳐져 src 일부만 봅니다([#660](https://github.com/woohyun365/knu_roommate/issues/660)). package 밖 상대 경로는 lint가 아니라
+  `tsc`의 `rootDir`(TS6059)가 `.ts` 파일에서 막고, package 밖 `.d.ts`를 가리키는 `import type`은 둘 다 통과합니다.
 - 경로 소속:
   - `portable-now`: `src/screens/*/model/**`와 `packages/shared/src/**/*.ts`(둘 다 test 파일 제외)
   - `web-only`: `src/screens`의 `model/` 밖 파일과 그 밖 `apps/web/src/**`(BFF·navigation·storage·route 포함)
@@ -89,7 +94,8 @@ src/screens/
   - `not-worth-sharing`: 기존 화면 계층 model(`apps/web/src/main/model/**`). 검사하지 않습니다
 - 한계: 이 검사는 선언한 범위에서 정한 import·전역·문법을 막을 뿐이고, React Native에서 동작함을 보장하지 않습니다. 목록 밖 전역
   (`matchMedia`·`getComputedStyle` 같은 이름), type 위치의 DOM 참조(`HTMLElement`·`MouseEvent` 같은 type 이름, `typeof window`),
-  문자열로 만든 경로, 상대 경로 중간의 `..`, `model/` 아래 네 단계보다 깊은 파일의 `model/` 밖 상대 경로는 lint가 보지 못합니다.
+  문자열로 만든 경로, 상대 경로 중간의 `..`, `model/` 아래 네 단계보다 깊은 파일의 `model/` 밖 상대 경로, `import.meta`,
+  `/// <reference …>` 지시문, `require` 별칭 호출과 `require.resolve`는 lint가 보지 못합니다.
   `URL`·`URLSearchParams`·`fetch`·timer·`console`은 막지 않습니다. 리뷰에서 확인합니다.
 - 결정과 기각한 대안은 [FE 결정 기록](../../../../docs/architecture/decisions/fe.md#component-architecture)입니다. 허용 목록 밖 package가
   필요하면 그 결정을 개정합니다.
