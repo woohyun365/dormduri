@@ -28,16 +28,16 @@ Sonnet 5.5 high 경로를 같은 task로 함께 돌렸습니다. 측정 기준 c
 실행 전에 task·입력·정답(oracle)·오답 출력(fault)을 고정했습니다. 합성 4 task와, 실제 routine 추출 이력을 본뜬 저장소 파일 고정 사본
 4 task입니다. 사본은 commit `12479582`의 파일을 `git show`로 읽어 만들었습니다.
 
-| Task | 범주                      | 입력                                                       | 묻는 것                                                         | 함정                                                       | fault                             |
-| ---- | ------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------- |
-| T1   | 합성: 비슷한 id           | service 목록(56행)                                         | 다섯 id의 owner·port                                            | 자릿수·0이 다른 비슷한 id 다섯                             | 다른 id의 record를 답함           |
-| T2   | 합성: filter·순서         | inventory CSV(40행)                                        | region·status·port 조건을 만족하는 id(파일 순서)와 개수(정답 4) | 비슷한 region 이름·대소문자, 비활성 행, port 경계값        | 비슷한 region 행을 셈             |
-| T3   | 합성: 중첩 JSON 타입      | 설정 JSON                                                  | 여덟 경로의 값(number·string·boolean·null, `0`)                 | 같은 이름의 다른 경로, 0-based index                       | `false`를 문자열 `"false"`로      |
-| T4   | 합성: 없는 record         | record 목록                                                | 다섯 record의 found·owner·port                                  | 주석에만 있는 record, field 순서가 다른 record             | 없는 record를 지어낸 값으로 found |
-| T5   | 사본: 설정 값             | `package.json`                                             | `packageManager`, `engines.node`, script 두 개                  | `&&`·`<`가 든 명령 문자열                                  | script를 첫 명령에서 자름         |
-| T6   | 사본: 큰 파일의 줄 값     | `scripts/agents/claude/native-session.mjs`(2,457줄)        | 전체 줄 수와 네 줄의 원문(앞 공백 포함)                         | 기본 Read 한도 2,000줄을 넘는 두 줄                        | 줄 수가 하나 모자람               |
-| T7   | 사본: 표 → JSON           | `docs/development/agent-workflows/adapters/claude-code.md` | routine 표 9행의 role·profile·alias·effort·task·status          | 같은 역할·profile의 두 행, `—(미지원)`·`대체됨(등록 거부)` | 첫 행 상태를 다른 값으로          |
-| T8   | 사본: 여러 파일 존재 여부 | `docs/development/agent-workflows/`의 문서 넷              | heading 다섯 줄이 각 파일에 정확히 있는지(20칸)                 | 다른 heading의 접두인 heading                              | 접두 일치를 있음으로              |
+| Task | 범주                      | 입력                                                       | 묻는 것                                                                                                                         | 함정                                                       | fault                             |
+| ---- | ------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------- |
+| T1   | 합성: 비슷한 id           | service 목록(56행)                                         | 다섯 id의 owner·port                                                                                                            | 자릿수·0이 다른 비슷한 id 다섯                             | 다른 id의 record를 답함           |
+| T2   | 합성: filter·순서         | inventory CSV(40행)                                        | region·status·port 조건을 만족하는 id(파일 순서)와 개수(정답 4)                                                                 | 비슷한 region 이름·대소문자, 비활성 행, port 경계값        | 비슷한 region 행을 셈             |
+| T3   | 합성: 중첩 JSON 타입      | 설정 JSON                                                  | 여덟 경로의 값(number·string·boolean·null, `0`)                                                                                 | 같은 이름의 다른 경로, 0-based index                       | `false`를 문자열 `"false"`로      |
+| T4   | 합성: 없는 record         | record 목록                                                | 다섯 record의 found·owner·port                                                                                                  | 주석에만 있는 record, field 순서가 다른 record             | 없는 record를 지어낸 값으로 found |
+| T5   | 사본: 설정 값             | `package.json`                                             | `packageManager`, `engines.node`, script `check:fast`·`test:repo-policy`                                                        | `&&`·`<`가 든 명령 문자열                                  | script를 첫 명령에서 자름         |
+| T6   | 사본: 큰 파일의 줄 값     | `scripts/agents/claude/native-session.mjs`(2,457줄)        | 전체 줄 수(`wc -l` 방식, 끝 newline은 새 줄이 아님)와 131·1906·2120·2440줄의 원문(앞 공백 포함)                                 | 기본 Read 한도 2,000줄을 넘는 두 줄                        | 줄 수가 하나 모자람               |
+| T7   | 사본: 표 → JSON           | `docs/development/agent-workflows/adapters/claude-code.md` | routine 표 9행의 role·profile·alias·effort·task·status                                                                          | 같은 역할·profile의 두 행, `—(미지원)`·`대체됨(등록 거부)` | 첫 행 상태를 다른 값으로          |
+| T8   | 사본: 여러 파일 존재 여부 | `docs/development/agent-workflows/`의 문서 넷              | `## Routine adoption`·`## Recovery`·`### Configuration changes`·`## Closeout`·`### Severity` 줄이 각 파일에 정확히 있는지(20칸) | `## Recovery`가 `## Recovery ceiling`의 접두               | 접두 일치를 있음으로              |
 
 - 실행 전 검사: oracle 자기 일치 8/8, fault 거부 8/8, 다른 방법(다른 parser·줄 scan)으로 계산한 정답 교차 일치 8/8. Task 요청 문장 8개는
   intake에서 모두 `analyze`·low로 분류됐고, 두 경로의 spec은 모두 등록 자격 검사를 통과했습니다.
@@ -80,9 +80,10 @@ for f in orchestration session-continuity qa agent-execution-contract; do
 done
 ```
 
-합성 4 task의 입력·정답·fault, 사본 task의 정답, cohort 도구(spec 생성·자격 검사·응답 추출·oracle 비교·지표 수집·판정 계산), run별 registry
-기록과 transcript는 공개하지 않는 로컬 기록입니다. 사본 4 task의 입력은 위 명령으로 다시 만들 수 있고, 정답은 그 입력에서 다시 계산할 수
-있습니다. 합성 task는 이 문서만으로 다시 만들 수 없습니다.
+합성 4 task의 입력·정답·fault, 사본 task의 정답 파일과 task prompt 원문(답의 출력 형식), cohort 도구(spec 생성·자격 검사·응답 추출·oracle
+비교·지표 수집·판정 계산), run별 registry 기록과 transcript는 공개하지 않는 로컬 기록입니다. 사본 4 task의 입력은 위 명령으로 다시 만들 수
+있고, 정답 값은 그 입력과 표본 표의 묻는 것 칸에서 다시 계산할 수 있습니다. 합성 task, 실행 전 검사 결과, 6절 측정값(run별 응답·관측
+대조·효율)은 그 로컬 기록에서 나온 값이라 이 문서만으로 다시 만들거나 산출할 수 없고, 같은 조건으로 다시 돌린 결과는 새 표본입니다.
 
 ## 3. Baseline
 
