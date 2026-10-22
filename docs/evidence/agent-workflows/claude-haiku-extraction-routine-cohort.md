@@ -189,7 +189,8 @@ Task별 값입니다(oracle은 두 경로 모두 8 task 일치, 독립 QA PASS).
 - 실행 편차: 한 run의 Agent 호출에 background 옵션을 덧붙였습니다(모든 run이 background로 실행됐고 등록 prompt·역할·모델은 같음). 첫 등록
   때 pnpm이 의존성 2개를 자동으로 연결하고 root `prepare` script를 실행했습니다(ignored 경로뿐, tracked 변경 0, 첫 child 시작 전). 첫 run은
   run helper를 만들기 전이라 단계를 손으로 실행했고, 독립 QA runner가 그 spec·출력·oracle 판정을 기록 재실행과 대조했습니다.
-- 재측정 조건: CLI 버전이나 Haiku·Sonnet 모델 ID가 바뀔 때, 역할 effort나 profile·사다리를 바꿀 때, 추출 밖 작업 유형으로 넓힐 때.
+- 재측정 조건(DA-022 재검토와 같음): Haiku·Sonnet exact ID나 CLI의 alias 해석이 바뀔 때, 역할 effort·profile·사다리를 바꿀 때, 추출 밖으로
+  넓힐 때, routine 추출의 oracle 불일치나 결속 재시도가 관측될 때, 같은 작업 기준의 시간·비용 비교 자료가 생길 때.
 
 ## 8. Interview evidence map
 
