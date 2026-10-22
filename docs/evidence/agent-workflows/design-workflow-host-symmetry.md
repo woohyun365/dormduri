@@ -8,7 +8,8 @@
 
 이 문서는 두 host(Claude Code·Codex)가 같은 디자인 요청에서 다른 경로를 타던 구조를 하나의 공통 계약으로 통일한 기록입니다.
 측정 기준일은 2026-10-22이고, base는 `dev`의 `175b582e`, 변경은 issue #668 branch의 RED commit `14092c5f`, GREEN commit
-`f3f8a58d`, guard 목록 방식을 고친 commit `7016553f`입니다. 시각 품질·작업 시간의 개선은 비교군이 없어 주장하지 않고, 다시 산출할 수 있는 품질 신호만 씁니다.
+`f3f8a58d`, guard 목록 방식을 고친 commit `7016553f`, 독립 리뷰
+1회차의 low finding을 고친 commit `15508021`입니다. 시각 품질·작업 시간의 개선은 비교군이 없어 주장하지 않고, 다시 산출할 수 있는 품질 신호만 씁니다.
 
 ## 1. 문제와 관측
 
@@ -16,7 +17,7 @@
   공통 계약의 direct path를 탔습니다. 공통 visual 문서의 작업 표에 host 이름으로 나눈 routing 줄 두 개가 있었고, 두 adapter에
   host 전용 visual 절이 하나씩 있었습니다.
 - 그 routing의 근거가 약해졌습니다. 문서가 고정한 upstream revision `c184364c`는 2026-10-22 기준 upstream main(`6010f91a`)보다
-  80 commit 뒤였고 upstream main에는 `skills/redesign-skill`이 없었습니다. 남은 효과 근거는 2026-09-25 합성 HTML fixture 관측
+  80 commit 뒤였고, `c184364c`의 `skills/`에 있던 `redesign-skill`이 `6010f91a`에는 없었습니다. 남은 효과 근거는 2026-09-25 합성 HTML fixture 관측
   하나였고, 사람의 선호는 수집하지 않았습니다.
 - 회귀 test가 비대칭 문장 자체를 고정했습니다. 옛 test는 "Codex-only" 문장을 `assert.match` 세 개로 확인해, 통일하려면 test를
   고쳐야 했고 반대로 다른 문서에 host 전용 문장이 새로 들어와도 막지 않았습니다.
@@ -36,8 +37,10 @@ node --test scripts/ci/agents/common/agent-native-adapter-contract.test.mjs \
   scripts/ci/agents/common/visual-design-workflow-contract.test.mjs \
   scripts/ci/agents/claude/claude-adapter-structure.test.mjs scripts/ci/agents/codex/codex-adapter-structure.test.mjs \
   scripts/ci/agents/common/agent-document-graph.test.mjs scripts/ci/contracts/readme-responsibility.test.mjs
-# upstream 차이(2026-10-22)
-gh api repos/Leonxlnx/taste-skill/compare/c184364c58658b2f131b4ae8bd3d206cabb3deee...main --jq .ahead_by
+# upstream 차이(2026-10-22 기준 main `6010f91a`에 고정)
+gh api repos/Leonxlnx/taste-skill/compare/c184364c58658b2f131b4ae8bd3d206cabb3deee...6010f91a --jq .ahead_by
+gh api "repos/Leonxlnx/taste-skill/contents/skills?ref=c184364c58658b2f131b4ae8bd3d206cabb3deee" --jq ".[].name"
+gh api "repos/Leonxlnx/taste-skill/contents/skills?ref=6010f91a" --jq ".[].name"
 ```
 
 - guard ① 대상 줄 수는 RED commit에서 새 guard test가 옛 문서에 실패하며 보고한 줄 목록으로 셉니다.
@@ -82,7 +85,8 @@ base `175b582e`의 값입니다.
 
 - ① 금지 목록: visual-design 문서·두 adapter·두 fixture에 제거한 두 id와 Codex 전용 visual 문장이 없습니다.
 - ② skill root 대칭: `.claude/skills`·`.agents/skills`에서 ignore되지 않은 skill(CI checkout에서는 추적 skill과 같음) 가운데 이름에 design·visual·ui·taste가 든 것은 두 root에 모두 있습니다.
-- ③ host routing: 공통 orchestration 문서에 host 이름 뒤 쌍점으로 나눈 routing 줄이 없습니다.
+- ③ host routing: 공통 orchestration 문서에 host 이름(`Codex`·`Claude`·`Claude Code`, Markdown 강조 기호를 뺀 줄) 뒤 쌍점으로
+  나눈 routing 줄이 없습니다.
 
 ## 6. 개선별 전후 측정
 
@@ -101,7 +105,7 @@ base `175b582e`의 값입니다.
   세 guard의 합성 사례는 통과했습니다.
 - 문서 diff(base → GREEN)는 5개 파일 21줄 추가·81줄 삭제입니다. 이 문서가 더해진 뒤의 판정 grep은 이 문서의 전후 서술 줄을
   허용 잔여로 둡니다.
-- 합성 사례: ① 5줄(규칙마다 실패해야 할 줄과 통과해야 할 줄), ② 목록 2개, ③ 4줄을 test 안에 둡니다.
+- 합성 사례: ① 5줄(규칙마다 실패해야 할 줄과 통과해야 할 줄), ② 목록 2개, ③ 7줄을 test 안에 둡니다.
 
 규칙별 변이(GREEN commit의 독립 clone, 한 줄씩)입니다.
 
@@ -119,6 +123,12 @@ guard ②의 skill root 목록을 `git ls-files` 대신 ignore를 뺀 작업 tre
 파일 63개와 suite 규칙 test 8개가 통과했고, ignore 대상인 `.claude/skills/knu-design`만 만든 사본에서는 guard ②가 통과, ignore
 대상이 아닌 `.agents/skills/knu-design`만 만든 사본에서는 guard ② test가 실패했습니다.
 
+merge 전 독립 리뷰 1회차는 low finding 다섯 건을 냈고, 그 가운데 guard 범위 누락 두 건을 `15508021`에서 고쳤습니다. ③이
+`Claude Code:`·`**Codex**:` 줄을 놓쳤고, ② 목록이 ignore 경로에 force-add로 추적한 skill과 symlink skill을 뺐습니다. 그 commit에서
+관련 test 여섯 파일 63개가 통과했고, 위 네 경우(두 표기 줄, force-add한 `.claude/skills/design-x`, symlink `.agents/skills/visual-y`)는
+각각 해당 guard test만 실패했으며, 같은 경로를 추적하지 않은 ignore 사본은 통과했습니다. 같은 회차의 나머지 low는 문서 재현성
+(upstream 비교 대상 고정)과 옛 표의 host 무관 문장(복잡한 flow·IA 개편의 owner) 복원입니다.
+
 merge 전 독립 리뷰의 회차·verdict·finding 처분은 issue #668 PR 본문의 Verification 절이 원본입니다.
 
 ## 7. 한계와 재측정 조건
@@ -128,6 +138,8 @@ merge 전 독립 리뷰의 회차·verdict·finding 처분은 issue #668 PR 본�
 - ②의 `ui`는 부분 문자열이라 이름에 `ui`가 든 비시각 host 전용 skill(`guide`·`build` 등)도 걸립니다. 지금 추적 skill 이름에는 없습니다.
 - guard ①·②의 목록은 ignore를 뺀 작업 tree입니다. ignore되지 않은 untracked 사본이 로컬 `.agents/skills`에 있으면 로컬에서만
   guard ②가 걸립니다(CI checkout에는 없음).
+- ① 규칙 b는 Owner가 고른 범위대로 `Codex-only`·`Codex 전용`만 봅니다. `Claude 전용` 같은 다른 host 전용 visual 문장은 잡지 않고,
+  ③은 host 이름 뒤 쌍점 형태만 봅니다. 범위를 넓히려면 Owner 결정이 필요합니다.
 - 이 변경은 Home을 바꾸지 않습니다. 저장소 밖 Codex 개인 설치본을 옮기기 전까지 Codex는 그 skill 설명을 보고 스스로 고를 수
   있습니다. 다시 잴 조건은 다음 Codex 세션의 skill 목록입니다.
 - 시각 품질·작업 시간·token의 변화는 비교군이 없어 재지 않았습니다.
