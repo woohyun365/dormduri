@@ -491,18 +491,20 @@ test('visual freedom contracts separate copy classes, experiment authority and a
   assert.ok(review.includes('preserve/replace/retire'));
 });
 
-test('task-fit skill routing keeps source, installation and native qualification distinct', () => {
+test('design skill boundary keeps external skills as input and adoption states distinct', () => {
   const guide = read(`${visualRoot}/design-task-orchestration.md`);
+  const start = guide.indexOf('\n## 디자인 skill 경계\n');
+  assert.ok(start >= 0, '## 디자인 skill 경계');
+  const end = guide.indexOf('\n## ', start + 1);
+  const boundary = guide.slice(start, end === -1 ? undefined : end);
   for (const field of [
-    '## Task-fit skills',
-    'design-taste-frontend',
-    'redesign-existing-projects',
-    'c184364c58658b2f131b4ae8bd3d206cabb3deee',
-    'LICENSE',
+    '입력으로만',
+    'license',
+    'source-reviewed',
     'installed-unqualified',
     'native-qualified',
   ])
-    assert.ok(guide.includes(field), field);
+    assert.ok(boundary.includes(field), field);
 });
 
 test('visual delta corpus retains freedom and scoped skill negative cases', () => {
@@ -516,7 +518,11 @@ test('visual delta corpus retains freedom and scoped skill negative cases', () =
     ],
     'visual-approved-font-experiment': ['bounded-experiment', 'keep-or-revert'],
     'visual-unapproved-skill-side-effect': ['reject-external-side-effect', 'branch-not-sandbox'],
-    'visual-task-fit-skills': ['task-fit-primary', 'product-ia-owner'],
+    'visual-design-skill-choice': [
+      'common-visual-contract',
+      'external-skill-input-only',
+      'product-ia-owner',
+    ],
     'visual-missing-native-discovery': ['installed-unqualified', 'direct-fallback'],
   };
   for (const [id, signals] of Object.entries(required)) {
