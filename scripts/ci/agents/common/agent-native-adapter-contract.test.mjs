@@ -199,23 +199,37 @@ const VISUAL_WORD = /visual|Visual|디자인|UI/u;
 // `ui` is a substring match, so a non-visual host-only skill such as `guide` is reported too.
 const VISUAL_SKILL_NAME = /design|visual|ui|taste/iu;
 const SKILL_ROOTS = ['.claude/skills', '.agents/skills'];
-const HOST_ROUTING = /\b(?:Codex|Claude)\s*:/u;
+// A host name (`Codex`, `Claude`, `Claude Code`) followed by a colon, after Markdown emphasis marks are removed.
+const HOST_ROUTING = /\b(?:Codex|Claude(?: Code)?)\s*:/u;
+const MARKDOWN_EMPHASIS = /[*_`]/gu;
 
-// Agent workflow suite tests do not list the tracked tree, so these listings read the working tree and skip ignored
-// entries (personal `.claude/skills` copies outside the knu allowlist). In a CI checkout they equal the tracked set.
+// Agent workflow suite tests do not list the tracked tree, so these listings read the working tree and skip entries
+// that are ignored and untracked (personal `.claude/skills` copies outside the knu allowlist). The check reads the
+// index, so a force-added path stays listed; in a CI checkout the listings equal the tracked set.
+function ignoredAndUntracked(path) {
+  const result = spawnSync('git', ['check-ignore', '-q', path], { cwd: root });
+  assert.ok([0, 1].includes(result.status), result.stderr?.toString());
+  return result.status === 0;
+}
+
 function visualGuides() {
   return readdirSync(resolve(root, VISUAL_GUIDE_ROOT))
     .filter((name) => name.endsWith('.md'))
     .map((name) => `${VISUAL_GUIDE_ROOT}/${name}`)
-    .filter((path) => !isIgnored(path));
+    .filter((path) => !ignoredAndUntracked(path));
 }
 
 function skillRootListing() {
   return SKILL_ROOTS.flatMap((skillRoot) =>
     readdirSync(resolve(root, skillRoot), { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => `${skillRoot}/${entry.name}/SKILL.md`)
-      .filter((path) => !isIgnored(path)),
+      .filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
+      .map((entry) => ({ entry, path: `${skillRoot}/${entry.name}` }))
+      .filter(
+        ({ entry, path }) =>
+          !ignoredAndUntracked(path) ||
+          (entry.isDirectory() && !ignoredAndUntracked(`${path}/SKILL.md`)),
+      )
+      .map(({ path }) => `${path}/SKILL.md`),
   );
 }
 
@@ -253,7 +267,9 @@ function hostOnlyVisualSkills(listing) {
 function hostRoutingLines(path, text) {
   return text
     .split('\n')
-    .flatMap((line, index) => (HOST_ROUTING.test(line) ? [`${path}:${index + 1}`] : []));
+    .flatMap((line, index) =>
+      HOST_ROUTING.test(line.replace(MARKDOWN_EMPHASIS, '')) ? [`${path}:${index + 1}`] : [],
+    );
 }
 
 test('visual guard: removed skill ids and Codex-only visual sentences stay out of guides, adapters and fixtures', () => {
@@ -309,8 +325,11 @@ test('visual guard: the orchestration guide has no host-named routing lines', ()
   for (const [line, flagged] of [
     ['| Landing | Codex: `$x`; Claude: direct path |', true],
     ['Claude: 공통 계약 direct path', true],
+    ['Claude Code: frontend-design plugin을 쓴다.', true],
+    ['**Codex**: `$x`를 쓴다.', true],
     ['Codex에서는 이 역할을 위임 task로 연결합니다.', false],
     ['독립 리뷰는 `$knu-review`로 합니다.', false],
+    ['`pnpm codex:preflight`로 확인합니다.', false],
   ])
     assert.equal(hostRoutingLines(ORCHESTRATION, line).length > 0, flagged, line);
 

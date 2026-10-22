@@ -46,7 +46,8 @@ Claude Code와 Codex는 같은 경로(VisualBrief → 허용된 render → 독�
 visual skill routing을 두지 않습니다. 디자인 skill이 없어도 이 경로로 작업합니다.
 
 Skill은 VisualBrief의 보조 도구이며 mode·수정 권한·제품 사실·한국어/a11y·기존 표현/token owner를 덮어쓰지 않습니다.
-한 작업의 주 skill은 하나가 기본이고, 작은 maintain·비시각 작업에는 미호출이 정상입니다.
+한 작업의 주 skill은 하나가 기본이고, 작은 maintain·비시각 작업에는 미호출이 정상입니다. 복잡한 제품 flow·전면 IA 개편은
+VisualBrief와 domain/state/IA, 실제 render/critique가 owner이며 skill은 필요한 항목만 보조로 씁니다.
 
 저장소 밖 외부 디자인 skill과 그 참조 자료는 **입력으로만** 읽으며 설치하거나 호출하지 않습니다. 저장소에 들이는 것(vendoring)은
 고정 revision의 license·dependency·side effect를 판정하고 출처를 기록한 뒤 두 host에 같은 사본으로만 합니다. Skill을 들일 때는
