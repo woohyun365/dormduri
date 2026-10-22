@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
@@ -201,13 +201,22 @@ const VISUAL_SKILL_NAME = /design|visual|ui|taste/iu;
 const SKILL_ROOTS = ['.claude/skills', '.agents/skills'];
 const HOST_ROUTING = /\b(?:Codex|Claude)\s*:/u;
 
-function trackedFiles(...pathspecs) {
-  const result = spawnSync('git', ['ls-files', '--', ...pathspecs], {
-    cwd: root,
-    encoding: 'utf8',
-  });
-  assert.equal(result.status, 0, result.stderr);
-  return result.stdout.split('\n').filter(Boolean);
+// Agent workflow suite tests do not list the tracked tree, so these listings read the working tree and skip ignored
+// entries (personal `.claude/skills` copies outside the knu allowlist). In a CI checkout they equal the tracked set.
+function visualGuides() {
+  return readdirSync(resolve(root, VISUAL_GUIDE_ROOT))
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => `${VISUAL_GUIDE_ROOT}/${name}`)
+    .filter((path) => !isIgnored(path));
+}
+
+function skillRootListing() {
+  return SKILL_ROOTS.flatMap((skillRoot) =>
+    readdirSync(resolve(root, skillRoot), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => `${skillRoot}/${entry.name}/SKILL.md`)
+      .filter((path) => !isIgnored(path)),
+  );
 }
 
 function forbiddenVisualRules(path, line) {
@@ -259,7 +268,7 @@ test('visual guard: removed skill ids and Codex-only visual sentences stay out o
   ])
     assert.deepEqual(forbiddenVisualRules(path, line), expected, `${path}: ${line}`);
 
-  const guides = trackedFiles(`${VISUAL_GUIDE_ROOT}/*.md`);
+  const guides = visualGuides();
   assert.ok(guides.includes(ORCHESTRATION), ORCHESTRATION);
   const scope = [
     ...guides,
@@ -291,8 +300,8 @@ test('visual guard: design, visual, ui or taste skills exist in both repository 
     [],
   );
 
-  const listing = trackedFiles(...SKILL_ROOTS);
-  assert.ok(listing.length > 0, 'tracked skill roots');
+  const listing = skillRootListing();
+  assert.ok(listing.length > 0, 'repository skill roots');
   assert.deepEqual(hostOnlyVisualSkills(listing), []);
 });
 
