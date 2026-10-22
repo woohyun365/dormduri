@@ -163,33 +163,3 @@ light·reduced motion·scale 1, viewport **390×900 / 1280×900**과 **320×900*
 Owner preference는 **not-collected**, 승인된 외부 reference fidelity는 **not-applicable**, 인간 usability는 **unvalidated**입니다.
 전 조항 keyboard-only 탐색, screen reader, 전체 색상 대비·zoom·교차 브라우저, 실제 API/OS 동작, production/Storybook
 parity와 장치 성능은 이 로컬 하네스 검증으로 대신하지 않습니다. 제품 적용 시에는 해당 화면의 새 brief·승인·검증이 필요합니다.
-
-## Task-fit skill의 로컬 렌더 관측 — 2026-09-25
-
-[Task-fit routing](./design-task-orchestration.md#task-fit-skills)을 사용한 **Codex 환경의 관측**입니다. Landing형 `reimagine`에는
-`design-taste-frontend`, 기존 form형 `maintain`에는 `redesign-existing-projects`를 각각 적용했습니다.
-각 baseline/candidate는 같은 한국어 문구·지원 자격·필수 고지·mock 행동을 가진 독립 HTML fixture입니다.
-현재 production 화면의 복제나 채택된 새 디자인이 아니며, 폰트·package·API·DB·전역 설정은 변경하지 않았습니다.
-
-- 기존 파란색/class는 Landing candidate의 제약으로 상속하지 않았습니다. 대신 CTA 이름·행동·고지와
-  실제 text contrast·focus·touch target·reflow를 대체 검증으로 두었습니다. Form은 필드/action 구조를 유지했습니다.
-- 두 task의 baseline/candidate를 각각 320·390·767·768·1280×900, 1024×768에서 렌더했고,
-  form에는 390×560을 추가했습니다. 한 revision당 26개 context에서 실제 viewport와 PNG 크기를 대조했습니다.
-  Mobile touch emulation/tap과 Desktop mouse, 순차 Tab을 사용했으며 프로젝트 이름만으로 device를 판정하지 않았습니다.
-- Form의 idle/pending/error/명시적 mock success, pending 잠금·재시도·reset·resize 후 입력 보존,
-  320px text-spacing override를 확인했습니다. 공유 mock script는 baseline/candidate에서 동일합니다.
-- 독립 검토에서 Landing 제목의 한국어 단어 내부 줄바꿈을 관찰했습니다. `word-break: keep-all`과 긴 token의
-  emergency wrapping만 한 차례 적용하고 동일 matrix를 재캡처했습니다. Form에는 근거 없는 추가 수정을 하지 않았습니다.
-- Playwright 1.63.0 / Chromium 153.0.8010.12, macOS system font, ko-KR, light 환경·reduced motion·scale 1입니다.
-  페이지 외부 요청은 차단했고 시도·JS 오류는 0건이었습니다. 각 초기 viewport 캡처는 연속 hash가 같았습니다.
-  최초 sandbox의 MachPort 제한은 동일 로컬 renderer에 대한 host 승인으로 해소했습니다.
-
-Source·brief hash, 원본 HTML, 캡처, runner, 독립 critique·keep/revert는
-`.artifacts/plans/frontend-modernization-execution-index/frontend-visual-skill-adoption/2026-09-25/vd3/`의 로컬 관측 evidence입니다.
-다른 clone의 재현은 같은 [device packet](./device-presentation-and-verification.md#device-verification-packet)과
-새 artifact를 사용하며, skill 갱신·미노출·설치 복구는 [기존 설치/qualification 계약](./design-task-orchestration.md#installation-and-qualification-boundary)을 따릅니다.
-
-이는 유한한 synthetic workflow 검증입니다. Mock은 실제 인증·저장·자격 validation의 증거가 아니며,
-production/Storybook parity, 실제 OS keyboard·safe area, screen reader, 전체 zoom·WCAG·교차 browser는 미검증입니다.
-계산된 text contrast는 pseudo 배경 texture와 focus indicator 전체를 인증하지 않습니다. 사람의 선호·사용성 향상은
-미측정이며, 선택한 후보의 제품 채택은 별도 surface brief·권한·실제 동작 검증이 필요합니다.

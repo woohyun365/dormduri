@@ -1114,14 +1114,14 @@
     }
   },
   {
-    "id": "visual-task-fit-skills",
+    "id": "visual-design-skill-choice",
     "request": "Landing 소개 화면과 복잡한 Main form 개편에 어떤 디자인 skill과 작업 방식을 쓸지 분석해줘.",
     "expectedAuthority": "analyze",
     "expectedCapability": "visual-workflow",
     "input": {
-      "surfaceId": "visual-task-fit-skills",
+      "surfaceId": "visual-design-skill-choice",
       "mode": "new-surface",
-      "context": "두 작업의 task-fit만 분석한다. 제품 수정/설치/프로토타입은 허용하지 않는다.",
+      "context": "두 작업의 디자인 skill·작업 방식만 분석한다. 제품 수정/설치/프로토타입은 허용하지 않는다.",
       "sourcePaths": [
         "docs/development/agent-workflows/visual-design/design-task-orchestration.md"
       ],
@@ -1136,7 +1136,7 @@
     "expectations": {
       "disposition": "inspect",
       "evidence": ["response"],
-      "signals": ["task-fit-primary", "product-ia-owner"]
+      "signals": ["common-visual-contract", "external-skill-input-only", "product-ia-owner"]
     }
   },
   {

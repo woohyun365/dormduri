@@ -528,13 +528,13 @@
       "path": "docs/development/agent-workflows/visual-design/design-review-and-acceptance.md",
       "owner": "general development workflow owner",
       "kind": "domain",
-      "rationale": "bounded maker-checker와 사람의 방향 승인·technical QA 분리를 유지한다. 과거 visual/skill 관측과 현재 공통 계약은 구별한다."
+      "rationale": "bounded maker-checker와 사람의 방향 승인·technical QA 분리를 유지한다. 과거 visual 관측과 현재 공통 계약은 구별한다."
     },
     {
       "path": "docs/development/agent-workflows/visual-design/design-task-orchestration.md",
       "owner": "general development workflow owner",
       "kind": "domain",
-      "rationale": "연구/설계/구현/critic과 one-writer는 공통이다. role/effort/OMX 및 Taste/Redesign 호출은 Codex destination으로 분리한다. 최대 두 independent advisory lane과 maker/checker 최대 두 cycle은 공통 task-shape budget으로 유지하며 cap6/runtime concurrency와 분리한다."
+      "rationale": "연구/설계/구현/critic과 one-writer는 공통이다. role/effort/OMX 호출은 Codex destination으로 분리한다. 최대 두 independent advisory lane과 maker/checker 최대 두 cycle은 공통 task-shape budget으로 유지하며 cap6/runtime concurrency와 분리한다."
     },
     {
       "path": "docs/development/agent-workflows/visual-design/device-presentation-and-verification.md",

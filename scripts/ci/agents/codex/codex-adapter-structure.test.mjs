@@ -59,7 +59,6 @@ const KEPT = [
   '## Routine task-model operation',
   '## Skill과 workflow routing',
   '## 사용자 질문 수단',
-  '## Visual skill scope',
   '### 저장소 root와 runtime state 위치',
   '## OMX 종료 기록 경계',
 ];

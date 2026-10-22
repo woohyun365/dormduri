@@ -36,7 +36,6 @@ const KEPT = [
   '## 사용자 질문 수단',
   '## Plan continuity',
   '### 저장소 root와 runtime state 위치',
-  '## Project visual skills',
 ];
 
 const read = (path) => readFileSync(resolve(root, path), 'utf8');

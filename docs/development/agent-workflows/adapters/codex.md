@@ -177,10 +177,6 @@ Runtime이 없는 surface에서 team/ralph/ultrawork를 이름만 흉내 내지 
 - Default mode template의 "가정으로 진행"은 discovery 판정이 Defer·Infer인 항목에만 적용합니다. Escalate·Ask 항목은
   가정하지 않고 묻습니다.
 
-## Visual skill scope
-
-Taste (`design-taste-frontend`)와 Redesign (`redesign-existing-projects`)은 **Codex-only** task-fit 도구이며 공통 필수 skill이나 Claude 이식 대상이 아닙니다. 기존 personal Codex 설치는 보존하고 [선택·설치 경계](../visual-design/design-task-orchestration.md#task-fit-skills)를 따릅니다. 각 skill의 discovery/qualification은 별개이고 모델의 디자인 우열을 주장하지 않습니다.
-
 ## OMX 종료 기록 경계
 
 **Codex/OMX에서만:** `omx_wiki/`는 명시적으로 승격한 재사용 지식만 소유합니다. 세션 종료 메타데이터는 repository
