@@ -71,7 +71,7 @@ Auto mode 판정이 누락되면 [classifier no verdict 대응](../../troublesho
 `expectedResolvedModel`과 native 기록의 `resolvedModel`을 대조해 확인하며, 다르면 그 결과를 쓰지 않습니다. 권한 규칙처럼 이
 기록에 나타나지 않는 변경은 실제 허용·거절을 관측하기 전까지 적용됐다고 보지 않습니다.
 
-Routine 위임 대상은 live 관측(CLI 2.1.284~2.1.286, owner Home·OMC 로드)이 있는 역할×profile 조합뿐입니다. 관측은 해당 조합이
+Routine 위임 대상은 live 관측(CLI 2.1.284~2.1.306, owner Home·OMC 로드)이 있는 역할×profile 조합뿐입니다. 관측은 해당 조합이
 동작했다는 증거이지 가용성·품질 보장이 아닙니다. Q 행은 live 증거가 생길 때까지 routine으로 쓰지 않습니다.
 Live 증거는 필요조건일 뿐이며, Q 행을 routine으로 바꾸는 것은 이 표를 갱신하는 별도 채택 결정입니다.
 `Q(관측 <버전>, 채택 대기)`는 live 관측은 있지만 채택 결정 전인 Q 행입니다.
@@ -83,7 +83,7 @@ Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 
 
 | 역할                 | Profile              | Alias    | Effort    | 관측된 모델 ID               | 작업                 | 상태              |
 | -------------------- | -------------------- | -------- | --------- | ---------------------------- | -------------------- | ----------------- |
-| `knu_explorer_xhigh` | `bounded-extraction` | `haiku`  | xhigh     | `claude-haiku-5-5`(2.1.296)  | 고정 입력 추출       | Q                 |
+| `knu_explorer_xhigh` | `bounded-extraction` | `haiku`  | xhigh     | `claude-haiku-5-5`(2.1.306)  | 고정 입력 추출       | 관측              |
 | `knu_explorer`       | `bounded-extraction` | `haiku`  | —(미지원) | `claude-haiku-4-5-20251001`  | 고정 입력 추출       | 대체됨(등록 거부) |
 | `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | 고정 입력 추출       | 관측              |
 | `knu_executor`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.284) | bounded 구현·검증    | 관측              |
