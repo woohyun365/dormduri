@@ -17,7 +17,7 @@ severity가 높은 항목으로 판정합니다.
 - 질문: 옛 app과 새 app이 함께 도는 배포에서 열 삭제·이름 변경을 확장 뒤 축소 단계로 나누고, data가 있는 table에 기본값 없는 필수 열을 더하지 않으며, 서비스 중에 적용하는 migration이면 쓰기를 막는 index 생성·type 변경에 따른 table 재작성·대량 갱신을 피하거나 나누고, 파괴적 DDL을 사람 승인과 backup 확인 뒤에 실행하는가?
 - 기본 severity: `high`
 - 적용 조건: migration을 더하거나 바꾸는 변경
-- 결함 패턴: 열 삭제·이름 변경을 한 배포에 함(확장 뒤 축소 단계 없음), 기본값 없는 필수 열 추가, 쓰기를 막는 index 생성, type 변경으로 table을 다시 씀, migration 안의 대량 갱신, 사람 승인·backup 확인 없는 파괴적 DDL
+- 결함 패턴: 옛 app과 새 app이 함께 도는 배포에서 열 삭제·이름 변경을 한 배포에 함(확장 뒤 축소 단계 없음. 아직 배포하지 않은 baseline migration 편집은 해당 없음), 기본값 없는 필수 열 추가, 쓰기를 막는 index 생성, type 변경으로 table을 다시 씀, migration 안의 대량 갱신, 사람 승인·backup 확인 없는 파괴적 DDL
 - PASS 근거: 옛 app과 새 app이 함께 도는 배포면 열 삭제·이름 변경이 확장과 축소의 다른 배포로 나뉘어 있고, data가 있는 table의 필수 열 추가에는 기본값이나 나눠 채우는 단계가 있으며, 서비스 중에 적용하는 migration이면 index 생성·type 변경·대량 갱신이 쓰기를 막지 않는 생성 방식, 나눈 단계, migration 밖 작업 가운데 하나로 바뀌어 있고, 파괴적 DDL에는 사람 승인 지점과 backup 확인 기록이 있다
 - 지침: 옛 app과 새 app이 함께 도는 배포면 먼저 넓히고(새 열·table 추가, 양쪽에 쓰기) 새 app이 자리 잡은 뒤 좁힌다(옛 열 삭제). data가 있는 table에는 필수 열을 기본값과 함께 더하거나 나눠 채운다. 서비스 중에 적용하는 migration은 쓰기를 막지 않는 방식으로 index를 만들고, type 변경과 대량 갱신은 나눈 단계나 migration 밖 작업으로 옮긴다. 열·table 삭제 같은 파괴적 DDL은 agent가 계획·diff까지 만들고 사람이 backup을 확인해 승인한 뒤 실행한다
 - 피함: 옛 app과 새 app이 함께 도는 배포에서 열 삭제·이름 변경을 한 번에 하기, data가 있는 table에 기본값 없는 필수 열 더하기, 서비스 중에 table을 오래 잠그는 migration, 사람 승인 없는 파괴적 DDL
