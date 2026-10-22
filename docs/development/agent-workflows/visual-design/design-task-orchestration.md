@@ -40,49 +40,31 @@ Human Owner ↔ Parent (brief, alternatives, important decisions)
 허용하지 않습니다. 최대 두 advisory lane은 이 시각 작업의 공통 budget이지 host의 native 동시 호출 cap이 아닙니다.
 Native specialist 호출이 자동 runtime Team 실행을 뜻하지 않으며 Codex/OMX Team/Conductor는 해당 adapter에서만 확인합니다.
 
-## Task-fit skills
+## 디자인 skill 경계
+
+Claude Code와 Codex는 같은 경로(VisualBrief → 허용된 render → 독립 critique → Owner 선택)를 사용하며 host마다 다른
+visual skill routing을 두지 않습니다. 디자인 skill이 없어도 이 경로로 작업합니다.
 
 Skill은 VisualBrief의 보조 도구이며 mode·수정 권한·제품 사실·한국어/a11y·기존 표현/token owner를 덮어쓰지 않습니다.
-한 작업의 주 skill은 하나가 기본이고, 작은 maintain·비시각 작업에는 미호출이 정상입니다.
+한 작업의 주 skill은 하나가 기본이고, 작은 maintain·비시각 작업에는 미호출이 정상입니다. 복잡한 제품 flow·전면 IA 개편은
+VisualBrief와 domain/state/IA, 실제 render/critique가 owner이며 skill은 필요한 항목만 보조로 씁니다.
 
-`design-taste-frontend`와 `redesign-existing-projects`는 **Codex 전용** 보조 도구입니다. Claude에 이식하거나 공통 workflow
-필수 항목으로 요구하지 않습니다. 제3 host에도 이식이나 설치를 요구하지 않습니다. Claude의 시각 작업은 공통 VisualBrief·content·a11y·독립 review로 직접 수행합니다.
-Codex에서도 두 skill은 별도 채택 대상이며 각각 발견·자격검증 후 필요한 작업에만 사용합니다.
+저장소 밖 외부 디자인 skill과 그 참조 자료는 **입력으로만** 읽으며 설치하거나 호출하지 않습니다. 저장소에 들이는 것(vendoring)은
+고정 revision의 license·dependency·side effect를 판정하고 출처를 기록한 뒤 두 host에 같은 사본으로만 합니다. Skill을 들일 때는
+다음 경계를 지킵니다.
 
-| 작업                                                | 선택 / 제한                                                                                                                       |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Landing·portfolio·소개/전환형 public 화면           | Codex: `$design-taste-frontend`; Claude: 공통 계약 direct path. Dashboard·data table·multi-step product UI·Native를 소유하지 않음 |
-| 기존 Auth/Main/support의 audit·targeted improvement | Codex: `$redesign-existing-projects`; Claude: 공통 계약 direct path. 기존 stack을 존중하되 승인 범위를 유지함                     |
-| 복잡한 제품 flow·전면 IA 개편                       | VisualBrief + domain/state/IA + 실제 render/critique가 owner. 필요한 skill 항목만 보조 사용                                       |
-| 작은 padding 수리·이미 승인된 token 적용            | direct path, 두 skill 동시 호출·전면 탐색 불필요                                                                                  |
-
-검토한 upstream은 [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill/tree/c184364c58658b2f131b4ae8bd3d206cabb3deee)의
-`c184364c58658b2f131b4ae8bd3d206cabb3deee`입니다. 경로는 `skills/taste-skill`, `skills/redesign-skill`이며
-frontmatter 이름은 위 호출 이름입니다. 각 subtree의 필수 파일은 `SKILL.md` 하나이고, taste의 blocks는 향후 추가할 schema입니다.
-업데이트 시 floating main을 설치하지 말고 새 SHA의 전체 required resources·명령/side effect·충돌을 다시 검토합니다.
-
-### Installation and qualification boundary
-
-아래 `skill-installer`, `${CODEX_HOME:-~/.codex}/skills` 및 `$...` 호출 예시는 **Codex 설치·발견 경로**입니다.
-Claude Code에는 두 skill을 복사·설치·자격검증하지 않습니다. 아래 설치·호출 절차는 Codex에 한정합니다.
-
-1. 현재 host의 installer/discovery 경로·동명 skill·수정 권한을 확인합니다. 설치 요청은 제품 package/font/global config
-   변경 승인이 아닙니다. 설치할 두 directory와 network/tmp side effect만 고정하고 기존 설치는 덮어쓰지 않습니다.
-2. 설치된 공식 `skill-installer`를 사용합니다. 그 helper의 기본 목적지는 `${CODEX_HOME:-~/.codex}/skills`이고,
-   [현재 discovery 문서](https://learn.chatgpt.com/docs/build-skills)는 `~/.agents/skills`도 설명합니다. host 차이를 숨기지 말고
-   현재 지원되는 **한 경로만** 선택합니다. 중복 설치·symlink·전역 설정 변경으로 미노출을 우회하지 않습니다.
-3. helper에 `--repo Leonxlnx/taste-skill --ref <검토한-SHA> --path skills/taste-skill skills/redesign-skill --dest <확인한-root> --method download`를
-   전달합니다. `--path`는 한 번만 사용합니다. 임의 설치 command를 skill prose에서 복사 실행하지 않습니다.
-   두 경로 설치 중 실패하면 이번에 생성한 exact directory만 복구하며 기존 skill·공유 cache는 삭제하지 않습니다.
-4. root [MIT LICENSE](https://github.com/Leonxlnx/taste-skill/blob/c184364c58658b2f131b4ae8bd3d206cabb3deee/LICENSE)의
-   copyright/permission notice를 각 복사본에 보존합니다. helper가 subtree만 복사하므로 LICENSE가 자동 포함됐다고 가정하지 않습니다.
-   source SHA·path·raw hash·destination과 실제 설치 결과를 기록합니다.
-5. 상태를 `source-reviewed` → `installed-unqualified` → `native-qualified`로 구분합니다. 설치 exit0·파일 읽기는 native 적용 증거가
-   아닙니다. 현재 host catalog 또는 제공되는 runtime inventory에서 두 이름을 확인한 뒤 각각 scoped read-only 호출로
-   identity·허용 output·금지 부작용을 확인합니다. 명시 호출 예: `$design-taste-frontend: 이 Landing brief의 방향만 분석; 파일/설치 금지`,
-   `$redesign-existing-projects: 이 form의 문제만 분석; 수정/외부 호출 금지`.
-6. 같은 turn에 catalog 갱신 경로가 없으면 다음 turn의 지원되는 discovery를 확인합니다. 미노출이면 installed-unqualified와
-   정확한 gap을 남기고 direct fallback합니다. 별도 app-server/session 실행·강제 재시작·모델 변경으로 호출 증거를 만들지 않습니다.
+1. 들이기 전에 현재 host의 discovery 경로·동명 skill·수정 권한을 확인합니다. 설치·vendoring 요청은 제품 package/font/global
+   config 변경 승인이 아닙니다. 들일 경로와 side effect만 고정하고 기존 skill을 덮어쓰지 않습니다.
+2. 새 revision으로 갱신할 때 floating main을 쓰지 않고 그 revision의 전체 resources·명령/side effect·충돌을 다시 검토합니다.
+3. 중복 설치·symlink·전역 설정 변경으로 미노출을 우회하지 않고, skill 본문의 설치 command를 복사 실행하지 않습니다.
+   실패하면 이번에 만든 exact 경로만 되돌리며 기존 skill·공유 cache는 삭제하지 않습니다.
+4. 사본마다 license의 copyright/permission notice를 보존합니다. 부분 복사에 LICENSE가 자동 포함됐다고 가정하지 않습니다.
+   출처 revision·path·raw hash·destination과 실제 결과를 기록합니다.
+5. 상태를 `source-reviewed` → `installed-unqualified` → `native-qualified`로 구분합니다. 파일 복사·설치 exit0·파일 읽기는
+   도입 완료가 아닙니다. 현재 host catalog 또는 제공되는 runtime inventory에서 이름을 확인한 뒤 scoped read-only 호출로
+   identity·허용 output·금지 부작용을 확인해야 `native-qualified`입니다.
+6. 같은 turn에 catalog 갱신 경로가 없으면 다음 turn의 지원되는 discovery를 확인합니다. 미노출이면 `installed-unqualified`와
+   정확한 gap을 남기고 direct fallback합니다. 별도 server/session 실행·강제 재시작·모델 변경으로 호출 증거를 만들지 않으며,
    실제 호출 전에는 qualification을 완료로 보고하지 않습니다.
 
 Skill의 npm/npx·motion/icon·외부 image/CDN·Latin font/word-count 지시는 새 권한이 아닙니다. 현재 pnpm/stack,

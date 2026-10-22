@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
@@ -189,28 +189,151 @@ test('Claude private runtime state stays ignored while both host adapters have e
   );
 });
 
-test('Taste and Redesign remain Codex-only and are not Claude project skills', () => {
-  for (const skill of ['design-taste-frontend', 'redesign-existing-projects']) {
-    for (const file of ['SKILL.md', 'LICENSE', 'SOURCE.json']) {
-      const path = `.claude/skills/${skill}/${file}`;
-      assert.equal(existsSync(resolve(root, path)), false, `${path}: skill must not be ported`);
-      assert.equal(isIgnored(path), true, `${path}: skill must not be allowlisted`);
-    }
-  }
+// Both hosts follow one visual-design contract. Three structural guards keep host-specific visual skill
+// routing out of the tracked guides, adapters, fixtures and skill roots; each rule reports its own hits.
+const VISUAL_GUIDE_ROOT = 'docs/development/agent-workflows/visual-design';
+const ORCHESTRATION = `${VISUAL_GUIDE_ROOT}/design-task-orchestration.md`;
+const REMOVED_VISUAL_SKILL_IDS = /design-taste-frontend|redesign-existing-projects/u;
+const CODEX_ONLY = /Codex-only|Codex 전용/u;
+const VISUAL_WORD = /visual|Visual|디자인|UI/u;
+// `ui` is a substring match, so a non-visual host-only skill such as `guide` is reported too.
+const VISUAL_SKILL_NAME = /design|visual|ui|taste/iu;
+const SKILL_ROOTS = ['.claude/skills', '.agents/skills'];
+// A host name (`Codex`, `Claude`, `Claude Code`) followed by a colon, after Markdown emphasis marks are removed.
+const HOST_ROUTING = /\b(?:Codex|Claude(?: Code)?)\s*:/u;
+const MARKDOWN_EMPHASIS = /[*_`]/gu;
 
-  const claude = read('docs/development/agent-workflows/adapters/claude-code.md');
-  const codex = read('docs/development/agent-workflows/adapters/codex.md');
-  const design = read(
-    'docs/development/agent-workflows/visual-design/design-task-orchestration.md',
+// Agent workflow suite tests do not list the tracked tree, so these listings read the working tree and skip entries
+// that are ignored and untracked (personal `.claude/skills` copies outside the knu allowlist). The check reads the
+// index, so a force-added path stays listed; in a CI checkout the listings equal the tracked set.
+function ignoredAndUntracked(path) {
+  const result = spawnSync('git', ['check-ignore', '-q', path], { cwd: root });
+  assert.ok([0, 1].includes(result.status), result.stderr?.toString());
+  return result.status === 0;
+}
+
+function visualGuides() {
+  return readdirSync(resolve(root, VISUAL_GUIDE_ROOT))
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => `${VISUAL_GUIDE_ROOT}/${name}`)
+    .filter((path) => !ignoredAndUntracked(path));
+}
+
+function skillRootListing() {
+  return SKILL_ROOTS.flatMap((skillRoot) =>
+    readdirSync(resolve(root, skillRoot), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
+      .map((entry) => ({ entry, path: `${skillRoot}/${entry.name}` }))
+      .filter(
+        ({ entry, path }) =>
+          !ignoredAndUntracked(path) ||
+          (entry.isDirectory() && !ignoredAndUntracked(`${path}/SKILL.md`)),
+      )
+      .map(({ path }) => `${path}/SKILL.md`),
   );
-  const codexOnlySkills =
-    /Taste \(`design-taste-frontend`\)와 Redesign \(`redesign-existing-projects`\)은 \*\*Codex-only\*\*/u;
-  assert.match(claude, codexOnlySkills);
-  assert.match(
-    codex,
-    /Taste \(`design-taste-frontend`\)와 Redesign \(`redesign-existing-projects`\)은 \*\*Codex-only\*\*/u,
+}
+
+function forbiddenVisualRules(path, line) {
+  const rules = [];
+  if (REMOVED_VISUAL_SKILL_IDS.test(line)) rules.push('removed-id');
+  // Every Codex-only line of a visual-design guide is visual; elsewhere the line must name visual work.
+  if (CODEX_ONLY.test(line) && (path.includes('/visual-design/') || VISUAL_WORD.test(line)))
+    rules.push('codex-only-visual');
+  return rules;
+}
+
+function forbiddenVisualLines(path, text) {
+  return text
+    .split('\n')
+    .flatMap((line, index) =>
+      forbiddenVisualRules(path, line).map((rule) => `${path}:${index + 1} ${rule}`),
+    );
+}
+
+function hostOnlyVisualSkills(listing) {
+  const [claude, codex] = SKILL_ROOTS.map(
+    (skillRoot) =>
+      new Set(
+        listing
+          .filter((path) => path.startsWith(`${skillRoot}/`))
+          .map((path) => path.split('/')[2]),
+      ),
   );
-  assert.match(design, /`design-taste-frontend`.*`redesign-existing-projects`.*Codex 전용/su);
+  return [...new Set([...claude, ...codex])]
+    .filter((name) => VISUAL_SKILL_NAME.test(name) && !(claude.has(name) && codex.has(name)))
+    .map((name) => `${name} only in ${claude.has(name) ? SKILL_ROOTS[0] : SKILL_ROOTS[1]}`);
+}
+
+function hostRoutingLines(path, text) {
+  return text
+    .split('\n')
+    .flatMap((line, index) =>
+      HOST_ROUTING.test(line.replace(MARKDOWN_EMPHASIS, '')) ? [`${path}:${index + 1}`] : [],
+    );
+}
+
+test('visual guard: removed skill ids and Codex-only visual sentences stay out of guides, adapters and fixtures', () => {
+  const guide = `${VISUAL_GUIDE_ROOT}/example.md`;
+  const adapter = 'docs/development/agent-workflows/adapters/codex.md';
+  for (const [path, line, expected] of [
+    [adapter, 'UI 방향은 `design-taste-frontend`를 쓴다.', ['removed-id']],
+    [adapter, 'Visual 작업은 **Codex 전용** 절차를 따른다.', ['codex-only-visual']],
+    [guide, '이 단계는 Codex 전용이다.', ['codex-only-visual']],
+    [adapter, '`pnpm codex:preflight`는 Codex 전용 명령이다.', []],
+    [guide, 'Taste 계열 외부 skill은 입력으로만 읽는다.', []],
+  ])
+    assert.deepEqual(forbiddenVisualRules(path, line), expected, `${path}: ${line}`);
+
+  const guides = visualGuides();
+  assert.ok(guides.includes(ORCHESTRATION), ORCHESTRATION);
+  const scope = [
+    ...guides,
+    'docs/development/agent-workflows/adapters/claude-code.md',
+    adapter,
+    'scripts/ci/agents/common/fixtures/visual-capability-cases.json',
+    'scripts/ci/agents/common/fixtures/workflow-document-owners.json',
+  ];
+  assert.deepEqual(
+    scope.flatMap((path) => forbiddenVisualLines(path, read(path))),
+    [],
+  );
+});
+
+test('visual guard: design, visual, ui or taste skills exist in both repository skill roots', () => {
+  assert.deepEqual(
+    hostOnlyVisualSkills([
+      '.claude/skills/knu-design/SKILL.md',
+      '.agents/skills/knu-review/SKILL.md',
+      '.agents/skills/visual-check/SKILL.md',
+    ]),
+    ['knu-design only in .claude/skills', 'visual-check only in .agents/skills'],
+  );
+  assert.deepEqual(
+    hostOnlyVisualSkills([
+      '.claude/skills/knu-design/SKILL.md',
+      '.agents/skills/knu-design/SKILL.md',
+    ]),
+    [],
+  );
+
+  const listing = skillRootListing();
+  assert.ok(listing.length > 0, 'repository skill roots');
+  assert.deepEqual(hostOnlyVisualSkills(listing), []);
+});
+
+test('visual guard: the orchestration guide has no host-named routing lines', () => {
+  for (const [line, flagged] of [
+    ['| Landing | Codex: `$x`; Claude: direct path |', true],
+    ['Claude: 공통 계약 direct path', true],
+    ['Claude Code: frontend-design plugin을 쓴다.', true],
+    ['**Codex**: `$x`를 쓴다.', true],
+    ['Codex에서는 이 역할을 위임 task로 연결합니다.', false],
+    ['독립 리뷰는 `$knu-review`로 합니다.', false],
+    ['`pnpm codex:preflight`로 확인합니다.', false],
+  ])
+    assert.equal(hostRoutingLines(ORCHESTRATION, line).length > 0, flagged, line);
+
+  assert.deepEqual(hostRoutingLines(ORCHESTRATION, read(ORCHESTRATION)), []);
 });
 
 test('repository preparation and future live qualification are distinct completion claims', () => {

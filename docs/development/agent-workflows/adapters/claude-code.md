@@ -196,10 +196,3 @@ Claude Parent 기본값은 **Opus 5.5 high**입니다. Framing·통합 추론 �
 - Agent가 만든 screenshot·log·검증 출력은 `.omc`가 아니라 [`.artifacts/`](../../../../.artifacts/README.md#배치-규칙)에 둡니다.
 - `pnpm check:fast`(pre-commit)는 `scripts/git/workspace-layout-check.mjs`로 root 밖 `.omc`·`.omx`와 이름을 바꾸기 전의 local 작업 공간 root를 탐지해 commit을 멈춥니다. 탐지이지 차단 장치가 아니므로 발견하면 내용을 옮기고
   원인이 된 작업 위치를 바로잡습니다.
-
-## Project visual skills
-
-Taste (`design-taste-frontend`)와 Redesign (`redesign-existing-projects`)은 **Codex-only**입니다. Claude에 이식·설치·호출하지
-않으며 개인 Codex skill을 수정하지 않습니다. Claude UI 작업은 공통 VisualBrief/content/a11y/독립 검토 계약을 직접
-따르고 대체 skill 설치를 요구하지 않습니다. [Visual skill 선택](../visual-design/design-task-orchestration.md#task-fit-skills)을
-참고합니다.

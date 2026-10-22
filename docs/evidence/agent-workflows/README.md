@@ -11,3 +11,4 @@ Agent workflow 개선의 측정값, 설계 근거, 사례 기록입니다. Codin
 | [Agentic Engineering methodology](./agentic-engineering-methodology.md)         | AI 시대에 선택한 개발 방식, 적용 수준과 한계                                                      |
 | [Agentic orchestration case study](./agentic-orchestration-case-study.md)       | evidence 기반 parent–subagent 설계의 문제·대안·구현·검증·한계(당시 Codex 사례)                    |
 | [Review criteria calibration evidence](./review-criteria-calibration.md)        | 영역 리뷰 기준을 준 reviewer와 기준 없는 reviewer의 결함 재발견률·오탐 처분·비용 교정(2026-10-19) |
+| [Design workflow host symmetry evidence](./design-workflow-host-symmetry.md)    | 두 host 디자인 workflow 통일의 대안 판정, 규칙별 구조 guard와 전후 품질 신호(2026-10-22)          |

@@ -53,7 +53,7 @@ KNU 미감을 의무로 삼지는 않지만 실제 지원 대상·가입 자격�
 [폰트·dependency 실험](./visual-brief.md#bounded-dependency-and-font-experiments),
 [미감 assertion 전환](./design-review-and-acceptance.md#assertion-transition-before-ui-changes)을 해당 작업에만 적용합니다.
 한국어 가독성·핵심 문구/CTA 위계·실제 상태/행동을 관찰하며 “AI-slop 0%”나 사용자 효과를 점수로 보장하지 않습니다.
-[task-fit skill](./design-task-orchestration.md#task-fit-skills)은 보조 도구이며 미설치 시에도 기존 direct workflow를 사용합니다.
+외부 디자인 skill은 [디자인 skill 경계](./design-task-orchestration.md#디자인-skill-경계)대로 입력으로만 쓰고, 두 host는 skill 없이도 같은 direct workflow를 사용합니다.
 
 ## Source hierarchy
 
