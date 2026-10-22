@@ -445,6 +445,43 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   중첩 `apply_patch`는 비ignored 새 파일(untracked)에서 deny, ignored 경로에서 기록만 되었고, 수락 뒤 같은 경로는 허용되었습니다. `fork_turns` `"2"`도 deny였습니다.
 - **재검토**: hook 범위·matcher alias·trust 동작 변화, code mode의 hook 우회 관측, Claude file guard 변경이 생길 때입니다.
 
+<a id="claude-extraction-routine"></a>
+
+## DA-022 — Claude 고정 입력 추출 routine에 Haiku 5.5 xhigh 경로를 사전 고정 cohort 근거로 채택
+
+- **상태/결정일**: accepted, 2026-10-22(Owner). Claude adapter 결정이며 Codex cohort(DA-017·018)에 들어가지 않습니다. 근거의 형태는
+  DA-017의 Luna `extract` 채택(사전 고정 task·executable oracle·독립 QA)을 따릅니다. 현재 routine 조합은
+  [Claude routine operation](./adapters/claude-code.md#routine-operation) 표가, 역할·profile·상향 사다리는
+  [Claude model profiles](./adapters/claude-model-profiles.md)와 [model policy](../../../scripts/agents/claude/model-policy.mjs)가 소유합니다.
+- **문제/근거**: Claude의 고정 입력 단일 추출(kind `extract`) routine은 `knu_explorer`·`bounded-standard`(Sonnet 5.5, 역할 effort high)
+  하나였습니다. Haiku 5.5 경로(`knu_explorer_xhigh`·`bounded-extraction`, 역할 effort xhigh)는 exact ID 능력표·기대 ID·역할 범위가 들어간 뒤에도
+  live 근거가 역할 effort 적용을 registry로 대조한 1건뿐이라 routine 표에서 Q였습니다. 실행 전에 고정한 8 task(합성 4: 비슷한 id, 조건
+  filter와 순서, 중첩 JSON 타입과 null, 없는 record와 빠진 값. 저장소 파일 고정 사본 4: 설정 값, 큰 파일의 줄 값, 표→JSON, 여러 파일의
+  heading 존재)를 두 경로로 task마다 한 번씩 돌렸습니다(CLI 2.1.306, Parent `claude-opus-5-5`). Haiku 1차 executable oracle 8/8과
+  관측 대조 8/8(`claude-haiku-5-5`·xhigh), Sonnet oracle·관측 대조 8/8(`claude-sonnet-5-5`·high), 두 경로가 모두 틀린 task 0, 사후 독립 QA PASS(2회차)였습니다
+  ([cohort evidence](../../evidence/agent-workflows/claude-haiku-extraction-routine-cohort.md)).
+- **결정**: 실행 전에 고정한 품질 gate(Haiku 1차 oracle 8/8, 관측 대조 통과, 독립 QA PASS)를 충족해 Owner가 Haiku 5.5 xhigh 추출 경로를
+  routine으로 채택했습니다. Routine 표 Haiku 행은 `관측`이고 Sonnet 추출 행도 `관측`으로 그대로 둡니다. 고정 입력 추출에는 두 행이 모두
+  routine이며 Lead가 task마다 고릅니다. 기본 경로는 정하지 않습니다. 이 표본에서 Haiku 경로가 더 빠르거나 싸다는 근거는 없습니다.
+- **Trigger / non-trigger**: 고정 입력·output schema·단일 semantic extraction·명시 oracle의 kind `extract` task / repository 읽기 조사
+  (kind `read`)·구현·리뷰, 추출 밖의 Haiku 사용, Sonnet·Opus 역할의 모델 변경, Codex adapter.
+- **기각**: 보류(Sonnet high만 routine으로 유지. 품질 gate를 충족했고 시간·token은 실행 전에 판정 입력에서 뺐습니다), Haiku 기본·Sonnet 대체
+  문장 추가(이 표본에 Haiku가 더 빠르거나 싸다는 근거가 없음), Sonnet 추출 행 미사용(Sonnet 경로도 같은 cohort에서 8/8이라 줄일 근거가
+  없음), Sonnet 추출 행을 대체됨(등록 거부)으로 두기(정책 data와 policy revision 변경이 필요해 이 결정 범위 밖). 실행 전 기각: 8 task × 2회·
+  12 task × 1회·4 task × 2회(cohort 크기), 합성 8·저장소 사본 8(구성), 품질 gate에 효율 조건을 더하거나 비열등 판정(판정 규칙), 자연 실패가
+  없을 때 controlled fault 1건(registry에 실제와 다른 실패 판정이 남음)과 recovery를 관측하지 않음.
+- **구현 영향**: Routine 표 Haiku 행(관측 ID `claude-haiku-5-5`(2.1.306), 상태 `관측`)과 Routine operation의 관측 버전 범위, profile 표와
+  역할 effort 절의 Haiku routine 상태 문장, `knu-delegate` skill 작업 표 Haiku 행, routine 표 행을 고정하는 adapter contract test.
+  정책 data·policy revision·상향 사다리는 바뀌지 않습니다.
+- **검증/한계**: 위 cohort와 독립 QA, routine 표·skill 표 대조 test. 정적 회귀는 native 실행 증거가 아닙니다. Recovery 1단
+  (`knu_explorer_xhigh`·`bounded-standard`·Sonnet xhigh)은 Haiku 1차 자연 실패가 없어 live 미관측이고, 첫 결속 재시도가 그 조합의 첫
+  관측입니다. 경로당 8 task × 1회라 분산을 모르고, 두 경로는 effort가 달라(xhigh 대 high) 차이를 모델만의 차이로 가르지 못합니다. 효율은
+  판정에 쓰지 않았습니다. 이 표본에서 Haiku 경로의 `duration_ms` p50이 더 길었고(10,867.5 대 7,534, 8 task 모두 Haiku가 김) task당
+  1회라 API 지연 영향을 가르지 못합니다. Notification `subagent_tokens`의 정의는 문서에 없고 USD는 계산하지 않았습니다. CLI 2.1.306·Parent
+  Opus 5.5 밖의 alias 해석은 표본 밖입니다. 보존한 로컬 실행 기록을 요약한 dated evidence이며 CI 재실행 결과가 아닙니다.
+- **재검토**: Haiku·Sonnet exact ID나 CLI의 alias 해석이 바뀔 때, 역할 effort·profile·사다리를 바꿀 때, 추출 밖으로 넓힐 때, routine 추출의
+  oracle 불일치나 결속 재시도가 관측될 때, 같은 작업 기준의 시간·비용 비교 자료가 생길 때입니다.
+
 ## Evidence inventory
 
 - [OpenAI Codex AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md.md)
@@ -464,26 +501,27 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 
 각 Decision의 짧은 본문은 읽기 흐름을 유지하고, 구현 영향과 재검토 기준은 아래 표에서 빠짐없이 추적합니다.
 
-| ID     | 근거                                                                | Trigger / non-trigger                                                            | 구현 영향                                                              | 재검토 조건                                                         |
-| ------ | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| DA-001 | OpenAI practical guide, Anthropic effective agents                  | 독립 lane이 있을 때만 병렬화 / 단일 owner·결정론적 작업은 직접 수행              | direct-first routing과 child 생성 억제                                 | 반복 측정된 context·처리량 병목                                     |
-| DA-002 | Google scaling agent systems, Anthropic effective agents            | 독립 evidence lane / dependency chain                                            | sequential dependency, bounded fan-out                                 | 병렬 결과가 충돌 없이 지속적으로 더 나은 evidence를 만들 때         |
-| DA-003 | OpenAI practical guide, Anthropic context engineering               | 파일 owner가 겹치지 않을 때 / shared write owner가 필요할 때                     | leader synthesis와 one-write-owner                                     | 분산 merge가 더 낮은 충돌률로 검증될 때                             |
-| DA-004 | Anthropic demystifying evals, OpenAI best practices                 | 검증 가능한 environment outcome / self report만 존재                             | command·test·diff 기반 완료 판정                                       | 더 강한 자동 acceptance surface가 생길 때                           |
-| DA-005 | Anthropic context engineering                                       | task-specific 정보가 필요할 때만 load / transcript 전체 주입 금지                | bounded checkpoint와 progressive disclosure                            | startup context가 필수 규칙을 누락하거나 budget을 초과할 때         |
-| DA-006 | Anthropic writing tools, OpenAI agent guide                         | 명확한 owner/action/schema / 중복 tool buffet                                    | 좁은 tool contract와 bounded output                                    | tool 선택 오류나 context 비용이 다시 증가할 때                      |
-| DA-007 | DeepMind agent security, OpenAI running Codex safely                | deterministic guard 위 reviewer / reviewer-only guard 금지                       | static·type·sandbox·test 우선                                          | model verifier가 독립적 강제력을 제공할 때                          |
-| DA-008 | DeepMind agent security, OpenAI running Codex safely                | destructive·credential·production action / reversible local work                 | authority gate와 safe auto-continue                                    | 권한 또는 rollback model이 바뀔 때                                  |
-| DA-009 | Google scaling agent systems, repository semantic evidence          | Pass 1 intent/risk 뒤 current evidence Pass 2 / label·keyword shortcut 금지      | child-only two-pass + optional quality-gated model fixture             | 실제 품질·비용 측정 또는 native runtime contract가 tier를 반박할 때 |
-| DA-010 | OpenAI AGENTS.md, repository onboarding evidence                    | 사람 요청 예시와 agent 의무가 모두 필요 / tool별 규칙 복제 금지                  | getting-started와 execution contract 분리                              | generic agent가 동일 authority로 수렴하지 못할 때                   |
-| DA-011 | Google scaling agent systems, repository lane evidence              | 독립·bounded·positive-benefit lane / dependency·shared write                     | adaptive bounded fan-out과 one-write limit                             | count별 품질·walltime·conflict 실측이 현재 경계를 반박할 때         |
-| DA-012 | OpenAI native surface, OMX runtime, repository smoke                | dispatch 직전 fresh reported evidence / config·과거 session만 존재               | dual-runtime + exact model admission과 sequential fallback             | superseded by hook guard·완료 대조(2026-10-07)                      |
-| DA-013 | 실행 계약, 계획 Decision/OQ owner                                   | 중요한 제약 변경 / 승인된 통상 작업                                              | 공통 decision rights와 짧은 협의                                       | 과잉 질문 또는 중요한 선택 누락                                     |
-| DA-014 | ContextPack registry, domain authoring guides                       | 근거가 요구하는 관점 / 단순 lookup                                               | model-mediated consultation; mapper 유지                               | 문서 과잉 또는 관점 누락                                            |
-| DA-015 | delegation, QA, current runtime 제약                                | 지정된 독립 사실 확인 / offload·초기 QA 설득                                     | 중앙 authority와 제한된 peer 정보 교환                                 | 실제 병목·오염·권한 위반                                            |
-| DA-016 | Repository context/dispatch consumer와 QA evidence                  | 공급 context·criterion gap / advice를 실제 실행으로 간주 금지                    | 기존 dispatch 보완·single primary·acceptance-bound QA                  | host 변화 또는 반복 품질 gap·유효한 비용 관측                       |
-| DA-017 | Scoped native task/oracle·독립 QA와 registry/admission 회귀         | 검증된 profile/role의 승인된 bounded task / 미검증 역할·위험·영구 grant          | 기존 schema로 local cohort GO·fresh admission·철회/rollback handoff    | superseded by DA-018                                                |
-| DA-018 | 공식 role effort 우선순위, 역할·profile·routing 회귀                | Pass 2 bounded 배정·candidate admission / Parent·reviewer model·Claude 역할      | 역할 열 개 effort pin, profile model, route `profileId`, recovery 삭제 | 6.1 Sol 품질 canary, host 지원 변화. 재시도는 DA-019                |
-| DA-019 | Claude 상향 사다리·공통 Recovery ceiling, recovery 회귀             | 재시도 가능 실패 / non-retryable·성공 뒤 재시도·Claude adapter                   | 계산한 `retryRoute`, 재시도 child 대조·dispatch, `--retry`             | 사다리 재시도 반복 실패·비용, 공통 상한 변경                        |
-| DA-020 | Claude 등록·정산 lifecycle, 공식 hook 범위, 재개 관측               | 위임 child spawn·수락·후속 / hook 부재·full access·Claude adapter                | 등록 봉인 hook deny, `codex:accept`, 수락 결속·재개 거절               | hook 범위·trust 변화, 등록 우회·재개 시도 관측                      |
-| DA-021 | Claude file guard, 공식 hook matcher·실패 동작, code mode 발화 관측 | writer 실행 중 Parent `apply_patch` / Bash·child 쓰기·writer 없음·Claude adapter | `apply_patch` group·writer 기간 deny·`codex:release`·`fork_turns` none | hook 범위·trust 변화, hook 우회 관측                                |
+| ID     | 근거                                                                | Trigger / non-trigger                                                            | 구현 영향                                                                                       | 재검토 조건                                                                                                 |
+| ------ | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| DA-001 | OpenAI practical guide, Anthropic effective agents                  | 독립 lane이 있을 때만 병렬화 / 단일 owner·결정론적 작업은 직접 수행              | direct-first routing과 child 생성 억제                                                          | 반복 측정된 context·처리량 병목                                                                             |
+| DA-002 | Google scaling agent systems, Anthropic effective agents            | 독립 evidence lane / dependency chain                                            | sequential dependency, bounded fan-out                                                          | 병렬 결과가 충돌 없이 지속적으로 더 나은 evidence를 만들 때                                                 |
+| DA-003 | OpenAI practical guide, Anthropic context engineering               | 파일 owner가 겹치지 않을 때 / shared write owner가 필요할 때                     | leader synthesis와 one-write-owner                                                              | 분산 merge가 더 낮은 충돌률로 검증될 때                                                                     |
+| DA-004 | Anthropic demystifying evals, OpenAI best practices                 | 검증 가능한 environment outcome / self report만 존재                             | command·test·diff 기반 완료 판정                                                                | 더 강한 자동 acceptance surface가 생길 때                                                                   |
+| DA-005 | Anthropic context engineering                                       | task-specific 정보가 필요할 때만 load / transcript 전체 주입 금지                | bounded checkpoint와 progressive disclosure                                                     | startup context가 필수 규칙을 누락하거나 budget을 초과할 때                                                 |
+| DA-006 | Anthropic writing tools, OpenAI agent guide                         | 명확한 owner/action/schema / 중복 tool buffet                                    | 좁은 tool contract와 bounded output                                                             | tool 선택 오류나 context 비용이 다시 증가할 때                                                              |
+| DA-007 | DeepMind agent security, OpenAI running Codex safely                | deterministic guard 위 reviewer / reviewer-only guard 금지                       | static·type·sandbox·test 우선                                                                   | model verifier가 독립적 강제력을 제공할 때                                                                  |
+| DA-008 | DeepMind agent security, OpenAI running Codex safely                | destructive·credential·production action / reversible local work                 | authority gate와 safe auto-continue                                                             | 권한 또는 rollback model이 바뀔 때                                                                          |
+| DA-009 | Google scaling agent systems, repository semantic evidence          | Pass 1 intent/risk 뒤 current evidence Pass 2 / label·keyword shortcut 금지      | child-only two-pass + optional quality-gated model fixture                                      | 실제 품질·비용 측정 또는 native runtime contract가 tier를 반박할 때                                         |
+| DA-010 | OpenAI AGENTS.md, repository onboarding evidence                    | 사람 요청 예시와 agent 의무가 모두 필요 / tool별 규칙 복제 금지                  | getting-started와 execution contract 분리                                                       | generic agent가 동일 authority로 수렴하지 못할 때                                                           |
+| DA-011 | Google scaling agent systems, repository lane evidence              | 독립·bounded·positive-benefit lane / dependency·shared write                     | adaptive bounded fan-out과 one-write limit                                                      | count별 품질·walltime·conflict 실측이 현재 경계를 반박할 때                                                 |
+| DA-012 | OpenAI native surface, OMX runtime, repository smoke                | dispatch 직전 fresh reported evidence / config·과거 session만 존재               | dual-runtime + exact model admission과 sequential fallback                                      | superseded by hook guard·완료 대조(2026-10-07)                                                              |
+| DA-013 | 실행 계약, 계획 Decision/OQ owner                                   | 중요한 제약 변경 / 승인된 통상 작업                                              | 공통 decision rights와 짧은 협의                                                                | 과잉 질문 또는 중요한 선택 누락                                                                             |
+| DA-014 | ContextPack registry, domain authoring guides                       | 근거가 요구하는 관점 / 단순 lookup                                               | model-mediated consultation; mapper 유지                                                        | 문서 과잉 또는 관점 누락                                                                                    |
+| DA-015 | delegation, QA, current runtime 제약                                | 지정된 독립 사실 확인 / offload·초기 QA 설득                                     | 중앙 authority와 제한된 peer 정보 교환                                                          | 실제 병목·오염·권한 위반                                                                                    |
+| DA-016 | Repository context/dispatch consumer와 QA evidence                  | 공급 context·criterion gap / advice를 실제 실행으로 간주 금지                    | 기존 dispatch 보완·single primary·acceptance-bound QA                                           | host 변화 또는 반복 품질 gap·유효한 비용 관측                                                               |
+| DA-017 | Scoped native task/oracle·독립 QA와 registry/admission 회귀         | 검증된 profile/role의 승인된 bounded task / 미검증 역할·위험·영구 grant          | 기존 schema로 local cohort GO·fresh admission·철회/rollback handoff                             | superseded by DA-018                                                                                        |
+| DA-018 | 공식 role effort 우선순위, 역할·profile·routing 회귀                | Pass 2 bounded 배정·candidate admission / Parent·reviewer model·Claude 역할      | 역할 열 개 effort pin, profile model, route `profileId`, recovery 삭제                          | 6.1 Sol 품질 canary, host 지원 변화. 재시도는 DA-019                                                        |
+| DA-019 | Claude 상향 사다리·공통 Recovery ceiling, recovery 회귀             | 재시도 가능 실패 / non-retryable·성공 뒤 재시도·Claude adapter                   | 계산한 `retryRoute`, 재시도 child 대조·dispatch, `--retry`                                      | 사다리 재시도 반복 실패·비용, 공통 상한 변경                                                                |
+| DA-020 | Claude 등록·정산 lifecycle, 공식 hook 범위, 재개 관측               | 위임 child spawn·수락·후속 / hook 부재·full access·Claude adapter                | 등록 봉인 hook deny, `codex:accept`, 수락 결속·재개 거절                                        | hook 범위·trust 변화, 등록 우회·재개 시도 관측                                                              |
+| DA-021 | Claude file guard, 공식 hook matcher·실패 동작, code mode 발화 관측 | writer 실행 중 Parent `apply_patch` / Bash·child 쓰기·writer 없음·Claude adapter | `apply_patch` group·writer 기간 deny·`codex:release`·`fork_turns` none                          | hook 범위·trust 변화, hook 우회 관측                                                                        |
+| DA-022 | Claude 사전 고정 추출 cohort 8 task × 2 경로, 독립 QA               | 고정 입력 단일 추출 kind `extract` / `read`·구현·리뷰·Codex adapter              | routine 표 Haiku 행 `관측`·관측 버전 범위·skill 표·profile 문장·contract test, 정책·사다리 불변 | ID·alias 해석·effort·profile·사다리 변경, 추출 밖 확장, oracle 불일치·결속 재시도 관측, 시간·비용 비교 자료 |

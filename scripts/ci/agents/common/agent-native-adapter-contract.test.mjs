@@ -523,7 +523,7 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
       return cells.slice(1, 8).join(' ');
     }),
     [
-      '`knu_explorer_xhigh` `bounded-extraction` `haiku` xhigh `claude-haiku-5-5`(2.1.296) 고정 입력 추출 Q',
+      '`knu_explorer_xhigh` `bounded-extraction` `haiku` xhigh `claude-haiku-5-5`(2.1.306) 고정 입력 추출 관측',
       '`knu_explorer` `bounded-extraction` `haiku` —(미지원) `claude-haiku-4-5-20251001` 고정 입력 추출 대체됨(등록 거부)',
       '`knu_explorer` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) 고정 입력 추출 관측',
       '`knu_executor` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.284) bounded 구현·검증 관측',

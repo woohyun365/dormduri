@@ -7,11 +7,11 @@
 [Claude model policy](../../../../scripts/agents/claude/model-policy.mjs)는 공통 risk/complexity·task authority를 소비합니다.
 Lead가 현재 facts를 근거로 선택하며 role 이름·토큰 잔량만으로 자동 결정하지 않습니다.
 
-| Task profile         | 요청 family alias | 조건                                                      |
-| -------------------- | ----------------- | --------------------------------------------------------- |
-| `bounded-extraction` | `haiku`           | 낮은 위험·고정 입력·단일 추출·명시 oracle(routine 미사용) |
-| `bounded-standard`   | `sonnet`          | bounded extract/read/build·scope·검증·독립 QA             |
-| `complex-critical`   | `opus`            | 복잡/고위험 또는 독립 review                              |
+| Task profile         | 요청 family alias | 조건                                          |
+| -------------------- | ----------------- | --------------------------------------------- |
+| `bounded-extraction` | `haiku`           | 낮은 위험·고정 입력·단일 추출·명시 oracle     |
+| `bounded-standard`   | `sonnet`          | bounded extract/read/build·scope·검증·독립 QA |
+| `complex-critical`   | `opus`            | 복잡/고위험 또는 독립 review                  |
 
 이는 finite 후보이지 가용성·동등 품질·routine admission 보장이 아닙니다. `selectedBy/approvedBy` 문자열과 caller가
 공급한 runtime report는 인증된 host grant가 아닙니다. 현재 static descriptor는 `dispatchAllowed:false`, `applied:false`,
@@ -36,10 +36,9 @@ Model policy는 impact `high` build를 `knu_executor_xhigh`·`complex-critical`�
 밖에서는 거부합니다(`effort-tier`). `bounded-extraction`은 `knu_explorer_xhigh`만 받고(`knu_explorer`는 `role`), 그 역할은
 `bounded-extraction`과 거기서 결속한 1단계 재시도 밖에서 같은 `effort-tier`로, kind `extract` 밖에서 `kind-role`로 거부합니다. 등록은 역할 effort를 기대값으로 기록하고, `settle`·`complete`가 관측할 때마다 child
 transcript의 assistant 행 `effort`와 대조합니다. SubagentStop의 `effort.level`은 child 값과 세션 값을 구별하지 못한
-관측(CLI 2.1.286)이 있어 쓰지 않습니다. Routine 추출은 `bounded-standard`(Sonnet)입니다. `bounded-extraction`은 등록할 수
-있게 남지만 routine 표의 Q 행이라 채택 결정 전에는 routine에서 쓰지 않습니다. 그 행의 관측 ID는 `haiku` alias의 해석
-관측(CLI 2.1.296)이고 이 역할×profile 조합의 live 관측은 없습니다. "대체됨(등록 거부)" 행은 과거 조합(`knu_explorer`·Haiku 4.5)의
-기록입니다.
+관측(CLI 2.1.286)이 있어 쓰지 않습니다. Routine 추출은 `bounded-extraction`(Haiku xhigh)과 `bounded-standard`(Sonnet high)
+두 행이고, Haiku 행의 채택 근거는 사전 고정 cohort의 live 관측(CLI 2.1.306)입니다([DA-022](../agentic-architecture-decisions.md#claude-extraction-routine)).
+"대체됨(등록 거부)" 행은 과거 조합(`knu_explorer`·Haiku 4.5)의 기록입니다.
 Effort 대조에서 빠지는 모델은 [model policy](../../../../scripts/agents/claude/model-policy.mjs)의 exact ID 능력표
 `CLAUDE_MODEL_CAPABILITIES`가 effort 미지원으로 둔 ID뿐입니다. 표에 없는 exact ID는 family와 무관하게 역할 effort와 대조합니다.
 
@@ -50,9 +49,9 @@ Effort 대조에서 빠지는 모델은 [model policy](../../../../scripts/agent
 - 공식 권장은 xhigh를 측정된 향상이 있을 때 쓰는 것입니다. Reviewer와 high-risk build의 xhigh는 같은 결정으로 측정 전에
   채택했고 high 대비 향상은 측정하지 않았습니다. 추출 역할 `knu_explorer_xhigh`의 xhigh는 Codex 추출 역할과 같은 형태로
   둔 Owner 결정(2026-10-12)이고 역시 high 대비 향상은 측정하지 않았습니다.
-- CLI 2.1.296(Anthropic API)에서 `haiku`는 `claude-haiku-5-5`로 해석됐고 그 child transcript의 effort는 `high`였습니다(live 1회).
-  역할·세션 effort가 모두 high라 역할 effort 적용과 세션 상속을 구별하지 못했습니다. 세션 effort와 다른 `knu_explorer_xhigh`의
-  관측으로 구별하기 전에는 Haiku를 routine으로 쓰지 않습니다.
+- 세션 effort가 high인 세션에서 `knu_explorer_xhigh`의 Haiku 5.5 child는 xhigh로 관측돼(CLI 2.1.306, 고정 cohort 8 task)
+  역할 effort 적용과 세션 상속이 구별됐습니다. 그 추출의 1단계 재시도(`bounded-standard`·Sonnet xhigh)는 live 관측이 없어 첫
+  결속 재시도가 그 조합의 첫 관측입니다.
 - Foreground 완료의 child transcript 위치(부모 transcript 옆 `<session>/subagents/`)는 background child에서만 관측했습니다.
   위치가 다르면 foreground task는 수명이 끝난 뒤 `effort-unobserved`로 거부되며, 통과로 남지 않습니다.
 - 역할 effort를 덮어쓰는 설정(effort 환경변수·상한)이 있으면 관측이 `effort-mismatch`로 드러납니다.
