@@ -301,6 +301,7 @@
 ### binding 키
 
 - `{{binding:repo-structure.fe-styles}}`: token과 전역 style의 위치
+- `{{binding:repo-structure.fe-screens}}`: token을 쓰는 화면 계층의 위치
 - `{{binding:policy.index}}`: 정책 문서 색인
 
 ## layout-responsive-device
