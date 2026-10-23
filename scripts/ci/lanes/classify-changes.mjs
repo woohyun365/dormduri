@@ -98,6 +98,7 @@ export const AGENT_TEST_PRODUCT_INPUTS = {
     'apps/api/src/platform/observability/logging/log-redaction.policy.ts',
     'apps/api/src/platform/runtime/bootstrap/prepare-runtime-environment.ts',
     'apps/api/src/seasons/operations/season-operations.repository.ts',
+    'apps/api/test/architecture/domain-context/domain-context-route-matrix.spec.ts',
     'apps/api/test/architecture/domains/notices-boundary.spec.ts',
     'apps/api/test/architecture/security/auth-access-route-matrix.spec.ts',
     'apps/api/test/architecture/testing/api-acid-coverage.spec.ts',
