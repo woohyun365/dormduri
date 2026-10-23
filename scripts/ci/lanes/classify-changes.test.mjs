@@ -202,7 +202,6 @@ test('token, new screen and Storybook check paths select the storybook lane', ()
     'apps/web/src/styles/tokens/semantic.tokens.json',
     'apps/web/src/styles/tokens/tokens.generated.css',
     'apps/web/src/styles/fonts.ts',
-    'apps/web/src/screens/README.md',
     'apps/web/src/screens/landing/LandingScreen.tsx',
     'apps/web/playwright.storybook.config.ts',
     'apps/web/e2e/storybook/stories.storybook.ts',
@@ -230,7 +229,11 @@ test('token, new screen and Storybook check paths select the storybook lane', ()
   ]) {
     assert.equal(classifyChanges([path]).storybook, false, path);
   }
-  for (const path of ['apps/web/src/styles/tokens/README.md', 'apps/web/src/app/globals.css']) {
+  for (const path of [
+    'apps/web/src/styles/tokens/README.md',
+    'apps/web/src/screens/README.md',
+    'apps/web/src/app/globals.css',
+  ]) {
     assert.deepEqual(
       classifyChanges([path]),
       {

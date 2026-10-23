@@ -450,7 +450,7 @@
       "path": "docs/development/agent-workflows/domain/knu-binding.md",
       "owner": "general development workflow owner",
       "kind": "domain",
-      "rationale": "이 저장소가 pack·기준 문서의 binding 키에 주는 값(경로·도구·정책 원본 위치)을 소유한다. 각 결정에서 고른 값의 기록은 아직 두지 않는다."
+      "rationale": "이 저장소가 pack·기준 문서의 binding 키에 주는 값(경로·도구·정책 원본 위치)과 framework-pattern·code-pattern 결정에서 고른 값을 소유한다."
     },
     {
       "path": "docs/development/agent-workflows/refactor-analysis.md",

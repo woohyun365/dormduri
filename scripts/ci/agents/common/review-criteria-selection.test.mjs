@@ -349,6 +349,12 @@ test('the repository catalog loads and picks documents by the Owner overlap rule
   ])
     assert.ok(page.includes(id), `${id}: ${page.join()}`);
   assert.ok(!page.some((id) => id.startsWith('web-bff-')), page.join());
+  // The new screen layer takes the design-system document, and a dependency manifest the supply
+  // chain document, without a --criteria addition.
+  const screen = pick('apps/web/src/screens/example/components/Card.tsx');
+  assert.ok(screen.includes('web-fe-design-system'), screen.join());
+  const lockfile = pick('pnpm-lock.yaml');
+  assert.ok(lockfile.includes('web-infra-capacity-cost-supply-chain'), lockfile.join());
   assert.deepEqual(pick('apps/web/example/README.md'), ['documents']);
 });
 
