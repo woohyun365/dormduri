@@ -436,6 +436,67 @@ test('pack and criteria documents reference repository values only through resol
     assert.doesNotMatch(text, REPOSITORY_VALUE, `${path} names a repository value`);
   }
 });
+// The binding document records the value the repository chose for every `framework-pattern` and
+// `code-pattern` pack decision; other levels keep theirs in the decision record or a policy document.
+// A decision whose value differs by area takes one `<id>/<area>` row per area, so a dropped area row
+// keeps the id set and stays a review item.
+const CHOSEN_LEVEL = /^- 수준: `(?:framework-pattern|code-pattern)`$/mu;
+const CHOSEN_HEADER = ['결정', '상태', '고른 값', '근거', '메모'];
+test('binding chosen-value table covers the framework and code pattern decisions', () => {
+  const text = prose(readFileSync(resolve(root, BINDING_DOC), 'utf8'));
+  const section = text.split(/^(?=## )/mu).find((block) => block.startsWith('## 고른 값\n'));
+  assert.ok(section, `${BINDING_DOC}: '## 고른 값' section is missing`);
+  const cells = (line) =>
+    line
+      .trim()
+      .slice(1, -1)
+      .split('|')
+      .map((cell) => cell.trim());
+  const [header, , ...rows] = section.split('\n').filter((line) => line.startsWith('|'));
+  assert.deepEqual(cells(header ?? '||'), CHOSEN_HEADER, `${BINDING_DOC}: 고른 값 table header`);
+  const decisions = new Set();
+  for (const name of PACK_LAYERS.keys())
+    for (const block of prose(readFileSync(resolve(root, `${PACK_DIR}/${name}`), 'utf8'))
+      .split(/^(?=#### )/mu)
+      .slice(1))
+      if (CHOSEN_LEVEL.test(block.split(/^(?=#{2,3} )/mu)[0]))
+        decisions.add(block.match(/^#### (\S+)$/mu)[1]);
+  const items = criteriaItems();
+  const ids = new Set(),
+    seen = new Set();
+  for (const row of rows) {
+    const [decision, status, , source, memo] = cells(row);
+    assert.equal(cells(row).length, CHOSEN_HEADER.length, `${BINDING_DOC}: ${row}`);
+    const id = decision.match(/^`([a-z0-9.-]+)(?:\/[a-z0-9-]+)?`$/u)?.[1];
+    assert.ok(id, `${BINDING_DOC}: malformed decision cell ${decision}`);
+    assert.ok(!seen.has(decision), `${BINDING_DOC}: ${decision} appears twice`);
+    seen.add(decision);
+    ids.add(id);
+    assert.ok(['known', 'unknown'].includes(status), `${BINDING_DOC} ${decision}: 상태 ${status}`);
+    if (status === 'known')
+      assert.ok(
+        markdownLinks(root, BINDING_DOC, source).some(
+          (x) =>
+            existsSync(resolve(root, x.path)) &&
+            (!x.fragment ||
+              !x.path.endsWith('.md') ||
+              anchors(readFileSync(resolve(root, x.path), 'utf8')).has(x.fragment)),
+        ),
+        `${BINDING_DOC} ${decision}: a known value needs a source link that resolves`,
+      );
+    else assert.match(memo, /재검토: \S/u, `${BINDING_DOC} ${decision}: unknown needs 재검토 시점`);
+    for (const [, file, item] of memo.matchAll(/`([a-z0-9-]+\.md) ([A-Z]\d+)`/gu))
+      assert.ok(
+        (items.get(`${CRITERIA_DIR}/${file}`) ?? []).some((x) => x.id === item),
+        `${BINDING_DOC} ${decision}: ${file} ${item} is not a criteria item`,
+      );
+  }
+  assert.deepEqual(
+    [...ids].sort(),
+    [...decisions].sort(),
+    `${BINDING_DOC}: 고른 값 rows must be the framework-pattern and code-pattern pack decisions`,
+  );
+});
 test('production workflow graph has real discoverable owners and required DAG without banning backlinks', () => {
   assert.deepEqual(validateWorkflowGraph(workflowGraph), []);
   for (const node of workflowGraph.nodes)
