@@ -34,6 +34,8 @@ verification/value validation 구분을 따릅니다.
 fidelity와 코드 검증을 확인합니다. 동일한 픽셀을 모든 기기·콘텐츠에서 강제하지 않습니다. 실제 컴포넌트를 바꿨다면
 production surface와 Storybook의 상태 정합성도 검증합니다. 정적 HTML prototype은 production parity의 증거가 아닙니다.
 
+구현·리뷰 기준: [web-fe-component-architecture.md F5](../review-criteria/web-fe-component-architecture.md#f5-예시-렌더-표면의-우회-금지)
+
 표현 분리·공통 행동·점진 적용은 [표현 책임·device 검증](./device-presentation-and-verification.md)을 기준으로 검토합니다.
 프로젝트 이름 대신 실제 viewport/input/state/action과 양쪽 성공 캡처·gap을 확인합니다. 문서-only 채택·읽기 전용 사례
 검토를 실제 화면 전환이나 browser/RN 검증 완료로 승격하지 않습니다.
@@ -44,6 +46,8 @@ production surface와 Storybook의 상태 정합성도 검증합니다. 정적 H
 | reference fidelity           | 승인된 reference aspect와 동일 조건의 실제 비교       | reference가 없으면 not-applicable; 추측으로 PASS하지 않음 |
 | usability evidence           | 실제 사용자·과제 관찰; 없으면 가설과 unvalidated 표시 | 합성 persona나 Agent 의견은 사용자 연구가 아님            |
 | owner visual preference      | 사람이 선택/수정/기각한 대상 revision과 범위          | Agent 점수·침묵·기술 QA PASS는 승인 아님                  |
+
+구현·리뷰 기준: [web-fe-accessibility.md F1](../review-criteria/web-fe-accessibility.md#f1-의미-있는-요소와-접근-가능한-이름), [web-fe-accessibility.md F2](../review-criteria/web-fe-accessibility.md#f2-keyboard와-focus), [web-fe-accessibility.md F3](../review-criteria/web-fe-accessibility.md#f3-상태-알림과-비활성-이유), [web-fe-layout-responsive-device.md F3](../review-criteria/web-fe-layout-responsive-device.md#f3-viewportscroll-검증)
 
 각 작업은 어느 판정이 완료에 필요한지 먼저 밝힙니다. 하네스/제안 전달 작업은 preference가 `pending/not-collected`여도
 정의된 범위에서 끝낼 수 있지만, 이를 production 디자인 승인으로 표현하지 않습니다. 필수 기능·권한 위반은 취향 차이로
@@ -68,6 +72,8 @@ reflow·reset action·고지 노출을 보호할 수 있으므로 cosmetic이라
 실제 변경은 [표현·device packet](./device-presentation-and-verification.md)과
 [token/theme 계약](./web-semantic-token-contract.md)을 소비하고 production/fixture의 해당 state를 대조합니다.
 이 절차 채택 자체는 제품 테스트 삭제나 현재 화면 baseline 전환 완료가 아닙니다.
+
+구현·리뷰 기준: [swe.md S6](../review-criteria/swe.md#s6-보호-test)
 
 ## Anti-slop은 맥락 비평이지 CSS 금지 목록이 아님
 

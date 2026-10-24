@@ -17,8 +17,6 @@
 
 위 직군명은 새 역할 설정이나 고정 인원 수가 아닙니다. Source 기반 외부 기술 근거가 필요할 때만 연구 역할을 사용합니다.
 [현재 host adapter](../adapters/README.md)가 concrete role·모델·자원 설정을 연결하고 실제 역할/도구 지원을 확인합니다.
-Codex에서는 `knu_explorer`·`knu_researcher`·`knu_executor`·`knu_reviewer`와 TOML을 사용하는
-[Codex delegation](../adapters/codex-delegation.md)을 따릅니다. 다른 host에 이 이름이나 effort를 강제하지 않습니다.
 이름만 보고 global designer로 대체하거나 설정을 변경하지 않으며 role/task packet은 host 권한을 넓히지 않습니다.
 
 ## Direct path와 의존성

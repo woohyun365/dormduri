@@ -5,14 +5,8 @@ guide와 함께 읽습니다. 일반 기능마다 자동 선택하지 않습니�
 
 ## Required analysis
 
-- actor, identity, authentication, authorization and trust boundary
-- public/private/sensitive data classification and minimum disclosure
-- consent, purpose, retention, deletion, de-identification and audit owner
-- enumeration, replay, CSRF/XSS/open redirect, brute force, rate limit and abuse path
-- moderation/report/block behavior and false-positive/appeal implications
-- secret, credential, token, cookie and log/telemetry scrubbing
-- legal or policy freshness that requires official-current evidence
-- provider processing region, DPA, retention and operator access when applicable
+- actor, identity and trust boundary
+- consent and audit owner
 
 구현·리뷰 기준: [web-security-privacy-trust-authz-model.md P1](../../review-criteria/web-security-privacy-trust-authz-model.md#p1-cookie-인증-상태-변경-요청의-cross-site-위조-방지), [web-security-privacy-trust-authz-model.md P2](../../review-criteria/web-security-privacy-trust-authz-model.md#p2-서버-쪽-인가와-객체-단위-권한), [web-security-privacy-trust-authz-model.md P3](../../review-criteria/web-security-privacy-trust-authz-model.md#p3-열거추측재전송빈도-남용-방어), [web-security-privacy-trust-authz-model.md P4](../../review-criteria/web-security-privacy-trust-authz-model.md#p4-주입xssopen-redirect), [web-security-privacy-trust-authz-model.md P5](../../review-criteria/web-security-privacy-trust-authz-model.md#p5-신고차단제재의-오탐과-이의), [web-security-privacy-data-privacy-secret.md P1](../../review-criteria/web-security-privacy-data-privacy-secret.md#p1-숨긴-신원비공개-필드의-공개-범위-유지), [web-security-privacy-data-privacy-secret.md P2](../../review-criteria/web-security-privacy-data-privacy-secret.md#p2-데이터-분류와-수집전달-최소화), [web-security-privacy-data-privacy-secret.md P3](../../review-criteria/web-security-privacy-data-privacy-secret.md#p3-보존-목적기한삭제비식별), [web-security-privacy-data-privacy-secret.md P4](../../review-criteria/web-security-privacy-data-privacy-secret.md#p4-비밀값과-logtelemetry-정제), [web-security-privacy-data-privacy-secret.md P5](../../review-criteria/web-security-privacy-data-privacy-secret.md#p5-외부-처리자와-법적-근거의-현재성)
 

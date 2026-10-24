@@ -4,6 +4,7 @@
 디자인 방향을 선택하고, Parent Agent는 조사·대안·실행·통합을 책임집니다. 필요한 때만 specialist를 호출합니다.
 Next.js/React/BFF, accessibility contract, component owner, performance와 test planning은
 [Frontend plan authoring](../plan-authoring/frontend.md)이 계속 소유합니다.
+디자인 시스템·layout·접근성의 결정과 위험은 pack FE 하위 layer [design-system](../domain/swe-web/fe.md#design-system)·[layout-responsive-device](../domain/swe-web/fe.md#layout-responsive-device)·[accessibility](../domain/swe-web/fe.md#accessibility) 절에 있습니다.
 
 ## When to read
 
@@ -28,8 +29,7 @@ Next.js/React/BFF, accessibility contract, component owner, performance와 test 
 | independent critique     | 격리된 검토 역할, 별도 허용된 runner         | 실제 이미지·동작의 비평; 사람의 승인 아님                  |
 | Figma evidence           | 이 workflow                                  | authority, trigger, failure와 rollback                     |
 
-현재 repository는 project-scoped Figma MCP를 추적하지 않습니다. User-level provider 연결은 repository dependency가
-아니며 실제 승인된 Figma source가 있을 때만 선택적으로 사용합니다.
+이 저장소의 디자인 원본 도구와 연결 방식은 [repo binding](../domain/knu-binding.md)의 `tool.design-source`가 소유합니다.
 
 이 흐름은 문서와 현재 Agent 판단에 의한 **model-mediated** orchestration입니다. Hook 자동 로딩, 자동 spawn 또는
 새 runtime engine이 아닙니다. 별도 디자인 스킬·Figma·추가 역할 설정이 없어도 허용된 로컬 작업은 가능합니다.
