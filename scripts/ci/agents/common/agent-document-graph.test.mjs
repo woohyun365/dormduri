@@ -454,6 +454,17 @@ const sourceResolves = (x) =>
   (!x.fragment ||
     !x.path.endsWith('.md') ||
     anchors(readFileSync(resolve(root, x.path), 'utf8')).has(x.fragment));
+// Criteria item references in a table cell are `<document>.md <ID>` code spans; any other mention of a
+// `.md` name is a malformed reference, not prose to skip.
+const criteriaReferences = (cell, label) => {
+  const references = [...cell.matchAll(/`([a-z0-9-]+\.md) ([A-Z]\d+)`/gu)];
+  assert.equal(
+    cell.match(/\.md\b/gu)?.length ?? 0,
+    references.length,
+    `${label}: criteria references must be \`<document>.md <ID>\` code spans`,
+  );
+  return references;
+};
 test('binding chosen-value table covers the framework and code pattern decisions', () => {
   const text = prose(readFileSync(resolve(root, BINDING_DOC), 'utf8'));
   const section = text.split(/^(?=## )/mu).find((block) => block.startsWith('## 고른 값\n'));
@@ -485,7 +496,7 @@ test('binding chosen-value table covers the framework and code pattern decisions
         `${BINDING_DOC} ${decision}: a known value needs a source link that resolves`,
       );
     else assert.match(memo, /재검토: \S/u, `${BINDING_DOC} ${decision}: unknown needs 재검토 시점`);
-    for (const [, file, item] of memo.matchAll(/`([a-z0-9-]+\.md) ([A-Z]\d+)`/gu))
+    for (const [, file, item] of criteriaReferences(memo, `${BINDING_DOC} ${decision}`))
       assert.ok(
         (items.get(`${CRITERIA_DIR}/${file}`) ?? []).some((x) => x.id === item),
         `${BINDING_DOC} ${decision}: ${file} ${item} is not a criteria item`,
@@ -519,7 +530,7 @@ test('binding repository convention table resolves sources and criteria items', 
       markdownLinks(root, BINDING_DOC, source).some(sourceResolves),
       `${BINDING_DOC} ${fact}: 원본 needs a link that resolves`,
     );
-    const references = [...criteria.matchAll(/`([a-z0-9-]+\.md) ([A-Z]\d+)`/gu)];
+    const references = criteriaReferences(criteria, `${BINDING_DOC} ${fact}`);
     assert.ok(references.length > 0, `${BINDING_DOC} ${fact}: 관련 기준 항목 is empty`);
     for (const [, file, item] of references)
       assert.ok(
