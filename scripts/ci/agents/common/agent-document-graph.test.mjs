@@ -442,16 +442,33 @@ test('pack and criteria documents reference repository values only through resol
 // keeps the id set and stays a review item.
 const CHOSEN_LEVEL = /^- 수준: `(?:framework-pattern|code-pattern)`$/mu;
 const CHOSEN_HEADER = ['결정', '상태', '고른 값', '근거', '메모'];
+const cells = (line) =>
+  line
+    .trim()
+    .slice(1, -1)
+    .split('|')
+    .map((cell) => cell.trim());
+// A source link resolves when its file exists and a Markdown fragment names a heading of that file.
+const sourceResolves = (x) =>
+  existsSync(resolve(root, x.path)) &&
+  (!x.fragment ||
+    !x.path.endsWith('.md') ||
+    anchors(readFileSync(resolve(root, x.path), 'utf8')).has(x.fragment));
+// Criteria item references in a table cell are `<document>.md <ID>` code spans; any other mention of a
+// `.md` name is a malformed reference, not prose to skip.
+const criteriaReferences = (cell, label) => {
+  const references = [...cell.matchAll(/`([a-z0-9-]+\.md) ([A-Z]\d+)`/gu)];
+  assert.equal(
+    cell.match(/\.md\b/gu)?.length ?? 0,
+    references.length,
+    `${label}: criteria references must be \`<document>.md <ID>\` code spans`,
+  );
+  return references;
+};
 test('binding chosen-value table covers the framework and code pattern decisions', () => {
   const text = prose(readFileSync(resolve(root, BINDING_DOC), 'utf8'));
   const section = text.split(/^(?=## )/mu).find((block) => block.startsWith('## 고른 값\n'));
   assert.ok(section, `${BINDING_DOC}: '## 고른 값' section is missing`);
-  const cells = (line) =>
-    line
-      .trim()
-      .slice(1, -1)
-      .split('|')
-      .map((cell) => cell.trim());
   const [header, , ...rows] = section.split('\n').filter((line) => line.startsWith('|'));
   assert.deepEqual(cells(header ?? '||'), CHOSEN_HEADER, `${BINDING_DOC}: 고른 값 table header`);
   const decisions = new Set();
@@ -475,17 +492,11 @@ test('binding chosen-value table covers the framework and code pattern decisions
     assert.ok(['known', 'unknown'].includes(status), `${BINDING_DOC} ${decision}: 상태 ${status}`);
     if (status === 'known')
       assert.ok(
-        markdownLinks(root, BINDING_DOC, source).some(
-          (x) =>
-            existsSync(resolve(root, x.path)) &&
-            (!x.fragment ||
-              !x.path.endsWith('.md') ||
-              anchors(readFileSync(resolve(root, x.path), 'utf8')).has(x.fragment)),
-        ),
+        markdownLinks(root, BINDING_DOC, source).some(sourceResolves),
         `${BINDING_DOC} ${decision}: a known value needs a source link that resolves`,
       );
     else assert.match(memo, /재검토: \S/u, `${BINDING_DOC} ${decision}: unknown needs 재검토 시점`);
-    for (const [, file, item] of memo.matchAll(/`([a-z0-9-]+\.md) ([A-Z]\d+)`/gu))
+    for (const [, file, item] of criteriaReferences(memo, `${BINDING_DOC} ${decision}`))
       assert.ok(
         (items.get(`${CRITERIA_DIR}/${file}`) ?? []).some((x) => x.id === item),
         `${BINDING_DOC} ${decision}: ${file} ${item} is not a criteria item`,
@@ -496,6 +507,37 @@ test('binding chosen-value table covers the framework and code pattern decisions
     [...decisions].sort(),
     `${BINDING_DOC}: 고른 값 rows must be the framework-pattern and code-pattern pack decisions`,
   );
+});
+// Criteria items name some repository rules only in general words ("저장소 공통 envelope", "저장소의 명명
+// 규약"); the binding document's `저장소 규약` table gives each such rule or fact its source and the items it serves.
+const CONVENTION_HEADER = ['사실', '원본', '관련 기준 항목'];
+test('binding repository convention table resolves sources and criteria items', () => {
+  const text = prose(readFileSync(resolve(root, BINDING_DOC), 'utf8'));
+  const section = text.split(/^(?=## )/mu).find((block) => block.startsWith('## 저장소 규약\n'));
+  assert.ok(section, `${BINDING_DOC}: '## 저장소 규약' section is missing`);
+  const [header, , ...rows] = section.split('\n').filter((line) => line.startsWith('|'));
+  assert.deepEqual(
+    cells(header ?? '||'),
+    CONVENTION_HEADER,
+    `${BINDING_DOC}: 저장소 규약 table header`,
+  );
+  assert.ok(rows.length > 0, `${BINDING_DOC}: 저장소 규약 table has no rows`);
+  const items = criteriaItems();
+  for (const row of rows) {
+    const [fact, source, criteria] = cells(row);
+    assert.equal(cells(row).length, CONVENTION_HEADER.length, `${BINDING_DOC}: ${row}`);
+    assert.ok(
+      markdownLinks(root, BINDING_DOC, source).some(sourceResolves),
+      `${BINDING_DOC} ${fact}: 원본 needs a link that resolves`,
+    );
+    const references = criteriaReferences(criteria, `${BINDING_DOC} ${fact}`);
+    assert.ok(references.length > 0, `${BINDING_DOC} ${fact}: 관련 기준 항목 is empty`);
+    for (const [, file, item] of references)
+      assert.ok(
+        (items.get(`${CRITERIA_DIR}/${file}`) ?? []).some((x) => x.id === item),
+        `${BINDING_DOC} ${fact}: ${file} ${item} is not a criteria item`,
+      );
+  }
 });
 test('production workflow graph has real discoverable owners and required DAG without banning backlinks', () => {
   assert.deepEqual(validateWorkflowGraph(workflowGraph), []);

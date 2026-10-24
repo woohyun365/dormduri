@@ -118,10 +118,11 @@ PR diff에 적용하며, 기술 layer 영역(FE·BFF·BE) 판정과는 다른 �
 | 2026-08-11 | 배포·관측 정책에서 topology, provider 가격, resource 값과 rehearsal 절차를 architecture/release owner로 분리했다.                                   | documentation responsibility            |
 | 2026-08-24 | Dependency vulnerability triage, exception, dismissal과 release blocker 정책을 추가했다.                                                            | GitHub Security baseline                |
 | 2026-10-17 | `matching-algorithm.md` 색인 행, 규칙 id 접두어 열, 규칙 id·인용 형식과 경로 → 정책 도메인 표(`path-domains.json`)를 추가했다                       | #634                                    |
+| 2026-10-24 | `사용 순서` 머리 문장에서 Sprint 5를 빼고 목록에 `matching-algorithm.md`·`roommate-searching.md`를 넣어 정책 문서 19개를 모두 담았다                | #677                                    |
 
 ## 사용 순서
 
-Sprint 5 구현 이슈 생성 시에는 아래 순서로 읽는 것이 안전하다.
+구현 이슈를 만들 때는 아래 순서로 읽는 것이 안전하다.
 
 1. `account-authentication.md`
 2. `access-eligibility.md`
@@ -129,14 +130,16 @@ Sprint 5 구현 이슈 생성 시에는 아래 순서로 읽는 것이 안전하
 4. `season-participation.md`
 5. `profile-model.md`
 6. `matching-lifecycle.md`
-7. `chat-lifecycle.md`
-8. `service-boundary.md`
-9. `community-safety.md`
-10. `incident-enforcement.md`
-11. `support-communication.md`
-12. `notification-inbox.md`
-13. `operational-observability.md`
-14. `production-runtime-safety.md`
-15. `data-retention.md`
-16. `legal-basis.md`
-17. `dependency-security.md`
+7. `matching-algorithm.md`
+8. `roommate-searching.md`
+9. `chat-lifecycle.md`
+10. `service-boundary.md`
+11. `community-safety.md`
+12. `incident-enforcement.md`
+13. `support-communication.md`
+14. `notification-inbox.md`
+15. `operational-observability.md`
+16. `production-runtime-safety.md`
+17. `data-retention.md`
+18. `legal-basis.md`
+19. `dependency-security.md`
