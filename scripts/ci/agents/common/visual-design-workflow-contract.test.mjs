@@ -271,6 +271,26 @@ test('Figma readiness treats Education conditionally and revalidates effective M
   assert.match(figma, /fail-open/u);
 });
 
+test('design source tool binding is owned by the repository binding', () => {
+  const bindingPath = `${workflowRoot}/domain/knu-binding.md`;
+  const linksTo = (path, text, target) =>
+    [...text.matchAll(/\[[^\]]+\]\(([^)\s]+)\)/gu)].some(
+      ([, link]) => resolve(repoRoot, path, '..', link.split('#')[0]) === resolve(repoRoot, target),
+    );
+  const row = read(bindingPath)
+    .split('\n')
+    .find((line) => /^\| `tool\.design-source` +\|/u.test(line));
+  assert.ok(row, `${bindingPath}: tool.design-source row`);
+  assert.ok(
+    linksTo(bindingPath, row, `${visualRoot}/figma-mcp-evidence.md`),
+    `${bindingPath}: tool.design-source must link the Figma procedure`,
+  );
+  assert.ok(
+    linksTo(`${visualRoot}/README.md`, read(`${visualRoot}/README.md`), bindingPath),
+    `${visualRoot}/README.md must link the repository binding`,
+  );
+});
+
 test('baseline fixtures keep direct work direct and Figma evidence non-authoritative', () => {
   const direct = cases.find((fixture) => fixture.id === 'ordinary-css-fix-direct-path');
   const figma = cases.find((fixture) => fixture.id === 'figma-evidence-no-mutation-authority');
