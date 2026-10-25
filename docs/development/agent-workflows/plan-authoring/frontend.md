@@ -73,4 +73,4 @@ Plan은 target component tree, server/client/BFF boundary, UI state matrix, resp
 test ownership, rollout risk와 핵심 journey·그 완료 조건을 명시합니다. 완료 조건은 그 journey가 닿는 기존 기준 항목이
 판정합니다.
 
-구현·리뷰 기준: [swe.md S6](../review-criteria/swe.md#s6-보호-test)
+구현·리뷰 기준: [swe.md S6](../review-criteria/swe.md#s6-보호-test), [swe.md S12](../review-criteria/swe.md#s12-동작계약을-고정하는-test)

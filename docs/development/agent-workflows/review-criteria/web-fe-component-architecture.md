@@ -69,5 +69,5 @@ severity가 높은 항목으로 판정합니다.
 - 적용 조건: 다른 renderer(예: native app)와 공유할 model·규칙·contract를 더하거나 바꾸는 변경
 - 결함 패턴: 공유 model이 DOM type·style 값·특정 renderer의 hook을 import함, 화면 규칙이 표현 component 안에만 있어 다른 renderer가 다시 구현함
 - PASS 근거: 공유 model 경로에 renderer 의존 import가 없다는 검사나 검색 결과가 있고, 규칙 test가 renderer 없이 실행된다
-- 지침: 공유할 규칙과 model은 renderer 의존이 없는 module에 두고 표현 component는 그것을 소비만 한다
-- 피함: 공유 model에서 DOM·style을 import하기, 규칙을 표현 component에 숨기기
+- 지침: 공유할 규칙과 model은 renderer 의존이 없는 module에 두고 표현 component는 그것을 소비만 한다. 규칙 test는 상태와 조건의 조합을 표로 두고 renderer 없이 실행한다
+- 피함: 공유 model에서 DOM·style을 import하기, 규칙을 표현 component에 숨기기, 규칙 분기를 component를 render해서만 검사하기

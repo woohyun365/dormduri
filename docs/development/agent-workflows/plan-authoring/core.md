@@ -366,7 +366,7 @@ Targeted test를 먼저 실행하고 영향 범위에 따라 lint, typecheck, bu
 필수 검토/runner가 없으면 safe local work와 merge readiness를 분리하고 gap을 남깁니다. 이는 위 implementation-readiness
 review를 없애거나 두 검토를 하나의 PASS로 합치는 규칙이 아닙니다. QA matrix를 계획마다 복제하지 않습니다.
 
-구현·리뷰 기준: [swe.md S5](../review-criteria/swe.md#s5-계약-호환성), [swe.md S6](../review-criteria/swe.md#s6-보호-test)
+구현·리뷰 기준: [swe.md S5](../review-criteria/swe.md#s5-계약-호환성), [swe.md S6](../review-criteria/swe.md#s6-보호-test), [swe.md S12](../review-criteria/swe.md#s12-동작계약을-고정하는-test)
 
 ## 11. AI-readable architecture without AI-specific layers
 

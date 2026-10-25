@@ -80,4 +80,4 @@
 Plan은 owner/invariant, state/capability matrix, public contract, transaction boundary, persistence lifecycle, security,
 background work, operations, integration caller와 verification evidence를 명시합니다.
 
-구현·리뷰 기준: [swe.md S6](../review-criteria/swe.md#s6-보호-test)
+구현·리뷰 기준: [swe.md S6](../review-criteria/swe.md#s6-보호-test), [swe.md S12](../review-criteria/swe.md#s12-동작계약을-고정하는-test)

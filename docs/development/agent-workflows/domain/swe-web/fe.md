@@ -92,6 +92,7 @@
 
 - `{{binding:stack.fe-framework}}`: 쓰는 web framework와 그 version
 - `{{binding:repo-structure.fe-routes}}`: route·layout·오류 경계 파일의 위치
+- `{{binding:tool.e2e}}`: browser E2E 실행 도구와 그 실행 단위
 
 ## state-data-cache
 

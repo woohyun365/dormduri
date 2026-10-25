@@ -54,8 +54,8 @@
 - 적용 조건: HTTP·message schema, 공유 type·schema, export, CLI option, 설정 key, 저장 형식처럼 다른 module·process가 소비하는 interface의 변경
 - 결함 패턴: 필드 이름·필수 여부·의미를 바꾸고 일부 소비자를 고치지 않음, 오류 code·status 의미를 말없이 바꿈, 내부 type을 공개 interface로 노출함, 저장된 이전 형식을 읽지 못함
 - PASS 근거: 바뀐 interface의 소비자 목록(재현 가능한 검색)과 각 소비자의 수정 또는 호환 경로가 있고, producer·consumer test가 같은 schema를 쓴다
-- 지침: 공개 interface를 바꾸기 전에 소비자를 검색으로 모두 찾는다. 같은 변경에서 모두 맞추고, 그럴 수 없으면 이전 형식을 함께 받는 호환 경로와 제거 조건을 둔다
-- 피함: 소비자 검색 없는 공개 interface 변경, 이름을 유지한 채 의미만 바꾸기, 내부 저장 형식·DTO를 그대로 공개하기
+- 지침: 공개 interface를 바꾸기 전에 소비자를 검색으로 모두 찾는다. 같은 변경에서 모두 맞추고, 그럴 수 없으면 이전 형식을 함께 받는 호환 경로와 제거 조건을 둔다. schema 동작(parse·거부·optional·null·enum)은 공유 contract 쪽 test 하나가 검사하고, producer·consumer test는 그 schema를 import해 쓴다
+- 피함: 소비자 검색 없는 공개 interface 변경, 이름을 유지한 채 의미만 바꾸기, 내부 저장 형식·DTO를 그대로 공개하기, producer·consumer test가 schema 동작을 각자 다시 구현하기
 
 ### S6. 보호 test
 
@@ -84,7 +84,7 @@
 - 적용 조건: 성능을 주장하거나 최적화하는 변경, 반복·조회·직렬화가 많은 경로의 알고리즘 변경
 - 결함 패턴: 측정 없이 cache·memoization·병렬화를 더해 복잡도와 오류 경로만 늘림, 반복 안에서 조회·할당을 되풀이해 입력 크기에 따라 비용이 급증함, 개선을 주장하지만 전후 측정이 없음
 - PASS 근거: 최적화마다 대상 bottleneck이나 budget과 전후 측정값(환경 포함)이 있고, hot path의 복잡도 변화가 설명된다
-- 지침: 최적화 전에 bottleneck을 측정하고 목표 budget을 정한다. Hot path를 바꾸면 입력 크기에 따른 비용을 확인한다
+- 지침: 최적화 전에 bottleneck을 측정하고 목표 budget을 정한다. Hot path를 바꾸면 입력 크기에 따른 비용을 확인한다. 측정 도구의 판정 logic(결과 parsing·임계 비교)은 고정 입력(fixture)으로 test한다
 - 피함: 측정 없는 최적화, 근거 없는 고정 수치 임계를 규칙처럼 쓰기, 성능을 이유로 정확성을 먼저 희생하기
 
 ### S9. 가독성
