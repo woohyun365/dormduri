@@ -56,6 +56,20 @@ upstream 전달, server render 중 data 읽기, 오류와 응답 정리를 맡�
 - 확인 단서: `{{binding:stack.fe-framework}}`, `{{binding:repo-structure.bff-routes}}`의 상태 변경 method
 - 기준 항목: [web-bff-gateway-forwarding.md B2](../../review-criteria/web-bff-gateway-forwarding.md#b2-mutation-진입점-선택), [web-security-privacy-trust-authz-model.md P1](../../review-criteria/web-security-privacy-trust-authz-model.md#p1-cookie-인증-상태-변경-요청의-cross-site-위조-방지)
 
+#### bff.gw.upstream-stub
+
+- 수준: `code-pattern`
+- 질문: BFF route test에서 upstream을 어디까지 대역(진짜 대신 쓰는 가짜 응답)으로 바꿀까?
+- 선택지:
+  - network 호출 경계만 대역: route handler는 실제로 실행하고 upstream으로 나가는 호출만 대역으로 바꾼다. 넘긴 요청 모양과 upstream 응답별 번역을 함께 보지만, 대역 응답이 실제 upstream 계약과 어긋나면 놓친다(대역 응답을 공유 schema로 만들어 줄인다)
+  - 내부 전달 helper mock: 전달 helper나 client module을 가짜로 바꾼다. 쓰기 쉽지만 route가 실제로 넘기는 header·cookie와 오류 번역을 보지 못한다. 연결된 기준 항목 `web-bff-gateway-forwarding.md B1`이 결함으로 본다
+  - 실제 upstream: test 환경에서 upstream server를 띄운다. 계약 어긋남을 직접 잡지만 느리고 환경이 필요해 route test마다 쓰기 어렵다
+- 먼저 정할 결정: `bff.gw.need-bff`
+- 되돌림: `easy`. test의 대역 지점만 바꾼다
+- 기본값: network 호출 경계만 대역. route가 실제로 넘기는 요청과 오류 번역을 빠르게 본다. 대역 응답은 공유 schema로 만들고, 실제 upstream과의 어긋남은 API server까지 띄우는 E2E(`fe.render.e2e-scope`)나 contract test가 본다
+- 확인 단서: `{{binding:repo-structure.bff-routes}}`의 route test가 대역으로 바꾸는 지점
+- 기준 항목: [web-bff-gateway-forwarding.md B1](../../review-criteria/web-bff-gateway-forwarding.md#b1-bff를-둘-조건과-upstream-allowlist), [swe.md S6](../../review-criteria/swe.md#s6-보호-test)
+
 ### 구현 지침
 
 - [web-bff-gateway-forwarding.md B1](../../review-criteria/web-bff-gateway-forwarding.md#b1-bff를-둘-조건과-upstream-allowlist)
