@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, renameSync } from 'node:fs';
+import {
+  cpSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+  symlinkSync,
+  renameSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import test from 'node:test';
@@ -358,4 +367,43 @@ test('only a complete boundary line within the header byte budget admits a large
   put('.plans/detail.md', prefix + padding + 'x' + boundary + 'body'.repeat(30000));
   assert.equal(discoverPlans(root).identityComplete, false);
   assert.equal(readPlan(root, '.plans/current.md').state, 'unknown');
+});
+
+// plan-store reads the plans root from the workspace layout manifest when a function runs. A copy whose KNU binding
+// renames that root moves the path check, the archived judgment, discovery and the declared Plan ID list with it.
+test('the plans root comes from the workspace layout manifest', async (t) => {
+  const repo = new URL('../../../../', import.meta.url).pathname;
+  const copy = mkdtempSync(join(tmpdir(), 'plan-store-layout-'));
+  t.after(() => rmSync(copy, { recursive: true, force: true }));
+  for (const path of [
+    'scripts/agents/common/plan-store.mjs',
+    'scripts/artifacts/workspace-layout.mjs',
+    'scripts/artifacts/workspace-layout.core.json',
+    'scripts/artifacts/workspace-layout.knu.json',
+  ]) {
+    mkdirSync(dirname(join(copy, path)), { recursive: true });
+    cpSync(join(repo, path), join(copy, path));
+  }
+  const bindingPath = join(copy, 'scripts/artifacts/workspace-layout.knu.json');
+  const binding = JSON.parse(readFileSync(bindingPath, 'utf8'));
+  binding.roots.find((root) => root.id === 'plans').path = '.work-plans';
+  writeFileSync(bindingPath, JSON.stringify(binding));
+  const store = await import(join(copy, 'scripts/agents/common/plan-store.mjs'));
+
+  const { root, put } = fixture(t);
+  put('.work-plans/current.md');
+  put('.work-plans/finished/old.md', '- Plan ID: old-one\n- Status: completed\n');
+  put('.plans/stale.md', '- Plan ID: stale-one\n- Status: active\n');
+  assert.equal(store.readPlan(root, '.work-plans/current.md').state, 'active');
+  assert.equal(store.readPlan(root, '.work-plans/finished/old.md').state, 'archived');
+  assert.equal(store.readPlan(root, '.plans/stale.md').state, 'unsafe');
+  assert.deepEqual(
+    store.discoverPlans(root).plans.map((plan) => plan.path),
+    ['.work-plans/current.md'],
+  );
+  assert.deepEqual([...store.declaredPlanIds(root).ids].sort(), ['old-one', 'task-one']);
+  // The real manifest keeps the KNU name.
+  const real = await import('../../../agents/common/plan-store.mjs');
+  assert.equal(real.readPlan(root, '.plans/stale.md').state, 'active');
+  assert.deepEqual([...real.declaredPlanIds(root).ids], ['stale-one']);
 });
