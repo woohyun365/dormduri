@@ -19,8 +19,8 @@ severity가 높은 항목으로 판정합니다.
 - 적용 조건: 진입점·command·policy·repository 사이 흐름을 바꾸는 변경
 - 결함 패턴: business code가 요청 parsing·cookie·client IP·오류 응답 형식을 직접 다룸, 같은 parsing을 여러 곳에서 반복함, 필요 없는 layer를 형식적으로 거침
 - PASS 근거: 업무 code가 transport type·요청 객체를 import하지 않는다는 import 경계 test나 source 위치가 있고, 같은 parsing이 진입점 공통 위치 한 곳에 있으며, 새 layer마다 하는 일이 변경 설명에 있다
-- 지침: transport 세부는 진입점과 platform 공통 code가 맡고 업무 code에는 값만 넘긴다. layer는 하는 일이 있을 때만 거치고, 작은 기능은 형식적인 층을 만들지 않는다
-- 피함: 업무 code에서 요청 객체를 직접 다루기, parsing을 곳마다 반복하기, 하는 일 없이 넘기기만 하는 layer
+- 지침: transport 세부는 진입점과 platform 공통 code가 맡고 업무 code에는 값만 넘긴다. layer는 하는 일이 있을 때만 거치고, 작은 기능은 형식적인 층을 만들지 않는다. 구조 test는 import 방향과 공개 surface를 검사하고 파일 이름·위치 목록을 고정하지 않는다
+- 피함: 업무 code에서 요청 객체를 직접 다루기, parsing을 곳마다 반복하기, 하는 일 없이 넘기기만 하는 layer, 구조 test에 과거 파일 이름 목록을 고정하기
 
 ### E2. flat 우선과 불필요 추상화 금지
 
@@ -40,7 +40,7 @@ severity가 높은 항목으로 판정합니다.
 - 결함 패턴: 다른 domain의 table·repository를 직접 읽고 씀, 공개 service를 우회해 내부 persistence를 호출함, 운영 화면·지원 도구가 제품 table을 직접 고침
 - PASS 근거: 다른 domain 접근이 그 owner의 공개 호출로만 일어난다는 import 경계 test나 source 위치가 있고, 운영 화면·지원 도구의 변경이 제품 owner의 command를 거친다
 - 지침: 다른 domain의 data는 그 owner의 공개 service·contract로 읽고 바꾼다. 운영 화면·지원 도구는 감사할 수 있는 제품 흐름(owner의 command)을 거쳐 바꾼다
-- 피함: 다른 domain의 table·repository를 직접 쓰기, 공개 service를 우회한 내부 persistence 호출, 운영 도구로 제품 table 직접 고치기
+- 피함: 다른 domain의 table·repository를 직접 쓰기, 공개 service를 우회한 내부 persistence 호출, 운영 도구로 제품 table 직접 고치기, 경계 test가 허용 파일 목록을 하나씩 고정하기
 
 ### E4. process 상태와 설정 주입
 

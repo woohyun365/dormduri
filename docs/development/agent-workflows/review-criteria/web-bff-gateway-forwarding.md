@@ -19,9 +19,9 @@ severity가 높은 항목으로 판정합니다. cookie로 인증하는 상태 �
 - 기본 severity: `high`
 - 적용 조건: BFF route를 더하거나 바꾸는 변경, upstream 전달 helper를 바꾸는 변경
 - 결함 패턴: 맡은 책임 없이 upstream을 그대로 중계하는 route를 둠, 임의 path·query·header·body를 upstream으로 넘기는 공통 proxy를 둠, browser가 보낸 인증·host·forwarding header를 그대로 전달함, 전달 helper를 입력 검증이나 위조 방어로 셈
-- PASS 근거: route마다 허용 method·path·query·header·body schema가 명시되어 있고, 허용 밖 요청이 거부되는 test가 있다
-- 지침: BFF route는 맡는 책임(cookie 처리·응답 정리·오류 번역)이 있을 때만 두고, route마다 upstream으로 넘길 항목을 allowlist로 명시한다. 입력 검증과 위조 방어는 전달과 별도의 검사로 둔다
-- 피함: path를 그대로 붙이는 catch-all proxy, browser header를 통째로 전달하기, 전달 helper에 보안 판단 맡기기
+- PASS 근거: route마다 허용 method·path·query·header·body schema가 명시되어 있고, 허용 밖 요청이 거부되는 test와, upstream에 넘긴 method·path·header·cookie와 upstream 실패(4xx·5xx·timeout) 때의 응답을 확인하는 route test가 있다
+- 지침: BFF route는 맡는 책임(cookie 처리·응답 정리·오류 번역)이 있을 때만 두고, route마다 upstream으로 넘길 항목을 allowlist로 명시한다. 입력 검증과 위조 방어는 전달과 별도의 검사로 둔다. route test는 handler를 실제로 실행하고 upstream 호출만 대역으로 바꾸며, 응답은 공유 schema로 parse해 본다
+- 피함: path를 그대로 붙이는 catch-all proxy, browser header를 통째로 전달하기, 전달 helper에 보안 판단 맡기기, 문구까지 든 응답 전체를 그대로 비교하기, 성공 경로만 test하기
 
 ### B2. mutation 진입점 선택
 
@@ -29,6 +29,6 @@ severity가 높은 항목으로 판정합니다. cookie로 인증하는 상태 �
 - 기본 severity: `medium`
 - 적용 조건: 상태 변경 요청의 진입 방식(framework의 server 함수 호출, route handler, browser의 upstream 직접 호출)을 더하거나 바꾸는 변경
 - 결함 패턴: 비교 없이 편한 진입 방식을 고름, 같은 action이 두 진입점에 있어 검사가 한쪽에만 적용됨, 진입점마다 오류 형식이 다름
-- PASS 근거: 진입 방식을 고른 이유(인증·위조 방어·오류 의미)가 변경 설명에 있고, action마다 진입점이 하나다
+- PASS 근거: 진입 방식을 고른 이유(인증·위조 방어·오류 의미)가 변경 설명에 있고, action마다 진입점이 하나이며, 그 진입점의 route test가 인증·위조 방어에서 거부되는 경로를 실행한다
 - 지침: 진입 방식은 인증·위조 방어·cache·rate limit·오류 의미를 한 곳에서 검사할 수 있는 쪽으로 고른다. 한 action에는 진입점을 하나만 둔다
-- 피함: 진입점 복제, 진입점마다 다른 검사
+- 피함: 진입점 복제, 진입점마다 다른 검사, 거부 경로를 진입점 밖 helper test에서만 확인하기

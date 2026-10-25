@@ -55,6 +55,20 @@
 - 확인 단서: `{{binding:repo-structure.fe-routes}}`의 오류 경계 파일과 그 test
 - 기준 항목: [web-fe-rendering-boundary.md F4](../../review-criteria/web-fe-rendering-boundary.md#f4-부분-실패-격리와-browser-오류-관측)
 
+#### fe.render.e2e-scope
+
+- 수준: `operational`
+- 질문: browser를 띄워 화면을 끝까지 지나가는 test(E2E)를 어떤 흐름과 환경에 둘까?
+- 선택지:
+  - 핵심 흐름 몇 개와 환경 경계: 사용자에게 가장 중요한 흐름 2~3개만 browser로 보고, API server·DB 없이 web 화면만 띄우는 smoke와 API server·DB를 함께 띄우는 full-stack 흐름을 나눠 적는다. 빠르고 덜 깨지지만 나머지 경로는 아래 layer test가 맡는다
+  - 화면·영역마다 E2E: 모든 화면과 영역을 browser로 본다. 넓게 보지만 느리고 문구·구조가 바뀔 때마다 깨진다. 연결된 기준 항목 `swe.md S12`가 결함으로 본다
+  - E2E 없음: 아래 layer test만 둔다. 가장 빠르지만 layer 사이 연결과 browser 동작(이동·scroll·기기 API)의 회귀를 놓친다
+- 먼저 정할 결정: `fe.arch.rendering-style`
+- 되돌림: `easy`. E2E 목록과 실행 환경 표시를 바꾼다
+- 기본값: 핵심 흐름 몇 개와 환경 경계. layer 사이 연결을 보면서 실행 시간과 깨짐을 줄인다. 흐름 안에서는 역할·이름으로 요소를 찾고 세부 문구를 확인하지 않는다. API server·DB가 필요한 흐름이 완료 조건이면 smoke 통과만으로 끝내지 않고 full-stack 흐름을 둔다
+- 확인 단서: `{{binding:tool.e2e}}`의 E2E 목록과 각 E2E가 도는 환경(web 화면만인지 API server·DB까지인지)의 표시
+- 기준 항목: [swe.md S6](../../review-criteria/swe.md#s6-보호-test), [swe.md S12](../../review-criteria/swe.md#s12-동작계약을-고정하는-test)
+
 ### 구현 지침
 
 - [web-fe-rendering-boundary.md F1](../../review-criteria/web-fe-rendering-boundary.md#f1-serverclient-경계)
@@ -78,6 +92,7 @@
 
 - `{{binding:stack.fe-framework}}`: 쓰는 web framework와 그 version
 - `{{binding:repo-structure.fe-routes}}`: route·layout·오류 경계 파일의 위치
+- `{{binding:tool.e2e}}`: browser E2E 실행 도구와 그 실행 단위
 
 ## state-data-cache
 
@@ -211,6 +226,20 @@
 - 기본값: 다른 renderer 계획이 있으면 나눈다. 규칙을 한 번만 쓴다. 계획이 없으면 표현과 logic 분리까지만 한다
 - 확인 단서: `{{binding:repo-structure.shared-contract}}`의 공유 model과 import 경계 test
 - 기준 항목: [web-fe-component-architecture.md F6](../../review-criteria/web-fe-component-architecture.md#f6-renderer-중립-경계)
+
+#### fe.comp.test-query
+
+- 수준: `code-pattern`
+- 질문: component test가 화면의 요소를 무엇으로 찾을까?
+- 선택지:
+  - 역할·label·접근 가능한 이름 우선: 사용자와 보조 기술(화면 낭독기 등)이 쓰는 역할과 이름으로 찾는다. 이름이 없는 control을 test가 함께 잡지만, 역할·이름으로 표현하기 어려운 상태·구조는 test 전용 표시가 따로 필요하다
+  - test 전용 표시 우선: 요소마다 test만 쓰는 표시를 붙여 찾는다. 문구·구조가 바뀌어도 깨지지 않지만, 이름 없는 control을 test가 놓친다. control을 이렇게 찾으면 연결된 기준 항목 `web-fe-accessibility.md F1`이 결함으로 본다
+  - 보이는 문자열·DOM 위치: 화면 문자열이나 DOM 구조로 찾는다. 쓰기 쉽지만 문구·구조만 바꿔도 깨진다. 계약이 아닌 문구·구조를 고정하므로 연결된 기준 항목 `swe.md S12`가 결함으로 보고, control을 이렇게 찾으면 `web-fe-accessibility.md F1`도 결함으로 본다
+- 먼저 정할 결정: `fe.a11y.baseline`
+- 되돌림: `easy`. test의 찾는 방식만 바꾼다
+- 기본값: 역할·label·접근 가능한 이름 우선. test가 사용자와 같은 방식으로 요소를 찾아 접근 가능한 이름의 회귀도 잡는다. 역할·이름으로 표현할 수 없는 상태·구조에만 test 전용 표시를 쓴다
+- 확인 단서: `{{binding:repo-structure.fe-features}}`·`{{binding:repo-structure.fe-shared-ui}}`의 component test에서 역할·이름으로 찾는 비율과 test 전용 표시를 쓴 곳
+- 기준 항목: [web-fe-accessibility.md F1](../../review-criteria/web-fe-accessibility.md#f1-의미-있는-요소와-접근-가능한-이름), [swe.md S12](../../review-criteria/swe.md#s12-동작계약을-고정하는-test)
 
 ### 구현 지침
 
