@@ -12,6 +12,7 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
+import { workspaceRoot } from '../../artifacts/workspace-layout.mjs';
 import { codeSpans, existsWithCase } from './citation-check.mjs';
 import { anchors, decodeTarget, links } from './markdown-links.mjs';
 import { splitLines } from './plan-impact-blocks.mjs';
@@ -116,7 +117,8 @@ function planIndex(root) {
       }
     }
   };
-  if (existsSync(resolve(root, '.plans'))) walk(resolve(root, '.plans'));
+  const plans = resolve(root, workspaceRoot('plans').path);
+  if (existsSync(plans)) walk(plans);
   return index;
 }
 

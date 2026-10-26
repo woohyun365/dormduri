@@ -567,6 +567,12 @@
       "rationale": "web semantic token과 UI 표현의 owner 경계를 보존한다. agent host 일반화가 제품 token policy를 변경하지 않는다."
     },
     {
+      "path": "docs/development/agent-workflows/workspace-layout.md",
+      "owner": "general development workflow owner",
+      "kind": "explanation",
+      "rationale": "작업 공간 root manifest 두 파일의 필드 의미와 그 값을 쓰는 override 경계·layout guard·일치 test만 설명한다. 각 root의 배치·lifecycle 규칙 원본은 ruleOwner 문서가 소유하고 값은 manifest가 소유한다."
+    },
+    {
       "path": "docs/development/ci/README.md",
       "owner": "development domain owner",
       "kind": "domain",

@@ -45,6 +45,8 @@ const localPlanBoundaryAllowlist = new Set([
   'scripts/ci/agents/codex/codex-workflow-entry.test.mjs', // Disposable plan lifecycle fixture, not durable authority.
   'scripts/agents/fixtures/codex-preflight/disposable-preflight.mjs',
   'scripts/git/workspace-layout-check.test.mjs', // Detector fixture paths, not plan authority.
+  // Root literal allowlist: the quoted source lines of host plan path checks, not plan authority.
+  'scripts/artifacts/workspace-layout.knu.json',
   // Plan reference checker fixtures: a disposable repository copy whose plan paths are the checked input.
   'scripts/ci/agents/common/plan-reference-check.test.mjs',
   'scripts/ci/agents/common/fixtures/plan-reference/.plans/x-plan.md',
@@ -428,6 +430,8 @@ const legacyPlanRootFiles = new Set([
   'scripts/agents/codex/session-preflight.mjs',
   'scripts/agents/fixtures/codex-preflight/disposable-preflight.mjs',
   'scripts/ci/agents/codex/fixtures/codex-session-context.valid.md',
+  // The root literal allowlist quotes the session-preflight legacy read lines.
+  'scripts/artifacts/workspace-layout.knu.json',
 ]);
 
 test('tracked guidance does not present host runtime directories as the plan location', () => {
@@ -492,8 +496,9 @@ test('local workspace roots ignore content and keep only guidance files for clea
 // Old root names; segment boundaries keep docs/references/, .artifacts/references/ and URLs valid.
 const renamedWorkspaceRoot =
   /(?<![\w./-])(?:\.{1,2}\/)*(?:artifacts\/(?:local\b|README\.md|\.gitignore)|local-docs\b|references\/figma\b)/u;
-// Guard fixtures and the layout detector quote the old names.
+// Guard fixtures, the layout detector and the KNU layout binding (its retired root list) quote the old names.
 const renamedWorkspaceRootAllowlist = new Set([
+  'scripts/artifacts/workspace-layout.knu.json',
   'scripts/ci/agents/common/agent-guidance-boundary.test.mjs',
   'scripts/git/workspace-layout-check.mjs',
   'scripts/git/workspace-layout-check.test.mjs',

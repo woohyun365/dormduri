@@ -27,8 +27,11 @@ production runtime에서는 사용하지 않는다. 내용은 Git에서 제외�
   - `review-results/`: 회차별 `r<N>-result.json`, `r<N>-adjudication.json`, 재현 로그입니다. 정산 뒤에 쓰는 파일이므로
     리뷰 read path 밖에 둡니다.
 - **script 출력.** repository script는 `scripts/artifacts/paths.mjs`의 `resolveArtifactPath()`로 `tools/<kind>/`에
-  쓴다. `KNU_ARTIFACTS_DIR`은 이 `tools` 기본 위치를 대체하며, 각 command의 명시적 `--output`·전용 환경변수도
-  사용할 수 있다.
+  쓴다. `KNU_ARTIFACTS_DIR`은 이 `tools` 기본 위치를 대체하되, host runtime 기록(`claude-native/`,
+  `claude-review-packets/`, `codex-native/`)은 대체하지 않고 checkout 안 기본 위치에 남긴다. 저장소 밖 경로는 허용하고,
+  저장소 안 경로는 작업 공간 manifest의 ignored root 아래만 허용하며 추적 경로는 거부한다. 경계와 manifest는
+  [Workspace layout manifest](../docs/development/agent-workflows/workspace-layout.md#override)가 설명한다. 각 command의
+  명시적 `--output`·전용 환경변수도 사용할 수 있다.
 - **Worktree 증거 회수.** Linked worktree를 지우기 전에는 그 checkout의 `plans/…` 증거만 가져온다. `tools/` 아래 runtime
   기록(`claude-native/`, `claude-review-packets/` 등)은 그 checkout 경로에 묶여 다른 checkout에서 쓸 수 없고, 다른 checkout의
   `claude-native/`에 섞이면 그 checkout의 리뷰 연결 판정을 막을 수 있다. `.artifacts/` 전체를 복사하지 않는다. 보존이 필요하면

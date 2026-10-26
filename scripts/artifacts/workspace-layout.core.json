@@ -1,0 +1,99 @@
+{
+  "schema": "htc-workspace-layout-core/v1",
+  "guide": "docs/development/agent-workflows/workspace-layout.md",
+  "retentionClasses": [
+    "current-input",
+    "regenerable-output",
+    "historical-observation",
+    "sensitive-or-undetermined"
+  ],
+  "retentionUntil": ["plan-closed", "task-settled"],
+  "creators": ["core-scaffold", "host-adapter", "overlay", "human", "repository-script"],
+  "roots": [
+    {
+      "id": "plans",
+      "path": ".htc/plans",
+      "kind": "directory",
+      "purpose": "계획 문서. 결정·상태·다음 행동만 담고 실행 기록은 artifacts에 두고 링크한다",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "children": "markdown-only",
+      "copy": "allowed"
+    },
+    {
+      "id": "artifacts",
+      "path": ".htc/artifacts",
+      "kind": "directory",
+      "purpose": "계획 진행 증거와 script 출력. README만 추적한다",
+      "tracking": "ignored",
+      "trackedFiles": ["README.md"],
+      "creator": ["core-scaffold", "human", "repository-script"],
+      "retention": { "class": "current-input", "until": "plan-closed" },
+      "copy": "unspecified"
+    },
+    {
+      "id": "state",
+      "path": ".htc/state",
+      "kind": "directory",
+      "purpose": "host adapter runtime 기록. 그 checkout에 묶인다",
+      "tracking": "ignored",
+      "creator": ["host-adapter"],
+      "retention": { "class": "current-input", "until": "task-settled" },
+      "copy": "forbidden"
+    },
+    {
+      "id": "product",
+      "path": "docs/product",
+      "kind": "directory",
+      "purpose": "PRD 묶음",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "copy": "allowed"
+    },
+    {
+      "id": "policies",
+      "path": "docs/policies",
+      "kind": "directory",
+      "purpose": "제품·보안·운영 불변 정책",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "copy": "allowed"
+    },
+    {
+      "id": "architecture",
+      "path": "docs/architecture",
+      "kind": "directory",
+      "purpose": "책임 경계와 설계 결정(L1 개요)",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "copy": "allowed"
+    },
+    {
+      "id": "decisions",
+      "path": "docs/architecture/decisions",
+      "kind": "directory",
+      "purpose": "설계 결정 기록(L2)",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "copy": "allowed"
+    },
+    {
+      "id": "artifact-map",
+      "path": "docs/product/artifact-map.json",
+      "kind": "file",
+      "purpose": "제품 문서와 추적 산출물의 대응 기록",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "copy": "allowed"
+    },
+    {
+      "id": "path-domains",
+      "path": "docs/policies/path-domains.json",
+      "kind": "file",
+      "purpose": "경로와 정책 도메인의 대응 표",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "copy": "allowed"
+    }
+  ]
+}

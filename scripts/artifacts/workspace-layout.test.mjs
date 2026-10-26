@@ -55,7 +55,7 @@ test('the core manifest and the KNU binding validate with the retention vocabula
   // The core default names no KNU root.
   assert.doesNotMatch(
     readFileSync(resolve(repoRoot, MANIFEST_FILES[0]), 'utf8'),
-    /\.(?:plans|artifacts|local-docs|omc|omx)\b|knu/iu,
+    /\.(?:plans|artifacts|omc|omx)\b|\.local-docs|knu/iu,
   );
   assert.deepEqual(layout.core.retentionClasses, [
     'current-input',
@@ -157,16 +157,22 @@ async function namedConstants() {
 function namedConstantMismatches(layout, actual) {
   const path = (id) => rootPath(layout, id);
   const ignored = layout.roots.filter((root) => root.tracking === 'ignored');
-  // Ignored roots whose tracked files change in a PR, and the tracked overlay markers, route to repo-policy.
+  const overlayTracked = layout.roots.filter(
+    (root) => root.tracking === 'tracked' && root.creator.includes('overlay'),
+  );
+  const markers = layout.roots.flatMap((root) => (root.marker ? [root.marker] : []));
+  // Ignored roots whose tracked files change in a PR, tracked overlay roots and the overlay markers route to
+  // repo-policy.
   const classifierExpected = [
     ...ignored
       .filter((root) => root.trackedFiles || root.trackedFilesOwner)
       .map((root) => `${root.path}/`),
-    ...layout.roots.flatMap((root) => (root.marker ? [root.marker] : [])),
+    ...overlayTracked.map((root) => `${root.path}/`),
+    ...markers,
   ].sort();
   const classifierNamed = new Set([
-    ...ignored.map((root) => `${root.path}/`),
-    ...layout.roots.flatMap((root) => (root.marker ? [root.marker] : [])),
+    ...[...ignored, ...overlayTracked].map((root) => `${root.path}/`),
+    ...markers,
   ]);
   const expected = {
     PLAN_ROOT: path('plans'),
@@ -254,7 +260,8 @@ test('the guard exclusion list is the non-agent .gitignore rules that can create
 
 // Root literal scan. Universe: tracked scripts and configuration outside the app packages, without tests,
 // fixtures (their test guards them) and the manifests themselves. A literal is a root name that is neither
-// in a whole-line comment nor a property access (`value.artifacts`); an escaped regex root is a literal.
+// in a whole-line comment nor a property access (`value.artifacts`, `value?.artifacts`) or a spread identifier
+// (`...artifacts`); an escaped regex root is a literal.
 const ROOT_NAME = /\.(?:plans|omc|omx)\b|\.codex.{0,2}state|\.local-docs|\.artifacts/gu;
 const COMMENT_LINE = /^(?:\/\/|\/\*|\*|#)/u;
 
@@ -271,7 +278,7 @@ function scanUniverse(paths) {
 function literalTokens(line) {
   if (COMMENT_LINE.test(line.trim())) return [];
   return [...line.matchAll(ROOT_NAME)]
-    .filter((match) => !/[\w$)\]]/u.test(line[match.index - 1] ?? ''))
+    .filter((match) => !/[\w$)\]?.]/u.test(line[match.index - 1] ?? ''))
     .map((match) => match[0].replaceAll('\\', ''));
 }
 
@@ -346,6 +353,8 @@ test('the root literal scan reports new literals and renamed roots and skips fix
     ' * .artifacts in a block comment',
     'const x = value.artifacts;',
     'const y = result.plans.map(f);',
+    'const w = inventory?.artifacts ?? null;',
+    'return { ...artifacts, total };',
     'const z = /^\\.omx\\/context/u;',
   ].join('\n');
   assert.deepEqual(rootLiteralViolations(layout, [['scripts/git/probe.mjs', probe]]).unlisted, [

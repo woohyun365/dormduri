@@ -9,14 +9,20 @@ import {
 } from 'node:fs';
 import { resolve, join } from 'node:path';
 
+import { workspaceRoot } from '../../artifacts/workspace-layout.mjs';
+
+// Wiring constant compared with the manifest by test; the functions below read the manifest when they run.
 export const PLAN_ROOT = '.plans';
 const MAX_HEADER_BYTES = 64 * 1024;
 const MAX_ENTRIES = 512;
 const TERMINAL = new Set(['completed', 'cancelled', 'superseded']);
+const plansRoot = () => workspaceRoot('plans').path;
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 
 // Read-only authoring metadata. Neither this module nor a path grants runtime ownership.
 function safePath(root, path) {
-  if (typeof path !== 'string' || !/^\.plans\/.+\.md$/u.test(path) || path.includes('\\'))
+  const pattern = new RegExp(`^${escapeRegExp(plansRoot())}/.+\\.md$`, 'u');
+  if (typeof path !== 'string' || !pattern.test(path) || path.includes('\\'))
     throw new Error('unsafe-path');
   const parts = path.split('/');
   if (parts.some((part) => !part || part === '.' || part === '..' || part.includes('\0')))
@@ -131,7 +137,9 @@ function metadata(root, path) {
         ? statusMap[statuses[0].toLowerCase()]
         : 'unknown';
     const navigation = path.split('/').at(-1).toLowerCase() === 'readme.md';
-    const archived = /^\.plans\/(finished|cancelled)\//u.test(path);
+    const archived = new RegExp(`^${escapeRegExp(plansRoot())}/(finished|cancelled)/`, 'u').test(
+      path,
+    );
     const reference = documentTypes.length === 1 && documentTypes[0] === 'reference';
     const classificationInvalid = documentTypes.length > 0 && !reference;
     const identityIssues = ids.length && !id ? ['identity-invalid'] : [];
@@ -226,7 +234,7 @@ function inventory(root) {
       }
     }
   }
-  visit(PLAN_ROOT);
+  visit(plansRoot());
   const ids = new Map();
   for (const plan of plans)
     for (const id of plan.declaredIds ?? []) ids.set(id, (ids.get(id) ?? 0) + 1);
@@ -254,6 +262,31 @@ export function discoverPlans(root) {
         result.identityComplete && plan.path.split('/').length === 2 && plan.state === 'active',
     ),
   };
+}
+
+// Every Plan ID a plan header declares, archived plans included and without the discovery entry limit. The layout
+// guard checks `.artifacts/plans` first-level names against it.
+export function declaredPlanIds(root) {
+  const ids = new Set(),
+    issues = [];
+  function visit(path) {
+    let entries;
+    try {
+      entries = readdirSync(resolve(root, path), { withFileTypes: true });
+    } catch (error) {
+      issues.push(error.code === 'ENOENT' ? 'missing-root' : 'unreadable-directory');
+      return;
+    }
+    for (const entry of entries) {
+      const child = `${path}/${entry.name}`;
+      if (entry.isSymbolicLink()) issues.push('unsafe-entry');
+      else if (entry.isDirectory()) visit(child);
+      else if (entry.isFile() && entry.name.endsWith('.md'))
+        for (const id of metadata(root, child).declaredIds ?? []) ids.add(id);
+    }
+  }
+  visit(plansRoot());
+  return { ids, issues: [...new Set(issues)] };
 }
 
 export function readPlan(root, path) {
