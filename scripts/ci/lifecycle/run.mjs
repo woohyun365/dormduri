@@ -25,18 +25,21 @@ import {
   parsePathDomains,
   PATH_DOMAINS_FILE,
 } from './policy-first-check.mjs';
+import { evaluateReviewSnapshot } from './review-snapshot-check.mjs';
 
 // Registered checks. evaluate(context) returns findings `{ check, level: 'fail' | 'warn' | 'pass', reason }`. An override
 // line lowers a check's fail to a warning unless the check id is listed in nonOverridable.
 export const LIFECYCLE_CHECKS = [
   { name: 'policy-first', evaluate: evaluatePolicyFirst, nonOverridable: ['L-CONFIRM'] },
   { name: 'area-criteria', evaluate: evaluateAreaCriteria },
+  { name: 'review-snapshot', evaluate: evaluateReviewSnapshot },
 ];
 
 // GitHub-assigned authors whose PRs, like PRs into main, only warn (docs/development/github/collaboration.md).
 export const EXEMPT_AUTHORS = ['renovate[bot]', 'dependabot[bot]'];
 
-// Context every registered check receives. reader: { readFile(revision, path) → text | null, listFiles(revision) }.
+// Context every registered check receives. reader: { readFile(revision, path) → text | null, listFiles(revision),
+// hasCommit(revision) → boolean, diffPaths(from, to) → paths that differ between two revisions }.
 export function buildLifecycleContext({ body, author, baseRef, revisions, changedPaths, reader }) {
   const section = parseLifecycleSection(body ?? '');
   const pathDomainsText = reader.readFile(revisions.head, PATH_DOMAINS_FILE);
@@ -54,6 +57,8 @@ export function buildLifecycleContext({ body, author, baseRef, revisions, change
     revisions,
     changedPaths,
     readFile: reader.readFile,
+    hasCommit: reader.hasCommit,
+    diffPaths: reader.diffPaths,
     headFiles: reader.listFiles(revisions.head),
     pathDomains,
     pathTable,
@@ -165,6 +170,15 @@ export function createGitReader(cwd) {
     },
     listFiles: (revision) =>
       git(['ls-tree', '-r', '-z', '--name-only', revision]).split('\0').filter(Boolean),
+    hasCommit(revision) {
+      try {
+        git(['cat-file', '-e', `${revision}^{commit}`]);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    diffPaths: (from, to) => changedPathsForComparison({ base: from, head: to }, cwd),
   };
 }
 

@@ -54,8 +54,8 @@ PR 본문은 다음 질문에 답해야 합니다.
 ### Lifecycle 절
 
 PR template의 `Lifecycle` 절은 CI `Lifecycle gate` job이 읽는 입력입니다. Job은 변경 분류와 무관하게 모든 pull request에서
-실행되고 `CI summary`가 그 결과를 판정합니다. 검사 id(`W-SCOPE`·`W-POLICY`·`W-CITE`·`W-IRREV`·`L-CONFIRM`·`W-AREA`)별 결과와
-이유는 job summary에 남고, 판정 원본은 `scripts/ci/lifecycle/`입니다.
+실행되고 `CI summary`가 그 결과를 판정합니다. 검사 id(`W-SCOPE`·`W-POLICY`·`W-CITE`·`W-IRREV`·`L-CONFIRM`·`W-AREA`·`W-REVIEW`·
+`W-CAUSE`)별 결과와 이유는 job summary에 남고, 판정 원본은 `scripts/ci/lifecycle/`입니다.
 
 - 절이나 `변경 등급` 줄이 없거나 모르는 값이면 feature로 계산합니다. 제품 경로를 바꾸는 bugfix·hotfix도 등급 줄을 써야 아래
   정책 근거 누락이 fail이 아닌 경고가 됩니다. 정책 우선 검사에서 trivial은 비가역 경로와 Owner 확인만 계산합니다.
@@ -74,6 +74,23 @@ PR template의 `Lifecycle` 절은 CI `Lifecycle gate` job이 읽는 입력입니
   PR head로 판정해 같은 PR에서 더해도 되지만, PR이 더한 제외 행은 그 PR에 적용되지 않습니다. 그래서 새 제품 디렉터리는 같은 PR에
   영역 키와 pack 절을 더하거나, 제외 행을 먼저 merge하거나, `override: W-AREA — <이유> — <재검토 조건>` 줄로 경고로 낮추고 리뷰가
   그 근거를 봅니다. 분기 뒤 base가 제외 행을 지우고 영역 키를 더했으면 branch를 base로 갱신합니다.
+- 독립 리뷰가 PASS한 snapshot은 등급과 무관하게
+  `리뷰 PASS: <reviewId> base=<sha> head=<sha> diff=<sha256|none> untracked=<sha256|none>` 줄로 적습니다. 값은 공통 리뷰
+  결과의 `reviewedSnapshot`이고 host adapter digest(`KNU review snapshot sha256:…` 등)가 아닙니다.
+  `node scripts/ci/lifecycle/review-snapshot-check.mjs --result <결과 JSON>`이 PASS 결과에서 이 줄을 만듭니다.
+  `<reviewId>`는 결과 `dispatchId`에서 `review-dispatch-` 접두를 뺀 값, `diff`는 `dirtyDiffDigest`, `untracked`는
+  `untrackedInputDigests`를 경로 순 `<path>\t<digest>` 줄로 이은 sha256이고, digest는 `sha256:` 접두 없는 64자이며 값이 없으면
+  `none`입니다. PASS 회차마다 줄을 더할 수 있고 형식이 맞는 마지막 줄을 대조합니다. `W-REVIEW`는 그 head가 PR head와 다르면(PASS
+  뒤 바뀐 파일을 summary에 적음), PASS head를 저장소에서 찾지 못하면(rebase 등), diff·untracked가 `none`이 아니면, 줄이 없거나
+  형식이 틀리면 경고합니다.
+- 리뷰 기준 문서(`docs/development/agent-workflows/review-criteria/**`), reviewer prompt 원본, reviewer 모델 정책 파일을 바꾸는 PR은
+  held-out 재채점 결과를 `재채점: <통과|실패> <YYYY-MM-DD> <사용 기록 id>` 줄로, 재채점이 그 변경을 재지 않으면
+  `재채점: 해당 없음 — <이유>` 줄로 적습니다. 경로 목록은 `review-snapshot-check.mjs`의 `RESCORE_TRIGGER_PATHS`와 그 test가
+  고정합니다. 그 경로를 바꾼 PR에 줄이 없거나 형식이 틀리거나 값이 `실패`면 `W-REVIEW`가 경고하고, `실패`는 merge 전에 Owner가
+  판단합니다.
+- bugfix·hotfix는 고치는 결함이 들어온 PR을 `원인 PR: #<번호>` 또는 `원인 PR: 모름 — <이유>` 줄로 적습니다. 줄이 없거나 형식이
+  틀리면 `W-CAUSE`가 경고하고, 다른 등급은 판정하지 않습니다.
+- `W-REVIEW`·`W-CAUSE`는 경고만 내고, 비교할 revision을 읽지 못해도 경고로 남겨 job을 실패시키지 않습니다.
 - author가 `renovate[bot]`·`dependabot[bot]`이거나 base가 `main`이면 모든 fail이 경고입니다.
 - Job은 실행될 때 PR 본문을 REST API로 읽습니다. 본문을 고친 뒤에는 push 없이 실패한 `Lifecycle gate` job을 re-run합니다.
   `gh pr create --body`처럼 본문을 직접 넘겨 PR을 만들 때도 template의 `Lifecycle` 절을 넣습니다.

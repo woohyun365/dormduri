@@ -49,7 +49,7 @@ classify
   ├─ infra         # infra와 observability 변경
   ├─ repo-policy   # CI/workflow/root policy, tree 전체 guard와 repository formatting
   └─ agent-workflow # agent workflow test(package install 없음)
-lifecycle-gate     # 모든 pull request(분류와 무관): PR 본문 Lifecycle 절과 정책 우선·영역 기준 존재 검사
+lifecycle-gate     # 모든 pull request(분류와 무관): PR 본문 Lifecycle 절과 정책 우선·영역 기준 존재·리뷰 snapshot 검사
 CI summary         # 선택된 모든 lane과 pull request의 lifecycle-gate 결과를 하나의 required check로 판정
 ```
 
@@ -64,8 +64,8 @@ CI summary         # 선택된 모든 lane과 pull request의 lifecycle-gate 결
 - 비교 기준 계산 실패 또는 알 수 없는 경로는 모든 검증 lane으로 fail-open한다.
 - `Lifecycle gate`는 `pull_request` event 조건으로만 실행되고 `CI summary`도 같은 조건으로 선택 여부를 정한다. Job은 실행 시점의
   PR 본문을 REST API로 읽고(`pull-requests: read`는 이 job에만), event의 base·head merge-base부터 head까지의 diff에 정책 우선
-  검사와 영역 기준 존재 검사를 적용한다. 본문 API·경로 표 JSON·merge-base 오류와, 제품 경로를 바꾼 PR의 리뷰 기준 catalog·영역
-  검사 제외 표 형식 오류는 job 실패다. Push에서는 건너뛰고 `CI summary`는 그 `skipped`를 통과로
+  검사와 영역 기준 존재 검사, 경고만 내는 리뷰 snapshot 검사를 적용한다. 본문 API·경로 표 JSON·merge-base 오류와, 제품 경로를
+  바꾼 PR의 리뷰 기준 catalog·영역 검사 제외 표 형식 오류는 job 실패다. Push에서는 건너뛰고 `CI summary`는 그 `skipped`를 통과로
   본다. 검사 판정은 `scripts/ci/lifecycle/`, PR 작성법은 [GitHub collaboration guide](../../development/github/collaboration.md#lifecycle-절)가
   소유한다.
 - Repo-policy lane의 formatting 검사는 formatting 설정이 그대로이고 PR base·push 범위 기준의 변경 목록을 얻은 경우에만
