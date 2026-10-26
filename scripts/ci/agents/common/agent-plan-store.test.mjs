@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, renameSync } from 'node:fs';
+import {
+  cpSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+  symlinkSync,
+  renameSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import test from 'node:test';
@@ -358,4 +367,56 @@ test('only a complete boundary line within the header byte budget admits a large
   put('.plans/detail.md', prefix + padding + 'x' + boundary + 'body'.repeat(30000));
   assert.equal(discoverPlans(root).identityComplete, false);
   assert.equal(readPlan(root, '.plans/current.md').state, 'unknown');
+});
+
+// plan-store reads the plans root from the workspace layout manifest when a function runs. A copy whose KNU binding
+// renames that root moves the path check, the archived judgment, discovery and the declared Plan ID list with it, for a
+// one-segment name and for the two-segment core default.
+async function storeWithPlansRoot(t, plansRoot) {
+  const repo = new URL('../../../../', import.meta.url).pathname;
+  const copy = mkdtempSync(join(tmpdir(), 'plan-store-layout-'));
+  t.after(() => rmSync(copy, { recursive: true, force: true }));
+  for (const path of [
+    'scripts/agents/common/plan-store.mjs',
+    'scripts/artifacts/workspace-layout.mjs',
+    'scripts/artifacts/workspace-layout.core.json',
+    'scripts/artifacts/workspace-layout.knu.json',
+  ]) {
+    mkdirSync(dirname(join(copy, path)), { recursive: true });
+    cpSync(join(repo, path), join(copy, path));
+  }
+  const bindingPath = join(copy, 'scripts/artifacts/workspace-layout.knu.json');
+  const binding = JSON.parse(readFileSync(bindingPath, 'utf8'));
+  binding.roots.find((root) => root.id === 'plans').path = plansRoot;
+  writeFileSync(bindingPath, JSON.stringify(binding));
+  return import(join(copy, 'scripts/agents/common/plan-store.mjs'));
+}
+
+test('the plans root comes from the workspace layout manifest', async (t) => {
+  for (const plansRoot of ['.work-plans', '.htc/plans']) {
+    const store = await storeWithPlansRoot(t, plansRoot);
+    const { root, put } = fixture(t);
+    put(`${plansRoot}/current.md`);
+    put(`${plansRoot}/supporting/detail.md`, '- Plan ID: detail-one\n- Status: active\n');
+    put(`${plansRoot}/finished/old.md`, '- Plan ID: old-one\n- Status: completed\n');
+    put('.plans/stale.md', '- Plan ID: stale-one\n- Status: active\n');
+    assert.equal(store.readPlan(root, `${plansRoot}/current.md`).state, 'active', plansRoot);
+    assert.equal(store.readPlan(root, `${plansRoot}/finished/old.md`).state, 'archived', plansRoot);
+    assert.equal(store.readPlan(root, '.plans/stale.md').state, 'unsafe', plansRoot);
+    // Discovery keeps only plans directly under the root, however many segments the root has.
+    assert.deepEqual(
+      store.discoverPlans(root).plans.map((plan) => plan.path),
+      [`${plansRoot}/current.md`],
+      plansRoot,
+    );
+    assert.deepEqual(
+      [...store.declaredPlanIds(root).ids].sort(),
+      ['detail-one', 'old-one', 'task-one'],
+      plansRoot,
+    );
+    // The real manifest keeps the KNU name.
+    const real = await import('../../../agents/common/plan-store.mjs');
+    assert.equal(real.readPlan(root, '.plans/stale.md').state, 'active', plansRoot);
+    assert.deepEqual([...real.declaredPlanIds(root).ids], ['stale-one'], plansRoot);
+  }
 });

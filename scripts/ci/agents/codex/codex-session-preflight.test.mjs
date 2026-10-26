@@ -37,10 +37,13 @@ function fixture(t, options = {}) {
     writeFileSync(resolve(root, path), content);
     return resolve(root, path);
   };
-  cpSync(
-    resolve(repoRoot, 'scripts/agents/common/plan-store.mjs'),
-    put('scripts/agents/common/plan-store.mjs', ''),
-  );
+  for (const path of [
+    'scripts/agents/common/plan-store.mjs',
+    'scripts/artifacts/workspace-layout.mjs',
+    'scripts/artifacts/workspace-layout.core.json',
+    'scripts/artifacts/workspace-layout.knu.json',
+  ])
+    cpSync(resolve(repoRoot, path), put(path, ''));
   for (const file of ['session-preflight.mjs', 'session-contract.mjs']) {
     mkdirSync(resolve(root, 'scripts/agents/codex'), { recursive: true });
     cpSync(

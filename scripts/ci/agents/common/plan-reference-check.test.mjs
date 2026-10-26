@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
@@ -173,4 +173,47 @@ test('the command line exits 1 on violations and 0 on a resolved plan', () => {
     const result = spawnSync(process.execPath, [tool, plan], { cwd: root, encoding: 'utf8' });
     assert.equal(result.status, status, result.stderr);
   }
+});
+
+// plan-reference-check reads the plans root from the workspace layout manifest. A script copy whose KNU binding renames
+// that root resolves Plan ID references under the new name; the real manifest keeps the KNU name.
+test('Plan ID references resolve under the plans root the manifest names', async () => {
+  const repo = resolve(import.meta.dirname, '../../../..');
+  const scripts = mkdtempSync(resolve(tmpdir(), 'plan-reference-layout-'));
+  temporary.push(scripts);
+  for (const directory of ['scripts/agents/common', 'scripts/artifacts'])
+    cpSync(resolve(repo, directory), resolve(scripts, directory), {
+      recursive: true,
+      filter: (source) => !source.endsWith('.test.mjs'),
+    });
+  const bindingPath = resolve(scripts, 'scripts/artifacts/workspace-layout.knu.json');
+  const binding = JSON.parse(readFileSync(bindingPath, 'utf8'));
+  binding.roots.find((root) => root.id === 'plans').path = '.work-plans';
+  writeFileSync(bindingPath, JSON.stringify(binding));
+  const copied = await import(resolve(scripts, 'scripts/agents/common/plan-reference-check.mjs'));
+
+  const root = mkdtempSync(resolve(tmpdir(), 'plan-reference-renamed-'));
+  temporary.push(root);
+  mkdirSync(resolve(root, '.work-plans'));
+  cpSync(resolve(fixtures, '.plans/other-plan.md'), resolve(root, '.work-plans/other-plan.md'));
+  writeFileSync(
+    resolve(root, '.work-plans/a-plan.md'),
+    '# A plan\n\n- Plan ID: a-plan\n\n## 1. Goal\n\n- By plan ID: other-plan §3, other-plan OQ-O1.\n',
+  );
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  const check = (module) => {
+    const out = [];
+    const code = module.main(['--json', '.work-plans/a-plan.md'], {
+      cwd: root,
+      log: (line) => out.push(line),
+      error: () => {},
+    });
+    return { code, violations: json(out.join('\n')).violations.map((v) => v.kind) };
+  };
+  assert.deepEqual(check(copied), { code: 0, violations: [] });
+  // Control: the real manifest looks under `.plans`, so the same references name no local plan.
+  assert.deepEqual(check({ main }), {
+    code: 1,
+    violations: ['unresolved-target', 'unresolved-target'],
+  });
 });

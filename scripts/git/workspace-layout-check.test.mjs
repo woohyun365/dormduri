@@ -5,9 +5,19 @@ import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 
-import { findWorkspaceLayoutIssues, listUntrackedEntries } from './workspace-layout-check.mjs';
+import * as layoutCheck from './workspace-layout-check.mjs';
 
+const { findWorkspaceLayoutIssues, listUntrackedEntries } = layoutCheck;
 const repoRoot = resolve(import.meta.dirname, '../..');
+
+function fixtureTree(files) {
+  const root = mkdtempSync(resolve(tmpdir(), 'knu-layout-tree-'));
+  for (const [path, content] of files) {
+    mkdirSync(dirname(resolve(root, path)), { recursive: true });
+    if (content !== null) writeFileSync(resolve(root, path), content);
+  }
+  return root;
+}
 
 function fixtureRepository(files) {
   const root = mkdtempSync(resolve(tmpdir(), 'knu-layout-'));
@@ -101,6 +111,114 @@ test('untracked listing collapses ignored trees and nested repositories', () => 
       'artifacts/',
       'docs/x/.omc/',
     ]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('top-level entries outside the manifest are reported; exclusions and tracked directories pass', () => {
+  const trackedTopLevel = new Set([
+    'apps',
+    'docs',
+    'scripts',
+    '.claude',
+    '.codex',
+    '.omc-workspace',
+  ]);
+  const issues = findWorkspaceLayoutIssues(
+    [
+      'tmp-not-a-root/',
+      'notes.txt',
+      'build/',
+      'node_modules/',
+      '.DS_Store',
+      'next-env.d.ts',
+      '.env.local',
+      'pnpm-debug.log.1',
+      'x.tsbuildinfo',
+      'apps/web/.next/',
+      'apps/web/tmp/',
+      'docs/scratch/',
+      '.local-docs/',
+      '.plans/root-plan.md',
+      '.artifacts/tools/',
+      'omx_wiki/log.md',
+      '.omc/',
+      '.omx/',
+      '.claude/settings.local.json',
+      '.codex/state/',
+    ],
+    { trackedTopLevel },
+  );
+  assert.deepEqual(
+    issues.map((issue) => [issue.path, issue.kind]),
+    [
+      ['tmp-not-a-root/', 'outside-manifest-root'],
+      ['notes.txt', 'outside-manifest-root'],
+    ],
+  );
+});
+
+test('.plans holds Markdown only and .artifacts children follow the manifest', () => {
+  const root = fixtureTree([
+    ['.plans/alpha-plan.md', '# Alpha\n\n- Plan ID: alpha-plan\n- Status: active\n\n## Work\n'],
+    ['.plans/supporting/beta.md', '# Beta\n\n- Plan ID: beta-plan\n- Status: proposed\n'],
+    ['.plans/run.sh', 'echo\n'],
+    ['.plans/supporting/notes.log', 'x\n'],
+    ['.plans/.DS_Store', 'x'],
+    // Names on the top-level guard exclusion list are not exempt below a manifest root.
+    ['.plans/build/run.sh', 'x\n'],
+    ['.plans/.env', 'x\n'],
+    ['.artifacts/README.md', 'x\n'],
+    ['.artifacts/.gitignore', '*\n'],
+    ['.artifacts/.DS_Store', 'x'],
+    ['.artifacts/build/a.json', '{}\n'],
+    ['.artifacts/plans/alpha-plan/beta-plan/p1/log.txt', 'x\n'],
+    ['.artifacts/plans/beta-plan/beta-plan/x.json', '{}\n'],
+    ['.artifacts/plans/not-a-plan-id/x/y.txt', 'x\n'],
+    ['.artifacts/plans/dist/x.txt', 'x\n'],
+    ['.artifacts/tools/infra/a.json', '{}\n'],
+    ['.artifacts/scratch/a.txt', 'x\n'],
+  ]);
+  try {
+    assert.deepEqual(
+      layoutCheck
+        .findWorkspaceStructureIssues(root)
+        .map((issue) => [issue.path, issue.kind])
+        .sort(),
+      [
+        ['.artifacts/.DS_Store', 'artifacts-unknown-child'],
+        ['.artifacts/build', 'artifacts-unknown-child'],
+        ['.artifacts/plans/dist', 'undeclared-plan-id'],
+        ['.artifacts/plans/not-a-plan-id', 'undeclared-plan-id'],
+        ['.artifacts/scratch', 'artifacts-unknown-child'],
+        ['.plans/.DS_Store', 'plans-non-markdown'],
+        ['.plans/.env', 'plans-non-markdown'],
+        ['.plans/build/run.sh', 'plans-non-markdown'],
+        ['.plans/run.sh', 'plans-non-markdown'],
+        ['.plans/supporting/notes.log', 'plans-non-markdown'],
+      ],
+    );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('manifest roots and the tracked .gitignore files agree on what is ignored', () => {
+  assert.deepEqual(layoutCheck.findGitignoreIssues(repoRoot), []);
+  const { root } = fixtureRepository([]);
+  try {
+    for (const path of ['.artifacts/.gitignore', 'omx_wiki/.gitignore']) {
+      mkdirSync(dirname(resolve(root, path)), { recursive: true });
+      writeFileSync(resolve(root, path), readFileSync(resolve(repoRoot, path)));
+    }
+    assert.deepEqual(layoutCheck.findGitignoreIssues(root), []);
+    const ignore = readFileSync(resolve(repoRoot, '.gitignore'), 'utf8');
+    writeFileSync(resolve(root, '.gitignore'), ignore.replace(/^\.local-docs\/\n/mu, ''));
+    assert.deepEqual(
+      layoutCheck.findGitignoreIssues(root).map((issue) => [issue.path, issue.kind]),
+      [['.local-docs', 'gitignore-mismatch']],
+    );
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

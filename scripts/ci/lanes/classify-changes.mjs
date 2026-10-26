@@ -62,6 +62,9 @@ function isStorybookInput(path) {
 // workflows, package scripts, package files and imports.
 const LANE_SCRIPT_PATHS = new Map([
   ['scripts/artifacts/paths.mjs', ['api']],
+  ['scripts/artifacts/workspace-layout.mjs', ['api']],
+  ['scripts/artifacts/workspace-layout.core.json', ['api']],
+  ['scripts/artifacts/workspace-layout.knu.json', ['api']],
   ['scripts/ci/product/prepare-next-standalone.mjs', ['web']],
   ['scripts/ci/lanes/repo-policy-test-files.mjs', ['infra']],
   ['scripts/ci/lanes/run-timed-command.mjs', ['web', 'api', 'storybook']],
@@ -171,7 +174,7 @@ function isAgentTestProductInput(path) {
 
 // Surfaces checked by the repo-policy lane only. Agent workflow paths (host configuration, agent
 // scripts, tests and instructions) and repository support files never select product lanes.
-const REPO_POLICY_PREFIXES = [
+export const REPO_POLICY_PREFIXES = [
   'docs/',
   'scripts/agents/',
   'scripts/ci/',
@@ -189,7 +192,7 @@ const REPO_POLICY_PREFIXES = [
   '.plans/',
   'omx_wiki/',
 ];
-const REPO_POLICY_PATHS = new Set([
+export const REPO_POLICY_PATHS = new Set([
   'AGENTS.md',
   'CLAUDE.md',
   'CONTRIBUTING.md',
