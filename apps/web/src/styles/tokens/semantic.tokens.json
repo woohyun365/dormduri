@@ -3,95 +3,87 @@
   "color": {
     "$type": "color",
     "layer-basement": {
-      "$value": "{primitive.color.neutral.50}"
+      "$value": "{primitive.color.ink.25}"
     },
     "layer-default": {
-      "$value": "{primitive.color.neutral.0}"
+      "$value": "{primitive.color.ink.0}"
     },
     "layer-floating": {
-      "$value": "{primitive.color.neutral.0}"
+      "$value": "{primitive.color.ink.0}"
     },
     "fg-neutral": {
-      "$value": "{primitive.color.neutral.900}"
+      "$value": "{primitive.color.ink.950}"
     },
     "fg-muted": {
-      "$value": "{primitive.color.neutral.600}"
-    },
-    "fg-subtle": {
-      "$value": "{primitive.color.neutral.500}"
-    },
-    "fg-inverted": {
-      "$value": "{primitive.color.neutral.0}"
+      "$value": "{primitive.color.ink.700}"
     },
     "fg-brand": {
-      "$value": "{primitive.color.brand.800}"
+      "$value": "{primitive.color.ultramarine.500}"
     },
-    "fg-critical": {
-      "$value": "{primitive.color.red.700}"
-    },
-    "fg-warning": {
-      "$value": "{primitive.color.amber.700}"
-    },
-    "fg-positive": {
-      "$value": "{primitive.color.green.700}"
-    },
-    "fg-informative": {
-      "$value": "{primitive.color.sky.700}"
+    "fg-on-brand": {
+      "$value": "{primitive.color.ink.0}"
     },
     "stroke-neutral": {
-      "$value": "{primitive.color.neutral.500}"
+      "$value": "{primitive.color.ink.400}"
     },
     "stroke-subtle": {
-      "$value": "{primitive.color.neutral.200}"
+      "$value": "{primitive.color.ink.100}"
     },
     "stroke-focus": {
-      "$value": "{primitive.color.brand.600}"
+      "$value": "{primitive.color.ultramarine.500}"
     },
     "brand-solid": {
-      "$value": "{primitive.color.brand.800}"
+      "$value": "{primitive.color.ultramarine.500}"
     },
     "brand-weak": {
-      "$value": "{primitive.color.brand.100}"
+      "$value": "{primitive.color.ultramarine.50}"
     },
-    "critical-solid": {
+    "brand-stroke": {
+      "$value": "{primitive.color.ultramarine.500}"
+    },
+    "annotation-marker": {
+      "$description": "Highlighter ink in a depicted screenshot (a hand-marked checklist). Same in every palette.",
+      "$value": "{primitive.color.amber.300}"
+    },
+    "fg-on-annotation": {
+      "$description": "Text and pen strokes on annotation-marker. Same in every palette.",
+      "$value": "{primitive.color.neutral.900}"
+    },
+    "window-close": {
+      "$description": "Close button of a depicted macOS browser window. Not a status role.",
       "$value": "{primitive.color.red.700}"
     },
-    "critical-weak": {
-      "$value": "{primitive.color.red.50}"
-    },
-    "warning-solid": {
+    "window-minimize": {
+      "$description": "Minimize button of a depicted macOS browser window. Not a status role.",
       "$value": "{primitive.color.amber.700}"
     },
-    "warning-weak": {
-      "$value": "{primitive.color.amber.50}"
-    },
-    "positive-solid": {
+    "window-zoom": {
+      "$description": "Zoom button of a depicted macOS browser window. Not a status role.",
       "$value": "{primitive.color.green.700}"
     },
-    "positive-weak": {
-      "$value": "{primitive.color.green.50}"
+    "layer-inverse": {
+      "$value": "{primitive.color.ink.1000}"
     },
-    "informative-solid": {
-      "$value": "{primitive.color.sky.700}"
+    "fg-on-inverse": {
+      "$value": "{primitive.color.ink.0}"
     },
-    "informative-weak": {
-      "$value": "{primitive.color.sky.50}"
+    "fg-on-inverse-muted": {
+      "$value": "{primitive.color.ink.300}"
+    },
+    "media-scrim": {
+      "$value": "{primitive.color.ink.1100}"
+    },
+    "fg-on-media": {
+      "$value": "{primitive.color.ink.0}"
+    },
+    "placeholder-fill": {
+      "$value": "{primitive.color.ink.150}"
+    },
+    "fg-placeholder": {
+      "$value": "{primitive.color.ink.650}"
     }
   },
   "text": {
-    "caption": {
-      "$root": {
-        "$type": "dimension",
-        "$value": {
-          "value": 0.75,
-          "unit": "rem"
-        }
-      },
-      "line-height": {
-        "$type": "number",
-        "$value": 1.5
-      }
-    },
     "label": {
       "$root": {
         "$type": "dimension",
@@ -129,32 +121,6 @@
       "line-height": {
         "$type": "number",
         "$value": 1.6
-      }
-    },
-    "body-long": {
-      "$root": {
-        "$type": "dimension",
-        "$value": {
-          "value": 1.0,
-          "unit": "rem"
-        }
-      },
-      "line-height": {
-        "$type": "number",
-        "$value": 1.7
-      }
-    },
-    "body-lg": {
-      "$root": {
-        "$type": "dimension",
-        "$value": {
-          "value": 1.125,
-          "unit": "rem"
-        }
-      },
-      "line-height": {
-        "$type": "number",
-        "$value": 1.55
       }
     },
     "title-3": {
@@ -259,16 +225,6 @@
           }
         }
       }
-    },
-    "display": {
-      "$value": ["Noto Serif KR", "AppleMyungjo", "Batang", "serif"],
-      "$extensions": {
-        "knu-roommate": {
-          "cssVariables": {
-            "Noto Serif KR": "--font-noto-serif-kr"
-          }
-        }
-      }
     }
   },
   "spacing": {
@@ -280,12 +236,6 @@
       }
     },
     "gutter": {
-      "$value": {
-        "value": 1,
-        "unit": "rem"
-      }
-    },
-    "gutter-wide": {
       "$value": {
         "value": 1.25,
         "unit": "rem"
@@ -317,6 +267,12 @@
         "value": 45,
         "unit": "rem"
       }
+    },
+    "content": {
+      "$value": {
+        "value": 67.5,
+        "unit": "rem"
+      }
     }
   },
   "radius": {
@@ -328,12 +284,6 @@
       }
     },
     "control": {
-      "$value": {
-        "value": 0.5,
-        "unit": "rem"
-      }
-    },
-    "card": {
       "$value": {
         "value": 0.5,
         "unit": "rem"
@@ -354,21 +304,33 @@
   },
   "duration": {
     "$type": "duration",
-    "fast": {
-      "$value": {
-        "value": 120,
-        "unit": "ms"
-      }
-    },
-    "normal": {
-      "$value": {
-        "value": 200,
-        "unit": "ms"
-      }
-    },
     "slow": {
       "$value": {
         "value": 320,
+        "unit": "ms"
+      }
+    },
+    "reveal": {
+      "$value": {
+        "value": 560,
+        "unit": "ms"
+      }
+    },
+    "band": {
+      "$value": {
+        "value": 720,
+        "unit": "ms"
+      }
+    },
+    "stagger": {
+      "$value": {
+        "value": 80,
+        "unit": "ms"
+      }
+    },
+    "settle": {
+      "$value": {
+        "value": 1800,
         "unit": "ms"
       }
     }
@@ -377,6 +339,10 @@
     "standard": {
       "$type": "cubicBezier",
       "$value": [0.2, 0, 0, 1]
+    },
+    "emphasized": {
+      "$type": "cubicBezier",
+      "$value": [0.16, 1, 0.3, 1]
     }
   }
 }

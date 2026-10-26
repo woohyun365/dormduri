@@ -1,0 +1,98 @@
+import { Canvas, ColorItem, ColorPalette, Meta } from '@storybook/addon-docs/blocks';
+import * as PaletteSamples from './Palettes.stories';
+import * as TokenSamples from './Tokens.stories';
+
+<Meta title="Foundations/Color" />
+
+# Color
+
+모든 색은 불투명이고, 이름은 값이 아니라 역할입니다. 상태는 색만으로 전하지 않고 글이나 아이콘을 함께 둡니다. 아래 견본은 기본 문맥의
+역할입니다.
+
+<ColorPalette>
+  <ColorItem
+    title="층"
+    subtitle="page 바탕 → panel·card → sheet·popover"
+    colors={{
+      'layer-basement': 'var(--color-layer-basement)',
+      'layer-default': 'var(--color-layer-default)',
+      'layer-floating': 'var(--color-layer-floating)',
+    }}
+  />
+  <ColorItem
+    title="글자"
+    subtitle="본문 → 보조 글자, 강조 링크, 주 행동 위 글자"
+    colors={{
+      'fg-neutral': 'var(--color-fg-neutral)',
+      'fg-muted': 'var(--color-fg-muted)',
+      'fg-brand': 'var(--color-fg-brand)',
+      'fg-on-brand': 'var(--color-fg-on-brand)',
+    }}
+  />
+  <ColorItem
+    title="선"
+    subtitle="입력·control 경계, 장식 구분선, focus 표시"
+    colors={{
+      'stroke-neutral': 'var(--color-stroke-neutral)',
+      'stroke-subtle': 'var(--color-stroke-subtle)',
+      'stroke-focus': 'var(--color-stroke-focus)',
+    }}
+  />
+  <ColorItem
+    title="브랜드"
+    subtitle="주 행동 배경, 옅은 강조 배경, 주 행동 테두리"
+    colors={{
+      'brand-solid': 'var(--color-brand-solid)',
+      'brand-weak': 'var(--color-brand-weak)',
+      'brand-stroke': 'var(--color-brand-stroke)',
+    }}
+  />
+  <ColorItem
+    title="형광펜 표시"
+    subtitle="그린 화면 속 손 표시와 그 위 글자(두 문맥에서 같음)"
+    colors={{
+      'annotation-marker': 'var(--color-annotation-marker)',
+      'fg-on-annotation': 'var(--color-fg-on-annotation)',
+    }}
+  />
+  <ColorItem
+    title="반전 띠·사진·빈 자리"
+    subtitle="반전 띠와 그 위 글자, 그림 위 scrim과 글자, 캡처 자리"
+    colors={{
+      'layer-inverse': 'var(--color-layer-inverse)',
+      'fg-on-inverse': 'var(--color-fg-on-inverse)',
+      'fg-on-inverse-muted': 'var(--color-fg-on-inverse-muted)',
+      'media-scrim': 'var(--color-media-scrim)',
+      'fg-on-media': 'var(--color-fg-on-media)',
+      'placeholder-fill': 'var(--color-placeholder-fill)',
+      'fg-placeholder': 'var(--color-fg-placeholder)',
+    }}
+  />
+  <ColorItem
+    title="창 단추"
+    subtitle="그린 브라우저 창의 macOS 창 단추. 상태 역할이 아님(글자를 올리지 않음)"
+    colors={{
+      'window-close': 'var(--color-window-close)',
+      'window-minimize': 'var(--color-window-minimize)',
+      'window-zoom': 'var(--color-window-zoom)',
+    }}
+  />
+</ColorPalette>
+
+## 계산값과 대비 짝
+
+견본 아래 글자는 브라우저가 생성 CSS에서 계산한 값입니다. 마지막 묶음은 `build-tokens.test.ts`가 판정하는 글자·면 짝입니다.
+
+<Canvas of={TokenSamples.Colors} />
+
+## palette 문맥
+
+색은 D 울트라마린 하나이고, 기본 값이 라이트입니다. 요소에 `data-palette="dark"`를 주면 그 안에서 색 역할의 값만 다크로 바뀌고
+이름은 그대로입니다.
+
+- 페이지 뿌리(`LandingFrame`)가 판에 따라 `dark` 또는 `light`를 겁니다.
+- 히어로와 마지막 그림 영역은 그림이 어두워 어느 판에서나 `dark`이고, 어두운 판 안의 게시판 창은 `light`입니다. 두 문맥 모두
+  겹쳐도 바깥 값이 남지 않습니다(nestable).
+- 다크가 바꾸지 않는 역할(주 행동 면과 글자, 형광펜 표시, 그림 위 글자)은 두 문맥에서 같습니다.
+
+<Canvas of={PaletteSamples.Contexts} />

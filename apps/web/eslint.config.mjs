@@ -62,7 +62,7 @@ const rawValuePatterns = [
   },
   {
     pattern: String.raw`${classStart}font-(?:sans|serif|mono)${classEnd}`,
-    message: '글꼴은 font-body(본문)와 font-display(display 제목)만 씁니다.',
+    message: '글꼴은 font-body만 씁니다.',
   },
   {
     pattern: String.raw`${classStart}(?:w|min-w|max-w|inline|min-inline|max-inline|basis|columns)-(?:3xs|2xs|xs|sm|md|lg|xl|[2-7]xl)${classEnd}`,

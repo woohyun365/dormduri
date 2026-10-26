@@ -3,12 +3,15 @@ import { useLayoutEffect, useRef, type ReactNode } from 'react';
 
 // Token samples for review and screenshot comparison. Each sample shows the token name and the
 // value the browser computed from the generated CSS, so the story never repeats a literal value.
-// Text pairs are the contrast pairs that tokens/__tests__/build-tokens.test.ts checks.
+// Text pairs are the contrast pairs that tokens/__tests__/build-tokens.test.ts checks. The Foundations
+// docs pages (*.mdx beside this file) explain each group and show these samples.
 
 type Sample = {
   token: string;
   className: string;
   content?: ReactNode;
+  // Read these instead of the group's properties (a custom property per sample).
+  properties?: readonly string[];
 };
 
 const COLOR_PROPERTIES = ['background-color'];
@@ -34,13 +37,8 @@ const layerSamples: Sample[] = [
 const foregroundSamples: Sample[] = [
   { token: 'color-fg-neutral', className: `${swatch} bg-fg-neutral` },
   { token: 'color-fg-muted', className: `${swatch} bg-fg-muted` },
-  { token: 'color-fg-subtle', className: `${swatch} bg-fg-subtle` },
-  { token: 'color-fg-inverted', className: `${swatch} bg-fg-inverted` },
   { token: 'color-fg-brand', className: `${swatch} bg-fg-brand` },
-  { token: 'color-fg-critical', className: `${swatch} bg-fg-critical` },
-  { token: 'color-fg-warning', className: `${swatch} bg-fg-warning` },
-  { token: 'color-fg-positive', className: `${swatch} bg-fg-positive` },
-  { token: 'color-fg-informative', className: `${swatch} bg-fg-informative` },
+  { token: 'color-fg-on-brand', className: `${swatch} bg-fg-on-brand` },
 ];
 
 const strokeSamples: Sample[] = [
@@ -61,77 +59,44 @@ const strokeSamples: Sample[] = [
 const fillSamples: Sample[] = [
   { token: 'color-brand-solid', className: `${swatch} bg-brand-solid` },
   { token: 'color-brand-weak', className: `${swatch} bg-brand-weak` },
-  { token: 'color-critical-solid', className: `${swatch} bg-critical-solid` },
-  { token: 'color-critical-weak', className: `${swatch} bg-critical-weak` },
-  { token: 'color-warning-solid', className: `${swatch} bg-warning-solid` },
-  { token: 'color-warning-weak', className: `${swatch} bg-warning-weak` },
-  { token: 'color-positive-solid', className: `${swatch} bg-positive-solid` },
-  { token: 'color-positive-weak', className: `${swatch} bg-positive-weak` },
-  { token: 'color-informative-solid', className: `${swatch} bg-informative-solid` },
-  { token: 'color-informative-weak', className: `${swatch} bg-informative-weak` },
+  { token: 'color-window-close', className: `${swatch} bg-window-close` },
+  { token: 'color-window-minimize', className: `${swatch} bg-window-minimize` },
+  { token: 'color-window-zoom', className: `${swatch} bg-window-zoom` },
 ];
 
 const pairSamples: Sample[] = [
   {
-    token: 'fg-inverted / brand-solid',
-    className: 'rounded-control bg-brand-solid p-3 text-body text-fg-inverted',
+    token: 'fg-on-brand / brand-solid',
+    className: 'rounded-control bg-brand-solid p-3 text-body text-fg-on-brand',
     content: '주 행동',
   },
   {
-    token: 'fg-critical / critical-weak',
-    className: 'rounded-control bg-critical-weak p-3 text-body text-fg-critical',
-    content: '차단됨: 신고가 접수되었습니다',
+    token: 'fg-brand / brand-weak',
+    className: 'rounded-control bg-brand-weak p-3 text-body text-fg-brand',
+    content: '강조 면',
   },
   {
-    token: 'fg-warning / warning-weak',
-    className: 'rounded-control bg-warning-weak p-3 text-body text-fg-warning',
-    content: '주의: 마감이 가까워요',
+    token: 'fg-on-inverse / layer-inverse',
+    className: 'rounded-control bg-layer-inverse p-3 text-body text-fg-on-inverse',
+    content: '반전 띠',
   },
   {
-    token: 'fg-positive / positive-weak',
-    className: 'rounded-control bg-positive-weak p-3 text-body text-fg-positive',
-    content: '확인: 매칭이 성사됐어요',
-  },
-  {
-    token: 'fg-informative / informative-weak',
-    className: 'rounded-control bg-informative-weak p-3 text-body text-fg-informative',
-    content: '안내: 다음 단계로 진행하세요',
-  },
-  {
-    token: 'fg-inverted / critical-solid',
-    className: 'rounded-control bg-critical-solid p-3 text-body text-fg-inverted',
-    content: '차단',
-  },
-  {
-    token: 'fg-inverted / warning-solid',
-    className: 'rounded-control bg-warning-solid p-3 text-body text-fg-inverted',
-    content: '주의',
-  },
-  {
-    token: 'fg-inverted / positive-solid',
-    className: 'rounded-control bg-positive-solid p-3 text-body text-fg-inverted',
-    content: '확인',
-  },
-  {
-    token: 'fg-inverted / informative-solid',
-    className: 'rounded-control bg-informative-solid p-3 text-body text-fg-inverted',
-    content: '안내',
+    token: 'fg-on-annotation / annotation-marker',
+    className: 'rounded-control bg-annotation-marker p-3 text-body text-fg-on-annotation',
+    content: '형광펜 표시',
   },
 ];
 
 const textSamples: Sample[] = [
-  { token: 'text-caption', className: 'text-caption' },
   { token: 'text-label', className: 'text-label' },
   { token: 'text-body-sm', className: 'text-body-sm' },
   { token: 'text-body', className: 'text-body' },
-  { token: 'text-body-long', className: 'text-body-long' },
-  { token: 'text-body-lg', className: 'text-body-lg' },
   { token: 'text-title-3', className: 'text-title-3 font-bold' },
   { token: 'text-title-2', className: 'text-title-2 font-bold' },
   { token: 'text-title-1', className: 'text-title-1 font-bold' },
-  { token: 'text-display-3 · font-display', className: 'font-display text-display-3' },
-  { token: 'text-display-2 · font-display', className: 'font-display text-display-2' },
-  { token: 'text-display-1 · font-display', className: 'font-display text-display-1' },
+  { token: 'text-display-3', className: 'text-display-3' },
+  { token: 'text-display-2', className: 'text-display-2' },
+  { token: 'text-display-1', className: 'text-display-1' },
 ].map((sample) => ({
   ...sample,
   className: `${sample.className} break-keep wrap-anywhere text-balance text-fg-neutral`,
@@ -147,14 +112,12 @@ const weightSamples: Sample[] = [
 const textColorSamples: Sample[] = [
   { token: 'fg-neutral', className: 'text-body text-fg-neutral', content: '본문 글자' },
   { token: 'fg-muted', className: 'text-body text-fg-muted', content: '보조 글자' },
-  { token: 'fg-subtle', className: 'text-body text-fg-subtle', content: '가장 약한 글자' },
   { token: 'fg-brand', className: 'text-body text-fg-brand', content: '강조 링크' },
 ];
 
 const spacingSamples: Sample[] = [
   { token: 'spacing (배수 기준) · w-4', className: 'h-4 w-4 bg-brand-solid' },
   { token: 'spacing-gutter', className: 'h-4 w-gutter bg-brand-solid' },
-  { token: 'spacing-gutter-wide', className: 'h-4 w-gutter-wide bg-brand-solid' },
   { token: 'spacing-section', className: 'h-4 w-section bg-brand-solid' },
   { token: 'spacing-section-desktop', className: 'h-4 w-section-desktop bg-brand-solid' },
 ];
@@ -167,7 +130,6 @@ const containerSamples: Sample[] = [
 const radiusSamples: Sample[] = [
   { token: 'radius-input', className: 'size-16 rounded-input border-2 border-stroke-neutral' },
   { token: 'radius-control', className: 'size-16 rounded-control border-2 border-stroke-neutral' },
-  { token: 'radius-card', className: 'size-16 rounded-card border-2 border-stroke-neutral' },
   { token: 'radius-panel', className: 'size-16 rounded-panel border-2 border-stroke-neutral' },
   { token: 'radius-sheet', className: 'size-16 rounded-sheet border-2 border-stroke-neutral' },
 ];
@@ -176,6 +138,19 @@ const targetSamples: Sample[] = [
   { token: 'spacing-target-min', className: 'size-target-min bg-brand-weak' },
   { token: 'spacing-target-primary', className: 'size-target-primary bg-brand-weak' },
 ];
+
+// Durations and easings are :root custom properties without utilities; each sample reads its own.
+const durationSamples: Sample[] = ['slow', 'reveal', 'stagger', 'settle', 'band'].map((name) => ({
+  token: `duration-${name}`,
+  className: 'h-2 w-full rounded-full bg-brand-weak',
+  properties: [`--duration-${name}`],
+}));
+
+const easeSamples: Sample[] = ['standard', 'emphasized'].map((name) => ({
+  token: `ease-${name}`,
+  className: 'h-2 w-full rounded-full bg-brand-weak',
+  properties: [`--ease-${name}`],
+}));
 
 const focusSamples: Sample[] = [
   {
@@ -195,8 +170,10 @@ function TokenSample({ sample, properties }: { sample: Sample; properties: reado
     const output = valueRef.current;
     if (!element || !output) return;
     const style = getComputedStyle(element);
-    output.textContent = properties.map((property) => style.getPropertyValue(property)).join(' / ');
-  }, [properties]);
+    output.textContent = (sample.properties ?? properties)
+      .map((property) => style.getPropertyValue(property).trim())
+      .join(' / ');
+  }, [properties, sample.properties]);
 
   return (
     <li className="flex min-w-0 flex-col gap-2">
@@ -204,7 +181,7 @@ function TokenSample({ sample, properties }: { sample: Sample; properties: reado
         {sample.content}
       </div>
       <p className="text-label text-fg-neutral">{sample.token}</p>
-      <code ref={valueRef} className="font-body text-caption text-fg-muted wrap-anywhere" />
+      <code ref={valueRef} className="font-body text-label text-fg-muted wrap-anywhere" />
     </li>
   );
 }
@@ -221,7 +198,7 @@ function SampleGroup({
   columns: string;
 }) {
   return (
-    <section className="flex flex-col gap-4 rounded-panel bg-layer-default p-gutter">
+    <section className="flex flex-col gap-4 rounded-panel bg-layer-default p-4">
       <h2 className="text-title-3 font-bold">{title}</h2>
       <ul className={`grid gap-4 ${columns}`}>
         {samples.map((sample) => (
@@ -234,15 +211,15 @@ function SampleGroup({
 
 function SampleSheet({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <main className="mx-auto flex max-w-page flex-col gap-6 p-gutter lg:p-section">
-      <h1 className="font-display text-display-3 text-balance">{title}</h1>
+    <main className="mx-auto flex max-w-page flex-col gap-6 p-4 lg:p-section">
+      <h1 className="text-display-3 text-balance">{title}</h1>
       {children}
     </main>
   );
 }
 
 const meta = {
-  title: 'Tokens/KNU',
+  title: 'Foundations/Samples/Tokens',
   tags: ['visual', 'knu-layer'],
 } satisfies Meta;
 export default meta;
@@ -262,7 +239,7 @@ export const Colors: Story = {
         title="글자 색"
         samples={foregroundSamples}
         properties={COLOR_PROPERTIES}
-        columns="grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
+        columns="grid-cols-2 md:grid-cols-4"
       />
       <SampleGroup
         title="선"
@@ -271,10 +248,10 @@ export const Colors: Story = {
         columns="grid-cols-1 md:grid-cols-3"
       />
       <SampleGroup
-        title="브랜드·상태 면"
+        title="브랜드 면·창 단추"
         samples={fillSamples}
         properties={COLOR_PROPERTIES}
-        columns="grid-cols-2 md:grid-cols-4 lg:grid-cols-5"
+        columns="grid-cols-2 md:grid-cols-5"
       />
       <SampleGroup
         title="글자와 면의 짝"
@@ -305,7 +282,7 @@ export const Typography: Story = {
         title="글자 색"
         samples={textColorSamples}
         properties={TEXT_COLOR_PROPERTIES}
-        columns="grid-cols-2 md:grid-cols-4"
+        columns="grid-cols-1 md:grid-cols-3"
       />
     </SampleSheet>
   ),
@@ -330,7 +307,7 @@ export const SpacingAndRadius: Story = {
         title="radius"
         samples={radiusSamples}
         properties={RADIUS_PROPERTIES}
-        columns="grid-cols-2 md:grid-cols-5"
+        columns="grid-cols-2 md:grid-cols-4"
       />
     </SampleSheet>
   ),
@@ -350,6 +327,27 @@ export const TargetAndFocus: Story = {
         samples={focusSamples}
         properties={FOCUS_PROPERTIES}
         columns="grid-cols-1"
+      />
+    </SampleSheet>
+  ),
+};
+
+// Not visual-tagged: no Linux baseline yet. The motion reduced context shows every duration as 0ms.
+export const Motion: Story = {
+  tags: ['!visual'],
+  render: () => (
+    <SampleSheet title="motion">
+      <SampleGroup
+        title="duration"
+        samples={durationSamples}
+        properties={[]}
+        columns="grid-cols-2 md:grid-cols-5"
+      />
+      <SampleGroup
+        title="easing"
+        samples={easeSamples}
+        properties={[]}
+        columns="grid-cols-1 md:grid-cols-2"
       />
     </SampleSheet>
   ),

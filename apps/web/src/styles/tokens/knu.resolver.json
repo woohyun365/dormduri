@@ -50,6 +50,32 @@
           }
         }
       }
+    },
+    "palette": {
+      "description": "Color scheme. light is the default (semantic.tokens.json); dark overrides color roles inside an element with data-palette=\"dark\". Both selectors are nestable, so a light card can sit in a dark page and a dark band in a light page.",
+      "contexts": {
+        "light": [],
+        "dark": [
+          {
+            "$ref": "palette-dark.tokens.json"
+          }
+        ]
+      },
+      "default": "light",
+      "$extensions": {
+        "knu-roommate": {
+          "cssContexts": {
+            "light": {
+              "selector": "[data-palette='light']",
+              "nestable": "true"
+            },
+            "dark": {
+              "selector": "[data-palette='dark']",
+              "nestable": "true"
+            }
+          }
+        }
+      }
     }
   },
   "resolutionOrder": [
@@ -64,6 +90,9 @@
     },
     {
       "$ref": "#/modifiers/motion"
+    },
+    {
+      "$ref": "#/modifiers/palette"
     }
   ]
 }

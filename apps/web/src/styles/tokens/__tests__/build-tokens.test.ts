@@ -49,13 +49,24 @@ describe('token source and generated CSS', () => {
       [
         '@media (prefers-reduced-motion: reduce) {',
         '  :root {',
-        '    --duration-fast: 0ms;',
-        '    --duration-normal: 0ms;',
         '    --duration-slow: 0ms;',
+        '    --duration-reveal: 0ms;',
+        '    --duration-band: 0ms;',
+        '    --duration-stagger: 0ms;',
+        '    --duration-settle: 0ms;',
         '  }',
         '}',
       ].join('\n'),
     );
+  });
+
+  it('emits the light and dark palette contexts as data-palette overrides', () => {
+    const css = buildTokenCss(tokensDir);
+
+    expect([...css.matchAll(/^\[data-palette='([\w-]+)'\] \{/gm)].map((match) => match[1])).toEqual(
+      ['dark', 'light'],
+    );
+    expect(css).toMatch(/\[data-palette='dark'\] \{\n[^}]*--color-layer-basement: #[0-9a-f]{6};/);
   });
 });
 
@@ -103,7 +114,84 @@ describe('CSS generation failures', () => {
       (files) => {
         delete child(files, 'knu.resolver.json', 'modifiers', 'motion').$extensions;
       },
-      /context "reduced" needs a \{ media \} cssContexts entry/,
+      /context "reduced" needs a \{ media \} or \{ selector \} cssContexts entry/,
+    ],
+    [
+      'a context selector that is not one data attribute value',
+      (files) => {
+        child(
+          files,
+          'knu.resolver.json',
+          'modifiers',
+          'palette',
+          '$extensions',
+          'knu-roommate',
+          'cssContexts',
+        ).dark = { selector: 'body > *' };
+      },
+      /context "dark" selector must look like \[data-name='value'\]/,
+    ],
+    [
+      'a context condition with an unknown key',
+      (files) => {
+        child(
+          files,
+          'knu.resolver.json',
+          'modifiers',
+          'palette',
+          '$extensions',
+          'knu-roommate',
+          'cssContexts',
+        ).dark = [{ selector: "[data-palette='dark']" }, { supports: '(display: grid)' }];
+      },
+      /context "dark" needs a \{ media \} or \{ selector \} cssContexts entry/,
+    ],
+    [
+      'a nestable condition under a media query',
+      (files) => {
+        child(
+          files,
+          'knu.resolver.json',
+          'modifiers',
+          'palette',
+          '$extensions',
+          'knu-roommate',
+          'cssContexts',
+        ).dark = [
+          { selector: "[data-palette='dark']", media: '(min-width: 1px)', nestable: 'true' },
+        ];
+      },
+      /context "dark" nestable condition needs a selector and no media/,
+    ],
+    [
+      'a nestable condition that is not "true"',
+      (files) => {
+        child(
+          files,
+          'knu.resolver.json',
+          'modifiers',
+          'palette',
+          '$extensions',
+          'knu-roommate',
+          'cssContexts',
+        ).dark = [{ selector: "[data-palette='dark']", nestable: 'yes' }];
+      },
+      /context "dark" nestable must be "true"/,
+    ],
+    [
+      'a default context selector that is not nestable',
+      (files) => {
+        child(
+          files,
+          'knu.resolver.json',
+          'modifiers',
+          'palette',
+          '$extensions',
+          'knu-roommate',
+          'cssContexts',
+        ).light = { selector: "[data-palette='light']" };
+      },
+      /default context "light" can only have nestable selectors/,
     ],
     [
       'a context that adds a token',
@@ -139,6 +227,49 @@ describe('CSS generation failures', () => {
       /cssVariables at font\.body/,
     ],
   ];
+
+  // An auto scheme: one selector takes a third context's values, and the dark values under a media
+  // query. The media block also writes the paths the plain block set, so none keeps the third value.
+  it('resets under a media query the paths an earlier context set for the same selector', () => {
+    const css = buildEditedCopy((files) => {
+      const palette = child(files, 'knu.resolver.json', 'modifiers', 'palette');
+      // The plain block comes first, so the warm context is declared before dark.
+      const { light, dark } = palette.contexts as JsonObject;
+      palette.contexts = { light, warm: [{ $ref: 'palette-warm.tokens.json' }], dark };
+      const cssContexts = child(palette, '$extensions', 'knu-roommate', 'cssContexts');
+      cssContexts.warm = { selector: "[data-palette='auto']" };
+      cssContexts.dark = [
+        cssContexts.dark,
+        { media: '(prefers-color-scheme: dark)', selector: "[data-palette='auto']" },
+      ];
+      files['palette-warm.tokens.json'] = {
+        color: { 'annotation-marker': { $value: '{primitive.color.ink.950}' } },
+      };
+    });
+    const darkAuto = css.split(
+      "@media (prefers-color-scheme: dark) {\n  [data-palette='auto'] {",
+    )[1];
+
+    expect(css).toMatch(/\[data-palette='auto'\] \{\n[^}]*--color-annotation-marker: #10131f;/);
+    expect(darkAuto?.split('}')[0]).toContain('--color-annotation-marker: #fcd34d;');
+  });
+
+  // A light card inside the dark page and the night hero inside the light page: both selectors are
+  // nestable and write every role the dark context changes, the light one with the default values.
+  it('writes every palette role for the nestable light and dark selectors', () => {
+    const css = buildTokenCss(tokensDir);
+    const rolesIn = (selector: string) => {
+      const body = css.split(`${selector} {`)[1]?.split('}')[0] ?? '';
+      return [...body.matchAll(/--(color-[\w-]+):/g)].map((match) => match[1]);
+    };
+    const dark = rolesIn("[data-palette='dark']");
+
+    expect(dark.length).toBeGreaterThan(0);
+    expect(rolesIn("[data-palette='light']")).toEqual(dark);
+    expect(css).toMatch(/\[data-palette='light'\] \{\n[^}]*--color-layer-default: #ffffff;/);
+    expect(css).toMatch(/\[data-palette='light'\] \{\n[^}]*--color-fg-brand: #4353ff;/);
+    expect(css).not.toMatch(/\[data-palette='light'\] \{\n[^}]*--duration-/);
+  });
 
   it('builds an unedited copy like the source directory', () => {
     expect(buildEditedCopy(() => {})).toBe(buildTokenCss(tokensDir));
@@ -242,32 +373,44 @@ describe('token format validation', () => {
 });
 
 describe('contrast pairs', () => {
-  const tokens = loadTokens(tokensDir);
+  // Both palette contexts must pass the same pairs; light is the default set.
+  const palettes = ['light', 'dark'] as const;
   const layers = ['layer-basement', 'layer-default', 'layer-floating'];
-  const statuses = ['critical', 'warning', 'positive', 'informative'];
   const pairs: Array<[string, string, number]> = [
-    ...['fg-neutral', 'fg-muted', 'fg-subtle', 'fg-brand'].flatMap((fg) =>
+    ...['fg-neutral', 'fg-muted', 'fg-brand'].flatMap((fg) =>
       layers.map((layer): [string, string, number] => [fg, layer, 4.5]),
     ),
-    ...['brand-solid', ...statuses.map((status) => `${status}-solid`)].map(
-      (solid): [string, string, number] => ['fg-inverted', solid, 4.5],
-    ),
-    ...statuses.flatMap((status): Array<[string, string, number]> => [
-      [`fg-${status}`, `${status}-weak`, 4.5],
-      [`fg-${status}`, 'layer-default', 4.5],
-    ]),
+    ['fg-on-brand', 'brand-solid', 4.5],
+    ['fg-neutral', 'brand-weak', 4.5],
+    ['fg-on-annotation', 'annotation-marker', 4.5],
     ...layers.map((layer): [string, string, number] => ['stroke-focus', layer, 3]),
-    ...['stroke-neutral', 'brand-solid'].flatMap((stroke) =>
+    // A primary action keeps a 3:1 edge (brand-stroke) against the page in both contexts.
+    ...['stroke-neutral', 'brand-stroke'].flatMap((stroke) =>
       ['layer-default', 'layer-basement'].map((layer): [string, string, number] => [
         stroke,
         layer,
         3,
       ]),
     ),
+    // Inverse bands, the scrim over pictures and the capture placeholders.
+    ['fg-muted', 'brand-weak', 4.5],
+    ['fg-brand', 'brand-weak', 4.5],
+    ['fg-on-inverse', 'layer-inverse', 4.5],
+    ['fg-on-inverse-muted', 'layer-inverse', 4.5],
+    ['fg-on-media', 'media-scrim', 4.5],
+    ['fg-placeholder', 'placeholder-fill', 4.5],
   ];
+  const cases = palettes.flatMap((palette) =>
+    pairs.map(([foreground, background, minimum]): [string, string, string, number] => [
+      palette,
+      foreground,
+      background,
+      minimum,
+    ]),
+  );
 
   it('covers every pair the plan defines', () => {
-    expect(pairs).toHaveLength(32);
+    expect(pairs).toHaveLength(25);
   });
 
   it('computes the WCAG contrast ratio', () => {
@@ -280,14 +423,21 @@ describe('contrast pairs', () => {
     expect(contrastRatio(gray, white)).toBeCloseTo(4.54, 2);
   });
 
-  it.each(pairs)('%s on %s reaches %d:1', (foreground, background, minimum) => {
-    expect(
-      contrastRatio(colorOf(tokens, foreground), colorOf(tokens, background)),
-    ).toBeGreaterThanOrEqual(minimum);
-  });
+  it.each(cases)(
+    'palette %s: %s on %s reaches %d:1',
+    (palette, foreground, background, minimum) => {
+      const tokens = loadTokens(tokensDir, { palette });
 
-  it('keeps every color opaque', () => {
-    const colors = [...tokens.values()].filter((token) => token.type === 'color');
+      expect(
+        contrastRatio(colorOf(tokens, foreground), colorOf(tokens, background)),
+      ).toBeGreaterThanOrEqual(minimum);
+    },
+  );
+
+  it.each(palettes)('keeps every color opaque in palette %s', (palette) => {
+    const colors = [...loadTokens(tokensDir, { palette }).values()].filter(
+      (token) => token.type === 'color',
+    );
 
     expect(colors.length).toBeGreaterThan(0);
     expect(colors.every((token) => (token.value as ColorValue).alpha === 1)).toBe(true);

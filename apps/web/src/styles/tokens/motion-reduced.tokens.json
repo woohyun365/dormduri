@@ -2,19 +2,31 @@
   "$description": "Reduced motion context: transitions finish immediately.",
   "duration": {
     "$type": "duration",
-    "fast": {
-      "$value": {
-        "value": 0,
-        "unit": "ms"
-      }
-    },
-    "normal": {
-      "$value": {
-        "value": 0,
-        "unit": "ms"
-      }
-    },
     "slow": {
+      "$value": {
+        "value": 0,
+        "unit": "ms"
+      }
+    },
+    "reveal": {
+      "$value": {
+        "value": 0,
+        "unit": "ms"
+      }
+    },
+    "band": {
+      "$value": {
+        "value": 0,
+        "unit": "ms"
+      }
+    },
+    "stagger": {
+      "$value": {
+        "value": 0,
+        "unit": "ms"
+      }
+    },
+    "settle": {
       "$value": {
         "value": 0,
         "unit": "ms"
