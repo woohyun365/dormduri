@@ -11,9 +11,16 @@
 //        pnpm scaffold -- --check [--root <repo>]
 //        pnpm scaffold -- consumer --mode <managed|vendored> [--plans tracked|ignored] --root <repo>
 // Exit 0 = done, 1 = refused or --check found an ignored root that .gitignore does not ignore, 2 = usage error.
-import { lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, posix, resolve, win32 } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 
 import { declaredPlanIds } from '../agents/common/plan-store.mjs';
 import { findGitignoreIssues } from '../git/workspace-layout-check.mjs';
@@ -33,8 +40,6 @@ const USAGE =
   'usage: scaffold <kind> --umbrella <Plan ID> --plan <Plan ID> --phase <phase> [--topic <topic>] ' +
   '[--<work name> <value>...] [--root <repo>] | scaffold --check [--root <repo>] | ' +
   `scaffold ${CONSUMER_COMMAND} --mode <mode> [--plans ${PLANS_SETTINGS.join('|')}] --root <repo>`;
-// This checkout maps the core roots to its own names through the binding and has no consumer workspace.
-const THIS_REPOSITORY = fileURLToPath(new URL('../..', import.meta.url));
 
 class UsageError extends Error {}
 
@@ -185,6 +190,15 @@ export function workspaceGitignore(core, { mode, ignore = [] }) {
   return `${rules.join('\n')}\n`;
 }
 
+// A checkout of this repository (this one, a clone or a linked worktree) maps the core roots to its own names through
+// the binding file at its root and has no consumer workspace: the nearest directory at or above `path` holding it.
+function bindingCheckout(path) {
+  for (let directory = path; ; directory = dirname(directory)) {
+    if (existsSync(resolve(directory, ...BINDING_FILE.split('/')))) return directory;
+    if (dirname(directory) === directory) return undefined;
+  }
+}
+
 // Index README of a product document directory: its purpose, the one-owner rule and the index table its documents fill.
 const indexReadme = (root) =>
   `# ${root.purpose}\n\n같은 규칙은 한 문서만 소유한다. 이 디렉터리에 문서를 더하면 아래 색인 표에 행을 더한다.\n\n` +
@@ -210,10 +224,12 @@ export function scaffoldConsumer(
         keep: true,
       })),
   ];
-  const repository = realpathSync(root);
-  if (repository === realpathSync(THIS_REPOSITORY))
+  // The native realpath gives the stored letter case, so another case of a path names the same directory.
+  const repository = realpathSync.native(root);
+  const checkout = bindingCheckout(repository);
+  if (checkout)
     refuse(
-      `${repository} maps the core roots through ${BINDING_FILE}; run ${CONSUMER_COMMAND} on another repository`,
+      `${checkout} maps the core roots through ${BINDING_FILE} and ${repository} is inside it; run ${CONSUMER_COMMAND} on another repository`,
     );
   const at = (path) => resolve(repository, ...path.split('/'));
   for (const file of files) {
@@ -235,7 +251,8 @@ export function scaffoldConsumer(
     file.exists = Boolean(stat);
     if (!stat) continue;
     if (!stat.isFile()) refuse(`${file.path} exists and is not a file`);
-    if (!file.keep && readFileSync(at(file.path), 'utf8') !== file.content)
+    // Line endings are not rules: a checkout with CRLF line endings holds the same rules.
+    if (!file.keep && readFileSync(at(file.path), 'utf8').replaceAll('\r\n', '\n') !== file.content)
       refuse(`${file.path} exists with other rules; scaffold does not overwrite it`);
   }
   for (const file of files.filter((entry) => !entry.exists)) {

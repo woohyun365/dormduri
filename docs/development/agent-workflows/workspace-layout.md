@@ -87,10 +87,12 @@ tracked root(`.gitignore`, `config.json`, `baselines/`, `plans/`, vendored 모�
 지금 이름을 대응시키고 `.htc`를 쓰지 않는다.
 
 `pnpm scaffold -- consumer --mode <managed|vendored> [--plans tracked|ignored] --root <저장소>`가 core 값으로 consumer 저장소에
-다음을 만든다. 이 저장소를 가리키면 거부한다.
+다음을 만든다. 이 저장소의 checkout(root에 binding 파일이 있는 clone·linked worktree 포함)이나 그 안 경로를 가리키면 대소문자가
+달라도 거부한다.
 
 - `.htc/.gitignore`: `/*` 뒤에 manifest 순서로 그 모드의 tracked root와 ignored root의 `trackedFiles`를 다시 연다. managed에는
-  `!/vendor/`가 없고 `--plans ignored`는 `!/plans/`를 뺀다. 파일이 있고 규칙이 다르면 덮지 않고 거부한다.
+  `!/vendor/`가 없고 `--plans ignored`는 `!/plans/`를 뺀다. 파일이 있고 규칙이 다르면 덮지 않고 거부한다(줄 끝 CRLF·LF 차이는
+  같은 규칙이다).
 - `indexReadme` 디렉터리(`docs/product/`, `docs/policies/`, `docs/architecture/`)의 `README.md`: 없을 때만 목적 제목, 같은
   규칙은 한 문서만 소유한다는 문장, 문서·상태·소유 규칙 색인 표를 만든다. 있으면 그대로 둔다.
 - 경로가 symlink를 지나면 거부하고, 모든 검사가 끝난 뒤에 쓴다. 같은 입력이면 같은 결과이고 출력은 `created`·`kept`만 첫
@@ -138,14 +140,14 @@ guard를 돌리는 것이다(새 workflow 단계 없음).
   `.gitignore`가 정하므로 강제 추적만 본다.
 - 상한을 올리는 변경은 manifest PR로 리뷰한다.
 
-| kind                      | 판정                                                                                                                   |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `tracked-forced`          | 범위 안 추적 파일을 `.gitignore`가 ignore하거나(`git add -f`) ignored root의 `trackedFiles` 밖에 있음                  |
-| `tracked-too-large`       | 가장 가까운 root의 `limits.fileBytes`, 없으면 core `trackedScope.fileBytes`(128 KiB)를 넘음. `vendor`는 파일당 256 KiB |
-| `tracked-total-too-large` | root 아래 allowlist 합계가 `limits.totalBytes`(`vendor` 4 MiB)를 넘음                                                  |
-| `tracked-binary`          | NUL byte가 있음                                                                                                        |
-| `tracked-secret`          | 고정 pattern(private key, AWS·GitHub·Slack·Google·API key, URL 안 자격 증명)에 맞음. 값은 출력하지 않는다              |
-| `checkpoint-*`            | tracked `plans` root 아래 Markdown이 아래 checkpoint 규칙을 어김                                                       |
+| kind                      | 판정                                                                                                                                                  |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tracked-forced`          | 범위 안 추적 파일을 `.gitignore`가 ignore하거나(`git add -f`) ignored root의 `trackedFiles` 밖에 있음. 사용자 exclude 파일·`info/exclude`는 읽지 않음 |
+| `tracked-too-large`       | 가장 가까운 root의 `limits.fileBytes`, 없으면 core `trackedScope.fileBytes`(128 KiB)를 넘음. `vendor`는 파일당 256 KiB                                |
+| `tracked-total-too-large` | root 아래 allowlist 합계가 `limits.totalBytes`(`vendor` 4 MiB)를 넘음                                                                                 |
+| `tracked-binary`          | NUL byte가 있음                                                                                                                                       |
+| `tracked-secret`          | 고정 pattern(private key, AWS·GitHub·Slack·Google·API key, URL 안 자격 증명)에 맞음. 값은 출력하지 않는다                                             |
+| `checkpoint-*`            | tracked `plans` root 아래 Markdown이 아래 checkpoint 규칙을 어김                                                                                      |
 
 ### Checkpoint
 

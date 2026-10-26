@@ -214,8 +214,15 @@ export function checkTrackedScope(repository, layout) {
   const { core } = layout;
   const roots = scopeRoots(layout);
   const markers = new Set(roots.flatMap((root) => (root.marker ? [root.marker] : [])));
+  // Only the tracked .gitignore files decide: a user exclude file or info/exclude would make the result local.
   const ignored = new Set(
-    list(repository, ['ls-files', '-z', '--cached', '--ignored', '--exclude-standard']),
+    list(repository, [
+      'ls-files',
+      '-z',
+      '--cached',
+      '--ignored',
+      '--exclude-per-directory=.gitignore',
+    ]),
   );
   const guide = core.guide;
   const issues = [];
