@@ -191,6 +191,9 @@ function checkBinding(errors, binding, core, coreIds) {
       errors.push(`${where}: trackedFilesOwner must be a repository path`);
     for (const key of ['reviewInput', 'nestedState', 'overridable'])
       if (key in root && root[key] !== true) errors.push(`${where}: ${key} is a true flag`);
+    // The guard matches a nested state root against one path segment.
+    if (root.nestedState && root.path?.includes('/'))
+      errors.push(`${where}: a nestedState root is one path segment`);
   }
   if (!Array.isArray(binding.toolKinds) || binding.toolKinds.length === 0)
     errors.push('binding: toolKinds must be a list');
@@ -215,8 +218,15 @@ function checkBinding(errors, binding, core, coreIds) {
     ? binding.retiredRoots
     : [null]
   ).entries()) {
-    if (!isObject(retired) || !isText(retired.name) || !ids.has(retired.use))
-      errors.push(`binding retired root ${index}: needs a name and the id of the root to use`);
+    if (
+      !isObject(retired) ||
+      !isText(retired.name) ||
+      retired.name.includes('/') ||
+      !ids.has(retired.use)
+    )
+      errors.push(
+        `binding retired root ${index}: needs a one-segment name and the id of the root to use`,
+      );
     else unknownKeys(errors, `binding retired root ${retired.name}`, retired, ['name', 'use']);
   }
   if (
@@ -224,6 +234,11 @@ function checkBinding(errors, binding, core, coreIds) {
     new Set(binding.guardExclusions).size !== binding.guardExclusions.length
   )
     errors.push('binding: guardExclusions must list distinct patterns');
+  // The guard matches an exclusion against one top-level name, so a pattern has no slash inside.
+  else
+    for (const pattern of binding.guardExclusions)
+      if (pattern.replace(/^\/|\/$/gu, '').includes('/'))
+        errors.push(`binding: guard exclusion ${pattern} names more than one path segment`);
   if (!isText(binding.rootLiteralTransitionPlan))
     errors.push('binding: rootLiteralTransitionPlan is required');
   if (!Array.isArray(binding.rootLiteralAllowlist))

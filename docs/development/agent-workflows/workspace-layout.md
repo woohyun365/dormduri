@@ -33,7 +33,7 @@ import할 때는 읽지 않고 값을 쓰는 함수 안에서 읽는다. hook �
 | `copy`              | 다른 checkout·worktree로 복사: `allowed`, `forbidden`, `unspecified`                                                           |
 | `archive`           | 저장소 밖 보관 위치의 공통 폴더 이름(binding `archive.folders`)                                                                |
 | `reviewInput`       | 리뷰 입력 결속 대상 root                                                                                                       |
-| `nestedState`       | 하위 디렉터리에 생기면 시작 위치 오류로 보는 runtime state root                                                                |
+| `nestedState`       | 하위 디렉터리에 생기면 시작 위치 오류로 보는 runtime state root(한 segment 경로)                                               |
 | `overridable`       | `KNU_ARTIFACTS_DIR`이 대체하는 root                                                                                            |
 
 ## 보존
@@ -72,7 +72,7 @@ caller는 env `{}`를 넘기므로 읽지 않는다.
 | kind                      | 판정                                                                                                                                            |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `nested-runtime-state`    | `nestedState` root 이름이 저장소 root 밖 하위 디렉터리에 생김                                                                                   |
-| `retired-root`            | binding `retiredRoots`의 옛 top-level 이름                                                                                                      |
+| `retired-root`            | binding `retiredRoots`의 옛 top-level 이름(한 segment)                                                                                          |
 | `outside-manifest-root`   | top-level 이름이 manifest root·표식, 추적 top-level 이름, `guardExclusions` 어디에도 없음. 추적 top-level 디렉터리 안의 중첩 항목은 보지 않는다 |
 | `plans-non-markdown`      | `markdown-only` root 안의 Markdown 밖 파일                                                                                                      |
 | `artifacts-unknown-child` | `{ names }` root의 첫 단에 목록·`trackedFiles` 밖 이름                                                                                          |

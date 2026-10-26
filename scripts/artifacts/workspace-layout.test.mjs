@@ -104,6 +104,13 @@ test('manifest validation rejects unknown fields, values outside the vocabulary 
     ['kind without class', ({ binding }) => delete binding.toolKinds[0].retention],
     ['path escape', ({ binding }) => (binding.roots[0].path = '../outside')],
     ['schema', ({ core }) => (core.schema = 'htc-workspace-layout-core/v0')],
+    // The guard matches these values against one path segment.
+    [
+      'nested state path with a slash',
+      ({ binding }) => (binding.roots.find((root) => root.nestedState).path = '.omc/state'),
+    ],
+    ['retired root name with a slash', ({ binding }) => (binding.retiredRoots[0].name = 'a/b')],
+    ['guard exclusion with a slash', ({ binding }) => binding.guardExclusions.push('apps/web/out')],
   ];
   for (const [name, mutate] of mutations) {
     const manifests = readManifests();
