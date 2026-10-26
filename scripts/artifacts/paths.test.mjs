@@ -56,6 +56,14 @@ test('an override inside the checkout must stay under an ignored workspace root'
       /KNU_ARTIFACTS_DIR must point outside the repository or under an ignored workspace root/u,
       directory,
     );
+  // Ignored roots that are not override targets: a Markdown-only root and a root whose tracked files only
+  // .gitignore lists.
+  for (const directory of ['.plans/out', '.claude/out'])
+    assert.throws(
+      () => resolveArtifactPath(repoRoot, ['infra'], { KNU_ARTIFACTS_DIR: directory }),
+      /KNU_ARTIFACTS_DIR must point outside the repository or under an ignored workspace root/u,
+      directory,
+    );
 });
 
 test('host runtime kinds keep their checkout location under an override', () => {
