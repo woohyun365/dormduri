@@ -50,7 +50,7 @@
       "purpose": "계획 진행 증거. 첫 단은 umbrella Plan ID, 둘째 단은 bounded Plan ID",
       "ruleOwner": ".artifacts/README.md",
       "tracking": "ignored",
-      "creator": ["human"],
+      "creator": ["human", "core-scaffold"],
       "children": "declared-plan-id",
       "retention": {
         "class": "current-input",
