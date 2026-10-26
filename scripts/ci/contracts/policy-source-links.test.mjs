@@ -7,7 +7,7 @@ const repoRoot = resolve(import.meta.dirname, '../../..');
 const docsRoot = resolve(repoRoot, 'docs');
 const landingPolicyCopyPath = resolve(
   repoRoot,
-  'apps/web/src/landing/content/landing-policy-copy.ts',
+  'apps/web/src/screens/landing/model/landingPolicyCopy.ts',
 );
 
 const requiredDocDirectories = [

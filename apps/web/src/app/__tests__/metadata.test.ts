@@ -116,7 +116,7 @@ describe('web metadata baseline', () => {
   it('does not introduce FAQ rich-result JSON-LD for landing', () => {
     const sourceText = [
       collectProductionSourceText(path.join(process.cwd(), 'src', 'app')),
-      collectProductionSourceText(path.join(process.cwd(), 'src', 'landing')),
+      collectProductionSourceText(path.join(process.cwd(), 'src', 'screens', 'landing')),
     ].join('\n');
 
     expect(sourceText).not.toContain('FAQPage');

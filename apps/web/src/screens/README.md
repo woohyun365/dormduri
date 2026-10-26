@@ -1,6 +1,6 @@
 # 새 화면 계층
 
-`apps/web/src/screens/`는 새 화면의 표현 계층 한 root입니다. 기존 기능 디렉터리(`src/main`, `src/landing`, `src/auth` …)의 화면은
+`apps/web/src/screens/`는 새 화면의 표현 계층 한 root입니다. 기존 기능 디렉터리(`src/main`, `src/auth` …)의 화면은
 여기로 옮기지 않고 그대로 둡니다. URL을 정하는 route 파일은 `src/app/`에 남고 이 계층의 공개 entry를 import합니다.
 
 ## 구조
@@ -8,11 +8,14 @@
 ```text
 src/screens/
 ├── <기능>/                 # 예: landing. 기능 단위 디렉터리
+│   ├── README.md           # 기능 owner 문서(제품 책임, 정책 원본, 문구·고지 규칙)
 │   ├── index.ts            # 공개 entry. 기능 밖은 이 파일만 import합니다
 │   ├── <기능>Screen.tsx    # 기본은 shared-responsive 한 component
 │   ├── desktop/ mobile/    # split-presentation 판정일 때만
-│   ├── components/         # 이 기능 전용 표현
-│   └── model/              # DOM·React·Next.js와 무관한 순수 model·use-case
+│   ├── components/         # 이 기능 전용 표현. 페이지 섹션은 components/sections/에 하나씩
+│   ├── model/              # DOM·React·Next.js와 무관한 순수 model·use-case
+│   ├── __stories__/        # Storybook(아래 Storybook과 검토)
+│   └── __tests__/          # 기능 조합 test
 ├── ui/                     # 두 기능 이상이 쓰는 부품
 └── __tests__/              # 계층 전체 검사(lint 규칙 test)
 ```
@@ -38,6 +41,29 @@ src/screens/
 - `model/` 파일은 이보다 좁은 허용 목록을 받습니다. `@/screens/**`와, 기능 안이지만 `model/` 밖인 상대 경로도 막힙니다
   ([model 경계](#model-경계)).
 
+## Storybook과 검토
+
+새 화면은 Storybook에서 만들고 검토합니다. story는 [Storybook story 검사](../../e2e/README.md)의 렌더·axe 대상입니다.
+
+- 위치: 기능의 `__stories__/`. 페이지 story는 그 root, 섹션 story는 `__stories__/sections/`, 부품 story는 `__stories__/components/`에
+  둡니다.
+- title: `<기능>/Page`(전체 화면) → `<기능>/Sections/<섹션>`(페이지 순서) → `<기능>/Components/<부품>`입니다. token 문서·견본은
+  `Foundations/*`입니다. `.storybook/preview.tsx`의 `storySort`가 Foundations → 기능 → 나머지 순서와 기능 안 순서를 정하므로, 새
+  기능·섹션은 그 목록에 더합니다.
+- tag: 모든 story 파일에 `knu-layer`(새 층 배경·글꼴. 없으면 검사가 실패)와 `autodocs`(Docs page)를 답니다. `visual`은 Linux 기준
+  스크린샷을 둘 story에만 답니다.
+- story는 제품 component를 import해 그립니다. story만의 복사본이나 대체 component를 두지 않습니다. 화면이 감싸는 문맥(palette, 글꼴,
+  스크롤 등장)은 제품 frame component(예: `LandingFrame`)를 decorator로 씁니다. 그래야 섹션 story와 페이지가 같은 코드로 보입니다.
+- 고를 시안은 기본 story를 바꾸지 않는 비교 story로 보입니다. 비교안도 기본안과 같은 검사(대비, axe, motion 줄이기)를 통과한 뒤
+  보입니다. 고른 뒤에는 고르지 않은 시안·story·arg·utility를 같은 변경에서 지웁니다.
+- 시안 코드도 처음부터 `src/screens/<기능>/` 아래에 두고 이 문서의 lint·token 규칙을 지킵니다. 그러면 고른 시안을 제품 route로
+  올릴 때 구조를 다시 짜지 않습니다.
+- MDX 문서는 `*.mdx` 파일이고 `.storybook/main.ts`의 stories glob에 그 경로를 더합니다. 지금 설치본(Storybook 10.6)은
+  `*.stories.mdx`를 index하지 못해 build가 실패합니다. MDX는 GFM 표를 그리지 않으므로(`remark-gfm` 없음) 목록으로 쓰고, 값은 옮겨
+  적지 않고 견본 story를 `Canvas`로 보입니다.
+- 화면을 바꾸지 않는다고 하는 변경(파일 이동·분리·이름 변경, 쓰지 않는 token 정리)은 같은 story × viewport 전체 화면 캡처의 전후
+  hash가 같음을 보입니다.
+
 ## lint와 값 규칙
 
 `apps/web/eslint.config.mjs`의 screens 블록이 `pnpm lint`·`pnpm check`·CI에서 error로 막습니다. 규칙 test는
@@ -58,13 +84,15 @@ src/screens/
   9. `font-sans`·`font-serif`·`font-mono`
   10. 기본 container 이름(`3xs`~`7xl`)을 쓰는 `w`·`min-w`·`max-w`·`inline`·`min-inline`·`max-inline`·`basis`·`columns`
   11. `leading-{tight,snug,normal,relaxed,loose}`, `text-*/tight` 같은 이름 줄 간격 modifier, `ease-{in,out,in-out}`
-- 허용: token utility(`bg-layer-basement`, `text-fg-muted`, `text-body`, `font-body`, `max-w-page`, `rounded-card`,
+- 허용: token utility(`bg-layer-basement`, `text-fg-muted`, `text-body`, `font-body`, `max-w-page`, `rounded-panel`,
   `ease-standard`, `focus-visible:focus-ring` …), static utility(`rounded-full`·`rounded-none`, `shadow-none`, `bg-transparent`·
   `bg-current`), spacing 배수(`p-4`, `gap-0.5`).
 - 센서(test 포함 `src/screens/**` 전체): 위 import 규칙, `eslint-plugin-jsx-a11y` recommended 규칙과 그 option error(`alt-text`는
   기본 element에 `next/image`의 `Image`를 더함), 빈 block(`no-empty`, 빈 catch 포함) error.
 - `src/screens` 아래에는 `.css` 파일을 두지 않습니다. 값이 lint 밖 CSS로 숨지 않게 하려는 것이고, lint test가 파일 목록으로 확인합니다.
-- 한계: 문자열을 조합해 만든 class(`` `text-${size}` ``)와 `style` 속성의 숫자 값은 lint가 보지 못합니다. 리뷰에서 확인합니다.
+- 한계: 문자열을 조합해 만든 class(`` `text-${size}` ``), `style` 속성의 숫자 값, 임의 at-rule variant(`[@media(…)]:`)는 lint가
+  보지 못합니다. at-rule variant는 breakpoint token으로 나타낼 수 없는 조건에만 씁니다(예: Landing 첫 화면의 세로 그림 비율
+  `max-aspect-ratio:3/5`). 리뷰에서 확인합니다.
 
 ## model 경계
 
@@ -104,6 +132,6 @@ src/screens/
 ## 새 기능 디렉터리와 경로 표
 
 새 기능 디렉터리를 처음 만드는 PR은 같은 PR에서 [`docs/policies/path-domains.json`](../../../../docs/policies/path-domains.json)에 그
-디렉터리의 행을 더합니다. 도메인은 같은 기능의 기존 디렉터리 행을 기준으로 정하고(예: `src/landing/**`의 도메인), 추적 파일에 맞지
+디렉터리의 행을 더합니다. 도메인은 같은 기능의 기존 디렉터리 행을 기준으로 정하고(예: `src/screens/auth/**`는 `src/auth/**` 행의 도메인), 추적 파일에 맞지
 않는 glob은 stale 경고가 되므로 파일과 함께 더합니다. 이 파일을 바꾸면 Owner 확인이 필요합니다
 ([경로 → 정책 도메인 표](../../../../docs/policies/README.md#경로--정책-도메인-표)).

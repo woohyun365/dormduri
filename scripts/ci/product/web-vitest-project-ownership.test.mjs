@@ -25,9 +25,9 @@ test('assigns every Web unit test to exactly one explicit Vitest environment', (
   const files = discoverTestFiles(webSourceRoot).sort();
   const assignments = files.map((path) => ({ path, project: projectFor(path) }));
 
-  assert.equal(files.length, 228);
-  assert.equal(assignments.filter(({ project }) => project === 'node').length, 112);
-  assert.equal(assignments.filter(({ project }) => project === 'jsdom').length, 116);
+  assert.equal(files.length, 221);
+  assert.equal(assignments.filter(({ project }) => project === 'node').length, 113);
+  assert.equal(assignments.filter(({ project }) => project === 'jsdom').length, 108);
   assert.equal(new Set(assignments.map(({ path }) => path)).size, files.length);
 });
 
