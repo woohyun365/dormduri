@@ -24,7 +24,7 @@
       "id": "artifacts",
       "path": ".htc/artifacts",
       "kind": "directory",
-      "purpose": "계획 진행 증거와 script 출력. README만 추적한다",
+      "purpose": "계획 진행 증거(실행 증거·staging·review 기록). Plan ID 디렉터리 아래 phase 단위로 두고 README만 추적한다",
       "tracking": "ignored",
       "trackedFiles": ["README.md"],
       "creator": ["core-scaffold", "human", "repository-script"],

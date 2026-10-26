@@ -9,6 +9,8 @@ import { readFileSync } from 'node:fs';
 export const WORKSPACE_LAYOUT_CORE_SCHEMA = 'htc-workspace-layout-core/v1';
 export const WORKSPACE_LAYOUT_BINDING_SCHEMA = 'htc-workspace-layout-binding/v1';
 
+// Repository path of the binding, for messages that ask to add a root.
+export const BINDING_FILE = 'scripts/artifacts/workspace-layout.knu.json';
 const CORE_URL = new URL('./workspace-layout.core.json', import.meta.url);
 const BINDING_URL = new URL('./workspace-layout.knu.json', import.meta.url);
 

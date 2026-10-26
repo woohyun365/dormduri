@@ -166,12 +166,17 @@ test('.plans holds Markdown only and .artifacts children follow the manifest', (
     ['.plans/run.sh', 'echo\n'],
     ['.plans/supporting/notes.log', 'x\n'],
     ['.plans/.DS_Store', 'x'],
+    // Names on the top-level guard exclusion list are not exempt below a manifest root.
+    ['.plans/build/run.sh', 'x\n'],
+    ['.plans/.env', 'x\n'],
     ['.artifacts/README.md', 'x\n'],
     ['.artifacts/.gitignore', '*\n'],
     ['.artifacts/.DS_Store', 'x'],
+    ['.artifacts/build/a.json', '{}\n'],
     ['.artifacts/plans/alpha-plan/beta-plan/p1/log.txt', 'x\n'],
     ['.artifacts/plans/beta-plan/beta-plan/x.json', '{}\n'],
     ['.artifacts/plans/not-a-plan-id/x/y.txt', 'x\n'],
+    ['.artifacts/plans/dist/x.txt', 'x\n'],
     ['.artifacts/tools/infra/a.json', '{}\n'],
     ['.artifacts/scratch/a.txt', 'x\n'],
   ]);
@@ -182,8 +187,14 @@ test('.plans holds Markdown only and .artifacts children follow the manifest', (
         .map((issue) => [issue.path, issue.kind])
         .sort(),
       [
+        ['.artifacts/.DS_Store', 'artifacts-unknown-child'],
+        ['.artifacts/build', 'artifacts-unknown-child'],
+        ['.artifacts/plans/dist', 'undeclared-plan-id'],
         ['.artifacts/plans/not-a-plan-id', 'undeclared-plan-id'],
         ['.artifacts/scratch', 'artifacts-unknown-child'],
+        ['.plans/.DS_Store', 'plans-non-markdown'],
+        ['.plans/.env', 'plans-non-markdown'],
+        ['.plans/build/run.sh', 'plans-non-markdown'],
         ['.plans/run.sh', 'plans-non-markdown'],
         ['.plans/supporting/notes.log', 'plans-non-markdown'],
       ],

@@ -10,7 +10,11 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { declaredPlanIds } from '../agents/common/plan-store.mjs';
-import { loadWorkspaceLayout, workspaceRoot } from '../artifacts/workspace-layout.mjs';
+import {
+  BINDING_FILE,
+  loadWorkspaceLayout,
+  workspaceRoot,
+} from '../artifacts/workspace-layout.mjs';
 
 const PROBE = 'htc-layout-probe.md';
 
@@ -101,7 +105,7 @@ export function findWorkspaceLayoutIssues(
       issues.push({
         path,
         kind: 'outside-manifest-root',
-        hint: `add the root to ${layout.binding.guide} or move the content under a manifest root`,
+        hint: `add the root to ${BINDING_FILE} (fields: ${layout.binding.guide}) or move the content under a manifest root`,
       });
   }
   return issues;
@@ -117,24 +121,19 @@ function readEntries(root, path) {
 }
 
 // Child rules of ignored manifest roots, read from the working tree: Markdown-only roots, named first-level children
-// and first-level names that must be a Plan ID declared under the plans root.
+// and first-level names that must be a Plan ID declared under the plans root. The top-level guard exclusions do not
+// apply below a manifest root.
 export function findWorkspaceStructureIssues(root, layout = loadWorkspaceLayout()) {
   const issues = [];
   let declared;
   for (const entry of layout.roots) {
     if (entry.tracking !== 'ignored' || entry.kind !== 'directory') continue;
-    const children = readEntries(root, entry.path).filter(
-      (child) => !isExcluded(layout, child.name),
-    );
+    const children = readEntries(root, entry.path);
     if (entry.children === 'markdown-only') {
       const visit = (path, list) => {
         for (const child of list) {
           const childPath = `${path}/${child.name}`;
-          if (child.isDirectory())
-            visit(
-              childPath,
-              readEntries(root, childPath).filter((c) => !isExcluded(layout, c.name)),
-            );
+          if (child.isDirectory()) visit(childPath, readEntries(root, childPath));
           else if (!child.name.endsWith('.md'))
             issues.push({
               path: childPath,

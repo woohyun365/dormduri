@@ -79,7 +79,8 @@ caller는 env `{}`를 넘기므로 읽지 않는다.
 | `undeclared-plan-id`      | `declared-plan-id` root의 첫 단 이름이 계획 문서 header에 선언된 Plan ID가 아님                                                                 |
 | `gitignore-mismatch`      | root의 `tracking`, `trackedFiles`, `marker`가 `git check-ignore --no-index` 결과와 다름                                                         |
 
-`guardExclusions`는 추적 `.gitignore`의 비agent 규칙 중 top-level에 생길 수 있는 것이다. 경로가 추적 top-level
+`guardExclusions`는 추적 `.gitignore`의 비agent 규칙 중 top-level에 생길 수 있는 것이고 top-level 이름에만 적용한다
+(manifest root 아래의 하위 규칙에는 적용하지 않아 `.DS_Store`도 보고한다). 경로가 추적 top-level
 디렉터리 안으로 고정된 규칙은 넣지 않는다. test가 `.gitignore`와 이 목록을 양쪽으로 대조한다.
 
 ## 일치 test
@@ -89,9 +90,12 @@ manifest에 묶는다.
 
 - 이름 있는 상수: plan-store `PLAN_ROOT`, `paths.mjs` 기본 위치, Codex hook 기록·registry 위치, 리뷰 입력 결속 root
   목록, CI 분류기의 작업 공간 목록, Codex context 경로의 root가 manifest 값과 같아야 한다.
-- root literal scan: 추적 script·설정(`apps/`·`packages/`, test, fixture, manifest 제외)에서 root 이름이 들어간 줄마다
-  literal이 manifest root 경로와 같고 binding `rootLiteralAllowlist`에 (파일, 줄 내용) 그대로 있어야 한다. 줄 전체 주석,
-  속성 접근(`value.name`, `value?.name`)과 spread identifier는 literal이 아니고, escape한 regex 안의 root 이름은 literal이다.
+- root literal scan: 대상은 추적 `.mjs`·`.js`·`.ts`·`.cjs`·`.sh`·`.py`·`.json`·`.toml` 파일이다(`apps/`·`packages/`,
+  test, fixture, manifest 제외). 찾는 이름은 `.plans`, `.artifacts`, `.local-docs`, `.codex/state`, `.omc`, `.omx` 여섯이고,
+  이 이름이 들어간 줄마다 literal이 manifest root 경로와 같고 binding `rootLiteralAllowlist`에 (파일, 줄 내용) 그대로 있어야
+  한다. 줄 전체 주석, 속성 접근(`value.name`, `value?.name`)과 spread identifier는 literal이 아니고, escape한 regex 안의
+  root 이름은 literal이다. 그 밖 manifest root(`.claude`, `omx_wiki`, 제품 문서 root)는 scan하지 않는다. CI 분류기에 있는
+  것만 이름 있는 상수 test가 본다.
 - 허용 목록 항목은 `file`, `text`(앞뒤 공백을 뺀 줄), `count`(같은 줄이 여러 번일 때), `category`, `transition`(그 literal을
   manifest 읽기로 바꿀 단계, 단계를 소유한 계획은 `rootLiteralTransitionPlan`)이다. 새 literal, 바뀐 줄, root 이름 변경은
   목록을 함께 고치지 않으면 실패한다.
