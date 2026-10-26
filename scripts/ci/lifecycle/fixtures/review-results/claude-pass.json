@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "cross-model-handoff/v1",
+  "packetId": "review-c542b64e-32855c6a",
+  "dispatchId": "review-dispatch-c542b64e-32855c6a",
+  "resultId": "result-c542b64e-32855c6a",
+  "status": "complete",
+  "reviewedSnapshot": {
+    "baseSHA": "124795825ffcf59de81ce1a7a60240720e08c793",
+    "headSHA": "c74d6abfbee3d82ce0e9b9c167f91e832fc1aa0e",
+    "dirtyDiffDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "untrackedInputDigests": [
+      {
+        "path": "scripts/ci/lifecycle/review-snapshot-check.test.mjs",
+        "digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      {
+        "path": "scripts/ci/lifecycle/review-snapshot-check.mjs",
+        "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      }
+    ]
+  },
+  "contextIsolationMethod": "fresh-scoped-context",
+  "identity": {
+    "requestedModelIntent": "independent-read-only-reviewer",
+    "resolvedModel": "unknown",
+    "observedModel": "unknown"
+  },
+  "acceptanceCoverage": [
+    {
+      "criterion": "fixture criterion",
+      "sourceRefs": ["scripts/ci/lifecycle/review-snapshot-check.mjs"],
+      "evidenceRefs": ["scripts/ci/lifecycle/review-snapshot-check.test.mjs"],
+      "gap": null
+    }
+  ],
+  "findings": [],
+  "commandsActuallyRun": [],
+  "notRun": [],
+  "knownGaps": [],
+  "confidence": "medium",
+  "verdict": "PASS",
+  "blocker": null,
+  "disposition": { "owner": "parent", "nextAction": "Parent adjudicates the review result." },
+  "cleanup": { "owner": "parent", "status": "complete", "handoff": "Read-only review." },
+  "handoff": { "integrationOwner": "parent", "requestedWriteOwner": null }
+}
