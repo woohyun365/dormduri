@@ -61,13 +61,16 @@ template의 `{name}`은 `workNames`의 입력이다. `workNames`는 입력 이�
 정규식)을 두며 `phase`·`topic`은 반드시 있다.
 
 [`scaffold.mjs`](../../../scripts/artifacts/scaffold.mjs)(`pnpm scaffold -- <kind> --umbrella <Plan ID> --plan <Plan ID>
---phase <phase> [--topic <topic>] [--<입력> <값>…]`)가 binding root `artifact-plans` 아래에 이 디렉터리를 만든다.
+--phase <phase> [--topic <topic>] [--<입력> <값>…]`)가 binding root `artifact-plans` 아래에 이 디렉터리를 만든다. 계획
+증거의 위치는 이 manifest root가 정한다. `resolveArtifactPath()`는 script 출력 위치(`tools/<kind>/`)만 계산하므로 scaffold는
+그것을 쓰지 않는다.
 
-- 디렉터리만 만들고 파일은 쓰지 않는다. 있으면 누락분만 만들고, 같은 입력이면 같은 경로와 같은 출력이다.
+- 디렉터리만 만들고 파일은 쓰지 않는다. 있으면 누락분만 만든다. 같은 입력이면 같은 경로를 만들고, 출력은 이번 실행에서
+  만든 디렉터리 목록(`created`)만 첫 실행과 다르다. 그 뒤 실행의 출력은 같다.
 - umbrella는 계획 문서 header에 선언된 Plan ID여야 하고(guard `undeclared-plan-id`와 같은 규칙) bounded는 Plan ID
   문법을 따른다. `workNames` 문법은 새로 만드는 디렉터리에만 적용하고 이미 있는 디렉터리의 역사 이름은 받는다.
-- 모든 검사가 끝난 뒤에 만든다. 절대 경로, 경로 구분자(`/`·`\`), `.`·`..`, symlink를 지나는 경로, 디렉터리가 아닌 기존
-  항목, 그 root를 ignore하지 않는 `.gitignore`는 거부한다.
+- 모든 검사가 끝난 뒤에 만든다. 절대 경로, 경로 구분자(`/`·`\`와 Windows 드라이브 `:`), `.`·`..`, symlink를 지나는 경로,
+  디렉터리가 아닌 기존 항목, 그 root를 ignore하지 않는 `.gitignore`는 거부한다.
 - `--check`는 `.gitignore`와 맞지 않는 manifest ignored root를 layout guard와 같은 판정(`gitignore-mismatch`)으로
   보고하고 exit 1이다. `.gitignore`는 고치지 않는다.
 

@@ -29,13 +29,14 @@ function refuse(message) {
   throw new Error(`scaffold refused: ${message}`);
 }
 
-// One directory name, whatever exists on disk: absolute paths and separators of either OS and dot segments are refused.
+// One directory name, whatever exists on disk: absolute paths, separators of either OS (with the Windows drive colon,
+// since `C:x` resolves against drive C) and dot segments are refused.
 function checkName(name, value) {
   if (typeof value !== 'string' || value === '' || value.includes('\0'))
     refuse(`${name} must be a non-empty name`);
   if (posix.isAbsolute(value) || win32.isAbsolute(value))
     refuse(`${name} ${value} is an absolute path`);
-  if (/[/\\]/u.test(value)) refuse(`${name} ${value} contains a path separator`);
+  if (/[/\\:]/u.test(value)) refuse(`${name} ${value} contains a path separator`);
   if (value === '.' || value === '..') refuse(`${name} ${value} is a dot segment`);
 }
 
