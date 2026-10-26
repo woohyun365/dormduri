@@ -7,6 +7,7 @@ import {
   resolveArtifactPath,
   resolveArtifactsDirectory,
 } from './paths.mjs';
+import { loadWorkspaceLayout } from './workspace-layout.mjs';
 
 const repoRoot = '/workspace/knu-roommate';
 
@@ -58,11 +59,16 @@ test('an override inside the checkout must stay under an ignored workspace root'
     );
   // Ignored roots that are not override targets: a Markdown-only root and a root whose tracked files only
   // .gitignore lists.
-  for (const directory of ['.plans/out', '.claude/out'])
+  const excluded = loadWorkspaceLayout().roots.filter(
+    (root) =>
+      root.tracking === 'ignored' && (root.children === 'markdown-only' || root.trackedFilesOwner),
+  );
+  assert.deepEqual(excluded.map((root) => root.id).sort(), ['claude-local', 'plans']);
+  for (const { path } of excluded)
     assert.throws(
-      () => resolveArtifactPath(repoRoot, ['infra'], { KNU_ARTIFACTS_DIR: directory }),
+      () => resolveArtifactPath(repoRoot, ['infra'], { KNU_ARTIFACTS_DIR: `${path}/out` }),
       /KNU_ARTIFACTS_DIR must point outside the repository or under an ignored workspace root/u,
-      directory,
+      path,
     );
 });
 
