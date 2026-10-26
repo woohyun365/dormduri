@@ -5,12 +5,20 @@ import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 
-import { loadWorkspaceLayout } from '../artifacts/workspace-layout.mjs';
+import { loadWorkspaceLayout, workspaceRoot } from '../artifacts/workspace-layout.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 // Loaded per test so that a missing module fails each test on its own reason.
 const scopeModule = () => import('./tracked-scope.mjs');
 const KIB = 1024;
+// This repository's names of the binding roots the guard reads.
+const PLANS = workspaceRoot('plans').path;
+const ARTIFACTS = workspaceRoot('artifacts').path;
+const HOST_STATE = workspaceRoot('codex-hook-state').path;
+const CLAUDE = workspaceRoot('claude-local').path;
+const OMC_MARKER = workspaceRoot('omc').marker;
+const OMX_MARKER = workspaceRoot('omx').marker;
+const OMX_WIKI = workspaceRoot('omx-wiki').path;
 
 // P0 output 4, section 1 draft with `!/config.*` narrowed to `!/config.json` (OQ-SCAF-5).
 const MANAGED_GITIGNORE = [
@@ -333,17 +341,19 @@ test('this repository: the binding allowlist passes and .claude files are left t
   const { issues, report } = checkTrackedScope(repoRoot, loadWorkspaceLayout());
   assert.deepEqual(issues, []);
   // Ignored roots' tracked files, root markers and the tracked files of tracked agent roots (Owner 2026-10-26 P1c 1.1).
-  assert.deepEqual(report.files.map((file) => file.path).sort(), [
-    '.artifacts/.gitignore',
-    '.artifacts/README.md',
-    '.omc-workspace',
-    '.omx-config.json',
-    '.plans/cancelled/README.md',
-    '.plans/finished/README.md',
-    '.plans/pending/README.md',
-    '.plans/supporting/README.md',
-    'omx_wiki/.gitignore',
-  ]);
+  assert.deepEqual(
+    report.files.map((file) => file.path).sort(),
+    [
+      `${ARTIFACTS}/.gitignore`,
+      `${ARTIFACTS}/README.md`,
+      OMC_MARKER,
+      OMX_MARKER,
+      ...['cancelled', 'finished', 'pending', 'supporting'].map(
+        (stage) => `${PLANS}/${stage}/README.md`,
+      ),
+      `${OMX_WIKI}/.gitignore`,
+    ].sort(),
+  );
 });
 
 test('in a binding repository a forced file in an agent root is reported, product documents are not read', async (t) => {
@@ -352,23 +362,47 @@ test('in a binding repository a forced file in an agent root is reported, produc
   t.after(() => rmSync(root, { force: true, recursive: true }));
   const git = (...args) => spawnSync('git', args, { cwd: root, encoding: 'utf8' });
   git('init', '-q');
-  write(root, '.gitignore', '.local-docs/\n.claude/*\n!.claude/settings.json\n.plans/*\n');
-  write(root, '.local-docs/handoff.md', 'x\n');
-  write(root, '.claude/settings.json', `${'x'.repeat(200 * KIB)}\n`);
-  write(root, '.claude/settings.local.json', '{}\n');
-  write(root, '.plans/active-plan.md', '# Plan\n');
+  write(root, '.gitignore', `${HOST_STATE}/\n${CLAUDE}/*\n!${CLAUDE}/settings.json\n${PLANS}/*\n`);
+  write(root, `${HOST_STATE}/session.json`, 'x\n');
+  write(root, `${CLAUDE}/settings.json`, `${'x'.repeat(200 * KIB)}\n`);
+  write(root, `${CLAUDE}/settings.local.json`, '{}\n');
+  write(root, `${PLANS}/active-plan.md`, '# Plan\n');
   write(root, 'docs/policies/README.md', `${'x'.repeat(200 * KIB)}\n`);
-  git('add', '.gitignore', '.claude/settings.json', 'docs/policies/README.md');
+  git('add', '.gitignore', `${CLAUDE}/settings.json`, 'docs/policies/README.md');
   git(
     'add',
     '-f',
-    '.local-docs/handoff.md',
-    '.claude/settings.local.json',
-    '.plans/active-plan.md',
+    `${HOST_STATE}/session.json`,
+    `${CLAUDE}/settings.local.json`,
+    `${PLANS}/active-plan.md`,
   );
   assert.deepEqual(kinds(checkTrackedScope(root, loadWorkspaceLayout()).issues), [
-    ['.claude/settings.local.json', 'tracked-forced'],
-    ['.local-docs/handoff.md', 'tracked-forced'],
-    ['.plans/active-plan.md', 'tracked-forced'],
+    [`${CLAUDE}/settings.local.json`, 'tracked-forced'],
+    [`${HOST_STATE}/session.json`, 'tracked-forced'],
+    [`${PLANS}/active-plan.md`, 'tracked-forced'],
+  ]);
+});
+
+test('a binding root mapped to a core root takes the core root limits', async (t) => {
+  const { checkTrackedScope } = await scopeModule();
+  const root = realpathSync(mkdtempSync(resolve(tmpdir(), 'htc-scope-mapped-')));
+  t.after(() => rmSync(root, { force: true, recursive: true }));
+  const git = (...args) => spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  git('init', '-q');
+  write(root, 'agent/vendor/fits.js', `${'x'.repeat(200 * KIB)}\n`);
+  write(root, 'agent/vendor/big.js', `${'x'.repeat(300 * KIB)}\n`);
+  git('add', 'agent/vendor');
+  const { core } = loadWorkspaceLayout();
+  const roots = [
+    {
+      id: 'agent-vendor',
+      path: 'agent/vendor',
+      kind: 'directory',
+      tracking: 'tracked',
+      core: 'vendor',
+    },
+  ];
+  assert.deepEqual(kinds(checkTrackedScope(root, { core, roots }).issues), [
+    ['agent/vendor/big.js', 'tracked-too-large'],
   ]);
 });

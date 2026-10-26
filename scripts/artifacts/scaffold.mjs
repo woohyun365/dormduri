@@ -1,27 +1,40 @@
 #!/usr/bin/env node
 
 // Core scaffold: creates the directories of one work kind below a plan's phase directory, from the workspace layout
-// manifest (core `workKinds` and `workNames`, binding root `artifact-plans`). Directories only, never a file. Field
-// meanings: docs/development/agent-workflows/workspace-layout.md
+// manifest (core `workKinds` and `workNames`, binding root `artifact-plans`). Directories only, never a file.
+// `consumer` writes the files of a consumer repository's workspace from the core default instead: the workspace
+// .gitignore and the missing index READMEs of the product document directories. Field meanings:
+// docs/development/agent-workflows/workspace-layout.md
 //
 // Usage: pnpm scaffold -- <kind> --umbrella <Plan ID> --plan <Plan ID> --phase <phase|YYYY-MM-DD> [--topic <topic>]
 //          [--<work name> <value>...] [--root <repo>]
 //        pnpm scaffold -- --check [--root <repo>]
+//        pnpm scaffold -- consumer --mode <managed|vendored> [--plans tracked|ignored] --root <repo>
 // Exit 0 = done, 1 = refused or --check found an ignored root that .gitignore does not ignore, 2 = usage error.
-import { lstatSync, mkdirSync, realpathSync } from 'node:fs';
-import { posix, resolve, win32 } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { dirname, posix, resolve, win32 } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { declaredPlanIds } from '../agents/common/plan-store.mjs';
 import { findGitignoreIssues } from '../git/workspace-layout-check.mjs';
-import { loadWorkspaceLayout, WORK_NAME_PLACEHOLDER, workspaceRoot } from './workspace-layout.mjs';
+import {
+  BINDING_FILE,
+  CONSUMER_COMMAND,
+  loadWorkspaceLayout,
+  WORK_NAME_PLACEHOLDER,
+  workspaceRoot,
+} from './workspace-layout.mjs';
 
 // Plan ID grammar of plan-store.
 const PLAN_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const BASE_INPUTS = ['umbrella', 'plan', 'phase', 'topic'];
+const PLANS_SETTINGS = ['tracked', 'ignored'];
 const USAGE =
   'usage: scaffold <kind> --umbrella <Plan ID> --plan <Plan ID> --phase <phase> [--topic <topic>] ' +
-  '[--<work name> <value>...] [--root <repo>] | scaffold --check [--root <repo>]';
+  '[--<work name> <value>...] [--root <repo>] | scaffold --check [--root <repo>] | ' +
+  `scaffold ${CONSUMER_COMMAND} --mode <mode> [--plans ${PLANS_SETTINGS.join('|')}] --root <repo>`;
+// This checkout maps the core roots to its own names through the binding and has no consumer workspace.
+const THIS_REPOSITORY = fileURLToPath(new URL('../..', import.meta.url));
 
 class UsageError extends Error {}
 
@@ -136,8 +149,118 @@ export function scaffold(root, kind, inputs, { layout = loadWorkspaceLayout() } 
   return { kind, directories, created: missing };
 }
 
+// .gitignore of the consumer workspace, from the core default: everything is ignored, then each tracked root below the
+// workspace (in manifest order, when the mode has it and setup did not ignore it) and each trackedFiles entry of an
+// ignored root is let back in. A nested path opens its parent directories one level at a time.
+export function workspaceGitignore(core, { mode, ignore = [] }) {
+  if (!core.repositoryModes.includes(mode))
+    throw new UsageError(`mode ${mode} is not one of ${core.repositoryModes.join(', ')}`);
+  const workspace = core.roots.find((root) => root.id === core.trackedScope.workspace);
+  const below = core.roots.filter((root) => root.path.startsWith(`${workspace.path}/`));
+  for (const id of ignore)
+    if (!below.some((root) => root.id === id && root.ignorable))
+      throw new UsageError(
+        `${id} cannot be ignored; ignorable: ${below
+          .filter((root) => root.ignorable)
+          .map((root) => root.id)
+          .join(', ')}`,
+      );
+  const rules = ['/*'];
+  const allow = (path, directory) => {
+    const parts = path.split('/');
+    for (let depth = 1; depth < parts.length; depth += 1) {
+      const parent = parts.slice(0, depth).join('/');
+      for (const rule of [`!/${parent}/`, `/${parent}/*`])
+        if (!rules.includes(rule)) rules.push(rule);
+    }
+    rules.push(`!/${path}${directory ? '/' : ''}`);
+  };
+  for (const root of below) {
+    const path = root.path.slice(workspace.path.length + 1);
+    if (root.tracking === 'ignored')
+      for (const file of root.trackedFiles ?? []) allow(`${path}/${file}`, false);
+    else if (!ignore.includes(root.id) && (root.modes ?? [mode]).includes(mode))
+      allow(path, root.kind === 'directory');
+  }
+  return `${rules.join('\n')}\n`;
+}
+
+// Index README of a product document directory: its purpose, the one-owner rule and the index table its documents fill.
+const indexReadme = (root) =>
+  `# ${root.purpose}\n\n같은 규칙은 한 문서만 소유한다. 이 디렉터리에 문서를 더하면 아래 색인 표에 행을 더한다.\n\n` +
+  '| 문서 | 상태 | 소유 규칙 |\n| ---- | ---- | --------- |\n';
+
+// Writes the consumer workspace files that are missing: the workspace .gitignore and the index README of each product
+// document directory. A README that exists is kept; a .gitignore that exists must hold the same rules. Every check runs
+// before the first write, and no path may pass through a symlink.
+export function scaffoldConsumer(
+  root,
+  { mode, ignore = [] },
+  { layout = loadWorkspaceLayout() } = {},
+) {
+  const { core } = layout;
+  const workspace = core.roots.find((entry) => entry.id === core.trackedScope.workspace);
+  const files = [
+    { path: `${workspace.path}/.gitignore`, content: workspaceGitignore(core, { mode, ignore }) },
+    ...core.roots
+      .filter((entry) => entry.indexReadme)
+      .map((entry) => ({
+        path: `${entry.path}/README.md`,
+        content: indexReadme(entry),
+        keep: true,
+      })),
+  ];
+  const repository = realpathSync(root);
+  if (repository === realpathSync(THIS_REPOSITORY))
+    refuse(
+      `${repository} maps the core roots through ${BINDING_FILE}; run ${CONSUMER_COMMAND} on another repository`,
+    );
+  const at = (path) => resolve(repository, ...path.split('/'));
+  for (const file of files) {
+    const parts = file.path.split('/');
+    let stat;
+    for (let depth = 1; depth <= parts.length; depth += 1) {
+      const path = parts.slice(0, depth).join('/');
+      try {
+        stat = lstatSync(at(path));
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        stat = undefined;
+        break;
+      }
+      if (stat.isSymbolicLink()) refuse(`${path} resolves through a symlink`);
+      if (depth < parts.length && !stat.isDirectory())
+        refuse(`${path} exists and is not a directory`);
+    }
+    file.exists = Boolean(stat);
+    if (!stat) continue;
+    if (!stat.isFile()) refuse(`${file.path} exists and is not a file`);
+    if (!file.keep && readFileSync(at(file.path), 'utf8') !== file.content)
+      refuse(`${file.path} exists with other rules; scaffold does not overwrite it`);
+  }
+  for (const file of files.filter((entry) => !entry.exists)) {
+    mkdirSync(dirname(at(file.path)), { recursive: true });
+    writeFileSync(at(file.path), file.content, { flag: 'wx' });
+  }
+  return {
+    command: CONSUMER_COMMAND,
+    mode,
+    ignore,
+    files: files.map((file) => file.path),
+    created: files.filter((file) => !file.exists).map((file) => file.path),
+    kept: files.filter((file) => file.exists).map((file) => file.path),
+  };
+}
+
 function parseArgs(argv, layout) {
-  const known = new Set(['umbrella', 'plan', 'root', ...Object.keys(layout.core.workNames)]);
+  const known = new Set([
+    'umbrella',
+    'plan',
+    'root',
+    'mode',
+    'plans',
+    ...Object.keys(layout.core.workNames),
+  ]);
   const options = {};
   let kind;
   let check = false;
@@ -157,7 +280,7 @@ function parseArgs(argv, layout) {
     check === (kind !== undefined) ||
     (check && Object.keys(options).some((name) => name !== 'root'))
   )
-    throw new UsageError('give a work kind or --check');
+    throw new UsageError(`give a work kind, ${CONSUMER_COMMAND} or --check`);
   return { kind, check, options };
 }
 
@@ -166,6 +289,18 @@ export function main(argv, { cwd = process.cwd(), log = console.log, error = con
     const { kind, check, options } = parseArgs(argv, loadWorkspaceLayout());
     const { root = '.', ...inputs } = options;
     const repository = resolve(cwd, root);
+    if (kind === CONSUMER_COMMAND) {
+      const { mode, plans = 'tracked', ...rest } = inputs;
+      if (options.root === undefined || mode === undefined || Object.keys(rest).length)
+        throw new UsageError(
+          `${CONSUMER_COMMAND} takes --mode, --plans and --root only, and needs --mode and --root`,
+        );
+      if (!PLANS_SETTINGS.includes(plans))
+        throw new UsageError(`--plans is ${PLANS_SETTINGS.join(' or ')}`);
+      const ignore = plans === 'ignored' ? ['plans'] : [];
+      log(JSON.stringify(scaffoldConsumer(repository, { mode, ignore }), null, 2));
+      return 0;
+    }
     if (check) {
       const issues = checkIgnore(repository);
       if (issues.length) error('workspace ignore check failed:');

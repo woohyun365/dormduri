@@ -26,10 +26,15 @@ const CORE_KEYS = [
   'roots',
   'workNames',
   'workKinds',
+  'repositoryModes',
+  'trackedScope',
+  'checkpoint',
 ];
 // Names of the phase directory below the Plan ID levels; a work kind template may use any work name.
 const PHASE_NAMES = ['phase', 'topic'];
 const WORK_KIND_KEYS = ['id', 'purpose', 'directories'];
+// The scaffold command that writes the consumer workspace files; no work kind may take its name.
+export const CONSUMER_COMMAND = 'consumer';
 export const WORK_NAME_PLACEHOLDER = /\{([^{}]*)\}/gu;
 const CORE_ROOT_KEYS = [
   'id',
@@ -43,6 +48,11 @@ const CORE_ROOT_KEYS = [
   'retention',
   'copy',
 ];
+// Fields of the consumer workspace that only the core default holds; a binding maps names and holds none of them.
+const CONSUMER_ROOT_KEYS = ['modes', 'ignorable', 'limits', 'indexReadme'];
+const LIMIT_KEYS = ['fileBytes', 'totalBytes'];
+const TRACKED_SCOPE_KEYS = ['workspace', 'fileBytes'];
+const CHECKPOINT_KEYS = ['root', 'heading', 'required', 'optional', 'lineWidth', 'maxLines'];
 const BINDING_KEYS = [
   'schema',
   'core',
@@ -80,6 +90,7 @@ const ALLOWLIST_CATEGORIES = [
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isText = (value) => typeof value === 'string' && value.trim() !== '';
 const isTextList = (value) => Array.isArray(value) && value.length > 0 && value.every(isText);
+const isCount = (value) => Number.isInteger(value) && value > 0;
 // Repository-relative POSIX path: no leading slash, no `.`/`..` segment, no backslash or trailing slash.
 const isRelativePath = (value) =>
   isText(value) &&
@@ -192,6 +203,8 @@ function checkWorkKinds(errors, core) {
     unknownKeys(errors, where, kind, WORK_KIND_KEYS);
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(kind.id ?? ''))
       errors.push(`${where}: id must be kebab-case`);
+    if (kind.id === CONSUMER_COMMAND)
+      errors.push(`${where}: ${CONSUMER_COMMAND} is the scaffold consumer command`);
     if (ids.has(kind.id)) errors.push(`${where}: duplicate id`);
     ids.add(kind.id);
     if (!isText(kind.purpose)) errors.push(`${where}: purpose is required`);
@@ -215,16 +228,103 @@ function checkWorkKinds(errors, core) {
   }
 }
 
+// Repository modes decide which tracked roots exist, `ignorable` marks a tracked root setup may ignore, `limits` sets
+// the tracked scope guard's size limits below a root and `indexReadme` a directory whose README scaffold writes.
+function checkConsumerRoots(errors, core) {
+  for (const root of core.roots) {
+    const where = `core root ${root.id}`;
+    if (
+      'modes' in root &&
+      (root.tracking !== 'tracked' ||
+        !isTextList(root.modes) ||
+        !root.modes.every((mode) => core.repositoryModes.includes(mode)))
+    )
+      errors.push(`${where}: modes must list repository modes of a tracked root`);
+    if ('ignorable' in root && (root.ignorable !== true || root.tracking !== 'tracked'))
+      errors.push(`${where}: ignorable is a true flag of a tracked root`);
+    if (
+      'limits' in root &&
+      !(
+        isObject(root.limits) &&
+        Object.keys(root.limits).length > 0 &&
+        Object.entries(root.limits).every(
+          ([key, value]) => LIMIT_KEYS.includes(key) && isCount(value),
+        )
+      )
+    )
+      errors.push(`${where}: limits holds fileBytes or totalBytes as positive integers`);
+    if (
+      'indexReadme' in root &&
+      (root.indexReadme !== true || root.kind !== 'directory' || root.tracking !== 'tracked')
+    )
+      errors.push(`${where}: indexReadme is a true flag of a tracked directory root`);
+  }
+}
+
+// The tracked scope guard reads the roots below the workspace root; the workspace ignores everything but the tracked
+// roots and trackedFiles below it, through its own .gitignore.
+function checkTrackedScope(errors, core) {
+  const scope = core.trackedScope;
+  if (!isObject(scope)) return errors.push('core: trackedScope must be an object');
+  unknownKeys(errors, 'core trackedScope', scope, TRACKED_SCOPE_KEYS);
+  const workspace = core.roots.find((root) => root.id === scope.workspace);
+  if (workspace?.kind !== 'directory' || workspace.tracking !== 'ignored')
+    errors.push('core: trackedScope workspace must be an ignored directory root');
+  else if (
+    !core.roots.some(
+      (root) =>
+        root.path === `${workspace.path}/.gitignore` &&
+        root.kind === 'file' &&
+        root.tracking === 'tracked',
+    )
+  )
+    errors.push(
+      `core: trackedScope workspace needs a tracked file root ${workspace.path}/.gitignore`,
+    );
+  if (!isCount(scope.fileBytes))
+    errors.push('core: trackedScope fileBytes must be a positive integer');
+}
+
+// Checkpoint entries of a tracked plan: field names are matched before the first colon of a field line.
+function checkCheckpoint(errors, core) {
+  const rule = core.checkpoint;
+  if (!isObject(rule)) return errors.push('core: checkpoint must be an object');
+  unknownKeys(errors, 'core checkpoint', rule, CHECKPOINT_KEYS);
+  if (core.roots.find((root) => root.id === rule.root)?.kind !== 'directory')
+    errors.push('core: checkpoint root must be a directory root');
+  if (!isText(rule.heading)) errors.push('core: checkpoint heading is required');
+  if (!isTextList(rule.required) || !Array.isArray(rule.optional) || !rule.optional.every(isText))
+    errors.push('core: checkpoint required and optional must list field names');
+  else {
+    const names = [...rule.required, ...rule.optional];
+    if (new Set(names).size !== names.length)
+      errors.push('core: checkpoint field names must be distinct across required and optional');
+    for (const name of names)
+      if (name.includes(':') || name !== name.trim())
+        errors.push(`core: checkpoint field ${name} must have no colon or outer space`);
+  }
+  for (const key of ['lineWidth', 'maxLines'])
+    if (!isCount(rule[key])) errors.push(`core: checkpoint ${key} must be a positive integer`);
+}
+
 function checkCore(errors, core) {
   if (!isObject(core)) return errors.push('core: must be an object');
   unknownKeys(errors, 'core', core, CORE_KEYS);
   if (core.schema !== WORKSPACE_LAYOUT_CORE_SCHEMA)
     errors.push(`core: schema must be ${WORKSPACE_LAYOUT_CORE_SCHEMA}`);
-  for (const key of ['retentionClasses', 'retentionUntil', 'creators'])
+  for (const key of ['retentionClasses', 'retentionUntil', 'creators', 'repositoryModes'])
     if (!isTextList(core[key])) errors.push(`core: ${key} must be a list`);
   if (errors.length) return;
   checkWorkKinds(errors, core);
-  return checkRoots(errors, 'core', core.roots, core, CORE_ROOT_KEYS);
+  const ids = checkRoots(errors, 'core', core.roots, core, [
+    ...CORE_ROOT_KEYS,
+    ...CONSUMER_ROOT_KEYS,
+  ]);
+  if (!(ids instanceof Set)) return;
+  checkConsumerRoots(errors, core);
+  checkTrackedScope(errors, core);
+  checkCheckpoint(errors, core);
+  return ids;
 }
 
 function checkBinding(errors, binding, core, coreIds) {
@@ -247,6 +347,9 @@ function checkBinding(errors, binding, core, coreIds) {
     const where = `binding root ${root.id}`;
     if ('core' in root && !coreIds?.has(root.core))
       errors.push(`${where}: core root ${root.core} is unknown`);
+    // The tracked scope guard reads a root without core as this repository's own agent root.
+    if (!('core' in root) && coreIds?.has(root.id))
+      errors.push(`${where}: a root without core must not reuse a core root id`);
     if (!isRelativePath(root.ruleOwner))
       errors.push(`${where}: ruleOwner must be a repository path`);
     if ('archive' in root && !folders.includes(root.archive))

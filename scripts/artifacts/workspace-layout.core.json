@@ -9,15 +9,54 @@
   ],
   "retentionUntil": ["plan-closed", "task-settled"],
   "creators": ["core-scaffold", "host-adapter", "overlay", "human", "repository-script"],
+  "repositoryModes": ["managed", "vendored"],
+  "trackedScope": {
+    "workspace": "workspace",
+    "fileBytes": 131072
+  },
+  "checkpoint": {
+    "root": "plans",
+    "heading": "Checkpoint",
+    "required": ["상태", "다음 행동"],
+    "optional": ["결정", "근거", "blocker"],
+    "lineWidth": 100,
+    "maxLines": 2
+  },
   "roots": [
     {
-      "id": "plans",
-      "path": ".htc/plans",
+      "id": "workspace",
+      "path": ".htc",
       "kind": "directory",
-      "purpose": "계획 문서. 결정·상태·다음 행동만 담고 실행 기록은 artifacts에 두고 링크한다",
+      "purpose": "workflow 상태의 단일 root. 추적은 default-deny이고 아래 tracked root와 trackedFiles만 추적한다",
+      "tracking": "ignored",
+      "creator": ["core-scaffold"],
+      "copy": "unspecified"
+    },
+    {
+      "id": "gitignore",
+      "path": ".htc/.gitignore",
+      "kind": "file",
+      "purpose": "workspace의 ignore 규칙(default-deny + allowlist). 저장소 root .gitignore는 건드리지 않는다",
       "tracking": "tracked",
-      "creator": ["human"],
-      "children": "markdown-only",
+      "creator": ["core-scaffold"],
+      "copy": "allowed"
+    },
+    {
+      "id": "config",
+      "path": ".htc/config.json",
+      "kind": "file",
+      "purpose": "repo binding·domain pack 선택·version pin·저장소 모드·plans 추적 여부(htc-config/v1)",
+      "tracking": "tracked",
+      "creator": ["core-scaffold"],
+      "copy": "allowed"
+    },
+    {
+      "id": "baselines",
+      "path": ".htc/baselines",
+      "kind": "directory",
+      "purpose": "CI가 쓰는 ratchet 기준선",
+      "tracking": "tracked",
+      "creator": ["repository-script"],
       "copy": "allowed"
     },
     {
@@ -42,9 +81,32 @@
       "copy": "forbidden"
     },
     {
+      "id": "plans",
+      "path": ".htc/plans",
+      "kind": "directory",
+      "purpose": "계획 문서. 결정·상태·다음 행동만 담고 실행 기록은 artifacts에 두고 링크한다",
+      "tracking": "tracked",
+      "ignorable": true,
+      "creator": ["human"],
+      "children": "markdown-only",
+      "copy": "allowed"
+    },
+    {
+      "id": "vendor",
+      "path": ".htc/vendor",
+      "kind": "directory",
+      "purpose": "vendored 모드의 설치본 고정 사본. host는 Home 설치본을 읽는다",
+      "tracking": "tracked",
+      "modes": ["vendored"],
+      "limits": { "fileBytes": 262144, "totalBytes": 4194304 },
+      "creator": ["core-scaffold"],
+      "copy": "allowed"
+    },
+    {
       "id": "product",
       "path": "docs/product",
       "kind": "directory",
+      "indexReadme": true,
       "purpose": "PRD 묶음",
       "tracking": "tracked",
       "creator": ["human"],
@@ -54,6 +116,7 @@
       "id": "policies",
       "path": "docs/policies",
       "kind": "directory",
+      "indexReadme": true,
       "purpose": "제품·보안·운영 불변 정책",
       "tracking": "tracked",
       "creator": ["human"],
@@ -63,6 +126,7 @@
       "id": "architecture",
       "path": "docs/architecture",
       "kind": "directory",
+      "indexReadme": true,
       "purpose": "책임 경계와 설계 결정(L1 개요)",
       "tracking": "tracked",
       "creator": ["human"],

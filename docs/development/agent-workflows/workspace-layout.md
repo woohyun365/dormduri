@@ -6,7 +6,8 @@ manifest의 `ruleOwner`가 가리키는 문서(`.artifacts/README.md`, [Session 
 그대로 소유한다.
 
 - [core 기본 manifest](../../../scripts/artifacts/workspace-layout.core.json)(`htc-workspace-layout-core/v1`): consumer
-  저장소의 logical root와 기본 경로, 보존 어휘, 생성 주체 어휘, 작업 종류 layout. 이 저장소 이름은 넣지 않는다.
+  저장소의 logical root와 기본 경로, 보존 어휘, 생성 주체 어휘, 작업 종류 layout, 저장소 모드와 추적 범위 guard 상한,
+  추적 plan의 checkpoint 규칙. 이 저장소 이름은 넣지 않는다.
 - [KNU binding](../../../scripts/artifacts/workspace-layout.knu.json)(`htc-workspace-layout-binding/v1`): core logical
   root를 이 저장소의 지금 이름에 대응시키고, 이 저장소에만 있는 root, tools kind, guard 입력을 더한다.
 
@@ -35,6 +36,10 @@ import할 때는 읽지 않고 값을 쓰는 함수 안에서 읽는다. hook �
 | `reviewInput`       | 리뷰 입력 결속 대상 root                                                                                                       |
 | `nestedState`       | 하위 디렉터리에 생기면 시작 위치 오류로 보는 runtime state root(한 segment 경로)                                               |
 | `overridable`       | `KNU_ARTIFACTS_DIR`이 대체하는 root                                                                                            |
+| `modes`             | core에서, 그 tracked root가 있는 저장소 모드(`repositoryModes`). 없으면 모든 모드                                              |
+| `ignorable`         | core에서, setup이 ignore로 바꿀 수 있는 tracked root                                                                           |
+| `limits`            | core에서, 그 root 아래 추적 파일의 크기 상한: `fileBytes`(파일당), `totalBytes`(합계)                                          |
+| `indexReadme`       | core에서, scaffold가 없을 때만 색인 README를 만드는 tracked 디렉터리                                                           |
 
 ## 보존
 
@@ -74,6 +79,23 @@ template의 `{name}`은 `workNames`의 입력이다. `workNames`는 입력 이�
 - `--check`는 `.gitignore`와 맞지 않는 manifest ignored root를 layout guard와 같은 판정(`gitignore-mismatch`)으로
   보고하고 exit 1이다. `.gitignore`는 고치지 않는다.
 
+## Consumer workspace
+
+core `trackedScope.workspace` root(`.htc`)는 consumer 저장소의 workflow 상태 단일 root다. 추적은 default-deny이고 그 아래
+tracked root(`.gitignore`, `config.json`, `baselines/`, `plans/`, vendored 모드의 `vendor/`)와 ignored root의 `trackedFiles`
+(`.htc/artifacts/README.md`)만 추적한다. `plans`는 기본 추적이고 setup이 ignore로 바꿀 수 있다(`ignorable`). 이 저장소는 binding이
+지금 이름을 대응시키고 `.htc`를 쓰지 않는다.
+
+`pnpm scaffold -- consumer --mode <managed|vendored> [--plans tracked|ignored] --root <저장소>`가 core 값으로 consumer 저장소에
+다음을 만든다. 이 저장소를 가리키면 거부한다.
+
+- `.htc/.gitignore`: `/*` 뒤에 manifest 순서로 그 모드의 tracked root와 ignored root의 `trackedFiles`를 다시 연다. managed에는
+  `!/vendor/`가 없고 `--plans ignored`는 `!/plans/`를 뺀다. 파일이 있고 규칙이 다르면 덮지 않고 거부한다.
+- `indexReadme` 디렉터리(`docs/product/`, `docs/policies/`, `docs/architecture/`)의 `README.md`: 없을 때만 목적 제목, 같은
+  규칙은 한 문서만 소유한다는 문장, 문서·상태·소유 규칙 색인 표를 만든다. 있으면 그대로 둔다.
+- 경로가 symlink를 지나면 거부하고, 모든 검사가 끝난 뒤에 쓴다. 같은 입력이면 같은 결과이고 출력은 `created`·`kept`만 첫
+  실행과 다르다. `config.json`(필드 schema `htc-config/v1`)과 `.htc/artifacts/README.md`는 만들지 않는다.
+
 ## Override
 
 `KNU_ARTIFACTS_DIR`이 설정된 호출에서만 [`paths.mjs`](../../../scripts/artifacts/paths.mjs)가 manifest를 읽는다. hook
@@ -88,7 +110,7 @@ caller는 env `{}`를 넘기므로 읽지 않는다.
 ## Layout guard
 
 `pnpm check:fast`가 [`workspace-layout-check.mjs`](../../../scripts/git/workspace-layout-check.mjs)를 돌린다. 탐지만 하고
-옮기거나 지우지 않는다.
+옮기거나 지우지 않는다. 아래 추적 범위 guard도 같은 실행에서 돈다.
 
 | kind                      | 판정                                                                                                                                            |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -103,6 +125,42 @@ caller는 env `{}`를 넘기므로 읽지 않는다.
 `guardExclusions`는 추적 `.gitignore`의 비agent 규칙 중 top-level에 생길 수 있는 것이고 top-level 이름에만 적용한다
 (manifest root 아래의 하위 규칙에는 적용하지 않아 `.DS_Store`도 보고한다). 경로가 추적 top-level
 디렉터리 안으로 고정된 규칙은 넣지 않는다. test가 `.gitignore`와 이 목록을 양쪽으로 대조한다.
+
+## 추적 범위 guard
+
+[`tracked-scope.mjs`](../../../scripts/git/tracked-scope.mjs)가 index(stage된 내용)를 읽는다. layout guard가 함께 돌리고
+`tracked scope: <파일 수> files, <bytes> bytes` 용량 줄을 출력한다. CI 보장은 repo-policy suite의 test가 이 저장소 index에
+guard를 돌리는 것이다(새 workflow 단계 없음).
+
+- 범위: core workspace root 아래 root, binding에서는 그에 대응하는 root와 core 대응이 없는 이 저장소 root, 그 root들의
+  `marker`. 제품 문서 root는 보지 않는다.
+- allowlist: ignored root의 `trackedFiles`, `marker`, tracked root 아래 추적 파일. `trackedFilesOwner` root의 추적 파일은
+  `.gitignore`가 정하므로 강제 추적만 본다.
+- 상한을 올리는 변경은 manifest PR로 리뷰한다.
+
+| kind                      | 판정                                                                                                                   |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `tracked-forced`          | 범위 안 추적 파일을 `.gitignore`가 ignore하거나(`git add -f`) ignored root의 `trackedFiles` 밖에 있음                  |
+| `tracked-too-large`       | 가장 가까운 root의 `limits.fileBytes`, 없으면 core `trackedScope.fileBytes`(128 KiB)를 넘음. `vendor`는 파일당 256 KiB |
+| `tracked-total-too-large` | root 아래 allowlist 합계가 `limits.totalBytes`(`vendor` 4 MiB)를 넘음                                                  |
+| `tracked-binary`          | NUL byte가 있음                                                                                                        |
+| `tracked-secret`          | 고정 pattern(private key, AWS·GitHub·Slack·Google·API key, URL 안 자격 증명)에 맞음. 값은 출력하지 않는다              |
+| `checkpoint-*`            | tracked `plans` root 아래 Markdown이 아래 checkpoint 규칙을 어김                                                       |
+
+### Checkpoint
+
+core `checkpoint`는 consumer 추적 plan(`.htc/plans`)의 `## Checkpoint` 절 규칙이다. 이 저장소의 계획 root는 ignored라 대상이
+아니다. [Plan authoring core](./plan-authoring/core.md#12-checkpoint-and-final-report) 12절의 세션 인계 checkpoint와 다른, plan
+문서의 절 규칙이다.
+
+- 항목은 실제 날짜만 담은 `- YYYY-MM-DD` bullet과 그 아래 `  - <필드>: <내용>` 줄이다. 필수 필드는 `상태`·`다음 행동`, 선택
+  필드는 `결정`·`근거`(artifacts 링크)·`blocker`이고 이름은 manifest 값이다.
+- 필드 하나의 줄 수는 필드 줄과 더 들여 쓴 이어지는 줄마다 렌더링 글자 수(링크 대상 `](…)`, `**`, backtick 제외)를
+  `lineWidth`(100)로 나눠 올림한 합이고 `maxLines`(2) 이하다.
+- kind는 `checkpoint-unknown-field`, `checkpoint-missing-field`, `checkpoint-field-too-long`, `checkpoint-malformed`(날짜가
+  아닌 항목 bullet, 이름 없는 필드 줄, 한 항목에서 반복된 필드, 그 밖의 줄)다. 절은 다음 `#`·`##` heading에서 끝나고 fenced
+  code 안의 heading은 절로 읽지 않는다.
+- Status 줄, 일반 목록 항목 길이, context 분리는 guard 밖이다.
 
 ## 일치 test
 
