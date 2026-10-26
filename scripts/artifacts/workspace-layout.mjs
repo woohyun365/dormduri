@@ -17,7 +17,20 @@ const BINDING_URL = new URL('./workspace-layout.knu.json', import.meta.url);
 const TRACKING = ['tracked', 'ignored'];
 const COPY = ['allowed', 'forbidden', 'unspecified'];
 const CHILD_RULES = ['markdown-only', 'declared-plan-id', 'tool-kinds'];
-const CORE_KEYS = ['schema', 'guide', 'retentionClasses', 'retentionUntil', 'creators', 'roots'];
+const CORE_KEYS = [
+  'schema',
+  'guide',
+  'retentionClasses',
+  'retentionUntil',
+  'creators',
+  'roots',
+  'workNames',
+  'workKinds',
+];
+// Names of the phase directory below the Plan ID levels; a work kind template may use any work name.
+const PHASE_NAMES = ['phase', 'topic'];
+const WORK_KIND_KEYS = ['id', 'purpose', 'directories'];
+export const WORK_NAME_PLACEHOLDER = /\{([^{}]*)\}/gu;
 const CORE_ROOT_KEYS = [
   'id',
   'path',
@@ -150,6 +163,58 @@ function checkRoots(errors, label, roots, core, keys) {
   return ids;
 }
 
+// Work names are anchored patterns for one directory name; work kinds list directory templates below the phase
+// directory, whose `{name}` placeholders are work names.
+function checkWorkKinds(errors, core) {
+  const names = core.workNames;
+  if (!isObject(names)) return errors.push('core: workNames must be an object');
+  for (const [name, pattern] of Object.entries(names)) {
+    let valid = isText(pattern) && pattern.startsWith('^') && pattern.endsWith('$');
+    try {
+      new RegExp(pattern, 'u');
+    } catch {
+      valid = false;
+    }
+    if (!/^[a-z]+$/u.test(name) || !valid)
+      errors.push(`core: work name ${name} must be a lowercase name with an anchored pattern`);
+  }
+  for (const name of PHASE_NAMES)
+    if (!Object.hasOwn(names, name)) errors.push(`core: workNames needs ${name}`);
+  if (!Array.isArray(core.workKinds) || core.workKinds.length === 0)
+    return errors.push('core: workKinds must be a list');
+  const ids = new Set();
+  for (const [index, kind] of core.workKinds.entries()) {
+    const where = `core work kind ${kind?.id ?? index}`;
+    if (!isObject(kind)) {
+      errors.push(`${where}: must be an object`);
+      continue;
+    }
+    unknownKeys(errors, where, kind, WORK_KIND_KEYS);
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(kind.id ?? ''))
+      errors.push(`${where}: id must be kebab-case`);
+    if (ids.has(kind.id)) errors.push(`${where}: duplicate id`);
+    ids.add(kind.id);
+    if (!isText(kind.purpose)) errors.push(`${where}: purpose is required`);
+    if (
+      !Array.isArray(kind.directories) ||
+      new Set(kind.directories).size !== kind.directories.length
+    ) {
+      errors.push(`${where}: directories must list distinct templates`);
+      continue;
+    }
+    for (const template of kind.directories) {
+      if (
+        !isRelativePath(template) ||
+        /[{}]/u.test(`${template}`.replace(WORK_NAME_PLACEHOLDER, ''))
+      )
+        errors.push(`${where}: directory ${template} must be a relative path template`);
+      for (const [, name] of `${template}`.matchAll(WORK_NAME_PLACEHOLDER))
+        if (!Object.hasOwn(names, name))
+          errors.push(`${where}: directory ${template} takes ${name}, which has no work name`);
+    }
+  }
+}
+
 function checkCore(errors, core) {
   if (!isObject(core)) return errors.push('core: must be an object');
   unknownKeys(errors, 'core', core, CORE_KEYS);
@@ -158,6 +223,7 @@ function checkCore(errors, core) {
   for (const key of ['retentionClasses', 'retentionUntil', 'creators'])
     if (!isTextList(core[key])) errors.push(`core: ${key} must be a list`);
   if (errors.length) return;
+  checkWorkKinds(errors, core);
   return checkRoots(errors, 'core', core.roots, core, CORE_ROOT_KEYS);
 }
 
