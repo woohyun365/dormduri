@@ -254,3 +254,30 @@ test('host adapters anchor runtime state at the repository root', () => {
   assert.match(claude, /`\.omc-workspace`/u);
   assert.match(codex, /OMX_ROOT/u);
 });
+
+test('the layout check reports forced tracking in an agent root and prints the tracked capacity', () => {
+  const { root, git } = fixtureRepository([
+    ['.omc-workspace', true],
+    ['.local-docs/handoff.md', false],
+  ]);
+  try {
+    assert.equal(git(root, 'add', '-f', '.local-docs/handoff.md').status, 0);
+    assert.deepEqual(
+      layoutCheck
+        .checkWorkspaceLayout(root)
+        .filter((issue) => issue.kind.startsWith('tracked-'))
+        .map((issue) => [issue.path, issue.kind]),
+      [['.local-docs/handoff.md', 'tracked-forced']],
+    );
+    const run = spawnSync(
+      process.execPath,
+      [resolve(repoRoot, 'scripts/git/workspace-layout-check.mjs')],
+      { cwd: root, encoding: 'utf8' },
+    );
+    assert.equal(run.status, 1, run.stderr);
+    assert.match(run.stderr, /^- \.local-docs\/handoff\.md \(tracked-forced\): /mu);
+    assert.match(run.stdout, /^tracked scope: 1 file, 2 bytes$/mu);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -15,6 +16,7 @@ import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 
 import {
+  BINDING_FILE,
   loadWorkspaceLayout,
   validateWorkspaceLayout,
   workspaceRoot,
@@ -428,4 +430,198 @@ test('the command prints the same JSON for the same input and separates usage er
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
+});
+
+// P0 output 4, section 1 draft with `!/config.*` narrowed to `!/config.json` (OQ-SCAF-5). The draft's comment lines
+// explain the mode and plans choices; the generated file holds the rules of the chosen ones.
+const MANAGED_GITIGNORE =
+  '/*\n!/.gitignore\n!/config.json\n!/baselines/\n!/artifacts/\n/artifacts/*\n!/artifacts/README.md\n!/plans/\n';
+
+function consumerRoot(t) {
+  const root = realpathSync(mkdtempSync(resolve(tmpdir(), 'htc-consumer-')));
+  t.after(() => rmSync(root, { force: true, recursive: true }));
+  spawnSync('git', ['init', '-q'], { cwd: root });
+  return root;
+}
+
+const ignoredBy = (root, path) =>
+  spawnSync('git', ['check-ignore', '-q', '--no-index', path], { cwd: root }).status === 0;
+
+test('managed and vendored workspaces get different .gitignore rules from the manifest', async () => {
+  const { workspaceGitignore } = await scaffoldModule();
+  const { core } = loadWorkspaceLayout();
+  assert.equal(workspaceGitignore(core, { mode: 'managed' }), MANAGED_GITIGNORE);
+  assert.equal(workspaceGitignore(core, { mode: 'vendored' }), `${MANAGED_GITIGNORE}!/vendor/\n`);
+  assert.equal(
+    workspaceGitignore(core, { mode: 'managed', ignore: ['plans'] }),
+    MANAGED_GITIGNORE.replace('!/plans/\n', ''),
+  );
+  assert.throws(() => workspaceGitignore(core, { mode: 'hosted' }), /mode hosted/u);
+  assert.throws(
+    () => workspaceGitignore(core, { mode: 'managed', ignore: ['config'] }),
+    /config cannot be ignored/u,
+  );
+});
+
+test('git applies the generated rules: only the allowlist stays visible below .htc', async (t) => {
+  const { workspaceGitignore } = await scaffoldModule();
+  const { core } = loadWorkspaceLayout();
+  for (const mode of ['managed', 'vendored']) {
+    const root = consumerRoot(t);
+    write(root, '.htc/.gitignore', workspaceGitignore(core, { mode }));
+    for (const path of [
+      '.htc/.gitignore',
+      '.htc/config.json',
+      '.htc/baselines/lint.json',
+      '.htc/artifacts/README.md',
+      '.htc/plans/alpha-plan.md',
+    ])
+      assert.equal(ignoredBy(root, path), false, `${mode} ${path}`);
+    for (const path of [
+      '.htc/config.yaml',
+      '.htc/state/session.json',
+      '.htc/artifacts/p1/red.log',
+      '.htc/notes.md',
+    ])
+      assert.equal(ignoredBy(root, path), true, `${mode} ${path}`);
+    assert.equal(ignoredBy(root, '.htc/vendor/plugin.json'), mode === 'managed', mode);
+  }
+});
+
+test('consumer scaffold writes .htc/.gitignore and the missing product READMEs and keeps existing files', async (t) => {
+  const { scaffoldConsumer } = await scaffoldModule();
+  const root = consumerRoot(t);
+  write(root, 'docs/product/README.md', '# Our PRD\n');
+  const first = scaffoldConsumer(root, { mode: 'vendored' });
+  assert.deepEqual(first.created, [
+    '.htc/.gitignore',
+    'docs/policies/README.md',
+    'docs/architecture/README.md',
+  ]);
+  assert.deepEqual(first.kept, ['docs/product/README.md']);
+  assert.equal(
+    readFileSync(resolve(root, '.htc/.gitignore'), 'utf8'),
+    `${MANAGED_GITIGNORE}!/vendor/\n`,
+  );
+  assert.equal(readFileSync(resolve(root, 'docs/product/README.md'), 'utf8'), '# Our PRD\n');
+  const policies = readFileSync(resolve(root, 'docs/policies/README.md'), 'utf8');
+  assert.match(policies, /^# 제품·보안·운영 불변 정책\n/u);
+  assert.match(policies, /같은 규칙은 한 문서만 소유한다/u);
+  assert.match(policies, /^\| 문서 +\| 상태 +\| 소유 규칙 +\|$/mu);
+  // A second run creates nothing; only created and kept differ from the first output and later runs repeat it.
+  const second = scaffoldConsumer(root, { mode: 'vendored' });
+  assert.deepEqual(second.created, []);
+  assert.deepEqual(second.kept, [
+    '.htc/.gitignore',
+    'docs/product/README.md',
+    'docs/policies/README.md',
+    'docs/architecture/README.md',
+  ]);
+  assert.deepEqual({ ...second, created: [], kept: [] }, { ...first, created: [], kept: [] });
+  assert.equal(
+    JSON.stringify(scaffoldConsumer(root, { mode: 'vendored' })),
+    JSON.stringify(second),
+  );
+});
+
+test('other .gitignore rules, a symlink on the way and this repository are refused before anything is written', async (t) => {
+  const { scaffoldConsumer } = await scaffoldModule();
+  const changed = consumerRoot(t);
+  write(changed, '.htc/.gitignore', '/*\n!/notes/\n');
+  assert.throws(
+    () => scaffoldConsumer(changed, { mode: 'managed' }),
+    /\.htc\/\.gitignore exists with other rules/u,
+  );
+  assert.equal(readFileSync(resolve(changed, '.htc/.gitignore'), 'utf8'), '/*\n!/notes/\n');
+  assert.deepEqual(readdirSync(changed).sort(), ['.git', '.htc']);
+  // The managed rules in a vendored run are other rules too.
+  write(changed, '.htc/.gitignore', MANAGED_GITIGNORE);
+  assert.throws(() => scaffoldConsumer(changed, { mode: 'vendored' }), /exists with other rules/u);
+  const outside = realpathSync(mkdtempSync(resolve(tmpdir(), 'htc-consumer-outside-')));
+  t.after(() => rmSync(outside, { force: true, recursive: true }));
+  const linkedWorkspace = consumerRoot(t);
+  symlinkSync(outside, resolve(linkedWorkspace, '.htc'));
+  assert.throws(
+    () => scaffoldConsumer(linkedWorkspace, { mode: 'managed' }),
+    /resolves through a symlink/u,
+  );
+  const linkedDocs = consumerRoot(t);
+  mkdirSync(resolve(linkedDocs, 'docs'));
+  symlinkSync(outside, resolve(linkedDocs, 'docs/policies'));
+  assert.throws(
+    () => scaffoldConsumer(linkedDocs, { mode: 'managed' }),
+    /resolves through a symlink/u,
+  );
+  assert.deepEqual(readdirSync(outside), []);
+  assert.deepEqual(readdirSync(linkedDocs).sort(), ['.git', 'docs']);
+  // This repository maps the core roots through its binding and has no .htc.
+  assert.throws(
+    () => scaffoldConsumer(repoRoot, { mode: 'managed' }),
+    /maps the core roots through/u,
+  );
+  assert.equal(readdirSync(repoRoot).includes('.htc'), false);
+});
+
+test('another checkout of this repository, a directory inside one and another letter case of its path are refused', async (t) => {
+  const { scaffoldConsumer } = await scaffoldModule();
+  // A clone or linked worktree of this repository holds the binding file at its root.
+  const checkout = consumerRoot(t);
+  write(checkout, BINDING_FILE, readFileSync(resolve(repoRoot, BINDING_FILE), 'utf8'));
+  mkdirSync(resolve(checkout, 'apps/web'), { recursive: true });
+  const targets = [checkout, resolve(checkout, 'apps/web')];
+  // On a case-insensitive file system another letter case of the path names the same checkout.
+  const upper = checkout.toUpperCase();
+  if (upper !== checkout && existsSync(upper)) targets.push(upper);
+  for (const target of targets)
+    assert.throws(
+      () => scaffoldConsumer(target, { mode: 'managed' }),
+      /maps the core roots through/u,
+      target,
+    );
+  assert.deepEqual(readdirSync(resolve(checkout, 'apps/web')), []);
+  assert.equal(existsSync(resolve(checkout, '.htc')), false);
+});
+
+test('a .gitignore that holds the same rules with CRLF line endings is kept', async (t) => {
+  const { scaffoldConsumer } = await scaffoldModule();
+  const root = consumerRoot(t);
+  scaffoldConsumer(root, { mode: 'managed' });
+  const crlf = MANAGED_GITIGNORE.replaceAll('\n', '\r\n');
+  write(root, '.htc/.gitignore', crlf);
+  const again = scaffoldConsumer(root, { mode: 'managed' });
+  assert.deepEqual(again.created, []);
+  assert.equal(readFileSync(resolve(root, '.htc/.gitignore'), 'utf8'), crlf);
+});
+
+test('the consumer command prints the same JSON for the same input and needs a mode and a root', async (t) => {
+  await scaffoldModule();
+  const root = consumerRoot(t);
+  const args = ['consumer', '--mode', 'managed', '--plans', 'ignored', '--root', root];
+  const first = cli('--', ...args);
+  assert.equal(first.status, 0, first.stderr);
+  assert.deepEqual(JSON.parse(first.stdout).created, [
+    '.htc/.gitignore',
+    'docs/product/README.md',
+    'docs/policies/README.md',
+    'docs/architecture/README.md',
+  ]);
+  assert.equal(
+    readFileSync(resolve(root, '.htc/.gitignore'), 'utf8'),
+    MANAGED_GITIGNORE.replace('!/plans/\n', ''),
+  );
+  const second = cli(...args);
+  assert.equal(second.status, 0, second.stderr);
+  assert.deepEqual(JSON.parse(second.stdout).created, []);
+  assert.equal(cli(...args).stdout, second.stdout);
+  for (const usage of [
+    ['consumer', '--root', root],
+    ['consumer', '--mode', 'managed'],
+    ['consumer', '--mode', 'hosted', '--root', root],
+    ['consumer', '--mode', 'managed', '--plans', 'maybe', '--root', root],
+    ['consumer', '--mode', 'managed', '--umbrella', 'umbrella', '--root', root],
+  ])
+    assert.equal(cli(...usage).status, 2, usage.join(' '));
+  const refused = cli('consumer', '--mode', 'managed', '--root', repoRoot);
+  assert.equal(refused.status, 1, refused.stderr);
+  assert.match(refused.stderr, /maps the core roots through/u);
 });

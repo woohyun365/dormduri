@@ -124,6 +124,133 @@ test('manifest validation rejects unknown fields, values outside the vocabulary 
   assert.doesNotThrow(() => validateWorkspaceLayout(readManifests()));
 });
 
+test('the core manifest holds the .htc workspace, its tracked allowlist, size limits and the checkpoint rule', async () => {
+  const { loadWorkspaceLayout } = await layoutModule();
+  const { core } = loadWorkspaceLayout();
+  const workspace = core.roots.filter(
+    (root) => root.path === '.htc' || root.path.startsWith('.htc/'),
+  );
+  // Plan 1절 `.htc` table: default-deny, tracked config·.gitignore·baselines·artifacts README·plans, vendored vendor.
+  assert.deepEqual(
+    workspace.map((root) => [
+      root.id,
+      root.path,
+      root.kind,
+      root.tracking,
+      root.trackedFiles ?? null,
+      root.modes ?? null,
+      root.ignorable ?? false,
+    ]),
+    [
+      ['workspace', '.htc', 'directory', 'ignored', null, null, false],
+      ['gitignore', '.htc/.gitignore', 'file', 'tracked', null, null, false],
+      ['config', '.htc/config.json', 'file', 'tracked', null, null, false],
+      ['baselines', '.htc/baselines', 'directory', 'tracked', null, null, false],
+      ['artifacts', '.htc/artifacts', 'directory', 'ignored', ['README.md'], null, false],
+      ['state', '.htc/state', 'directory', 'ignored', null, null, false],
+      ['plans', '.htc/plans', 'directory', 'tracked', null, null, true],
+      ['vendor', '.htc/vendor', 'directory', 'tracked', null, ['vendored'], false],
+    ],
+  );
+  assert.deepEqual(core.repositoryModes, ['managed', 'vendored']);
+  assert.deepEqual(core.trackedScope, { workspace: 'workspace', fileBytes: 128 * 1024 });
+  assert.deepEqual(workspace.find((root) => root.id === 'vendor').limits, {
+    fileBytes: 256 * 1024,
+    totalBytes: 4 * 1024 * 1024,
+  });
+  assert.deepEqual(core.checkpoint, {
+    root: 'plans',
+    heading: 'Checkpoint',
+    required: ['상태', '다음 행동'],
+    optional: ['결정', '근거', 'blocker'],
+    lineWidth: 100,
+    maxLines: 2,
+  });
+  assert.deepEqual(
+    core.roots.filter((root) => root.indexReadme).map((root) => root.path),
+    ['docs/product', 'docs/policies', 'docs/architecture'],
+  );
+});
+
+test('manifest validation rejects consumer fields outside their rules', async () => {
+  const { validateWorkspaceLayout } = await layoutModule();
+  const root = (core, id) => core.roots.find((entry) => entry.id === id) ?? {};
+  const mutations = [
+    [
+      'mode outside the vocabulary',
+      ({ core }) => (root(core, 'vendor').modes = ['hosted']),
+      /modes/u,
+    ],
+    ['mode on an ignored root', ({ core }) => (root(core, 'state').modes = ['vendored']), /modes/u],
+    ['ignorable ignored root', ({ core }) => (root(core, 'state').ignorable = true), /ignorable/u],
+    ['zero limit', ({ core }) => (root(core, 'vendor').limits = { fileBytes: 0 }), /limits/u],
+    ['empty limits', ({ core }) => (root(core, 'vendor').limits = {}), /limits/u],
+    [
+      'index README on a file',
+      ({ core }) => (root(core, 'config').indexReadme = true),
+      /indexReadme/u,
+    ],
+    [
+      'unknown workspace',
+      ({ core }) => core.trackedScope && (core.trackedScope.workspace = 'nowhere'),
+      /trackedScope/u,
+    ],
+    [
+      'tracked workspace',
+      ({ core }) => (root(core, 'workspace').tracking = 'tracked'),
+      /trackedScope/u,
+    ],
+    [
+      'workspace without its .gitignore',
+      ({ core }) => (core.roots = core.roots.filter((entry) => entry.id !== 'gitignore')),
+      /\.gitignore/u,
+    ],
+    [
+      'negative file limit',
+      ({ core }) => core.trackedScope && (core.trackedScope.fileBytes = -1),
+      /trackedScope/u,
+    ],
+    ['field in both lists', ({ core }) => core.checkpoint?.optional.push('상태'), /checkpoint/u],
+    ['field name with a colon', ({ core }) => core.checkpoint?.optional.push('a:b'), /checkpoint/u],
+    [
+      'unknown checkpoint root',
+      ({ core }) => core.checkpoint && (core.checkpoint.root = 'nowhere'),
+      /checkpoint/u,
+    ],
+    [
+      'zero line limit',
+      ({ core }) => core.checkpoint && (core.checkpoint.maxLines = 0),
+      /checkpoint/u,
+    ],
+    [
+      'binding root without core reusing a core id',
+      ({ binding }) => (binding.roots.find((entry) => entry.id === 'tools').id = 'vendor'),
+      /core root id/u,
+    ],
+    [
+      'work kind named after the consumer command',
+      ({ core }) => (core.workKinds[0].id = 'consumer'),
+      /is the scaffold consumer command/u,
+    ],
+    [
+      'consumer field on a binding root',
+      ({ binding }) => (binding.roots[0].limits = { fileBytes: 1 }),
+      /unknown field limits/u,
+    ],
+  ];
+  for (const [name, mutate, reason] of mutations) {
+    const manifests = readManifests();
+    mutate(manifests);
+    assert.throws(
+      () => validateWorkspaceLayout(manifests),
+      (error) =>
+        /workspace layout manifest is invalid/u.test(error.message) && reason.test(error.message),
+      name,
+    );
+  }
+  assert.doesNotThrow(() => validateWorkspaceLayout(readManifests()));
+});
+
 // Root constants that host wiring still holds as literals. Each one is compared with the manifest until the wiring
 // reads the manifest itself.
 async function namedConstants() {

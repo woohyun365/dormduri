@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 // Commit-time detector for the workspace layout manifest (scripts/artifacts/workspace-layout.*.json): scattered host
-// runtime state, retired and unknown top-level roots, the plans and artifacts child rules, and manifest roots whose
-// tracking disagrees with .gitignore. Detection, not prevention: hosts should start at the repository root and write
-// evidence under the manifest roots.
+// runtime state, retired and unknown top-level roots, the plans and artifacts child rules, manifest roots whose
+// tracking disagrees with .gitignore, and the tracked scope guard (tracked-scope.mjs) with its capacity line.
+// Detection, not prevention: hosts should start at the repository root and write evidence under the manifest roots.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -15,6 +15,7 @@ import {
   loadWorkspaceLayout,
   workspaceRoot,
 } from '../artifacts/workspace-layout.mjs';
+import { checkTrackedScope, formatCapacity } from './tracked-scope.mjs';
 
 const PROBE = 'htc-layout-probe.md';
 
@@ -192,8 +193,11 @@ export function findGitignoreIssues(root, layout = loadWorkspaceLayout()) {
   return issues;
 }
 
-export function checkWorkspaceLayout(root) {
+// `report` receives the tracked scope capacity (files and bytes of the allowlist).
+export function checkWorkspaceLayout(root, { report } = {}) {
   const layout = loadWorkspaceLayout();
+  const scope = checkTrackedScope(root, layout);
+  report?.(scope.report);
   return [
     ...findWorkspaceLayoutIssues(listUntrackedEntries(root), {
       trackedTopLevel: listTrackedTopLevel(root),
@@ -201,12 +205,15 @@ export function checkWorkspaceLayout(root) {
     }),
     ...findWorkspaceStructureIssues(root, layout),
     ...findGitignoreIssues(root, layout),
+    ...scope.issues,
   ];
 }
 
 function main() {
   const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
-  const issues = checkWorkspaceLayout(resolve(root));
+  const issues = checkWorkspaceLayout(resolve(root), {
+    report: (capacity) => console.log(formatCapacity(capacity)),
+  });
   if (issues.length === 0) return;
   console.error('workspace layout check failed:');
   for (const issue of issues) console.error(`- ${issue.path} (${issue.kind}): ${issue.hint}`);
