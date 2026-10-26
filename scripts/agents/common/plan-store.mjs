@@ -255,11 +255,13 @@ function inventory(root) {
 
 export function discoverPlans(root) {
   const result = inventory(root);
+  // Only plans directly under the plans root, whose path may have more than one segment.
+  const depth = plansRoot().split('/').length + 1;
   return {
     ...result,
     plans: result.plans.filter(
       (plan) =>
-        result.identityComplete && plan.path.split('/').length === 2 && plan.state === 'active',
+        result.identityComplete && plan.path.split('/').length === depth && plan.state === 'active',
     ),
   };
 }
