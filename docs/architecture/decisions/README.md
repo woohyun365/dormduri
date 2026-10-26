@@ -61,6 +61,6 @@
 
 ## 색인
 
-| Layer 파일              | Pack layer                                                                  | 하위 layer 절            |
-| ----------------------- | --------------------------------------------------------------------------- | ------------------------ |
-| [FE 결정 기록](./fe.md) | [Domain/SWE/Web/FE](../../development/agent-workflows/domain/swe-web/fe.md) | `component-architecture` |
+| Layer 파일              | Pack layer                                                                  | 하위 layer 절                             |
+| ----------------------- | --------------------------------------------------------------------------- | ----------------------------------------- |
+| [FE 결정 기록](./fe.md) | [Domain/SWE/Web/FE](../../development/agent-workflows/domain/swe-web/fe.md) | `component-architecture`, `design-system` |

@@ -10,9 +10,13 @@
 - KNU의 PRD 개요는 `legacy`입니다. 목적과 대상 사용자는 저장소 root `README.md`와 [정책 README](../policies/README.md)의
   문서 구성 표에 있고 이 디렉터리로 소급해 옮기지 않습니다. 다음에 구현하는 제품 영역부터 기능 영역 문서를 씁니다.
 
+| 기능 영역 문서          | 영역           |
+| ----------------------- | -------------- |
+| [Landing](./landing.md) | 공개 랜딩(`/`) |
+
 ## Intent 기록
 
-- 프로젝트 intent는 `docs/product/intent.md`에 둡니다. PRD에 없는 항목인 영역별 invariant·품질 기준만 영역 절로 쓰고, 목적·대상
+- 프로젝트 intent는 [`intent.md`](./intent.md)에 둡니다. PRD에 없는 항목인 영역별 invariant·품질 기준만 영역 절로 쓰고, 목적·대상
   사용자·핵심 흐름·비목표·성공 기준은 PRD 문서를 링크합니다. 같은 의미를 두 기록에 쓰지 않습니다.
 - 파일 header는 [결정 기록 layer 파일](../architecture/decisions/README.md#layer-파일)과 같은 상태 header입니다. 첫 영역 절을
   쓰는 변경이 파일을 만들고 이 README에 링크합니다. 기술 결정은 결정 기록에 둡니다.
