@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -15,6 +16,7 @@ import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 
 import {
+  BINDING_FILE,
   loadWorkspaceLayout,
   validateWorkspaceLayout,
   workspaceRoot,
@@ -558,6 +560,37 @@ test('other .gitignore rules, a symlink on the way and this repository are refus
     /maps the core roots through/u,
   );
   assert.equal(readdirSync(repoRoot).includes('.htc'), false);
+});
+
+test('another checkout of this repository, a directory inside one and another letter case of its path are refused', async (t) => {
+  const { scaffoldConsumer } = await scaffoldModule();
+  // A clone or linked worktree of this repository holds the binding file at its root.
+  const checkout = consumerRoot(t);
+  write(checkout, BINDING_FILE, readFileSync(resolve(repoRoot, BINDING_FILE), 'utf8'));
+  mkdirSync(resolve(checkout, 'apps/web'), { recursive: true });
+  const targets = [checkout, resolve(checkout, 'apps/web')];
+  // On a case-insensitive file system another letter case of the path names the same checkout.
+  const upper = checkout.toUpperCase();
+  if (upper !== checkout && existsSync(upper)) targets.push(upper);
+  for (const target of targets)
+    assert.throws(
+      () => scaffoldConsumer(target, { mode: 'managed' }),
+      /maps the core roots through/u,
+      target,
+    );
+  assert.deepEqual(readdirSync(resolve(checkout, 'apps/web')), []);
+  assert.equal(existsSync(resolve(checkout, '.htc')), false);
+});
+
+test('a .gitignore that holds the same rules with CRLF line endings is kept', async (t) => {
+  const { scaffoldConsumer } = await scaffoldModule();
+  const root = consumerRoot(t);
+  scaffoldConsumer(root, { mode: 'managed' });
+  const crlf = MANAGED_GITIGNORE.replaceAll('\n', '\r\n');
+  write(root, '.htc/.gitignore', crlf);
+  const again = scaffoldConsumer(root, { mode: 'managed' });
+  assert.deepEqual(again.created, []);
+  assert.equal(readFileSync(resolve(root, '.htc/.gitignore'), 'utf8'), crlf);
 });
 
 test('the consumer command prints the same JSON for the same input and needs a mode and a root', async (t) => {

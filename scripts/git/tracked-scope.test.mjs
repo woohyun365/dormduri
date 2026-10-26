@@ -155,6 +155,22 @@ test('files over the size limits are reported: 128 KiB per file, 256 KiB per ven
   assert.ok(report.files.some((file) => file.path === '.htc/vendor/part-15.js'));
 });
 
+test('only .gitignore decides forced tracking, not the user exclude file or info/exclude', async (t) => {
+  const { checkTrackedScope } = await scopeModule();
+  const root = consumerRepository(t, [
+    ['.htc/config.json', '{}\n'],
+    ['.htc/plans/a-plan.md', '# A\n'],
+  ]);
+  const excludes = resolve(root, '.git/user-excludes');
+  writeFileSync(excludes, '.htc/\n');
+  assert.equal(
+    spawnSync('git', ['config', 'core.excludesFile', excludes], { cwd: root }).status,
+    0,
+  );
+  write(root, '.git/info/exclude', 'config.json\n');
+  assert.deepEqual(checkTrackedScope(root, consumer()).issues, []);
+});
+
 test('a file with a NUL byte is reported as binary', async (t) => {
   const { checkTrackedScope } = await scopeModule();
   const root = consumerRepository(t, [
