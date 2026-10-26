@@ -362,13 +362,25 @@ test('in a binding repository a forced file in an agent root is reported, produc
   t.after(() => rmSync(root, { force: true, recursive: true }));
   const git = (...args) => spawnSync('git', args, { cwd: root, encoding: 'utf8' });
   git('init', '-q');
-  write(root, '.gitignore', `${HOST_STATE}/\n${CLAUDE}/*\n!${CLAUDE}/settings.json\n${PLANS}/*\n`);
+  write(
+    root,
+    '.gitignore',
+    `${HOST_STATE}/\n${CLAUDE}/*\n!${CLAUDE}/settings.json\n${PLANS}/*\n!${PLANS}/pending/\n${PLANS}/pending/*\n!${PLANS}/pending/README.md\n`,
+  );
+  // The plans root is ignored here: its tracked README is not a tracked plan and holds no checkpoint entries.
+  write(root, `${PLANS}/pending/README.md`, '# Pending\n\n## Checkpoint\n\n보류 계획을 둔다.\n');
   write(root, `${HOST_STATE}/session.json`, 'x\n');
   write(root, `${CLAUDE}/settings.json`, `${'x'.repeat(200 * KIB)}\n`);
   write(root, `${CLAUDE}/settings.local.json`, '{}\n');
   write(root, `${PLANS}/active-plan.md`, '# Plan\n');
   write(root, 'docs/policies/README.md', `${'x'.repeat(200 * KIB)}\n`);
-  git('add', '.gitignore', `${CLAUDE}/settings.json`, 'docs/policies/README.md');
+  git(
+    'add',
+    '.gitignore',
+    `${CLAUDE}/settings.json`,
+    `${PLANS}/pending/README.md`,
+    'docs/policies/README.md',
+  );
   git(
     'add',
     '-f',
