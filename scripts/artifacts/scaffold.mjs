@@ -191,7 +191,8 @@ export function workspaceGitignore(core, { mode, ignore = [] }) {
 }
 
 // A checkout of this repository (this one, a clone or a linked worktree) maps the core roots to its own names through
-// the binding file at its root and has no consumer workspace: the nearest directory at or above `path` holding it.
+// the binding file at its root and has no consumer workspace: the nearest directory at or above `path` holding it. On a
+// case-insensitive file system the file is found under another letter case of the path too.
 function bindingCheckout(path) {
   for (let directory = path; ; directory = dirname(directory)) {
     if (existsSync(resolve(directory, ...BINDING_FILE.split('/')))) return directory;
@@ -224,8 +225,7 @@ export function scaffoldConsumer(
         keep: true,
       })),
   ];
-  // The native realpath gives the stored letter case, so another case of a path names the same directory.
-  const repository = realpathSync.native(root);
+  const repository = realpathSync(root);
   const checkout = bindingCheckout(repository);
   if (checkout)
     refuse(
