@@ -49,7 +49,7 @@ classify
   ├─ infra         # infra와 observability 변경
   ├─ repo-policy   # CI/workflow/root policy, tree 전체 guard와 repository formatting
   └─ agent-workflow # agent workflow test(package install 없음)
-lifecycle-gate     # 모든 pull request(분류와 무관): PR 본문 Lifecycle 절과 정책 우선·영역 기준 존재 검사
+lifecycle-gate     # 모든 pull request(분류와 무관): PR 본문 Lifecycle 절과 정책 우선·영역 기준 존재·리뷰 snapshot 검사
 CI summary         # 선택된 모든 lane과 pull request의 lifecycle-gate 결과를 하나의 required check로 판정
 ```
 
