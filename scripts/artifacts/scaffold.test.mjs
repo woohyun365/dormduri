@@ -189,7 +189,7 @@ test('each work kind gets its directories under the phase directory of a declare
   }
 });
 
-test('a second run creates nothing and gives the same tree and the same output', async () => {
+test('a second run creates nothing; only created differs from the first output and later runs repeat it', async () => {
   const { scaffold } = await scaffoldModule();
   const root = fixture();
   try {
@@ -200,8 +200,8 @@ test('a second run creates nothing and gives the same tree and the same output',
     assert.deepEqual(tree(root), before);
     for (const result of second) assert.deepEqual(result.created, [], result.kind);
     assert.deepEqual(
-      second.map((result) => result.directories),
-      first.map((result) => result.directories),
+      second,
+      first.map((result) => ({ ...result, created: [] })),
     );
     assert.equal(JSON.stringify(run()), JSON.stringify(second));
   } finally {
@@ -268,7 +268,7 @@ test('dot segments, absolute paths and symlinks out of the evidence root are ref
   }
 });
 
-test('a Windows separator is refused in every input, even when a directory of that name exists', async () => {
+test('a Windows separator or drive is refused in every input, even when a directory of that name exists', async () => {
   const { scaffold } = await scaffoldModule();
   const root = fixture();
   try {
@@ -277,6 +277,8 @@ test('a Windows separator is refused in every input, even when a directory of th
       { topic: 'a\\b' },
       { umbrella: 'umbrella\\x' },
       { plan: '..\\bounded' },
+      // Drive-relative: Windows resolves `C:x` against the current directory of drive C.
+      { phase: 'C:x' },
     ])
       assert.throws(
         () => scaffold(root, 'research', { ...BASE, ...inputs }),
@@ -287,14 +289,16 @@ test('a Windows separator is refused in every input, even when a directory of th
       () => scaffold(root, 'impact', { ...BASE, spec: 'a\\b' }),
       /contains a path separator/u,
     );
-    // On POSIX a backslash is a name character; an existing directory does not make it a safe name.
-    if (process.platform !== 'win32') {
-      mkdirSync(resolve(root, EVIDENCE, 'umbrella/bounded/p1\\x'), { recursive: true });
-      assert.throws(
-        () => scaffold(root, 'research', { ...BASE, phase: 'p1\\x' }),
-        /contains a path separator/u,
-      );
-    }
+    // On POSIX a backslash and a colon are name characters; an existing directory does not make them safe names.
+    if (process.platform !== 'win32')
+      for (const phase of ['p1\\x', 'C:x']) {
+        mkdirSync(resolve(root, EVIDENCE, 'umbrella/bounded', phase), { recursive: true });
+        assert.throws(
+          () => scaffold(root, 'research', { ...BASE, phase }),
+          /contains a path separator/u,
+          phase,
+        );
+      }
     assert.equal(
       tree(root).some((path) => path.includes('outside')),
       false,
