@@ -16,7 +16,9 @@ export function FaqAccordion({
               +
             </span>
           </summary>
-          <p className="pb-4 text-body-sm text-fg-muted break-keep">{item.answer}</p>
+          <p className="pb-4 text-body-sm whitespace-pre-line text-fg-muted break-keep">
+            {item.answer}
+          </p>
         </details>
       ))}
     </div>

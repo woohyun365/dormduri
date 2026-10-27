@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { ImgHTMLAttributes } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LandingScreen } from '../LandingScreen';
-import { heroAsk, landingCopy, landingSectionIds } from '../model/landingCopy';
+import { beforeStack, heroAsk, landingCopy, landingSectionIds } from '../model/landingCopy';
 import { LANDING_POLICY_COPY, LANDING_SURFACE_SECTION_IDS } from '../model/landingPolicyCopy';
 
 type ImageSource = string | { src: string };
@@ -156,6 +156,7 @@ describe('LandingScreen', () => {
     ).toHaveAttribute('href', '/privacy');
     const address = footer.querySelector('address');
     expect(address).not.toBeNull();
+    expect(address).toHaveTextContent(landingCopy.footer.inquiryAddress);
     expect(address!.querySelector('a')).toBeNull();
   });
 
@@ -166,6 +167,30 @@ describe('LandingScreen', () => {
     expect(within(post).getByRole('heading', { level: 3 })).toHaveTextContent(
       landingCopy.exampleTag,
     );
+  });
+
+  it('brings a 무엇이 다른가요 window to the front only with its switch, not by hover or a tap on it', () => {
+    render(<LandingScreen />);
+
+    const switches = screen.getByRole('group', { name: beforeStack.switchLabel });
+    const postSwitch = within(switches).getByRole('button', { name: beforeStack.labels.post });
+    const serviceSwitch = within(switches).getByRole('button', {
+      name: beforeStack.labels.service,
+    });
+    // The window that holds the post; data-back marks the window behind.
+    const postWindow = screen.getByRole('article').closest('[data-back]');
+    expect(postWindow).not.toBeNull();
+
+    // A finger dragging the page down over the post must leave the service window in front.
+    fireEvent.mouseEnter(postWindow!);
+    fireEvent.pointerDown(postWindow!);
+    fireEvent.click(postWindow!);
+    expect(serviceSwitch).toHaveAttribute('aria-pressed', 'true');
+    expect(postWindow).toHaveAttribute('data-back');
+
+    fireEvent.click(postSwitch);
+    expect(postSwitch).toHaveAttribute('aria-pressed', 'true');
+    expect(postWindow).not.toHaveAttribute('data-back');
   });
 
   it('calls no runtime API and shows no internal wording', () => {

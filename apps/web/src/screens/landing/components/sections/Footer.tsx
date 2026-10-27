@@ -40,7 +40,9 @@ export function Footer({ logo }: { logo: LogoTone }) {
         </div>
         <div className="col-span-2 flex flex-col gap-3">
           <p className="font-bold">{footer.inquiryLabel}</p>
-          <address className="text-fg-muted not-italic">{footer.inquiryPlaceholder}</address>
+          <address className="text-fg-muted not-italic break-words">
+            {footer.inquiryAddress}
+          </address>
         </div>
       </div>
       <div className={container}>

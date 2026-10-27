@@ -26,15 +26,12 @@ function BackScrim({ behind, which }: { behind: boolean; which: BeforeCard }) {
   );
 }
 
-// The 지금까지 community post and the 이제는 service card overlap. The windows come in as
-// server-rendered children; only the switch and the pointer state are client code. The card under the
-// pointer comes to the front and the other fades; leaving the stack returns to the pinned card, the
-// service card unless the switch or a tap pinned the post. The switch is the keyboard and screen
-// reader way to swap, so nothing depends on hover.
+// The 지금까지 community post and the 이제는 service card overlap, the service card in front. The
+// windows come in as server-rendered children; only the switch is client code. Only the switch brings
+// a window to the front: neither hover nor a tap on a window does, because a finger that drags the page
+// down over the post caught it as a tap and hid the service card (Owner 2026-10-27).
 export function BeforeStack({ post, service }: { post: ReactNode; service: ReactNode }) {
-  const [pinned, setPinned] = useState<BeforeCard>('service');
-  const [hovered, setHovered] = useState<BeforeCard | null>(null);
-  const front = hovered ?? pinned;
+  const [front, setFront] = useState<BeforeCard>('service');
   const cardClass = (which: BeforeCard) =>
     `relative col-start-1 row-start-1 self-start stack-swap ${front === which ? 'z-10' : 'z-0 scale-95'}`;
   // Cells name their start and end lines: col-span would reset the start and push a card off the grid.
@@ -45,19 +42,17 @@ export function BeforeStack({ post, service }: { post: ReactNode; service: React
           <button
             key={which}
             type="button"
-            aria-pressed={pinned === which}
-            onClick={() => setPinned(which)}
+            aria-pressed={front === which}
+            onClick={() => setFront(which)}
             className="inline-flex min-h-target-min items-center rounded-full border border-stroke-subtle px-3 py-1.5 text-label font-bold focus-visible:focus-ring aria-pressed:border-brand-solid aria-pressed:bg-brand-solid aria-pressed:text-fg-on-brand"
           >
             {beforeStack.labels[which]}
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-12" onMouseLeave={() => setHovered(null)}>
+      <div className="grid grid-cols-1 lg:grid-cols-12">
         <div
           data-back={front === 'post' ? undefined : ''}
-          onMouseEnter={() => setHovered('post')}
-          onPointerDown={() => setPinned('post')}
           className={`lg:col-end-9 ${cardClass('post')}`}
         >
           {post}
@@ -65,8 +60,6 @@ export function BeforeStack({ post, service }: { post: ReactNode; service: React
         </div>
         <div
           data-back={front === 'service' ? undefined : ''}
-          onMouseEnter={() => setHovered('service')}
-          onPointerDown={() => setPinned('service')}
           className={`mt-56 lg:col-start-5 lg:col-end-13 lg:mt-28 ${cardClass('service')}`}
         >
           {service}

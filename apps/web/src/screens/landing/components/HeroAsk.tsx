@@ -6,7 +6,7 @@ import { heroAsk, landingSectionIds, type LandingSectionId } from '../model/land
 
 // Hero question box, in place of a search bar, which could pass for a real main-page feature. It does
 // not search. The box looks like an input in Glide's hero and cycles the questions; pressing it (or its
-// ↵) goes to the section that answers the question it shows. The box alone, without chips or an answer
+// enter key) goes to the section that answers the question it shows. The box alone, without chips or an answer
 // card, keeps the first screen on the service and sign-up; the sign-up link stays the one primary
 // action.
 
@@ -62,7 +62,7 @@ export function HeroAsk({
   const typed = useTypedCycle(questions, !resting && !paused);
   const shown = heroAsk.items[typed.index] ?? heroAsk.items[0];
   // A prompt box that is one button. The typed question is decoration; the name says what pressing
-  // does: go to the section of the question on screen. Under the pointer or focus its ↵ key and, under
+  // does: go to the section of the question on screen. Under the pointer or focus its enter key and, under
   // the pointer, the pause toggle turn to the brand fill; color only, no lift. Below it in the middle,
   // the pause toggle, an icon only (WCAG 2.2.2: the moving text must be possible to keep still, also on
   // touch); paused, the box shows the whole question it was on. Under reduced motion nothing moves, so
@@ -86,9 +86,18 @@ export function HeroAsk({
         <span aria-hidden="true" className="-ml-1.5 h-5 w-px shrink-0 bg-fg-neutral" />
         <span
           aria-hidden="true"
-          className="ml-auto flex size-9 shrink-0 items-center justify-center rounded-full border border-stroke-neutral text-body font-bold transition-colors group-hover:border-brand-solid group-hover:bg-brand-solid group-hover:text-fg-on-brand group-focus-visible:border-brand-solid group-focus-visible:bg-brand-solid group-focus-visible:text-fg-on-brand"
+          className="ml-auto flex size-9 shrink-0 items-center justify-center rounded-full border border-stroke-neutral transition-colors group-hover:border-brand-solid group-hover:bg-brand-solid group-hover:text-fg-on-brand group-focus-visible:border-brand-solid group-focus-visible:bg-brand-solid group-focus-visible:text-fg-on-brand"
         >
-          ↵
+          {/* The enter key as a drawing, not the ↵ character: phone and tablet fonts drew its
+              upright stroke too short. */}
+          <svg viewBox="0 0 16 16" className="size-4 fill-none stroke-current">
+            <path
+              d="M12.5 2.5v5.5a2 2 0 0 1-2 2H3.5M6.5 7l-3 3 3 3"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </span>
       </button>
       <button

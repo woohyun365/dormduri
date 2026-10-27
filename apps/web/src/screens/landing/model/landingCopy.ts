@@ -30,8 +30,9 @@ export const landingCopy = {
     termsLabel: '이용약관',
     privacyLabel: '개인정보처리방침',
     inquiryLabel: '서비스 외부 문의',
-    // The inquiry address is text, not a link; it stays a placeholder until the Owner sets the address.
-    inquiryPlaceholder: '문의 주소(텍스트) 자리',
+    // The inquiry address is text, not a link: the service's own mailbox, which the Owner set up for
+    // it (2026-10-27). The terms and privacy pages call it the public inquiry contact.
+    inquiryAddress: 'wooriduri.roommate@gmail.com',
   },
 } as const;
 
@@ -57,29 +58,33 @@ export const seasonExplain = {
 // (access-eligibility.md 가입 자격), what shows before and after season registration
 // (season-lifecycle.md 상태별 기능 허용 범위), how a match forms, 생활패턴 적합도 as the steps and the
 // main page name it, and a new season profile each season (profile-model.md: nothing carries over to
-// the next season).
+// the next season). The 적합도 answer says what the score compares (matching-algorithm.md: my
+// conditions against the other's lifestyle) and promises no data analysis, which needs its own
+// purpose and privacy decision first (operational-observability.md). Each sentence starts a line.
 export const faqItems = [
   {
     question: '누가 가입할 수 있나요?',
-    answer: '학교 이메일로 인증한 재학생이면 가입할 수 있어요. 가입은 1년 내내 할 수 있어요.',
+    answer: '학교 이메일로 인증한 재학생이면 가입할 수 있어요.\n가입은 1년 내내 할 수 있어요.',
   },
   {
     question: '가입하면 바로 후보를 볼 수 있나요?',
     answer:
-      '같은 기숙사 후보는 시즌 중에 볼 수 있어요. 시즌 등록하면 자세한 프로필 정보와 대화가 열려요.',
+      '같은 기숙사 후보는 시즌 중에 볼 수 있어요.\n시즌 등록하면 자세한 프로필 정보와 대화가 열려요.',
   },
   {
     question: '매칭은 어떻게 정해지나요?',
     answer:
-      '같은 기숙사 후보에게 매칭을 신청하고 상대가 수락하면 매칭돼요. 매칭 신청은 시즌 매칭 기간에 열려요.',
+      '같은 기숙사 후보에게 매칭을 신청하고 상대가 수락하면 매칭돼요.\n매칭 신청은 시즌 매칭 기간에 열려요.',
   },
   {
     question: '생활패턴 적합도가 높으면 잘 맞는 건가요?',
-    answer: '적합도는 생활패턴 항목을 견준 참고 값이에요. 항목별 차이를 보고 대화로 확인해 보세요.',
+    answer:
+      '적합도는 내가 바라는 조건과 상대의 생활패턴을 항목별로 비교한 점수예요.\n서비스를 운영하며 비교 기준을 계속 다듬어 가요.',
   },
   {
     question: '다음 시즌에도 다시 등록해야 하나요?',
-    answer: '네. 시즌 등록은 시즌마다 새로 해요. 지난 시즌 프로필은 다음 시즌으로 넘어가지 않아요.',
+    answer:
+      '네. 시즌 등록은 시즌마다 새로 해요.\n지난 시즌 프로필은 다음 시즌으로 넘어가지 않아요.',
   },
 ] as const;
 
@@ -122,8 +127,9 @@ export const luckStatement = {
 } as const;
 
 // The three steps (01 찾기 · 02 대화 · 03 매칭), worded by what the service has: score order and
-// per-item fit (roommate-searching), chat before a match is allowed but not required (chat-lifecycle,
-// matching-lifecycle).
+// per-item fit (roommate-searching), chat before a match request (chat-lifecycle, matching-lifecycle).
+// The chat step does not say that a match request without chat is allowed too: the landing need not
+// point visitors past the chat (Owner 2026-10-27).
 export const flowSteps = {
   search: {
     label: '찾기',
@@ -133,7 +139,7 @@ export const flowSteps = {
   chat: {
     label: '대화',
     title: '맞지 않는 항목은 먼저 물어봐요',
-    body: '매칭 전에도 같은 기숙사 후보와 대화할 수 있어요.\n궁금한 항목은 직접 물어보고, 대화 없이 바로 매칭을 신청해도 돼요.',
+    body: '매칭 전에도 같은 기숙사 후보와 대화할 수 있어요.\n궁금한 항목은 매칭 신청하기 전에 채팅을 통해 물어봐요.',
   },
   match: {
     label: '매칭',
