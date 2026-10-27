@@ -119,10 +119,9 @@
       "id": "omc",
       "path": ".omc",
       "kind": "directory",
-      "purpose": "OMC overlay runtime state. 추적 표식이 위치를 저장소 root로 고정한다",
+      "purpose": "OMC overlay runtime state",
       "ruleOwner": "docs/development/agent-workflows/adapters/claude-code.md",
       "tracking": "ignored",
-      "marker": ".omc-workspace",
       "creator": ["overlay"],
       "retention": {
         "class": "sensitive-or-undetermined"
@@ -563,12 +562,6 @@
     {
       "file": "scripts/ci/lanes/classify-changes.mjs",
       "text": "'.plans/',",
-      "category": "classifier-workspace",
-      "transition": "P4"
-    },
-    {
-      "file": "scripts/ci/lanes/classify-changes.mjs",
-      "text": "'.omc-workspace',",
       "category": "classifier-workspace",
       "transition": "P4"
     },

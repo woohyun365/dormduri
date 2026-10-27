@@ -55,7 +55,7 @@ API의 `directAssignment` 또는 선택된 child별 `assignments`, `currentSnaps
 ### 저장소 root와 runtime state 위치
 
 - Codex와 OMX는 저장소 root에서 시작합니다. OMX 0.21.6은 `OMX_ROOT`·`OMX_STATE_ROOT`가 없으면 현재 작업 디렉터리의
-  `.omx`를 state root로 쓰고 OMC 같은 위치 표식을 지원하지 않습니다. 하위 디렉터리에서 시작하면 그 아래에 `.omx`가 생깁니다.
+  `.omx`를 state root로 쓰고 위치 표식을 지원하지 않습니다. 하위 디렉터리에서 시작하면 그 아래에 `.omx`가 생깁니다.
 - Agent가 만든 screenshot·dev server log·검증 출력은 `.omx/`나 app 하위 디렉터리가 아니라
   [`.artifacts/`](../../../../.artifacts/README.md#배치-규칙)에 둡니다. repository script는 `resolveArtifactPath()`를 씁니다.
 - `pnpm check:fast`(pre-commit)는 `scripts/git/workspace-layout-check.mjs`로 root 밖 `.omx`·`.omc`와 옛 root 이름을 탐지해

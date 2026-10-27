@@ -190,9 +190,6 @@ Claude Parent 기본값은 **Opus 5.5 high**입니다. Framing·통합 추론 �
 
 - Claude Code는 저장소 root에서 시작하고, Bash에서 하위 디렉터리로 작업 위치를 영구히 옮기지 않습니다. 하위 경로는
   절대 경로, `git -C <dir>`, 명령 인자, 또는 subshell `( cd <dir> && … )`로 다룹니다.
-- OMC 5.5.0에서는 hook이 넘긴 작업 위치를 state root 계산에 그대로 써서, 하위 디렉터리에서 도구를 호출하면 그 위치에
-  `.omc`가 생기는 것을 관측했습니다. 추적 파일 `.omc-workspace`는 OMC가 위로 올라가며 찾는 표식이라 state를 root `.omc`로
-  모읍니다. OMC를 쓰지 않는 설치에는 영향이 없습니다.
 - Agent가 만든 screenshot·log·검증 출력은 `.omc`가 아니라 [`.artifacts/`](../../../../.artifacts/README.md#배치-규칙)에 둡니다.
 - `pnpm check:fast`(pre-commit)는 `scripts/git/workspace-layout-check.mjs`로 root 밖 `.omc`·`.omx`와 이름을 바꾸기 전의 local 작업 공간 root를 탐지해 commit을 멈춥니다. 탐지이지 차단 장치가 아니므로 발견하면 내용을 옮기고
   원인이 된 작업 위치를 바로잡습니다.

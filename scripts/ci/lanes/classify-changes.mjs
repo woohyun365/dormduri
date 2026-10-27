@@ -202,7 +202,6 @@ export const REPO_POLICY_PATHS = new Set([
   'scripts/README.md',
   '.editorconfig',
   '.gitignore',
-  '.omc-workspace',
   '.omx-config.json',
   '.prettierignore',
   '.prettierrc',
