@@ -90,6 +90,29 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 - 영역 판정: `matchReviewCriteriaPath(path, catalog)`는 경로 하나에 겹침 규칙까지 적용한 문서와 그 layer(`areas`)를 냅니다.
   CI `Lifecycle gate`의 영역 검사(`W-AREA`)가 이 함수로 제품 경로마다 영역이 있는지 봅니다([KNU domain binding의 영역 검사](../domain/knu-binding.md#영역-검사)).
 
+## 리뷰어 입력
+
+리뷰를 만들 때 자동 선택과 같은 리뷰 대상 경로로 reviewer가 subject 옆에서 읽을 기록을 고릅니다. 공통 module은
+[`review-context-inputs.mjs`](../../../../scripts/agents/common/review-context-inputs.mjs)이고 host 정책을 import하지 않으며 CLI로도
+씁니다(`node scripts/agents/common/review-context-inputs.mjs [--lifecycle-draft <경로>] -- <리뷰 대상 경로…>`).
+
+- intent: [`docs/product/intent.md`](../../../product/intent.md)가 있으면 경로와 무관하게 넣습니다.
+- 결정 기록: 자동 선택이 고른 영역 문서의 layer마다 [결정 기록](../../../architecture/decisions/README.md)
+  `docs/architecture/decisions/<layer>.md`가 있으면 넣습니다. 파일이 없는 layer는 기록의 `absent`에만 남습니다.
+- 정책 문서: 제품 경로를 CI `Lifecycle gate`의 경로 → 정책 도메인 표(`docs/policies/path-domains.json`)로 판정한 도메인마다
+  `docs/policies/<도메인>.md`를 넣습니다(파일이 없으면 `absent`). 판정은 [`policy-first-check.mjs`](../../../../scripts/ci/lifecycle/policy-first-check.mjs)의
+  `parsePathDomains`·`createPathTable`을 import하고 복제하지 않으므로, 그 표나 두 함수를 바꾸는 변경은 리뷰어 입력도 바꿉니다.
+- 변경 등급 기록: Parent가 준 `## Lifecycle` 초안 파일(Claude Parent subject의 `lifecycleDraft`)을 넣습니다. Reviewer는 초안의
+  `변경 등급`·`등급 근거`·`정책 영향 없음`·`인용 규칙`을 근거가 아닌 Parent 주장으로 보고 diff와 대조합니다. 초안이 없으면 변경을
+  feature로 봅니다.
+- Binding 문서(`knu-binding.md`)는 넣지 않습니다.
+- 항목마다 포함 이유(intent, layer와 그 layer를 고른 기준 문서·경로, 도메인과 그 경로, 초안)를 붙입니다. 목록은 reviewer read
+  path가 되고 prompt 입력 줄에는 경로와 이유만 들어갑니다. 기록은 `<reviewId>.context.json`(Claude는 helper 디렉터리,
+  Codex는 knu-review skill이 정한 위치)이고 read path는 아닙니다.
+- Reviewer는 요구가 말하지 않은 동작을 intent·결정 기록과 합리적 사용자 기대로 판정하고, 판정하지 않고 둔 동작은 결과
+  `unjudgedBehaviors`(`behavior`·`reason`)에 적습니다. 이 필드는 PASS를 막지 않고 Parent가 정산 때 줄마다 처분합니다([처분
+  기록](#처분-기록)). 같은 유형의 결함이 다른 위치에도 있으면 그 finding의 `sameTypeLocations`(`path:line`)에 적습니다.
+
 ## 항목 형식
 
 문서당 항목 수 상한은 두지 않습니다. 적용 조건이 다른 항목이 섞이면 문서를 나눕니다. 각 항목은 `### <문자><번호>. <이름>`
@@ -235,6 +258,11 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
   중복은 위반입니다.
 - 2회차부터 `origin`이 필요합니다: `fix-induced`(수정이 들여온 결함), `previously-missed`(이전 회차가 놓친 결함),
   `re-raised`(다시 제기된 결함). `fixRef`는 선택입니다.
+- 나열한 result에 `unjudgedBehaviors`(판정하지 않은 동작) 줄이 있으면 선택 key `unjudged`에 줄마다
+  `{ "id": "<task id>#u<index>", "disposition": "...", "reason": "..." }`를 둡니다. Index는 result `unjudgedBehaviors` 배열
+  index(0부터)입니다. `disposition`은 `out-of-scope`(이 변경 범위 밖)·`raised`(Parent가 finding으로 올림)·`follow-up`(후속
+  작업)이고 모두 `reason`이 필요합니다. 줄마다 정확히 한 번 나와야 하며 처분이 빠진 줄(`missing-unjudged`)과 모르는 id는
+  위반입니다.
 
 ### 리뷰 측정
 
@@ -248,6 +276,7 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 - 행 상태: `parsed`, `parse-failed`(마지막 응답에 result JSON 없음), `completion-missing`, `task-unreadable`(task 기록을 읽지
   못해 reviewer인지 모르는 task도 행으로 셈). 회차는 reviewer
   prompt의 `Review round N`에서 읽고, 회차 입력 전 기록은 `unknown`입니다.
+- 행의 finding은 id·severity·기준 항목(`criteriaItem`)과 result finding의 위치(`location`, 없으면 null)를 담습니다.
 
 ## 갱신
 

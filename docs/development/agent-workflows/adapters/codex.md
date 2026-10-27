@@ -105,7 +105,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
 
 아래 반복 절차는 repository skill(`.agents/skills`)로 호출합니다. 진입은 `$knu-workflow`, 위임(2·3·5단계)은 `$knu-delegate`,
 독립 리뷰는 `$knu-review`, 수락·정산(6·7단계)은 `$knu-settle`입니다. Skill은 이 문서가 안내하는 `package.json` script(진입은
-[Repository workflow entry](#repository-workflow-entry))와 `scripts/agents/common/review-criteria-selection.mjs`만 호출하고 규칙은 이 문서와 링크된 문서가 소유합니다. Parent 전용이라 child 역할 파일은 `[[skills.config]]`의 `enabled = false`로 넷 다 끕니다.
+[Repository workflow entry](#repository-workflow-entry))와 `scripts/agents/common/review-criteria-selection.mjs`·`scripts/agents/common/review-context-inputs.mjs`만 호출하고 규칙은 이 문서와 링크된 문서가 소유합니다. Parent 전용이라 child 역할 파일은 `[[skills.config]]`의 `enabled = false`로 넷 다 끕니다.
 
 새 세션/일반 task의 cold-start 순서:
 
