@@ -1,0 +1,46 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Foundations/Overview" />
+
+# Foundations
+
+새 화면 계층(`src/screens`)이 쓰는 시각 값의 기초입니다. 값은 token 원본 한 곳(`src/styles/tokens`)에서만 정하고, 화면은
+역할 이름의 utility로만 씁니다. 이 문서는 판단과 쓰는 법을 보이고, 숫자는 견본이 브라우저 계산값을 읽어 보입니다. 판단 근거와
+초기값은 token README(`apps/web/src/styles/tokens/README.md`)가 소유합니다.
+
+## token 층
+
+- **primitive** `primitive.tokens.json`: 색 ramp 값. semantic이 alias로만 읽고 CSS로 내보내지 않습니다
+- **semantic** `semantic.tokens.json`: 화면이 쓰는 역할: 색, 글자, 글꼴, 간격, 폭, radius, motion
+- **component** `component.tokens.json`: 터치 타깃, focus ring
+- **문맥** `palette-dark.tokens.json`, `motion-reduced.tokens.json`: `data-palette="dark"` 안의 색, motion 줄이기에서의 duration
+
+- 순서와 문맥은 `knu.resolver.json`(DTCG Resolver)이 정합니다. `node src/styles/tokens/build-tokens.mjs`가 `tokens.generated.css`를
+  만들고, 원본과 결과가 다르면 drift test가 실패합니다. 생성 파일은 직접 고치지 않습니다.
+- token을 묶은 class(focus ring, 등장 효과, 깊이)는 `utilities.css`의 `@utility`입니다.
+
+## 쓰는 규칙
+
+- 이름은 역할입니다: `bg-layer-default`, `text-fg-muted`, `text-body`, `rounded-panel`, `max-w-reading`, `focus-visible:focus-ring`.
+- Tailwind 기본 palette·글자 크기·radius·shadow 이름, 임의 값 `-[…]`, raw 색은 `src/screens`와 token 견본 story에서 lint error입니다.
+- 글자·배경 짝의 대비는 `build-tokens.test.ts`가 WCAG 2.2로 판정합니다(글자 4.5:1, UI 요소 3:1). 새 짝을 처음 쓰는 화면이 test에 더합니다.
+- token은 지금 화면(랜딩)이 쓰는 것만 둡니다. 새 화면이 필요한 token은 그 화면을 만들 때 semantic(또는 component) 층에 역할
+  이름으로 더합니다.
+
+## 문서
+
+- [Color](?path=/docs/foundations-color--docs): 색 역할과 palette 문맥
+- [Typography](?path=/docs/foundations-typography--docs): type scale, 글꼴, weight
+- [Spacing & Layout](?path=/docs/foundations-spacing-layout--docs): 간격, 폭, radius, 깊이, breakpoint
+- [Motion](?path=/docs/foundations-motion--docs): duration, easing, 등장 효과
+- [Target & Focus](?path=/docs/foundations-target-focus--docs): 터치 타깃과 focus 표시
+- Samples: 계산값 견본. `Tokens`는 Linux 기준 스크린샷으로 비교하는 시각 기준이고, `Palettes`는 문맥별 색과 대비입니다.
+
+## Storybook 구조
+
+- Foundations: 이 문서들과 token 견본
+- Landing: `Page`(전체 화면) → `Sections`(페이지 순서) → `Components`(부품)
+- Auth 등 나머지: 기존 화면
+
+- 새 화면 계층 story는 `knu-layer` tag로 새 층 배경과 글꼴 위에 그립니다. tag가 없으면 렌더·axe 검사가 실패합니다.
+- `visual` tag가 붙은 story만 Linux에서 기준 스크린샷과 비교합니다. `autodocs` tag는 component마다 Docs page를 만듭니다.

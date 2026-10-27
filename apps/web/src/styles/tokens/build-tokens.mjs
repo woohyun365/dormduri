@@ -63,6 +63,10 @@ const FONT_WEIGHT_NAMES = new Map([
   ['ultra-black', 950],
 ]);
 const ALIAS = /^\{([^{}]+)\}$/u;
+// A modifier context applies under a media query, inside elements that carry one data attribute value,
+// or inside such elements while a media query matches. A context may list several of these conditions.
+const CONTEXT_SELECTOR = /^\[data-[a-z][a-z0-9-]*='[a-z0-9-]+'\]$/u;
+const CONTEXT_CONDITION_KEYS = new Set(['media', 'selector', 'nestable']);
 
 export class TokenFormatError extends Error {
   name = 'TokenFormatError';
@@ -397,6 +401,44 @@ function exported(tokens) {
   return [...tokens.values()].filter((token) => !token.path.startsWith(`${PRIMITIVE_ROOT}.`));
 }
 
+// Reads the cssContexts entry of one modifier context as a list of { media?, selector?, nestable? }
+// conditions. A nestable selector (nestable: "true") writes every token any context of the same
+// modifier changes, so the context can sit inside another one (a light surface in a dark page).
+function contextConditions(entry, where) {
+  const conditions = Array.isArray(entry) ? entry : [entry];
+  const valid =
+    conditions.length > 0 &&
+    conditions.every(
+      (condition) =>
+        isObject(condition) &&
+        Object.keys(condition).length > 0 &&
+        Object.entries(condition).every(
+          ([key, value]) =>
+            CONTEXT_CONDITION_KEYS.has(key) && typeof value === 'string' && value !== '',
+        ),
+    );
+  if (!valid) {
+    fail(`${where} needs a { media } or { selector } cssContexts entry (both, or a list of them)`);
+  }
+  for (const { selector, media, nestable } of conditions) {
+    if (selector !== undefined && !CONTEXT_SELECTOR.test(selector)) {
+      fail(`${where} selector must look like [data-name='value'], got ${selector}`);
+    }
+    if (nestable === undefined) continue;
+    if (nestable !== 'true') fail(`${where} nestable must be "true"`);
+    if (selector === undefined || media !== undefined) {
+      fail(`${where} nestable condition needs a selector and no media`);
+    }
+  }
+  return conditions;
+}
+
+function contextBlock({ media, selector }, changed) {
+  if (media === undefined) return block(selector, declarations(changed, '  '));
+  const inner = block(selector ?? ':root', declarations(changed, '    '), '  ');
+  return inner && `@media ${media} {\n${inner}\n}`;
+}
+
 /** Renders tokens.generated.css for the resolver in `dir`. */
 export function buildTokenCss(dir) {
   const { resolver, readRef } = readResolver(dir);
@@ -416,14 +458,21 @@ export function buildTokenCss(dir) {
   const root = tokens.filter((token) => !isTheme(token));
 
   const contexts = [];
+  // Token paths each plain selector context changed. A selector context under a media query (e.g. the
+  // dark values of an auto scheme) also writes these paths, so it never leaves an earlier context's
+  // value in place where its own value equals the default.
+  const scopedPaths = new Map();
   for (const [name, modifier] of Object.entries(resolver.modifiers ?? {})) {
     const cssContexts = modifier.$extensions?.[VENDOR]?.cssContexts ?? {};
+    const resolved = [];
+    // Every token path some context of this modifier changes (what a nestable selector writes).
+    const touched = new Set();
     for (const context of Object.keys(modifier.contexts)) {
       if (context === modifier.default) continue;
-      const condition = cssContexts[context];
-      if (!isObject(condition) || Object.keys(condition).join() !== 'media') {
-        fail(`modifier "${name}" context "${context}" needs a { media } cssContexts entry`);
-      }
+      const conditions = contextConditions(
+        cssContexts[context],
+        `modifier "${name}" context "${context}"`,
+      );
       const variant = resolveTokenSources(
         collectResolverSources(resolver, { [name]: context }, readRef),
       );
@@ -436,9 +485,40 @@ export function buildTokenCss(dir) {
         if (cssValue(token).references || cssValue(base.get(token.path)).references) {
           fail(`modifier "${name}" cannot override inline theme token ${token.path}`);
         }
+        touched.add(token.path);
       }
-      const inner = block(':root', declarations(changed, '    '), '  ');
-      if (inner) contexts.push(`@media ${condition.media} {\n${inner}\n}`);
+      resolved.push({ conditions, variant, changed });
+    }
+    // The default context can only have nestable selectors: they write the default value of every
+    // path another context changes, so a default surface can sit inside another context.
+    if (cssContexts[modifier.default] !== undefined) {
+      const where = `modifier "${name}" default context "${modifier.default}"`;
+      const conditions = contextConditions(cssContexts[modifier.default], where);
+      if (conditions.some((condition) => condition.nestable !== 'true')) {
+        fail(`${where} can only have nestable selectors`);
+      }
+      resolved.push({ conditions, variant: base, changed: [] });
+    }
+    for (const { conditions, variant, changed } of resolved) {
+      for (const condition of conditions) {
+        const { media, selector, nestable } = condition;
+        let tokens = changed;
+        if (nestable === 'true') {
+          tokens = exported(variant).filter((token) => touched.has(token.path));
+        } else if (selector !== undefined && media === undefined) {
+          scopedPaths.set(
+            selector,
+            new Set([...(scopedPaths.get(selector) ?? []), ...changed.map((token) => token.path)]),
+          );
+        } else if (selector !== undefined) {
+          const earlier = scopedPaths.get(selector) ?? new Set();
+          tokens = exported(variant).filter(
+            (token) => changed.includes(token) || earlier.has(token.path),
+          );
+        }
+        const scoped = contextBlock(condition, tokens);
+        if (scoped) contexts.push(scoped);
+      }
     }
   }
 

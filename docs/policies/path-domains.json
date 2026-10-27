@@ -2,8 +2,8 @@
   "schema": "lifecycle-path-domains/v1",
   "confirmedBy": {
     "status": "owner-confirmed",
-    "date": "2026-10-20",
-    "basis": "#650"
+    "date": "2026-10-27",
+    "basis": "#671"
   },
   "productRoots": [
     "apps/**",
@@ -241,7 +241,7 @@
       "domains": ["profile-model"]
     },
     {
-      "globs": ["apps/web/src/landing/**"],
+      "globs": ["apps/web/src/screens/landing/**"],
       "domains": ["service-boundary", "season-lifecycle"]
     },
     {

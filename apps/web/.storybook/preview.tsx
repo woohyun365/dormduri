@@ -75,6 +75,48 @@ const preview: Preview = {
     options: {
       storySort: {
         order: [
+          // Foundations (token docs, then the samples), then the Landing sections and parts in page
+          // order.
+          'Foundations',
+          [
+            'Overview',
+            'Color',
+            'Typography',
+            'Spacing & Layout',
+            'Motion',
+            'Target & Focus',
+            'Samples',
+            ['Tokens', 'Palettes'],
+          ],
+          'Landing',
+          [
+            'Page',
+            'Sections',
+            [
+              'Header',
+              'Hero',
+              'Before',
+              'Items',
+              'Step',
+              'Season',
+              'Notices',
+              'Faq',
+              'Closing',
+              'Footer',
+            ],
+            'Components',
+            [
+              'BrandMark',
+              'Actions',
+              'HeroAsk',
+              'NoticeLines',
+              'CommunityPost',
+              'StatementFields',
+              'StepCaptures',
+              'SeasonLanes',
+              'FaqAccordion',
+            ],
+          ],
           'Auth',
           [
             '*',
@@ -105,10 +147,11 @@ const preview: Preview = {
   },
   decorators: [
     // Stories tagged knu-layer (token samples, src/screens) render on the new token layer and fonts.
-    (Story, { tags }) =>
+    // On a Docs page they take their content's height instead of a full screen each.
+    (Story, { tags, viewMode }) =>
       tags.includes('knu-layer') ? (
         <div
-          className={`${fontVariablesClassName} min-h-screen bg-layer-basement font-body text-fg-neutral`}
+          className={`${fontVariablesClassName} ${viewMode === 'docs' ? '' : 'min-h-screen'} bg-layer-basement font-body text-fg-neutral`}
         >
           <Story />
         </div>

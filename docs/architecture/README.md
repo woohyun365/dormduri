@@ -23,7 +23,7 @@ host 공통 `.plans/`, 실행 증거는 `.artifacts/`, 과거 구현 기록과 �
 ## Decisions
 
 - [Decision records](./decisions/README.md): 제품 설계·계획의 layer별 결정 기록 형식과 색인
-- [FE 결정 기록](./decisions/fe.md): Domain/SWE/Web/FE layer 결정(component-architecture: renderer 중립 guard 범위·도구·import 허용 목록)
+- [FE 결정 기록](./decisions/fe.md): Domain/SWE/Web/FE layer 결정(component-architecture: renderer 중립 guard 범위·도구·import 허용 목록, route entry import 확인; design-system: token 원본, 문구 원본, 문체, motion, 시각 품질 판정)
 
 ## Frontend
 
