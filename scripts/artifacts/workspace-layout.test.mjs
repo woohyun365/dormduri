@@ -344,7 +344,10 @@ test('root constants held by host wiring match the manifest', async () => {
     ['PLAN_ROOT', '.plan'],
     ['DEFAULT_ARTIFACTS_DIRECTORY', '.artifacts/tool'],
     ['REVIEW_INPUT_RECORD_DIRS', actual.REVIEW_INPUT_RECORD_DIRS.slice(1)],
-    ['CLASSIFIER_ENTRIES', actual.CLASSIFIER_ENTRIES.filter((entry) => entry !== '.omc-workspace')],
+    [
+      'CLASSIFIER_ENTRIES',
+      actual.CLASSIFIER_ENTRIES.filter((entry) => entry !== '.omx-config.json'),
+    ],
     ['OMX_CONTEXT_ROOTS', [null, ...actual.OMX_CONTEXT_ROOTS.slice(1)]],
   ])
     assert.deepEqual(

@@ -117,14 +117,7 @@ test('untracked listing collapses ignored trees and nested repositories', () => 
 });
 
 test('top-level entries outside the manifest are reported; exclusions and tracked directories pass', () => {
-  const trackedTopLevel = new Set([
-    'apps',
-    'docs',
-    'scripts',
-    '.claude',
-    '.codex',
-    '.omc-workspace',
-  ]);
+  const trackedTopLevel = new Set(['apps', 'docs', 'scripts', '.claude', '.codex']);
   const issues = findWorkspaceLayoutIssues(
     [
       'tmp-not-a-root/',
@@ -233,11 +226,6 @@ test('the pre-commit fast check runs the layout detector after lint-staged', () 
 });
 
 test('host adapters anchor runtime state at the repository root', () => {
-  const tracked = spawnSync('git', ['ls-files', '--error-unmatch', '.omc-workspace'], {
-    cwd: repoRoot,
-  });
-  assert.equal(tracked.status, 0, '.omc-workspace is tracked');
-
   const claude = readFileSync(
     resolve(repoRoot, 'docs/development/agent-workflows/adapters/claude-code.md'),
     'utf8',
@@ -251,13 +239,12 @@ test('host adapters anchor runtime state at the repository root', () => {
     assert.match(guide, /workspace-layout-check\.mjs/u);
     assert.match(guide, /\.artifacts\//u);
   }
-  assert.match(claude, /`\.omc-workspace`/u);
   assert.match(codex, /OMX_ROOT/u);
 });
 
 test('the layout check reports forced tracking in an agent root and prints the tracked capacity', () => {
   const { root, git } = fixtureRepository([
-    ['.omc-workspace', true],
+    ['.omx-config.json', true],
     ['.local-docs/handoff.md', false],
   ]);
   try {

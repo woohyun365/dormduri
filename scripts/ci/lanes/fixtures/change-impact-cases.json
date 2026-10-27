@@ -320,7 +320,6 @@
       ".claude/agents/knu_executor_xhigh.md",
       ".codex/config.toml",
       ".codex/agents/knu_reviewer.toml",
-      ".omc-workspace",
       ".omx-config.json",
       "AGENTS.md",
       "CLAUDE.md",

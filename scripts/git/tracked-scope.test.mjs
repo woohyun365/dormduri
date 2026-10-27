@@ -16,7 +16,6 @@ const PLANS = workspaceRoot('plans').path;
 const ARTIFACTS = workspaceRoot('artifacts').path;
 const HOST_STATE = workspaceRoot('codex-hook-state').path;
 const CLAUDE = workspaceRoot('claude-local').path;
-const OMC_MARKER = workspaceRoot('omc').marker;
 const OMX_MARKER = workspaceRoot('omx').marker;
 const OMX_WIKI = workspaceRoot('omx-wiki').path;
 
@@ -362,7 +361,6 @@ test('this repository: the binding allowlist passes and .claude files are left t
     [
       `${ARTIFACTS}/.gitignore`,
       `${ARTIFACTS}/README.md`,
-      OMC_MARKER,
       OMX_MARKER,
       ...['cancelled', 'finished', 'pending', 'supporting'].map(
         (stage) => `${PLANS}/${stage}/README.md`,
