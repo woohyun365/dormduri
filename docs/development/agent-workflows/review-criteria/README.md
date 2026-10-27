@@ -101,7 +101,8 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
   `docs/architecture/decisions/<layer>.md`가 있으면 넣습니다. 파일이 없는 layer는 기록의 `absent`에만 남습니다.
 - 정책 문서: 제품 경로를 CI `Lifecycle gate`의 경로 → 정책 도메인 표(`docs/policies/path-domains.json`)로 판정한 도메인마다
   `docs/policies/<도메인>.md`를 넣습니다(파일이 없으면 `absent`). 판정은 [`policy-first-check.mjs`](../../../../scripts/ci/lifecycle/policy-first-check.mjs)의
-  `parsePathDomains`·`createPathTable`을 import하고 복제하지 않으므로, 그 표나 두 함수를 바꾸는 변경은 리뷰어 입력도 바꿉니다.
+  표 위치(`PATH_DOMAINS_FILE`)·`parsePathDomains`·`createPathTable`·도메인 → 문서 경로(`policyPath`)를 import하고 복제하지
+  않으므로, 그 표나 네 export를 바꾸는 변경은 리뷰어 입력도 바꿉니다.
 - 변경 등급 기록: Parent가 준 `## Lifecycle` 초안 파일(Claude Parent subject의 `lifecycleDraft`)을 넣습니다. Reviewer는 초안의
   `변경 등급`·`등급 근거`·`정책 영향 없음`·`인용 규칙`을 근거가 아닌 Parent 주장으로 보고 diff와 대조합니다. 초안이 없으면 변경을
   feature로 봅니다.
@@ -149,14 +150,14 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한 적용은 runner가 실행하고 그 출력을 기록할 때만 효력이
 있습니다. CI는 ignored 입력을 보지 못합니다.
 
-| 검사        | 명령                                                                                                           | 위반 종류                                                                                                                                                                             |
-| ----------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 인용        | `node scripts/agents/common/citation-check.mjs [--root <repo>] [--json] <md file...>`                          | `unresolved`·`ambiguous`·`invalid-range`·`out-of-range`·`unreadable`·`invalid-expectation`·`content-mismatch`                                                                         |
-| Runner 기록 | `node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header <첫 줄> [--root <repo>] [--json]`  | `invalid-record`·`missing-output`·`output-missing`·`digest-mismatch`·`header-mismatch`·`exit-mismatch`·`invalid-fragment`·`summary-mismatch`                                          |
-| RED 사유    | `node scripts/agents/common/red-reason-check.mjs --log <file> --expect <regex> [--expect <regex>...] [--json]` | `missing-summary`·`no-failure`·`no-failure-blocks`·`unexpected-reason`·`unexpected-signature`                                                                                         |
-| Mutation    | `node scripts/agents/common/mutation-harness.mjs --spec <JSON> [--link-node-modules] [--root <repo>] [--json]` | `baseline-failed`·`survived`·`target-missing`·`ambiguous`·`wrong-reason`·`timeout`                                                                                                    |
-| 계획 참조   | `node scripts/agents/common/plan-reference-check.mjs [--root <repo>] [--report-only] [--json] <plan md...>`    | `unresolved`·`unresolved-target`·`duplicate-definition`·`broken-link`                                                                                                                 |
-| 처분 기록   | `node scripts/agents/common/review-adjudication.mjs [--root <repo>] [--json] <adjudication.json...>`           | `invalid-field`·`unknown-key`·`result-unreadable`·`missing-finding`·`duplicate-finding`·`unknown-finding`·`missing-reason`·`missing-origin`·`invalid-duplicate`·`duplicate-result-id` |
+| 검사        | 명령                                                                                                           | 위반 종류                                                                                                                                                                                                                                        |
+| ----------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 인용        | `node scripts/agents/common/citation-check.mjs [--root <repo>] [--json] <md file...>`                          | `unresolved`·`ambiguous`·`invalid-range`·`out-of-range`·`unreadable`·`invalid-expectation`·`content-mismatch`                                                                                                                                    |
+| Runner 기록 | `node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header <첫 줄> [--root <repo>] [--json]`  | `invalid-record`·`missing-output`·`output-missing`·`digest-mismatch`·`header-mismatch`·`exit-mismatch`·`invalid-fragment`·`summary-mismatch`                                                                                                     |
+| RED 사유    | `node scripts/agents/common/red-reason-check.mjs --log <file> --expect <regex> [--expect <regex>...] [--json]` | `missing-summary`·`no-failure`·`no-failure-blocks`·`unexpected-reason`·`unexpected-signature`                                                                                                                                                    |
+| Mutation    | `node scripts/agents/common/mutation-harness.mjs --spec <JSON> [--link-node-modules] [--root <repo>] [--json]` | `baseline-failed`·`survived`·`target-missing`·`ambiguous`·`wrong-reason`·`timeout`                                                                                                                                                               |
+| 계획 참조   | `node scripts/agents/common/plan-reference-check.mjs [--root <repo>] [--report-only] [--json] <plan md...>`    | `unresolved`·`unresolved-target`·`duplicate-definition`·`broken-link`                                                                                                                                                                            |
+| 처분 기록   | `node scripts/agents/common/review-adjudication.mjs [--root <repo>] [--json] <adjudication.json...>`           | `invalid-field`·`unknown-key`·`result-unreadable`·`missing-finding`·`duplicate-finding`·`unknown-finding`·`missing-reason`·`missing-origin`·`invalid-duplicate`·`duplicate-result-id`·`missing-unjudged`·`duplicate-unjudged`·`unknown-unjudged` |
 
 - Exit 0은 위반 없음, 1은 위반, 2는 입력 오류(option·파일·root 없음, 읽기 실패, 빈 입력, 형식이 틀린 header·regex·spec·JSON,
   git 저장소 밖의 root, 알 수 없는 option·spec key, 지원하지 않는 형식, 만들 수 없는 mutation 사본)입니다. 입력 오류를 통과로 세지 않습니다. `--json`은 summary와 위반 목록을 JSON으로 냅니다.
@@ -261,8 +262,8 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 - 나열한 result에 `unjudgedBehaviors`(판정하지 않은 동작) 줄이 있으면 선택 key `unjudged`에 줄마다
   `{ "id": "<task id>#u<index>", "disposition": "...", "reason": "..." }`를 둡니다. Index는 result `unjudgedBehaviors` 배열
   index(0부터)입니다. `disposition`은 `out-of-scope`(이 변경 범위 밖)·`raised`(Parent가 finding으로 올림)·`follow-up`(후속
-  작업)이고 모두 `reason`이 필요합니다. 줄마다 정확히 한 번 나와야 하며 처분이 빠진 줄(`missing-unjudged`)과 모르는 id는
-  위반입니다.
+  작업)이고 모두 `reason`이 필요합니다. 줄마다 정확히 한 번 나와야 하며 처분이 빠진 줄(`missing-unjudged`), 같은 줄의 두 번째
+  처분(`duplicate-unjudged`), result에 없는 id(`unknown-unjudged`)는 위반입니다.
 
 ### 리뷰 측정
 

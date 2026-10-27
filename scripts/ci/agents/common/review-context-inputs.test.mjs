@@ -264,6 +264,13 @@ test('the command line prints the record and refuses usage errors', async (t) =>
   assert.equal(ok.status, 0, ok.stderr);
   assert.deepEqual(pathsOf(JSON.parse(ok.stdout)), [INTENT, FE_DECISIONS, DRAFT]);
   assert.equal(run('--root', root).status, 2);
+  // A misspelled or `=` form draft option and an option without its value never pass as review paths.
+  for (const args of [
+    ['--lifecycle_draft', DRAFT, '--', SCREEN_MODEL],
+    [`--lifecycle-draft=${DRAFT}`, '--', SCREEN_MODEL],
+    ['--lifecycle-draft', '--', SCREEN_MODEL],
+  ])
+    assert.equal(run('--root', root, ...args).status, 2, args.join(' '));
   const bad = run('--root', root, '--lifecycle-draft', 'missing.md', '--', SCREEN_MODEL);
   assert.equal(bad.status, 1);
   assert.match(bad.stderr, /lifecycle-draft-invalid/u);

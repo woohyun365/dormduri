@@ -141,16 +141,24 @@ function main(argv) {
   let root = process.cwd();
   let lifecycleDraft;
   const paths = [];
+  let usage = false;
   for (let i = 0; i < argv.length; i += 1) {
-    if (argv[i] === '--') {
+    const arg = argv[i];
+    if (arg === '--') {
       paths.push(...argv.slice(i + 1));
       break;
     }
-    if (argv[i] === '--root') root = argv[++i];
-    else if (argv[i] === '--lifecycle-draft') lifecycleDraft = argv[++i];
-    else paths.push(argv[i]);
+    if (arg === '--root' || arg === '--lifecycle-draft') {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith('-')) usage = true;
+      else if (arg === '--root') root = value;
+      else lifecycleDraft = value;
+    }
+    // A misspelled or `--option=value` flag is a usage error, never a review path.
+    else if (arg.startsWith('-')) usage = true;
+    else paths.push(arg);
   }
-  if (!paths.length || typeof root !== 'string') {
+  if (usage || !paths.length) {
     process.stderr.write(
       'usage: review-context-inputs.mjs [--root <dir>] [--lifecycle-draft <path>] -- <path>...\n',
     );
