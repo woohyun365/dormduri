@@ -4,7 +4,8 @@
 // Rules and usage: docs/development/agent-workflows/review-criteria/README.md
 //
 // Row: { host, taskId, issuedAt, subjectKey, round, status, verdict,
-//        findings: [{ id, severity, criteriaItem }], adjudication: { status, dispositions, origins } }
+//        findings: [{ id, severity, criteriaItem, location }], adjudication: { status, dispositions, origins } }
+// A finding's location is the result finding's `location` (string), or null when the result gave none.
 // A ledger is a measurement, not a verdict: malformed rows are rejected with a reason and left out of every count.
 
 export const ROW_STATUSES = ['parsed', 'parse-failed', 'completion-missing', 'task-unreadable'];
@@ -31,6 +32,8 @@ function rowProblem(row) {
       return 'each finding needs a non-empty id and severity';
     if (finding.criteriaItem !== null && !isText(finding.criteriaItem))
       return 'criteriaItem must be a string or null';
+    if (finding.location !== null && !isText(finding.location))
+      return 'location must be a string or null';
   }
   const { adjudication } = row;
   if (
