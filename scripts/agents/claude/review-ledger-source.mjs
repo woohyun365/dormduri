@@ -147,6 +147,7 @@ function reviewerRow(directory, taskId, adjudications) {
             ? finding.severity
             : 'unspecified',
         criteriaItem: typeof finding?.criteriaItem === 'string' ? finding.criteriaItem : null,
+        location: typeof finding?.location === 'string' ? finding.location : null,
       }));
     }
   }

@@ -7,8 +7,10 @@
 // option, root outside a git repository). `resultPath` is resolved from --root (default: the current git repository).
 //
 // Record: { schema: 'review-adjudication/v1', subject, round, reviews: [{ taskId, resultPath }],
-//           findings: [{ id, severity, disposition, reason?, duplicateOf?, origin?, fixRef? }] }
+//           findings: [{ id, severity, disposition, reason?, duplicateOf?, origin?, fixRef? }],
+//           unjudged?: [{ id, disposition, reason }] }
 // Finding ids: a result finding's own `id`, otherwise `<taskId>#<index in the result findings array, from 0>`.
+// Unjudged ids: `<taskId>#u<index in the result unjudgedBehaviors array, from 0>`; every line needs one disposition.
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
@@ -24,8 +26,11 @@ export const SEVERITIES = ['critical', 'high', 'medium', 'low'];
 // `fixed` closes a finding during the review rounds; the other four are the QA dispositions after PASS.
 export const DISPOSITIONS = ['fixed', 'fixed-mechanical', 'deferred', 'rejected', 'pre-existing'];
 export const ORIGINS = ['fix-induced', 'previously-missed', 're-raised'];
-const RECORD_KEYS = ['schema', 'subject', 'round', 'reviews', 'findings'];
+// A behavior the reviewer left unjudged is outside this change, raised as a finding, or a follow-up.
+export const UNJUDGED_DISPOSITIONS = ['out-of-scope', 'raised', 'follow-up'];
+const RECORD_KEYS = ['schema', 'subject', 'round', 'reviews', 'findings', 'unjudged'];
 const FINDING_KEYS = ['id', 'severity', 'disposition', 'reason', 'duplicateOf', 'origin', 'fixRef'];
+const UNJUDGED_KEYS = ['id', 'disposition', 'reason'];
 const NEEDS_REASON = ['deferred', 'rejected'];
 
 const isText = (value) => typeof value === 'string' && value.trim().length > 0;
@@ -35,6 +40,12 @@ export function resultFindingIds(taskId, result) {
   return result.findings.map((finding, index) =>
     isText(finding?.id) ? finding.id : `${taskId}#${index}`,
   );
+}
+
+export function resultUnjudgedIds(taskId, result) {
+  return Array.isArray(result.unjudgedBehaviors)
+    ? result.unjudgedBehaviors.map((_, index) => `${taskId}#u${index}`)
+    : [];
 }
 
 // `readResult(resultPath)` returns the parsed result or throws. Returns violations `{ kind, id?, detail }`.
@@ -49,6 +60,7 @@ export function validateAdjudication(record, readResult) {
     add('invalid-field', 'round must be a positive integer');
 
   const known = new Map();
+  const knownUnjudged = new Set();
   const reviews = Array.isArray(record.reviews) ? record.reviews : [];
   if (reviews.length === 0) add('invalid-field', 'reviews must be a non-empty array');
   const taskIds = new Set();
@@ -77,6 +89,7 @@ export function validateAdjudication(record, readResult) {
       if (known.has(id)) add('duplicate-result-id', 'two reviewed findings carry this id', id);
       known.set(id, result.findings[index]);
     }
+    for (const id of resultUnjudgedIds(review.taskId, result)) knownUnjudged.add(id);
   }
 
   const findings = Array.isArray(record.findings) ? record.findings : [];
@@ -128,6 +141,36 @@ export function validateAdjudication(record, readResult) {
   }
   for (const id of known.keys())
     if (!byId.has(id)) add('missing-finding', 'result finding has no disposition', id);
+
+  if (record.unjudged !== undefined && !Array.isArray(record.unjudged))
+    add('invalid-field', 'unjudged must be an array');
+  const unjudged = new Map();
+  for (const line of Array.isArray(record.unjudged) ? record.unjudged : []) {
+    if (!isObject(line) || !isText(line.id)) {
+      add('invalid-field', 'each unjudged line needs an id');
+      continue;
+    }
+    if (unjudged.has(line.id)) {
+      add('duplicate-unjudged', 'unjudged line is adjudicated more than once', line.id);
+      continue;
+    }
+    unjudged.set(line.id, line);
+    for (const key of Object.keys(line))
+      if (!UNJUDGED_KEYS.includes(key)) add('unknown-key', `unknown unjudged key ${key}`, line.id);
+    if (!knownUnjudged.has(line.id)) {
+      add('unknown-unjudged', 'no reviewed result has this unjudged line', line.id);
+      continue;
+    }
+    if (!UNJUDGED_DISPOSITIONS.includes(line.disposition))
+      add(
+        'invalid-field',
+        `disposition must be one of ${UNJUDGED_DISPOSITIONS.join(', ')}`,
+        line.id,
+      );
+    if (!isText(line.reason)) add('missing-reason', 'an unjudged line needs a reason', line.id);
+  }
+  for (const id of knownUnjudged)
+    if (!unjudged.has(id)) add('missing-unjudged', 'unjudged line has no disposition', id);
   return violations;
 }
 

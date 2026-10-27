@@ -36,7 +36,10 @@ const RESULT_FIELDS = new Set([
   'disposition',
   'cleanup',
   'handoff',
+  // Optional: behavior the reviewer left unjudged, each line with a reason. It does not block PASS.
+  'unjudgedBehaviors',
 ]);
+const UNJUDGED_BEHAVIOR_FIELDS = new Set(['behavior', 'reason']);
 const FORBIDDEN_KEYS = new Set([
   'apikey',
   'accesstoken',
@@ -290,6 +293,8 @@ export function validateCrossModelResult(
 
   validateCoverage(result.acceptanceCoverage, errors);
   validateFindings(result.findings, errors);
+  if (result.unjudgedBehaviors !== undefined)
+    validateUnjudgedBehaviors(result.unjudgedBehaviors, errors);
   validateCommands(result.commandsActuallyRun, packet, errors);
   requireTextArray(result.notRun, 'notRun', errors);
   requireTextArray(result.knownGaps, 'knownGaps', errors);
@@ -477,6 +482,23 @@ function validateFindings(findings, errors) {
     for (const field of ['location', 'impact', 'reproduction', 'evidence']) {
       requireText(finding[field], `findings[${index}].${field}`, errors);
     }
+    // Optional: other locations (`path:line`) of the same kind of defect.
+    if (finding.sameTypeLocations !== undefined)
+      requireTextArray(finding.sameTypeLocations, `findings[${index}].sameTypeLocations`, errors);
+  }
+}
+
+function validateUnjudgedBehaviors(entries, errors) {
+  if (!Array.isArray(entries)) {
+    errors.push('unjudgedBehaviors must be an array.');
+    return;
+  }
+  for (const [index, entry] of entries.entries()) {
+    const label = `unjudgedBehaviors[${index}]`;
+    if (!requireRecord(entry, label, errors)) continue;
+    rejectUnknownFields(entry, UNJUDGED_BEHAVIOR_FIELDS, label, errors);
+    requireText(entry.behavior, `${label}.behavior`, errors);
+    requireText(entry.reason, `${label}.reason`, errors);
   }
 }
 

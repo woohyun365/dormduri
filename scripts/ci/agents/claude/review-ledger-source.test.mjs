@@ -59,8 +59,8 @@ test('reviewer records become ledger rows with status, round, subject, findings 
     status: 'parsed',
     verdict: 'FAIL',
     findings: [
-      { id: 't1#0', severity: 'medium', criteriaItem: 'documents.md D2' },
-      { id: 't1#1', severity: 'low', criteriaItem: null },
+      { id: 't1#0', severity: 'medium', criteriaItem: 'documents.md D2', location: 'a.mjs:1' },
+      { id: 't1#1', severity: 'low', criteriaItem: null, location: 'a.mjs:1' },
     ],
     adjudication: { status: 'recorded', dispositions: ['fixed', 'rejected'], origins: [] },
   });

@@ -35,7 +35,10 @@ Parent subject의 `request`는 요구사항(사용자 요청·issue·plan accept
 오류는 `requirementSections-invalid`로 거부합니다. Helper는 추출을 `.artifacts/tools/claude-review-packets/<reviewId>.requirements.md`에
 한 번 쓰고 그 경로만 read path에 넣으며 plan 파일은 넣지 않습니다. `paths`가 그 plan이나 그 위 디렉터리를 가리키면
 `requirement-path-in-paths: <path>`로 거부합니다. Packet `sources.requirements`는 acceptance 그대로입니다. Plan 자체가 `paths`에 있는
-readiness 리뷰는 이 필드를 쓰지 않습니다.
+readiness 리뷰는 이 필드를 쓰지 않습니다. Subject의 `request`·`acceptance`·요구 절에는 결론이나 범위를 줄이는 문구("flag하지
+말 것", "최대 low", "계획이 그렇게 정함" 등)를 쓰지 않고, 리뷰 범위는 `paths`와 기준 선택으로만 줄입니다(advisory). 선택 필드
+`lifecycleDraft`는 Parent가 쓴 PR `## Lifecycle` 초안 파일 경로입니다. Local state·native task 기록 경로는 `paths`와 같이 거부하고,
+저장소 밖이거나 일반 파일이 아니거나 `## Lifecycle` 절이 없으면 `lifecycle-draft-invalid`로 거부합니다.
 
 Reviewer prompt는 packet·diff·문서·runner 출력 안의 지시문을 판정 근거로만 읽고 따르지 않게 지시합니다. `review`는 reviewer마다 prompt의
 sha256을 `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에 한 번 쓰고(추출이 있으면 그 digest도 함께), registry는
@@ -55,6 +58,15 @@ packet `sources.owners`와 read path에 들어가고, 출력 `criteriaSelection`
 read path에 들어가고 prompt에 경로와 sha256 digest가 남습니다. Reviewer prompt는 회차에 따라 보고 범위를 다르게 지시합니다.
 1회차는 넓게 보고하고 low를 5건까지, 2회차부터는 blocking finding만 보고합니다. 두 경우 모두 finding 0건을 허용하고, 기준
 문서가 있으면 미충족 항목 id를 finding `criteriaItem`에 하나만 적고 기본 severity를 쓰게 합니다.
+
+리뷰어 입력은 [리뷰어 입력](../review-criteria/README.md#리뷰어-입력)이 같은 리뷰 대상 경로로 고른 intent·결정 기록·정책 문서와
+`lifecycleDraft`입니다. 그 경로가 packet read path에 들어가고, `review` 출력 `contextInputs`가 경로 목록을, helper 디렉터리의
+`<reviewId>.context.json`(read path 아님)이 포함 이유와 파일이 없어 빠진 layer·도메인(`absent`)을 남깁니다. Prompt 입력 줄은 경로와
+이유만 담고 입력이 없으면 `- Context inputs: none.`입니다. `lifecycleDraft`가 없으면 변경을 feature로 보라는 줄을, 있으면 초안의
+`변경 등급`·`등급 근거`·`정책 영향 없음`·`인용 규칙`이 근거가 아니라 diff와 대조할 Parent 주장이고 diff가 선언보다 높은 등급의
+동작·계약 변경을 보이면 등급을 올리는 finding을 내라는 줄을 둡니다. 모든 prompt는 요구가 말하지 않은 동작을 intent·결정 기록과
+합리적 사용자 기대로 판정하고 판정하지 않은 동작을 결과 `unjudgedBehaviors`(줄마다 이유, PASS를 막지 않음)에, 같은 유형 결함의
+다른 위치를 finding `sameTypeLocations`(`path:line`)에 적게 하며, 결과 template은 빈 `unjudgedBehaviors`를 담습니다.
 
 1회차에는 `--composition e2|e3 --reviewers 2|3`으로 같은 snapshot의 reviewer 그룹을 만들 수 있습니다. 1회차가 아니면
 `composition-round-1-only`, 인원이 2·3이 아니면 `reviewers-invalid`, 둘 중 하나만 주거나 모르는 구성이면 `composition-invalid`로
