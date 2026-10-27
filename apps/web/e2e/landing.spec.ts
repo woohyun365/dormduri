@@ -129,6 +129,16 @@ test.describe('Landing public experience', () => {
 });
 
 test.describe('Landing runtime SEO boundary', () => {
+  test('the tab icon is the service mark, not the school emblem', async ({ page, request }) => {
+    await page.goto('/');
+
+    const icons = page.locator('link[rel="icon"]');
+    await expect(icons).toHaveCount(1);
+    const href = await icons.getAttribute('href');
+    expect(href).toMatch(/^\/icon\.png/);
+    expect((await request.get(href!)).headers()['content-type']).toBe('image/png');
+  });
+
   test('robots.txt excludes API and protected app shell routes', async ({ request }) => {
     const response = await request.get('/robots.txt');
     expect(response.ok()).toBe(true);

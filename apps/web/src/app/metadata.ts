@@ -57,7 +57,8 @@ export function createRootMetadata(rawEnv: PublicMetadataEnv = process.env): Met
     applicationName: SITE_NAME,
     creator: SITE_NAME,
     publisher: SITE_NAME,
-    icons: { icon: '/knu_logo.svg' },
+    // The tab icon is app/icon.png, the service's own mark (the landing's logo), by the Next file
+    // convention; the school emblem is not the service's mark (#143, Owner 2026-10-27).
     formatDetection: {
       telephone: false,
     },
