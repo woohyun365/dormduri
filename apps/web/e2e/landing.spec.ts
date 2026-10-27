@@ -61,12 +61,20 @@ test.describe('Landing public experience', () => {
       { width: 320, height: 568 },
       { width: 1440, height: 900 },
     ]) {
+      // Resizes on a blank page: resizing the loaded landing makes it fetch the hero picture at the new
+      // width and the goto right after cancels that fetch; right after a fresh build, with workers in
+      // parallel, the next page's load then waited on the same picture until the test timed out.
+      await page.goto('about:blank');
       await page.setViewportSize(viewport);
       await page.goto('/');
-      const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      );
-      expect(overflow, `${viewport.width}px`).toBe(0);
+      // Asks the page to scroll sideways instead of comparing scrollWidth with clientWidth: with a
+      // classic scrollbar (Linux desktop) and the root's scrollbar-gutter, those two differ by the
+      // gutter even without overflow, and allowing for it would hide an overflow narrower than it.
+      const scrolledX = await page.evaluate(() => {
+        window.scrollTo({ left: 10_000, top: 0, behavior: 'instant' });
+        return window.scrollX;
+      });
+      expect(scrolledX, `${viewport.width}px`).toBe(0);
     }
   });
 
