@@ -1,4 +1,4 @@
-# KNU 시각 값 token
+# 돔두리 시각 값 token
 
 새 화면 계층([`src/screens`](../../screens/README.md))의 색·글자·간격·폭·radius·타깃·focus·motion 값의 판단·근거·사용 규칙을
 소유합니다. **값은 token JSON에만 둡니다.** 이 문서에 숫자를 옮겨 적은 곳은 판단 근거를 보이는 값이고, 다르면 JSON이 맞습니다.
@@ -124,10 +124,10 @@ token은 지금 새 화면 계층에 있는 화면(공개 랜딩)이 쓰는 것�
 
 ### 타깃·focus
 
-- 판정은 WCAG 2.2 AA입니다. 터치 타깃은 최소 24×24 CSS px(`target-min`, 2.5.8)이고, 주 행동은 KNU 목표 44×44(`target-primary`,
+- 판정은 WCAG 2.2 AA입니다. 터치 타깃은 최소 24×24 CSS px(`target-min`, 2.5.8)이고, 주 행동은 돔두리 목표 44×44(`target-primary`,
   2.5.5 AAA 값)입니다. 예: `min-h-target-min`, `size-target-primary`.
 - focus 표시는 `focus-visible:focus-ring`으로 겁니다. `focus-ring`은 `stroke-focus` 색, 두께 2px, offset 2px의 outline입니다
-  (KNU 목표, 2.4.13 AAA 값). offset이 있어 ring은 층 배경 위에 그려지므로 층과의 대비(3:1)로 판정합니다. 반전 면·그림 위에서는
+  (돔두리 목표, 2.4.13 AAA 값). offset이 있어 ring은 층 배경 위에 그려지므로 층과의 대비(3:1)로 판정합니다. 반전 면·그림 위에서는
   `focus-on-inverse`·`focus-on-media`가 ring 색을 그 면 위 글자 색으로 바꿉니다. focus를 가리는 overflow·sticky 배치를 두지 않습니다.
 
 ### breakpoint와 reflow

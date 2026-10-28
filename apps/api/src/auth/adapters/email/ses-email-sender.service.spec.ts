@@ -41,7 +41,7 @@ describe('SesEmailSenderService', () => {
       ConfigurationSetName: 'knu-roommate-production',
       Content: {
         Simple: {
-          Subject: { Charset: 'UTF-8', Data: '[KNU Roommate] 이메일 인증 코드' },
+          Subject: { Charset: 'UTF-8', Data: '[돔두리] 이메일 인증 코드' },
         },
       },
     });

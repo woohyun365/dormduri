@@ -4,12 +4,12 @@ const DEFAULT_PUBLIC_SITE_URL = 'http://localhost:3000';
 
 export type PublicMetadataEnv = Partial<Record<string, string | undefined>>;
 
-export const SITE_NAME = 'KNU 룸메';
+export const SITE_NAME = '돔두리';
 export const ROOT_DESCRIPTION = '강원대학교 기숙사 입주생을 위한 독립 운영 룸메이트 찾기 서비스';
 export const LANDING_PAGE_TITLE = '강원대 룸메이트 찾기';
 export const LANDING_SHARE_TITLE = `${LANDING_PAGE_TITLE} | ${SITE_NAME}`;
 export const LANDING_DESCRIPTION =
-  'KNU 룸메는 강원대학교 기숙사 입주생이 생활패턴과 기숙사 조건을 확인하고 룸메이트 후보를 찾아보는 독립 운영 서비스입니다.';
+  '돔두리는 강원대학교 기숙사 입주생이 생활패턴과 기숙사 조건을 확인하고 룸메이트 후보를 찾아보는 독립 운영 서비스입니다.';
 
 export const PUBLIC_SITEMAP_ROUTES = [
   { pathname: '/', changeFrequency: 'weekly', priority: 1 },

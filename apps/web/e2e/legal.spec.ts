@@ -4,7 +4,7 @@ test.describe('Public legal documents', () => {
   test('비로그인 사용자는 /terms 공개 문서를 볼 수 있다', async ({ page }) => {
     await page.goto('/terms');
 
-    await expect(page.getByRole('heading', { level: 1, name: 'KNU 룸메 이용약관' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: '돔두리 이용약관' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: '제1조(목적)' })).toBeVisible();
     await expect(page.getByRole('button', { name: '이전 화면으로 돌아가기' })).toBeVisible();
     await expect(page.getByRole('link', { name: '홈으로', exact: true })).toHaveCount(0);
@@ -28,7 +28,7 @@ test.describe('Public legal documents', () => {
     await page.goto('/privacy');
 
     await expect(
-      page.getByRole('heading', { level: 1, name: 'KNU 룸메 개인정보 처리방침' }),
+      page.getByRole('heading', { level: 1, name: '돔두리 개인정보 처리방침' }),
     ).toBeVisible();
     await expect(
       page.getByRole('heading', { level: 2, name: '제1조(개인정보의 처리 목적)' }),

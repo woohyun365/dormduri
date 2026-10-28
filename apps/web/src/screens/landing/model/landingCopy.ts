@@ -4,7 +4,6 @@ import { LANDING_SURFACE_SECTION_IDS } from './landingPolicyCopy';
 // that tests and stories import instead of pinning it (README, 검증).
 
 export const landingCopy = {
-  serviceName: 'KNU 룸메',
   loginLabel: '로그인',
   // The sign-up action's one name on the whole page.
   primaryCtaLabel: '학교 이메일로 시작하기',
@@ -216,11 +215,11 @@ export const stepCaptures = {
   ],
 } as const;
 
-// The 이제는 · 서비스 안에서 card: a gray slot until a capture of the main page exists. The address is
-// a reserved example domain.
+// The 이제는 · 서비스 안에서 card: a gray slot until a capture of the main page exists. The tab and
+// address show the service's own name and domain.
 export const serviceWindow = {
-  tab: 'KNU 룸메',
-  url: 'knu-roommate.example.com/main',
+  tab: '돔두리',
+  url: 'dormduri.com/main',
   slot: '메인페이지',
   size: '메인 페이지 캡처 자리 · 16:10',
 } as const;

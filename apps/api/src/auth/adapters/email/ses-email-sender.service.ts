@@ -108,9 +108,9 @@ export function buildVerificationCodeEmailInput(
 ): SendEmailCommandInput {
   return buildSimpleEmailInput({
     toEmail: input.email,
-    subject: '[KNU Roommate] 이메일 인증 코드',
+    subject: '[돔두리] 이메일 인증 코드',
     bodyText: [
-      'KNU Roommate 이메일 인증 코드입니다.',
+      '돔두리 이메일 인증 코드입니다.',
       '',
       `인증 코드: ${input.code}`,
       `만료 시간: ${formatExpiresIn(input.expiresInSeconds)}`,
@@ -129,9 +129,9 @@ export function buildPasswordResetEmailInput(
 ): SendEmailCommandInput {
   return buildSimpleEmailInput({
     toEmail: input.email,
-    subject: '[KNU Roommate] 비밀번호 재설정 인증 코드',
+    subject: '[돔두리] 비밀번호 재설정 인증 코드',
     bodyText: [
-      'KNU Roommate 비밀번호 재설정 인증 코드입니다.',
+      '돔두리 비밀번호 재설정 인증 코드입니다.',
       '',
       `인증 코드: ${input.code}`,
       `만료 시간: ${formatExpiresIn(input.expiresInSeconds)}`,
@@ -150,9 +150,9 @@ export function buildPasswordChangedEmailInput(
 ): SendEmailCommandInput {
   return buildSimpleEmailInput({
     toEmail: input.email,
-    subject: '[KNU Roommate] 비밀번호가 변경되었어요',
+    subject: '[돔두리] 비밀번호가 변경되었어요',
     bodyText: [
-      'KNU Roommate 계정의 비밀번호가 변경되었어요.',
+      '돔두리 계정의 비밀번호가 변경되었어요.',
       '',
       '본인이 변경하지 않았다면 서비스의 문의하기를 통해 알려 주세요.',
     ].join('\n'),

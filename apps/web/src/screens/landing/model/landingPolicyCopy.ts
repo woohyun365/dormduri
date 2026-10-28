@@ -47,7 +47,7 @@ export const LANDING_SURFACE_SECTION_IDS = {
 export const LANDING_POLICY_COPY = [
   {
     id: 'service_independent_notice',
-    copy: 'KNU 룸메는 학교 공식 서비스가 아닙니다.',
+    copy: '돔두리는 학교 공식 서비스가 아닙니다.',
     source: {
       path: 'docs/policies/service-boundary.md',
       section: '면책 고지 시점',

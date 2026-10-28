@@ -22,9 +22,10 @@ describe('landing policy copy contract', () => {
   });
 
   // The four disclaimers are legal boundary sentences: their wording changes only with expert review.
+  // A service rename changes only the subject name, with the Owner checking the before/after pair.
   it('keeps the four disclaimer sentences word for word', () => {
     expect(getLandingPolicyCopy('service_independent_notice').copy).toBe(
-      'KNU 룸메는 학교 공식 서비스가 아닙니다.',
+      '돔두리는 학교 공식 서비스가 아닙니다.',
     );
     expect(getLandingPolicyCopy('school_system_not_connected').copy).toBe(
       '학교 기숙사 시스템과 연동되지 않으며, 사용자에게 룸메이트 탐색을 돕습니다.',

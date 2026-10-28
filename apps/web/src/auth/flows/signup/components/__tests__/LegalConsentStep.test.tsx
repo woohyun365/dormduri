@@ -258,7 +258,7 @@ describe('LegalConsentStep', () => {
     termsButton.focus();
     fireEvent.click(termsButton);
 
-    expect(screen.getByRole('dialog', { name: /KNU 룸메 이용약관/ })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: /돔두리 이용약관/ })).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -275,7 +275,7 @@ describe('LegalConsentStep', () => {
     termsButton.focus();
     fireEvent.click(termsButton);
 
-    const dialog = screen.getByRole('dialog', { name: /KNU 룸메 이용약관/ });
+    const dialog = screen.getByRole('dialog', { name: /돔두리 이용약관/ });
     const closeButton = screen.getByRole('button', { name: '문서 닫기' });
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(closeButton).toHaveFocus();
@@ -309,7 +309,7 @@ describe('LegalConsentStep', () => {
     });
     fireEvent.click(termsButton);
 
-    const dialog = screen.getByRole('dialog', { name: /KNU 룸메 이용약관/ });
+    const dialog = screen.getByRole('dialog', { name: /돔두리 이용약관/ });
     expect(document.body.style.overflow).toBe('clip');
     expect(document.body.style.position).toBe('relative');
     expect(document.body.style.top).toBe('1px');
@@ -341,7 +341,7 @@ describe('LegalConsentStep', () => {
     expect(termsButton).toHaveClass('min-h-11');
     fireEvent.click(termsButton);
 
-    const dialog = screen.getByRole('dialog', { name: /KNU 룸메 이용약관/ });
+    const dialog = screen.getByRole('dialog', { name: /돔두리 이용약관/ });
     expect(dialog).toHaveClass('max-h-[86vh]', 'overscroll-contain', 'overflow-hidden');
     expect(screen.getByTestId('legal-document-dialog-scroll-area')).toHaveClass(
       'max-h-[68vh]',

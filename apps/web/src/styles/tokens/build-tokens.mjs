@@ -1,5 +1,5 @@
 // Builds tokens.generated.css from the DTCG 2025.10 resolver document next to this file.
-// It supports only the formats the KNU tokens use; anything else fails instead of guessing.
+// It supports only the formats the 돔두리 tokens use; anything else fails instead of guessing.
 // Run from apps/web: node src/styles/tokens/build-tokens.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';

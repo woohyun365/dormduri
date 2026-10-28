@@ -119,6 +119,18 @@ describe('LandingScreen', () => {
     for (const link of logins) expect(link).toHaveAccessibleName(landingCopy.loginLabel);
   });
 
+  it('links the header logo home under the service name; the footer logo stays a picture', () => {
+    render(<LandingScreen />);
+
+    expect(within(pageLandmark('banner')).getByRole('link', { name: '돔두리' })).toHaveAttribute(
+      'href',
+      '/',
+    );
+    const footer = pageLandmark('contentinfo');
+    expect(within(footer).getByRole('img', { name: '돔두리' })).toBeInTheDocument();
+    expect(within(footer).queryByRole('link', { name: '돔두리' })).toBeNull();
+  });
+
   it('gives every hero question a section to go to and moves focus there with the view', () => {
     const scrollIntoView = vi.fn();
     const original = Element.prototype.scrollIntoView;

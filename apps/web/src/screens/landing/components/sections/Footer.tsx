@@ -1,16 +1,15 @@
+import { BrandLogo, type BrandLogoTone } from '@/screens/ui/brand';
 import { landingCopy } from '../../model/landingCopy';
 import { footerNotice } from '../../model/landingNotices';
 import { LANDING_SURFACE_SECTION_IDS } from '../../model/landingPolicyCopy';
-import { BrandMark } from '../BrandMark';
 import { container } from '../sectionStyles';
-import type { LogoTone } from '../sceneArt';
 
 const { footer } = landingCopy;
 
 // Footer: every column's items start on the column's left edge and on the same line under the
 // headings, all links in one style; the inquiry address is text, not a link, under its heading once;
 // the closing divider spans the content width only.
-export function Footer({ logo }: { logo: LogoTone }) {
+export function Footer({ logo }: { logo: BrandLogoTone }) {
   const link = 'underline underline-offset-4 focus-visible:focus-ring';
   return (
     <footer
@@ -19,7 +18,7 @@ export function Footer({ logo }: { logo: LogoTone }) {
     >
       <div className={`${container} grid grid-cols-2 gap-8 py-12 md:grid-cols-4`}>
         <div className="col-span-2 md:col-span-4">
-          <BrandMark tone={logo} large />
+          <BrandLogo tone={logo} size="lg" />
         </div>
         <nav aria-label={footer.serviceLabel} className="flex flex-col gap-3">
           <p className="font-bold">{footer.serviceLabel}</p>

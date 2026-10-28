@@ -1,5 +1,5 @@
 {
-  "$description": "KNU primitive values. Semantic and component tokens alias them; build-tokens.mjs never exports this root.",
+  "$description": "돔두리 primitive values. Semantic and component tokens alias them; build-tokens.mjs never exports this root.",
   "primitive": {
     "color": {
       "$type": "color",

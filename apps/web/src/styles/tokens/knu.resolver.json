@@ -1,6 +1,6 @@
 {
   "$schema": "https://www.designtokens.org/schemas/2025.10/resolver.json",
-  "name": "KNU Roommate web tokens",
+  "name": "돔두리 web tokens",
   "version": "2025.10",
   "description": "Token source for apps/web/src/screens. build-tokens.mjs turns it into tokens.generated.css.",
   "sets": {

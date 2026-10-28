@@ -1,4 +1,4 @@
-/* Utilities built on the KNU tokens. Apply with a state variant, e.g. focus-visible:focus-ring. */
+/* Utilities built on the 돔두리 tokens. Apply with a state variant, e.g. focus-visible:focus-ring. */
 @utility focus-ring {
   outline-style: solid;
   outline-width: var(--focus-ring-width);
