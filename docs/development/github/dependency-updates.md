@@ -18,7 +18,7 @@
 
 ## Routine Renovate flow
 
-1. [Dependency Dashboard #353](https://github.com/woohyun365/knu_roommate/issues/353)을 연다.
+1. [Dependency Dashboard #353](https://github.com/woohyun365/dormduri/issues/353)을 연다.
 2. Pending/Running provider job과 open Renovate PR이 없는지 확인한다.
 3. 한 owner group만 체크한다.
 4. `Create all pending approval PRs at once`와 독립 major는 체크하지 않는다.

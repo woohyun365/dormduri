@@ -62,7 +62,7 @@ consumer가 확인된 경우에만 classic Branches 전환을 별도 migration�
 ## 현재 evidence
 
 - checkedAt: 2026-08-27
-- repository: `woohyun365/knu_roommate`
+- repository: `woohyun365/dormduri`
 - operator: local authenticated `gh` read-only inspection
 
 | Setting                     | Actual                                                                               | Status              |

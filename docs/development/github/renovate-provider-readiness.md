@@ -10,11 +10,11 @@
 2026-08-24 현재 상태는 **selected-repository 설치·active extraction·controlled PR 검증 완료**다.
 
 - App identity: GitHub App `mend/renovate`
-- Repository scope: `woohyun365/knu_roommate` 하나
+- Repository scope: `woohyun365/dormduri` 하나
 - Product: Renovate Only; IaC 비활성
 - Repository config: `renovate.json.enabled=true`, npm-only, base `dev`, automerge 없음
 - Portal: Dependency Updates ON, Silent mode OFF, Automated PRs OFF, Require config file ON, onboarding PR OFF
-- Dashboard: [Issue #353](https://github.com/woohyun365/knu_roommate/issues/353)
+- Dashboard: [Issue #353](https://github.com/woohyun365/dormduri/issues/353)
 - Verified PR: #354, `renovate/web-test-storybook` → `dev`, full CI green 후 squash merge
 
 ## Effective permission baseline
