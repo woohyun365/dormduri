@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import type { ImgHTMLAttributes } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { BrandLogo } from '../BrandLogo';
+import { BrandLogo, brandName } from '../BrandLogo';
 
 type ImageSource = string | { src: string };
 const srcOf = (src: ImageSource) => (typeof src === 'string' ? src : src.src);
@@ -18,11 +18,11 @@ vi.mock('next/image', () => ({
 }));
 
 describe('BrandLogo', () => {
-  it('reads as one name, 돔두리, with the mark left out of the accessibility tree', () => {
+  it('reads as one name, the brand name, with the mark left out of the accessibility tree', () => {
     const { container } = render(<BrandLogo />);
 
     expect(screen.getAllByRole('img')).toHaveLength(1);
-    expect(screen.getByRole('img', { name: '돔두리' }).tagName.toLowerCase()).toBe('svg');
+    expect(screen.getByRole('img', { name: brandName }).tagName.toLowerCase()).toBe('svg');
     const mark = container.querySelector('img');
     expect(mark).toHaveAttribute('alt', '');
     expect(container).not.toHaveTextContent(/\S/);

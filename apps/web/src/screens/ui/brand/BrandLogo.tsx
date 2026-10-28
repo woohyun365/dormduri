@@ -7,6 +7,9 @@ import logoMark from './art/logo-mark.png';
 // Owner's originals. The white cut is for dark surfaces.
 const logoMarks = { color: logoMark, white: logoMarkWhite };
 
+// The one name the logo reads as. Tests import it instead of pinning the letters.
+export const brandName = '돔두리';
+
 export type BrandLogoTone = keyof typeof logoMarks;
 export type BrandLogoSize = 'md' | 'lg';
 
@@ -42,7 +45,7 @@ function BrandLettering({ className }: { className: string }) {
   return (
     <svg
       role="img"
-      aria-label="돔두리"
+      aria-label={brandName}
       viewBox="-8 -10 352 261.43"
       className={className}
       xmlns="http://www.w3.org/2000/svg"

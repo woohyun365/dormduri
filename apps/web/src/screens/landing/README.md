@@ -107,7 +107,7 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 
 ## 검증
 
-test가 글자로 고정하는 문구는 정책 고지뿐입니다. 그 밖 문구와 접근성 이름은 `model/landingCopy.ts`에서 import하고, 그럴 수 없는
+test가 글자로 고정하는 문구는 정책 고지뿐입니다. 그 밖 문구와 접근성 이름은 `model/landingCopy.ts`(서비스 이름은 `@/screens/ui/brand`의 `brandName`)에서 import하고, 그럴 수 없는
 e2e는 랜드마크·링크 목적지·고지 문장으로 찾습니다. 섹션 순서와 DOM 구조도 고정하지 않습니다. 고지 밖 문구 하나를 바꿔도 test가
 깨지지 않아야 합니다.
 
