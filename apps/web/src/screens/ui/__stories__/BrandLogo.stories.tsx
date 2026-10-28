@@ -3,8 +3,8 @@ import type { ComponentProps } from 'react';
 import { BrandLogo } from '../brand';
 
 // A shared part has no feature frame to borrow, so the decorator gives the same palette attribute and
-// layer classes the product frames do. `none` leaves the attribute off: the root values the existing
-// page headers get.
+// layer classes the product frames do. `none` leaves the attribute off on the white layer: the root
+// values and the white background the existing page headers get.
 type PaletteArgs = { palette: 'dark' | 'light' | 'none' };
 type StoryArgs = ComponentProps<typeof BrandLogo> & PaletteArgs;
 
@@ -13,7 +13,7 @@ const inPalette: Decorator = (Story, { args }) => {
   return (
     <div
       data-palette={palette === 'none' ? undefined : palette}
-      className="bg-layer-basement p-gutter font-body text-fg-neutral"
+      className={`${palette === 'none' ? 'bg-layer-default' : 'bg-layer-basement'} p-gutter font-body text-fg-neutral`}
     >
       <Story />
     </div>
