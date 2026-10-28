@@ -13,6 +13,7 @@
 - 제목 바로 아래 연속한 굵은 key 줄로 상태 header를 둡니다: `**상태**`(`draft`·`owner-confirmed`·`superseded`),
   `**확인일**`(`owner-confirmed`일 때), `**확인 근거**`(Owner 확인 기록의 위치), `**근거**`(상위 산출물 링크).
 - 새 layer 파일을 만드는 변경은 아래 색인과 [architecture README](../README.md) 색인에 그 파일 행을 더합니다.
+- 기록과 지금 code가 어긋난 곳은 [누적 이탈 점검](../../development/agent-workflows/review-criteria/README.md#누적-이탈-점검)이 layer 파일 단위로 모읍니다.
 
 ## 항목 형식
 
