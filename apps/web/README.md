@@ -53,7 +53,8 @@ pnpm --dir apps/web exec playwright install chromium
 
 ## Public metadata and performance smoke
 
-Landing SEO/share metadata는 `apps/web/src/app/metadata.ts`가 소유합니다.
+Landing SEO/share metadata는 `apps/web/src/app/metadata.ts`가 소유합니다. 탭 제목은 서비스 이름이 앞인 `돔두리 | 화면 이름`이고
+root title template이 붙입니다(root segment인 Landing은 같은 형식을 직접 씁니다).
 `NEXT_PUBLIC_APP_URL`은 canonical/robots/sitemap URL과 auth mutation origin 검증의 기준입니다.
 로컬/CI에서는 `http://localhost:3000`으로 안전하게 degrade하지만, production에는 실제 HTTPS origin을 반드시 주입합니다.
 production auth cookie는 `__Host-` prefix, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain` 규칙을 따릅니다.

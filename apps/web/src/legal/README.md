@@ -23,7 +23,7 @@ Rules:
   `/terms` or `/privacy` copy.
 - Keep the public page header regression protected: the brand link shows the service logo
   (`@/screens/ui/brand`), the secondary navigation action is `이전 화면으로`, and route metadata must
-  not duplicate `| 돔두리`.
+  not repeat the service name (the root title template adds `돔두리 | `).
 
 Release handoff:
 
