@@ -151,11 +151,11 @@ export type FlowStepId = keyof typeof flowSteps;
 
 export const flowStepOrder = ['search', 'chat', 'match'] as const satisfies readonly FlowStepId[];
 
-// The name of each step's list of links to the three steps.
+// The name of each step's list that shows the three steps in order.
 export const flowStepsLabel = '체험 순서';
 
-// Element ids of the sections the hero question box and the step links go to. Each section takes its
-// id from here, so a target cannot drift from its section.
+// Element ids of the sections the hero question box goes to. Each section takes its id from here, so a
+// target cannot drift from its section.
 export const landingSectionIds = {
   before: 'before',
   items: 'items',
