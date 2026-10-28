@@ -323,8 +323,9 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
 
 - 원자료
   - [리뷰 측정](#리뷰-측정) ledger에서 같은 기준 항목(`criteriaItem`)이 서로 다른 subject 2개 이상에 나온 finding과 그 `location`.
-    교정·재채점·실험처럼 사본으로 재는 측정 run은 뺍니다. Codex 리뷰는 ledger reader가 없으므로 Parent가 그 작업 증거의 결과 JSON과 정산
-    보고에서 직접 모읍니다.
+    subject는 처분 기록의 subject(ledger를 `--adjudications`로 뽑을 때의 행 subject 키)로 묶고, 처분 기록이 없는 행 수를 따로
+    적습니다. 교정·재채점·실험처럼 사본으로 재는 측정 run은 뺍니다. Codex 리뷰는 ledger reader가 없으므로 Parent가 그 작업 증거의
+    결과 JSON과 정산 보고에서 직접 모읍니다.
   - non-PASS 회차.
   - PR `Lifecycle` 절의 `override` 줄.
   - `원인 PR`로 찾은 놓친 결함. 원인 PR의 리뷰 기준 기록(`<reviewId>.criteria.json`)·ledger와 대조해 "기준이 있었는데 놓침"과
