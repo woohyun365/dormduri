@@ -2,8 +2,8 @@
   "schema": "lifecycle-path-domains/v1",
   "confirmedBy": {
     "status": "owner-confirmed",
-    "date": "2026-10-27",
-    "basis": "#671"
+    "date": "2026-10-28",
+    "basis": "#706"
   },
   "productRoots": [
     "apps/**",
@@ -427,6 +427,7 @@
       "globs": [
         "apps/web/src/components/**",
         "apps/web/src/hooks/**",
+        "apps/web/src/screens/ui/**",
         "apps/web/src/styles/**",
         "apps/web/public/**",
         "apps/web/src/app/layout.tsx",
