@@ -2,7 +2,8 @@
 
 새 화면 계층([`src/screens`](../../screens/README.md))의 색·글자·간격·폭·radius·타깃·focus·motion 값의 판단·근거·사용 규칙을
 소유합니다. **값은 token JSON에만 둡니다.** 이 문서에 숫자를 옮겨 적은 곳은 판단 근거를 보이는 값이고, 다르면 JSON이 맞습니다.
-기존 화면(`globals.css` theme, [`knu.css`](../knu.css))은 이 token을 쓰지 않고 바뀌지 않습니다.
+기존 화면(`globals.css` theme, [`knu.css`](../knu.css))은 이 token을 쓰지 않고 바뀌지 않습니다. 예외로 기존 화면 header는 새 계층의 공유
+부품인 서비스 로고(`@/screens/ui/brand`)를 import하므로, 그 로고 안에서만 이 token이 쓰입니다.
 
 token은 지금 새 화면 계층에 있는 화면(공개 랜딩)이 쓰는 것만 둡니다. Auth·Legal·Main 같은 화면을 새 계층으로 만들 때 그 화면이
 필요한 역할을 더합니다(아래 "token 추가와 이름"). Storybook `Foundations` 문서(`__stories__/*.mdx`)가 이 token을 견본과 함께

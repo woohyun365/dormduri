@@ -93,7 +93,8 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 ## 렌더링·상호작용·접근성
 
 - 기본은 server render입니다. client 부분은 상호작용이나 browser API가 필요한 가장 작은 단위입니다: `LandingFrame`(스크롤 등장),
-  `HeroAsk`(질문 넘김과 이동), `BeforeStack`(겹친 창 앞뒤 전환), `StatementFields`(카드 끌어 겹치기).
+  `HeroAsk`(질문 넘김과 이동), `BeforeStack`(겹친 창 앞뒤 전환), `StatementFields`(카드 끌어 겹치기), `HomeLink`(header 로고를
+  누르면 맨 위로).
 - 움직임은 motion 줄이기에서 멈추거나 바로 끝납니다. 첫 화면 질문 넘김은 멈춤 버튼이 있습니다(WCAG 2.2.2).
 - 글자 대비 4.5:1(큰 글자 3:1), 터치 타깃, `focus-visible:focus-ring`은 [Foundations](../../styles/tokens/README.md) token을 씁니다.
   임의 값(`-[…]`)과 raw 색은 lint error입니다.
