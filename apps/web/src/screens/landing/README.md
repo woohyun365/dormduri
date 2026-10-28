@@ -18,7 +18,7 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 
 `LandingScreen`이 아래 순서로 조합합니다. 섹션은 `components/sections/`에 하나씩 있습니다.
 
-1. `Header`: 로고(홈 `/` 링크), 로그인, 시작하기(가입의 헤더 줄임말)
+1. `Header`: 로고(홈 `/` 링크. 이 페이지에서 누르면 새로고침 없이 맨 위로), 로그인, 시작하기(가입의 헤더 줄임말)
 2. `HeroSection`(`#hero`): 제목, 본문, 질문 상자, 가입 행동과 그 결과 문장, 첫 화면 고지 두 줄
 3. `BeforeSection`(`#before`): 무엇이 다른가요. 커뮤니티 게시판 글과 서비스 화면을 겹친 두 창
 4. `ItemsSection`(`#items`): 생활패턴 항목과 나·상대 카드 겹쳐 보기

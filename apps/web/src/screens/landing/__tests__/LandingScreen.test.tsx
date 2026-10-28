@@ -132,6 +132,15 @@ describe('LandingScreen', () => {
     expect(within(footer).queryByRole('link', { name: brandName })).toBeNull();
   });
 
+  it('scrolls back to the top when the header logo is clicked on the landing itself', () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    render(<LandingScreen />);
+
+    fireEvent.click(within(pageLandmark('banner')).getByRole('link', { name: brandName }));
+    // Reduced motion (stubbed above) scrolls at once.
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
+  });
+
   it('gives every hero question a section to go to and moves focus there with the view', () => {
     const scrollIntoView = vi.fn();
     const original = Element.prototype.scrollIntoView;
