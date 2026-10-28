@@ -294,8 +294,9 @@ layer마다 모읍니다. 점검과 판정은 Parent가 하고(`model-mediated`)
   - (가) 고른 선택지와 지금 code: 고른 선택지가 말하는 범위·설정·경로가 지금 tree와 맞는지, 반대 패턴이 어디 있는지(`path:line`)
     적습니다. 반대 패턴 검색에는 같은 검색이 실제 대상을 찾는다는 양성 대조를 붙입니다.
   - (나) 결정적 검사: 그 결정을 강제하는 lint 설정·test·CI 단계가 있는지와 그 위치입니다. 없으면 리뷰만 보는 결정으로 적습니다.
-  - (다) 재확인 신호: 항목의 Owner 확인 뒤(그 항목 `출처` 줄을 마지막으로 바꾼 commit 뒤)에 layer 파일 header `근거`의 경로가
-    바뀌었거나, `pack 결정`이 pack 결정을 가리키면 그 `확인 단서`의 binding 키가 가리키는 경로가 바뀌었으면 재확인 대상입니다.
+  - (다) 재확인 신호: 항목의 Owner 확인 뒤(그 항목 `출처` 줄에 지금 Owner 확인 날짜를 처음 적은 commit 뒤)에 layer 파일
+    header `근거`의 경로가 바뀌었거나, `pack 결정`이 pack 결정을 가리키면 그 `확인 단서`의 binding 키가 가리키는 경로가
+    바뀌었으면 재확인 대상입니다.
     `pack 결정: 없음`인 항목은 header `근거`만 신호입니다.
   - (라) 정책 규칙 id: pack 결정 수준이 `policy`·`operational`인 항목은 `고른 선택지`가 링크한 정책 규칙 id가 정책 문서에 있고 뜻이
     같은지 봅니다([규칙 id와 인용](../../../policies/README.md#규칙-id와-인용)). 정책 문서에 규칙 id가 없으면 대조 대상 0으로
@@ -316,7 +317,9 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
 ### 승격 제안
 
 [누적 이탈 점검](#누적-이탈-점검)과 같은 실행에서 Parent가 아래 원자료를 모아 승격 제안 목록을 그 작업의 ignored 증거 위치에
-씁니다. Owner가 고른 제안만 기준 갱신 PR(독립 리뷰와 [재채점](#재채점))로 열고, 자동으로 merge하지 않습니다.
+씁니다. Owner가 고른 제안만 기준 갱신 PR(독립 리뷰와 [재채점](#재채점))로 열고, 자동으로 merge하지 않습니다. 원자료 범위는 직전
+승격 제안 실행 뒤(첫 실행은 교정 채택 뒤)이고, 목록 머리에 그 범위를 적습니다. Owner가 기각한 제안은 목록에 기각으로 남기고, 새
+원자료가 더해질 때만 다시 냅니다.
 
 - 원자료
   - [리뷰 측정](#리뷰-측정) ledger에서 같은 기준 항목(`criteriaItem`)이 서로 다른 subject 2개 이상에 나온 finding과 그 `location`.
@@ -327,8 +330,8 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
   - `원인 PR`로 찾은 놓친 결함. 원인 PR의 리뷰 기준 기록(`<reviewId>.criteria.json`)·ledger와 대조해 "기준이 있었는데 놓침"과
     "기준 없음"을 나눕니다.
 - 승격 규칙: 같은 finding이 두 번 나오면 결정적 검사·trigger 후보, 운영 결함은 회귀 test, 반복되는 설명은 지침으로 승격을
-  제안합니다. 같은 수동 절차가 서로 다른 PR 2개 이상의 runner 기록·ledger에 나오면 수동 절차 ledger(단계 도구화) 후보로
-  제안합니다.
+  제안합니다. 같은 수동 절차가 서로 다른 PR 2개 이상의 runner 기록·ledger에 나오면 그 절차를 도구로 바꾸는 후보(수동 절차
+  도구화)로 제안합니다.
 - 목록의 열은 제안·원자료 위치·승격 종류·구분입니다. 구분은 binding 값이 필요하면 repo layer, 없으면 upstream 후보입니다.
 
 ### 재채점
@@ -337,12 +340,13 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
 놓치지 않는지 다시 잽니다. 경로 목록은 `scripts/ci/lifecycle/review-snapshot-check.mjs`의 `RESCORE_TRIGGER_PATHS`와 그 test가
 고정하고, PR 본문 `재채점` 줄의 형식과 경고는 [Pull request](../../github/collaboration.md#pull-request) 절이 소유합니다.
 
-- 구성: 교정 때 지정한 held-out 사본 subject 셋마다 `claude:native review`를 `--criteria <id>`(그 사본이 대응하는 실제 경로의
-  자동 선택 id)와 `--composition e3 --reviewers 2`로 2회 돌립니다(reviewer 12회). Claude reviewer 모델을 바꾸는 변경은 기준 없음
+- 구성: 지금 held-out set(첫 교체 전에는 교정 때 지정한 사본 subject 셋, 그 뒤는 사용 기록이 정한 셋)의 subject마다
+  `claude:native review`를 `--criteria <id>`(그 사본이 대응하는 실제 경로의 자동 선택 id)와 `--composition e3 --reviewers 2`로
+  2회 돌립니다(reviewer 12회). Claude reviewer 모델을 바꾸는 변경은 기준 없음
   arm(`--criteria none --composition e2 --reviewers 2`)도 같은 수로 돌려 기준선을 다시 잽니다.
 - 판정: 그 set의 결함×반복을 모두 찾으면 통과입니다(교정 때 기준선 10/10). 하나라도 놓치면 `실패`이고 merge 전 Owner가 판단합니다.
-- 실행과 채점: 기준을 고친 writer 세션이 아닌 다른 세션이 writer branch HEAD에서 실행·채점합니다. writer와 PR에는 통과/실패와 놓친
-  수만 주고, 결함별 채점은 ignored 증거 위치에만 둡니다. 결함별 결과는 기준 문구·prompt·모델 수정의 근거로 쓰지 않습니다.
+- 실행과 채점: 기준을 고친 writer가 아니고 쓰기 작업을 맡지 않은 reader 세션이 writer branch HEAD에서 실행·채점하고, 그동안
+  writer branch를 merge하지 않습니다. writer와 PR에는 통과/실패와 놓친 수만 주고, 결함별 채점은 ignored 증거 위치에만 둡니다. 결함별 결과는 기준 문구·prompt·모델 수정의 근거로 쓰지 않습니다.
 - 사용 기록: 재채점마다 held-out 지정 기록 옆 사용 기록 파일에 한 줄(id·날짜·PR·trigger·set·통과/실패·놓친 수)을 더하고, 그
   사용의 기록에 run의 리뷰어 입력(`docs/product/intent.md` sha256 포함)을 남깁니다. PR 본문 `재채점` 줄은 그 id를 씁니다.
 - 다시 돌리면 `실패` 줄을 지우지 않고 새 사용 기록 id로 줄을 더합니다. `실패` 줄 경고는 남고, Owner 판단은 PR 본문 Review
@@ -362,7 +366,7 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
   놓친 결함 subject(고친 commit 부모 판의 사본)로 바꾸고 subject 셋을 유지합니다. 동률이면 seeded subject를 놓친 결함 subject보다
   먼저, seeded끼리는 사본 id(`r03`처럼 사본 디렉터리 이름) 순으로 고릅니다. 사례가 없으면 seeded 방식(그 뒤 merge된 실제 제품 변경의 사본에 결함 둘을 심고,
   정답표는 run이 끝날 때까지 저장소와 세션 작업 디렉터리 밖에 둠)으로 새 subject를 만듭니다. 교체 subject는 그 재채점을 맡은
-  세션이 만들고, 바꾼 subject와 이유는 다음 사용 기록 줄의 set 칸에 적습니다. 첫 교체 뒤 set은 사용 기록이 정합니다.
+  세션이 만들고, 바꾼 subject와 이유는 다음 사용 기록 줄의 set 칸에 적습니다.
 - 오염: run마다 reviewer의 읽기(Read·Grep·Glob 입력)를 감사합니다. 저장소 밖 경로, 사본이 대응하는 실제 저장소 경로, 놓친 결함을
   고친 commit이 바꾼 경로와 그 commit·PR·issue를 인용하는 추적 파일, 계획 디렉터리, run 입력 밖 ignored 증거(교정·재채점 원자료와
   정답표 포함), [교정 evidence](../../../evidence/agent-workflows/review-criteria-calibration.md)를 읽거나 그 범위를 덮게 검색한 run은
