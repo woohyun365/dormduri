@@ -59,7 +59,8 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 - `model/landingPolicyCopy.ts`가 고지 일곱 개의 문장, 정책 원본(`docs/policies/*.md`), 보일 영역(`requiredSurface`)을 소유합니다.
   `scripts/ci/contracts/policy-source-links.test.mjs`가 원본 경로가 있는지 확인합니다.
 - 면책 고지 넷(`service_independent_notice`·`school_system_not_connected`·`room_selection_not_guaranteed`·
-  `lifestyle_survey_disclaimer`)은 법적 책임 문구라 글자를 바꾸지 않습니다. 바꿔야 하면 전문가 검토를 먼저 받습니다.
+  `lifestyle_survey_disclaimer`)은 법적 책임 문구라 글자를 바꾸지 않습니다. 서비스 이름이 바뀌면 주어 이름만 바꾸고 Owner가
+  전후 대조를 확인합니다. 그 밖의 글자를 바꿔야 하면 전문가 검토를 먼저 받습니다.
 - 나머지 셋은 뜻을 지키는 범위에서 다듬을 수 있습니다. 바꾸는 절차는 아래 "고지·사실 문구를 바꿀 때"입니다.
 - 보일 영역은 `LANDING_SURFACE_SECTION_IDS`의 element id(`hero`·`notices`·`season`·`landing-footer`)이고, 섹션이 같은 상수로 id를
   답니다. `__tests__/LandingScreen.test.tsx`가 고지마다 그 영역에 문장이 있는지 확인합니다.
