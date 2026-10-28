@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: '개인정보 처리방침',
-  description: 'KNU 룸메가 개인정보를 처리하고 보호하는 기준을 확인합니다.',
+  description: '돔두리가 개인정보를 처리하고 보호하는 기준을 확인합니다.',
 };
 
 export default async function PrivacyPage() {

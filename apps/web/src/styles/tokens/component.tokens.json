@@ -1,5 +1,5 @@
 {
-  "$description": "KNU component-level tokens: touch targets and the focus ring.",
+  "$description": "돔두리 component-level tokens: touch targets and the focus ring.",
   "spacing": {
     "$type": "dimension",
     "target-min": {

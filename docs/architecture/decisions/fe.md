@@ -1,8 +1,8 @@
 # FE 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-10-26
-**확인 근거**: [#659](https://github.com/woohyun365/knu_roommate/issues/659) 본문의 결정 요약(component-architecture의 renderer 중립 셋), [#671](https://github.com/woohyun365/knu_roommate/issues/671) 본문의 결정 요약(`fe.comp.route-entry-import-guard`, design-system)
+**확인일**: 2026-10-28
+**확인 근거**: [#659](https://github.com/woohyun365/knu_roommate/issues/659) 본문의 결정 요약(component-architecture의 renderer 중립 셋), [#671](https://github.com/woohyun365/knu_roommate/issues/671) 본문의 결정 요약(`fe.comp.route-entry-import-guard`, design-system), [#706](https://github.com/woohyun365/knu_roommate/issues/706)(`fe.ds.copy-style` 서비스 이름이 바뀔 때의 면책 문장)
 **근거**: [새 화면 계층](../../../apps/web/src/screens/README.md), [시각 값 token](../../../apps/web/src/styles/tokens/README.md), [Landing 화면](../../../apps/web/src/screens/landing/README.md), [Domain/SWE/Web/FE pack](../../development/agent-workflows/domain/swe-web/fe.md)
 
 `Domain/SWE/Web/FE` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
@@ -139,12 +139,12 @@ README가 소유하고, 여기에는 판정과 근거만 둔다.
   공개 주의, 신고·문의 위치)도 그 목록에 맞춰 합니다체로 둔다. 같은 행동은 화면 어디서나 한 이름이고(가입: "학교 이메일로
   시작하기"), 320·360px 폭 때문에 헤더만 "시작하기"를 쓴다. 생활패턴 비교 결과는 판정 단계 이름 대신 "생활패턴 적합도"로 부른다.
   과장 형용사와 영문 대문자 label을 쓰지 않고 수치는 한국어 표기 관례를 따른다
-- 근거: 첫 방문 학생에게 짧고 정직하게 말한다. 면책 문장은 법적 책임 문구라 표현을 바꾸지 않는다. 판정 단계 이름은 랜딩에 판정
-  화면이 없어 뜻 없이 굳는다. 비가역이 아니고 문구 revert로 되돌린다
+- 근거: 첫 방문 학생에게 짧고 정직하게 말한다. 면책 문장은 법적 책임 문구라 표현을 바꾸지 않는다(서비스 이름이 바뀌면 주어 이름만
+  바꾸고 Owner가 전후 대조를 확인한다). 판정 단계 이름은 랜딩에 판정 화면이 없어 뜻 없이 굳는다. 비가역이 아니고 문구 revert로 되돌린다
 - 기각한 대안: 합니다체 전체(2026-10-22 Owner가 해요체를 골랐다), 면책 문장을 해요체로 맞추기(법적 문구 변경), 헤더도 긴 이름(320·360px
   폭 헤더에 로고·로그인과 함께 들어가지 않는다)
 - 재검토 조건: 면책 문장을 전문가 검토로 바꿀 때, 판정 화면을 랜딩에 보일 때
-- 출처: #671, Owner 확인 2026-10-22·2026-10-26
+- 출처: #671·#706, Owner 확인 2026-10-22·2026-10-26·2026-10-28
 - pack 결정: 없음
 
 #### fe.ds.motion-usage

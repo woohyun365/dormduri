@@ -21,9 +21,9 @@ Rules:
   `privacy-YYYY-MM-DD`.
 - Keep Web fallback legal bodies in sync with the API legal seed source when changing public
   `/terms` or `/privacy` copy.
-- Keep the public page header regression protected: the brand link shows the KNU logo, the
-  secondary navigation action is `이전 화면으로`, and route metadata must not duplicate
-  `| KNU 룸메`.
+- Keep the public page header regression protected: the brand link shows the service logo
+  (`@/screens/ui/brand`), the secondary navigation action is `이전 화면으로`, and route metadata must
+  not repeat the service name (the root title template adds `돔두리 | `).
 
 Release handoff:
 

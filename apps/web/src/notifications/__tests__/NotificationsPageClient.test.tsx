@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { brandName } from '@/screens/ui/brand';
 import NotificationsPageClient from '../NotificationsPageClient';
 import { notificationsPageApi } from '../api/notifications-page.api';
 
@@ -43,6 +44,15 @@ describe('NotificationsPageClient', () => {
       notification: { ...notification, readAt: iso },
     });
     vi.mocked(notificationsPageApi.markAllRead).mockResolvedValue({ updatedCount: 1, readAt: iso });
+  });
+
+  it('header 로고는 서비스 이름 하나로 읽히고 /main으로 간다', async () => {
+    render(<NotificationsPageClient />);
+
+    const home = screen.getByRole('link', { name: brandName });
+    expect(home).toHaveAttribute('href', '/main');
+    expect(within(home).getAllByRole('img')).toHaveLength(1);
+    await waitFor(() => expect(notificationsPageApi.listNotifications).toHaveBeenCalled());
   });
 
   it('알림 목록과 unread count를 사용자 문구로 표시한다', async () => {

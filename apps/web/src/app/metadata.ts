@@ -4,12 +4,15 @@ const DEFAULT_PUBLIC_SITE_URL = 'http://localhost:3000';
 
 export type PublicMetadataEnv = Partial<Record<string, string | undefined>>;
 
-export const SITE_NAME = 'KNU 룸메';
+export const SITE_NAME = '돔두리';
 export const ROOT_DESCRIPTION = '강원대학교 기숙사 입주생을 위한 독립 운영 룸메이트 찾기 서비스';
+// Tab titles read the service name first, `돔두리 | <page>` (Owner 2026-10-28, #706): the root template
+// gives every route that form. The landing sits in the root segment, where the template does not apply,
+// so it spells the same form out; its share title is the same.
 export const LANDING_PAGE_TITLE = '강원대 룸메이트 찾기';
-export const LANDING_SHARE_TITLE = `${LANDING_PAGE_TITLE} | ${SITE_NAME}`;
+export const LANDING_TITLE = `${SITE_NAME} | ${LANDING_PAGE_TITLE}`;
 export const LANDING_DESCRIPTION =
-  'KNU 룸메는 강원대학교 기숙사 입주생이 생활패턴과 기숙사 조건을 확인하고 룸메이트 후보를 찾아보는 독립 운영 서비스입니다.';
+  '돔두리는 강원대학교 기숙사 입주생이 생활패턴과 기숙사 조건을 확인하고 룸메이트 후보를 찾아보는 독립 운영 서비스입니다.';
 
 export const PUBLIC_SITEMAP_ROUTES = [
   { pathname: '/', changeFrequency: 'weekly', priority: 1 },
@@ -51,7 +54,7 @@ export function createRootMetadata(rawEnv: PublicMetadataEnv = process.env): Met
     metadataBase: resolvePublicSiteUrl(rawEnv),
     title: {
       default: SITE_NAME,
-      template: `%s | ${SITE_NAME}`,
+      template: `${SITE_NAME} | %s`,
     },
     description: ROOT_DESCRIPTION,
     applicationName: SITE_NAME,
@@ -67,13 +70,13 @@ export function createRootMetadata(rawEnv: PublicMetadataEnv = process.env): Met
 
 export function createLandingMetadata(): Metadata {
   return {
-    title: LANDING_PAGE_TITLE,
+    title: { absolute: LANDING_TITLE },
     description: LANDING_DESCRIPTION,
     alternates: {
       canonical: '/',
     },
     openGraph: {
-      title: LANDING_SHARE_TITLE,
+      title: LANDING_TITLE,
       description: LANDING_DESCRIPTION,
       url: '/',
       siteName: SITE_NAME,
@@ -82,7 +85,7 @@ export function createLandingMetadata(): Metadata {
     },
     twitter: {
       card: 'summary',
-      title: LANDING_SHARE_TITLE,
+      title: LANDING_TITLE,
       description: LANDING_DESCRIPTION,
     },
   };

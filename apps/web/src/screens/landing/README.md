@@ -18,11 +18,12 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 
 `LandingScreen`이 아래 순서로 조합합니다. 섹션은 `components/sections/`에 하나씩 있습니다.
 
-1. `Header`: 로고, 로그인, 시작하기(가입의 헤더 줄임말)
+1. `Header`: 로고(홈 `/` 링크. 이 페이지에서 누르면 새로고침 없이 맨 위로 가고 주소의 #섹션을 지움), 로그인, 시작하기(가입의 헤더 줄임말)
 2. `HeroSection`(`#hero`): 제목, 본문, 질문 상자, 가입 행동과 그 결과 문장, 첫 화면 고지 두 줄
 3. `BeforeSection`(`#before`): 무엇이 다른가요. 커뮤니티 게시판 글과 서비스 화면을 겹친 두 창
 4. `ItemsSection`(`#items`): 생활패턴 항목과 나·상대 카드 겹쳐 보기
-5. `StepSection`(`#search`·`#chat`·`#match`): 01 찾기 · 02 대화 · 03 매칭과 휴대폰 캡처 자리
+5. `StepSection`(`#search`·`#chat`·`#match`): 01 찾기 · 02 대화 · 03 매칭과 휴대폰 캡처 자리. 단계 표시는 순서와 현재 단계만
+   보이고 링크가 아닙니다
 6. `SeasonSection`(`#season`): 시즌 설명, 한 해 위 시즌 등록 기간, 시즌 기능 고지
 7. `NoticesSection`(`#notices`): 알아두세요 다섯 줄
 8. `FaqSection`(`#faq`): 자주 묻는 질문
@@ -59,7 +60,8 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 - `model/landingPolicyCopy.ts`가 고지 일곱 개의 문장, 정책 원본(`docs/policies/*.md`), 보일 영역(`requiredSurface`)을 소유합니다.
   `scripts/ci/contracts/policy-source-links.test.mjs`가 원본 경로가 있는지 확인합니다.
 - 면책 고지 넷(`service_independent_notice`·`school_system_not_connected`·`room_selection_not_guaranteed`·
-  `lifestyle_survey_disclaimer`)은 법적 책임 문구라 글자를 바꾸지 않습니다. 바꿔야 하면 전문가 검토를 먼저 받습니다.
+  `lifestyle_survey_disclaimer`)은 법적 책임 문구라 글자를 바꾸지 않습니다. 서비스 이름이 바뀌면 주어 이름만 바꾸고 Owner가
+  전후 대조를 확인합니다. 그 밖의 글자를 바꿔야 하면 전문가 검토를 먼저 받습니다.
 - 나머지 셋은 뜻을 지키는 범위에서 다듬을 수 있습니다. 바꾸는 절차는 아래 "고지·사실 문구를 바꿀 때"입니다.
 - 보일 영역은 `LANDING_SURFACE_SECTION_IDS`의 element id(`hero`·`notices`·`season`·`landing-footer`)이고, 섹션이 같은 상수로 id를
   답니다. `__tests__/LandingScreen.test.tsx`가 고지마다 그 영역에 문장이 있는지 확인합니다.
@@ -92,11 +94,12 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 ## 렌더링·상호작용·접근성
 
 - 기본은 server render입니다. client 부분은 상호작용이나 browser API가 필요한 가장 작은 단위입니다: `LandingFrame`(스크롤 등장),
-  `HeroAsk`(질문 넘김과 이동), `BeforeStack`(겹친 창 앞뒤 전환), `StatementFields`(카드 끌어 겹치기).
+  `HeroAsk`(질문 넘김과 이동), `BeforeStack`(겹친 창 앞뒤 전환), `StatementFields`(카드 끌어 겹치기), `HomeLink`(header 로고를
+  누르면 맨 위로).
 - 움직임은 motion 줄이기에서 멈추거나 바로 끝납니다. 첫 화면 질문 넘김은 멈춤 버튼이 있습니다(WCAG 2.2.2).
 - 글자 대비 4.5:1(큰 글자 3:1), 터치 타깃, `focus-visible:focus-ring`은 [Foundations](../../styles/tokens/README.md) token을 씁니다.
   임의 값(`-[…]`)과 raw 색은 lint error입니다.
-- 질문 상자와 단계 이동은 섹션 id로 갑니다. 이동 대상 섹션은 id를 `landingSectionIds` 하나에서 받고, 질문 상자는 그 섹션으로
+- 질문 상자는 섹션 id로 갑니다(단계 표시는 이동하지 않습니다). 이동 대상 섹션은 id를 `landingSectionIds` 하나에서 받고, 질문 상자는 그 섹션으로
   focus도 옮깁니다(WCAG 2.4.3). `__tests__/LandingScreen.test.tsx`가 질문마다 대상 섹션이 있는지와 focus 이동을 확인합니다.
 
 ## SEO
@@ -106,7 +109,7 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 
 ## 검증
 
-test가 글자로 고정하는 문구는 정책 고지뿐입니다. 그 밖 문구와 접근성 이름은 `model/landingCopy.ts`에서 import하고, 그럴 수 없는
+test가 글자로 고정하는 문구는 정책 고지뿐입니다. 그 밖 문구와 접근성 이름은 `model/landingCopy.ts`(서비스 이름은 `@/screens/ui/brand`의 `brandName`)에서 import하고, 그럴 수 없는
 e2e는 랜드마크·링크 목적지·고지 문장으로 찾습니다. 섹션 순서와 DOM 구조도 고정하지 않습니다. 고지 밖 문구 하나를 바꿔도 test가
 깨지지 않아야 합니다.
 

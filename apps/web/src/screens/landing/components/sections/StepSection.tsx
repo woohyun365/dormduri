@@ -9,7 +9,8 @@ import {
 import { container, revealSection, soft, targetSection } from '../sectionStyles';
 import { StepCaptures } from '../StepCaptures';
 
-// Where the visitor is in the three-step flow, with links to the other steps.
+// Where the visitor is in the three-step flow: the order with the current step marked, shown as
+// information only, not links (Owner 2026-10-28: a link put a #section in the address).
 function FlowSteps({ current }: { current: FlowStepId }) {
   return (
     <ol aria-label={flowStepsLabel} className="flex items-center gap-2 text-label">
@@ -18,18 +19,17 @@ function FlowSteps({ current }: { current: FlowStepId }) {
         return (
           <li key={step} className="flex items-center gap-2">
             {index > 0 ? <span aria-hidden="true" className="h-px w-5 bg-stroke-neutral" /> : null}
-            <a
-              href={`#${landingSectionIds[step]}`}
+            <span
               aria-current={on ? 'step' : undefined}
-              className={`inline-flex min-h-target-min items-center gap-1.5 rounded-full px-2.5 focus-visible:focus-ring ${
+              className={`inline-flex min-h-target-min items-center gap-1.5 rounded-full px-2.5 ${
                 on
                   ? 'bg-brand-solid font-bold text-fg-on-brand depth-glow'
-                  : 'border border-stroke-subtle text-fg-muted hover:text-fg-neutral'
+                  : 'border border-stroke-subtle text-fg-muted'
               }`}
             >
               <span className="tabular-nums">{String(index + 1).padStart(2, '0')}</span>
               {flowSteps[step].label}
-            </a>
+            </span>
           </li>
         );
       })}

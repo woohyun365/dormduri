@@ -75,8 +75,8 @@ const preview: Preview = {
     options: {
       storySort: {
         order: [
-          // Foundations (token docs, then the samples), then the Landing sections and parts in page
-          // order.
+          // Foundations (token docs, then the samples), then the parts features share, then the
+          // Landing sections and parts in page order.
           'Foundations',
           [
             'Overview',
@@ -88,6 +88,8 @@ const preview: Preview = {
             'Samples',
             ['Tokens', 'Palettes'],
           ],
+          'UI',
+          ['BrandLogo'],
           'Landing',
           [
             'Page',
@@ -106,7 +108,6 @@ const preview: Preview = {
             ],
             'Components',
             [
-              'BrandMark',
               'Actions',
               'HeroAsk',
               'NoticeLines',

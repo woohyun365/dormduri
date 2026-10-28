@@ -1,5 +1,5 @@
+import type { BrandLogoTone } from '@/screens/ui/brand';
 import { LandingFrame, type LandingScheme } from './components/LandingFrame';
-import type { LogoTone } from './components/sceneArt';
 import { BeforeSection } from './components/sections/BeforeSection';
 import { ClosingSection } from './components/sections/ClosingSection';
 import { FaqSection } from './components/sections/FaqSection';
@@ -22,9 +22,9 @@ export function LandingScreen({
 }: {
   scheme?: LandingScheme;
   /** Mark on the dark header and footer; the light scheme always shows the color mark. */
-  darkLogo?: LogoTone;
+  darkLogo?: BrandLogoTone;
 }) {
-  const logo: LogoTone = scheme === 'dark' ? darkLogo : 'color';
+  const logo: BrandLogoTone = scheme === 'dark' ? darkLogo : 'color';
   return (
     <LandingFrame scheme={scheme} className="min-h-screen">
       <Header logo={logo} />

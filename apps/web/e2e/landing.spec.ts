@@ -13,7 +13,7 @@ test.describe('Landing public experience', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
     const hero = page.locator('#hero');
-    await expect(hero.getByText('KNU 룸메는 학교 공식 서비스가 아닙니다.')).toBeVisible();
+    await expect(hero.getByText('돔두리는 학교 공식 서비스가 아닙니다.')).toBeVisible();
     await expect(hero.getByText('기숙사 배정·호실 선택을 보장하지 않습니다.')).toBeVisible();
     await expect(hero.locator('a[href="/signup"]')).toBeVisible();
     await expect(page.getByRole('banner').locator('a[href="/signup"]')).toBeVisible();
@@ -24,7 +24,7 @@ test.describe('Landing public experience', () => {
     await page.goto('/');
 
     const hero = page.locator('#hero');
-    await expect(hero.getByText('KNU 룸메는 학교 공식 서비스가 아닙니다.')).toBeInViewport({
+    await expect(hero.getByText('돔두리는 학교 공식 서비스가 아닙니다.')).toBeInViewport({
       ratio: 1,
     });
     await expect(hero.getByText('기숙사 배정·호실 선택을 보장하지 않습니다.')).toBeInViewport({

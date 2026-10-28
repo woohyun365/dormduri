@@ -25,23 +25,23 @@ export const LEGAL_DOCUMENT_REFERENCE_ROWS = [
     id: 'terms-of-service-2026-06-22',
     kind: 'TERMS_OF_SERVICE',
     version: 'terms-2026-06-22',
-    title: 'KNU 룸메 이용약관',
+    title: '돔두리 이용약관',
     effectiveAt: ACTIVE_LEGAL_EFFECTIVE_AT,
     publishedAt: ACTIVE_LEGAL_EFFECTIVE_AT,
     retiredAt: null,
     summaryItems: [
-      'KNU 룸메는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.',
+      '돔두리는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.',
       '룸메이트 탐색과 매칭 요청을 돕지만 기숙사 배정이나 호실 선택을 보장하지 않습니다.',
       '성희롱, 협박, 타인 개인정보 공개, 허위 정보, 혐오·차별 표현은 금지됩니다.',
     ],
     sections: [
       heading('제1조(목적)'),
       paragraph(
-        '이 약관은 KNU 룸메 서비스의 이용 조건, 회원과 운영자의 권리·의무, 서비스 이용 중 지켜야 할 기준을 정하는 것을 목적으로 합니다.',
+        '이 약관은 돔두리 서비스의 이용 조건, 회원과 운영자의 권리·의무, 서비스 이용 중 지켜야 할 기준을 정하는 것을 목적으로 합니다.',
       ),
       heading('제2조(정의)'),
       list([
-        '“서비스”란 룸메이트 탐색, 매칭 요청, 채팅, 차단, 신고, 문의 등 KNU 룸메가 제공하는 기능을 말합니다.',
+        '“서비스”란 룸메이트 탐색, 매칭 요청, 채팅, 차단, 신고, 문의 등 돔두리가 제공하는 기능을 말합니다.',
         '“회원”이란 강원대학교 이메일 인증과 회원가입 절차를 완료하고 서비스를 이용하는 사용자를 말합니다.',
         '“시즌”이란 특정 학기 또는 기숙사 모집 기간에 맞춰 프로필 작성, 탐색, 매칭 요청, 결과 확인 기능이 운영되는 기간을 말합니다.',
         '“매칭 요청”은 룸메이트가 되고 싶은 상대에게 보내는 의사 표시이며, 상대방 수락 전까지 확정된 매칭이 아닙니다.',
@@ -49,7 +49,7 @@ export const LEGAL_DOCUMENT_REFERENCE_ROWS = [
       ]),
       heading('제3조(서비스 운영 주체 및 범위)'),
       paragraph(
-        'KNU 룸메는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다. 학교 포털, 생활관 시스템, 기숙사 배정 절차와 직접 연동하지 않습니다.',
+        '돔두리는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다. 학교 포털, 생활관 시스템, 기숙사 배정 절차와 직접 연동하지 않습니다.',
       ),
       callout(
         '서비스는 룸메이트 탐색과 커뮤니케이션을 돕지만 실제 기숙사 배정, 호실 선택, 학교 생활관 규정 적용을 보장하지 않습니다.',
@@ -119,7 +119,7 @@ export const LEGAL_DOCUMENT_REFERENCE_ROWS = [
     id: 'privacy-policy-2026-06-22',
     kind: 'PRIVACY_POLICY',
     version: 'privacy-2026-06-22',
-    title: 'KNU 룸메 개인정보 처리방침',
+    title: '돔두리 개인정보 처리방침',
     effectiveAt: ACTIVE_LEGAL_EFFECTIVE_AT,
     publishedAt: ACTIVE_LEGAL_EFFECTIVE_AT,
     retiredAt: null,
@@ -307,7 +307,7 @@ export const LEGAL_DOCUMENT_REFERENCE_ROWS = [
     publishedAt: ACTIVE_LEGAL_EFFECTIVE_AT,
     retiredAt: null,
     summaryItems: [
-      'KNU 룸메 회원가입은 만 14세 이상 사용자만 진행할 수 있습니다.',
+      '돔두리 회원가입은 만 14세 이상 사용자만 진행할 수 있습니다.',
       '만 14세 미만 사용자는 서비스를 이용할 수 없습니다.',
     ],
     sections: [

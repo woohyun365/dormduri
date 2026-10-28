@@ -1,5 +1,5 @@
 {
-  "$description": "KNU semantic roles for the new screen layer. Judgement and usage rules live in README.md.",
+  "$description": "돔두리 semantic roles for the new screen layer. Judgement and usage rules live in README.md.",
   "color": {
     "$type": "color",
     "layer-basement": {

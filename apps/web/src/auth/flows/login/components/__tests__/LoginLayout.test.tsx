@@ -1,6 +1,7 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { brandName } from '@/screens/ui/brand';
 import { LoginLayout } from '../LoginLayout';
 
 vi.mock('next/image', () => ({
@@ -40,6 +41,18 @@ describe('LoginLayout', () => {
     );
     const headerContainer = screen.getByRole('banner').firstElementChild;
     expect(headerContainer).toHaveClass('max-w-5xl', 'lg:px-8');
+  });
+
+  it('header 로고는 서비스 이름 하나로 읽히고 /로 간다', () => {
+    render(
+      <LoginLayout>
+        <h1 id="login-title">로그인</h1>
+      </LoginLayout>,
+    );
+
+    const home = within(screen.getByRole('banner')).getByRole('link', { name: brandName });
+    expect(home).toHaveAttribute('href', '/');
+    expect(within(home).getAllByRole('img')).toHaveLength(1);
   });
 
   it('desktop 좌측에 시즌, 룸메이트 요약, 이용 흐름 preview를 제공한다', () => {

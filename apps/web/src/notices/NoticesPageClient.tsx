@@ -1,9 +1,9 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { NoticeSeverity } from '@repo/shared/notices';
+import { BrandLogo } from '@/screens/ui/brand';
 import { noticesPageApi } from './api/notices-page.api';
 import { NoticeArticle } from './components/NoticeArticle';
 import { NoticeList } from './components/NoticeList';
@@ -114,14 +114,7 @@ export default function NoticesPageClient({
             href="/main"
             className="flex items-center gap-2 rounded-xl text-xl font-bold text-(--knu-text-primary)"
           >
-            <Image
-              src="/knu_logo.svg"
-              alt="KNU 룸메 로고"
-              width={36}
-              height={36}
-              className="rounded-xl"
-            />
-            <span>KNU 룸메</span>
+            <BrandLogo />
           </Link>
           <Link
             href="/main"

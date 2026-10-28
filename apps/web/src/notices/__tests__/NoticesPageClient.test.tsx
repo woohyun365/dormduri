@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { brandName } from '@/screens/ui/brand';
 import NoticesPageClient from '../NoticesPageClient';
 import { noticesPageApi } from '../api/notices-page.api';
 
@@ -34,6 +35,15 @@ describe('NoticesPageClient', () => {
     vi.mocked(noticesPageApi.getNotice).mockResolvedValue({
       notice: { ...notice, body: '공지 상세 본문입니다.' },
     });
+  });
+
+  it('header 로고는 서비스 이름 하나로 읽히고 /main으로 간다', async () => {
+    render(<NoticesPageClient />);
+
+    const home = screen.getByRole('link', { name: brandName });
+    expect(home).toHaveAttribute('href', '/main');
+    expect(within(home).getAllByRole('img')).toHaveLength(1);
+    expect(await screen.findByRole('heading', { name: '운영 안내' })).toBeInTheDocument();
   });
 
   it('공지 목록과 선택된 공지 상세를 표시한다', async () => {

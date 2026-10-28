@@ -1,8 +1,8 @@
 # Landing
 
 **상태**: owner-confirmed
-**확인일**: 2026-10-26
-**확인 근거**: [#671](https://github.com/woohyun365/knu_roommate/issues/671) 본문의 결정 요약
+**확인일**: 2026-10-28
+**확인 근거**: [#671](https://github.com/woohyun365/knu_roommate/issues/671) 본문의 결정 요약, [#706](https://github.com/woohyun365/knu_roommate/issues/706)(서비스 이름이 바뀔 때의 면책 고지)
 **근거**: [Service boundary](../policies/service-boundary.md), [Support communication](../policies/support-communication.md), [Season lifecycle](../policies/season-lifecycle.md), [Landing 화면 README](../../apps/web/src/screens/landing/README.md)
 
 공개 랜딩(`/`)의 기능 영역 문서입니다. 영역의 invariant·품질 기준은 [Intent의 Landing 절](./intent.md#landing), 화면 구성·문구·고지
@@ -49,5 +49,6 @@
 ## 완료 기준
 
 - 390×844 첫 화면에 서비스 설명, 가입 행동, "학교 공식 서비스가 아닙니다"와 "기숙사 배정·호실 선택을 보장하지 않습니다"가 보입니다.
-- 고지 일곱 개의 뜻과 원본 정책이 정책 문서와 같고, 면책 고지 네 문장은 글자 그대로입니다.
+- 고지 일곱 개의 뜻과 원본 정책이 정책 문서와 같고, 면책 고지 네 문장은 글자 그대로입니다(서비스 이름이 바뀌면 주어 이름만
+  바뀝니다, [Intent](./intent.md#landing)).
 - 시각 품질(첫인상, 구성, AI-slop 같지 않음)은 Owner가 판정합니다. 독립 비평과 측정값은 판정을 돕는 근거입니다.
