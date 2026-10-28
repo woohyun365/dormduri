@@ -46,14 +46,16 @@ src/screens/
 새 화면은 Storybook에서 만들고 검토합니다. story는 [Storybook story 검사](../../e2e/README.md)의 렌더·axe 대상입니다.
 
 - 위치: 기능의 `__stories__/`. 페이지 story는 그 root, 섹션 story는 `__stories__/sections/`, 부품 story는 `__stories__/components/`에
-  둡니다.
+  둡니다. `ui/` 부품 story는 `src/screens/ui/__stories__/`에 둡니다.
 - title: `<기능>/Page`(전체 화면) → `<기능>/Sections/<섹션>`(페이지 순서) → `<기능>/Components/<부품>`입니다. token 문서·견본은
-  `Foundations/*`입니다. `.storybook/preview.tsx`의 `storySort`가 Foundations → 기능 → 나머지 순서와 기능 안 순서를 정하므로, 새
-  기능·섹션은 그 목록에 더합니다.
+  `Foundations/*`, `ui/` 부품은 `UI/<부품>`입니다. `.storybook/preview.tsx`의 `storySort`가 Foundations → UI → 기능 → 나머지 순서와
+  기능 안 순서를 정하므로, 새 기능·섹션·`ui/` 부품은 그 목록에 더합니다.
 - tag: 모든 story 파일에 `knu-layer`(새 층 배경·글꼴. 없으면 검사가 실패)와 `autodocs`(Docs page)를 답니다. `visual`은 Linux 기준
   스크린샷을 둘 story에만 답니다.
 - story는 제품 component를 import해 그립니다. story만의 복사본이나 대체 component를 두지 않습니다. 화면이 감싸는 문맥(palette, 글꼴,
   스크롤 등장)은 제품 frame component(예: `LandingFrame`)를 decorator로 씁니다. 그래야 섹션 story와 페이지가 같은 코드로 보입니다.
+  `ui/` 부품은 기능 frame을 import할 수 없으므로 story 파일의 decorator가 제품 frame과 같은 `data-palette` 속성과 층 배경·본문 글꼴
+  class로 문맥을 주고, 부품이 쓰이는 판(어두운 판·밝은 판·판 없음)을 모두 story로 둡니다.
 - 고를 시안은 기본 story를 바꾸지 않는 비교 story로 보입니다. 비교안도 기본안과 같은 검사(대비, axe, motion 줄이기)를 통과한 뒤
   보입니다. 고른 뒤에는 고르지 않은 시안·story·arg·utility를 같은 변경에서 지웁니다.
 - 시안 코드도 처음부터 `src/screens/<기능>/` 아래에 두고 이 문서의 lint·token 규칙을 지킵니다. 그러면 고른 시안을 제품 route로
