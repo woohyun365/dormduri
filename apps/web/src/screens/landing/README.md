@@ -18,11 +18,12 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 
 `LandingScreen`이 아래 순서로 조합합니다. 섹션은 `components/sections/`에 하나씩 있습니다.
 
-1. `Header`: 로고(홈 `/` 링크. 이 페이지에서 누르면 새로고침 없이 맨 위로), 로그인, 시작하기(가입의 헤더 줄임말)
+1. `Header`: 로고(홈 `/` 링크. 이 페이지에서 누르면 새로고침 없이 맨 위로 가고 주소의 #섹션을 지움), 로그인, 시작하기(가입의 헤더 줄임말)
 2. `HeroSection`(`#hero`): 제목, 본문, 질문 상자, 가입 행동과 그 결과 문장, 첫 화면 고지 두 줄
 3. `BeforeSection`(`#before`): 무엇이 다른가요. 커뮤니티 게시판 글과 서비스 화면을 겹친 두 창
 4. `ItemsSection`(`#items`): 생활패턴 항목과 나·상대 카드 겹쳐 보기
-5. `StepSection`(`#search`·`#chat`·`#match`): 01 찾기 · 02 대화 · 03 매칭과 휴대폰 캡처 자리
+5. `StepSection`(`#search`·`#chat`·`#match`): 01 찾기 · 02 대화 · 03 매칭과 휴대폰 캡처 자리. 단계 표시는 순서와 현재 단계만
+   보이고 링크가 아닙니다
 6. `SeasonSection`(`#season`): 시즌 설명, 한 해 위 시즌 등록 기간, 시즌 기능 고지
 7. `NoticesSection`(`#notices`): 알아두세요 다섯 줄
 8. `FaqSection`(`#faq`): 자주 묻는 질문
@@ -98,7 +99,7 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 - 움직임은 motion 줄이기에서 멈추거나 바로 끝납니다. 첫 화면 질문 넘김은 멈춤 버튼이 있습니다(WCAG 2.2.2).
 - 글자 대비 4.5:1(큰 글자 3:1), 터치 타깃, `focus-visible:focus-ring`은 [Foundations](../../styles/tokens/README.md) token을 씁니다.
   임의 값(`-[…]`)과 raw 색은 lint error입니다.
-- 질문 상자와 단계 이동은 섹션 id로 갑니다. 이동 대상 섹션은 id를 `landingSectionIds` 하나에서 받고, 질문 상자는 그 섹션으로
+- 질문 상자는 섹션 id로 갑니다(단계 표시는 이동하지 않습니다). 이동 대상 섹션은 id를 `landingSectionIds` 하나에서 받고, 질문 상자는 그 섹션으로
   focus도 옮깁니다(WCAG 2.4.3). `__tests__/LandingScreen.test.tsx`가 질문마다 대상 섹션이 있는지와 focus 이동을 확인합니다.
 
 ## SEO

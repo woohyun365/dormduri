@@ -3,7 +3,15 @@ import type { ImgHTMLAttributes } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { brandName } from '@/screens/ui/brand';
 import { LandingScreen } from '../LandingScreen';
-import { beforeStack, heroAsk, landingCopy, landingSectionIds } from '../model/landingCopy';
+import {
+  beforeStack,
+  flowStepOrder,
+  flowSteps,
+  flowStepsLabel,
+  heroAsk,
+  landingCopy,
+  landingSectionIds,
+} from '../model/landingCopy';
 import { LANDING_POLICY_COPY, LANDING_SURFACE_SECTION_IDS } from '../model/landingPolicyCopy';
 
 type ImageSource = string | { src: string };
@@ -139,6 +147,30 @@ describe('LandingScreen', () => {
     fireEvent.click(within(pageLandmark('banner')).getByRole('link', { name: brandName }));
     // Reduced motion (stubbed above) scrolls at once.
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
+  });
+
+  it('drops a #section from the address when the header logo takes the landing back to the top', () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    window.history.replaceState(null, '', '/?from=share#search');
+    render(<LandingScreen />);
+
+    fireEvent.click(within(pageLandmark('banner')).getByRole('link', { name: brandName }));
+    expect(`${window.location.pathname}${window.location.search}${window.location.hash}`).toBe(
+      '/?from=share',
+    );
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('shows the three steps as an order with the current one marked, not as links', () => {
+    render(<LandingScreen />);
+
+    const orders = screen.getAllByRole('list', { name: flowStepsLabel });
+    expect(orders).toHaveLength(flowStepOrder.length);
+    orders.forEach((order, index) => {
+      expect(within(order).queryAllByRole('link')).toHaveLength(0);
+      const current = order.querySelector('[aria-current="step"]');
+      expect(current).toHaveTextContent(flowSteps[flowStepOrder[index]!].label);
+    });
   });
 
   it('gives every hero question a section to go to and moves focus there with the view', () => {
