@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "reviewedAt": "2026-08-26",
-  "repository": "woohyun365/knu_roommate",
+  "repository": "woohyun365/dormduri",
   "billingCredential": {
     "environmentVariable": "KNU_GITHUB_PLAN_READ_TOKEN",
     "permissionClass": "Plan: Read-only",

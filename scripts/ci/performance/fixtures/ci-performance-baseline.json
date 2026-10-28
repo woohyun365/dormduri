@@ -4,7 +4,7 @@
   "source": {
     "workflowRunId": 32154640034,
     "headSha": "0a83bff191c5c2489b6655e99c382558942fe38a",
-    "url": "https://github.com/woohyun365/knu_roommate/actions/runs/32154640034",
+    "url": "https://github.com/woohyun365/dormduri/actions/runs/32154640034",
     "comparison": "full dependency compatibility integration"
   },
   "dependencyBaseline": {
