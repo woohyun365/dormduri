@@ -1,5 +1,6 @@
 // Landing이 반드시 보이는 정책 고지와 그 원본. 면책 고지 넷(service_independent_notice·school_system_not_connected·
-// room_selection_not_guaranteed·lifestyle_survey_disclaimer)은 법적 책임 문구라 글자를 바꾸지 않는다.
+// room_selection_not_guaranteed·lifestyle_survey_disclaimer)은 법적 책임 문구라 글자를 바꾸지 않는다. 서비스 이름이
+// 바뀌면 주어 이름만 바꾸고 Owner가 전후 대조를 확인한다(README 고지 규칙).
 export type LandingPolicyCopyId =
   | 'service_independent_notice'
   | 'school_system_not_connected'
