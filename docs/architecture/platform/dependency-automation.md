@@ -88,7 +88,7 @@ Major update는 group에 섞지 않고 독립 후보로 유지한다. TypeScript
 compatibility revisit 조건이 충족될 때까지 config에서 차단한다.
 
 Mend Portal은 Dependency Updates ON, Silent mode OFF, Automated PRs OFF, Require config file ON, Create onboarding PRs OFF를
-기본 운영값으로 사용한다. 따라서 Renovate가 [Dependency Dashboard](https://github.com/woohyun365/knu_roommate/issues/353)를
+기본 운영값으로 사용한다. 따라서 Renovate가 [Dependency Dashboard](https://github.com/woohyun365/dormduri/issues/353)를
 자동 갱신하지만, owner가 체크한 한 group만 branch와 PR로 만든다. 자동 merge와 `create all`은 사용하지 않는다.
 
 ## 검증된 provider 경계
@@ -97,7 +97,7 @@ Mend Portal은 Dependency Updates ON, Silent mode OFF, Automated PRs OFF, Requir
 
 | 경계                | 증거                                                                             |
 | ------------------- | -------------------------------------------------------------------------------- |
-| selected repository | `mend/renovate` App이 `woohyun365/knu_roommate` 하나에 설치됨                    |
+| selected repository | `mend/renovate` App이 `woohyun365/dormduri` 하나에 설치됨                        |
 | active extraction   | Renovate 44.39.0이 `dev`의 npm package file 7개와 dependency 133개를 추출        |
 | grouping            | owner별 bounded group과 독립 major 후보 생성                                     |
 | blocked updates     | TypeScript 7, `@eslint/js` 10, pnpm package-manager branch가 생성되지 않음       |

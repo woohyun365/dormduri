@@ -2,7 +2,7 @@
 
 **상태**: owner-confirmed
 **확인일**: 2026-10-28
-**확인 근거**: [#671](https://github.com/woohyun365/knu_roommate/issues/671) 본문의 결정 요약(Landing), [#706](https://github.com/woohyun365/knu_roommate/issues/706)(서비스 이름이 바뀔 때의 면책 고지)
+**확인 근거**: [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(Landing), [#706](https://github.com/woohyun365/dormduri/issues/706)(서비스 이름이 바뀔 때의 면책 고지)
 **근거**: [Product documents](./README.md#intent-기록)
 
 제품 영역마다 PRD에 없는 invariant와 품질 기준을 둡니다. 목적·대상 사용자·흐름·비목표·완료 기준은 영역의 PRD 문서가 소유하고,

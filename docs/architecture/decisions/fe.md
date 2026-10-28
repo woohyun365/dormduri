@@ -2,7 +2,7 @@
 
 **상태**: owner-confirmed
 **확인일**: 2026-10-28
-**확인 근거**: [#659](https://github.com/woohyun365/knu_roommate/issues/659) 본문의 결정 요약(component-architecture의 renderer 중립 셋), [#671](https://github.com/woohyun365/knu_roommate/issues/671) 본문의 결정 요약(`fe.comp.route-entry-import-guard`, design-system), [#706](https://github.com/woohyun365/knu_roommate/issues/706)(`fe.ds.copy-style` 서비스 이름이 바뀔 때의 면책 문장)
+**확인 근거**: [#659](https://github.com/woohyun365/dormduri/issues/659) 본문의 결정 요약(component-architecture의 renderer 중립 셋), [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(`fe.comp.route-entry-import-guard`, design-system), [#706](https://github.com/woohyun365/dormduri/issues/706)(`fe.ds.copy-style` 서비스 이름이 바뀔 때의 면책 문장)
 **근거**: [새 화면 계층](../../../apps/web/src/screens/README.md), [시각 값 token](../../../apps/web/src/styles/tokens/README.md), [Landing 화면](../../../apps/web/src/screens/landing/README.md), [Domain/SWE/Web/FE pack](../../development/agent-workflows/domain/swe-web/fe.md)
 
 `Domain/SWE/Web/FE` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.

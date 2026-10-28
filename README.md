@@ -171,7 +171,7 @@ API·Web 테스트와 CI lane별 명령은 [Monorepo CI 아키텍처의 명령 �
 ## 저장소 구조
 
 ```text
-knu_roommate/
+dormduri/
 ├── apps/
 │   ├── web/                 # Next.js UI, BFF, Storybook, Playwright
 │   └── api/                 # NestJS 도메인, Prisma, API 테스트

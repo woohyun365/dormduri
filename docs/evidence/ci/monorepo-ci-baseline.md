@@ -133,7 +133,7 @@ Collect additional runs without storing raw logs:
 
 ```bash
 pnpm ci:performance:collect -- \
-  --repo=woohyun365/knu_roommate \
+  --repo=woohyun365/dormduri \
   --run-id=<run-id> \
   --output=.artifacts/tools/ci-performance/<dataset>.json
 ```
@@ -147,7 +147,7 @@ no-op PRs are not created only to increase sample count.
 
 ```bash
 pnpm ci:performance:resources -- \
-  --repo=woohyun365/knu_roommate \
+  --repo=woohyun365/dormduri \
   --output=.artifacts/tools/ci-performance/resources-<date>.json
 
 pnpm ci:performance:report -- \

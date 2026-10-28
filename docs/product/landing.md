@@ -2,7 +2,7 @@
 
 **상태**: owner-confirmed
 **확인일**: 2026-10-28
-**확인 근거**: [#671](https://github.com/woohyun365/knu_roommate/issues/671) 본문의 결정 요약, [#706](https://github.com/woohyun365/knu_roommate/issues/706)(서비스 이름이 바뀔 때의 면책 고지)
+**확인 근거**: [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약, [#706](https://github.com/woohyun365/dormduri/issues/706)(서비스 이름이 바뀔 때의 면책 고지)
 **근거**: [Service boundary](../policies/service-boundary.md), [Support communication](../policies/support-communication.md), [Season lifecycle](../policies/season-lifecycle.md), [Landing 화면 README](../../apps/web/src/screens/landing/README.md)
 
 공개 랜딩(`/`)의 기능 영역 문서입니다. 영역의 invariant·품질 기준은 [Intent의 Landing 절](./intent.md#landing), 화면 구성·문구·고지
