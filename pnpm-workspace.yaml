@@ -29,7 +29,7 @@ overrides:
   # Every current Vite, Storybook, Nest, Sentry, Webpack, and unplugin parent
   # accepts this fixed line. Revalidate all build owners before changing it.
   esbuild: 0.28.2
-  postcss: 8.5.28
+  postcss: 8.5.31
   'prisma>mysql2': 3.24.3
   'socket.io-adapter>ws': 8.21.3
 
