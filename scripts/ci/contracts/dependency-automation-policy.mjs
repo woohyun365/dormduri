@@ -139,6 +139,13 @@ function validateAutomerge(config) {
       throw new TypeError('digest automerge must stay limited to Docker images');
     }
   }
+  // Renovate applies every matching packageRule in order and a later rule wins, so the automerge rules come before the
+  // group rules: setting automerge to false on one group rule stops that group (DS-R19).
+  const lastAutomergeRule = config.packageRules.findLastIndex((rule) => rule.automerge === true);
+  const firstGroupRule = config.packageRules.findIndex((rule) => rule.groupName !== undefined);
+  if (firstGroupRule !== -1 && lastAutomergeRule > firstGroupRule) {
+    throw new TypeError('automerge rules must come before the group rules');
+  }
 
   const majorRule = config.packageRules.find(
     (rule) =>

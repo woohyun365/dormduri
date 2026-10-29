@@ -61,11 +61,13 @@ export function parseMeasurementEpoch(input) {
 
 // The image inventory names each external image and its owner file; the tag and digest live only in that owner file. Its
 // input text adds every reference resolved from the owner files, so an update that moves only an image tag or digest still
-// changes the fingerprint.
+// changes the fingerprint. A version 1 inventory, read at an older run head, still carried each reference itself.
 function dependencyInputText(path, readString) {
   const content = readString(path);
   if (path !== IMAGE_INVENTORY_PATH) return content;
-  const references = JSON.parse(content).images.map(
+  const inventory = JSON.parse(content);
+  if (inventory.version === 1) return content;
+  const references = inventory.images.map(
     (image) => `${image.name} ${resolveImageReferenceInSource(image, readString(image.ownerPath))}`,
   );
   return [content, ...references].join('\n');

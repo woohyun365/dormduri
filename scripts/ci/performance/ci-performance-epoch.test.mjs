@@ -19,7 +19,7 @@ const epochFixture = JSON.parse(
 // image, so its input text is the file text alone.
 const fixedDependencyInputs = {
   ...Object.fromEntries(dependencyInputPaths.map((path) => [path, `fixed ${path} contents\n`])),
-  'infra/image-inventory.json': '{"schemaVersion":2,"images":[]}\n',
+  'infra/image-inventory.json': '{"version":2,"images":[]}\n',
 };
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
 const closedApiCookieRemovalEpochFixture = JSON.parse(
@@ -691,7 +691,7 @@ test('run-head fingerprint drift is preserved instead of using current checkout 
 test('an image tag or digest change in its owner file changes the inventory fingerprint', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
   const inventory = `${JSON.stringify({
-    schemaVersion: 2,
+    version: 2,
     images: [
       {
         name: 'postgres',
@@ -732,6 +732,27 @@ test('an image tag or digest change in its owner file changes the inventory fing
     );
   }
   assert.throws(() => fingerprintWith('postgres:18.6-alpine'), /without <tag>@sha256:<digest>/u);
+
+  // A run head from before the owner-file inventory keeps the references in the inventory text itself.
+  const versionOne = `${JSON.stringify({
+    version: 1,
+    images: [
+      {
+        name: 'postgres',
+        ownerPath: 'compose.yml',
+        reference: `postgres:18.6-alpine@sha256:${'a'.repeat(64)}`,
+      },
+    ],
+  })}\n`;
+  const fromVersionOne = buildDependencyFingerprint({
+    epoch,
+    readText: (path) => {
+      if (path === 'compose.yml') throw new Error('a version 1 inventory is hashed as it is');
+      return { ...fixedDependencyInputs, 'infra/image-inventory.json': versionOne }[path];
+    },
+    sourceSha: epoch.baseSha,
+  });
+  assert.equal(fromVersionOne.fileSha256['infra/image-inventory.json'], sha256(versionOne));
 });
 
 test('measurement epoch rejects malformed or incomplete dependency ownership', () => {

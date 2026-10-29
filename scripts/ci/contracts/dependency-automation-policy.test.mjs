@@ -232,11 +232,26 @@ test('lets Renovate itself squash-merge non-major updates only when green and up
       },
       /a non-major automerge rule must exist/u,
     ],
+    [
+      (config) => {
+        const automergeRules = config.packageRules.filter((rule) => rule.automerge === true);
+        config.packageRules = [
+          ...config.packageRules.filter((rule) => rule.automerge !== true),
+          ...automergeRules,
+        ];
+      },
+      /automerge rules must come before the group rules/u,
+    ],
   ]) {
     const config = structuredClone(renovateConfig);
     mutate(config);
     assert.throws(() => validateHostedRenovateConfig(config), message);
   }
+
+  // DS-R19: a person stops one group by setting automerge to false on its group rule.
+  const stoppedGroup = structuredClone(renovateConfig);
+  stoppedGroup.packageRules.find((rule) => rule.groupName === 'postgres-image').automerge = false;
+  assert.doesNotThrow(() => validateHostedRenovateConfig(stoppedGroup));
 });
 
 test('fails closed when the hosted pnpm memory guard is missing or enlarged', () => {

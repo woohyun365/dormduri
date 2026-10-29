@@ -111,6 +111,8 @@ Security·patch·minor update와 Docker image digest update는 Renovate가 직�
 "pr"`, `platformAutomerge: false`). Renovate는 required check `CI summary`가 통과하고 `dev`에 최신인 branch만 merge하고,
 `dev`가 움직이면 branch를 rebase해 CI를 다시 돈다. GitHub 자동 merge는 뒤처진 branch를 다시 검사하지 않고 merge할 수
 있어 쓰지 않는다. GitHub Actions digest update(같은 tag가 다른 commit을 가리킴)와 major update는 사람이 검토한다.
+자동 merge 규칙은 `packageRules` 맨 앞에 둔다. Renovate는 일치하는 규칙을 순서대로 모두 적용하고 뒤 규칙이 이기므로 한
+group 규칙에 `automerge: false`를 두면 그 group만 멈춘다. Policy test가 이 순서를 단언한다.
 
 Patch·minor는 `minimumReleaseAge` 3일을 기다린다. Security update는 Renovate 기본값대로 release 대기·schedule·일반 PR 한도를 건너뛰고
 `vulnerabilityAlerts.prConcurrentLimit`이 동시 PR 수를 제한한다. `dev` → `main` 승격과 production 배포는 사람이 하고, 승격

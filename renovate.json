@@ -22,6 +22,17 @@
   "commitMessagePrefix": "chore(deps): 의존성",
   "packageRules": [
     {
+      "description": "Let Renovate squash-merge minor and patch updates, including vulnerability fixes, into dev once CI summary passes and the branch is up to date with dev. The automerge rules come first so a later group rule can set automerge to false for its group.",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "Automerge Docker Hub digest updates too: re-pushing a tag restarts minimumReleaseAge there. A GitHub Actions digest update (a moved tag) can pass minimumReleaseAge at once, so it waits for review.",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["digest"],
+      "automerge": true
+    },
+    {
       "description": "Group compatible lint and local developer tooling minor/patch updates.",
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["minor", "patch"],
@@ -196,17 +207,6 @@
       "matchUpdateTypes": ["minor", "patch", "digest"],
       "groupName": "observability-images",
       "groupSlug": "observability-images"
-    },
-    {
-      "description": "Let Renovate squash-merge minor and patch updates, including vulnerability fixes, into dev once CI summary passes and the branch is up to date with dev.",
-      "matchUpdateTypes": ["minor", "patch"],
-      "automerge": true
-    },
-    {
-      "description": "Automerge Docker Hub digest updates too: re-pushing a tag restarts minimumReleaseAge there. A GitHub Actions digest update (a moved tag) can pass minimumReleaseAge at once, so it waits for review.",
-      "matchDatasources": ["docker"],
-      "matchUpdateTypes": ["digest"],
-      "automerge": true
     },
     {
       "description": "Require an explicit dependency-dashboard decision for every major update in every manager; major updates never automerge.",
