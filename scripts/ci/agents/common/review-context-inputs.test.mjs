@@ -721,6 +721,32 @@ test('the repository binding yields rows for an API service path and a renamed h
       to,
     );
   }
+  // A renamed section heading and a convention row naming no criteria document stop the extract instead of
+  // dropping rows. A binding without the sections has none (the default fixture).
+  for (const [binding, reason] of [
+    [
+      BINDING_WITH_VALUES.replace('\n## 고른 값\n', '\n## 고른 값(L3)\n'),
+      /has "## 고른 값\(L3\)"/u,
+    ],
+    [
+      BINDING_WITH_VALUES.replace('\n## 저장소 규약\n', '\n## 저장소 규약 (L3)\n'),
+      /has "## 저장소 규약 \(L3\)"/u,
+    ],
+    [
+      BINDING_WITH_VALUES.replace(
+        BE_CONVENTION,
+        BE_CONVENTION.replace('web-be-service-layer', 'web-be-gone'),
+      ),
+      /names web-be-gone, not a criteria document/u,
+    ],
+  ]) {
+    write(root, BINDING, binding);
+    assert.throws(
+      () => collectReviewContext({ root, paths: [SCREEN_MODEL] }),
+      (error) => /^binding-values-invalid: /u.test(error.message) && reason.test(error.message),
+      String(reason),
+    );
+  }
   // A pack the discovery parser refuses stops the extract instead of passing zero rows.
   write(root, BINDING, BINDING_WITH_VALUES);
   write(root, `${PACK_DIR}/README.md`, '# pack\n');
