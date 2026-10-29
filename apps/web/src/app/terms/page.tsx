@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: '이용약관',
-  description: 'KNU 룸메 이용 조건과 서비스 운영 기준을 확인합니다.',
+  description: '돔두리 이용 조건과 서비스 운영 기준을 확인합니다.',
 };
 
 export default async function TermsPage() {

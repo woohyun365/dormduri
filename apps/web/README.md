@@ -32,15 +32,16 @@ pnpm web:check
 
 각 public 명령은 fresh checkout에서 단독 실행할 수 있도록 Shared build를 포함합니다. GitHub Actions는 `pnpm web:prepare`를 한 번 실행한 뒤 prepared command를 단계별로 실행해 준비 작업을 반복하지 않고 구간별 시간을 남깁니다.
 
-| 목적             | 로컬 public command        | CI prepared command                |
-| ---------------- | -------------------------- | ---------------------------------- |
-| 준비             | public command가 자동 수행 | `pnpm web:prepare`                 |
-| lint             | `pnpm web:lint`            | `pnpm web:lint:prepared`           |
-| typecheck        | `pnpm web:typecheck`       | `pnpm web:typecheck:prepared`      |
-| unit             | `pnpm web:test`            | `pnpm web:test:prepared`           |
-| build            | `pnpm web:build`           | `pnpm web:build:prepared`          |
-| browser smoke    | `pnpm web:e2e`             | `pnpm web:e2e:prepared`            |
-| Storybook static | `pnpm web:storybook:build` | 관련 변경에서 `ci:storybook:build` |
+| 목적                 | 로컬 public command                                       | CI prepared command                 |
+| -------------------- | --------------------------------------------------------- | ----------------------------------- |
+| 준비                 | public command가 자동 수행                                | `pnpm web:prepare`                  |
+| lint                 | `pnpm web:lint`                                           | `pnpm web:lint:prepared`            |
+| typecheck            | `pnpm web:typecheck`                                      | `pnpm web:typecheck:prepared`       |
+| unit                 | `pnpm web:test`                                           | `pnpm web:test:prepared`            |
+| build                | `pnpm web:build`                                          | `pnpm web:build:prepared`           |
+| browser smoke        | `pnpm web:e2e`                                            | `pnpm web:e2e:prepared`             |
+| Storybook static     | `pnpm web:storybook:build`                                | 관련 변경에서 `ci:storybook:build`  |
+| Storybook story 검사 | static build 뒤 `pnpm --dir apps/web ci:storybook:visual` | 관련 변경에서 `ci:storybook:visual` |
 
 Prepared command는 CI 내부 capability다. Web CI는 Next production build를 한 번만 만들고 같은 standalone artifact로 desktop/mobile Chromium smoke를 실행합니다. Storybook static build는 Storybook-owned 변경에서만 추가합니다.
 
@@ -52,7 +53,8 @@ pnpm --dir apps/web exec playwright install chromium
 
 ## Public metadata and performance smoke
 
-Landing SEO/share metadata는 `apps/web/src/app/metadata.ts`가 소유합니다.
+Landing SEO/share metadata는 `apps/web/src/app/metadata.ts`가 소유합니다. 탭 제목은 서비스 이름이 앞인 `돔두리 | 화면 이름`이고
+root title template이 붙입니다(root segment인 Landing은 같은 형식을 직접 씁니다).
 `NEXT_PUBLIC_APP_URL`은 canonical/robots/sitemap URL과 auth mutation origin 검증의 기준입니다.
 로컬/CI에서는 `http://localhost:3000`으로 안전하게 degrade하지만, production에는 실제 HTTPS origin을 반드시 주입합니다.
 production auth cookie는 `__Host-` prefix, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain` 규칙을 따릅니다.
@@ -86,8 +88,8 @@ Playwright는 desktop/mobile Chromium smoke를 제공하고, trace/screenshot/vi
 - Runtime env parser: `apps/web/src/config/env.schema.ts`, `apps/web/src/config/env.ts`
 - BFF proxy/security helper: `apps/web/src/app/api/_bff/security.ts`, `apps/web/src/app/api/_bff/forward.ts`
 - Vitest config/setup: `apps/web/vitest.config.ts`, `apps/web/src/test-setup.ts`
-- Playwright config/spec: `apps/web/playwright.config.ts`, `apps/web/playwright.fullstack.config.ts`, `apps/web/e2e/*`
-- Storybook config/spec: `apps/web/.storybook/*`, `apps/web/tsconfig.storybook.json`, `apps/web/src/main/tabs/home/__stories__/*`
+- Playwright config/spec: `apps/web/playwright.config.ts`, `apps/web/playwright.fullstack.config.ts`, `apps/web/playwright.storybook.config.ts`, `apps/web/e2e/*`, `apps/web/e2e/storybook/*`
+- Storybook config/spec: `apps/web/.storybook/*`, `apps/web/tsconfig.storybook.json`, `apps/web/src/main/tabs/home/__stories__/*`, `apps/web/src/styles/tokens/__stories__/*`, `apps/web/src/screens/**/*.stories.tsx`
 - Web Vitals seam: `apps/web/src/observability/*`
 
 ## Authoring rules

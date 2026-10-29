@@ -4,7 +4,7 @@ import SupportPageClient from '@/support/SupportPageClient';
 
 export const metadata: Metadata = {
   title: '문의하기',
-  description: 'KNU 룸메 고객센터와 문의 내역',
+  description: '돔두리 고객센터와 문의 내역',
 };
 
 function SupportPageFallback() {

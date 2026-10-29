@@ -130,7 +130,7 @@ test('rejects an owner decision that broadens repository scope or enables script
 test('keeps the installed provider selected-repository-only, approval-gated, and reversible', () => {
   for (const phrase of [
     'selected-repository 설치·active extraction·controlled PR 검증 완료',
-    'woohyun365/knu_roommate` 하나',
+    'woohyun365/dormduri` 하나',
     'Automated PRs',
     'Require config file',
     'Dependency Dashboard',
@@ -153,7 +153,8 @@ test('keeps dependency update operations bounded and timeout recovery owner-awar
     'Create all pending approval PRs at once',
     'Automated PRs',
     'provider queue',
-    'Dependabot npm',
+    'Dependabot은 alert만',
+    '자동 merge 멈춤',
     'GitHub Actions',
     'Docker Compose',
   ]) {

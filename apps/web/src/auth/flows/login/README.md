@@ -53,7 +53,7 @@ BFF route가 httpOnly cookie로만 browser session transport를 materialize한�
 `LoginPageClient`는 session/router/form orchestration만, `LoginFlowView`는 production과 Storybook이 공유하는 상태별 composition만 담당한다.
 `LoginLayout`은 desktop에서 `AuthResponsiveFrame` rail variant를 사용하며, header와 본문을 `max-w-5xl` 기준선에 맞춘다.
 왼쪽 안내 rail은 짧은 세로 viewport에서도 우측 form과 함께 밀리지 않도록 sticky로 두고, 오른쪽 title과 같은 상단 기준선에서 시작한다.
-Header의 KNU 로고를 form에 반복하지 않으며 독립 운영 고지는 desktop rail과 mobile title 아래에서 각각 한 번만 보이게 한다.
+Header의 서비스 로고를 form에 반복하지 않으며 독립 운영 고지는 desktop rail과 mobile title 아래에서 각각 한 번만 보이게 한다.
 
 | Directory / file                                                              | Responsibility                                                                    |
 | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |

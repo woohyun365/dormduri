@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { createLandingMetadata } from './metadata';
-import LandingPage from '@/landing/LandingPage';
+import { LandingScreen } from '@/screens/landing';
 
 export const metadata: Metadata = createLandingMetadata();
 
 export default function Home() {
-  return <LandingPage />;
+  return <LandingScreen />;
 }

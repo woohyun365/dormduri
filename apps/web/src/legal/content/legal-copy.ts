@@ -6,11 +6,11 @@ import {
 export const LEGAL_DOCUMENT_ROUTE_LABELS = {
   [LegalDocumentKind.TERMS_OF_SERVICE]: {
     title: '이용약관',
-    description: 'KNU 룸메 이용 조건과 서비스 운영 기준을 확인합니다.',
+    description: '돔두리 이용 조건과 서비스 운영 기준을 확인합니다.',
   },
   [LegalDocumentKind.PRIVACY_POLICY]: {
     title: '개인정보 처리방침',
-    description: 'KNU 룸메가 개인정보를 처리하고 보호하는 기준을 확인합니다.',
+    description: '돔두리가 개인정보를 처리하고 보호하는 기준을 확인합니다.',
   },
   [LegalDocumentKind.PERSONAL_DATA_COLLECTION_USE_CONSENT]: {
     title: '개인정보 수집·이용 동의',
@@ -18,7 +18,7 @@ export const LEGAL_DOCUMENT_ROUTE_LABELS = {
   },
   [LegalDocumentKind.AGE_14_OR_ABOVE_NOTICE]: {
     title: '만 14세 이상 확인',
-    description: 'KNU 룸메 가입 가능 연령 기준을 확인합니다.',
+    description: '돔두리 가입 가능 연령 기준을 확인합니다.',
   },
 } satisfies Record<LegalDocumentKindValue, { title: string; description: string }>;
 
@@ -40,7 +40,7 @@ export const LEGAL_DOCUMENT_COPY = {
   copyLinkActionLabel: '링크 복사',
   copyLinkSuccessLabel: '현재 문서 링크를 복사했습니다.',
   copyLinkUnavailableLabel: '브라우저에서 링크 복사를 지원하지 않습니다.',
-  homeLinkLabel: 'KNU 룸메 홈으로',
+  homeLinkLabel: '돔두리 홈으로',
   backActionLabel: '이전 화면으로',
   backActionAriaLabel: '이전 화면으로 돌아가기',
 } as const;

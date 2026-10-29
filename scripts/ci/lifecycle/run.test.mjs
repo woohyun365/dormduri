@@ -97,12 +97,13 @@ const pullRequestResponse =
     });
   };
 
-test('run.mjs registers the policy-first and area criteria checks and leaves only L-CONFIRM out of overrides', () => {
+test('run.mjs registers the policy-first, area criteria and review snapshot checks and leaves only L-CONFIRM out of overrides', () => {
   assert.deepEqual(
     LIFECYCLE_CHECKS.map((check) => [check.name, check.nonOverridable ?? []]),
     [
       ['policy-first', ['L-CONFIRM']],
       ['area-criteria', []],
+      ['review-snapshot', []],
     ],
   );
 });
@@ -344,4 +345,86 @@ test('local mode writes the area criteria rows to the summary', (t) => {
   );
   assert.match(outside.stdout, /^\| W-AREA \| pass \| 제품 경로 없음 \|$/mu);
   assert.equal(outside.status, 0, outside.stderr);
+});
+
+test('local mode writes the review snapshot rows and a body whose only findings are those warnings exits 0', (t) => {
+  const criteria = 'docs/development/agent-workflows/review-criteria/swe.md';
+  const repo = fixtureRepository(t, {
+    initial: { [criteria]: '# swe\n' },
+    head: { [criteria]: '# swe\n\n오탈자 수정\n' },
+  });
+
+  const run = spawnSync(
+    process.execPath,
+    [
+      runScript,
+      '--body-file',
+      bodyFixture('bugfix-review-warnings.md'),
+      '--base',
+      repo.baseSha,
+      '--head',
+      repo.headSha,
+    ],
+    { cwd: repo.root, encoding: 'utf8' },
+  );
+
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(
+    run.stdout,
+    /^\| W-REVIEW \| warn \| PASS head ffffffffffff를 저장소에서 찾지 못함\(rebase 등\) \|$/mu,
+  );
+  assert.match(
+    run.stdout,
+    /^\| W-REVIEW \| warn \| 재채점 줄 없음: trigger 경로 1개\(docs\/development\/agent-workflows\/review-criteria\/swe\.md\) \|$/mu,
+  );
+  assert.match(run.stdout, /^\| W-CAUSE \| warn \| bugfix에 원인 PR 줄 없음 \|$/mu);
+  assert.doesNotMatch(run.stdout, /^\| [^|]+ \| fail \|/mu);
+  assert.match(run.stdout, /- 결과: fail 0,/u);
+});
+
+test('local mode compares the PASS head with the PR head through git', (t) => {
+  const repo = fixtureRepository(t, {
+    head: { 'scripts/ci/example.mjs': '// first\n' },
+  });
+  const passHead = repo.headSha;
+  git(repo.root, 'switch', '-q', 'feature');
+  writeFiles(repo.root, {
+    'scripts/ci/example.mjs': '// after review\n',
+    'scripts/ci/added.mjs': '// new\n',
+  });
+  git(repo.root, 'add', '-A');
+  git(repo.root, 'commit', '-q', '-m', 'after review');
+  const headSha = git(repo.root, 'rev-parse', 'HEAD');
+  git(repo.root, 'switch', '-q', 'dev');
+  const body = resolve(repo.root, '..', `${repo.root.split('/').pop()}-body.md`);
+  t.after(() => rmSync(body, { force: true }));
+  writeFileSync(
+    body,
+    prBody({
+      lifecycle: [
+        ['변경 등급', 'feature'],
+        ['등급 근거', '검사 script'],
+        ['정책 도메인', '없음'],
+        [
+          '리뷰 PASS',
+          `c542b64e-32855c6a base=${repo.baseSha} head=${passHead} diff=none untracked=none`,
+        ],
+      ],
+    }),
+  );
+
+  const run = spawnSync(
+    process.execPath,
+    [runScript, '--body-file', body, '--base', repo.baseSha, '--head', headSha],
+    { cwd: repo.root, encoding: 'utf8' },
+  );
+
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(
+    run.stdout,
+    new RegExp(
+      `^\\| W-REVIEW \\| warn \\| PASS head ${passHead.slice(0, 12)} ≠ PR head ${headSha.slice(0, 12)}, PASS 뒤 바뀐 파일 2개: scripts/ci/added\\.mjs, scripts/ci/example\\.mjs \\|$`,
+      'mu',
+    ),
+  );
 });

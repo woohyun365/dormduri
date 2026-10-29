@@ -2,9 +2,9 @@ export const SUPPORT_FAQ_REFERENCE_ROWS = [
   {
     id: 'support-service-boundary-independent-service',
     category: 'OTHER',
-    question: 'KNU 룸메는 학교 공식 서비스인가요?',
+    question: '돔두리는 학교 공식 서비스인가요?',
     answer:
-      '아니요. KNU 룸메는 학교 공식 서비스가 아닌 독립 운영 서비스입니다. 학교 시스템과 연동하지 않고, 사용자가 입력한 정보로 룸메이트 탐색을 돕습니다.',
+      '아니요. 돔두리는 학교 공식 서비스가 아닌 독립 운영 서비스입니다. 학교 시스템과 연동하지 않고, 사용자가 입력한 정보로 룸메이트 탐색을 돕습니다.',
     published: true,
     sortOrder: 10,
     placements: [{ surface: 'SUPPORT_CENTER', sortOrder: 10 }],

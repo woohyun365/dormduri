@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -11,6 +10,7 @@ import type {
 } from '@repo/shared/support';
 import type { EnforcementNotice } from '@repo/shared/social-safety/enforcement';
 import type { ReportListItem } from '@repo/shared/social-safety/report';
+import { BrandLogo } from '@/screens/ui/brand';
 import { supportPageApi } from './api/support-page.api';
 import { SupportEnforcementNoticeList } from './components/SupportEnforcementNoticeList';
 import { SupportFaqList } from './components/SupportFaqList';
@@ -240,14 +240,7 @@ export default function SupportPageClient({
             href="/main"
             className="flex items-center gap-2 rounded-xl text-xl font-bold text-(--knu-text-primary)"
           >
-            <Image
-              src="/knu_logo.svg"
-              alt="KNU 룸메 로고"
-              width={36}
-              height={36}
-              className="rounded-xl"
-            />
-            <span>KNU 룸메</span>
+            <BrandLogo />
           </Link>
           <Link
             href="/main"

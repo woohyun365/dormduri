@@ -1,0 +1,581 @@
+{
+  "schema": "htc-workspace-layout-binding/v1",
+  "core": "workspace-layout.core.json",
+  "guide": "docs/development/agent-workflows/workspace-layout.md",
+  "roots": [
+    {
+      "id": "plans",
+      "core": "plans",
+      "path": ".plans",
+      "kind": "directory",
+      "purpose": "계획 문서(Markdown)만. 계획 진행 증거는 artifact-plans에 둔다",
+      "ruleOwner": "docs/development/agent-workflows/session-continuity.md",
+      "tracking": "ignored",
+      "trackedFiles": [
+        "cancelled/README.md",
+        "finished/README.md",
+        "pending/README.md",
+        "supporting/README.md"
+      ],
+      "creator": ["human"],
+      "children": "markdown-only",
+      "retention": {
+        "class": "current-input"
+      },
+      "copy": "unspecified",
+      "archive": "plans",
+      "reviewInput": true
+    },
+    {
+      "id": "artifacts",
+      "core": "artifacts",
+      "path": ".artifacts",
+      "kind": "directory",
+      "purpose": "계획 진행 증거·저장소 script 출력·외부 참조 자료의 공통 위치. README와 .gitignore만 추적한다",
+      "ruleOwner": ".artifacts/README.md",
+      "tracking": "ignored",
+      "trackedFiles": ["README.md", ".gitignore"],
+      "creator": ["human", "repository-script", "host-adapter"],
+      "children": {
+        "names": ["plans", "tools", "references"]
+      },
+      "copy": "forbidden",
+      "archive": "artifacts",
+      "reviewInput": true
+    },
+    {
+      "id": "artifact-plans",
+      "path": ".artifacts/plans",
+      "kind": "directory",
+      "purpose": "계획 진행 증거. 첫 단은 umbrella Plan ID, 둘째 단은 bounded Plan ID",
+      "ruleOwner": ".artifacts/README.md",
+      "tracking": "ignored",
+      "creator": ["human", "core-scaffold"],
+      "children": "declared-plan-id",
+      "retention": {
+        "class": "current-input",
+        "until": "plan-closed"
+      },
+      "copy": "allowed",
+      "archive": "artifacts"
+    },
+    {
+      "id": "tools",
+      "path": ".artifacts/tools",
+      "kind": "directory",
+      "purpose": "저장소 script 기본 출력(tools/<kind>/). kind별 보존은 toolKinds",
+      "ruleOwner": ".artifacts/README.md",
+      "tracking": "ignored",
+      "creator": ["repository-script", "host-adapter"],
+      "children": "tool-kinds",
+      "copy": "forbidden",
+      "archive": "artifacts",
+      "overridable": true
+    },
+    {
+      "id": "references",
+      "path": ".artifacts/references",
+      "kind": "directory",
+      "purpose": "외부에서 받은 참조 자료",
+      "ruleOwner": ".artifacts/README.md",
+      "tracking": "ignored",
+      "creator": ["human"],
+      "retention": {
+        "class": "historical-observation"
+      },
+      "copy": "unspecified",
+      "archive": "artifacts"
+    },
+    {
+      "id": "local-docs",
+      "path": ".local-docs",
+      "kind": "directory",
+      "purpose": "legacy·개인 분석·Owner 요청 문서. agent 기본 입력이 아니다",
+      "ruleOwner": "AGENTS.md",
+      "tracking": "ignored",
+      "creator": ["human"],
+      "retention": {
+        "class": "sensitive-or-undetermined"
+      },
+      "copy": "unspecified",
+      "archive": "local-docs",
+      "reviewInput": true
+    },
+    {
+      "id": "codex-hook-state",
+      "core": "state",
+      "path": ".codex/state",
+      "kind": "directory",
+      "purpose": "Codex subagent hook 기록. 그 checkout에 묶인다",
+      "ruleOwner": "docs/development/agent-workflows/adapters/codex-native-registry.md",
+      "tracking": "ignored",
+      "creator": ["host-adapter"],
+      "retention": {
+        "class": "current-input"
+      },
+      "copy": "forbidden"
+    },
+    {
+      "id": "omc",
+      "path": ".omc",
+      "kind": "directory",
+      "purpose": "OMC overlay runtime state",
+      "ruleOwner": "docs/development/agent-workflows/adapters/claude-code.md",
+      "tracking": "ignored",
+      "creator": ["overlay"],
+      "retention": {
+        "class": "sensitive-or-undetermined"
+      },
+      "copy": "forbidden",
+      "nestedState": true
+    },
+    {
+      "id": "omx",
+      "path": ".omx",
+      "kind": "directory",
+      "purpose": "OMX overlay runtime state. 저장소 root에서 시작한 세션만 root에 둔다",
+      "ruleOwner": "docs/development/agent-workflows/adapters/codex.md",
+      "tracking": "ignored",
+      "marker": ".omx-config.json",
+      "creator": ["overlay"],
+      "retention": {
+        "class": "sensitive-or-undetermined"
+      },
+      "copy": "forbidden",
+      "nestedState": true
+    },
+    {
+      "id": "omx-wiki",
+      "path": "omx_wiki",
+      "kind": "directory",
+      "purpose": "OMX가 명시적으로 승격한 재사용 지식(추적). OMX가 다시 만드는 index.md·log.md·session-log-*.md만 자체 .gitignore가 제외한다",
+      "ruleOwner": "docs/development/agent-workflows/adapters/codex.md",
+      "tracking": "tracked",
+      "creator": ["overlay"],
+      "copy": "unspecified"
+    },
+    {
+      "id": "claude-local",
+      "path": ".claude",
+      "kind": "directory",
+      "purpose": "Claude Code의 개인 설정·세션 항목. 검토한 adapter 파일만 .gitignore 예외로 추적한다",
+      "ruleOwner": ".gitignore",
+      "tracking": "ignored",
+      "trackedFilesOwner": ".gitignore",
+      "creator": ["host-adapter"],
+      "retention": {
+        "class": "sensitive-or-undetermined"
+      },
+      "copy": "forbidden"
+    },
+    {
+      "id": "product",
+      "core": "product",
+      "path": "docs/product",
+      "kind": "directory",
+      "purpose": "PRD 묶음",
+      "ruleOwner": "docs/product/README.md",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "copy": "allowed"
+    },
+    {
+      "id": "policies",
+      "core": "policies",
+      "path": "docs/policies",
+      "kind": "directory",
+      "purpose": "제품·보안·운영 불변 정책",
+      "ruleOwner": "docs/policies/README.md",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "copy": "allowed"
+    },
+    {
+      "id": "architecture",
+      "core": "architecture",
+      "path": "docs/architecture",
+      "kind": "directory",
+      "purpose": "책임 경계와 설계 결정(L1 개요)",
+      "ruleOwner": "docs/architecture/README.md",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "copy": "allowed"
+    },
+    {
+      "id": "decisions",
+      "core": "decisions",
+      "path": "docs/architecture/decisions",
+      "kind": "directory",
+      "purpose": "설계 결정 기록(L2)",
+      "ruleOwner": "docs/architecture/decisions/README.md",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "copy": "allowed"
+    },
+    {
+      "id": "artifact-map",
+      "core": "artifact-map",
+      "path": "docs/product/artifact-map.json",
+      "kind": "file",
+      "purpose": "제품 문서와 추적 산출물의 대응 기록",
+      "ruleOwner": "docs/product/README.md",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "copy": "allowed"
+    },
+    {
+      "id": "path-domains",
+      "core": "path-domains",
+      "path": "docs/policies/path-domains.json",
+      "kind": "file",
+      "purpose": "경로와 정책 도메인의 대응 표",
+      "ruleOwner": "docs/policies/README.md",
+      "tracking": "tracked",
+      "creator": ["human"],
+      "copy": "allowed"
+    }
+  ],
+  "toolKinds": [
+    {
+      "name": "build",
+      "retention": {
+        "class": "sensitive-or-undetermined"
+      },
+      "overridable": true
+    },
+    {
+      "name": "ci-performance",
+      "retention": {
+        "class": "historical-observation"
+      },
+      "overridable": true
+    },
+    {
+      "name": "claude-native",
+      "retention": {
+        "class": "current-input",
+        "until": "task-settled"
+      },
+      "overridable": false
+    },
+    {
+      "name": "claude-review-packets",
+      "retention": {
+        "class": "current-input",
+        "until": "task-settled"
+      },
+      "overridable": false
+    },
+    {
+      "name": "codex-native",
+      "retention": {
+        "class": "current-input",
+        "until": "task-settled"
+      },
+      "overridable": false
+    },
+    {
+      "name": "dependency-automation",
+      "retention": {
+        "class": "sensitive-or-undetermined"
+      },
+      "overridable": true
+    },
+    {
+      "name": "github",
+      "retention": {
+        "class": "sensitive-or-undetermined"
+      },
+      "overridable": true
+    },
+    {
+      "name": "infra",
+      "retention": {
+        "class": "sensitive-or-undetermined"
+      },
+      "overridable": true
+    },
+    {
+      "name": "plan-impact",
+      "retention": {
+        "class": "sensitive-or-undetermined"
+      },
+      "overridable": true
+    },
+    {
+      "name": "security",
+      "retention": {
+        "class": "sensitive-or-undetermined"
+      },
+      "overridable": true
+    },
+    {
+      "name": "stress",
+      "retention": {
+        "class": "historical-observation"
+      },
+      "overridable": true
+    },
+    {
+      "name": "test",
+      "retention": {
+        "class": "regenerable-output"
+      },
+      "overridable": true
+    }
+  ],
+  "archive": {
+    "path": "../Archives/knu_roommate",
+    "folders": ["plans", "artifacts", "local-docs", "design-history", "code", "_meta"],
+    "ruleOwner": ".artifacts/README.md"
+  },
+  "retiredRoots": [
+    {
+      "name": "artifacts",
+      "use": "artifacts"
+    },
+    {
+      "name": "local-docs",
+      "use": "local-docs"
+    },
+    {
+      "name": "references",
+      "use": "references"
+    }
+  ],
+  "guardExclusions": [
+    "node_modules",
+    ".pnpm-store/",
+    ".env",
+    ".env.*",
+    "pnpm-debug.log*",
+    "dist",
+    "build",
+    "out",
+    "coverage",
+    ".next/",
+    ".vercel",
+    "*.tsbuildinfo",
+    "next-env.d.ts",
+    ".DS_Store"
+  ],
+  "rootLiteralTransitionPlan": "workflow-workspace-scaffold",
+  "rootLiteralAllowlist": [
+    {
+      "file": ".codex/hooks/knu-subagent-hooks.mjs",
+      "text": "export const RECORD_DIRECTORY = '.codex/state/knu-subagent-hooks';",
+      "category": "host-constant",
+      "transition": "P4"
+    },
+    {
+      "file": ".codex/hooks/knu-subagent-hooks.mjs",
+      "text": "export const REGISTRY_DIRECTORY = '.artifacts/tools/codex-native';",
+      "category": "host-constant",
+      "transition": "P4"
+    },
+    {
+      "file": ".codex/hooks/knu-subagent-hooks.mjs",
+      "text": "'Ignored paths (.artifacts/, .plans/) and paths outside the repository stay writable.',",
+      "category": "message",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/claude/native-session.mjs",
+      "text": "if (!path.toLowerCase().startsWith('.artifacts/') || !statSync(target).isDirectory())",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/claude/native-session.mjs",
+      "text": "export const REVIEW_INPUT_RECORD_DIRS = ['.plans/', '.artifacts/', '.local-docs/'];",
+      "category": "review-input-roots",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/claude/native-session.mjs",
+      "text": "!(path.startsWith('.artifacts/') && isClaudeNativeEvidencePath(root, path))",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/claude/native-session.mjs",
+      "text": "return [...String(reason ?? '').matchAll(/`(\\.artifacts\\/[^`\\s]+)`/gu)].some(([, path]) => {",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/claude/native-task-helper.mjs",
+      "text": "!record.outputPaths.every((path) => path.startsWith('.artifacts/') && !path.includes('..'))",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/claude/native-task-helper.mjs",
+      "text": "issues.push(`records[${index}].outputPaths must stay under .artifacts/`);",
+      "category": "message",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/claude/native-task-helper.mjs",
+      "text": "const LOCAL_STATE_DIRS = ['.omc', '.omx', '.codex/state', '.claude/projects'];",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/claude/native-task-helper.mjs",
+      "text": "permittedOutputPaths: ['.artifacts'],",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/claude/native-task-helper.mjs",
+      "text": "!path.startsWith('.artifacts/') ||",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/claude/native-task-helper.mjs",
+      "text": "`review packet path must stay under .artifacts/ outside native evidence: ${path}`,",
+      "category": "message",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-contract.mjs",
+      "text": "const CONTEXT_PATH_PATTERN = /^\\.omx\\/context\\/[a-z0-9][a-z0-9-]*-\\d{8}T\\d{6}Z\\.md$/u;",
+      "category": "codex-context",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-contract.mjs",
+      "text": "errors.push('contextPath must match .omx/context/<task-slug>-<timestamp>.md');",
+      "category": "message",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "const contextPattern = /^\\.omx\\/context\\/([a-z0-9][a-z0-9-]*)-(\\d{8}T\\d{6}Z)\\.md$/u;",
+      "category": "codex-context",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "const directory = inspectPath('.omx/context', '.omx/context', 'directory');",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "const path = `.omx/context/${entry.name}`;",
+      "category": "codex-context",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "info.selected?.path.startsWith('.omx/plans/finished/')",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "const body = readBounded(path, '.omx/context');",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "const source = readBounded(path, '.omx/plans');",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "if (input.startsWith('.plans/')) return '.plans';",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "if (input.startsWith('.omx/plans/')) return '.omx/plans';",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "planOwner(input) !== '.plans' && legacyPath.startsWith('.omx/plans/') ? legacyPath : input;",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "if (!owner) fail('--plan must point safely inside .plans/ or explicitly inside .omx/plans/.');",
+      "category": "message",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "const binding = owner === '.plans' ? readPlan(repoRoot, path) : null;",
+      "category": "path-check",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "if (binding?.state === 'unsafe') fail('--plan must point safely inside .plans/.');",
+      "category": "message",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/session-preflight.mjs",
+      "text": "if (!inspected.safe) fail('--plan must point safely inside .plans/ or .omx/plans/.');",
+      "category": "message",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/codex/subagent-hook-records.mjs",
+      "text": "export const HOOK_RECORD_DIRECTORY = '.codex/state/knu-subagent-hooks';",
+      "category": "host-constant",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/common/plan-reference-check.mjs",
+      "text": "detail: `no plan under .plans has Plan ID ${target.planId}`,",
+      "category": "message",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/agents/common/plan-store.mjs",
+      "text": "export const PLAN_ROOT = '.plans';",
+      "category": "host-constant",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/artifacts/paths.mjs",
+      "text": "export const DEFAULT_ARTIFACTS_DIRECTORY = '.artifacts/tools';",
+      "category": "paths-default",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/ci/lanes/classify-changes.mjs",
+      "text": "'.artifacts/',",
+      "category": "classifier-workspace",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/ci/lanes/classify-changes.mjs",
+      "text": "'.plans/',",
+      "category": "classifier-workspace",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/ci/lanes/classify-changes.mjs",
+      "text": "'.omx-config.json',",
+      "category": "classifier-workspace",
+      "transition": "P4"
+    },
+    {
+      "file": "scripts/git/workspace-layout-check.mjs",
+      "text": "'See .artifacts/README.md and the host adapter guide; move the content instead of deleting it.',",
+      "category": "message",
+      "transition": "P4"
+    }
+  ]
+}

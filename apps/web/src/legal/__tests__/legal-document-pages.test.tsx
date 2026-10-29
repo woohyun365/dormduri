@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LegalDocumentKind } from '@repo/shared/legal';
 import TermsPage, { dynamic as termsDynamic, metadata as termsMetadata } from '@/app/terms/page';
@@ -65,8 +65,9 @@ describe('public legal document pages', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'API 이용약관' })).toBeInTheDocument();
     expect(screen.getByText('2026년 6월 22일 시행본')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'KNU 룸메 홈으로' })).toBeInTheDocument();
-    expect(screen.getByAltText('KNU 룸메 로고')).toBeInTheDocument();
+    const homeLink = screen.getByRole('link', { name: '돔두리 홈으로' });
+    expect(within(homeLink).getAllByRole('img')).toHaveLength(1);
+    expect(within(homeLink).getByRole('img', { name: '돔두리' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /^홈으로$/ })).not.toBeInTheDocument();
     const backButton = screen.getByRole('button', { name: '이전 화면으로 돌아가기' });
     expect(backButton).toBeInTheDocument();
@@ -112,7 +113,7 @@ describe('public legal document pages', () => {
     const { container } = render(await PrivacyPage());
 
     expect(
-      screen.getByRole('heading', { level: 1, name: 'KNU 룸메 개인정보 처리방침' }),
+      screen.getByRole('heading', { level: 1, name: '돔두리 개인정보 처리방침' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('서비스에 함께 배포된 공개 문서');
     expect(screen.getByRole('status')).toHaveTextContent('서버의 최신 문서 기준으로 다시 확인');

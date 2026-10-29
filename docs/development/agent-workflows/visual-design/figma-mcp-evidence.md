@@ -1,5 +1,7 @@
 # Figma MCP evidence and connection readiness
 
+이 문서는 KNU Roommate 저장소의 도구 binding 문서로, [repo binding](../domain/knu-binding.md)의 `tool.design-source`가 가리키는 Figma 연결의 절차와 증거 경계를 둡니다.
+
 ## Repository boundary
 
 - Account와 OAuth: repository가 소유하거나 보장하지 않음

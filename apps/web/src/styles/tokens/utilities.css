@@ -1,0 +1,306 @@
+/* Utilities built on the 돔두리 tokens. Apply with a state variant, e.g. focus-visible:focus-ring. */
+@utility focus-ring {
+  outline-style: solid;
+  outline-width: var(--focus-ring-width);
+  outline-color: var(--band-focus-color, var(--color-stroke-focus));
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* A band whose surface can match stroke-focus (inverse, photo) sets the ring color for everything
+   inside it. */
+@utility focus-on-inverse {
+  --band-focus-color: var(--color-fg-on-inverse);
+}
+
+@utility focus-on-media {
+  --band-focus-color: var(--color-fg-on-media);
+}
+
+/* Scroll entrance. A script marks a section pending only when motion is allowed; the pending state
+   comes from a variant, e.g. group-data-pending:opacity-0 (reveal-soft below), so section text fades in
+   from a blur. reveal-delay-* staggers the entrance. The reduced motion context sets the durations to
+   0ms. */
+@utility reveal-delay-* {
+  transition-delay: calc(var(--duration-stagger) * --value(integer));
+}
+
+/* Load entrance for a hero. line-rise moves a text line up out of a clipping
+   line box, so the text keeps full opacity for contrast checks; media-settle eases a photo from a
+   slight zoom. Both finish at once in the reduced motion context (durations 0ms). */
+@keyframes line-rise {
+  from {
+    translate: 0 105%;
+  }
+}
+
+@keyframes media-settle {
+  from {
+    scale: 1.08;
+  }
+}
+
+@utility line-rise {
+  animation: line-rise var(--duration-reveal) var(--ease-emphasized) both;
+}
+
+/* The clipping box around a line-rise line. It clips only while the line rises (give it the same
+   enter-delay), so a glow or lift on the text is not cut into a box once the line is in place; sideways
+   it never clips. It only holds the clip for the rise, so its timing is linear. Reduced motion ends it
+   at once. */
+@keyframes line-mask {
+  from,
+  to {
+    clip-path: inset(0 -100vw);
+  }
+}
+
+@utility line-mask {
+  animation: line-mask var(--duration-reveal) linear backwards;
+}
+
+/* Staggers any load or state animation by stagger steps, e.g. line-rise enter-delay-2. */
+@utility enter-delay-* {
+  animation-delay: calc(var(--duration-stagger) * --value(integer));
+}
+
+@utility media-settle {
+  animation: media-settle var(--duration-settle) var(--ease-emphasized) both;
+}
+
+/* A hero photo that moves down slower than the page while the first screen scrolls away. Scroll-driven
+   animation needs no script; browsers without it and reduced motion keep the photo still. */
+@keyframes media-drift {
+  to {
+    translate: 0 12%;
+  }
+}
+
+@utility media-drift {
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: scroll()) {
+      animation: media-drift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 100svh;
+    }
+  }
+}
+
+/* Reference layout interactions (Glide). Each one animates transforms or
+   decorative pieces only, so text keeps full opacity, and each finishes at once in the reduced motion
+   context. card-in swings a tilted card up into its own rotation. */
+@keyframes card-in {
+  from {
+    translate: 0 3rem;
+    rotate: 0deg;
+  }
+}
+
+@utility card-in {
+  animation: card-in var(--duration-settle) var(--ease-emphasized) both;
+}
+
+/* Depth, for window frames, cards and text that floats above the page only. Shadows mix the scrim role into transparency, so they follow the palette,
+   dark included; nothing else uses a shadow. */
+@utility depth-card {
+  box-shadow:
+    0 1px 2px color-mix(in oklab, var(--color-media-scrim) 18%, transparent),
+    0 12px 32px -12px color-mix(in oklab, var(--color-media-scrim) 45%, transparent);
+}
+
+@utility depth-window {
+  box-shadow:
+    0 2px 6px color-mix(in oklab, var(--color-media-scrim) 20%, transparent),
+    0 32px 80px -24px color-mix(in oklab, var(--color-media-scrim) 60%, transparent);
+}
+
+@utility depth-glow {
+  box-shadow:
+    0 4px 10px color-mix(in oklab, var(--color-media-scrim) 25%, transparent),
+    0 16px 40px -8px color-mix(in oklab, var(--color-brand-solid) 55%, transparent);
+}
+
+/* Text that floats: a lift in the page color under it and a faint white glow around it. On a dark
+   page both read as depth; on a light page both fade into the page, so dark text gets no smudge. */
+@utility text-lift {
+  text-shadow:
+    0 2px 18px color-mix(in oklab, var(--color-layer-basement) 80%, transparent),
+    0 0 36px color-mix(in oklab, var(--color-fg-on-media) 14%, transparent);
+}
+
+@utility text-glow {
+  text-shadow: 0 0 28px color-mix(in oklab, var(--color-brand-solid) 60%, transparent);
+}
+
+/* Scroll entrance that sharpens from a blur (SK hynix AI hackathon statements); pending state comes
+   from group-data-pending variants like reveal. */
+@utility reveal-soft {
+  transition-property: opacity, translate, filter;
+  transition-duration: var(--duration-band);
+  transition-timing-function: var(--ease-emphasized);
+}
+
+/* Two overlapping cards trading places: the one in front stays opaque, the one behind fades
+   and shrinks a little. Reduced motion swaps at once (durations 0ms). */
+@utility stack-swap {
+  transition-property: opacity, scale;
+  transition-duration: var(--duration-slow);
+  transition-timing-function: var(--ease-emphasized);
+}
+
+/* The scrim that darkens the card behind, in step with stack-swap. */
+@utility stack-dim {
+  transition-property: opacity;
+  transition-duration: var(--duration-slow);
+  transition-timing-function: var(--ease-emphasized);
+}
+
+/* A pill that comes forward under the pointer or keyboard focus; its depth stays the pill's own
+   (depth-glow on the sign-up link). */
+@utility lift-on-hover {
+  transition-property: scale, translate;
+  transition-duration: var(--duration-slow);
+  transition-timing-function: var(--ease-emphasized);
+  &:hover,
+  &:focus-visible {
+    scale: 1.08;
+    translate: 0 -0.125rem;
+  }
+}
+
+/* A framed screen that grows into place while it scrolls into view; reduced motion and browsers
+   without view timelines show it at full size. */
+@keyframes scroll-zoom {
+  from {
+    scale: 0.92;
+    translate: 0 2rem;
+  }
+}
+
+@utility scroll-zoom {
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      animation: scroll-zoom linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 35%;
+    }
+  }
+}
+
+/* Struck-through backdrop words that flicker like a bulb on a voltage dip when their section
+   enters, together, and settle half gone (two quick dips, a pause, one more: "-- -").
+   It runs only while the section is not pending, so the run a visitor sees is the one when they
+   scroll to it. Once, 1.4 s: three flashes inside one second at most (WCAG 2.3.1) and done well
+   within 5 s (2.2.2 needs no pause control then). Reduced motion: still. */
+@keyframes ghost-blink {
+  0%,
+  9%,
+  19%,
+  52% {
+    opacity: 1;
+  }
+  4%,
+  14%,
+  57% {
+    opacity: 0.2;
+  }
+  64%,
+  100% {
+    opacity: 0.5;
+  }
+}
+
+@utility ghost-blink {
+  @media (prefers-reduced-motion: no-preference) {
+    [data-reveal-section]:not([data-pending]) & > * {
+      animation: ghost-blink 1.4s linear var(--duration-band) both;
+    }
+  }
+}
+
+/* Field bubbles under a statement: a short bob when the section enters (two 2 s
+   rounds, staggered by inline delays, so the motion is over within 5 s: WCAG 2.2.2). Reduced
+   motion: still. */
+@keyframes float-bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -0.5rem;
+  }
+}
+
+@utility float-bob {
+  @media (prefers-reduced-motion: no-preference) {
+    [data-reveal-section]:not([data-pending]) & {
+      animation: float-bob 2s var(--ease-standard) var(--duration-band) 2;
+    }
+  }
+}
+
+/* Two answer sheets the visitor lays one on the other. --overlap runs from 0 (apart) to 1
+   (met) and --to-x/--to-y point from the 상대 sheet to mine; each sheet goes half the way, so they meet
+   in the middle. Once met, the two coins of a pair shrink a little and part, overlapping by a third
+   so both icons show (pair-coin-*; they stay inside a 5rem cell), what would print over the other
+   sheet fades (pair-fade) and the pair names come in (pair-show). --overlap is registered so
+   pair-ease can animate a button press through all of them; a drag follows the pointer as is.
+   Reduced motion: the press jumps. */
+@property --overlap {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@utility pair-ease {
+  @media (prefers-reduced-motion: no-preference) {
+    transition: --overlap var(--duration-band) var(--ease-standard);
+  }
+}
+
+@utility pair-sheet-mine {
+  translate: calc(var(--overlap) * var(--to-x) * -0.5) calc(var(--overlap) * var(--to-y) * -0.5);
+}
+
+@utility pair-sheet-theirs {
+  translate: calc(var(--overlap) * var(--to-x) * 0.5) calc(var(--overlap) * var(--to-y) * 0.5);
+}
+
+@utility pair-coin-mine {
+  translate: calc(var(--overlap) * -0.85rem) 0;
+  scale: calc(1 - var(--overlap) * 0.15);
+}
+
+@utility pair-coin-theirs {
+  translate: calc(var(--overlap) * 0.85rem) 0;
+  scale: calc(1 - var(--overlap) * 0.15);
+}
+
+@utility pair-fade {
+  opacity: clamp(0, 1 - var(--overlap) * 2, 1);
+}
+
+@utility pair-show {
+  opacity: clamp(0, var(--overlap) * 2 - 1, 1);
+}
+
+/* Purely decorative words (a struck-through backdrop behind a statement) drawn as generated content
+   from data-word, so they stay out of the text a reader or a contrast check reads. Keep the element
+   aria-hidden as well. */
+@utility ghost-word {
+  &::before {
+    content: attr(data-word);
+  }
+}
+
+/* A pen line that draws itself (marks on a checklist). Use on an SVG path with pathLength 1;
+   group-data-pending:pen-stroke-pending holds it undrawn until its section enters. Reduced motion
+   shows it drawn at once. */
+@utility pen-stroke {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset var(--duration-settle) var(--ease-emphasized);
+}
+
+@utility pen-stroke-pending {
+  stroke-dashoffset: 1;
+}

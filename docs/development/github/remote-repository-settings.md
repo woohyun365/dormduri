@@ -23,7 +23,9 @@ GitHub repository setting은 tracked file과 별도의 control plane입니다. �
 | Up-to-date requirement      | 기본 off                                           | fresh `dev` 순차 PR로 보완하고 중복 full CI 방지             |
 | Required reviewer           | 0                                                  | 1인 저장소에서 자기승인/bypass 의식을 만들지 않음            |
 | Vulnerability alerts        | enabled                                            | dependency 취약점 발견 owner                                 |
-| Dependabot security updates | enabled                                            | 보안 update와 정기 version update 책임 분리                  |
+| Dependabot security updates | disabled                                           | 보안 PR은 Renovate가 `dev`로 연다                            |
+| Allow auto-merge            | disabled                                           | Renovate 자체 merge만 사용                                   |
+| Mend Portal Automated PRs   | ON                                                 | Dashboard 승인 없이 non-major Renovate PR을 연다             |
 | Actions artifact retention  | 7일 기본, consumer별 더 짧게 검토                  | 필요한 실패/재사용 evidence만 effective allowance 안에 유지  |
 | Actions cache               | 10GB 이내, thrash 없이 유지                        | build 속도 surface; artifact/Packages와 별도 측정            |
 | Environment / secrets       | caller가 없으면 absent                             | 현재 CI-only 경계에서 speculative credential surface 금지    |
@@ -62,41 +64,42 @@ consumer가 확인된 경우에만 classic Branches 전환을 별도 migration�
 ## 현재 evidence
 
 - checkedAt: 2026-08-27
-- repository: `woohyun365/knu_roommate`
+- repository: `woohyun365/dormduri`
 - operator: local authenticated `gh` read-only inspection
 
-| Setting                     | Actual                                                                               | Status              |
-| --------------------------- | ------------------------------------------------------------------------------------ | ------------------- |
-| Plan / visibility           | GitHub Pro / private                                                                 | `VERIFIED_REMOTE`   |
-| Default branch              | `main`                                                                               | `VERIFIED_REMOTE`   |
-| Repository features         | Issues on; Wiki, Projects, Discussions, template off                                 | `VERIFIED_REMOTE`   |
-| Merge methods               | merge commit + squash enabled, rebase off; PR title + PR body; auto-merge off        | `VERIFIED_REMOTE`   |
-| Delete branch on merge      | `delete_branch_on_merge=true`; merged bounded head 자동 정리                         | `VERIFIED_REMOTE`   |
-| Actions                     | selected; GitHub-owned true, verified creators false, `pnpm/action-setup@*` only     | `VERIFIED_REMOTE`   |
-| Full-SHA requirement        | `sha_pinning_required=true`                                                          | `VERIFIED_REMOTE`   |
-| `dev` ruleset               | `dev-integration-gate` active on exact `dev`; linear history, squash only, no bypass | `VERIFIED_REMOTE`   |
-| `main` ruleset              | `main-release-gate` active on default branch; no linear rule, merge only, no bypass  | `VERIFIED_REMOTE`   |
-| PR rule                     | both zero approvals and conversation resolution; target-specific merge method        | `VERIFIED_REMOTE`   |
-| Required status             | both require `CI summary`, GitHub Actions app `15368`, strict up-to-date off         | `VERIFIED_REMOTE`   |
-| Force push / deletion       | non-fast-forward and deletion blocked                                                | `VERIFIED_REMOTE`   |
-| Vulnerability alerts        | endpoint `204`                                                                       | `VERIFIED_REMOTE`   |
-| Dependabot malware alerts   | enabled                                                                              | `VERIFIED_OWNER_UI` |
-| Dependabot security updates | `enabled=true`, `paused=false`; grouped security updates enabled                     | `VERIFIED_REMOTE`   |
-| Workflow token              | `default_workflow_permissions=read`, PR approval off                                 | `VERIFIED_REMOTE`   |
-| Private fork PR             | workflow/write token disabled; fork workflow execution disabled                      | `VERIFIED_REMOTE`   |
-| Artifact/log retention      | owner UI 7 days                                                                      | `VERIFIED_OWNER_UI` |
-| Actions cache policy        | owner UI 7-day retention / 10GiB eviction; API 7,475,286,431 bytes, 29 entries       | `VERIFIED_REMOTE`   |
-| Actions artifacts           | 104 active, 8,178,655 bytes; observed retention 7 days (2026-08-27)                  | `VERIFIED_REMOTE`   |
-| Effective shared storage    | owner Billing UI와 Packages billing contract 기준 Pro shared storage 2GB             | `VERIFIED_OWNER_UI` |
-| GitHub Packages             | owner UI에서 package 0개 확인; 별도 Packages credential 없음                         | `VERIFIED_OWNER_UI` |
-| Installed GitHub Apps       | owner UI: ChatGPT Codex Connector selected repo only, Renovate                       | `VERIFIED_OWNER_UI` |
-| Classic branch protection   | `main`·`dev` 모두 없음; active Rulesets가 effective protection owner                 | `VERIFIED_REMOTE`   |
-| Remote branch inventory     | protected `main`, `dev`만 존재; 기존 merged head 23개 owner-approved cleanup 완료    | `VERIFIED_REMOTE`   |
-| Environments                | 0; unused legacy `copilot` environment 삭제                                          | `VERIFIED_REMOTE`   |
-| Webhooks / deploy keys      | 각각 0                                                                               | `VERIFIED_REMOTE`   |
-| Repository secrets/vars     | Actions·Dependabot·Codespaces·legacy environment 모두 0                              | `VERIFIED_REMOTE`   |
-| Pages                       | disabled                                                                             | `VERIFIED_REMOTE`   |
-| Code/Secret paid products   | Code Scanning disabled; personal private repo에서 별도 paid owner decision까지 보류  | `VERIFIED_REMOTE`   |
+| Setting                     | Actual                                                                               | Status                 |
+| --------------------------- | ------------------------------------------------------------------------------------ | ---------------------- |
+| Plan / visibility           | GitHub Pro / private                                                                 | `VERIFIED_REMOTE`      |
+| Default branch              | `main`                                                                               | `VERIFIED_REMOTE`      |
+| Repository features         | Issues on; Wiki, Projects, Discussions, template off                                 | `VERIFIED_REMOTE`      |
+| Merge methods               | merge commit + squash enabled, rebase off; PR title + PR body; auto-merge off        | `VERIFIED_REMOTE`      |
+| Delete branch on merge      | `delete_branch_on_merge=true`; merged bounded head 자동 정리                         | `VERIFIED_REMOTE`      |
+| Actions                     | selected; GitHub-owned true, verified creators false, `pnpm/action-setup@*` only     | `VERIFIED_REMOTE`      |
+| Full-SHA requirement        | `sha_pinning_required=true`                                                          | `VERIFIED_REMOTE`      |
+| `dev` ruleset               | `dev-integration-gate` active on exact `dev`; linear history, squash only, no bypass | `VERIFIED_REMOTE`      |
+| `main` ruleset              | `main-release-gate` active on default branch; no linear rule, merge only, no bypass  | `VERIFIED_REMOTE`      |
+| PR rule                     | both zero approvals and conversation resolution; target-specific merge method        | `VERIFIED_REMOTE`      |
+| Required status             | both require `CI summary`, GitHub Actions app `15368`, strict up-to-date off         | `VERIFIED_REMOTE`      |
+| Force push / deletion       | non-fast-forward and deletion blocked                                                | `VERIFIED_REMOTE`      |
+| Vulnerability alerts        | endpoint `204`                                                                       | `VERIFIED_REMOTE`      |
+| Dependabot malware alerts   | enabled                                                                              | `VERIFIED_OWNER_UI`    |
+| Dependabot security updates | 목표 disabled; 마지막 확인 `enabled=true`, `paused=false`                            | `PENDING_OWNER_ACTION` |
+| Mend Portal Automated PRs   | 목표 ON; 마지막 확인 OFF(2026-08-24 provider 검증)                                   | `PENDING_OWNER_ACTION` |
+| Workflow token              | `default_workflow_permissions=read`, PR approval off                                 | `VERIFIED_REMOTE`      |
+| Private fork PR             | workflow/write token disabled; fork workflow execution disabled                      | `VERIFIED_REMOTE`      |
+| Artifact/log retention      | owner UI 7 days                                                                      | `VERIFIED_OWNER_UI`    |
+| Actions cache policy        | owner UI 7-day retention / 10GiB eviction; API 7,475,286,431 bytes, 29 entries       | `VERIFIED_REMOTE`      |
+| Actions artifacts           | 104 active, 8,178,655 bytes; observed retention 7 days (2026-08-27)                  | `VERIFIED_REMOTE`      |
+| Effective shared storage    | owner Billing UI와 Packages billing contract 기준 Pro shared storage 2GB             | `VERIFIED_OWNER_UI`    |
+| GitHub Packages             | owner UI에서 package 0개 확인; 별도 Packages credential 없음                         | `VERIFIED_OWNER_UI`    |
+| Installed GitHub Apps       | owner UI: ChatGPT Codex Connector selected repo only, Renovate                       | `VERIFIED_OWNER_UI`    |
+| Classic branch protection   | `main`·`dev` 모두 없음; active Rulesets가 effective protection owner                 | `VERIFIED_REMOTE`      |
+| Remote branch inventory     | protected `main`, `dev`만 존재; 기존 merged head 23개 owner-approved cleanup 완료    | `VERIFIED_REMOTE`      |
+| Environments                | 0; unused legacy `copilot` environment 삭제                                          | `VERIFIED_REMOTE`      |
+| Webhooks / deploy keys      | 각각 0                                                                               | `VERIFIED_REMOTE`      |
+| Repository secrets/vars     | Actions·Dependabot·Codespaces·legacy environment 모두 0                              | `VERIFIED_REMOTE`      |
+| Pages                       | disabled                                                                             | `VERIFIED_REMOTE`      |
+| Code/Secret paid products   | Code Scanning disabled; personal private repo에서 별도 paid owner decision까지 보류  | `VERIFIED_REMOTE`      |
 
 이 표는 snapshot입니다. 미래 작업은 표의 문장을 current truth로 가정하지 않고 아래 command로 다시 조회합니다.
 
@@ -160,7 +163,8 @@ evidence link:
 2. full-SHA requirement와 allowed-actions 정책을 적용하고 PR CI를 실행합니다.
 3. bounded PR→`dev`는 squash, `dev`→`main`은 merge commit인지 확인하고 merged head auto-delete와 protected
    `main`·`dev` retention이 함께 유지되는지 확인합니다.
-4. vulnerability alerts와 Dependabot security updates를 확인합니다.
+4. vulnerability alerts가 켜져 있고 Dependabot security updates와 Allow auto-merge가 꺼져 있는지 확인합니다. 보안 PR은
+   Renovate가 `dev`로 엽니다. Mend Portal Automated PRs는 Owner가 Portal 화면에서 확인합니다.
 5. GitHub Pro ruleset 또는 branch protection으로 `CI summary`를 required check로 설정하고 strict up-to-date는 기본 off로
    둡니다.
 6. 실제값과 blocker를 이 문서에 갱신하되 secret이나 raw credential response는 기록하지 않습니다.

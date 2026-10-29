@@ -14,6 +14,7 @@
 - [Plan authoring](./plan-authoring/README.md): 공통 계획 계약과 FE·BE·Infrastructure progressive-disclosure guide
 - [Visual design](./visual-design/README.md): 내용·동작 보존과 스타일 탐색, 구체적 후보·독립 비평·수정·사람의 선택; Figma는 선택 사항
 - [Session continuity](./session-continuity.md): fresh/resume, checkpoint, active plan과 closeout 규칙
+- [Workspace layout manifest](./workspace-layout.md): 작업 공간 root manifest의 필드 의미, override 경계, layout guard와 일치 test
 - [Orchestration](./orchestration.md): host 공통 single-agent 기본값, bounded fan-out과 책임 경계
 - [Host adapters](./adapters/README.md): Codex/OMX 전용 모델·runtime 및 Claude Code native 역할·권한·skill 적용
 - [Cross-model QA handoff](./adapters/cross-model-handoff.md): Codex↔Claude 독립 checker의 단일 writer, fresh snapshot, finding 재현과 live qualification 경계

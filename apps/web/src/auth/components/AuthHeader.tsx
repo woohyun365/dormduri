@@ -1,6 +1,6 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
+import { BrandLogo } from '@/screens/ui/brand';
 
 interface AuthHeaderProps {
   onBack?: () => void;
@@ -36,15 +36,12 @@ export function AuthHeader({
               <ChevronLeft className="h-6 w-6 text-(--knu-text-primary)" />
             </button>
           )}
-          <Link href="/" onClick={handleLogoClick} className="flex items-center gap-2">
-            <Image
-              src="/knu_logo.svg"
-              alt="KNU 로고"
-              width={32}
-              height={32}
-              className="rounded-lg"
-            />
-            <span className="text-lg font-bold text-(--knu-text-primary)">KNU 룸메</span>
+          <Link
+            href="/"
+            onClick={handleLogoClick}
+            className="flex items-center gap-2 text-(--knu-text-primary)"
+          >
+            <BrandLogo />
           </Link>
         </div>
       </div>

@@ -56,7 +56,7 @@ gh auth setup-git -h github.com
 - gh storage/protocol: OS keyring / HTTPS
 - daily scope class: `gist`, `read:org`, `repo`, `workflow`
 - Git credential owner: `gh auth git-credential`
-- repository read: private `woohyun365/knu_roommate`, default branch `main`
+- repository read: private `woohyun365/dormduri`, default branch `main`
 - Actions read: verified
 - Connector installation: `Only select repositories`, this repository only
 - Connector permission: `Allow read actions`
@@ -156,7 +156,7 @@ GitHub connector는 local gh token을 사용하지 않습니다. ChatGPT/Codex�
 기본 경계:
 
 - GitHub App installation은 `Only select repositories`로 제한합니다.
-- 이 프로젝트에는 `woohyun365/knu_roommate`만 허용합니다.
+- 이 프로젝트에는 `woohyun365/dormduri`만 허용합니다.
 - Current Plugin detail은 **Permissions**, **Skills**, **Read actions**, **Information**을 분리합니다.
   - Permissions: `Always ask`, `Allow read actions`, `Allow low-risk actions`, `Allow all actions` 중 **Allow read actions**를
     선택합니다. Read는 자동 허용하되 write/change action은 사용자 승인을 요구하는 경계입니다.

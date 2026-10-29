@@ -29,6 +29,7 @@ const localPlanBoundaryAllowlist = new Set([
   'docs/development/agent-workflows/adapters/codex.md',
   // Host lifecycle examples and disposable fixtures, never active-plan authority.
   'docs/development/agent-workflows/adapters/claude-code.md',
+  'docs/development/agent-workflows/adapters/claude-workflow-entry.md',
   'scripts/ci/agents/claude/claude-session-preflight.test.mjs',
   'scripts/ci/agents/claude/claude-workflow-entry.test.mjs',
   'scripts/ci/agents/common/agent-native-adapter-contract.test.mjs',
@@ -44,6 +45,8 @@ const localPlanBoundaryAllowlist = new Set([
   'scripts/ci/agents/codex/codex-workflow-entry.test.mjs', // Disposable plan lifecycle fixture, not durable authority.
   'scripts/agents/fixtures/codex-preflight/disposable-preflight.mjs',
   'scripts/git/workspace-layout-check.test.mjs', // Detector fixture paths, not plan authority.
+  // Root literal allowlist: the quoted source lines of host plan path checks, not plan authority.
+  'scripts/artifacts/workspace-layout.knu.json',
   // Plan reference checker fixtures: a disposable repository copy whose plan paths are the checked input.
   'scripts/ci/agents/common/plan-reference-check.test.mjs',
   'scripts/ci/agents/common/fixtures/plan-reference/.plans/x-plan.md',
@@ -271,8 +274,9 @@ test('agentic decisions and orchestration keep bounded single-first routing', ()
     resolve(repoRoot, 'docs/development/agent-workflows/orchestration.md'),
     'utf8',
   );
-  const codexAdapter = readFileSync(
-    resolve(repoRoot, 'docs/development/agent-workflows/adapters/codex.md'),
+  // The Codex effort routing detail moved from the adapter entry to its reference.
+  const codexEffortRouting = readFileSync(
+    resolve(repoRoot, 'docs/development/agent-workflows/adapters/codex-effort-routing.md'),
     'utf8',
   );
 
@@ -282,20 +286,20 @@ test('agentic decisions and orchestration keep bounded single-first routing', ()
   assert.match(orchestration, /single agent/u);
   assert.match(orchestration, /Codex\/OMX adapter/u);
   assert.match(orchestration, /Claude Code adapter/u);
-  assert.match(codexAdapter, /Pass 1/u);
-  assert.match(codexAdapter, /Pass 2/u);
-  assert.match(codexAdapter, /medium/u);
-  assert.match(codexAdapter, /high/u);
-  assert.match(codexAdapter, /xhigh/u);
+  assert.match(codexEffortRouting, /Pass 1/u);
+  assert.match(codexEffortRouting, /Pass 2/u);
+  assert.match(codexEffortRouting, /medium/u);
+  assert.match(codexEffortRouting, /high/u);
+  assert.match(codexEffortRouting, /xhigh/u);
   // Task risk (low-impact) is not an ordinary effort.
   // Check the declared route contract rather than banning a word across all docs.
-  assert.match(codexAdapter, /effort는 `medium \| high \| xhigh`/u);
+  assert.match(codexEffortRouting, /effort는 `medium \| high \| xhigh`/u);
   assert.match(
-    codexAdapter,
+    codexEffortRouting,
     /Low와 `max\/ultra`는 일반 repository child route에 사용하지 않습니다/u,
   );
-  assert.match(codexAdapter, /`max\/ultra`.*사용하지/u);
-  assert.match(codexAdapter, /역할을 prompt label로 가장하지 않고/u);
+  assert.match(codexEffortRouting, /`max\/ultra`.*사용하지/u);
+  assert.match(codexEffortRouting, /역할을 prompt label로 가장하지 않고/u);
 });
 
 test('runtime code and scripts do not use retired OMX directories as output owners', () => {
@@ -426,6 +430,8 @@ const legacyPlanRootFiles = new Set([
   'scripts/agents/codex/session-preflight.mjs',
   'scripts/agents/fixtures/codex-preflight/disposable-preflight.mjs',
   'scripts/ci/agents/codex/fixtures/codex-session-context.valid.md',
+  // The root literal allowlist quotes the session-preflight legacy read lines.
+  'scripts/artifacts/workspace-layout.knu.json',
 ]);
 
 test('tracked guidance does not present host runtime directories as the plan location', () => {
@@ -490,8 +496,9 @@ test('local workspace roots ignore content and keep only guidance files for clea
 // Old root names; segment boundaries keep docs/references/, .artifacts/references/ and URLs valid.
 const renamedWorkspaceRoot =
   /(?<![\w./-])(?:\.{1,2}\/)*(?:artifacts\/(?:local\b|README\.md|\.gitignore)|local-docs\b|references\/figma\b)/u;
-// Guard fixtures and the layout detector quote the old names.
+// Guard fixtures, the layout detector and the KNU layout binding (its retired root list) quote the old names.
 const renamedWorkspaceRootAllowlist = new Set([
+  'scripts/artifacts/workspace-layout.knu.json',
   'scripts/ci/agents/common/agent-guidance-boundary.test.mjs',
   'scripts/git/workspace-layout-check.mjs',
   'scripts/git/workspace-layout-check.test.mjs',

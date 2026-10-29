@@ -23,6 +23,9 @@
 - 정책 영향 없음: <!-- <도메인> — <이유>. 인용하지 않는 도메인마다 한 줄 -->
 - Owner 확인: <!-- <파일 경로> <YYYY-MM-DD>. 경로 표·대응 기록·정책 문서를 바꿀 때 파일마다 한 줄 -->
 - override: <!-- <검사 id> — <이유> — <재검토 조건>. 필요할 때만 -->
+- 리뷰 PASS: <!-- <reviewId> base=<sha> head=<sha> diff=<sha256|none> untracked=<sha256|none>. 독립 리뷰 PASS 결과마다 `node scripts/ci/lifecycle/review-snapshot-check.mjs --result <결과 JSON>` 출력 -->
+- 원인 PR: <!-- bugfix·hotfix: #<번호> 또는 모름 — <이유> -->
+- 재채점: <!-- 리뷰 기준·reviewer prompt·모델 정책을 바꿀 때: <통과|실패> <YYYY-MM-DD> <사용 기록 id> 또는 해당 없음 — <이유> -->
 
 ## Changes
 

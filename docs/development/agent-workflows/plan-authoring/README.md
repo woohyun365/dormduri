@@ -18,7 +18,8 @@
 
 Guide 절 끝의 `구현·리뷰 기준` 링크는 [review criteria](../review-criteria/README.md) 항목을 가리킵니다. 구현할 때는 그 항목의
 지침·피함을 따르고, 독립 리뷰는 같은 항목의 리뷰 보기(질문·기본 severity·결함 패턴·PASS 근거)로 판정합니다. Web 하위 layer별로
-먼저 정할 결정 목록과 기준 항목 인용은 [Domain/SWE/Web pack](../domain/swe-web/README.md)에 있습니다.
+먼저 정할 결정 목록과 기준 항목 인용은 [Domain/SWE/Web pack](../domain/swe-web/README.md)에 있습니다. 제품 계획의 빈 결정은
+[Discovery](./discovery.md)가 그 결정 목록에서 확인할 것과 물을 것을 가르고 기록 위치를 정합니다.
 
 domain 수가 많다는 이유만으로 guide나 child lane을 늘리지 않습니다. Primary owner가 불명확하면 read-only
 inspection으로 owner를 찾고, 결과를 바꾸는 모호함은 OQ 또는 사용자 확인으로 남깁니다.

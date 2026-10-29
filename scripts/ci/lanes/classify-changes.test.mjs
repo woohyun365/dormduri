@@ -197,6 +197,71 @@ test('agent surface changes select the agent workflow lane with the repo-policy 
   }
 });
 
+test('token, new screen and Storybook check paths select the storybook lane', () => {
+  for (const path of [
+    'apps/web/src/styles/tokens/semantic.tokens.json',
+    'apps/web/src/styles/tokens/tokens.generated.css',
+    'apps/web/src/styles/fonts.ts',
+    'apps/web/src/screens/landing/LandingScreen.tsx',
+    'apps/web/playwright.storybook.config.ts',
+    'apps/web/e2e/storybook/stories.storybook.ts',
+    'apps/web/postcss.config.mjs',
+  ]) {
+    assert.deepEqual(
+      classifyChanges([path]),
+      {
+        web: true,
+        api: false,
+        shared: false,
+        storybook: true,
+        infra: false,
+        repoPolicy: false,
+        agentWorkflow: false,
+      },
+      path,
+    );
+  }
+  for (const path of [
+    'apps/web/e2e/smoke.spec.ts',
+    'apps/web/src/app/page.tsx',
+    'apps/web/src/stylesheet.ts',
+    'apps/web/src/screens.ts',
+  ]) {
+    assert.equal(classifyChanges([path]).storybook, false, path);
+  }
+  for (const path of [
+    'apps/web/src/styles/tokens/README.md',
+    'apps/web/src/screens/README.md',
+    'apps/web/src/app/globals.css',
+  ]) {
+    assert.deepEqual(
+      classifyChanges([path]),
+      {
+        web: true,
+        api: false,
+        shared: false,
+        storybook: true,
+        infra: false,
+        repoPolicy: false,
+        agentWorkflow: true,
+      },
+      path,
+    );
+  }
+});
+
+test('the storybook lane runs the static build and then the story visual check', () => {
+  const webWorkflow = readFileSync(`${repoRoot}.github/workflows/web-ci.yml`, 'utf8');
+  const steps = webWorkflow.split(/\n\s+- name:/u);
+  const stepIndex = (command) => steps.findIndex((step) => step.includes(command));
+  const build = stepIndex('pnpm --dir apps/web ci:storybook:build');
+  const browserInstall = stepIndex('playwright install --with-deps chromium');
+  const visual = stepIndex('pnpm --dir apps/web ci:storybook:visual');
+
+  assert.ok(build > 0 && browserInstall > build && visual > browserInstall);
+  assert.match(steps[visual], /if: \$\{\{ inputs\.run_storybook \}\}/u);
+});
+
 test('product files that agent tests read select the agent workflow lane, other product files do not', () => {
   assert.deepEqual(classifyChanges(['apps/web/src/legal/components/LegalDocumentLayout.tsx']), {
     web: true,

@@ -75,6 +75,45 @@ test('graph has one canonical owner, valid nodes, and only requires edges impose
   graph.edges.push({ from: 'root', to: 'missing', kind: 'requires' });
   assert.ok(validateWorkflowGraph(graph).includes('missing-node'));
 });
+// Product design and planning read the discovery flow only when a product primary guide (frontend, backend,
+// infrastructure) was selected; agent workflow and document plans keep the ordinary ambiguity dispositions.
+const DISCOVERY = 'docs/development/agent-workflows/plan-authoring/discovery.md';
+test('a product-domain plan reads the discovery flow on both hosts, other plans and intents do not', () => {
+  for (const host of ['codex', 'claude-code'])
+    for (const [request, reads] of [
+      ['Next.js 화면 변경 계획을 작성해줘.', true],
+      ['API 변경 계획을 작성해줘.', true],
+      ['infra 배포 변경 계획을 작성해줘.', true],
+      ['에이전트 문서 정리 계획을 작성해줘.', false],
+      ['web 화면과 API 변경 계획을 작성해줘.', false],
+      ['Next.js 화면을 수정해줘.', false],
+      [requests.analyze, false],
+    ]) {
+      const envelope = buildTaskEnvelope({ request });
+      const contextPack = discoverContextPack({ envelope });
+      const route = resolveWorkflowEntry({ envelope, contextPack, host, mode: 'fresh' });
+      assert.deepEqual(
+        route.conditionalReads.filter(({ condition }) => condition === 'plan-product-domain'),
+        reads ? [{ condition: 'plan-product-domain', path: DISCOVERY }] : [],
+        `${host}: ${request}`,
+      );
+    }
+  assert.deepEqual(
+    workflowGraph.nodes.find(({ id }) => id === 'discovery'),
+    { id: 'discovery', path: DISCOVERY, owner: 'discovery' },
+  );
+  assert.ok(
+    workflowGraph.edges.some(
+      (edge) =>
+        edge.from === 'planning' &&
+        edge.to === 'discovery' &&
+        edge.kind === 'conditional' &&
+        edge.condition === 'plan-product-domain',
+    ),
+    'planning -> discovery conditional edge',
+  );
+});
+
 test('host-neutral CLI is a real diagnostic caller, never dispatches or discovers memory for fresh', () => {
   const result = spawnSync(
     process.execPath,

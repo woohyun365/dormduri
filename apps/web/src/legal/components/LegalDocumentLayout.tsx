@@ -1,5 +1,5 @@
-import Image from 'next/image';
 import Link from 'next/link';
+import { BrandLogo } from '@/screens/ui/brand';
 import { LEGAL_DOCUMENT_COPY, LEGAL_DOCUMENT_ROUTE_LABELS } from '../content/legal-copy';
 import type { LegalDocumentSource, LegalDocumentViewModel } from '../model/legal-document.types';
 import { LegalDocumentActions } from './LegalDocumentActions';
@@ -24,14 +24,7 @@ export function LegalDocumentLayout({ document, source }: LegalDocumentLayoutPro
             className="flex items-center gap-2 rounded-xl text-xl font-bold text-(--knu-text-primary)"
             aria-label={LEGAL_DOCUMENT_COPY.homeLinkLabel}
           >
-            <Image
-              src="/knu_logo.svg"
-              alt="KNU 룸메 로고"
-              width={36}
-              height={36}
-              className="rounded-xl"
-            />
-            <span>KNU 룸메</span>
+            <BrandLogo />
           </Link>
           <LegalDocumentBackButton />
         </div>

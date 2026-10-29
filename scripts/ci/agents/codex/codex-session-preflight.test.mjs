@@ -37,10 +37,13 @@ function fixture(t, options = {}) {
     writeFileSync(resolve(root, path), content);
     return resolve(root, path);
   };
-  cpSync(
-    resolve(repoRoot, 'scripts/agents/common/plan-store.mjs'),
-    put('scripts/agents/common/plan-store.mjs', ''),
-  );
+  for (const path of [
+    'scripts/agents/common/plan-store.mjs',
+    'scripts/artifacts/workspace-layout.mjs',
+    'scripts/artifacts/workspace-layout.core.json',
+    'scripts/artifacts/workspace-layout.knu.json',
+  ])
+    cpSync(resolve(repoRoot, path), put(path, ''));
   for (const file of ['session-preflight.mjs', 'session-contract.mjs']) {
     mkdirSync(resolve(root, 'scripts/agents/codex'), { recursive: true });
     cpSync(
@@ -80,7 +83,9 @@ if (kind === 'git') {
 } else { process.stderr.write('UNEXPECTED COMMAND'); process.exit(92); }
 if (kind === 'git') { process.stderr.write('UNEXPECTED COMMAND'); process.exit(92); }
 `;
-  for (const bin of ['git', 'omx']) chmodSync(put(`bin/${bin}`, stub), 0o755);
+  // omxMode 'missing' leaves omx off PATH: the fixture bin is the child's only PATH entry.
+  for (const bin of settings.omxMode === 'missing' ? ['git'] : ['git', 'omx'])
+    chmodSync(put(`bin/${bin}`, stub), 0o755);
   // Instrument only the disposable child. Production code has no test-only flags/env seam.
   put(
     'audit.mjs',
@@ -153,7 +158,8 @@ syncBuiltinESMExports();`,
         cwd: root,
         env: { ...process.env, PATH: resolve(root, 'bin'), HOME: root, NODE_OPTIONS: '' },
         encoding: 'utf8',
-        timeout: 14000,
+        // A resume run with a timing-out omx waits on two 5 s calls.
+        timeout: 20000,
       },
     );
     assert.ok(!result.stderr.includes('UNEXPECTED COMMAND'), result.stderr);
@@ -449,6 +455,14 @@ test('optional OMX unavailable/malformed/oversized responses are non-blocking an
   assert.deepEqual(r.reads, []);
 });
 
+test('installed OMX timeout on resume stays an omx-unavailable limitation with invalid context', (t) => {
+  const f = fixture(t, { omxMode: 'timeout' });
+  const s = f.summary();
+  assert.equal(s.resume.notepadPriority.available, false);
+  assert.ok(s.resume.diagnostics.limitations.includes('omx-unavailable'));
+  assert.ok(s.resume.diagnostics.priority.reasons.includes('context-invalid'));
+});
+
 test('malformed identity never becomes a match, and invalid priority preserves known conflict on rediscovery', (t) => {
   const f = fixture(t);
   f.put(selectedPlan, '# Example\n- Status: in-progress');
@@ -696,4 +710,48 @@ test('canonical resume exposes corpus warnings separately from selected identity
   assert.deepEqual(s.activePlans, []);
   assert.equal(s.resume.planBinding.state, 'ambiguous');
   assert.equal(s.resume.diagnostics.recommendedContextPath, null);
+});
+
+// Field shape only: keys of nested objects, `array` for arrays and typeof for the rest.
+const shape = (value) =>
+  Array.isArray(value)
+    ? 'array'
+    : value && typeof value === 'object'
+      ? Object.fromEntries(
+          Object.keys(value)
+            .sort()
+            .map((key) => [key, shape(value[key])]),
+        )
+      : typeof value;
+
+test('omx missing from PATH keeps exit 0, schemaVersion 1 and the installed-failure field shape', (t) => {
+  const missing = fixture(t, { omxMode: 'missing' });
+  const failing = fixture(t, { omxMode: 'fail' });
+  assert.equal(
+    spawnSync('omx', { env: { PATH: resolve(missing.root, 'bin') } }).error?.code,
+    'ENOENT',
+  );
+  for (const f of [missing, failing]) f.put(canonicalPlan, canonicalBody());
+  for (const args of [['--fresh', '--json'], resumePlan(canonicalPlan)]) {
+    const s = missing.summary(args);
+    assert.equal(s.schemaVersion, 1);
+    assert.deepEqual(s.omx, { available: false, activeModes: [] });
+    assert.deepEqual(shape(s), shape(failing.summary(args)));
+  }
+  assert.deepEqual(missing.summary(resumePlan(canonicalPlan)).resume.notepadPriority, {
+    available: false,
+    exists: false,
+    valid: false,
+    contextPath: null,
+  });
+});
+
+test('omx missing from PATH adds no omx-unavailable limitation and its context is missing, not invalid', (t) => {
+  const f = fixture(t, { omxMode: 'missing' });
+  f.put(canonicalPlan, canonicalBody());
+  const { diagnostics } = f.summary(resumePlan(canonicalPlan)).resume;
+  assert.deepEqual(
+    { limitations: diagnostics.limitations, reasons: diagnostics.priority.reasons },
+    { limitations: [], reasons: ['context-missing'] },
+  );
 });

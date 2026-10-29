@@ -6,8 +6,7 @@ import {
   createPublicUrl,
   createRootMetadata,
   LANDING_DESCRIPTION,
-  LANDING_PAGE_TITLE,
-  LANDING_SHARE_TITLE,
+  LANDING_TITLE,
   PUBLIC_SITEMAP_ROUTES,
   resolvePublicSiteUrl,
   SITE_NAME,
@@ -51,7 +50,8 @@ describe('web metadata baseline', () => {
     const metadata = createRootMetadata(productionLikeEnv);
 
     expect(metadata.metadataBase?.toString()).toBe('https://roommate.example.test/');
-    expect(metadata.title).toEqual({ default: SITE_NAME, template: `%s | ${SITE_NAME}` });
+    // Tab titles read the service name first (Owner 2026-10-28, #706).
+    expect(metadata.title).toEqual({ default: SITE_NAME, template: `${SITE_NAME} | %s` });
     expect(metadata.description).toContain('독립 운영');
     expect(JSON.stringify(metadata)).not.toMatch(/token|session|email|userId/i);
   });
@@ -59,11 +59,12 @@ describe('web metadata baseline', () => {
   it('defines landing canonical, Open Graph, and Twitter metadata', () => {
     const metadata = createLandingMetadata();
 
-    expect(metadata.title).toBe(LANDING_PAGE_TITLE);
+    expect(LANDING_TITLE).toBe('돔두리 | 강원대 룸메이트 찾기');
+    expect(metadata.title).toEqual({ absolute: LANDING_TITLE });
     expect(metadata.description).toBe(LANDING_DESCRIPTION);
     expect(metadata.alternates).toEqual({ canonical: '/' });
     expect(metadata.openGraph).toMatchObject({
-      title: LANDING_SHARE_TITLE,
+      title: LANDING_TITLE,
       description: LANDING_DESCRIPTION,
       url: '/',
       siteName: SITE_NAME,
@@ -72,7 +73,7 @@ describe('web metadata baseline', () => {
     });
     expect(metadata.twitter).toMatchObject({
       card: 'summary',
-      title: LANDING_SHARE_TITLE,
+      title: LANDING_TITLE,
       description: LANDING_DESCRIPTION,
     });
     expect(LANDING_DESCRIPTION).toContain('독립 운영 서비스');
@@ -116,7 +117,7 @@ describe('web metadata baseline', () => {
   it('does not introduce FAQ rich-result JSON-LD for landing', () => {
     const sourceText = [
       collectProductionSourceText(path.join(process.cwd(), 'src', 'app')),
-      collectProductionSourceText(path.join(process.cwd(), 'src', 'landing')),
+      collectProductionSourceText(path.join(process.cwd(), 'src', 'screens', 'landing')),
     ].join('\n');
 
     expect(sourceText).not.toContain('FAQPage');

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
+import { anchors, links } from '../../../agents/common/markdown-links.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const workflowRoot = 'docs/development/agent-workflows';
@@ -9,6 +10,30 @@ const authoringRoot = `${workflowRoot}/plan-authoring`;
 
 function read(path) {
   return readFileSync(resolve(repoRoot, path), 'utf8');
+}
+
+// A guide rule whose meaning a criteria item holds lives in that item; the section's `구현·리뷰 기준` line must
+// keep linking the item's anchor.
+function assertSectionCites(path, heading, items) {
+  const text = read(path);
+  const start = text.indexOf(`\n## ${heading}\n`);
+  assert.ok(start >= 0, `${path}: ## ${heading}`);
+  const end = text.indexOf('\n## ', start + 1);
+  const line = text
+    .slice(start, end === -1 ? undefined : end)
+    .split('\n')
+    .find((x) => x.startsWith('구현·리뷰 기준: '));
+  assert.ok(line, `${path} ${heading}: 구현·리뷰 기준 line`);
+  const cited = new Set(links(repoRoot, path, line).map((x) => `${x.path}#${x.fragment}`));
+  for (const [file, id] of items) {
+    const criteria = `${workflowRoot}/review-criteria/${file}`;
+    const item = read(criteria).match(new RegExp(`^### ${id}\\. .*$`, 'mu'))?.[0];
+    assert.ok(item, `${criteria} ${id}`);
+    assert.ok(
+      cited.has(`${criteria}#${[...anchors(`${item}\n`)][0]}`),
+      `${path} ${heading} must cite ${file} ${id}`,
+    );
+  }
 }
 
 test('plan authoring uses one core, one primary domain, and bounded cross-cutting lenses', () => {
@@ -142,8 +167,14 @@ test('cross-cutting guides and migration map preserve security and release conce
 
   assert.match(security, /Auth, legal, PII, profile\/chat, moderation, abuse/u);
   assert.match(security, /negative tests for unauthorized actor/u);
-  assert.match(operations, /Local rehearsal 통과를 production success로 표현하지 않/u);
-  assert.match(operations, /evidence absence 시 `NO-GO`/u);
+  assertSectionCites(
+    `${authoringRoot}/cross-cutting/operations-release.md`,
+    'Account-free implementation and release gate',
+    [
+      ['web-operations-release-release-gate.md', 'O3'],
+      ['web-operations-release-release-gate.md', 'O1'],
+    ],
+  );
   assert.match(migration, /Frontend feature\/refactor authoring/u);
   assert.match(migration, /Infrastructure feature\/refactor authoring/u);
   assert.match(migration, /Former local handoffs were retired/u);
@@ -221,8 +252,14 @@ test('backend planning separates HTTP adapter, runtime capability, and activatio
   const backend = read(`${authoringRoot}/backend.md`);
 
   assert.match(backend, /HTTP adapter neutrality/u);
-  assert.match(backend, /adapter-specific.*platform owner/su);
-  assert.match(backend, /process-local state.*purpose-specific semantic operation/su);
-  assert.match(backend, /runtime capability.*rehearsal.*production activation/su);
+  assertSectionCites(
+    `${authoringRoot}/backend.md`,
+    'HTTP adapter neutrality and runtime role boundaries',
+    [
+      ['web-be-application-architecture.md', 'E1'],
+      ['web-be-application-architecture.md', 'E4'],
+      ['web-operations-release-release-gate.md', 'O3'],
+    ],
+  );
   assert.match(backend, /conditional adapter experiment.*successor/su);
 });

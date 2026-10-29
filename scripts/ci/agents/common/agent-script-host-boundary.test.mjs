@@ -115,6 +115,8 @@ test('common import graph cannot acquire Codex, Claude, model or OMX policy', ()
     'common/plan-readiness-policy.mjs',
     'common/cross-model-handoff.mjs',
     'common/review-criteria-selection.mjs',
+    'common/review-context-inputs.mjs',
+    'common/discovery-questions.mjs',
   ];
   for (const file of neutralFiles) {
     const source = readFileSync(resolve(root, 'scripts/agents', file), 'utf8');

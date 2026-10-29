@@ -14,6 +14,7 @@ const LINKING_DIRECTORIES = ['docs/development/agent-workflows', 'docs/evidence/
 // Each reference owns the headings moved out of the entry; the entry keeps the routine headings. Moved headings keep
 // their wording so inbound anchors only change the file name.
 const REFERENCES = {
+  'codex-effort-routing.md': ['## Effort routing 세부'],
   'codex-model-profiles.md': [
     '## Quality-gated model advice',
     '## Central profile migration boundary',
@@ -57,7 +58,7 @@ const KEPT = [
   '### Parent-high 운영과 quality stop',
   '## Routine task-model operation',
   '## Skill과 workflow routing',
-  '## Visual skill scope',
+  '## 사용자 질문 수단',
   '### 저장소 root와 runtime state 위치',
   '## OMX 종료 기록 경계',
 ];
@@ -279,4 +280,36 @@ test('no agent workflow or evidence document links a moved Codex heading through
         if (moved.includes(decodeURIComponent(match[1]))) stale.push(`${path}: #${match[1]}`);
   }
   assert.deepEqual(stale, []);
+});
+
+test('Default mode asks plain questions and assumes only Defer and Infer items', () => {
+  const questions = section(read(ENTRY), '## 사용자 질문 수단').replace(/\s+/gu, ' ');
+  assert.ok(questions, 'entry needs a 사용자 질문 수단 section');
+  for (const kept of [
+    'Default mode',
+    'Plan mode',
+    '`request_user_input`',
+    '](../plan-authoring/discovery.md',
+  ])
+    assert.ok(questions.includes(kept), `질문 수단: ${kept}`);
+  assert.match(
+    questions,
+    /가정으로 진행[^.]*Defer·Infer/u,
+    'assumption covers Defer and Infer only',
+  );
+  assert.match(questions, /Escalate·Ask[^.]*묻/u, 'Escalate and Ask items are asked');
+});
+
+test('getting-started starts Codex with the native codex commands', () => {
+  const text = read('docs/development/agent-workflows/getting-started.md');
+  const heading = text.split('\n').find((line) => /^## Codex\b/u.test(line));
+  assert.ok(heading, 'getting-started needs a Codex section');
+  const codex = section(text, heading);
+  const commands = [...codex.matchAll(/```bash\n([\s\S]*?)```/gu)].flatMap((block) =>
+    block[1].trim().split('\n'),
+  );
+  assert.deepEqual(commands, [
+    'codex --approve-for-me',
+    `codex --sandbox workspace-write --ask-for-approval on-request -c 'approvals_reviewer="user"'`,
+  ]);
 });

@@ -1,4 +1,5 @@
 import type { Preview } from '@storybook/nextjs-vite';
+import { fontVariablesClassName } from '../src/styles/fonts';
 import '../src/app/globals.css';
 import '../src/styles/knu.css';
 
@@ -74,6 +75,49 @@ const preview: Preview = {
     options: {
       storySort: {
         order: [
+          // Foundations (token docs, then the samples), then the parts features share, then the
+          // Landing sections and parts in page order.
+          'Foundations',
+          [
+            'Overview',
+            'Color',
+            'Typography',
+            'Spacing & Layout',
+            'Motion',
+            'Target & Focus',
+            'Samples',
+            ['Tokens', 'Palettes'],
+          ],
+          'UI',
+          ['BrandLogo'],
+          'Landing',
+          [
+            'Page',
+            'Sections',
+            [
+              'Header',
+              'Hero',
+              'Before',
+              'Items',
+              'Step',
+              'Season',
+              'Notices',
+              'Faq',
+              'Closing',
+              'Footer',
+            ],
+            'Components',
+            [
+              'Actions',
+              'HeroAsk',
+              'NoticeLines',
+              'CommunityPost',
+              'StatementFields',
+              'StepCaptures',
+              'SeasonLanes',
+              'FaqAccordion',
+            ],
+          ],
           'Auth',
           [
             '*',
@@ -103,11 +147,20 @@ const preview: Preview = {
     },
   },
   decorators: [
-    (Story) => (
-      <div className="min-h-screen bg-(--knu-background-alt) text-(--knu-text-primary)">
-        <Story />
-      </div>
-    ),
+    // Stories tagged knu-layer (token samples, src/screens) render on the new token layer and fonts.
+    // On a Docs page they take their content's height instead of a full screen each.
+    (Story, { tags, viewMode }) =>
+      tags.includes('knu-layer') ? (
+        <div
+          className={`${fontVariablesClassName} ${viewMode === 'docs' ? '' : 'min-h-screen'} bg-layer-basement font-body text-fg-neutral`}
+        >
+          <Story />
+        </div>
+      ) : (
+        <div className="min-h-screen bg-(--knu-background-alt) text-(--knu-text-primary)">
+          <Story />
+        </div>
+      ),
   ],
   beforeEach: ({ parameters }) => {
     const matchingBaseline = parameters.matchingBaseline as { now?: string } | undefined;

@@ -7,34 +7,37 @@
 [Dependency automation architecture](../../architecture/platform/dependency-automation.md), 일상 운영은
 [Dependency update operations](./dependency-updates.md)를 따른다.
 
-2026-08-24 현재 상태는 **selected-repository 설치·active extraction·controlled PR 검증 완료**다.
+2026-08-24 현재 상태는 **selected-repository 설치·active extraction·controlled PR 검증 완료**다. 아래는 운영 기준(목표
+설정)이다. Repository config는 기본 branch에 승격된 뒤, Portal 값은 Owner가 바꾼 뒤 효력을 가지며, Portal과 저장소
+Settings의 목표와 마지막 확인 값은 [Remote repository settings](./remote-repository-settings.md)가 기록한다.
 
 - App identity: GitHub App `mend/renovate`
-- Repository scope: `woohyun365/knu_roommate` 하나
+- Repository scope: `woohyun365/dormduri` 하나
 - Product: Renovate Only; IaC 비활성
-- Repository config: `renovate.json.enabled=true`, npm-only, base `dev`, automerge 없음
-- Portal: Dependency Updates ON, Silent mode OFF, Automated PRs OFF, Require config file ON, onboarding PR OFF
-- Dashboard: [Issue #353](https://github.com/woohyun365/knu_roommate/issues/353)
+- Repository config: `renovate.json.enabled=true`, npm·`github-actions`·`dockerfile`·`docker-compose` manager, base `dev`,
+  security·patch·minor·Docker digest PR의 Renovate 자체 merge(`automergeType: "pr"`, `platformAutomerge: false`)
+- Portal: Dependency Updates ON, Silent mode OFF, Automated PRs ON, Require config file ON, onboarding PR OFF
+- Dashboard: [Issue #353](https://github.com/woohyun365/dormduri/issues/353)
 - Verified PR: #354, `renovate/web-test-storybook` → `dev`, full CI green 후 squash merge
 
 ## Effective permission baseline
 
 GitHub 설치 화면이 아래와 다르면 update 작업을 중단하고 App manifest와 이 문서를 먼저 재검토한다.
 
-| Permission        | Level | 용도와 위험                                                            |
-| ----------------- | ----- | ---------------------------------------------------------------------- |
-| Administration    | read  | branch protection과 repository 설정 확인                               |
-| Checks            | write | update branch check 작성                                               |
-| Contents          | write | dependency branch와 manifest·lockfile commit 생성                      |
-| Issues            | write | Dependency Dashboard와 config warning 관리                             |
-| Pull requests     | write | update PR 생성·갱신·종료                                               |
-| Commit statuses   | write | Renovate branch status 작성                                            |
-| Workflows         | write | workflow dependency 갱신 지원; 현재 npm-only config보다 넓은 설치 권한 |
-| Dependabot alerts | read  | vulnerability 후보 확인                                                |
-| Packages          | read  | package metadata 접근; private registry credential은 현재 없음         |
-| Members           | read  | reviewer/team resolution 가능성                                        |
-| Email addresses   | read  | Mend dashboard user authorization 시 요청 가능                         |
-| Metadata          | read  | GitHub App 필수 repository metadata                                    |
+| Permission        | Level | 용도와 위험                                                       |
+| ----------------- | ----- | ----------------------------------------------------------------- |
+| Administration    | read  | branch protection과 repository 설정 확인                          |
+| Checks            | write | update branch check 작성                                          |
+| Contents          | write | dependency branch와 manifest·lockfile commit 생성                 |
+| Issues            | write | Dependency Dashboard와 config warning 관리                        |
+| Pull requests     | write | update PR 생성·갱신·종료                                          |
+| Commit statuses   | write | Renovate branch status 작성                                       |
+| Workflows         | write | `github-actions` manager가 workflow의 action pin을 갱신할 때 필요 |
+| Dependabot alerts | read  | vulnerability 후보 확인                                           |
+| Packages          | read  | package metadata 접근; private registry credential은 현재 없음    |
+| Members           | read  | reviewer/team resolution 가능성                                   |
+| Email addresses   | read  | Mend dashboard user authorization 시 요청 가능                    |
+| Metadata          | read  | GitHub App 필수 repository metadata                               |
 
 Current event baseline:
 
@@ -71,15 +74,15 @@ script, plugin은 추가하지 않는다.
 
 ## Operational safety settings
 
-| Setting                          | Expected value       | 실패 시 영향                                                        |
-| -------------------------------- | -------------------- | ------------------------------------------------------------------- |
-| Dependency Updates               | ON                   | 후보 추출 중단                                                      |
-| Silent mode                      | OFF                  | ON이면 Dashboard/PR 처리 없이 scan-only로 제한                      |
-| Automated PRs                    | OFF                  | ON이면 승인하지 않은 compatible group이 자동 생성될 수 있음         |
-| Require config file              | ON                   | OFF이면 repository config가 사라진 상황을 fail-closed로 막지 못함   |
-| Create onboarding PRs            | OFF                  | 기존 tracked config 대신 불필요한 onboarding PR 생성 가능           |
-| Disable Repo-level Override      | OFF                  | ON이면 tracked `renovate.json`보다 Portal override가 우선할 수 있음 |
-| Base Branches / Release Branches | Portal override 없음 | tracked `baseBranchPatterns: ["dev"]` 유지                          |
+| Setting                          | Expected value       | 실패 시 영향                                                               |
+| -------------------------------- | -------------------- | -------------------------------------------------------------------------- |
+| Dependency Updates               | ON                   | 후보 추출 중단                                                             |
+| Silent mode                      | OFF                  | ON이면 Dashboard/PR 처리 없이 scan-only로 제한                             |
+| Automated PRs                    | ON                   | OFF이면 모든 PR이 Dashboard 승인을 기다려 security·patch·minor 흐름이 멈춤 |
+| Require config file              | ON                   | OFF이면 repository config가 사라진 상황을 fail-closed로 막지 못함          |
+| Create onboarding PRs            | OFF                  | 기존 tracked config 대신 불필요한 onboarding PR 생성 가능                  |
+| Disable Repo-level Override      | OFF                  | ON이면 tracked `renovate.json`보다 Portal override가 우선할 수 있음        |
+| Base Branches / Release Branches | Portal override 없음 | tracked `baseBranchPatterns: ["dev"]` 유지                                 |
 
 Dashboard의 `Create all pending approval PRs at once`는 사용하지 않는다. Manual job checkbox 또는 Portal의 Run Renovate
 Scan은 다른 Pending/Running job이 없을 때 한 번만 사용한다.
@@ -94,7 +97,8 @@ Active provider path에서 다음을 독립적으로 확인했다.
 - PR provenance: `renovate[bot]`, base `dev`, catalog와 lockfile만 변경
 - Hosted verification: stability-days와 전체 Monorepo CI 통과
 - Reconciliation: merge 후 approval과 branch 제거, Dashboard candidate 재계산
-- Ownership: duplicate npm Dependabot PR 종료; Actions·Docker·Compose owner는 유지
+- Ownership: duplicate npm Dependabot PR 종료. 이 설정이 기본 branch에 승격된 뒤에는 모든 ecosystem의 update owner가
+  Renovate다([Owner map](./dependency-updates.md#owner-map))
 
 Raw logs are local evidence under `.artifacts/tools/dependency-automation/`; tracked source에는 provider credential이나 raw
 configuration dump를 저장하지 않는다.
@@ -119,8 +123,9 @@ Suspend, repository access 변경을 수행하지 않는다.
 - Permission/event가 baseline보다 강화되거나 누락됐다.
 - Private registry credential, plugin, lifecycle script 실행이 새로 필요하다.
 - Job log를 operator가 열람할 수 없거나 Suspend·Uninstall owner가 없다.
-- Catalog·manifest·lockfile 밖의 source 변경이 dependency PR에 포함된다.
-- PR base가 `dev`가 아니거나 automerge가 활성화된다.
+- Catalog·manifest·lockfile과 image·workflow owner 파일 밖의 source 변경이 dependency PR에 포함된다.
+- PR base가 `dev`가 아니다.
+- Major·GitHub Actions digest PR에 자동 merge가 걸리거나 `platformAutomerge`가 켜진다.
 
 ## Suspend, uninstall, rollback
 
@@ -128,8 +133,12 @@ Suspend, repository access 변경을 수행하지 않는다.
    Suspend한다.
 2. 필요하면 App을 Uninstall한다.
 3. Authorized GitHub Apps에 별도 dashboard authorization이 있으면 함께 철회한다.
-4. `renovate.json.enabled=false`와 Dependabot npm block 복원을 하나의 reviewed repository PR로 수행한다.
-5. Repository policy와 full CI를 통과시킨다.
+4. `renovate.json.enabled=false`와 Dependabot ecosystem block 복원을 하나의 reviewed `dev` PR로 수행하고, 저장소 Settings의
+   Dependabot security updates를 다시 켠다.
+5. Repository policy와 full CI를 통과시키고 그 PR을 승격으로 기본 branch에 올린다. Dependabot 설정은 기본 branch에서만
+   효력을 갖는다.
 6. 열린 Renovate branch·PR은 provenance를 확인한 뒤 close한다.
 
-Rollback 전후에 npm updater owner가 0개 또는 2개인 상태를 merge하지 않는다.
+Rollback 전후에 어느 ecosystem도 updater owner가 0개 또는 2개인 상태를 기본 branch에 merge하지 않는다. 자동 merge만 즉시
+멈출 때도 1번 Suspend 또는 Portal Dependency Updates OFF를 쓴다(GitHub Allow auto-merge OFF로는 Renovate 자체 merge가
+멈추지 않는다).

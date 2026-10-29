@@ -89,8 +89,8 @@ export function parseRenovateProviderOwnerDecision(input) {
   if (input.madeBy !== 'repository-owner') {
     throw new TypeError('madeBy must equal repository-owner');
   }
-  if (input.repository !== 'woohyun365/knu_roommate') {
-    throw new TypeError('repository must equal woohyun365/knu_roommate');
+  if (input.repository !== 'woohyun365/dormduri') {
+    throw new TypeError('repository must equal woohyun365/dormduri');
   }
   if (input.installationScope !== 'selected-repository-only') {
     throw new TypeError('installationScope must equal selected-repository-only');

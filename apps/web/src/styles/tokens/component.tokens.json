@@ -1,0 +1,33 @@
+{
+  "$description": "돔두리 component-level tokens: touch targets and the focus ring.",
+  "spacing": {
+    "$type": "dimension",
+    "target-min": {
+      "$value": {
+        "value": 1.5,
+        "unit": "rem"
+      }
+    },
+    "target-primary": {
+      "$value": {
+        "value": 2.75,
+        "unit": "rem"
+      }
+    }
+  },
+  "focus-ring": {
+    "$type": "dimension",
+    "width": {
+      "$value": {
+        "value": 2,
+        "unit": "px"
+      }
+    },
+    "offset": {
+      "$value": {
+        "value": 2,
+        "unit": "px"
+      }
+    }
+  }
+}

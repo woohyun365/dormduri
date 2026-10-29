@@ -52,7 +52,7 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
   | 작업               | 역할                 | Profile              | 모델·effort | 상태 |
   | ------------------ | -------------------- | -------------------- | ----------- | ---- |
   | 고정 입력 추출     | `knu_explorer`       | `bounded-standard`   | Sonnet high | 관측 |
-  | 고정 입력 추출     | `knu_explorer_xhigh` | `bounded-extraction` | Haiku xhigh | Q    |
+  | 고정 입력 추출     | `knu_explorer_xhigh` | `bounded-extraction` | Haiku xhigh | 관측 |
   | 공식 근거 조사     | `knu_researcher`     | `bounded-standard`   | Sonnet high | 관측 |
   | bounded 구현       | `knu_executor`       | `bounded-standard`   | Sonnet high | 관측 |
   | repository 읽기    | `knu_explorer`       | `bounded-standard`   | Sonnet high | 관측 |

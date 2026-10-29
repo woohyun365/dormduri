@@ -29,13 +29,28 @@ describe('public landing route boundary', () => {
     expect(pageSource).not.toMatch(/export\s+const\s+dynamic\s*=\s*['"]force-dynamic['"]/);
   });
 
-  it('root route는 public Landing shell을 직접 소유한다', () => {
-    expect(pageSource).toContain('@/landing/LandingPage');
-    expect(pageSource).toMatch(/<LandingPage\s*\/?/);
+  it('root route는 Landing 화면 계층의 공개 entry만 렌더링한다', () => {
+    const screenImports = [...pageSource.matchAll(/from\s+['"](@\/screens\/[^'"]*)['"]/g)].map(
+      ([, specifier]) => specifier,
+    );
+
+    expect(screenImports).toEqual(['@/screens/landing']);
+    expect(pageSource).toMatch(/<LandingScreen\s*\/?/);
+  });
+
+  it('Landing source는 다른 Web 화면 계층을 import하지 않는다', () => {
+    const landingSources = collectSources(path.join(process.cwd(), 'src', 'screens', 'landing'));
+
+    for (const source of landingSources) {
+      const webImports = [...source.matchAll(/from\s+['"](@\/[^'"]*)['"]/g)].map(
+        ([, specifier = '']) => specifier,
+      );
+      expect(webImports.filter((specifier) => !specifier.startsWith('@/screens/ui/'))).toEqual([]);
+    }
   });
 
   it('Landing source는 인증 앱 shell skeleton을 직접 소유하지 않는다', () => {
-    const landingSources = collectSources(path.join(process.cwd(), 'src', 'landing'));
+    const landingSources = collectSources(path.join(process.cwd(), 'src', 'screens', 'landing'));
 
     for (const source of landingSources) {
       expect(source).not.toMatch(/from\s+['"][^'"]*AppShellSkeleton/);

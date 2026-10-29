@@ -10,32 +10,38 @@
 ## 현재 구조
 
 ```text
-Mend-hosted Renovate
-└── npm manager
-    ├── pnpm catalog + workspace manifests + one lockfile
-    ├── five minor/patch owner groups
-    ├── Dependency Dashboard approval
-    ├── independent major approval
-    ├── unsupported TypeScript/@eslint majors disabled
-    └── pnpm package-manager upgrade remains manual
+Mend-hosted Renovate (base branch: dev)
+├── npm manager
+│   ├── pnpm catalog + workspace manifests + one lockfile
+│   ├── nine minor/patch owner groups
+│   ├── unsupported TypeScript/@eslint majors disabled
+│   └── pnpm package-manager upgrade remains manual (root + CI setup input)
+├── github-actions manager (full commit SHA + version comment)
+├── dockerfile + docker-compose managers (tag@sha256 digest)
+├── security updates from GitHub vulnerability alerts
+├── security·patch·minor·Docker digest: Renovate self-merge after CI summary
+└── major: Dependency Dashboard approval (a security fix opens at once), human review
 
 GitHub Dependabot
-├── GitHub Actions
-├── Docker
-├── Docker Compose
-└── security alerts / security-update boundary
+└── vulnerability alerts only
 ```
 
-같은 npm version-update surface에 두 updater를 동시에 활성화하지 않는다. `renovate.json`은 npm manager만 활성화하고
-`dev`를 base branch로 사용한다. `.github/dependabot.yml`에는 npm ecosystem을 두지 않는다. Repository policy는 npm
-owner가 0개이거나 2개인 상태를 모두 거부한다.
+한 version-update surface에 두 updater를 동시에 활성화하지 않는다. `renovate.json`은 npm, `github-actions`,
+`dockerfile`, `docker-compose` manager를 활성화하고 `dev`를 base branch로 사용한다. `.github/dependabot.yml`은 두지 않고
+저장소 Settings의 Dependabot security updates는 끈다. Repository policy는 ecosystem마다 owner가 0개이거나 2개인 상태를
+모두 거부한다.
+
+Renovate와 Dependabot은 기본 branch(`main`)의 설정을 읽는다. `useBaseBranchConfig: "merge"`는 `dev` base branch에
+`dev`의 `renovate.json`을 합쳐 적용하므로, 이 설정이 `main`에 올라간 뒤의 `dev` 설정 변경은 승격 없이 효력을 갖는다.
+`.github/dependabot.yml` 삭제와 manager 추가처럼 기본 branch 설정이 정하는 변경은 `dev` → `main` 승격 뒤에 효력을
+갖는다.
 
 ## pnpm catalog와 lockfile 결정
 
 Catalog는 Next·React·TypeScript·Storybook·Vitest처럼 함께 움직여야 하는 버전의 단일 source of truth다. Provider 편의를
 위해 버전을 각 package manifest에 중복하거나 workspace를 분리하지 않는다.
 
-Renovate가 승인된 group을 처리할 때 다음 변경만 허용한다.
+Renovate npm update는 다음 변경만 허용한다. Image·workflow update는 그 image나 action을 pin한 owner 파일만 바꾼다.
 
 - `pnpm-workspace.yaml`의 catalog·override
 - dependency를 직접 소유한 `package.json`
@@ -72,7 +78,7 @@ ESLint 안에서 동일 formatting 책임을 중복 실행하는 `eslint-plugin-
 
 ## Update grouping과 승인 경계
 
-Minor/patch update는 현재 owner boundary에 따라 다음 group으로 나눈다.
+npm minor/patch update는 현재 owner boundary에 따라 다음 group으로 나눈다.
 
 - `lint-tooling`
 - `web-framework`
@@ -84,12 +90,42 @@ Minor/patch update는 현재 owner boundary에 따라 다음 group으로 나눈�
 - `shared-contract`
 - `api-test-tooling`
 
-Major update는 group에 섞지 않고 독립 후보로 유지한다. TypeScript 7과 현재 ESLint toolchain이 지원하지 않는 major는
+Image와 workflow update는 다음 group으로 나눈다.
+
+- `actions-minor-patch`: GitHub Actions minor/patch. 커밋 제목은 `ci(deps):`를 쓴다.
+- `postgres-image`, `node-image`: 여러 파일이 공유하는 PostgreSQL·Node image의 minor/patch/digest
+- `observability-images`: `infra/observability/**` Compose image의 minor/patch/digest
+
+Image tag와 digest는 owner 파일(Dockerfile·Compose·workflow) 하나가 소유하고 `infra/image-inventory.json`은 image 이름,
+owner 파일, repository만 소유한다. CI는 bot이 갱신하는 version·digest 값을 복제하지 않고 pin 형식과 owner 일치만
+검사한다([CI README](../../development/ci/README.md)).
+
+Major update는 group에 섞지 않고 Dependency Dashboard 승인 뒤에 독립 PR로 연다. 취약점을 고치는 version이 major뿐이면
+security update PR은 Renovate `vulnerabilityAlerts` 기본값(`dependencyDashboardApproval: false`)대로 승인 없이 열리고,
+major 규칙이 자동 merge를 막아 사람이 검토한다. TypeScript 7과 현재 ESLint toolchain이 지원하지 않는 major는
 compatibility revisit 조건이 충족될 때까지 config에서 차단한다.
 
-Mend Portal은 Dependency Updates ON, Silent mode OFF, Automated PRs OFF, Require config file ON, Create onboarding PRs OFF를
-기본 운영값으로 사용한다. 따라서 Renovate가 [Dependency Dashboard](https://github.com/woohyun365/knu_roommate/issues/353)를
-자동 갱신하지만, owner가 체크한 한 group만 branch와 PR로 만든다. 자동 merge와 `create all`은 사용하지 않는다.
+## 자동 merge 경계
+
+Security·patch·minor update와 Docker image digest update는 Renovate가 직접 `dev`에 squash merge한다(`automergeType:
+"pr"`, `platformAutomerge: false`). Renovate는 required check `CI summary`가 통과하고 `dev`에 최신인 branch만 merge하고,
+`dev`가 움직이면 branch를 rebase해 CI를 다시 돈다. GitHub 자동 merge는 뒤처진 branch를 다시 검사하지 않고 merge할 수
+있어 쓰지 않는다. GitHub Actions digest update(같은 tag가 다른 commit을 가리킴)와 major update는 사람이 검토한다.
+자동 merge 규칙은 `packageRules` 맨 앞에 둔다. Renovate는 일치하는 규칙을 순서대로 모두 적용하고 뒤 규칙이 이기므로 한
+group 규칙에 `automerge: false`를 두면 그 group만 멈춘다. Policy test가 이 순서를 단언한다.
+
+Patch·minor는 `minimumReleaseAge` 3일을 기다린다. Security update는 Renovate 기본값대로 release 대기·schedule·일반 PR 한도를 건너뛰고
+`vulnerabilityAlerts.prConcurrentLimit`이 동시 PR 수를 제한한다. `dev` → `main` 승격과 production 배포는 사람이 하고, 승격
+PR은 Owner가 확인한 head SHA로만 merge한다.
+
+Mend Portal은 Dependency Updates ON, Silent mode OFF, Automated PRs ON, Require config file ON, Create onboarding PRs OFF를
+운영값으로 사용한다. 저장소 Settings의 Allow auto-merge는 OFF로 둔다. Renovate는
+[Dependency Dashboard](https://github.com/woohyun365/dormduri/issues/353)를 갱신하고 major 후보는 owner가 체크한 것만 PR로
+만든다. `create all`은 사용하지 않는다.
+
+자동 merge를 멈출 때는 merge를 하는 Renovate를 멈춘다. Mend Portal Dependency Updates를 OFF로 하거나 GitHub App을
+Suspend하고, 계속 멈출 group은 `renovate.json`에서 그 group의 `automerge`를 끄는 사람 PR로 바꾼다. 이미 merge된 PR은 revert
+PR로 되돌린다.
 
 ## 검증된 provider 경계
 
@@ -97,7 +133,7 @@ Mend Portal은 Dependency Updates ON, Silent mode OFF, Automated PRs OFF, Requir
 
 | 경계                | 증거                                                                             |
 | ------------------- | -------------------------------------------------------------------------------- |
-| selected repository | `mend/renovate` App이 `woohyun365/knu_roommate` 하나에 설치됨                    |
+| selected repository | `mend/renovate` App이 `woohyun365/dormduri` 하나에 설치됨                        |
 | active extraction   | Renovate 44.39.0이 `dev`의 npm package file 7개와 dependency 133개를 추출        |
 | grouping            | owner별 bounded group과 독립 major 후보 생성                                     |
 | blocked updates     | TypeScript 7, `@eslint/js` 10, pnpm package-manager branch가 생성되지 않음       |
@@ -130,19 +166,26 @@ config·package-manager correctness를 빠르게 회귀 검증하기 위한 보�
 
 ## Rollback
 
-Hosted provider를 중단할 때 npm owner가 없는 중간 상태나 두 updater가 겹치는 상태를 만들지 않는다.
+Hosted provider나 한 manager를 중단할 때 기본 branch 설정에 owner가 없는 ecosystem이나 두 updater가 겹치는 ecosystem을
+만들지 않는다.
 
-1. Mend Portal에서 Automated PRs와 Dependency Updates를 중단한다.
+1. Mend Portal에서 Automated PRs와 Dependency Updates를 중단해 Renovate 실행과 자동 merge를 먼저 멈춘다. Renovate 전체를
+   철회하면 같은 날 저장소 Settings의 Dependabot security updates를 다시 켜 보안 PR owner를 복원한다.
 2. 필요하면 GitHub App repository access를 Suspend 또는 제거한다.
-3. 하나의 repository PR에서 `renovate.json.enabled=false`와 Dependabot npm block 복원을 함께 수행한다.
-4. Repository policy와 full CI를 통과시킨다.
-5. Renovate가 만든 열린 branch·PR은 provenance를 확인한 뒤 정리한다.
+3. 하나의 `dev` PR에서 그 manager 끄기(전체면 `renovate.json.enabled=false`)와 그 ecosystem의 `.github/dependabot.yml`
+   block 복원을 함께 수행한다.
+4. Repository policy와 full CI를 통과시키고 그 PR을 `dev` → `main` 승격으로 기본 branch에 올린다. Dependabot 설정은 기본
+   branch에서만 효력을 갖는다. Bot이 갱신하는 값을 복제하지 않는 구조 검사 test는 되돌리지 않는다.
+5. 승격 뒤 Renovate를 다시 켜고, Renovate가 만든 열린 branch·PR은 provenance를 확인한 뒤 정리한다.
 
 ## Revisit triggers
 
 - Hosted App permission·event·retention 범위가 승인 baseline을 벗어난다.
 - Dashboard 수동 승인 비용이 반복적으로 실제 update 가치보다 커진다.
-- 충분한 grouped PR 성공률과 CI 비용 증거가 쌓여 Automated PRs ON이 순이익이 된다.
+- Renovate가 한 ecosystem의 PR을 두 주기 넘게 만들지 못한다.
+- 같은 package의 security PR이 일주일에 두 번 넘게 merge되거나, 자동 merge된 PR이 `dev`를 깬다. 그 group의 자동 merge를
+  끈다.
+- Bot PR 하나가 merge까지 rebase로 CI를 세 번 넘게 다시 돌거나 생성부터 merge까지 일주일을 넘긴다.
 - pnpm catalog 또는 lockfile update semantics가 변경된다.
 - pnpm CLI와 Corepack·CI action을 원자적으로 갱신할 owner boundary가 마련된다.
 - Provider job이 반복적으로 timeout되거나 branch/lockfile이 비결정적으로 생성된다.

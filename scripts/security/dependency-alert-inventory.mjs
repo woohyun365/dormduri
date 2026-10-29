@@ -124,7 +124,7 @@ function readGitHubAlerts() {
       'api',
       '--paginate',
       '--slurp',
-      'repos/woohyun365/knu_roommate/dependabot/alerts?state=open&per_page=100',
+      'repos/woohyun365/dormduri/dependabot/alerts?state=open&per_page=100',
     ],
     { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
   );

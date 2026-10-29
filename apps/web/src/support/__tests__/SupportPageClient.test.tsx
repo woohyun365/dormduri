@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { brandName } from '@/screens/ui/brand';
 import SupportPageClient from '../SupportPageClient';
 import { supportPageApi } from '../api/support-page.api';
 
@@ -107,6 +108,15 @@ describe('SupportPageClient', () => {
         createdAt: iso,
       },
     });
+  });
+
+  it('header 로고는 서비스 이름 하나로 읽히고 /main으로 간다', async () => {
+    render(<SupportPageClient />);
+
+    const home = screen.getByRole('link', { name: brandName });
+    expect(home).toHaveAttribute('href', '/main');
+    expect(within(home).getAllByRole('img')).toHaveLength(1);
+    expect(await screen.findByText('오류가 나면 어떻게 하나요?')).toBeInTheDocument();
   });
 
   it('FAQ, 내 문의 목록, 선택된 문의 thread를 표시한다', async () => {

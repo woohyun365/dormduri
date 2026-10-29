@@ -10,7 +10,8 @@
     "playwright.config.ts",
     "e2e/**/*.ts",
     "tests/e2e/**/*.ts",
-    "playwright.fullstack.config.ts"
+    "playwright.fullstack.config.ts",
+    "playwright.storybook.config.ts"
   ],
   "exclude": ["node_modules", ".next", "coverage"]
 }

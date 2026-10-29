@@ -1,0 +1,98 @@
+{
+  "$schema": "https://www.designtokens.org/schemas/2025.10/resolver.json",
+  "name": "돔두리 web tokens",
+  "version": "2025.10",
+  "description": "Token source for apps/web/src/screens. build-tokens.mjs turns it into tokens.generated.css.",
+  "sets": {
+    "primitive": {
+      "description": "Primitive values, aliased only",
+      "sources": [
+        {
+          "$ref": "primitive.tokens.json"
+        }
+      ]
+    },
+    "semantic": {
+      "description": "Roles the screens use",
+      "sources": [
+        {
+          "$ref": "semantic.tokens.json"
+        }
+      ]
+    },
+    "component": {
+      "description": "Targets and focus ring",
+      "sources": [
+        {
+          "$ref": "component.tokens.json"
+        }
+      ]
+    }
+  },
+  "modifiers": {
+    "motion": {
+      "description": "User motion preference",
+      "contexts": {
+        "preferred": [],
+        "reduced": [
+          {
+            "$ref": "motion-reduced.tokens.json"
+          }
+        ]
+      },
+      "default": "preferred",
+      "$extensions": {
+        "knu-roommate": {
+          "cssContexts": {
+            "reduced": {
+              "media": "(prefers-reduced-motion: reduce)"
+            }
+          }
+        }
+      }
+    },
+    "palette": {
+      "description": "Color scheme. light is the default (semantic.tokens.json); dark overrides color roles inside an element with data-palette=\"dark\". Both selectors are nestable, so a light card can sit in a dark page and a dark band in a light page.",
+      "contexts": {
+        "light": [],
+        "dark": [
+          {
+            "$ref": "palette-dark.tokens.json"
+          }
+        ]
+      },
+      "default": "light",
+      "$extensions": {
+        "knu-roommate": {
+          "cssContexts": {
+            "light": {
+              "selector": "[data-palette='light']",
+              "nestable": "true"
+            },
+            "dark": {
+              "selector": "[data-palette='dark']",
+              "nestable": "true"
+            }
+          }
+        }
+      }
+    }
+  },
+  "resolutionOrder": [
+    {
+      "$ref": "#/sets/primitive"
+    },
+    {
+      "$ref": "#/sets/semantic"
+    },
+    {
+      "$ref": "#/sets/component"
+    },
+    {
+      "$ref": "#/modifiers/motion"
+    },
+    {
+      "$ref": "#/modifiers/palette"
+    }
+  ]
+}

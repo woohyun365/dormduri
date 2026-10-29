@@ -1,0 +1,40 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+import * as TokenSamples from './Tokens.stories';
+
+<Meta title="Foundations/Motion" />
+
+# Motion
+
+duration과 easing은 utility가 없는 `:root` 변수라 utility·style에서 `var(--duration-…)`로 읽습니다. 사용자가 motion 줄이기를
+켜면 모든 duration이 0ms가 되어 움직임이 바로 끝나고, 스크롤 등장도 걸리지 않습니다.
+
+## 등장 효과(utilities.css)
+
+section 글자는 스크롤로 들어올 때 투명한 흐림에서 또렷해지며 떠오릅니다(`reveal-soft`). 첫 화면 제목 줄(`line-rise`)과 그 밖
+등장 효과는 글자를 불투명하게 두고 transform·장식만 움직입니다. 처음 그린 화면과 대비·접근성 검사는 늘 최종 상태를 봅니다(아래
+`useSectionReveal`). 깜빡임은 1초에 세 번 이하로 5초 안에 끝나게 둡니다(WCAG 2.3.1, 2.2.2).
+
+시간은 duration token으로 씁니다. token 밖 값은 다음뿐입니다.
+
+- `ghost-blink` 1.4s linear: 1초에 세 번 이하 깜빡임을 한 번 돌리는 길이
+- `float-bob` 2s 두 번: 5초 안에 끝나는 짧은 떠다님, 항목 방울 사이 25ms 간격(방울 24개라 `stagger`면 2초 가까이 걸림)
+- `line-mask` linear: 제목 줄이 올라오는 동안만 자르는 상자라 속도 곡선이 없음
+- 첫 화면 질문 상자 타이핑(글자 80ms, 지우기 35ms, 멈춤 1800ms): script timer라 CSS 변수를 읽지 않음. motion 줄이기에서는 넘기지
+  않습니다
+
+- `reveal-soft`, `reveal-delay-*`: section이 스크롤로 들어올 때 흐림에서 또렷해짐, 단계별 지연
+- `line-rise`, `line-mask`, `enter-delay-*`: 첫 화면 제목 줄이 자기 상자에서 올라옴
+- `media-settle`, `media-drift`: 첫 화면 그림이 자리 잡고, 스크롤에 천천히 따라 내려감
+- `card-in`: 첫 화면 질문 상자·버튼·고지 묶음이 올라옴
+- `scroll-zoom`: 단계 휴대폰 화면이 스크롤로 커지며 들어옴
+- `stack-swap`, `stack-dim`: 겹친 두 창이 앞뒤를 바꿈, 뒤 창을 어둡게
+- `lift-on-hover`: 가입 버튼이 pointer·focus에 앞으로 나옴
+- `ghost-blink`, `ghost-word`: 지운 낱말(운·후회·스트레스)이 한 번 깜빡이고 흐려짐
+- `float-bob`, `pair-*`, `pen-stroke`: 생활패턴 카드(겹쳐 보기, 항목 방울), 체크리스트 펜 자국
+
+- 스크롤 등장은 `LandingFrame`의 `useSectionReveal`이 첫 스크롤 뒤 화면 아래 section에만 `data-pending`을 겁니다. 처음 그린 화면과
+  접근성 검사는 늘 최종 상태를 봅니다.
+
+## 계산값
+
+<Canvas of={TokenSamples.Motion} />

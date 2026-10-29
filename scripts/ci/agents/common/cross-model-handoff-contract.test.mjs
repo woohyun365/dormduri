@@ -221,3 +221,68 @@ test('same-host independent review uses the neutral QA contract without pretendi
     false,
   );
 });
+
+// Optional result fields: unjudgedBehaviors lists behavior the reviewer left unjudged with a reason and does not block
+// PASS; a finding's sameTypeLocations lists other locations of the same defect.
+function resultCheck(change) {
+  const packet = structuredClone(corpus.basePacket);
+  const result = structuredClone(corpus.baseResult);
+  change(result);
+  return validateCrossModelResult(result, { packet, currentSnapshot: packet.snapshot });
+}
+const lowFinding = (extra = {}) => ({
+  severity: 'low',
+  location: 'scripts/a.mjs:3',
+  impact: 'i',
+  reproduction: 'r',
+  evidence: 'e',
+  ...extra,
+});
+
+test('a PASS result may list unjudged behavior, each line with a non-empty reason', () => {
+  const pass = resultCheck((result) => {
+    result.unjudgedBehaviors = [
+      { behavior: 'retry after a network error', reason: 'no requirement or decision covers it' },
+    ];
+  });
+  assert.equal(pass.valid, true, JSON.stringify(pass.errors));
+  assert.equal(
+    resultCheck((result) => {
+      result.unjudgedBehaviors = [];
+    }).valid,
+    true,
+  );
+  for (const [entries, error] of [
+    [
+      [{ behavior: 'retry after a network error', reason: ' ' }],
+      'unjudgedBehaviors[0].reason must be a non-empty string.',
+    ],
+    [[{ behavior: '', reason: 'r' }], 'unjudgedBehaviors[0].behavior must be a non-empty string.'],
+    [
+      [{ behavior: 'b', reason: 'r', verdict: 'PASS' }],
+      'unjudgedBehaviors[0] has unsupported field: verdict.',
+    ],
+    [['retry'], 'unjudgedBehaviors[0] must be an object.'],
+    ['retry', 'unjudgedBehaviors must be an array.'],
+  ]) {
+    const validation = resultCheck((result) => {
+      result.unjudgedBehaviors = entries;
+    });
+    assert.equal(validation.decision, 'reject', JSON.stringify(entries));
+    assert.ok(validation.errors.includes(error), JSON.stringify(validation.errors));
+  }
+});
+
+test('a finding may list same-type locations only as an array of strings', () => {
+  const ok = resultCheck((result) => {
+    result.findings = [lowFinding({ sameTypeLocations: ['scripts/b.mjs:9', 'scripts/c.mjs:12'] })];
+  });
+  assert.equal(ok.valid, true, JSON.stringify(ok.errors));
+  for (const value of ['scripts/b.mjs:9', [7], [''], {}])
+    assert.ok(
+      resultCheck((result) => {
+        result.findings = [lowFinding({ sameTypeLocations: value })];
+      }).errors.includes('findings[0].sameTypeLocations must be an array of non-empty strings.'),
+      JSON.stringify(value),
+    );
+});

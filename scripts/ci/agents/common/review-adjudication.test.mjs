@@ -27,6 +27,14 @@ const RESULTS = {
   'review/r1-b-result.json': { verdict: 'FAIL', findings: [finding('medium', { id: 'b-dup' })] },
   'review/r2-result.json': { verdict: 'FAIL', findings: [finding('medium')] },
   'review/r1-c-result.json': { verdict: 'FAIL', findings: [finding('low', { id: 'b-dup' })] },
+  'review/r1-u-result.json': {
+    verdict: 'PASS',
+    findings: [],
+    unjudgedBehaviors: [
+      { behavior: 'retry after a network error', reason: 'no requirement covers it' },
+      { behavior: 'empty list order', reason: 'no decision record covers it' },
+    ],
+  },
 };
 
 const ROUND1 = {
@@ -209,4 +217,54 @@ test('the command line exits 1 on an invalid record and 0 on a valid one', () =>
     });
     assert.equal(result.status, status, result.stderr);
   }
+});
+
+// A result's unjudged behavior lines are adjudicated one by one: `<taskId>#u<index>` takes out-of-scope, raised or
+// follow-up with a reason, and a line left without a disposition is a violation.
+const UNJUDGED = {
+  schema: 'review-adjudication/v1',
+  subject: 'feature-y',
+  round: 1,
+  reviews: [{ taskId: 'task-u', resultPath: 'review/r1-u-result.json' }],
+  findings: [],
+  unjudged: [
+    { id: 'task-u#u0', disposition: 'out-of-scope', reason: 'the acceptance names no retry' },
+    { id: 'task-u#u1', disposition: 'follow-up', reason: 'issue for the list order' },
+  ],
+};
+
+test('every unjudged behavior line of a reviewed result needs one disposition with a reason', () => {
+  assert.deepEqual(check(UNJUDGED), { code: 0, kinds: [] });
+  assert.deepEqual(
+    check({
+      ...UNJUDGED,
+      unjudged: [{ ...UNJUDGED.unjudged[0], disposition: 'raised' }, UNJUDGED.unjudged[1]],
+    }),
+    {
+      code: 0,
+      kinds: [],
+    },
+  );
+  const [u0, u1] = UNJUDGED.unjudged;
+  const withoutKey = { ...UNJUDGED };
+  delete withoutKey.unjudged;
+  for (const [record, kinds] of [
+    [{ ...UNJUDGED, unjudged: [u0] }, ['missing-unjudged:task-u#u1']],
+    [withoutKey, ['missing-unjudged:task-u#u0', 'missing-unjudged:task-u#u1']],
+    [
+      { ...UNJUDGED, unjudged: [u0, u1, { ...u1, id: 'task-u#u2' }] },
+      ['unknown-unjudged:task-u#u2'],
+    ],
+    [{ ...UNJUDGED, unjudged: [u0, u1, u1] }, ['duplicate-unjudged:task-u#u1']],
+    [{ ...UNJUDGED, unjudged: [{ ...u0, disposition: 'fixed' }, u1] }, ['invalid-field:task-u#u0']],
+    [{ ...UNJUDGED, unjudged: [{ ...u0, reason: ' ' }, u1] }, ['missing-reason:task-u#u0']],
+    [{ ...UNJUDGED, unjudged: [{ ...u0, severity: 'low' }, u1] }, ['unknown-key:task-u#u0']],
+    [
+      { ...UNJUDGED, unjudged: {} },
+      ['invalid-field', 'missing-unjudged:task-u#u0', 'missing-unjudged:task-u#u1'],
+    ],
+  ])
+    assert.deepEqual(check(record), { code: 1, kinds }, JSON.stringify(record));
+  // A result without unjudged lines needs no key, and an empty list is allowed.
+  assert.deepEqual(check({ ...ROUND2, unjudged: [] }), { code: 0, kinds: [] });
 });

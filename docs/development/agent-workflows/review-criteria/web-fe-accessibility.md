@@ -16,9 +16,9 @@ severity가 높은 항목으로 판정합니다.
 - 기본 severity: `medium`
 - 적용 조건: 상호작용 요소·form control·heading·image·landmark를 더하거나 바꾸는 변경
 - 결함 패턴: click 처리만 붙인 일반 요소를 button·link처럼 씀, native 요소로 될 일을 ARIA로 흉내 냄, label 없는 입력이나 이름 없는 icon button을 둠, heading 순서가 화면 구조와 다름
-- PASS 근거: 바뀐 control을 역할과 이름으로 찾는 test가 있고, 자동 접근성 검사가 있으면 위반이 없다
-- 지침: 동작에 맞는 native 요소를 먼저 쓰고 모든 control에 보이는 label이나 접근 가능한 이름을 준다. ARIA는 native 요소로 표현할 수 없을 때만 쓴다
-- 피함: 일반 요소에 click만 붙이기, 불필요한 ARIA, 이름 없는 icon button
+- PASS 근거: 바뀐 control을 역할과 이름으로 찾아 그 동작(누름·입력·링크 목적지)과 상태별 분기를 확인하는 test가 있고, 자동 접근성 검사가 있으면 위반이 없다
+- 지침: 동작에 맞는 native 요소를 먼저 쓰고 모든 control에 보이는 label이나 접근 가능한 이름을 준다. ARIA는 native 요소로 표현할 수 없을 때만 쓴다. test도 control을 역할과 접근 가능한 이름으로 찾는다
+- 피함: 일반 요소에 click만 붙이기, 불필요한 ARIA, 이름 없는 icon button, test에서 control을 역할 없이 보이는 문자열·DOM 위치·class로 찾기
 
 ### F2. keyboard와 focus
 

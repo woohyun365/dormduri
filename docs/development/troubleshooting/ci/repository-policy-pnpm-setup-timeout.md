@@ -90,4 +90,4 @@ Cancelled run은 성공 성능 cohort에 포함하지 않는다. 대신 retry와
 - [GitHub Actions job과 step timeout](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idtimeout-minutes)
 - [pnpm/action-setup v6.0.10 options](https://github.com/pnpm/action-setup/blob/v6.0.10/README.md)
 - [pnpm/action-setup bootstrap implementation](https://github.com/pnpm/action-setup/blob/v6.0.10/src/install-pnpm/run.ts)
-- [Repository incident #423](https://github.com/woohyun365/knu_roommate/issues/423)
+- [Repository incident #423](https://github.com/woohyun365/dormduri/issues/423)

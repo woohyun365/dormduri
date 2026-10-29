@@ -34,14 +34,9 @@ test.describe('Web smoke', () => {
     await page.goto('/');
     const hero = page.locator('#hero');
 
-    await expect(
-      hero.getByRole('heading', { name: /생활패턴이 맞는.*룸메이트를 찾아요/ }),
-    ).toBeVisible();
-    await expect(hero.getByRole('link', { name: '학교 이메일로 시작하기' })).toBeVisible();
-    await expect(hero.getByRole('link', { name: '이용 흐름 보기' })).toHaveAttribute(
-      'href',
-      '#how-it-works',
-    );
+    await expect(hero.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(hero.locator('a[href="/signup"]')).toBeVisible();
+    await expect(hero.getByText('돔두리는 학교 공식 서비스가 아닙니다.')).toBeVisible();
   });
 
   test('로그인 화면의 핵심 폼 컨트롤을 렌더링한다', async ({ page }) => {

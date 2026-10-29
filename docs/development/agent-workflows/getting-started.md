@@ -55,10 +55,10 @@ pnpm claude:native register --input <JSON-file>
 다음처럼 **새 세션**을 시작합니다. 모델·추론 수준은 작업에 맞게 선택하며 전역 설정 변경은 필수가 아닙니다.
 
 ```bash
-omx --direct --approve-for-me
+codex --approve-for-me
 ```
 
-`--direct`는 OMX의 tmux/HUD 관리를 사용하지 않는 실행 방식이며 sandbox 해제가 아닙니다. 지원되는 Auto-review는
+지원되는 Auto-review는
 workspace-write 경계를 유지하면서 필요한 승인 요청을 reviewer에게 보냅니다. 이미 허용된 작업은 검토 없이 진행될
 수 있습니다. 동작과 권한 구분은 [실행 계약](./agent-execution-contract.md#permission-modes-and-evidence)과
 [공식 Auto-review 설명](https://learn.chatgpt.com/docs/sandboxing/auto-review)을 따릅니다.
@@ -73,7 +73,7 @@ workspace-write 경계를 유지하면서 필요한 승인 요청을 reviewer에
 묻는 대안은 다음과 같습니다. 이 대안도 현재 설치 버전·managed 정책에서 허용되는지 확인합니다.
 
 ```bash
-omx --direct --sandbox workspace-write --ask-for-approval on-request -c 'approvals_reviewer="user"'
+codex --sandbox workspace-write --ask-for-approval on-request -c 'approvals_reviewer="user"'
 ```
 
 기존 broad allow는 새 세션에도 남을 수 있습니다. 예를 들어 `gh api` 허용은 GET·이 저장소에 한정된 규칙이 아니므로,

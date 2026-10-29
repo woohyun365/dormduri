@@ -40,6 +40,8 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
   확인합니다. 이 파일들과 재현 로그는 리뷰 read path(디렉터리 포함) 밖에 둡니다. Read path 아래 ignored 파일을 바꾸면 그 reviewer의
   `review-input-changed`로 정산과 연결 builder 완료가 거부됩니다(그룹은 마지막 구성원 정산과 builder 완료까지). 다른 reviewer의 같은 결함은 `duplicateOf`로 묶습니다. 구성원이 id 접두를 어겨 `duplicate-result-id`가 나면 기록으로
   풀 수 없으므로 native 경로는 새 builder task와 새 review로 가고, Parent 경로는 구성원마다 기록을 하나씩 씁니다.
+- Result에 `unjudgedBehaviors`(판정하지 않은 동작) 줄이 있으면 처분 기록 `unjudged`에 줄마다(`<taskId>#u<index>`)
+  `out-of-scope`·`raised`·`follow-up`과 이유를 적습니다. PASS 회차도 같고, 처분이 빠진 줄은 `missing-unjudged`로 거부됩니다.
 - 1회차 그룹의 non-PASS 구성원은 그 구성원의 blocking finding(critical·high·medium)을 Parent가 재현해 볼 때만 기각할 수 있습니다.
   재현 실행을 첫 줄이 그 회차 `logHeader`인 `.artifacts/` 로그로 남기고 `reason`에 그 경로를 backtick으로 적은 뒤 `rejected`로
   둡니다. 재현되면 `fixed`이고 같은 변경의 다음 회차로 갑니다. 리뷰 전 runner 출력은 재현 근거가 아닙니다.

@@ -3,6 +3,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  findUnlistedImages,
+  IMAGE_INVENTORY_PATH,
+  listImageSurfaces,
+  loadImageInventory,
+  resolveImageReference,
+} from '../artifacts/image-inventory.mjs';
 import { inspectRepository } from './inspect.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
@@ -22,20 +29,28 @@ for (const drift of [
   }
 }
 
-const inventoryPath = resolve(repoRoot, 'infra/image-inventory.json');
+const inventoryPath = resolve(repoRoot, IMAGE_INVENTORY_PATH);
 if (!existsSync(inventoryPath)) {
-  failures.push('image-inventory: infra/image-inventory.json is missing');
+  failures.push(`image-inventory: ${IMAGE_INVENTORY_PATH} is missing`);
 } else {
-  const inventory = JSON.parse(readFileSync(inventoryPath, 'utf8'));
+  const inventory = loadImageInventory(repoRoot);
   for (const image of inventory.images ?? []) {
-    if (!/:[^@\s]+@sha256:[a-f0-9]{64}$/u.test(image.reference)) {
-      failures.push(`image-inventory:${image.name}: reference is not immutable`);
+    if (!existsSync(resolve(repoRoot, image.ownerPath))) {
+      failures.push(`image-inventory:${image.name}: owner file is missing`);
       continue;
     }
-    const ownerPath = resolve(repoRoot, image.ownerPath);
-    if (!existsSync(ownerPath) || !readFileSync(ownerPath, 'utf8').includes(image.reference)) {
-      failures.push(`image-inventory:${image.name}: owner projection is stale`);
+    try {
+      resolveImageReference(repoRoot, image);
+    } catch (error) {
+      failures.push(`image-inventory:${error.message}`);
     }
+  }
+  const surfaces = listImageSurfaces(repoRoot).map((path) => ({
+    path,
+    source: readFileSync(resolve(repoRoot, path), 'utf8'),
+  }));
+  for (const problem of findUnlistedImages(inventory, surfaces)) {
+    failures.push(`image-inventory:${problem}`);
   }
 }
 

@@ -90,6 +90,45 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 - 영역 판정: `matchReviewCriteriaPath(path, catalog)`는 경로 하나에 겹침 규칙까지 적용한 문서와 그 layer(`areas`)를 냅니다.
   CI `Lifecycle gate`의 영역 검사(`W-AREA`)가 이 함수로 제품 경로마다 영역이 있는지 봅니다([KNU domain binding의 영역 검사](../domain/knu-binding.md#영역-검사)).
 
+## 리뷰어 입력
+
+리뷰를 만들 때 자동 선택과 같은 리뷰 대상 경로로 reviewer가 subject 옆에서 읽을 기록을 고릅니다. 공통 module은
+[`review-context-inputs.mjs`](../../../../scripts/agents/common/review-context-inputs.mjs)이고 host 정책을 import하지 않으며 CLI로도
+씁니다(`node scripts/agents/common/review-context-inputs.mjs [--binding-out <경로>] [--lifecycle-draft <경로> --lifecycle-out <경로>] -- <리뷰 대상 경로…>`).
+두 `-out` 경로는 저장소 안 상대 경로이고 아래 두 추출 파일을 씁니다(없는 상위 디렉터리는 만들고, 같은 경로의 일반 파일은
+덮어씀). 추출이 있는데 그 경로가 없으면 `context-output-missing`, 절대·저장소 밖 경로이거나 리뷰 대상 경로·binding·다른 입력·원본
+초안·다른 출력과 같은 경로(대소문자 무시)이거나, 그 경로나 저장소 안 상위 디렉터리가 symlink이거나 그 경로가 일반 파일이 아니면
+`context-output-invalid`이고, 둘 다 입력 오류(exit 1)입니다.
+
+- intent: [`docs/product/intent.md`](../../../product/intent.md)가 있으면 경로와 무관하게 넣습니다.
+- 결정 기록: 자동 선택이 고른 영역 문서의 layer마다 [결정 기록](../../../architecture/decisions/README.md)
+  `docs/architecture/decisions/<layer>.md`가 있으면 넣습니다. 파일이 없는 layer는 기록의 `absent`에만 남습니다.
+- 정책 문서: 제품 경로를 CI `Lifecycle gate`의 경로 → 정책 도메인 표(`docs/policies/path-domains.json`)로 판정한 도메인마다
+  `docs/policies/<도메인>.md`를 넣습니다(파일이 없으면 `absent`). 판정은 [`policy-first-check.mjs`](../../../../scripts/ci/lifecycle/policy-first-check.mjs)의
+  표 위치(`PATH_DOMAINS_FILE`)·`parsePathDomains`·`createPathTable`·도메인 → 문서 경로(`policyPath`)를 import하고 복제하지
+  않으므로, 그 표나 네 export를 바꾸는 변경은 리뷰어 입력도 바꿉니다.
+- binding 행: 자동 선택이 고른 기준 문서에 걸린 [binding](../domain/knu-binding.md)의 행을 원문 그대로 옮긴 추출 파일(Claude는
+  `<reviewId>.binding.md`, CLI는 `--binding-out` 경로)을 넣습니다. `## 고른 값` 행은 결정 id(`/<영역>` 앞)가 고른 문서의 pack 하위
+  layer 절에 있을 때(결정 위치는 [discovery 질문 module](../../../../scripts/agents/common/discovery-questions.mjs)이 pack을 읽어 정함),
+  `## 저장소 규약` 행은 "관련 기준 항목"이 고른 문서를 가리킬 때 듭니다. 추출의 첫 줄은 binding 경로와 sha256(옮긴 상대 링크의
+  기준)이고, 절마다 제목·열 설명 bullet·표 머리와 고른 행만 binding 순서로 둡니다. 키 표·`## 영역 검사` 같은 다른 절과 binding 문서
+  자체는 넣지 않습니다. 걸린 행이 없으면 입력과 파일이 없고, binding에 그 절 heading이 없으면 그 절은 행이 없는 것입니다. 다음은
+  0행으로 넘기지 않고 입력 오류(`binding-values-invalid`)로 멈춥니다: 절 이름으로 시작하지만 다른 heading(이름이 바뀐 절), 두 절의
+  표 머리나 "관련 기준 항목" 열을 찾지 못함, pack을 읽지 못함, `## 고른 값` 결정이 pack에 없거나 그 하위 layer가 기준 문서 catalog에
+  없는 id로 이어짐, `## 저장소 규약` 행이 기준 항목을 가리키지 않거나 catalog에 없는 문서를 가리킴.
+- 변경 등급 기록: 리뷰에 준 PR 본문 초안 파일(Claude Parent subject의 `lifecycleDraft`, CLI `--lifecycle-draft`)에서 `## Lifecycle`
+  절(그 heading부터 다음 `## ` heading 앞까지)만 원문 그대로 잘라 추출 파일(Claude는 `<reviewId>.lifecycle.md`, CLI는
+  `--lifecycle-out` 경로)로 넣고 원본 초안은 넣지 않습니다(Summary·Changes 같은 자유 문장은 reviewer 입력이 아닙니다). 절이 없거나
+  둘 이상이면 입력 오류입니다. Reviewer는 그 `변경 등급`·`등급 근거`·`정책 영향 없음`·`인용 규칙`을 근거가 아닌 주장으로 보고
+  diff와 대조합니다. 초안이 없으면 변경을 feature로 봅니다.
+- 항목마다 포함 이유(intent, layer와 그 layer를 고른 기준 문서·경로, 도메인과 그 경로, binding 행의 결정 행·규약 사실과 그 기준
+  문서, 초안 원본 경로)를 붙입니다. 목록은 reviewer read path가 되고 prompt 입력 줄에는 경로와 이유만 들어갑니다. 기록
+  `<reviewId>.context.json`과 두 추출 파일은 Claude는 helper 디렉터리, Codex는 knu-review skill이 정한 위치에 두고, 기록은 read
+  path가 아닙니다.
+- Reviewer는 요구가 말하지 않은 동작을 intent·결정 기록과 합리적 사용자 기대로 판정하고, 판정하지 않고 둔 동작은 결과
+  `unjudgedBehaviors`(`behavior`·`reason`)에 적습니다. 이 필드는 PASS를 막지 않고 Parent가 정산 때 줄마다 처분합니다([처분
+  기록](#처분-기록)). 같은 유형의 결함이 다른 위치에도 있으면 그 finding의 `sameTypeLocations`(`path:line`)에 적습니다.
+
 ## 항목 형식
 
 문서당 항목 수 상한은 두지 않습니다. 적용 조건이 다른 항목이 섞이면 문서를 나눕니다. 각 항목은 `### <문자><번호>. <이름>`
@@ -126,14 +165,14 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한 적용은 runner가 실행하고 그 출력을 기록할 때만 효력이
 있습니다. CI는 ignored 입력을 보지 못합니다.
 
-| 검사        | 명령                                                                                                           | 위반 종류                                                                                                                                                                             |
-| ----------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 인용        | `node scripts/agents/common/citation-check.mjs [--root <repo>] [--json] <md file...>`                          | `unresolved`·`ambiguous`·`invalid-range`·`out-of-range`·`unreadable`·`invalid-expectation`·`content-mismatch`                                                                         |
-| Runner 기록 | `node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header <첫 줄> [--root <repo>] [--json]`  | `invalid-record`·`missing-output`·`output-missing`·`digest-mismatch`·`header-mismatch`·`exit-mismatch`·`invalid-fragment`·`summary-mismatch`                                          |
-| RED 사유    | `node scripts/agents/common/red-reason-check.mjs --log <file> --expect <regex> [--expect <regex>...] [--json]` | `missing-summary`·`no-failure`·`no-failure-blocks`·`unexpected-reason`·`unexpected-signature`                                                                                         |
-| Mutation    | `node scripts/agents/common/mutation-harness.mjs --spec <JSON> [--link-node-modules] [--root <repo>] [--json]` | `baseline-failed`·`survived`·`target-missing`·`ambiguous`·`wrong-reason`·`timeout`                                                                                                    |
-| 계획 참조   | `node scripts/agents/common/plan-reference-check.mjs [--root <repo>] [--report-only] [--json] <plan md...>`    | `unresolved`·`unresolved-target`·`duplicate-definition`·`broken-link`                                                                                                                 |
-| 처분 기록   | `node scripts/agents/common/review-adjudication.mjs [--root <repo>] [--json] <adjudication.json...>`           | `invalid-field`·`unknown-key`·`result-unreadable`·`missing-finding`·`duplicate-finding`·`unknown-finding`·`missing-reason`·`missing-origin`·`invalid-duplicate`·`duplicate-result-id` |
+| 검사        | 명령                                                                                                           | 위반 종류                                                                                                                                                                                                                                        |
+| ----------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 인용        | `node scripts/agents/common/citation-check.mjs [--root <repo>] [--json] <md file...>`                          | `unresolved`·`ambiguous`·`invalid-range`·`out-of-range`·`unreadable`·`invalid-expectation`·`content-mismatch`                                                                                                                                    |
+| Runner 기록 | `node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header <첫 줄> [--root <repo>] [--json]`  | `invalid-record`·`missing-output`·`output-missing`·`digest-mismatch`·`header-mismatch`·`exit-mismatch`·`invalid-fragment`·`summary-mismatch`                                                                                                     |
+| RED 사유    | `node scripts/agents/common/red-reason-check.mjs --log <file> --expect <regex> [--expect <regex>...] [--json]` | `missing-summary`·`no-failure`·`no-failure-blocks`·`unexpected-reason`·`unexpected-signature`                                                                                                                                                    |
+| Mutation    | `node scripts/agents/common/mutation-harness.mjs --spec <JSON> [--link-node-modules] [--root <repo>] [--json]` | `baseline-failed`·`survived`·`target-missing`·`ambiguous`·`wrong-reason`·`timeout`                                                                                                                                                               |
+| 계획 참조   | `node scripts/agents/common/plan-reference-check.mjs [--root <repo>] [--report-only] [--json] <plan md...>`    | `unresolved`·`unresolved-target`·`duplicate-definition`·`broken-link`                                                                                                                                                                            |
+| 처분 기록   | `node scripts/agents/common/review-adjudication.mjs [--root <repo>] [--json] <adjudication.json...>`           | `invalid-field`·`unknown-key`·`result-unreadable`·`missing-finding`·`duplicate-finding`·`unknown-finding`·`missing-reason`·`missing-origin`·`invalid-duplicate`·`duplicate-result-id`·`missing-unjudged`·`duplicate-unjudged`·`unknown-unjudged` |
 
 - Exit 0은 위반 없음, 1은 위반, 2는 입력 오류(option·파일·root 없음, 읽기 실패, 빈 입력, 형식이 틀린 header·regex·spec·JSON,
   git 저장소 밖의 root, 알 수 없는 option·spec key, 지원하지 않는 형식, 만들 수 없는 mutation 사본)입니다. 입력 오류를 통과로 세지 않습니다. `--json`은 summary와 위반 목록을 JSON으로 냅니다.
@@ -235,6 +274,11 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
   중복은 위반입니다.
 - 2회차부터 `origin`이 필요합니다: `fix-induced`(수정이 들여온 결함), `previously-missed`(이전 회차가 놓친 결함),
   `re-raised`(다시 제기된 결함). `fixRef`는 선택입니다.
+- 나열한 result에 `unjudgedBehaviors`(판정하지 않은 동작) 줄이 있으면 선택 key `unjudged`에 줄마다
+  `{ "id": "<task id>#u<index>", "disposition": "...", "reason": "..." }`를 둡니다. Index는 result `unjudgedBehaviors` 배열
+  index(0부터)입니다. `disposition`은 `out-of-scope`(이 변경 범위 밖)·`raised`(Parent가 finding으로 올림)·`follow-up`(후속
+  작업)이고 모두 `reason`이 필요합니다. 줄마다 정확히 한 번 나와야 하며 처분이 빠진 줄(`missing-unjudged`), 같은 줄의 두 번째
+  처분(`duplicate-unjudged`), result에 없는 id(`unknown-unjudged`)는 위반입니다.
 
 ### 리뷰 측정
 
@@ -248,6 +292,33 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 - 행 상태: `parsed`, `parse-failed`(마지막 응답에 result JSON 없음), `completion-missing`, `task-unreadable`(task 기록을 읽지
   못해 reviewer인지 모르는 task도 행으로 셈). 회차는 reviewer
   prompt의 `Review round N`에서 읽고, 회차 입력 전 기록은 `unknown`입니다.
+- 행의 finding은 id·severity·기준 항목(`criteriaItem`)과 result finding의 위치(`location`, 없으면 null)를 담습니다.
+
+## 누적 이탈 점검
+
+리뷰 한 번은 그 변경만 봅니다. 누적 이탈 점검은 [결정 기록](../../../architecture/decisions/README.md)과 지금 code가 어긋난 곳을
+layer마다 모읍니다. 점검과 판정은 Parent가 하고(`model-mediated`), 결과는 그 작업의 ignored 증거 위치에 둡니다. 점검은 추적 문서를
+고치지 않습니다.
+
+- 시점: 영역 첫 제품 node readiness 전, 그리고 그 layer 결정 기록을 바꾼 PR이 merge된 뒤 다음 readiness 전입니다. 달력 주기는
+  두지 않습니다.
+- 단위: layer 결정 기록 파일 하나(`docs/architecture/decisions/<layer>.md`)이고, 결과는 그 파일의 하위 layer 절(`## <하위 layer>`)별로
+  모읍니다. 같은 실행에서 [승격 제안](#승격-제안) 목록도 씁니다.
+- 결정 항목(`#### <결정 id>`)마다 네 가지를 봅니다.
+  - (가) 고른 선택지와 지금 code: 고른 선택지가 말하는 범위·설정·경로가 지금 tree와 맞는지, 반대 패턴이 어디 있는지(`path:line`)
+    적습니다. 반대 패턴 검색에는 같은 검색이 실제 대상을 찾는다는 양성 대조를 붙입니다.
+  - (나) 결정적 검사: 그 결정을 강제하는 lint 설정·test·CI 단계가 있는지와 그 위치입니다. 없으면 리뷰만 보는 결정으로 적습니다.
+  - (다) 재확인 신호: 항목의 Owner 확인 뒤(그 항목 `출처` 줄에 지금 Owner 확인 날짜를 처음 적은 commit 뒤)에 layer 파일
+    header `근거`의 경로가 바뀌었거나, `pack 결정`이 pack 결정을 가리키면 그 `확인 단서`의 binding 키가 가리키는 경로가
+    바뀌었으면 재확인 대상입니다.
+    `pack 결정: 없음`인 항목은 header `근거`만 신호입니다.
+  - (라) 정책 규칙 id: pack 결정 수준이 `policy`·`operational`인 항목은 `고른 선택지`가 링크한 정책 규칙 id가 정책 문서에 있고 뜻이
+    같은지 봅니다([규칙 id와 인용](../../../policies/README.md#규칙-id와-인용)). 정책 문서에 규칙 id가 없으면 대조 대상 0으로
+    기록합니다.
+- 결과는 항목마다 `그대로`·`이탈`·`재확인 필요` 가운데 하나와 근거 위치입니다. (가)가 고른 선택지와 다르면 `이탈`이고, 그렇지
+  않아도 (다) 신호가 있거나 결정 문장과 code가 다르게 읽히면 `재확인 필요`입니다.
+- 처분은 점검과 다른 작업입니다. `이탈`은 decision 갱신(그 항목의 `이전 선택` 줄, [항목 형식](../../../architecture/decisions/README.md#항목-형식))이나
+  code 수정 작업으로, `재확인 필요`는 Owner 확인 뒤 decision 갱신이나 출처의 확인 날짜 추가로 남깁니다.
 
 ## 갱신
 
@@ -256,3 +327,63 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·pack 인용(해석, 인용되지 않은 항목, pack 하위 layer 절의 항목
 인용과 id 목록), pack 결정의 필드 순서와 먼저 정할 결정 해석, binding 키의 표기와 해석, 저장소 값 이름 목록 부재를
 검사합니다.
+
+### 승격 제안
+
+[누적 이탈 점검](#누적-이탈-점검)과 같은 실행에서 Parent가 아래 원자료를 모아 승격 제안 목록을 그 작업의 ignored 증거 위치에
+씁니다. Owner가 고른 제안만 기준 갱신 PR(독립 리뷰와 [재채점](#재채점))로 열고, 자동으로 merge하지 않습니다. 원자료 범위는 직전
+승격 제안 실행 뒤(첫 실행은 교정 채택 뒤)이고, 목록 머리에 그 범위를 적습니다. Owner가 기각한 제안은 목록에 기각으로 남기고, 새
+원자료가 더해질 때만 다시 냅니다.
+
+- 원자료
+  - [리뷰 측정](#리뷰-측정) ledger에서 같은 기준 항목(`criteriaItem`)이 서로 다른 subject 2개 이상에 나온 finding과 그 `location`.
+    subject는 처분 기록의 subject(ledger를 `--adjudications`로 뽑을 때의 행 subject 키)로 묶고, 처분 기록이 없는 행 수를 따로
+    적습니다. 교정·재채점·실험처럼 사본으로 재는 측정 run은 뺍니다. Codex 리뷰는 ledger reader가 없으므로 Parent가 그 작업 증거의
+    결과 JSON과 정산 보고에서 직접 모읍니다.
+  - non-PASS 회차.
+  - PR `Lifecycle` 절의 `override` 줄.
+  - `원인 PR`로 찾은 놓친 결함. 원인 PR의 리뷰 기준 기록(`<reviewId>.criteria.json`)·ledger와 대조해 "기준이 있었는데 놓침"과
+    "기준 없음"을 나눕니다.
+- 승격 규칙: 같은 finding이 두 번 나오면 결정적 검사·trigger 후보, 운영 결함은 회귀 test, 반복되는 설명은 지침으로 승격을
+  제안합니다. 같은 수동 절차가 서로 다른 PR 2개 이상의 runner 기록·ledger에 나오면 그 절차를 도구로 바꾸는 후보(수동 절차
+  도구화)로 제안합니다.
+- 목록의 열은 제안·원자료 위치·승격 종류·구분입니다. 구분은 binding 값이 필요하면 repo layer, 없으면 upstream 후보입니다.
+
+### 재채점
+
+리뷰 기준 문서, reviewer prompt 원본, reviewer 모델 정책을 바꾸는 변경은 merge 전에 held-out 사본으로 리뷰가 그 전에 찾던 결함을
+놓치지 않는지 다시 잽니다. 경로 목록은 `scripts/ci/lifecycle/review-snapshot-check.mjs`의 `RESCORE_TRIGGER_PATHS`와 그 test가
+고정하고, PR 본문 `재채점` 줄의 형식과 경고는 [Pull request](../../github/collaboration.md#pull-request) 절이 소유합니다.
+
+- 구성: 지금 held-out set(첫 교체 전에는 교정 때 지정한 사본 subject 셋, 그 뒤는 사용 기록이 정한 셋)의 subject마다
+  `claude:native review`를 `--criteria <id>`(그 사본이 대응하는 실제 경로의 자동 선택 id)와 `--composition e3 --reviewers 2`로
+  2회 돌립니다(reviewer 12회). Claude reviewer 모델을 바꾸는 변경은 기준 없음
+  arm(`--criteria none --composition e2 --reviewers 2`)도 같은 수로 돌려 기준선을 다시 잽니다.
+- 판정: 그 set의 결함×반복을 모두 찾으면 통과입니다(교정 때 기준선 10/10). 하나라도 놓치면 `실패`이고 merge 전 Owner가 판단합니다.
+- 실행과 채점: 기준을 고친 writer가 아니고 쓰기 작업을 맡지 않은 reader 세션이 writer branch HEAD에서 실행·채점하고, 그동안
+  writer branch를 merge하지 않습니다. writer와 PR에는 통과/실패와 놓친 수만 주고, 결함별 채점은 ignored 증거 위치에만 둡니다. 결함별 결과는 기준 문구·prompt·모델 수정의 근거로 쓰지 않습니다.
+- 사용 기록: 재채점마다 held-out 지정 기록 옆 사용 기록 파일에 한 줄(id·날짜·PR·trigger·set·통과/실패·놓친 수)을 더하고, 그
+  사용의 기록에 run의 리뷰어 입력(`docs/product/intent.md` sha256 포함)을 남깁니다. PR 본문 `재채점` 줄은 그 id를 씁니다.
+- 다시 돌리면 `실패` 줄을 지우지 않고 새 사용 기록 id로 줄을 더합니다. `실패` 줄 경고는 남고, Owner 판단은 PR 본문 Review
+  evidence에 한 줄로 적습니다.
+- 측정 범위: Claude 진입점만 잽니다(교정과 같은 범위). 사본은 ignored 증거 경로라 결정 기록·정책 문서 입력이 붙지 않고 등급
+  기록(`lifecycleDraft`)도 주지 않습니다. 사본 run에 늘 나오는 prompt 줄은 intent 입력 줄(`docs/product/intent.md`가 없으면 입력
+  "없음" 줄)과 "등급 기록 없음" 줄입니다. `docs/product/intent.md` 내용 변경은 trigger가 아닙니다.
+- 재채점이 그 변경을 재지 않으면 `재채점: 해당 없음 — <이유>`로 닫습니다.
+  - Codex 진입점 파일만 바꾼 변경: `해당 없음 — Codex 진입점은 측정 범위 밖(교정 한계)`. Codex 기준선은 Codex 교정이 생길 때까지
+    열린 한계이고, Codex reviewer 모델을 바꾸는 변경은 재채점이 품질 근거가 아니므로 merge 전 Owner가 판단합니다.
+  - `review-context-inputs.mjs`의 경로별 입력 선택(layer → 결정 기록, 정책 도메인 → 정책 문서)만 바꾼 변경:
+    `해당 없음 — 입력 선택 분기는 사본 경로에 걸리지 않음`.
+  - 등급 기록이 있을 때만 들어가는 초안 표시 문장만 바꾼 변경: `해당 없음 — 재채점 사본에 등급 기록이 없음`.
+  - 그 밖에 사본 run이 지나지 않는 trigger 파일 변경(절차 문장, reviewer 입력에 들어가지 않는 helper 분기 등)은 그 이유를 적어
+    닫습니다.
+- subject 교체: 사용 3회마다 또는 놓친 결함 사례(`원인 PR`로 찾은 결함) 2건이 쌓이면, 가장 오래 쓴 subject 하나를 그 사례로 만든
+  놓친 결함 subject(고친 commit 부모 판의 사본)로 바꾸고 subject 셋을 유지합니다. 동률이면 seeded subject를 놓친 결함 subject보다
+  먼저, seeded끼리는 사본 id(`r03`처럼 사본 디렉터리 이름) 순으로 고릅니다. 사례가 없으면 seeded 방식(그 뒤 merge된 실제 제품 변경의 사본에 결함 둘을 심고,
+  정답표는 run이 끝날 때까지 저장소와 세션 작업 디렉터리 밖에 둠)으로 새 subject를 만듭니다. 교체 subject는 그 재채점을 맡은
+  세션이 만들고, 바꾼 subject와 이유는 다음 사용 기록 줄의 set 칸에 적습니다.
+- 오염: run마다 reviewer의 읽기(Read·Grep·Glob 입력)를 감사합니다. 저장소 밖 경로, 사본이 대응하는 실제 저장소 경로, 놓친 결함을
+  고친 commit이 바꾼 경로와 그 commit·PR·issue를 인용하는 추적 파일, 계획 디렉터리, run 입력 밖 ignored 증거(교정·재채점 원자료와
+  정답표 포함), [교정 evidence](../../../evidence/agent-workflows/review-criteria-calibration.md)를 읽거나 그 범위를 덮게 검색한 run은
+  오염이고 같은 조건으로 한 번 다시 돌립니다. 다시 돈 run도 오염이면 멈추고 Owner에게 묻습니다.
+- 재채점 set은 공개 주장의 근거로 쓰지 않습니다.

@@ -3,6 +3,7 @@ import { createRootMetadata } from './metadata';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { WebVitalsReporter } from '@/observability/web-vitals/WebVitalsReporter';
+import { fontVariablesClassName } from '@/styles/fonts';
 import './globals.css';
 import '../styles/knu.css';
 
@@ -24,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html lang="ko" className={fontVariablesClassName}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
         <Toaster position="top-center" richColors closeButton duration={3000} />

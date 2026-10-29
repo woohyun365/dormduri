@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
+import { findMinimumVersionViolations } from '../dependencies/dependency-health-contract.mjs';
 import {
   buildDependencyAlertInventory,
   parseDependencyAlertClassification,
@@ -94,15 +95,32 @@ test('retained security overrides and resolved lock entries keep the known vulne
   const workspace = readFileSync(resolve(process.cwd(), 'pnpm-workspace.yaml'), 'utf8');
   const lockfile = readFileSync(resolve(process.cwd(), 'pnpm-lock.yaml'), 'utf8');
 
-  for (const contract of [
-    "'engine.io>ws': 8.21.3",
-    "'@nestjs/platform-express>multer': 2.3.0",
-    'postcss: 8.5.28',
-    "'prisma>mysql2': 3.24.3",
-    "'socket.io-adapter>ws': 8.21.3",
-  ]) {
-    assert.match(workspace, new RegExp(escapeRegExp(contract), 'u'));
-  }
+  // Renovate raises these overrides and resolutions, so the remediated version is a floor (dependency-health contract).
+  assert.deepEqual(
+    findMinimumVersionViolations({
+      workspace,
+      lockfile,
+      minimumWorkspaceOverrides: {
+        'engine.io>ws': '8.21.3',
+        '@nestjs/platform-express>multer': '2.3.0',
+        postcss: '8.5.28',
+        'prisma>mysql2': '3.24.3',
+        'socket.io-adapter>ws': '8.21.3',
+      },
+      minimumLockResolutions: {
+        '@nestjs/platform-express': '11.2.3',
+        '@humanfs/node': '0.16.8',
+        'baseline-browser-mapping': '2.11.18',
+        'js-yaml': '4.3.2',
+        multer: '2.3.0',
+        mysql2: '3.24.3',
+        next: '16.3.4',
+        qs: '6.16.0',
+        sharp: '0.35.4',
+      },
+    }),
+    [],
+  );
 
   for (const removedSelector of [
     "'@babel/core':",
@@ -122,9 +140,6 @@ test('retained security overrides and resolved lock entries keep the known vulne
   ]) {
     assert.doesNotMatch(workspace, new RegExp(escapeRegExp(removedSelector), 'u'));
   }
-
-  assert.match(lockfile, /'@nestjs\/platform-express@11\.2\.3/u);
-  assert.match(lockfile, /\n      multer: 2\.3\.0\n/u);
 
   for (const vulnerable of [
     '@humanfs/node@0.16.7',
@@ -155,19 +170,6 @@ test('retained security overrides and resolved lock entries keep the known vulne
     'baseline-browser-mapping@2.10.37',
   ]) {
     assert.doesNotMatch(lockfile, new RegExp(escapeRegExp(vulnerable), 'u'));
-  }
-
-  for (const safeResolution of [
-    '@humanfs/node@0.16.8',
-    'baseline-browser-mapping@2.11.18',
-    'js-yaml@4.3.2',
-    'multer@2.3.0',
-    'mysql2@3.24.3',
-    'next@16.3.4',
-    'qs@6.16.0',
-    'sharp@0.35.4',
-  ]) {
-    assert.match(lockfile, new RegExp(escapeRegExp(safeResolution), 'u'));
   }
 });
 

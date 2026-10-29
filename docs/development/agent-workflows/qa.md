@@ -181,12 +181,19 @@ Input
 Result
   reviewedSnapshot / contextIsolationMethod
   acceptanceCoverage[]: criterion -> evidence or gap
-  findings[]: severity / path:line / impact / reproduction / evidence
+  findings[]: severity / path:line / impact / reproduction / evidence / sameTypeLocations[](optional, path:line)
+  unjudgedBehaviors[](optional, does not block PASS): behavior / reason
   commandsActuallyRun[]: runner / exit / observedResult / environment
   notRun[] / knownGaps[] / confidence
   verdict: PASS | FAIL | BLOCKED (scope and reason)
   nextAction / integrationOwner
 ```
+
+Reviewer는 요구가 말하지 않은 동작을 intent·결정 기록과 합리적 사용자 기대로 판정하고, 판정하지 않고 둔 동작은
+`unjudgedBehaviors`에 줄마다 이유와 함께 적습니다. 같은 유형의 결함이 다른 위치에도 있으면 그 finding의 `sameTypeLocations`에
+`path:line`으로 적습니다. 두 필드는 선택이고 `unjudgedBehaviors`는 coverage gap·`knownGaps`와 달리 PASS를 막지 않으며, Parent가
+정산 때 줄마다 처분합니다(`out-of-scope`·`raised`·`follow-up`과 이유). Reviewer가 읽을 intent·결정 기록·정책 문서·변경 등급 기록은
+[리뷰어 입력](./review-criteria/README.md#리뷰어-입력)이 고릅니다.
 
 1. 요구사항·현재 policy/public contract와 전체 in-scope source/diff를 먼저 제공해 reviewer가 acceptance를 도출하게 합니다.
    구현자의 solution rationale이나 self-PASS를 정답으로 주지 않습니다. 필요하면 요구사항을 재조사하고 policy OQ를 분리합니다.

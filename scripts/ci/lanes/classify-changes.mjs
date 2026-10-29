@@ -36,11 +36,35 @@ export function isIntendedFanOut(rawPath) {
 
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
+// Web sources that the Storybook story check renders (token sources and the new screen layer, plus the
+// globals.css entry that imports the generated token CSS and the PostCSS config that runs Tailwind for the
+// Storybook build) and that check's own config and specs.
+const STORYBOOK_CHECK_PREFIXES = [
+  'apps/web/src/styles/',
+  'apps/web/src/screens/',
+  'apps/web/e2e/storybook/',
+];
+const STORYBOOK_CHECK_PATHS = new Set([
+  'apps/web/playwright.storybook.config.ts',
+  'apps/web/src/app/globals.css',
+  'apps/web/postcss.config.mjs',
+]);
+
+function isStorybookInput(path) {
+  return (
+    STORYBOOK_PATTERN.test(path) ||
+    STORYBOOK_CHECK_PATHS.has(path) ||
+    STORYBOOK_CHECK_PREFIXES.some((prefix) => path.startsWith(prefix))
+  );
+}
 // Repository scripts that lane jobs run or import (workflow steps, pnpm scripts, the web image build) or that files
 // of a lane package import or read. A change re-runs those lanes; classify-changes.test.mjs derives the set from the
 // workflows, package scripts, package files and imports.
 const LANE_SCRIPT_PATHS = new Map([
   ['scripts/artifacts/paths.mjs', ['api']],
+  ['scripts/artifacts/workspace-layout.mjs', ['api']],
+  ['scripts/artifacts/workspace-layout.core.json', ['api']],
+  ['scripts/artifacts/workspace-layout.knu.json', ['api']],
   ['scripts/ci/product/prepare-next-standalone.mjs', ['web']],
   ['scripts/ci/lanes/repo-policy-test-files.mjs', ['infra']],
   ['scripts/ci/lanes/run-timed-command.mjs', ['web', 'api', 'storybook']],
@@ -55,16 +79,52 @@ const LANE_SCRIPT_PATHS = new Map([
 // the agent tests or their fixtures name, or that a development document links, is listed here.
 export const AGENT_TEST_PRODUCT_INPUTS = {
   files: [
+    'apps/api/prisma/schema.prisma',
+    'apps/api/prisma/seeds/reference/README.md',
+    'apps/api/src/auth/README.md',
+    'apps/api/src/auth/access/authenticated-user.guard.ts',
+    'apps/api/src/auth/adapters/email/ses-email-sender.service.ts',
     'apps/api/src/auth/auth.module.ts',
+    'apps/api/src/auth/mail/auth-mail-dispatcher.service.ts',
+    'apps/api/src/health/README.md',
+    'apps/api/src/health/health.controller.spec.ts',
     'apps/api/src/legal/contracts/legal-public-api.spec.ts',
     'apps/api/src/legal/legal.controller.ts',
+    'apps/api/src/matches/README.md',
+    'apps/api/src/notices/README.md',
+    'apps/api/src/platform/database/README.md',
+    'apps/api/src/platform/database/prisma.service.ts',
+    'apps/api/src/platform/domain-context/README.md',
+    'apps/api/src/platform/http/README.md',
+    'apps/api/src/platform/http/api-error.ts',
+    'apps/api/src/platform/observability/README.md',
+    'apps/api/src/platform/observability/logging/log-redaction.policy.ts',
+    'apps/api/src/platform/runtime/bootstrap/prepare-runtime-environment.ts',
+    'apps/api/src/seasons/operations/season-operations.repository.ts',
+    'apps/api/src/users/users.controller.ts',
+    'apps/api/test/architecture/domain-context/domain-context-route-matrix.spec.ts',
+    'apps/api/test/architecture/domains/notices-boundary.spec.ts',
+    'apps/api/test/architecture/security/auth-access-route-matrix.spec.ts',
+    'apps/api/test/architecture/testing/api-acid-coverage.spec.ts',
+    'apps/api/test/integration/notifications/notifications.integration.spec.ts',
+    'apps/api/test/operations/database/updated-at-ownership.spec.ts',
+    'apps/api/test/stress/README.md',
     'apps/web/.storybook/preview.tsx',
     'apps/web/e2e/legal.spec.ts',
     'apps/web/playwright.config.ts',
+    'apps/web/src/app/api/__tests__/matches-bff-routes.test.ts',
+    'apps/web/src/app/api/_bff/forward.ts',
+    'apps/web/src/app/api/_bff/security.ts',
+    'apps/web/src/app/api/auth/__tests__/login-route.test.ts',
     'apps/web/src/app/api/legal/documents/[kind]/route.ts',
     'apps/web/src/app/api/legal/documents/active-bundle/route.ts',
+    'apps/web/src/app/api/matches/requests/route.ts',
     'apps/web/src/app/globals.css',
     'apps/web/src/app/layout.tsx',
+    'apps/web/src/app/main/layout.tsx',
+    'apps/web/src/auth/README.md',
+    'apps/web/src/auth/bff/auth-cookies.ts',
+    'apps/web/src/auth/bff/auth-request-guard.ts',
     'apps/web/src/auth/model/__tests__/authSharedValidation.contract.test.ts',
     'apps/web/src/components/ui/Button.tsx',
     'apps/web/src/components/ui/Chip.tsx',
@@ -88,10 +148,19 @@ export const AGENT_TEST_PRODUCT_INPUTS = {
     'apps/web/src/main/tabs/home/__tests__/HomeResponsiveOverlay.test.tsx',
     'apps/web/src/main/tabs/home/overlays/HomeResponsiveDialog.tsx',
     'apps/web/src/main/tabs/home/sections/primary/PrimaryWithdrawalSheet.tsx',
+    'apps/web/src/main/tabs/matching/README.md',
+    'apps/web/src/main/tabs/matching/api/matching.api.ts',
     'apps/web/src/main/tabs/profile/ProfileCompatibility.tsx',
+    'apps/web/src/main/tabs/roommate-list/RoommateListTab.tsx',
     'apps/web/src/main/tabs/roommate-list/components/__tests__/RoommateSummaryCard.test.tsx',
+    'apps/web/src/main/tabs/roommate-list/hooks/__tests__/useRoommateBookmarkList.test.tsx',
+    'apps/web/src/main/tabs/roommate-list/hooks/useDesktopRoommateLayout.ts',
+    'apps/web/src/screens/README.md',
     'apps/web/src/styles/knu.css',
+    'apps/web/src/styles/tokens/README.md',
+    'packages/shared/src/chat/request.ts',
     'packages/shared/src/legal/contract.ts',
+    'packages/shared/src/match/contract/summary.ts',
   ],
   prefixes: ['apps/web/src/main/tabs/home/sections/activity/dialogs/'],
 };
@@ -105,7 +174,7 @@ function isAgentTestProductInput(path) {
 
 // Surfaces checked by the repo-policy lane only. Agent workflow paths (host configuration, agent
 // scripts, tests and instructions) and repository support files never select product lanes.
-const REPO_POLICY_PREFIXES = [
+export const REPO_POLICY_PREFIXES = [
   'docs/',
   'scripts/agents/',
   'scripts/ci/',
@@ -123,7 +192,7 @@ const REPO_POLICY_PREFIXES = [
   '.plans/',
   'omx_wiki/',
 ];
-const REPO_POLICY_PATHS = new Set([
+export const REPO_POLICY_PATHS = new Set([
   'AGENTS.md',
   'CLAUDE.md',
   'CONTRIBUTING.md',
@@ -133,7 +202,6 @@ const REPO_POLICY_PATHS = new Set([
   'scripts/README.md',
   '.editorconfig',
   '.gitignore',
-  '.omc-workspace',
   '.omx-config.json',
   '.prettierignore',
   '.prettierrc',
@@ -174,7 +242,7 @@ export function classifyChanges(paths) {
 
     if (path.startsWith('apps/web/')) {
       result.web = true;
-      result.storybook ||= STORYBOOK_PATTERN.test(path);
+      result.storybook ||= isStorybookInput(path);
       matched = true;
     }
 
@@ -252,7 +320,7 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
-    if (path === '.github/workflows/infra-ci.yml' || path === '.github/dependabot.yml') {
+    if (path === '.github/workflows/infra-ci.yml') {
       result.infra = true;
       result.repoPolicy = true;
       matched = true;

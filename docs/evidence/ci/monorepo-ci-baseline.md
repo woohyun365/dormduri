@@ -52,18 +52,21 @@ Current collection uses `scripts/ci/performance/fixtures/ci-performance-active-e
 `pnpm-workspace.yaml`, and `infra/image-inventory.json` from the workflow run's head commit through GitHub and hashes those exact
 contents. A later local checkout can no longer relabel an older run with a newer fingerprint.
 
-| Boundary               | Current value                                                                                  |
-| ---------------------- | ---------------------------------------------------------------------------------------------- |
-| Epoch                  | `api-http-cookie-surface-removal-2026-09-12` / `collecting`                                    |
-| Base                   | `5aa10390c64e671c4f50db736926b896d0fd6902`                                                     |
-| Dependency fingerprint | lock `93362f97...`, workspace `4b334572...`, image inventory `f684f83d...`                     |
-| Package manager        | pnpm 11.24.0 / Joi 18.2.8 / MySQL2 3.24.3 / Multer 2.3.0 / SWC core 1.16.2 / unplugin 1.5.11   |
-| Compatible samples     | 2026-10-11 collection: all 23 PR runs from 2026-10-04 to 2026-10-11 match this fingerprint     |
-| Confidence             | `docs-config-tooling-only` 15 runs (p95); full 4, API-only 1, infra-only 1, Web-only 0 (below) |
+| Boundary               | Current value                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------------- |
+| Epoch                  | `web-story-visual-check-axe-2026-10-21` / `collecting`                                              |
+| Base                   | `124795825ffcf59de81ce1a7a60240720e08c793`                                                          |
+| Dependency fingerprint | lock `91d17a09...`, workspace `4b334572...`, image inventory `f684f83d...`                          |
+| Package manager        | pnpm 11.24.0 / Joi 18.2.8 / MySQL2 3.24.3 / Multer 2.3.0 / SWC core 1.16.2 / unplugin 1.5.11        |
+| Compatible samples     | none yet; the Web test-only `@axe-core/playwright` devDependency changes the dependency fingerprint |
+| Confidence             | none yet; the closed cookie-removal epoch keeps its 2026-10-11 cohort (below)                       |
 
-직접 API의 사용하지 않는 cookie 의존성 제거로 lockfile만 바뀌며 package version, workspace 설정과 runtime image는
-유지됩니다. Base는 이 변경 전 integration 기준점이고 fingerprint는 변경 후 candidate input을 식별합니다. 새 hosted
-표본은 실제 run-head SHA로 수집하며, 이 기준 갱신 자체를 성능 개선이나 production release evidence로 해석하지 않습니다.
+Web test 전용 devDependency `@axe-core/playwright` 4.14.0(전이 `axe-core` 4.14.0) 추가로 lockfile만 바뀌며 기존 package
+version, workspace 설정과 runtime image는 유지됩니다. 같은 변경이 Storybook-owned 변경의 Web job에 Storybook story 검사
+step을 더하므로 Storybook을 고른 Web run은 이전 Storybook build만 하던 run과 비교하지 않습니다. Base는 이 변경 전
+integration 기준점이고 fingerprint는 변경 후 candidate input을 식별합니다. 새 hosted 표본은 실제 run-head SHA로 수집하며,
+이 기준 갱신 자체를 성능 개선이나 production release evidence로 해석하지 않습니다. 아래 "Agent workflow lane 뒤 분류별
+표본"의 2026-10-11 수집은 닫힌 `api-http-cookie-surface-removal-2026-09-12` epoch의 표본입니다.
 
 The previous cohorts are closed and preserved in
 `scripts/ci/performance/fixtures/ci-performance-epoch-native-ci-2026-08-28.json` and
@@ -89,8 +92,9 @@ The previous cohorts are closed and preserved in
 `scripts/ci/performance/fixtures/ci-performance-epoch-web-supported-line-security-consolidated-2026-09-09.json`,
 `scripts/ci/performance/fixtures/ci-performance-epoch-backend-runtime-persistence-security-consolidated-2026-09-09.json`,
 `scripts/ci/performance/fixtures/ci-performance-epoch-backend-aws-sdk-release-age-reconciliation-2026-09-09.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-repository-shared-tooling-security-final-reconciliation-2026-09-09.json`. Their compatible samples remain valid
-only inside each frozen dependency fingerprint; they are not relabeled as samples of the current API cookie-removal epoch.
+`scripts/ci/performance/fixtures/ci-performance-epoch-repository-shared-tooling-security-final-reconciliation-2026-09-09.json`, and
+`scripts/ci/performance/fixtures/ci-performance-epoch-api-http-cookie-surface-removal-2026-09-12.json`. Their compatible samples remain valid
+only inside each frozen dependency fingerprint; they are not relabeled as samples of the current Web story visual-check epoch.
 
 ### Repository-policy setup reliability incident
 
@@ -129,7 +133,7 @@ Collect additional runs without storing raw logs:
 
 ```bash
 pnpm ci:performance:collect -- \
-  --repo=woohyun365/knu_roommate \
+  --repo=woohyun365/dormduri \
   --run-id=<run-id> \
   --output=.artifacts/tools/ci-performance/<dataset>.json
 ```
@@ -143,7 +147,7 @@ no-op PRs are not created only to increase sample count.
 
 ```bash
 pnpm ci:performance:resources -- \
-  --repo=woohyun365/knu_roommate \
+  --repo=woohyun365/dormduri \
   --output=.artifacts/tools/ci-performance/resources-<date>.json
 
 pnpm ci:performance:report -- \

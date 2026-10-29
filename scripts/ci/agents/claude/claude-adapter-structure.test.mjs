@@ -10,6 +10,7 @@ const TOOLING = 'docs/development/troubleshooting/tooling/';
 const ENTRY_BUDGET = 24_000;
 // Each reference owns the headings moved out of the entry; the entry keeps the routine headings.
 const REFERENCES = {
+  'claude-workflow-entry.md': ['## Preflight와 workflow entry 세부'],
   'claude-native-registry.md': [
     '## 일반 interactive auto 세션',
     '### 운영 보장과 제한',
@@ -32,9 +33,9 @@ const KEPT = [
   '## Recovery',
   '## Parent 운영과 quality stop',
   '## OMC 공존과 skill routing',
+  '## 사용자 질문 수단',
   '## Plan continuity',
   '### 저장소 root와 runtime state 위치',
-  '## Project visual skills',
 ];
 
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
@@ -171,4 +172,11 @@ test('positional pointers and see-also links reach the moved text', () => {
     assert.ok(link, `${doc}: ${text} link`);
     assert.ok(link[1].endsWith(`adapters/${target}`), `${doc}: ${link[1]}`);
   }
+});
+
+test('the user question section asks with the question tool and links the discovery flow', () => {
+  const questions = flat(section(read(ENTRY), '## 사용자 질문 수단'));
+  assert.ok(questions, 'entry needs a 사용자 질문 수단 section');
+  for (const kept of ['`AskUserQuestion`', '첫 선택지', '](../plan-authoring/discovery.md'])
+    assert.ok(questions.includes(kept), `질문 수단: ${kept}`);
 });

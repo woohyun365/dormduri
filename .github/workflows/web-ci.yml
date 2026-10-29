@@ -102,6 +102,10 @@ jobs:
       - name: Install Playwright Chromium
         run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web --stage=browser-install -- pnpm --dir apps/web exec playwright install --with-deps chromium
 
+      - name: Check new Storybook stories
+        if: ${{ inputs.run_storybook }}
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web --stage=storybook-visual -- pnpm --dir apps/web ci:storybook:visual
+
       - name: Web browser smoke with prebuilt standalone artifact
         run: node scripts/ci/lanes/run-timed-command.mjs --scope=Web --stage=browser -- pnpm web:e2e:prepared
 

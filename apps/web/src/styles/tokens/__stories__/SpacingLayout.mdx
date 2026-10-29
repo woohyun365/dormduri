@@ -1,0 +1,42 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+import * as TokenSamples from './Tokens.stories';
+
+<Meta title="Foundations/Spacing & Layout" />
+
+# Spacing & Layout
+
+## 간격
+
+- 4px 격자입니다. `p-4`, `gap-2` 같은 배수를 쓰고 반 단계는 `0.5` 배수입니다.
+- 화면 좌우 여백은 `gutter`, section 사이는 `section`(휴대폰)·`section-desktop`(md부터) 이름 token입니다.
+
+## 폭
+
+- `max-w-page`: page 본문
+- `max-w-reading`: 긴 글 읽기 폭(제목·본문 문단)
+- `max-w-content`: 랜딩 section 안 내용 폭(`mx-auto w-full px-gutter`와 함께)
+
+## radius
+
+역할별로 고정합니다: `rounded-input`(라벨·칩·입력), `rounded-control`(버튼), `rounded-panel`(카드·panel), `rounded-sheet`.
+둥근 pill은 `rounded-full`입니다.
+
+## 깊이
+
+그림자는 창 틀·카드·떠 있는 글자에만 씁니다. 그림자는 scrim 역할을 투명도와 섞어 palette를 따릅니다.
+
+- `depth-card`: 떠 있는 카드
+- `depth-window`: 브라우저 창·휴대폰 틀
+- `depth-glow`: 주 행동(가입 버튼)의 브랜드색 빛
+- `text-lift`: 그림·어두운 면 위 큰 제목
+- `text-glow`: 제목 안 강조 낱말(생활패턴)
+
+## breakpoint와 reflow
+
+- Tailwind 기본 breakpoint를 씁니다. Mobile/Desktop 경계는 `lg`입니다.
+- 검증 폭과 짧은 휴대폰 높이 목록은 token README의 breakpoint와 reflow 절 하나가 소유합니다. 320px에서 가로 scroll 없이 읽혀야
+  합니다(WCAG 1.4.10).
+
+## 계산값
+
+<Canvas of={TokenSamples.SpacingAndRadius} />

@@ -1,19 +1,37 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "Hosted Renovate owns pnpm dependency version updates and targets dev for CI validation.",
+  "description": "Hosted Renovate owns every version update and vulnerability fix PR (npm, GitHub Actions, Dockerfile and Compose images) and targets dev for CI validation.",
   "enabled": true,
-  "enabledManagers": ["npm"],
+  "enabledManagers": ["npm", "github-actions", "dockerfile", "docker-compose"],
   "baseBranchPatterns": ["dev"],
+  "useBaseBranchConfig": "merge",
   "dependencyDashboard": true,
   "automerge": false,
+  "automergeType": "pr",
+  "automergeStrategy": "squash",
+  "platformAutomerge": false,
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
   "minimumReleaseAge": "3 days",
+  "vulnerabilityAlerts": {
+    "prConcurrentLimit": 5
+  },
   "toolSettings": {
     "nodeMaxMemory": 1536
   },
   "commitMessagePrefix": "chore(deps): 의존성",
   "packageRules": [
+    {
+      "description": "Let Renovate squash-merge minor and patch updates, including vulnerability fixes, into dev once CI summary passes and the branch is up to date with dev. The automerge rules come first so a later group rule can set automerge to false for its group.",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "Automerge Docker Hub digest updates too: re-pushing a tag restarts minimumReleaseAge there. A GitHub Actions digest update (a moved tag) can pass minimumReleaseAge at once, so it waits for review.",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["digest"],
+      "automerge": true
+    },
     {
       "description": "Group compatible lint and local developer tooling minor/patch updates.",
       "matchManagers": ["npm"],
@@ -66,6 +84,7 @@
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["minor", "patch"],
       "matchPackageNames": [
+        "@axe-core/playwright",
         "@playwright/test",
         "@storybook/addon-docs",
         "@storybook/nextjs-vite",
@@ -157,10 +176,43 @@
       "groupSlug": "api-test-tooling"
     },
     {
-      "description": "Require an explicit dependency-dashboard decision for every major update.",
-      "matchManagers": ["npm"],
+      "description": "Group GitHub Actions minor/patch updates; every action stays pinned to a full commit SHA with its version comment.",
+      "matchManagers": ["github-actions"],
+      "matchDatasources": ["github-tags"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "actions-minor-patch",
+      "groupSlug": "actions-minor-patch",
+      "commitMessagePrefix": "ci(deps): 의존성"
+    },
+    {
+      "description": "Keep the local, rehearsal and CI service PostgreSQL pins on one tag and digest in a single PR.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["postgres"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "postgres-image",
+      "groupSlug": "postgres-image"
+    },
+    {
+      "description": "Keep the API, Web and fixture Node.js base images on one Node.js line in a single PR.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["node"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "node-image",
+      "groupSlug": "node-image"
+    },
+    {
+      "description": "Group observability stack image minor/patch and digest updates.",
+      "matchManagers": ["docker-compose"],
+      "matchFileNames": ["infra/observability/**"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "observability-images",
+      "groupSlug": "observability-images"
+    },
+    {
+      "description": "Require an explicit dependency-dashboard decision for every major update in every manager; major updates never automerge.",
       "matchUpdateTypes": ["major"],
-      "dependencyDashboardApproval": true
+      "dependencyDashboardApproval": true,
+      "automerge": false
     },
     {
       "description": "revisit: enable TypeScript 7 only after Next.js, NestJS, ESLint, and the repository compiler toolchain declare compatible support.",
@@ -177,9 +229,9 @@
       "enabled": false
     },
     {
-      "description": "revisit: keep pnpm package-manager upgrades manual until the CLI, lockfile, Corepack, and CI action are reviewed together.",
-      "matchManagers": ["npm"],
-      "matchDepTypes": ["packageManager"],
+      "description": "revisit: keep pnpm package-manager upgrades manual, in the root packageManager and the CI pnpm/action-setup version input, until the CLI, lockfile, Corepack, and CI action are reviewed together.",
+      "matchManagers": ["npm", "github-actions"],
+      "matchDepTypes": ["packageManager", "uses-with"],
       "matchPackageNames": ["pnpm"],
       "enabled": false
     }

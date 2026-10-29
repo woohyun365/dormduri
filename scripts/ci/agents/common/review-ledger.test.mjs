@@ -16,7 +16,12 @@ const row = (fields) => ({
   ...fields,
 });
 
-const finding = (id, severity, criteriaItem = null) => ({ id, severity, criteriaItem });
+const finding = (id, severity, criteriaItem = null, location = null) => ({
+  id,
+  severity,
+  criteriaItem,
+  location,
+});
 
 const ROWS = [
   row({
@@ -121,4 +126,26 @@ test('an empty ledger has zero counts instead of failing', () => {
   assert.equal(summary.count, 0);
   assert.equal(summary.findingsMedian, null);
   assert.equal(summary.findingsMean, null);
+});
+
+// A row finding carries the result finding's location (a string, or null when the result gave none).
+test('a row finding keeps its location and a malformed location rejects the row', () => {
+  const located = row({
+    taskId: 'loc',
+    findings: [finding('loc#0', 'medium', null, 'scripts/a.mjs:3')],
+  });
+  const ledger = buildLedger([
+    located,
+    row({ taskId: 'bad-location', findings: [finding('x#0', 'low', null, 7)] }),
+    row({ taskId: 'no-location', findings: [{ id: 'y#0', severity: 'low', criteriaItem: null }] }),
+  ]);
+  assert.deepEqual(ledger.rows, [located]);
+  assert.equal(ledger.rows[0].findings[0].location, 'scripts/a.mjs:3');
+  assert.deepEqual(
+    ledger.rejected.map(({ taskId, reason }) => [taskId, reason]),
+    [
+      ['bad-location', 'location must be a string or null'],
+      ['no-location', 'location must be a string or null'],
+    ],
+  );
 });

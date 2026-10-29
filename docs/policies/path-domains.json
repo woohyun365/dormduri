@@ -2,8 +2,8 @@
   "schema": "lifecycle-path-domains/v1",
   "confirmedBy": {
     "status": "owner-confirmed",
-    "date": "2026-10-17",
-    "basis": "#634"
+    "date": "2026-10-28",
+    "basis": "#706"
   },
   "productRoots": [
     "apps/**",
@@ -241,7 +241,7 @@
       "domains": ["profile-model"]
     },
     {
-      "globs": ["apps/web/src/landing/**"],
+      "globs": ["apps/web/src/screens/landing/**"],
       "domains": ["service-boundary", "season-lifecycle"]
     },
     {
@@ -414,13 +414,20 @@
       "reason": "build·lint·test 설정"
     },
     {
-      "globs": ["apps/*/README.md", "infra/README.md", "infra/artifacts/**", "infra/rehearsal/**"],
+      "globs": [
+        "apps/*/README.md",
+        "apps/web/src/screens/README.md",
+        "infra/README.md",
+        "infra/artifacts/**",
+        "infra/rehearsal/**"
+      ],
       "reason": "안내 문서·artifact schema·로컬 rehearsal 환경"
     },
     {
       "globs": [
         "apps/web/src/components/**",
         "apps/web/src/hooks/**",
+        "apps/web/src/screens/ui/**",
         "apps/web/src/styles/**",
         "apps/web/public/**",
         "apps/web/src/app/layout.tsx",

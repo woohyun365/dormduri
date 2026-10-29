@@ -24,7 +24,7 @@
       "path": "docs/development/agent-workflows/adapters/claude-code.md",
       "owner": "Claude native adapter owner",
       "kind": "adapter",
-      "rationale": "Claude 진입 절차(loading, 구조, routine operation, recovery, quality stop, OMC·plan continuity)를 Claude owner에 두고 세부는 reference 4개로 연결한다. static preparation을 live qualification으로 승격하지 않는다."
+      "rationale": "Claude 진입 절차(loading, 구조, routine operation, recovery, quality stop, OMC·plan continuity)를 Claude owner에 두고 세부는 reference 5개로 연결한다. static preparation을 live qualification으로 승격하지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/adapters/claude-model-profiles.md",
@@ -51,6 +51,12 @@
       "rationale": "같은 host 독립 reviewer의 registry·packet·정산 규칙 reference다. 진입 문서와 /knu-review가 연결한다."
     },
     {
+      "path": "docs/development/agent-workflows/adapters/claude-workflow-entry.md",
+      "owner": "Claude native adapter owner",
+      "kind": "adapter",
+      "rationale": "CLAUDE.md 진입, claude:preflight snapshot과 claude:workflow 진단, native 진단 경계의 reference다. 진입 문서 예산 안에서 routine 절을 지키려 옮겼고 routine 순서는 진입 문서가 소유한다."
+    },
+    {
       "path": "docs/development/agent-workflows/adapters/codex-delegation.md",
       "owner": "Codex adapter/history owner",
       "kind": "adapter",
@@ -61,6 +67,12 @@
       "owner": "Codex adapter/history owner",
       "kind": "adapter",
       "rationale": "codex:preflight resume 진단 필드와 identity·freshness·bounded read 규칙의 reference다. 계획 재개 진단을 해석할 때만 읽는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/adapters/codex-effort-routing.md",
+      "owner": "Codex adapter/history owner",
+      "kind": "adapter",
+      "rationale": "Pass 1·2 판정, child 계층과 역할 effort 배정 표, 재시도, dispatch descriptor의 reference다. 진입 문서는 heading과 Parent-high 운영을 두고 역할·effort를 배정할 때만 이 문서를 읽는다."
     },
     {
       "path": "docs/development/agent-workflows/adapters/codex-model-profiles.md",
@@ -84,7 +96,7 @@
       "path": "docs/development/agent-workflows/adapters/codex.md",
       "owner": "Codex adapter/history owner",
       "kind": "adapter",
-      "rationale": "Codex 위임·리뷰·완료 판정의 routine 규칙과 reference 목록을 담는 진입 문서다. 모델 profile·native registry·preflight 진단·교차 reviewer 세부는 reference가 소유하고 Astra QA/cohort 의미는 바꾸지 않는다."
+      "rationale": "Codex 위임·리뷰·완료 판정의 routine 규칙과 reference 목록을 담는 진입 문서다. effort routing·모델 profile·native registry·preflight 진단·교차 reviewer 세부는 reference가 소유하고 Astra QA/cohort 의미는 바꾸지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/adapters/cross-model-handoff.md",
@@ -157,6 +169,12 @@
       "owner": "general development workflow owner",
       "kind": "domain",
       "rationale": "권한·민감정보·trust boundary planning 관점을 보존한다. domain/risk 조건일 때만 추가하며 전 intent 의무로 확대하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/plan-authoring/discovery.md",
+      "owner": "general development workflow owner",
+      "kind": "normative",
+      "rationale": "제품 설계·계획의 결정 판정 표·질문 공간·질문 형식·기록 위치·비가역 확인 gate를 한 곳에 둔다. 제품 primary guide가 골라진 plan만 조건부로 읽고 agent workflow·문서 계획은 ambiguity disposition만 쓴다."
     },
     {
       "path": "docs/development/agent-workflows/plan-authoring/frontend.md",
@@ -432,7 +450,7 @@
       "path": "docs/development/agent-workflows/domain/knu-binding.md",
       "owner": "general development workflow owner",
       "kind": "domain",
-      "rationale": "이 저장소가 pack·기준 문서의 binding 키에 주는 값(경로·도구·정책 원본 위치)을 소유한다. 각 결정에서 고른 값의 기록은 아직 두지 않는다."
+      "rationale": "이 저장소가 pack·기준 문서의 binding 키에 주는 값(경로·도구·정책 원본 위치)과 framework-pattern·code-pattern 결정에서 고른 값을 소유한다."
     },
     {
       "path": "docs/development/agent-workflows/refactor-analysis.md",
@@ -510,13 +528,13 @@
       "path": "docs/development/agent-workflows/visual-design/design-review-and-acceptance.md",
       "owner": "general development workflow owner",
       "kind": "domain",
-      "rationale": "bounded maker-checker와 사람의 방향 승인·technical QA 분리를 유지한다. 과거 visual/skill 관측과 현재 공통 계약은 구별한다."
+      "rationale": "bounded maker-checker와 사람의 방향 승인·technical QA 분리를 유지한다. 과거 visual 관측과 현재 공통 계약은 구별한다."
     },
     {
       "path": "docs/development/agent-workflows/visual-design/design-task-orchestration.md",
       "owner": "general development workflow owner",
       "kind": "domain",
-      "rationale": "연구/설계/구현/critic과 one-writer는 공통이다. role/effort/OMX 및 Taste/Redesign 호출은 Codex destination으로 분리한다. 최대 두 independent advisory lane과 maker/checker 최대 두 cycle은 공통 task-shape budget으로 유지하며 cap6/runtime concurrency와 분리한다."
+      "rationale": "연구/설계/구현/critic과 one-writer는 공통이다. role/effort/OMX 호출은 Codex destination으로 분리한다. 최대 두 independent advisory lane과 maker/checker 최대 두 cycle은 공통 task-shape budget으로 유지하며 cap6/runtime concurrency와 분리한다."
     },
     {
       "path": "docs/development/agent-workflows/visual-design/device-presentation-and-verification.md",
@@ -547,6 +565,12 @@
       "owner": "general development workflow owner",
       "kind": "domain",
       "rationale": "web semantic token과 UI 표현의 owner 경계를 보존한다. agent host 일반화가 제품 token policy를 변경하지 않는다."
+    },
+    {
+      "path": "docs/development/agent-workflows/workspace-layout.md",
+      "owner": "general development workflow owner",
+      "kind": "explanation",
+      "rationale": "작업 공간 root manifest 두 파일의 필드 의미와 그 값을 쓰는 override 경계·layout guard·일치 test만 설명한다. 각 root의 배치·lifecycle 규칙 원본은 ruleOwner 문서가 소유하고 값은 manifest가 소유한다."
     },
     {
       "path": "docs/development/ci/README.md",

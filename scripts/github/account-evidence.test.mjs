@@ -26,7 +26,7 @@ const billingPayload = {
       pricePerUnit: 0.006,
       product: 'actions',
       quantity: 30,
-      repositoryName: 'knu_roommate',
+      repositoryName: 'dormduri',
       sku: 'Actions Linux',
       unitType: 'Minutes',
     },
@@ -38,7 +38,7 @@ const billingPayload = {
       pricePerUnit: 0.00033602,
       product: 'actions',
       quantity: 3,
-      repositoryName: 'knu_roommate',
+      repositoryName: 'dormduri',
       sku: 'Actions storage',
       unitType: 'GigabyteHours',
     },
@@ -166,7 +166,7 @@ test('keeps token arguments and outputs outside .artifacts/tools out of the CLI'
   assert.deepEqual(
     parseAccountEvidenceArgs([
       '--',
-      '--repo=woohyun365/knu_roommate',
+      '--repo=woohyun365/dormduri',
       '--year=2026',
       '--month=8',
       '--output=.artifacts/tools/github/account.json',
@@ -174,7 +174,7 @@ test('keeps token arguments and outputs outside .artifacts/tools out of the CLI'
     {
       month: 8,
       output: '.artifacts/tools/github/account.json',
-      repository: 'woohyun365/knu_roommate',
+      repository: 'woohyun365/dormduri',
       year: 2026,
     },
   );

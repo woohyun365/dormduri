@@ -16,8 +16,9 @@
 | `artifacts/`     | OCI build evidence schema                                                 | 생성된 artifact 자체                                            |
 | `runbooks/`      | release, operation, incident, rehearsal 실행 절차와 evidence handoff      | 제품 정책과 architecture 설명                                   |
 
-`image-inventory.json`, `runtime-hardening.json`, `compose-profiles.json`은 각각 외부 image pin,
-runtime hardening, Compose 합성 순서의 machine-readable source of truth다.
+`image-inventory.json`은 외부 image와 그 pin을 소유한 owner 파일 목록이다. Tag와 digest는 owner 파일(Dockerfile·Compose·
+workflow)이 갖고 Renovate가 갱신한다. `runtime-hardening.json`, `compose-profiles.json`은 각각 runtime hardening, Compose 합성
+순서의 machine-readable source of truth다.
 
 ## 시작 위치
 
