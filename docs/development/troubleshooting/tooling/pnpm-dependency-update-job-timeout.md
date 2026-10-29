@@ -54,7 +54,8 @@ dump, 개인 billing/account 정보를 복사하지 않는다.
 1. 같은 job을 반복 제출하지 않는다.
 2. Silent mode에서는 manual scan을 한 번 실행해 repository/provider path를 분리한다.
 3. Manual scan도 pending이면 provider queue blocker로 기록하고 update activation을 보류한다.
-4. Job을 재촉하려고 Portal 운영값(Automated PRs ON 등)을 바꾸지 않는다. Major는 Dashboard 승인 뒤에만 PR이 열린다.
+4. Job을 재촉하려고 Portal 운영값(Automated PRs 등)을 바꾸지 않는다. Major는 Dashboard 승인 뒤에만 PR이 열린다(취약점을
+   고치는 version이 major뿐인 security update PR은 승인 없이 열린다).
 
 ### Approved branch가 생성되지 않는 경우
 

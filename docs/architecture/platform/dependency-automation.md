@@ -20,7 +20,7 @@ Mend-hosted Renovate (base branch: dev)
 ├── dockerfile + docker-compose managers (tag@sha256 digest)
 ├── security updates from GitHub vulnerability alerts
 ├── security·patch·minor·Docker digest: Renovate self-merge after CI summary
-└── major: Dependency Dashboard approval, human review
+└── major: Dependency Dashboard approval (a security fix opens at once), human review
 
 GitHub Dependabot
 └── vulnerability alerts only
@@ -41,7 +41,7 @@ Renovate와 Dependabot은 기본 branch(`main`)의 설정을 읽는다. `useBase
 Catalog는 Next·React·TypeScript·Storybook·Vitest처럼 함께 움직여야 하는 버전의 단일 source of truth다. Provider 편의를
 위해 버전을 각 package manifest에 중복하거나 workspace를 분리하지 않는다.
 
-Renovate가 승인된 group을 처리할 때 다음 변경만 허용한다.
+Renovate npm update는 다음 변경만 허용한다. Image·workflow update는 그 image나 action을 pin한 owner 파일만 바꾼다.
 
 - `pnpm-workspace.yaml`의 catalog·override
 - dependency를 직접 소유한 `package.json`
@@ -100,8 +100,10 @@ Image tag와 digest는 owner 파일(Dockerfile·Compose·workflow) 하나가 소
 owner 파일, repository만 소유한다. CI는 bot이 갱신하는 version·digest 값을 복제하지 않고 pin 형식과 owner 일치만
 검사한다([CI README](../../development/ci/README.md)).
 
-Major update는 group에 섞지 않고 Dependency Dashboard 승인 뒤에 독립 PR로 연다. TypeScript 7과 현재 ESLint toolchain이
-지원하지 않는 major는 compatibility revisit 조건이 충족될 때까지 config에서 차단한다.
+Major update는 group에 섞지 않고 Dependency Dashboard 승인 뒤에 독립 PR로 연다. 취약점을 고치는 version이 major뿐이면
+security update PR은 Renovate `vulnerabilityAlerts` 기본값(`dependencyDashboardApproval: false`)대로 승인 없이 열리고,
+major 규칙이 자동 merge를 막아 사람이 검토한다. TypeScript 7과 현재 ESLint toolchain이 지원하지 않는 major는
+compatibility revisit 조건이 충족될 때까지 config에서 차단한다.
 
 ## 자동 merge 경계
 

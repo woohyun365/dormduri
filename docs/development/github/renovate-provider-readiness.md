@@ -7,8 +7,9 @@
 [Dependency automation architecture](../../architecture/platform/dependency-automation.md), 일상 운영은
 [Dependency update operations](./dependency-updates.md)를 따른다.
 
-2026-08-24 현재 상태는 **selected-repository 설치·active extraction·controlled PR 검증 완료**다. 운영 기준은 다음과 같고,
-Portal과 저장소 Settings의 실제 전환 상태는 [Remote repository settings](./remote-repository-settings.md)가 기록한다.
+2026-08-24 현재 상태는 **selected-repository 설치·active extraction·controlled PR 검증 완료**다. 아래는 운영 기준(목표
+설정)이다. Repository config는 기본 branch에 승격된 뒤, Portal 값은 Owner가 바꾼 뒤 효력을 가지며, Portal과 저장소
+Settings의 목표와 마지막 확인 값은 [Remote repository settings](./remote-repository-settings.md)가 기록한다.
 
 - App identity: GitHub App `mend/renovate`
 - Repository scope: `woohyun365/dormduri` 하나
@@ -96,7 +97,8 @@ Active provider path에서 다음을 독립적으로 확인했다.
 - PR provenance: `renovate[bot]`, base `dev`, catalog와 lockfile만 변경
 - Hosted verification: stability-days와 전체 Monorepo CI 통과
 - Reconciliation: merge 후 approval과 branch 제거, Dashboard candidate 재계산
-- Ownership: duplicate npm Dependabot PR 종료. 지금은 모든 ecosystem의 update owner가 Renovate다([Owner map](./dependency-updates.md#owner-map))
+- Ownership: duplicate npm Dependabot PR 종료. 이 설정이 기본 branch에 승격된 뒤에는 모든 ecosystem의 update owner가
+  Renovate다([Owner map](./dependency-updates.md#owner-map))
 
 Raw logs are local evidence under `.artifacts/tools/dependency-automation/`; tracked source에는 provider credential이나 raw
 configuration dump를 저장하지 않는다.
@@ -121,7 +123,7 @@ Suspend, repository access 변경을 수행하지 않는다.
 - Permission/event가 baseline보다 강화되거나 누락됐다.
 - Private registry credential, plugin, lifecycle script 실행이 새로 필요하다.
 - Job log를 operator가 열람할 수 없거나 Suspend·Uninstall owner가 없다.
-- Catalog·manifest·lockfile 밖의 source 변경이 dependency PR에 포함된다.
+- Catalog·manifest·lockfile과 image·workflow owner 파일 밖의 source 변경이 dependency PR에 포함된다.
 - PR base가 `dev`가 아니다.
 - Major·GitHub Actions digest PR에 자동 merge가 걸리거나 `platformAutomerge`가 켜진다.
 

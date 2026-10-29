@@ -25,6 +25,7 @@ GitHub repository setting은 tracked file과 별도의 control plane입니다. �
 | Vulnerability alerts        | enabled                                            | dependency 취약점 발견 owner                                 |
 | Dependabot security updates | disabled                                           | 보안 PR은 Renovate가 `dev`로 연다                            |
 | Allow auto-merge            | disabled                                           | Renovate 자체 merge만 사용                                   |
+| Mend Portal Automated PRs   | ON                                                 | Dashboard 승인 없이 non-major Renovate PR을 연다             |
 | Actions artifact retention  | 7일 기본, consumer별 더 짧게 검토                  | 필요한 실패/재사용 evidence만 effective allowance 안에 유지  |
 | Actions cache               | 10GB 이내, thrash 없이 유지                        | build 속도 surface; artifact/Packages와 별도 측정            |
 | Environment / secrets       | caller가 없으면 absent                             | 현재 CI-only 경계에서 speculative credential surface 금지    |
@@ -83,6 +84,7 @@ consumer가 확인된 경우에만 classic Branches 전환을 별도 migration�
 | Vulnerability alerts        | endpoint `204`                                                                       | `VERIFIED_REMOTE`      |
 | Dependabot malware alerts   | enabled                                                                              | `VERIFIED_OWNER_UI`    |
 | Dependabot security updates | 목표 disabled; 마지막 확인 `enabled=true`, `paused=false`                            | `PENDING_OWNER_ACTION` |
+| Mend Portal Automated PRs   | 목표 ON; 마지막 확인 OFF(2026-08-24 provider 검증)                                   | `PENDING_OWNER_ACTION` |
 | Workflow token              | `default_workflow_permissions=read`, PR approval off                                 | `VERIFIED_REMOTE`      |
 | Private fork PR             | workflow/write token disabled; fork workflow execution disabled                      | `VERIFIED_REMOTE`      |
 | Artifact/log retention      | owner UI 7 days                                                                      | `VERIFIED_OWNER_UI`    |
@@ -162,7 +164,7 @@ evidence link:
 3. bounded PR→`dev`는 squash, `dev`→`main`은 merge commit인지 확인하고 merged head auto-delete와 protected
    `main`·`dev` retention이 함께 유지되는지 확인합니다.
 4. vulnerability alerts가 켜져 있고 Dependabot security updates와 Allow auto-merge가 꺼져 있는지 확인합니다. 보안 PR은
-   Renovate가 `dev`로 엽니다.
+   Renovate가 `dev`로 엽니다. Mend Portal Automated PRs는 Owner가 Portal 화면에서 확인합니다.
 5. GitHub Pro ruleset 또는 branch protection으로 `CI summary`를 required check로 설정하고 strict up-to-date는 기본 off로
    둡니다.
 6. 실제값과 blocker를 이 문서에 갱신하되 secret이나 raw credential response는 기록하지 않습니다.

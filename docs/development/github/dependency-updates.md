@@ -28,13 +28,15 @@
 2. Security·patch·minor PR과 Docker image digest PR은 `CI summary`가 통과하고 `dev`에 최신이면 Renovate가 squash merge한다.
    `dev`가 움직이면 Renovate가 branch를 rebase하고 CI가 다시 돈다. 사람은 이 PR을 merge하지 않는다.
 3. Major는 [Dependency Dashboard #353](https://github.com/woohyun365/dormduri/issues/353)에서 한 후보만 체크해 PR을 연다.
-   `Create all pending approval PRs at once`는 체크하지 않는다.
+   `Create all pending approval PRs at once`는 체크하지 않는다. 취약점을 고치는 version이 major뿐인 security update PR은
+   승인 없이 바로 열린다.
 4. Major PR과 GitHub Actions digest PR(같은 tag가 다른 commit을 가리킴)은 아래 checklist로 읽고 사람이 squash merge한다.
 5. CI가 실패한 bot PR은 자동 merge되지 않는다. Bot branch에 사람 commit을 더하지 않고, 호환성 수정은 fresh `dev` 기반 branch에서
    한다. 실패 원인이 bot이 갱신한 값을 복제한 test면 [CI README](../ci/README.md)의 기준대로 test를 구조 검사로 바꾼다.
 6. Dashboard edit webhook이 job을 시작하지 않으면 Mend Portal에서 Run Renovate Scan을 한 번 실행한다.
 
-Mend Portal Automated PRs는 ON이다. Dashboard issue는 Renovate가 추가·제거·병합된 후보를 자동으로 갱신하므로 수동으로
+Mend Portal Automated PRs의 운영값은 ON이다(목표와 마지막 확인 값은
+[Remote repository settings](./remote-repository-settings.md)). Dashboard issue는 Renovate가 추가·제거·병합된 후보를 자동으로 갱신하므로 수동으로
 close하거나 본문을 재작성하지 않는다.
 
 ### npm owner groups
@@ -92,7 +94,7 @@ manifest diff로 만들지 않는다.
 - `Create all ...`: 사용하지 않는다.
 - Manual job checkbox: queue가 비어 있을 때만 한 번 사용한다.
 - Silent mode: incident나 installation 검증용 scan-only 경계다.
-- Automated PRs: ON이다. 자동 merge는 security·patch·minor와 Docker image digest PR만 한다.
+- Automated PRs: 운영값 ON. 자동 merge는 security·patch·minor와 Docker image digest PR만 한다.
 
 Checkbox를 선택해도 job이 실행되기 전까지 branch와 PR은 생성되지 않는다. Portal job이 장시간 pending이면 반복
 클릭하지 않고, Silent mode에서 manual scan 한 번으로 provider path를 분리 검증한다.

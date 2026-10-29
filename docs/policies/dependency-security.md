@@ -70,8 +70,9 @@ merge하지 않는다. Renovate 자동 merge는 `dev`에 최신이고 `CI summar
   대상으로 연다. 기본 branch 설정에 한 ecosystem의 update owner가 없거나 둘인 상태를 만들지 않는다.
 - **DS-R18** Security·patch·minor bot PR과 Docker image digest bot PR은 required check `CI summary`가 통과하고 `dev`에 최신인
   branch일 때 Renovate가 `dev`에 squash merge한다. GitHub 자동 merge(Allow auto-merge)는 쓰지 않는다. Major update와 GitHub
-  Actions digest update는 사람이 검토하고, major는 Dependency Dashboard 승인 뒤에 PR이 열린다. `dev` → `main` 승격과
-  production 배포는 사람이 한다.
+  Actions digest update는 사람이 검토하고, major는 Dependency Dashboard 승인 뒤에 PR이 열린다. 취약점을 고치는 version이
+  major뿐인 security update PR은 승인 없이 바로 열리지만 자동 merge하지 않는다. `dev` → `main` 승격과 production 배포는
+  사람이 한다.
 - **DS-R19** 자동 merge를 멈출 때는 merge를 하는 Renovate를 멈춘다(Mend Portal Dependency Updates OFF 또는 GitHub App
   Suspend). 계속 멈출 group은 `renovate.json`에서 그 group의 `automerge`를 끄는 사람 PR로 바꾸고, 이미 merge된 PR은 revert
   PR로 되돌린다.

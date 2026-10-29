@@ -15,10 +15,12 @@ const epochFixture = JSON.parse(
   readFileSync(resolve('scripts/ci/performance/fixtures/ci-performance-active-epoch.json'), 'utf8'),
 );
 // Fixed dependency input text. Bots change the real lockfile, workspace and inventory, so the fingerprint contract is
-// checked here and a measurement run records drift from the active epoch as changed-inputs.
-const fixedDependencyInputs = Object.fromEntries(
-  dependencyInputPaths.map((path) => [path, `fixed ${path} contents\n`]),
-);
+// checked here and a measurement run records drift from the active epoch as changed-inputs. The fixed inventory lists no
+// image, so its input text is the file text alone.
+const fixedDependencyInputs = {
+  ...Object.fromEntries(dependencyInputPaths.map((path) => [path, `fixed ${path} contents\n`])),
+  'infra/image-inventory.json': '{"schemaVersion":2,"images":[]}\n',
+};
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
 const closedApiCookieRemovalEpochFixture = JSON.parse(
   readFileSync(
@@ -684,6 +686,52 @@ test('run-head fingerprint drift is preserved instead of using current checkout 
       .changedInputs,
     ['measurement-epoch', 'pnpm-lock.yaml'],
   );
+});
+
+test('an image tag or digest change in its owner file changes the inventory fingerprint', () => {
+  const epoch = parseMeasurementEpoch(epochFixture);
+  const inventory = `${JSON.stringify({
+    schemaVersion: 2,
+    images: [
+      {
+        name: 'postgres',
+        ownerPath: 'compose.yml',
+        repository: 'postgres',
+        updateOwner: 'renovate',
+      },
+    ],
+  })}\n`;
+  const fingerprintWith = (image) =>
+    buildDependencyFingerprint({
+      epoch,
+      readText: (path) =>
+        ({
+          ...fixedDependencyInputs,
+          'infra/image-inventory.json': inventory,
+          'compose.yml': `services:\n  db:\n    image: ${image}\n`,
+        })[path],
+      sourceSha: epoch.baseSha,
+    });
+  const before = fingerprintWith(`postgres:18.6-alpine@sha256:${'a'.repeat(64)}`);
+
+  for (const image of [
+    `postgres:18.6-alpine@sha256:${'b'.repeat(64)}`,
+    `postgres:18.7-alpine@sha256:${'a'.repeat(64)}`,
+  ]) {
+    assert.deepEqual(
+      compareDependencyFingerprint(
+        { ...epoch, fileSha256: before.fileSha256 },
+        fingerprintWith(image),
+      ),
+      {
+        changedInputs: ['infra/image-inventory.json'],
+        comparisonBaseSha: epoch.baseSha,
+        comparisonEpochId: epoch.id,
+        state: 'changed-inputs',
+      },
+    );
+  }
+  assert.throws(() => fingerprintWith('postgres:18.6-alpine'), /without <tag>@sha256:<digest>/u);
 });
 
 test('measurement epoch rejects malformed or incomplete dependency ownership', () => {

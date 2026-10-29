@@ -45,8 +45,11 @@ export function isImmutableReference(reference) {
   return IMMUTABLE_REFERENCE.test(reference);
 }
 
-// External image references in one owner file, as the Renovate managers read them. Locally built images whose name or tag
-// is a variable (`knu-roommate-api:${API_IMAGE_TAG:?…}`, `${INGRESS_FIXTURE_IMAGE:?…}`) are not external pins.
+// External image references in one owner file: the `image:` key of Compose and workflow files, and `# syntax=` and `FROM`
+// of a Dockerfile. The Renovate managers also read workflow `container: <image>` strings, `uses: docker://<image>` and
+// Dockerfile `COPY --from=<image>` or `RUN --mount=…from=<image>`; those forms are not extracted here, so pin external
+// images only in the forms above. Locally built images whose name or tag is a variable
+// (`knu-roommate-api:${API_IMAGE_TAG:?…}`, `${INGRESS_FIXTURE_IMAGE:?…}`) are not external pins.
 export function extractImageReferences(path, source) {
   return DOCKERFILE_NAME.test(basename(path))
     ? extractDockerfileReferences(source)
@@ -97,7 +100,14 @@ function unquote(value) {
 // The pinned reference of one inventory image, read from its owner file. Every reference of that repository in the owner
 // file must be the same immutable `<tag>@sha256:<digest>`, so one Renovate change updates them together.
 export function resolveImageReference(repoRoot, image) {
-  const source = readFileSync(resolve(repoRoot, image.ownerPath), 'utf8');
+  return resolveImageReferenceInSource(
+    image,
+    readFileSync(resolve(repoRoot, image.ownerPath), 'utf8'),
+  );
+}
+
+// Same as resolveImageReference, for an owner file text read elsewhere (another commit or the GitHub API).
+export function resolveImageReferenceInSource(image, source) {
   const references = new Set(
     extractImageReferences(image.ownerPath, source).filter(
       (reference) => imageRepository(reference) === image.repository,

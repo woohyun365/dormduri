@@ -149,7 +149,10 @@ test('GitHub Actions and image update ownership are explicit', () => {
   assert.ok(workflowPaths.includes('.github/workflows/ci.yml'));
 
   for (const path of workflowPaths) {
-    const uses = [...readRepoFile(path).matchAll(/^\s*uses:\s*([^\s#]+)(?:\s+#\s+(.+))?$/gmu)];
+    const uses = [
+      ...readRepoFile(path).matchAll(/^\s*(?:-\s+)?uses:\s*([^\s#]+)(?:\s+#\s+(.+))?$/gmu),
+    ];
+    assert.ok(uses.length > 0, path);
     for (const [, reference, versionComment] of uses) {
       if (reference.startsWith('./')) continue;
       assert.match(reference, /@[a-f0-9]{40}$/u, path);

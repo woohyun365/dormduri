@@ -203,7 +203,28 @@ test('lets Renovate itself squash-merge non-major updates only when green and up
           automerge: true,
           platformAutomerge: true,
         }),
-      /must not override platformAutomerge/u,
+      /packageRules must not override platformAutomerge/u,
+    ],
+    [
+      (config) => (config.vulnerabilityAlerts.platformAutomerge = true),
+      /vulnerabilityAlerts must not override platformAutomerge/u,
+    ],
+    [
+      (config) => (config.vulnerabilityAlerts.rebaseWhen = 'never'),
+      /vulnerabilityAlerts must not override rebaseWhen/u,
+    ],
+    [
+      (config) =>
+        config.packageRules.push({ matchManagers: ['github-actions'], rebaseWhen: 'conflicted' }),
+      /packageRules must not override rebaseWhen/u,
+    ],
+    [
+      (config) =>
+        config.packageRules.push({
+          matchManagers: ['docker-compose'],
+          dependencyDashboardApproval: false,
+        }),
+      /must not lift the major dependency-dashboard approval/u,
     ],
     [
       (config) => {

@@ -62,6 +62,14 @@ function renovateOwnerRules(config) {
 }
 
 const AUTOMERGE_UPDATE_TYPES = ['minor', 'patch', 'digest'];
+// How and when an automerge branch merges. Only the top level sets them: a packageRule, or the vulnerabilityAlerts object
+// that Renovate applies to security fixes after the packageRules, would override them for its own updates.
+const AUTOMERGE_CONTRACT_KEYS = [
+  'automergeType',
+  'automergeStrategy',
+  'platformAutomerge',
+  'rebaseWhen',
+];
 
 // pnpm is pinned in the root packageManager field (npm manager) and in the CI pnpm/action-setup version input
 // (github-actions manager). Both move only with a reviewed toolchain change, so Renovate must not update either one.
@@ -102,6 +110,17 @@ function validateAutomerge(config) {
       'vulnerability fixes must automerge only through the non-major packageRules',
     );
   }
+  for (const [owner, settings] of [
+    ['vulnerabilityAlerts', config.vulnerabilityAlerts ?? {}],
+    ...config.packageRules.map((rule) => ['packageRules', rule]),
+  ]) {
+    for (const key of AUTOMERGE_CONTRACT_KEYS) {
+      if (key in settings) throw new TypeError(`${owner} must not override ${key}`);
+    }
+  }
+  if (config.packageRules.some((rule) => rule.dependencyDashboardApproval === false)) {
+    throw new TypeError('packageRules must not lift the major dependency-dashboard approval');
+  }
 
   const automergeRules = config.packageRules.filter((rule) => rule.automerge === true);
   if (automergeRules.length === 0) throw new TypeError('a non-major automerge rule must exist');
@@ -118,9 +137,6 @@ function validateAutomerge(config) {
       !sameMembers(rule.matchDatasources, ['docker'])
     ) {
       throw new TypeError('digest automerge must stay limited to Docker images');
-    }
-    for (const key of ['automergeType', 'automergeStrategy', 'platformAutomerge', 'rebaseWhen']) {
-      if (key in rule) throw new TypeError(`automerge rules must not override ${key}`);
     }
   }
 
