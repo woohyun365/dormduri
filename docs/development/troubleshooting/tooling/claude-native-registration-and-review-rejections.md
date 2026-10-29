@@ -73,6 +73,8 @@
   invalid review request: unsafe-reference:selectionBasisRef
   ```
 
+- `review`가 `binding-values-invalid: …`로 멈추거나, Codex knu-review 3단계의 `review-context-inputs.mjs` CLI가
+  `context-output-missing`·`context-output-invalid`로 exit 1입니다.
 - `review --parent-subject`가 subject의 경로나 `requirementSections`를 거부하거나, 출력 `warnings`에
   `request-implementation-marker`가 나옵니다.
 
@@ -94,7 +96,9 @@
 - Reviewer의 `settle --task` `observationErrors`나 그 reviewer를 연결한 builder 완료에 `review-input-changed:<path>`,
   `review-input-manifest-changed`, `review-input-manifest-missing`, `review-input-manifest-invalid` 중 하나가 있습니다. 그룹
   구성원이면 사유 뒤에 구성원 task id가 괄호로 붙습니다.
-- Parent reviewer의 `settle --task` `observationErrors`에 `review-requirements-changed`가 있습니다.
+- Parent reviewer의 `settle --task` `observationErrors`에 `review-requirements-changed`·`review-binding-changed`·
+  `review-lifecycle-changed` 중 하나가 있습니다. Native subject reviewer는 `observationErrors`에 `review-binding-changed`가 있고
+  `settle --task --judgment`도 그 사유로 거부됩니다.
 - Read-only subject(쓰기 범위 없음)를 review하려는데 다음 중 하나로 거부됩니다.
 
   ```text
@@ -200,6 +204,13 @@
   `requirement-heading-duplicate`, root 안의 일반 파일이 아니면 `requirement-path-unreadable`, 형식이 `[{path, headings}]`가 아니면
   `requirementSections-invalid`, `paths`가 그 plan이나 그 위 디렉터리를 가리키면 `requirement-path-in-paths`입니다. 정산은 등록한 prompt나
   read 범위가 추출을 가리킬 때 추출이 prompt 기록의 digest와 다르거나 기록이 없으면 `review-requirements-changed`입니다.
+- 리뷰어 입력 추출: `review`는 고른 기준 문서에 걸린 binding 행을 `<reviewId>.binding.md`로, `lifecycleDraft`의 `## Lifecycle` 절을
+  `<reviewId>.lifecycle.md`로 reviewer마다 쓰고 prompt 기록이 그 digest를 결속합니다. 정산은 등록한 prompt나 read 범위가 추출을 가리킬
+  때 추출이 기록의 digest와 다르거나 기록이 없으면 `review-binding-changed`·`review-lifecycle-changed`입니다. Native subject
+  reviewer는 review id를 packet id에서 얻어 binding 추출을 같은 방식으로 대조하고, `--judgment` 정산도 같은 사유로 거부합니다.
+  binding이나 pack이 추출 규칙([리뷰어 입력](../../agent-workflows/review-criteria/README.md#리뷰어-입력)의 멈춤 조건)과 맞지 않으면
+  0행으로 넘기지 않고 `binding-values-invalid`로 리뷰를 만들지 않습니다. CLI 출력 경로가 없거나 규칙에 맞지 않으면
+  `context-output-missing`·`context-output-invalid`입니다.
 - RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 가져야 합니다. 실패한 프로세스 exit는 이 범위뿐이므로 한쪽만 있거나
   다른 값이면 거부합니다.
 - builder 연결은 같은 subject를 검토한 **모든** reviewer의 결과를 확인합니다. 아직 결과가 기록되지 않은 reviewer(`unsettled`),
@@ -250,13 +261,18 @@
   읽지 않은 것입니다. `review-packet-changed`는 packet 파일이 prompt의 digest와 다른 것입니다. `review-packet-missing`은 Parent reviewer spec의
   prompt에서 packet 파일 줄이 빠진 것입니다. 그런 prompt는 지금 등록부터 `review-prompt-unbound`로 거부되므로, Helper가 packet 파일 줄을 쓰기 전 버전으로 등록한 Parent reviewer를 지금 정산할 때 나옵니다. 세 사유 모두 결과를 쓰지 말고 파일을
   고치지 않은 채 `review`를 다시 실행해 새 reviewer로 재리뷰합니다. `review-requirements-changed`(requirement 추출이나 그 prompt 기록이
-  바뀌거나 사라짐)도 같습니다.
+  바뀌거나 사라짐)와 `review-binding-changed`·`review-lifecycle-changed`(binding 행 추출·초안 절 추출이나 그 prompt 기록이 바뀌거나
+  사라짐, native subject reviewer 포함)도 같습니다.
 - `review-prompt-changed`·`review-prompt-unbound`는 prompt나 기록을 고쳐 맞추지 않습니다. `review` 출력의 `reviewerSpec`(그룹이면
   구성원 각자의 spec)을 그대로 `prepare`하고, 바꿀 것이 있으면 `review`를 다시 만듭니다.
 - `local-state-path`는 그 경로를 `paths`에서 빼고 리뷰 대상인 추적 파일만 줍니다. `request-implementation-marker` 경고는 `request`를
   요구사항 문장(사용자 요청·issue·plan acceptance)으로 고쳐 `review`를 다시 실행합니다. `requirement-heading-*`는 plan의 heading을
   `#`를 뺀 그대로 적거나, 같은 heading이 두 번 있으면 plan heading을 고유하게 만든 뒤 다시 실행합니다. `requirement-path-in-paths`는 그
   plan이나 디렉터리를 `paths`에서 빼고 판정 원본 절은 `requirementSections`로만 줍니다.
+- `binding-values-invalid`는 메시지가 가리키는 binding 절 heading·표 머리·행이나 pack을 고친 뒤 `review`를 다시 실행합니다(binding·pack을
+  고치는 변경이면 그 수정도 리뷰 대상에 넣음). `context-output-missing`은 추출 kind의 `-out` flag를 더하고,
+  `context-output-invalid`는 리뷰 대상·원본과 겹치지 않는 저장소 안 새 상대 경로(Codex는
+  `.artifacts/tools/codex-native/<sessionId>/<reviewId>.binding.md`·`<reviewId>.lifecycle.md`)를 줍니다.
 - `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 새 reviewer로 다시 review합니다.
 - `parent-adjudication` 거부는 정상입니다. `settle --task <reviewerTaskId>`로 관측만 정산하고 아래 Parent 판정 절차를 따릅니다.
 - `unsettled`는 해당 reviewer의 완료 알림을 기다려 정산한 뒤 다시 연결합니다. 결과 없이 release했다면 되돌릴 수 없습니다.

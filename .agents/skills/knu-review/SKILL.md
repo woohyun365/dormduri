@@ -28,14 +28,21 @@ Reviewer에게 기대 결론을 주지 않습니다. QA packet의 요청·accept
    확인합니다. 다른 문서가 필요하면
    `node scripts/agents/common/review-criteria-selection.mjs --criteria documents,agent-workflow-tooling -- <리뷰 대상 경로…>`처럼
    id를 `--` 앞에 줘 override하고(`--` 뒤 인자는 모두 경로입니다), 기록에는 자동 선택 결과(`automatic`)도 남습니다.
-   이어서 같은 경로로 `node scripts/agents/common/review-context-inputs.mjs -- <리뷰 대상 경로…>`의 출력을
-   `.artifacts/tools/codex-native/<sessionId>/<reviewId>.context.json`에 저장합니다(Parent가 PR `## Lifecycle` 초안 파일을 쓰면
-   `--lifecycle-draft <경로>`를 `--` 앞에 줍니다). 출력 `inputs`(intent·결정 기록·정책 문서·초안과 포함 이유)가 그 리뷰의
-   [리뷰어 입력](../../../docs/development/agent-workflows/review-criteria/README.md#리뷰어-입력)입니다.
+   이어서 같은 경로로
+   `node scripts/agents/common/review-context-inputs.mjs --binding-out .artifacts/tools/codex-native/<sessionId>/<reviewId>.binding.md -- <리뷰 대상 경로…>`의
+   출력을 `.artifacts/tools/codex-native/<sessionId>/<reviewId>.context.json`에 저장합니다. PR `## Lifecycle` 초안 파일이 있으면
+   `node scripts/agents/common/review-context-inputs.mjs --binding-out .artifacts/tools/codex-native/<sessionId>/<reviewId>.binding.md --lifecycle-draft <경로> --lifecycle-out .artifacts/tools/codex-native/<sessionId>/<reviewId>.lifecycle.md -- <리뷰 대상 경로…>`로
+   실행합니다. CLI는 고른 기준 문서에 걸린 binding `## 고른 값`·`## 저장소 규약` 행을 `<reviewId>.binding.md`에(걸린 행이 없으면 파일을
+   만들지 않음), 초안의 `## Lifecycle` 절만 `<reviewId>.lifecycle.md`에 씁니다. 출력 `inputs`(intent·결정 기록·정책 문서·binding 행
+   추출·초안 절 추출과 포함 이유)가 그 리뷰의
+   [리뷰어 입력](../../../docs/development/agent-workflows/review-criteria/README.md#리뷰어-입력)입니다. binding·pack이 추출 규칙과
+   맞지 않거나 출력 경로가 규칙에 맞지 않으면 CLI가 `binding-values-invalid`·`context-output-*`로 exit 1이므로 spawn하지 않고
+   [등록·리뷰 거부 해소](../../../docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md#해결)를 따릅니다.
 4. 2단계 출력 `registered[]`의 `spawnArguments`를 그대로 spawn 도구에 넘깁니다. 메시지는 QA packet입니다. Frozen source 기준(HEAD·변경 파일),
    lane acceptance, 3단계 기록의 기준 문서, 읽기 범위를 담고, 2회차부터는 이전 finding과 처분만 delta로 줍니다. 3단계 리뷰어 입력의
-   `inputs[].path`를 읽기 범위에 넣고 입력 줄에는 경로와 포함 이유만 적습니다(입력이 없으면 "없음", 초안이 없으면 "등급 기록 없음:
-   feature로 봄", 초안이 있으면 그 `변경 등급`·`등급 근거`·`정책 영향 없음`·`인용 규칙`은 근거가 아니라 diff와 대조할 Parent 주장).
+   `inputs[].path`를 읽기 범위에 넣고 입력 줄에는 경로와 포함 이유만 적습니다(원본 초안과 binding 문서는 넣지 않음. 입력이 없으면
+   "없음", 초안이 없으면 "등급 기록 없음: feature로 봄", 초안 절 추출이 있으면 그 `변경 등급`·`등급 근거`·`정책 영향 없음`·`인용 규칙`은
+   근거가 아니라 diff와 대조할 주장).
    판정 지시에는 "요구가 말하지 않은 동작은 intent·결정 기록과 합리적 사용자 기대로 판정하고, 판정하지 않은 동작은 결과
    `unjudgedBehaviors`에 이유와 함께 적는다"와 "같은 유형의 결함이 다른 위치에도 있으면 그 finding의 `sameTypeLocations`에
    `path:line`으로 적는다"를 넣습니다([Portable QA packet](../../../docs/development/agent-workflows/qa.md#portable-qa-packet)). 실행 중이거나 멈춘

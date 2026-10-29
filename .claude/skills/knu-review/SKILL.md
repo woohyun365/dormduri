@@ -36,8 +36,8 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
    `requirementSections: [{"path": "<plan 경로>", "headings": ["<절 heading>"]}]`는 plan의 판정 원본 절(acceptance·invariant·Owner 결정
    기록)만 helper가 잘라 reviewer 입력으로 주고, plan 파일은 read path에 넣지 않습니다(`paths`에 그 plan이나 그 위 디렉터리를 함께 주면
    `requirement-path-in-paths`로 거부). Heading은 `#`를 뺀 정확한 문자열이고 plan 안에 한 번만 있어야 합니다. 선택 필드
-   `lifecycleDraft: "<경로>"`는 PR `## Lifecycle` 초안 파일이고 reviewer가 그 등급·정책 줄을 diff와 대조합니다(없거나 `## Lifecycle`
-   절이 없는 파일은 `lifecycle-draft-invalid`). `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --session ${CLAUDE_SESSION_ID}`로
+   `lifecycleDraft: "<경로>"`는 PR 본문 초안 파일이고 helper가 그 `## Lifecycle` 절만 잘라 reviewer가 등급·정책 줄을 diff와 대조합니다
+   (원본 초안은 read path가 아님. 없거나 `## Lifecycle` 절이 없거나 둘 이상인 파일은 `lifecycle-draft-invalid`). `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --session ${CLAUDE_SESSION_ID}`로
    `logHeader`를 받습니다.
    - `paths`의 `.omc/`·`.omx/`·`.codex/state/`·`.claude/projects/` 아래 경로, Home(`~`) 경로, 절대 경로는
      `local-state-path:<path>`로 거부됩니다. 추적 `.claude/` 설정·skill·역할 파일은 해당하지 않습니다.
@@ -93,9 +93,12 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
   `--criteria documents,agent-workflow-tooling`처럼 id를 줘 override하고, 기록에는 자동 선택 결과도 남습니다.
   `--criteria none`(기준 문서 없음)은 기준 효과를 재는 비교 측정(교정·baseline)용이고 필수 리뷰에는 쓰지 않으며, 기록에 override
   `none`이 남습니다.
-- 리뷰어 입력: `review`가 같은 리뷰 대상 경로로 intent·결정 기록·정책 문서와 `lifecycleDraft`를 고르고
-  ([리뷰어 입력](../../../docs/development/agent-workflows/review-criteria/README.md#리뷰어-입력)) read path와 prompt 입력 줄에 넣습니다.
-  출력 `contextInputs`에 경로를, `.artifacts/tools/claude-review-packets/<reviewId>.context.json`에 포함 이유를 남깁니다.
+- 리뷰어 입력: `review`가 같은 리뷰 대상 경로로 intent·결정 기록·정책 문서, 고른 기준 문서에 걸린 binding 행과 `lifecycleDraft`의
+  `## Lifecycle` 절을 고르고([리뷰어 입력](../../../docs/development/agent-workflows/review-criteria/README.md#리뷰어-입력)) read path와
+  prompt 입력 줄에 넣습니다. 두 추출은 reviewer마다 `.artifacts/tools/claude-review-packets/<reviewId>.binding.md`·
+  `<reviewId>.lifecycle.md`에 쓰고 prompt 기록이 digest로 결속하므로, 리뷰 중 바뀌면 정산이 `review-binding-changed`·
+  `review-lifecycle-changed`로 거부합니다. 출력 `contextInputs`에 경로를, `<reviewId>.context.json`에 포함 이유를 남깁니다.
+  binding·pack이 추출 규칙과 맞지 않으면 `review`가 `binding-values-invalid`로 멈춥니다.
 
 - Reviewer prompt는 12,000자를 넘을 수 없습니다. Parent 경로는 packet이 파일로 빠진 뒤 크기이고, 남는 초과는 runner 기록과
   acceptance 문장 길이에서 옵니다. Native subject 경로는 acceptance·read path·runner 기록을 줄입니다.

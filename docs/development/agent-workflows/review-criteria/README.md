@@ -94,7 +94,11 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 
 리뷰를 만들 때 자동 선택과 같은 리뷰 대상 경로로 reviewer가 subject 옆에서 읽을 기록을 고릅니다. 공통 module은
 [`review-context-inputs.mjs`](../../../../scripts/agents/common/review-context-inputs.mjs)이고 host 정책을 import하지 않으며 CLI로도
-씁니다(`node scripts/agents/common/review-context-inputs.mjs [--lifecycle-draft <경로>] -- <리뷰 대상 경로…>`).
+씁니다(`node scripts/agents/common/review-context-inputs.mjs [--binding-out <경로>] [--lifecycle-draft <경로> --lifecycle-out <경로>] -- <리뷰 대상 경로…>`).
+두 `-out` 경로는 저장소 안 상대 경로이고 아래 두 추출 파일을 씁니다(없는 상위 디렉터리는 만들고, 같은 경로의 일반 파일은
+덮어씀). 추출이 있는데 그 경로가 없으면 `context-output-missing`, 절대·저장소 밖 경로이거나 리뷰 대상 경로·binding·다른 입력·원본
+초안·다른 출력과 같은 경로(대소문자 무시)이거나, 그 경로나 저장소 안 상위 디렉터리가 symlink이거나 그 경로가 일반 파일이 아니면
+`context-output-invalid`이고, 둘 다 입력 오류(exit 1)입니다.
 
 - intent: [`docs/product/intent.md`](../../../product/intent.md)가 있으면 경로와 무관하게 넣습니다.
 - 결정 기록: 자동 선택이 고른 영역 문서의 layer마다 [결정 기록](../../../architecture/decisions/README.md)
@@ -103,14 +107,24 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
   `docs/policies/<도메인>.md`를 넣습니다(파일이 없으면 `absent`). 판정은 [`policy-first-check.mjs`](../../../../scripts/ci/lifecycle/policy-first-check.mjs)의
   표 위치(`PATH_DOMAINS_FILE`)·`parsePathDomains`·`createPathTable`·도메인 → 문서 경로(`policyPath`)를 import하고 복제하지
   않으므로, 그 표나 네 export를 바꾸는 변경은 리뷰어 입력도 바꿉니다.
-- 변경 등급 기록: Parent가 준 `## Lifecycle` 초안 파일(Claude Parent subject의 `lifecycleDraft`)을 넣습니다. 초안 파일은 PR 본문의
-  `## Lifecycle` 절만 담습니다(Summary·Changes 같은 자유 문장은 reviewer 입력이 아닙니다). Reviewer는 초안의
-  `변경 등급`·`등급 근거`·`정책 영향 없음`·`인용 규칙`을 근거가 아닌 Parent 주장으로 보고 diff와 대조합니다. 초안이 없으면 변경을
-  feature로 봅니다.
-- Binding 문서(`knu-binding.md`)는 넣지 않습니다.
-- 항목마다 포함 이유(intent, layer와 그 layer를 고른 기준 문서·경로, 도메인과 그 경로, 초안)를 붙입니다. 목록은 reviewer read
-  path가 되고 prompt 입력 줄에는 경로와 이유만 들어갑니다. 기록은 `<reviewId>.context.json`(Claude는 helper 디렉터리,
-  Codex는 knu-review skill이 정한 위치)이고 read path는 아닙니다.
+- binding 행: 자동 선택이 고른 기준 문서에 걸린 [binding](../domain/knu-binding.md)의 행을 원문 그대로 옮긴 추출 파일(Claude는
+  `<reviewId>.binding.md`, CLI는 `--binding-out` 경로)을 넣습니다. `## 고른 값` 행은 결정 id(`/<영역>` 앞)가 고른 문서의 pack 하위
+  layer 절에 있을 때(결정 위치는 [discovery 질문 module](../../../../scripts/agents/common/discovery-questions.mjs)이 pack을 읽어 정함),
+  `## 저장소 규약` 행은 "관련 기준 항목"이 고른 문서를 가리킬 때 듭니다. 추출의 첫 줄은 binding 경로와 sha256(옮긴 상대 링크의
+  기준)이고, 절마다 제목·열 설명 bullet·표 머리와 고른 행만 binding 순서로 둡니다. 키 표·`## 영역 검사` 같은 다른 절과 binding 문서
+  자체는 넣지 않습니다. 걸린 행이 없으면 입력과 파일이 없고, binding에 그 절 heading이 없으면 그 절은 행이 없는 것입니다. 다음은
+  0행으로 넘기지 않고 입력 오류(`binding-values-invalid`)로 멈춥니다: 절 이름으로 시작하지만 다른 heading(이름이 바뀐 절), 두 절의
+  표 머리나 "관련 기준 항목" 열을 찾지 못함, pack을 읽지 못함, `## 고른 값` 결정이 pack에 없거나 그 하위 layer가 기준 문서 catalog에
+  없는 id로 이어짐, `## 저장소 규약` 행이 기준 항목을 가리키지 않거나 catalog에 없는 문서를 가리킴.
+- 변경 등급 기록: 리뷰에 준 PR 본문 초안 파일(Claude Parent subject의 `lifecycleDraft`, CLI `--lifecycle-draft`)에서 `## Lifecycle`
+  절(그 heading부터 다음 `## ` heading 앞까지)만 원문 그대로 잘라 추출 파일(Claude는 `<reviewId>.lifecycle.md`, CLI는
+  `--lifecycle-out` 경로)로 넣고 원본 초안은 넣지 않습니다(Summary·Changes 같은 자유 문장은 reviewer 입력이 아닙니다). 절이 없거나
+  둘 이상이면 입력 오류입니다. Reviewer는 그 `변경 등급`·`등급 근거`·`정책 영향 없음`·`인용 규칙`을 근거가 아닌 주장으로 보고
+  diff와 대조합니다. 초안이 없으면 변경을 feature로 봅니다.
+- 항목마다 포함 이유(intent, layer와 그 layer를 고른 기준 문서·경로, 도메인과 그 경로, binding 행의 결정 행·규약 사실과 그 기준
+  문서, 초안 원본 경로)를 붙입니다. 목록은 reviewer read path가 되고 prompt 입력 줄에는 경로와 이유만 들어갑니다. 기록
+  `<reviewId>.context.json`과 두 추출 파일은 Claude는 helper 디렉터리, Codex는 knu-review skill이 정한 위치에 두고, 기록은 read
+  path가 아닙니다.
 - Reviewer는 요구가 말하지 않은 동작을 intent·결정 기록과 합리적 사용자 기대로 판정하고, 판정하지 않고 둔 동작은 결과
   `unjudgedBehaviors`(`behavior`·`reason`)에 적습니다. 이 필드는 PASS를 막지 않고 Parent가 정산 때 줄마다 처분합니다([처분
   기록](#처분-기록)). 같은 유형의 결함이 다른 위치에도 있으면 그 finding의 `sameTypeLocations`(`path:line`)에 적습니다.
@@ -360,7 +374,7 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
     열린 한계이고, Codex reviewer 모델을 바꾸는 변경은 재채점이 품질 근거가 아니므로 merge 전 Owner가 판단합니다.
   - `review-context-inputs.mjs`의 경로별 입력 선택(layer → 결정 기록, 정책 도메인 → 정책 문서)만 바꾼 변경:
     `해당 없음 — 입력 선택 분기는 사본 경로에 걸리지 않음`.
-  - 등급 기록이 있을 때만 들어가는 Parent 주장 표시 문장만 바꾼 변경: `해당 없음 — 재채점 사본에 등급 기록이 없음`.
+  - 등급 기록이 있을 때만 들어가는 초안 표시 문장만 바꾼 변경: `해당 없음 — 재채점 사본에 등급 기록이 없음`.
   - 그 밖에 사본 run이 지나지 않는 trigger 파일 변경(절차 문장, reviewer 입력에 들어가지 않는 helper 분기 등)은 그 이유를 적어
     닫습니다.
 - subject 교체: 사용 3회마다 또는 놓친 결함 사례(`원인 PR`로 찾은 결함) 2건이 쌓이면, 가장 오래 쓴 subject 하나를 그 사례로 만든

@@ -2248,7 +2248,8 @@ test('a native subject review selects criteria from the observed changed paths',
 });
 
 // Reviewer context inputs (review-context-inputs.mjs): beside the subject a review reads the product intent, the
-// decision record of each selected layer and the policy document of each judged policy domain.
+// decision record of each selected layer, the policy document of each judged policy domain, the binding rows tied
+// to the selected criteria and the draft's Lifecycle section; the two extracts are files under the review's own id.
 const CONTEXT_PATH = 'apps/api/src/seasons/season.service.ts';
 const CONTEXT_INPUTS = [
   'docs/product/intent.md',
@@ -2256,8 +2257,29 @@ const CONTEXT_INPUTS = [
   'docs/policies/season-lifecycle.md',
 ];
 const DRAFT_PATH = '.artifacts/plans/helper-test/lifecycle.md';
-const DRAFT_LINE = `- ${DRAFT_PATH} is the Parent's Lifecycle draft: its 변경 등급, 등급 근거, 정책 영향 없음 and 인용 규칙 lines are the Parent's claims to check against the diff, not evidence. Report a finding that raises the grade when the diff shows a behavior or contract change above it.`;
-function contextRepo(t) {
+const DRAFT_TEXT =
+  '# PR\n\n## Summary\n\n- 요약\n\n## Lifecycle\n\n- 변경 등급: bugfix\n\n## Changes\n\n- 목록\n';
+const DRAFT_SECTION = '## Lifecycle\n\n- 변경 등급: bugfix\n';
+const draftLine = (path) =>
+  `- ${path} is the Lifecycle draft given for this review: its 변경 등급, 등급 근거, 정책 영향 없음 and 인용 규칙 lines are claims to check against the diff, not evidence. Report a finding that raises the grade when the diff shows a behavior or contract change above it.`;
+const extractPathOf = (review, suffix) => `${PACKET_DIR}/${reviewIdOf(review)}${suffix}`;
+// A `## 저장소 규약` row tied to the criteria document the context path selects.
+const CONVENTION_FACT = '시즌 규약은 code가 정한다';
+const CONVENTION_ROW = `| ${CONVENTION_FACT} | code: x | \`web-be-service-layer.md A1\` |`;
+const CONVENTIONS = [
+  '',
+  '## 저장소 규약',
+  '',
+  '- 관련 기준 항목: 이 사실로 판정하는 기준 항목입니다.',
+  '',
+  '| 사실 | 원본 | 관련 기준 항목 |',
+  '| --- | --- | --- |',
+  CONVENTION_ROW,
+  '',
+].join('\n');
+const BINDING_LABEL =
+  'binding rows for the selected criteria: chosen values 0, repository conventions 1';
+function contextRepo(t, { conventions = false } = {}) {
   const r = repo(t);
   const pathTable = {
     schema: 'lifecycle-path-domains/v1',
@@ -2268,8 +2290,7 @@ function contextRepo(t) {
     irreversiblePaths: [],
   };
   for (const [path, text] of Object.entries({
-    [BINDING_PATH]:
-      '# binding\n\n| 키 | 값 |\n| --- | --- |\n| `repo-structure.be-src` | `apps/api/src/**` |\n',
+    [BINDING_PATH]: `# binding\n\n| 키 | 값 |\n| --- | --- |\n| \`repo-structure.be-src\` | \`apps/api/src/**\` |\n${conventions ? CONVENTIONS : ''}`,
     'docs/development/agent-workflows/domain/swe-web/be.md':
       '# be\n\n## service-layer\n\n### binding 키\n\n- `{{binding:repo-structure.be-src}}`: 위치\n',
     [`${CRITERIA_DIR}/README.md`]: '# README\n',
@@ -2279,7 +2300,7 @@ function contextRepo(t) {
     'docs/policies/path-domains.json': `${JSON.stringify(pathTable)}\n`,
     'docs/policies/season-lifecycle.md': '# season-lifecycle\n',
     [CONTEXT_PATH]: 'export const season = 1;\n',
-    [DRAFT_PATH]: '# PR\n\n## Lifecycle\n\n- 변경 등급: bugfix\n',
+    [DRAFT_PATH]: DRAFT_TEXT,
   })) {
     mkdirSync(dirname(join(r.root, path)), { recursive: true });
     writeFileSync(join(r.root, path), text);
@@ -2335,15 +2356,41 @@ test('a review puts its context inputs in the packet read paths, the prompt and 
   prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
 });
 
-test('a Parent change-grade draft is a bound read path that the prompt marks as Parent claims', (t) => {
+// RED 10: the reviewer reads the draft's Lifecycle section from a file under its review id, bound by the prompt
+// record, never the draft itself. RED 8: the draft line names no author.
+test('a change-grade draft is read as its bound Lifecycle section and the prompt marks its lines as claims', (t) => {
   const r = contextRepo(t);
   const review = parentReview(r, contextSubject({ lifecycleDraft: DRAFT_PATH }));
-  assert.ok(review.packet.boundaries.allowedReadPaths.includes(DRAFT_PATH));
-  assert.ok(Object.keys(manifestOf(r, review).files).includes(DRAFT_PATH));
+  assert.ok(review.lifecycleFile, 'review returns lifecycleFile');
+  const path = extractPathOf(review, '.lifecycle.md');
+  assert.deepEqual(
+    review.lifecycleFile,
+    { path, digest: sha256(readFileSync(join(r.root, path))) },
+    'review returns lifecycleFile',
+  );
+  assert.equal(readFileSync(join(r.root, path), 'utf8'), DRAFT_SECTION);
+  for (const paths of [review.packet.boundaries.allowedReadPaths, review.reviewerSpec.readScope]) {
+    assert.ok(paths.includes(path), 'the Lifecycle extract is a read path');
+    assert.ok(!paths.includes(DRAFT_PATH), 'the draft itself is not a read path');
+  }
+  // The draft is no longer an ignored read input; the prompt record binds the extract instead.
+  const bound = review.inputsFile ? Object.keys(manifestOf(r, review).files) : [];
+  assert.ok(!bound.includes(DRAFT_PATH));
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(r.root, review.promptFile.path), 'utf8')).lifecycle,
+    review.lifecycleFile,
+  );
+  const record = JSON.parse(readFileSync(join(r.root, review.contextFile.path), 'utf8'));
+  assert.deepEqual(record.inputs.at(-1), {
+    kind: 'lifecycle-draft',
+    path,
+    reason: { rule: 'lifecycle-draft', draft: DRAFT_PATH },
+  });
   const lines = review.reviewerPrompt.split('\n');
-  assert.ok(lines.includes(DRAFT_LINE));
+  assert.ok(lines.includes(draftLine(path)), 'the draft line names the extract and no author');
+  assert.ok(!lines.find((line) => line.includes(path)).includes('Parent'));
   assert.ok(!lines.includes(NO_GRADE_LINE));
-  assert.ok(!contextLine(review.reviewerPrompt).includes(DRAFT_PATH));
+  assert.ok(!contextLine(review.reviewerPrompt).includes(path));
   prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
   for (const [draft, reason] of [
     ['.omc/state/lifecycle.md', /local-state-path:\.omc\/state\/lifecycle\.md/u],
@@ -2359,6 +2406,187 @@ test('a Parent change-grade draft is a bound read path that the prompt marks as 
       reason,
       String(draft),
     );
+});
+
+test('a Lifecycle extract changed after the review, or a lost record, fails settle', (t) => {
+  const r = contextRepo(t);
+  const review = parentReview(r, contextSubject({ lifecycleDraft: DRAFT_PATH }));
+  assert.ok(review.lifecycleFile, 'review returns lifecycleFile');
+  const status = reviewedWhile(r, review);
+  assert.deepEqual(status.observationErrors, []);
+  assert.deepEqual(status.reviewLifecycle, {
+    path: review.lifecycleFile.path,
+    expectedDigest: review.lifecycleFile.digest,
+    currentDigest: review.lifecycleFile.digest,
+  });
+  for (const change of [
+    (root, built) => writeFileSync(join(root, built.lifecycleFile.path), 'other\n'),
+    (root, built) => unlinkSync(join(root, built.promptFile.path)),
+  ]) {
+    const s = contextRepo(t);
+    const built = parentReview(s, contextSubject({ lifecycleDraft: DRAFT_PATH }));
+    assert.ok(built.lifecycleFile, 'review returns lifecycleFile');
+    const changed = reviewedWhile(s, built, () => change(s.root, built));
+    assert.ok(
+      changed.observationErrors.includes('review-lifecycle-changed'),
+      changed.observationErrors.join(','),
+    );
+  }
+});
+
+// RED 6: a review with binding rows reads their extract from a file under its own id; the prompt record binds the
+// digest, the input line names the path with a short reason and the context record keeps why each row is there.
+test('a review with binding rows reads their extract under its own id, bound by the prompt record', (t) => {
+  const r = contextRepo(t, { conventions: true });
+  const review = parentReview(r, contextSubject());
+  assert.ok(review.bindingFile, 'review returns bindingFile');
+  const path = extractPathOf(review, '.binding.md');
+  assert.deepEqual(
+    review.bindingFile,
+    { path, digest: sha256(readFileSync(join(r.root, path))) },
+    'review returns bindingFile',
+  );
+  assert.ok(readFileSync(join(r.root, path), 'utf8').includes(CONVENTION_ROW));
+  for (const paths of [review.packet.boundaries.allowedReadPaths, review.reviewerSpec.readScope]) {
+    assert.ok(paths.includes(path), 'the binding extract is a read path');
+    assert.ok(!paths.includes(BINDING_PATH));
+  }
+  assert.equal(
+    contextLine(review.reviewerPrompt),
+    `- Context inputs (read them and judge the change against them): docs/product/intent.md (product intent); docs/architecture/decisions/be.md (decision record, layer be); docs/policies/season-lifecycle.md (policy, domain season-lifecycle); ${path} (${BINDING_LABEL}).`,
+  );
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(r.root, review.promptFile.path), 'utf8')).binding,
+    review.bindingFile,
+  );
+  assert.deepEqual(review.contextInputs, [...CONTEXT_INPUTS, path]);
+  const record = JSON.parse(readFileSync(join(r.root, review.contextFile.path), 'utf8'));
+  const input = record.inputs.find((entry) => entry.kind === 'binding-values');
+  assert.equal(input.path, path);
+  assert.deepEqual(input.reason.conventions, [
+    { fact: CONVENTION_FACT, documents: ['web-be-service-layer'] },
+  ]);
+  prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  // Each group member writes and binds its own extract.
+  const subject = contextSubject();
+  const { snapshotDigest } = buildClaudeNativeReview({ parentSubject: subject }, { root: r.root });
+  const group = buildClaudeNativeReview(
+    {
+      parentSubject: subject,
+      runnerEvidence: { ...runnerEvidence(snapshotDigest), runner: 'lead-runner' },
+      selectionBasisRef: 'plan:helper-test/group-review',
+      reviewerModel: 'claude-opus-4-6',
+      reviewRound: 1,
+      sessionId: r.sessionId,
+      composition: 'e2',
+      reviewers: 2,
+    },
+    { root: r.root },
+  );
+  const files = group.reviewers.map((member) => member.bindingFile);
+  assert.equal(files.length, 2);
+  assert.notEqual(files[0].path, files[1].path);
+  for (const [index, member] of group.reviewers.entries()) {
+    assert.equal(files[index].path, extractPathOf(member, '.binding.md'));
+    assert.ok(member.reviewerSpec.readScope.includes(files[index].path));
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(r.root, member.promptFile.path), 'utf8')).binding,
+      files[index],
+    );
+  }
+});
+
+test('a binding extract changed after the review, or a lost record, fails settle', (t) => {
+  const r = contextRepo(t, { conventions: true });
+  const review = parentReview(r, contextSubject());
+  assert.ok(review.bindingFile, 'review returns bindingFile');
+  const status = reviewedWhile(r, review);
+  assert.deepEqual(status.observationErrors, []);
+  assert.deepEqual(status.reviewBinding, {
+    path: review.bindingFile.path,
+    expectedDigest: review.bindingFile.digest,
+    currentDigest: review.bindingFile.digest,
+  });
+  for (const change of [
+    (root, built) => writeFileSync(join(root, built.bindingFile.path), 'other\n'),
+    (root, built) => unlinkSync(join(root, built.bindingFile.path)),
+    (root, built) => unlinkSync(join(root, built.promptFile.path)),
+  ]) {
+    const s = contextRepo(t, { conventions: true });
+    const built = parentReview(s, contextSubject());
+    assert.ok(built.bindingFile, 'review returns bindingFile');
+    const changed = reviewedWhile(s, built, () => change(s.root, built));
+    assert.ok(
+      changed.observationErrors.includes('review-binding-changed'),
+      changed.observationErrors.join(','),
+    );
+  }
+});
+
+// u0: a native subject review gets its review id from its packet id, as registration does, so a changed binding
+// extract fails its settle observation and its judgment.
+test('a native subject review binds its binding extract and refuses a changed one at settle', (t) => {
+  const conventions = (r) => {
+    mkdirSync(join(r.root, 'docs/development/agent-workflows/domain'), { recursive: true });
+    writeFileSync(
+      join(r.root, BINDING_PATH),
+      `# binding\n\n| 키 | 값 |\n| --- | --- |\n| \`repo-structure.review-swe\` | \`*\`(root 파일) |\n${CONVENTIONS.replace('web-be-service-layer.md A1', 'swe.md S1')}`,
+    );
+    writeCriteriaItems(r, 'swe', 'S', 2);
+    execFileSync('git', ['add', '.'], { cwd: r.root });
+  };
+  for (const change of [false, true]) {
+    const r = settledBuilder(t, conventions);
+    const review = reviewOf(r);
+    const path = extractPathOf(review, '.binding.md');
+    assert.equal(review.bindingFile?.path, path, 'native review returns bindingFile');
+    assert.ok(review.packet.boundaries.allowedReadPaths.includes(path));
+    assert.ok(contextLine(review.reviewerPrompt).includes(path));
+    const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+    dispatch(r, reviewer, 'review-1', passing(review));
+    if (change) writeFileSync(join(r.root, path), 'other\n');
+    const status = settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
+    assert.equal(
+      status.observationErrors.includes('review-binding-changed'),
+      change,
+      status.observationErrors.join(','),
+    );
+    const settle = () =>
+      settleClaudeNativeTask(
+        reviewer.taskId,
+        judgment(reviewer, 'terminal review result delivered for the frozen packet'),
+        { root: r.root },
+      );
+    if (change) assert.throws(settle, /review-binding-changed/u);
+    else assert.equal(settle().valid, true);
+  }
+});
+
+// RED 4: a review whose paths take no binding row (and no draft) has the prompt and records it had without the
+// binding sections, so the held-out copy runs are not touched.
+test('a review whose paths take no binding row keeps the prompt it has without binding sections', (t) => {
+  const subject = { ...SMALL_PARENT_SUBJECT, paths: ['docs/product/intent.md'] };
+  const identity =
+    /^(?:KNU review snapshot |KNU_REVIEW_PACKET_FILE:|KNU_REVIEW_INPUTS_FILE:|Result template: )/u;
+  const built = [contextRepo(t), contextRepo(t, { conventions: true })].map((r) => {
+    const review = parentReview(r, subject);
+    return {
+      lines: review.reviewerPrompt
+        .split('\n')
+        .filter((line) => !identity.test(line))
+        .map((line) => line.replaceAll(reviewIdOf(review), '<reviewId>')),
+      readScope: review.reviewerSpec.readScope.filter((path) => !path.startsWith(PACKET_DIR)),
+      promptKeys: Object.keys(
+        JSON.parse(readFileSync(join(r.root, review.promptFile.path), 'utf8')),
+      ),
+      inputs: JSON.parse(readFileSync(join(r.root, review.contextFile.path), 'utf8')).inputs,
+      files: reviewFiles(r).filter((name) => /\.(?:binding|lifecycle)\.md$/u.test(name)),
+    };
+  });
+  assert.deepEqual(built[1], built[0]);
+  assert.deepEqual(built[0].promptKeys, ['schema', 'reviewId', 'promptDigest']);
+  assert.deepEqual(built[0].files, []);
+  assert.ok(built[0].lines.includes(NO_GRADE_LINE));
 });
 
 test('every reviewer prompt asks to judge unstated behavior and to list same-type locations', (t) => {
