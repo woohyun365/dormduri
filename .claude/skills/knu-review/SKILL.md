@@ -98,6 +98,7 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
   prompt 입력 줄에 넣습니다. 두 추출은 reviewer마다 `.artifacts/tools/claude-review-packets/<reviewId>.binding.md`·
   `<reviewId>.lifecycle.md`에 쓰고 prompt 기록이 digest로 결속하므로, 리뷰 중 바뀌면 정산이 `review-binding-changed`·
   `review-lifecycle-changed`로 거부합니다. 출력 `contextInputs`에 경로를, `<reviewId>.context.json`에 포함 이유를 남깁니다.
+  binding·pack이 추출 규칙과 맞지 않으면 `review`가 `binding-values-invalid`로 멈춥니다.
 
 - Reviewer prompt는 12,000자를 넘을 수 없습니다. Parent 경로는 packet이 파일로 빠진 뒤 크기이고, 남는 초과는 runner 기록과
   acceptance 문장 길이에서 옵니다. Native subject 경로는 acceptance·read path·runner 기록을 줄입니다.

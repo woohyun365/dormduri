@@ -129,10 +129,18 @@ const cellsOf = (line) =>
     .slice(1, -1)
     .map((cell) => cell.trim());
 // One `## ` section of the binding, its heading through the line before the next `## ` heading; null when
-// the binding has no such section.
+// the binding has no such section. A heading that only starts with the name (a renamed section) stops the
+// extract instead of passing zero rows.
 function bindingSection(lines, heading) {
   const at = lines.flatMap((line, index) => (line.trimEnd() === heading ? [index] : []));
-  if (!at.length) return null;
+  if (!at.length) {
+    const renamed = lines.find((line) => line.startsWith(heading));
+    if (renamed !== undefined)
+      fail(
+        `binding-values-invalid: ${REVIEW_BINDING_PATH} has "${renamed.trimEnd()}", not "${heading}"`,
+      );
+    return null;
+  }
   if (at.length > 1) fail(`binding-values-invalid: ${REVIEW_BINDING_PATH} repeats "${heading}"`);
   const next = lines.findIndex((line, index) => index > at[0] && /^## /u.test(line));
   return lines.slice(at[0], next === -1 ? lines.length : next);
@@ -163,7 +171,8 @@ function bindingTable(section, column) {
   return { heading: section[0], bullets, header: section.slice(at, at + 2), rows };
 }
 // Pack decision id → the criteria document of its sublayer (`web-<layer file>-<sublayer>`, the id the
-// selection gives that sublayer section). A pack the discovery parser refuses stops the extract.
+// selection gives that sublayer section; a row whose id the catalog lacks stops the extract, so the two never
+// drift apart silently). A pack the discovery parser refuses stops the extract.
 function decisionDocuments(root) {
   const documents = new Map();
   let pack;
@@ -181,8 +190,9 @@ function decisionDocuments(root) {
 // The binding rows tied to the selected criteria documents: a `## 고른 값` row whose decision (before
 // `/<영역>`) is in a selected document's pack sublayer, and a `## 저장소 규약` row whose related criteria item
 // names a selected document. Lines are copied unchanged in binding order under a first line naming the
-// binding and its sha256, from which the copied relative links resolve. Null when no row is tied.
-function bindingValues(root, selected) {
+// binding and its sha256, from which the copied relative links resolve. Null when no row is tied. `known` is
+// every criteria document id of the catalog; a row tied to any other id stops the extract.
+function bindingValues(root, selected, known) {
   if (!isFile(root, REVIEW_BINDING_PATH)) return null;
   const bytes = readFileSync(join(root, REVIEW_BINDING_PATH));
   const lines = bytes.toString('utf8').split('\n');
@@ -200,6 +210,10 @@ function bindingValues(root, selected) {
       const document = documents.get(id);
       if (!document)
         fail(`binding-values-invalid: ${VALUES_HEADING} row ${id} is not a pack decision`);
+      if (!known.has(document))
+        fail(
+          `binding-values-invalid: ${VALUES_HEADING} row ${id} maps to ${document}, not a criteria document`,
+        );
       if (selected.has(document)) decisions.push({ ...row, document });
     }
   }
@@ -211,6 +225,11 @@ function bindingValues(root, selected) {
     if (!named.length)
       fail(
         `binding-values-invalid: ${CONVENTIONS_HEADING} row ${row.first} names no criteria item`,
+      );
+    const unknown = named.filter((id) => !known.has(id));
+    if (unknown.length)
+      fail(
+        `binding-values-invalid: ${CONVENTIONS_HEADING} row ${row.first} names ${unknown.join(', ')}, not a criteria document`,
       );
     const documents = sorted(named.filter((id) => selected.has(id)));
     if (documents.length) facts.push({ ...row, documents });
@@ -262,10 +281,8 @@ export function collectReviewContext({ root = process.cwd(), paths, lifecycleDra
   const absent = [];
   if (isFile(root, INTENT_PATH))
     inputs.push({ kind: 'intent', path: INTENT_PATH, reason: { rule: 'intent' } });
-  const { documents } = selectReviewCriteria({
-    paths: unique,
-    catalog: loadReviewCriteriaCatalog(root),
-  });
+  const catalog = loadReviewCriteriaCatalog(root);
+  const { documents } = selectReviewCriteria({ paths: unique, catalog });
   const layers = selectedLayers(documents);
   for (const layer of sorted(layers.keys())) {
     const path = `${DECISIONS_DIR}/${layer}.md`;
@@ -293,7 +310,11 @@ export function collectReviewContext({ root = process.cwd(), paths, lifecycleDra
       reason: { rule: 'policy-domain', domain, paths: sorted(domains.get(domain)) },
     });
   }
-  const binding = bindingValues(root, new Set(documents.map(({ id }) => id)));
+  const binding = bindingValues(
+    root,
+    new Set(documents.map(({ id }) => id)),
+    new Set(Object.keys(catalog.documents)),
+  );
   if (binding !== null) {
     extracts['binding-values'] = binding.text;
     inputs.push({ kind: 'binding-values', path: null, reason: binding.reason });

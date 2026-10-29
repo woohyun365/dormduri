@@ -73,6 +73,8 @@
   invalid review request: unsafe-reference:selectionBasisRef
   ```
 
+- `review`가 `binding-values-invalid: …`로 멈추거나, Codex knu-review 3단계의 `review-context-inputs.mjs` CLI가
+  `context-output-missing`·`context-output-invalid`로 exit 1입니다.
 - `review --parent-subject`가 subject의 경로나 `requirementSections`를 거부하거나, 출력 `warnings`에
   `request-implementation-marker`가 나옵니다.
 
@@ -206,6 +208,9 @@
   `<reviewId>.lifecycle.md`로 reviewer마다 쓰고 prompt 기록이 그 digest를 결속합니다. 정산은 등록한 prompt나 read 범위가 추출을 가리킬
   때 추출이 기록의 digest와 다르거나 기록이 없으면 `review-binding-changed`·`review-lifecycle-changed`입니다. Native subject
   reviewer는 review id를 packet id에서 얻어 binding 추출을 같은 방식으로 대조하고, `--judgment` 정산도 같은 사유로 거부합니다.
+  binding이나 pack이 추출 규칙([리뷰어 입력](../../agent-workflows/review-criteria/README.md#리뷰어-입력)의 멈춤 조건)과 맞지 않으면
+  0행으로 넘기지 않고 `binding-values-invalid`로 리뷰를 만들지 않습니다. CLI 출력 경로가 없거나 규칙에 맞지 않으면
+  `context-output-missing`·`context-output-invalid`입니다.
 - RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 가져야 합니다. 실패한 프로세스 exit는 이 범위뿐이므로 한쪽만 있거나
   다른 값이면 거부합니다.
 - builder 연결은 같은 subject를 검토한 **모든** reviewer의 결과를 확인합니다. 아직 결과가 기록되지 않은 reviewer(`unsettled`),
@@ -264,6 +269,10 @@
   요구사항 문장(사용자 요청·issue·plan acceptance)으로 고쳐 `review`를 다시 실행합니다. `requirement-heading-*`는 plan의 heading을
   `#`를 뺀 그대로 적거나, 같은 heading이 두 번 있으면 plan heading을 고유하게 만든 뒤 다시 실행합니다. `requirement-path-in-paths`는 그
   plan이나 디렉터리를 `paths`에서 빼고 판정 원본 절은 `requirementSections`로만 줍니다.
+- `binding-values-invalid`는 메시지가 가리키는 binding 절 heading·표 머리·행이나 pack을 고친 뒤 `review`를 다시 실행합니다(binding·pack을
+  고치는 변경이면 그 수정도 리뷰 대상에 넣음). `context-output-missing`은 추출 kind의 `-out` flag를 더하고,
+  `context-output-invalid`는 리뷰 대상·원본과 겹치지 않는 저장소 안 새 상대 경로(Codex는
+  `.artifacts/tools/codex-native/<sessionId>/<reviewId>.binding.md`·`<reviewId>.lifecycle.md`)를 줍니다.
 - `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 새 reviewer로 다시 review합니다.
 - `parent-adjudication` 거부는 정상입니다. `settle --task <reviewerTaskId>`로 관측만 정산하고 아래 Parent 판정 절차를 따릅니다.
 - `unsettled`는 해당 reviewer의 완료 알림을 기다려 정산한 뒤 다시 연결합니다. 결과 없이 release했다면 되돌릴 수 없습니다.

@@ -64,7 +64,8 @@ read path에 들어가고 prompt에 경로와 sha256 digest가 남습니다. Rev
 리뷰어 입력은 [리뷰어 입력](../review-criteria/README.md#리뷰어-입력)이 같은 리뷰 대상 경로로 고른 intent·결정 기록·정책 문서,
 고른 기준 문서에 걸린 binding `## 고른 값`·`## 저장소 규약` 행과 `lifecycleDraft`의 `## Lifecycle` 절입니다. 두 추출은 helper가
 reviewer마다 `.artifacts/tools/claude-review-packets/<reviewId>.binding.md`(걸린 행이 있을 때만)와 `<reviewId>.lifecycle.md`에 한 번
-쓰고, binding 문서와 원본 초안은 read path에 넣지 않습니다. 그 경로가 packet read path에 들어가고, `review` 출력 `contextInputs`가
+쓰고, binding 문서와 원본 초안은 read path에 넣지 않습니다. binding·pack이 추출 규칙과 맞지 않으면 `review`가
+`binding-values-invalid`로 멈춥니다. 추출 경로가 packet read path에 들어가고, `review` 출력 `contextInputs`가
 경로 목록을(reviewer가 정해지기 전 출력은 추출 경로의 review id 자리를 `<reviewId>`로 둠), helper 디렉터리의
 `<reviewId>.context.json`(read path 아님)이 포함 이유(binding 행은 결정 행·규약 사실과 그 기준 문서, 초안은 원본 경로)와 파일이 없어
 빠진 layer·도메인(`absent`)을 남깁니다. Prompt 입력 줄은 경로와 이유만 담고 입력이 없으면 `- Context inputs: none.`입니다. 초안이

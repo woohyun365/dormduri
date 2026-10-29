@@ -35,7 +35,9 @@ Reviewer에게 기대 결론을 주지 않습니다. QA packet의 요청·accept
    실행합니다. CLI는 고른 기준 문서에 걸린 binding `## 고른 값`·`## 저장소 규약` 행을 `<reviewId>.binding.md`에(걸린 행이 없으면 파일을
    만들지 않음), 초안의 `## Lifecycle` 절만 `<reviewId>.lifecycle.md`에 씁니다. 출력 `inputs`(intent·결정 기록·정책 문서·binding 행
    추출·초안 절 추출과 포함 이유)가 그 리뷰의
-   [리뷰어 입력](../../../docs/development/agent-workflows/review-criteria/README.md#리뷰어-입력)입니다.
+   [리뷰어 입력](../../../docs/development/agent-workflows/review-criteria/README.md#리뷰어-입력)입니다. binding·pack이 추출 규칙과
+   맞지 않거나 출력 경로가 규칙에 맞지 않으면 CLI가 `binding-values-invalid`·`context-output-*`로 exit 1이므로 spawn하지 않고
+   [등록·리뷰 거부 해소](../../../docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md#해결)를 따릅니다.
 4. 2단계 출력 `registered[]`의 `spawnArguments`를 그대로 spawn 도구에 넘깁니다. 메시지는 QA packet입니다. Frozen source 기준(HEAD·변경 파일),
    lane acceptance, 3단계 기록의 기준 문서, 읽기 범위를 담고, 2회차부터는 이전 finding과 처분만 delta로 줍니다. 3단계 리뷰어 입력의
    `inputs[].path`를 읽기 범위에 넣고 입력 줄에는 경로와 포함 이유만 적습니다(원본 초안과 binding 문서는 넣지 않음. 입력이 없으면
