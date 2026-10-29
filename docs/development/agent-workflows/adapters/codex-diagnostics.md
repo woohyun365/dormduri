@@ -74,7 +74,9 @@ priority/checkpoint 충돌을 중복 제거로 숨기지 않습니다.
   읽지 않습니다. `candidate-limit`은 검색이 부분적임을 뜻하며 과거 기억 전체를 조사했다고 주장하지 않습니다.
 - Plan/context는 lexical 및 realpath containment, symlink·owner-directory·일반 파일 여부를 확인하고 파일당 64 KiB까지만
   읽습니다. 관련 파일은 경로/존재만 확인합니다. 안전하지 않은 `--plan`은 CLI 오류, 선택적 context 문제는 진단 gap입니다.
-- 선택적 OMX 호출은 각각 5초·64 KiB로 제한합니다. 실패·malformed·oversized 결과는 `omx-unavailable` 등으로 표시하며
-  정상적인 fresh 조사 자체를 차단하지 않습니다. `plan-metadata-unknown`, `identity-conflict`, `context-invalid`,
-  `unsafe-path`, `head-changed`, `dirty-tree` 등은 조사 이유이지 state 변경 명령이 아닙니다.
+- 선택적 OMX 호출은 각각 5초·64 KiB로 제한합니다. PATH에서 `omx`를 실행하지 못해 spawn이 `ENOENT`로 끝나면(실행
+  파일 없음) OMX 부재로 보아 `omx-unavailable` 제한을 더하지 않고, priority 진단 이유도 `context-invalid`가 아닌
+  `context-missing`으로 둡니다. 실행된 OMX의 실패·timeout·malformed·oversized 결과는 `omx-unavailable` 등으로
+  표시하며 정상적인 fresh 조사 자체를 차단하지 않습니다. `plan-metadata-unknown`, `identity-conflict`,
+  `context-invalid`, `unsafe-path`, `head-changed`, `dirty-tree` 등은 조사 이유이지 state 변경 명령이 아닙니다.
 - Preflight는 `.omx/state`, notepad, checkpoint, 전역 설정을 쓰거나 정리하지 않습니다. 자동 실행/dispatch 권한도 없습니다.

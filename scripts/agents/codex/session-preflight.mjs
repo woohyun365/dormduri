@@ -24,6 +24,8 @@ const readLimit = 64 * 1024;
 const candidateLimit = 5;
 const contextPattern = /^\.omx\/context\/([a-z0-9][a-z0-9-]*)-(\d{8}T\d{6}Z)\.md$/u;
 const commitCache = new Map();
+// readOmxJson sets this when spawning omx ends in ENOENT (no executable on PATH). Absence adds no output field.
+let omxMissing = false;
 
 if (args.fresh && args.resume) fail('Choose either --fresh or --resume.');
 if (args.plan && !args.resume) fail('--plan requires --resume.');
@@ -146,7 +148,8 @@ function buildResumeSummary(planInput) {
   if (!selected) limitations.push('no-selected-plan');
   else if (!selected.exists) limitations.push('selected-plan-missing');
   if (metadata.status === 'unknown' || !info.taskId) limitations.push('plan-metadata-unknown');
-  if (!priority.summary.available || !omx.available) limitations.push('omx-unavailable');
+  if (!omxMissing && (!priority.summary.available || !omx.available))
+    limitations.push('omx-unavailable');
 
   const priorityPath = priority.value?.contextPath;
   const paths = new Set();
@@ -190,7 +193,7 @@ function buildResumeSummary(planInput) {
         reasons: [
           ...new Set([
             ...limitations,
-            priority.summary.valid ? 'context-missing' : 'context-invalid',
+            priority.summary.valid || omxMissing ? 'context-missing' : 'context-invalid',
           ]),
         ],
       };
@@ -489,6 +492,8 @@ function readOmxJson(commandArgs) {
     timeout: 5000,
     maxBuffer: readLimit,
   });
+  // Only ENOENT is absence; an omx that runs and fails or times out stays unavailable.
+  if (response.error?.code === 'ENOENT') omxMissing = true;
   if (response.error || response.status !== 0) return null;
   try {
     const value = JSON.parse(response.stdout);

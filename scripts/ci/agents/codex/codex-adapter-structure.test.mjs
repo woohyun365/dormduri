@@ -299,3 +299,17 @@ test('Default mode asks plain questions and assumes only Defer and Infer items',
   );
   assert.match(questions, /Escalate·Ask[^.]*묻/u, 'Escalate and Ask items are asked');
 });
+
+test('getting-started starts Codex with the native codex commands', () => {
+  const text = read('docs/development/agent-workflows/getting-started.md');
+  const heading = text.split('\n').find((line) => /^## Codex\b/u.test(line));
+  assert.ok(heading, 'getting-started needs a Codex section');
+  const codex = section(text, heading);
+  const commands = [...codex.matchAll(/```bash\n([\s\S]*?)```/gu)].flatMap((block) =>
+    block[1].trim().split('\n'),
+  );
+  assert.deepEqual(commands, [
+    'codex --approve-for-me',
+    `codex --sandbox workspace-write --ask-for-approval on-request -c 'approvals_reviewer="user"'`,
+  ]);
+});
