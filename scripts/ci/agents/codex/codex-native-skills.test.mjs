@@ -180,7 +180,9 @@ test('knu-review saves the context inputs and both extracts and reads every inpu
   const step3 = flat(steps.find((step) => step.startsWith('3. ')) ?? '');
   const step4 = flat(steps.find((step) => step.startsWith('4. ')) ?? '');
   const commands = [
-    ...step3.matchAll(new RegExp(`\`node ${CONTEXT_CLI.replace(/[.]/gu, '\\.')}([^\`]*)\``, 'gu')),
+    ...step3.matchAll(
+      new RegExp(`\`node ${CONTEXT_CLI.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}([^\`]*)\``, 'gu'),
+    ),
   ].map(([, rest]) => rest);
   assert.ok(commands.length, 'step 3 runs review-context-inputs.mjs');
   for (const rest of commands) {
