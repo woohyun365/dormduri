@@ -158,7 +158,8 @@ syncBuiltinESMExports();`,
         cwd: root,
         env: { ...process.env, PATH: resolve(root, 'bin'), HOME: root, NODE_OPTIONS: '' },
         encoding: 'utf8',
-        timeout: 14000,
+        // A resume run with a timing-out omx waits on two 5 s calls.
+        timeout: 20000,
       },
     );
     assert.ok(!result.stderr.includes('UNEXPECTED COMMAND'), result.stderr);
@@ -454,11 +455,12 @@ test('optional OMX unavailable/malformed/oversized responses are non-blocking an
   assert.deepEqual(r.reads, []);
 });
 
-test('installed OMX timeout on resume stays an omx-unavailable limitation', (t) => {
+test('installed OMX timeout on resume stays an omx-unavailable limitation with invalid context', (t) => {
   const f = fixture(t, { omxMode: 'timeout' });
   const s = f.summary();
   assert.equal(s.resume.notepadPriority.available, false);
   assert.ok(s.resume.diagnostics.limitations.includes('omx-unavailable'));
+  assert.ok(s.resume.diagnostics.priority.reasons.includes('context-invalid'));
 });
 
 test('malformed identity never becomes a match, and invalid priority preserves known conflict on rediscovery', (t) => {

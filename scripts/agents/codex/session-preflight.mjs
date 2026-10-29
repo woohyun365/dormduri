@@ -24,7 +24,7 @@ const readLimit = 64 * 1024;
 const candidateLimit = 5;
 const contextPattern = /^\.omx\/context\/([a-z0-9][a-z0-9-]*)-(\d{8}T\d{6}Z)\.md$/u;
 const commitCache = new Map();
-// readOmxJson sets this when omx is not on PATH. Absence adds no output field.
+// readOmxJson sets this when spawning omx ends in ENOENT (no executable on PATH). Absence adds no output field.
 let omxMissing = false;
 
 if (args.fresh && args.resume) fail('Choose either --fresh or --resume.');
@@ -492,7 +492,7 @@ function readOmxJson(commandArgs) {
     timeout: 5000,
     maxBuffer: readLimit,
   });
-  // Only a missing executable is absence; an installed omx that fails or times out stays unavailable.
+  // Only ENOENT is absence; an omx that runs and fails or times out stays unavailable.
   if (response.error?.code === 'ENOENT') omxMissing = true;
   if (response.error || response.status !== 0) return null;
   try {
