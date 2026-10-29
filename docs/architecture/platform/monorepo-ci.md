@@ -197,8 +197,9 @@ reuse는 후속 DAG 최적화 대상이다. Timing과 cost 수치는
 Historical pre-optimization evidence와 active post-change measurement epoch는 같은 fixture가 소유하지 않는다.
 `ci-performance-baseline.json`은 비교 denominator를 immutable하게 보존하고, `ci-performance-active-epoch.json`은 current
 dependency/image input을 소유한다. Actions collector는 current checkout이 아니라 각 workflow run head commit의 input을
-읽어 fingerprint를 생성한다. Report는 epoch, exact input hash, event, change surface가 다른 표본을 하나의 cohort로 합치지
-않는다.
+읽어 fingerprint를 생성한다. Image input은 `infra/image-inventory.json`과 그 inventory가 가리키는 owner 파일의 image
+reference이므로 tag나 digest만 바뀐 image update도 fingerprint를 바꾼다. Report는 epoch, exact input hash, event, change
+surface가 다른 표본을 하나의 cohort로 합치지 않는다.
 
 API summary 단계:
 

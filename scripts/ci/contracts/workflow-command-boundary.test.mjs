@@ -40,6 +40,40 @@ function workflowJob(source, jobId) {
     : jobAndFollowing.slice(0, marker.length + nextJobOffset);
 }
 
+// Renovate moves the pnpm/action-setup SHA and version comment, so the contract is one full-SHA pin shared by every
+// workflow instead of a copied SHA value.
+const PNPM_SETUP_PIN = /uses: pnpm\/action-setup@([^\s#]+)(?: # (\S+))?$/gmu;
+
+function pnpmSetupPins(sources) {
+  return sources.flatMap((source) =>
+    [...source.matchAll(PNPM_SETUP_PIN)].map(([, reference, versionComment]) => ({
+      reference,
+      versionComment,
+    })),
+  );
+}
+
+function assertSinglePnpmSetupPin(pins) {
+  assert.ok(pins.length > 0, 'missing pnpm/action-setup');
+  for (const { reference, versionComment } of pins) {
+    assert.match(
+      reference,
+      /^[a-f0-9]{40}$/u,
+      `pnpm/action-setup@${reference} is not a full commit SHA`,
+    );
+    assert.match(
+      versionComment ?? '',
+      /^v\d+\.\d+\.\d+$/u,
+      `pnpm/action-setup@${reference} lacks a version comment`,
+    );
+  }
+  assert.equal(
+    new Set(pins.map(({ reference, versionComment }) => `${reference} ${versionComment}`)).size,
+    1,
+    'every workflow must pin the same pnpm/action-setup commit',
+  );
+}
+
 const rootScripts = readPackage('package.json');
 const apiScripts = readPackage('apps/api/package.json');
 const webScripts = readPackage('apps/web/package.json');
@@ -185,7 +219,7 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
   assert.match(orchestrator, /push:\s*\n\s*branches:\s*\n\s*- main/u);
   assert.doesNotMatch(orchestrator, /push:\s*\n\s*branches:[\s\S]{0,80}\n\s*- dev/u);
   assertIncludesAll(orchestrator, [
-    'pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86',
+    'uses: pnpm/action-setup@',
     'pnpm install --frozen-lockfile',
     'formatting_scope: ${{ steps.changes.outputs.formatting_scope }}',
     'formatting_paths: ${{ steps.changes.outputs.formatting_paths_json }}',
@@ -199,13 +233,42 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
   assert.ok(!infraWorkflow.includes('pull_request:'));
 });
 
+test('every workflow pins pnpm/action-setup to one full commit SHA with its version comment', () => {
+  assertSinglePnpmSetupPin(pnpmSetupPins([workflowSources()]));
+
+  const sha = (character) => character.repeat(40);
+  const pinned = `        uses: pnpm/action-setup@${sha('a')} # v6.0.10`;
+  assert.doesNotThrow(() => assertSinglePnpmSetupPin(pnpmSetupPins([pinned, pinned])));
+  assert.doesNotThrow(() =>
+    assertSinglePnpmSetupPin(
+      pnpmSetupPins([`        uses: pnpm/action-setup@${sha('b')} # v6.1.0`]),
+    ),
+  );
+  assert.throws(
+    () => assertSinglePnpmSetupPin(pnpmSetupPins(['        uses: pnpm/action-setup@v6 # v6.0.10'])),
+    /not a full commit SHA/u,
+  );
+  assert.throws(
+    () => assertSinglePnpmSetupPin(pnpmSetupPins([`        uses: pnpm/action-setup@${sha('a')}`])),
+    /lacks a version comment/u,
+  );
+  assert.throws(
+    () =>
+      assertSinglePnpmSetupPin(
+        pnpmSetupPins([pinned, `        uses: pnpm/action-setup@${sha('b')} # v6.1.0`]),
+      ),
+    /same pnpm\/action-setup commit/u,
+  );
+  assert.throws(() => assertSinglePnpmSetupPin([]), /missing pnpm\/action-setup/u);
+});
+
 test('the repository policy gate gives pnpm setup bounded headroom before policy execution', () => {
   const repositoryPolicyJob = workflowJob(read('.github/workflows/ci.yml'), 'repo_policy');
 
   assert.match(repositoryPolicyJob, /^    timeout-minutes: 15$/mu);
   assert.match(
     repositoryPolicyJob,
-    /- name: Setup pnpm\n\s+timeout-minutes: 10\n\s+uses: pnpm\/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86/u,
+    /- name: Setup pnpm\n\s+timeout-minutes: 10\n\s+uses: pnpm\/action-setup@[a-f0-9]{40} # v\d+\.\d+\.\d+$/mu,
   );
   assert.equal(occurrences(repositoryPolicyJob, 'timeout-minutes:'), 2);
   assertIncludesAll(repositoryPolicyJob, [

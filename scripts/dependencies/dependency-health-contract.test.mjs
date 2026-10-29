@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
   assertDependencyHealth,
   classifyPnpmEvidence,
+  findMinimumVersionViolations,
   parseDependencyHealthContract,
 } from './dependency-health-contract.mjs';
 
@@ -15,7 +16,7 @@ const contract = parseDependencyHealthContract(
   ),
 );
 
-test('current dependency graph satisfies the frozen dependency-health contract', () => {
+test('current dependency graph satisfies the dependency-health floors and exclusions', () => {
   assert.doesNotThrow(() =>
     assertDependencyHealth({
       contract,
@@ -38,15 +39,73 @@ test('peer exceptions stay dated, scoped, and owner-backed', () => {
   }
 });
 
+const workspaceWith = (overrides) =>
+  [
+    'overrides:',
+    ...Object.entries(overrides).map(([selector, version]) => `  '${selector}': ${version}`),
+    '',
+    'peerDependencyRules:',
+    ...contract.requiredWorkspaceEntries.map((entry) => `    ${entry}`),
+    '',
+  ].join('\n');
+const lockfileWith = (resolutions) =>
+  `packages:\n${resolutions.map((resolution) => `\n  ${resolution}:\n    resolution: {}\n`).join('')}`;
+const currentFloors = Object.entries(contract.minimumLockResolutions).map(
+  ([packageName, version]) => `${packageName}@${version}`,
+);
+
 test('fails closed when a remediated vulnerable resolution returns', () => {
   assert.throws(
     () =>
       assertDependencyHealth({
         contract,
-        workspace: contract.requiredWorkspaceEntries.join('\n'),
-        lockfile: `${contract.requiredLockResolutions.map((item) => `\n  ${item}:\n`).join('')}\n  image-size@2.0.2:\n`,
+        workspace: workspaceWith(contract.minimumWorkspaceOverrides),
+        lockfile: lockfileWith([...currentFloors, 'image-size@2.0.2']),
       }),
     /forbidden lock resolution: image-size@2\.0\.2/u,
+  );
+});
+
+test('accepts bot-raised overrides and lock resolutions above the remediated floor', () => {
+  assert.doesNotThrow(() =>
+    assertDependencyHealth({
+      contract,
+      workspace: workspaceWith({ ...contract.minimumWorkspaceOverrides, esbuild: '0.28.3' }),
+      lockfile: lockfileWith(
+        currentFloors.map((resolution) =>
+          resolution.startsWith('esbuild@') ? 'esbuild@0.28.3' : resolution,
+        ),
+      ),
+    }),
+  );
+});
+
+test('fails closed when an override or lock resolution drops below its floor or disappears', () => {
+  assert.deepEqual(
+    findMinimumVersionViolations({
+      workspace: workspaceWith({ esbuild: '0.27.9' }),
+      lockfile: lockfileWith(['esbuild@0.28.2', "'esbuild@0.27.3'", 'deepmerge-ts@8.0.2(x@1.0.0)']),
+      minimumWorkspaceOverrides: { '@prisma/config>deepmerge-ts': '8.0.2', esbuild: '0.28.2' },
+      minimumLockResolutions: {
+        'deepmerge-ts': '8.0.2',
+        esbuild: '0.28.2',
+        'probe-image-size': '7.4.0',
+      },
+    }),
+    [
+      'missing workspace override: @prisma/config>deepmerge-ts',
+      'workspace override below 0.28.2: esbuild@0.27.9',
+      'lock resolution below 0.28.2: esbuild@0.27.3',
+      'missing lock resolution: probe-image-size',
+    ],
+  );
+  assert.throws(
+    () =>
+      parseDependencyHealthContract({
+        ...contract,
+        minimumLockResolutions: { esbuild: '^0.28.2' },
+      }),
+    /minimumLockResolutions\.esbuild must be an x\.y\.z version/u,
   );
 });
 

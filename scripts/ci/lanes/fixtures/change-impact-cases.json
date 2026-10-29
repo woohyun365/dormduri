@@ -286,19 +286,6 @@
     }
   },
   {
-    "name": "dependabot-configuration",
-    "paths": [".github/dependabot.yml"],
-    "expected": {
-      "web": false,
-      "api": false,
-      "shared": false,
-      "storybook": false,
-      "infra": true,
-      "repoPolicy": true,
-      "agentWorkflow": true
-    }
-  },
-  {
     "name": "api-workflow",
     "paths": [".github/workflows/api-ci.yml"],
     "expected": {

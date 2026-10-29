@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto';
 
-export const dependencyInputPaths = [
-  'pnpm-lock.yaml',
-  'pnpm-workspace.yaml',
-  'infra/image-inventory.json',
-];
+import {
+  IMAGE_INVENTORY_PATH,
+  resolveImageReferenceInSource,
+} from '../../infra/artifacts/image-inventory.mjs';
+
+export const dependencyInputPaths = ['pnpm-lock.yaml', 'pnpm-workspace.yaml', IMAGE_INVENTORY_PATH];
 
 function assertRecord(value, path) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -58,18 +59,40 @@ export function parseMeasurementEpoch(input) {
   return epoch;
 }
 
+// The image inventory names each external image and its owner file; the tag and digest live only in that owner file. Its
+// input text adds every reference resolved from the owner files, so an update that moves only an image tag or digest still
+// changes the fingerprint. A version 1 inventory, read at an older run head, still carried each reference itself.
+function dependencyInputText(path, readString) {
+  const content = readString(path);
+  if (path !== IMAGE_INVENTORY_PATH) return content;
+  const inventory = JSON.parse(content);
+  if (inventory.version === 1) return content;
+  const references = inventory.images.map(
+    (image) => `${image.name} ${resolveImageReferenceInSource(image, readString(image.ownerPath))}`,
+  );
+  return [content, ...references].join('\n');
+}
+
 export function buildDependencyFingerprint({ epoch, readText, sourceSha }) {
   assertRecord(epoch, 'epoch');
   if (typeof readText !== 'function') throw new TypeError('readText must be a function');
   assertSha(sourceSha, 'sourceSha', 40);
-  const fileSha256 = Object.fromEntries(
-    dependencyInputPaths.map((path) => {
+  const texts = new Map();
+  const readString = (path) => {
+    if (!texts.has(path)) {
       const content = readText(path);
       if (typeof content !== 'string') {
         throw new TypeError(`readText(${path}) must return a string`);
       }
-      return [path, createHash('sha256').update(content).digest('hex')];
-    }),
+      texts.set(path, content);
+    }
+    return texts.get(path);
+  };
+  const fileSha256 = Object.fromEntries(
+    dependencyInputPaths.map((path) => [
+      path,
+      createHash('sha256').update(dependencyInputText(path, readString)).digest('hex'),
+    ]),
   );
   return { epochId: epoch.id, fileSha256, sourceSha };
 }

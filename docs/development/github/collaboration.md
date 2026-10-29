@@ -35,7 +35,7 @@ Coding agent를 사용한다면 root [`AGENTS.md`](../../../AGENTS.md)와 필요
 - issue 번호는 관련 issue가 있을 때 연결합니다.
 - 여러 줄 메시지는 message file 또는 heredoc과 `git commit -F`를 사용합니다.
 - commit은 하나의 검토 가능한 의도와 검증 경계를 가집니다.
-- Dependabot prefix도 같은 `type(scope): 한글 설명` 구조를 사용하며 bot update라는 이유로 별도 제목 체계를 만들지
+- Renovate commit prefix도 같은 `type(scope): 한글 설명` 구조를 사용하며 bot update라는 이유로 별도 제목 체계를 만들지
   않습니다.
 
 ## Pull request
@@ -101,16 +101,17 @@ acceptance가 포함된 Issue만 `Closes #N`으로 종료합니다.
 
 ## Dependency update flow
 
-- npm/pnpm version update PR은 Renovate가 `dev`를 대상으로 생성하고, 제품 변경과 같은 integration gate를 거친 뒤
-  `main`으로 승격합니다. GitHub Actions·Docker·Compose version update는 Dependabot이 계속 담당합니다.
-- security update는 GitHub의 default branch 정책에 따라 `main`을 대상으로 처리합니다. `target-branch` 설정으로 이
-  경계를 우회하지 않습니다.
-- npm minor/patch update는 Renovate의 bounded owner group 안에서만 묶습니다. major update와 서로 다른 runtime stack은
-  원인 격리를 위해 독립 PR로 유지합니다.
-- Dependabot label은 GitHub 기본값을 사용합니다. custom label이 필요하다면 원격 repository에 실제로 존재하는지
-  먼저 확인합니다.
-- 기존 PR은 설정 변경만으로 target branch가 바뀐다고 가정하지 않습니다. 설정이 default branch에 반영된 뒤
-  close/recreate 여부를 확인합니다.
+- 모든 version update와 보안 update PR은 Renovate가 `dev`를 대상으로 생성하고(npm/pnpm, GitHub Actions, Dockerfile,
+  Docker Compose), 제품 변경과 같은 integration gate를 거친 뒤 `main`으로 승격합니다. Dependabot은 alert만 맡습니다.
+  Dependabot security update는 `target-branch`와 상관없이 default branch를 대상으로 하므로 저장소 Settings에서 끕니다.
+- security·patch·minor PR과 Docker image digest PR은 `CI summary`가 통과하고 `dev`에 최신이면 Renovate가 squash merge합니다.
+  major와 GitHub Actions digest PR은 사람이 검토합니다. 자세한 절차는
+  [Dependency update operations](./dependency-updates.md)를 따릅니다.
+- minor/patch update는 Renovate의 bounded owner group 안에서만 묶습니다. major update와 서로 다른 runtime stack은 원인
+  격리를 위해 독립 PR로 유지합니다.
+- Renovate는 label을 붙이지 않습니다. custom label이 필요하다면 원격 repository에 실제로 존재하는지 먼저 확인합니다.
+- 두 bot은 default branch의 설정을 읽습니다. 기존 PR은 설정 변경만으로 target branch가 바뀐다고 가정하지 않고, 설정이
+  default branch에 반영된 뒤 close/recreate 여부를 확인합니다.
 
 ## Canonical verification
 
