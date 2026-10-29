@@ -40,7 +40,8 @@ test('materializes a credential-free pnpm workspace from the active repository p
   ]);
   assert.equal(repositoryConfig.enabled, true);
   assert.equal(localConfig.enabled, true);
-  assert.deepEqual(localConfig.enabledManagers, ['npm']);
+  assert.deepEqual(localConfig.enabledManagers, repositoryConfig.enabledManagers);
+  assert.ok(localConfig.enabledManagers.includes('npm'));
   assert.equal(localConfig.minimumReleaseAge, null);
   assert.ok(
     localConfig.packageRules.some(

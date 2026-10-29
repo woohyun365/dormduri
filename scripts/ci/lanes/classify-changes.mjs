@@ -320,7 +320,7 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
-    if (path === '.github/workflows/infra-ci.yml' || path === '.github/dependabot.yml') {
+    if (path === '.github/workflows/infra-ci.yml') {
       result.infra = true;
       result.repoPolicy = true;
       matched = true;

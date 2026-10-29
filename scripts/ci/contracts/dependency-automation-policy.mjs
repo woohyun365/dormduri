@@ -1,22 +1,28 @@
-function extractNpmDependabotBlock(config) {
-  if (typeof config !== 'string') return '';
-  return (
-    config.match(
-      /package-ecosystem:\s*['"]npm['"][\s\S]*?(?=\n\s*-\s+package-ecosystem:|$)/u,
-    )?.[0] ?? ''
+// Each ecosystem has exactly one version-update owner. Dependabot ecosystems map to the Renovate manager that owns them.
+export const VERSION_UPDATE_ECOSYSTEMS = {
+  npm: { dependabot: 'npm', renovate: 'npm' },
+  'github-actions': { dependabot: 'github-actions', renovate: 'github-actions' },
+  docker: { dependabot: 'docker', renovate: 'dockerfile' },
+  'docker-compose': { dependabot: 'docker-compose', renovate: 'docker-compose' },
+};
+
+function extractDependabotBlocks(config, ecosystem) {
+  if (typeof config !== 'string') return [];
+  const blocks = config.split(/\n(?=\s*-\s+package-ecosystem:)/u);
+  const pattern = new RegExp(`package-ecosystem:\\s*['"]${ecosystem}['"]`, 'u');
+  return blocks.filter((block) => pattern.test(block));
+}
+
+function isDependabotVersionUpdateActive(config, ecosystem) {
+  return extractDependabotBlocks(config, ecosystem).some(
+    (block) => !/open-pull-requests-limit:\s*0(?:\s|$)/u.test(block),
   );
 }
 
-function isDependabotNpmVersionUpdateActive(config) {
-  const npmBlock = extractNpmDependabotBlock(config);
-  if (npmBlock === '') return false;
-  return !/open-pull-requests-limit:\s*0(?:\s|$)/u.test(npmBlock);
-}
-
-function isRenovateNpmVersionUpdateActive(config) {
+function isRenovateManagerActive(config, manager) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) return false;
   if (config.enabled === false) return false;
-  return Array.isArray(config.enabledManagers) && config.enabledManagers.includes('npm');
+  return Array.isArray(config.enabledManagers) && config.enabledManagers.includes(manager);
 }
 
 const RENOVATE_OWNER_GROUPS = [
@@ -55,20 +61,110 @@ function renovateOwnerRules(config) {
   return config.packageRules.filter((rule) => RENOVATE_OWNER_GROUPS.includes(rule.groupName));
 }
 
-export function validateHostedRenovateNpmConfig(config) {
+const AUTOMERGE_UPDATE_TYPES = ['minor', 'patch', 'digest'];
+
+// pnpm is pinned in the root packageManager field (npm manager) and in the CI pnpm/action-setup version input
+// (github-actions manager). Both move only with a reviewed toolchain change, so Renovate must not update either one.
+const PNPM_PIN_SURFACES = [
+  ['npm', 'packageManager'],
+  ['github-actions', 'uses-with'],
+];
+
+function validatePnpmPins(config) {
+  for (const [manager, depType] of PNPM_PIN_SURFACES) {
+    const disabled = config.packageRules.some(
+      (rule) =>
+        rule.enabled === false &&
+        rule.matchPackageNames?.includes('pnpm') &&
+        rule.matchUpdateTypes === undefined &&
+        (rule.matchManagers === undefined || rule.matchManagers.includes(manager)) &&
+        (rule.matchDepTypes === undefined || rule.matchDepTypes.includes(depType)),
+    );
+    if (!disabled) {
+      throw new TypeError(`pnpm updates must stay disabled for the ${manager} ${depType} pin`);
+    }
+  }
+}
+
+// Renovate merges a non-major update itself once CI summary passes and the branch is up to date with dev. GitHub
+// auto-merge (platformAutomerge) is off because it can merge a branch that is behind dev.
+function validateAutomerge(config) {
+  if (config.automerge !== false) throw new TypeError('top-level automerge must stay false');
+  if (config.automergeType !== 'pr') throw new TypeError('automergeType must be pr');
+  if (config.automergeStrategy !== 'squash')
+    throw new TypeError('automergeStrategy must be squash');
+  if (config.platformAutomerge !== false) throw new TypeError('platformAutomerge must be false');
+  if (['conflicted', 'never'].includes(config.rebaseWhen)) {
+    throw new TypeError('rebaseWhen must keep automerge branches up to date with dev');
+  }
+  if (config.vulnerabilityAlerts?.automerge !== undefined) {
+    throw new TypeError(
+      'vulnerability fixes must automerge only through the non-major packageRules',
+    );
+  }
+
+  const automergeRules = config.packageRules.filter((rule) => rule.automerge === true);
+  if (automergeRules.length === 0) throw new TypeError('a non-major automerge rule must exist');
+  for (const rule of automergeRules) {
+    if (
+      !Array.isArray(rule.matchUpdateTypes) ||
+      rule.matchUpdateTypes.length === 0 ||
+      rule.matchUpdateTypes.some((updateType) => !AUTOMERGE_UPDATE_TYPES.includes(updateType))
+    ) {
+      throw new TypeError('automerge rules must match only minor, patch, or digest updates');
+    }
+    if (
+      rule.matchUpdateTypes.includes('digest') &&
+      !sameMembers(rule.matchDatasources, ['docker'])
+    ) {
+      throw new TypeError('digest automerge must stay limited to Docker images');
+    }
+    for (const key of ['automergeType', 'automergeStrategy', 'platformAutomerge', 'rebaseWhen']) {
+      if (key in rule) throw new TypeError(`automerge rules must not override ${key}`);
+    }
+  }
+
+  const majorRule = config.packageRules.find(
+    (rule) =>
+      sameMembers(rule.matchUpdateTypes, ['major']) &&
+      rule.dependencyDashboardApproval === true &&
+      rule.automerge === false,
+  );
+  if (!majorRule || majorRule.matchManagers !== undefined) {
+    throw new TypeError('every manager must keep major updates dashboard-gated and manual');
+  }
+}
+
+export function validateHostedRenovateConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
     throw new TypeError('Renovate config must be an object');
   }
   if (config.enabled !== true) {
-    throw new TypeError('hosted Renovate npm owner must remain enabled');
+    throw new TypeError('hosted Renovate version-update owner must remain enabled');
   }
-  if (!sameMembers(config.enabledManagers, ['npm'])) {
-    throw new TypeError('enabledManagers must contain only npm');
+  if (
+    !sameMembers(
+      config.enabledManagers,
+      Object.values(VERSION_UPDATE_ECOSYSTEMS).map(({ renovate }) => renovate),
+    )
+  ) {
+    throw new TypeError(
+      'enabledManagers must contain exactly npm, github-actions, dockerfile, and docker-compose',
+    );
   }
   if (!sameMembers(config.baseBranchPatterns, ['dev'])) {
     throw new TypeError('baseBranchPatterns must contain only dev');
   }
-  if (config.automerge !== false) throw new TypeError('automerge must remain disabled');
+  if (config.useBaseBranchConfig !== 'merge') {
+    throw new TypeError(
+      'useBaseBranchConfig must be merge so dev config applies to the dev base branch',
+    );
+  }
+  if (config.configMigration === true) {
+    throw new TypeError(
+      'configMigration PRs must stay off; renovate.json changes only through reviewed PRs',
+    );
+  }
   if (config.dependencyDashboard !== true) {
     throw new TypeError('dependencyDashboard must remain enabled');
   }
@@ -77,6 +173,12 @@ export function validateHostedRenovateNpmConfig(config) {
   }
   if (!Number.isInteger(config.prHourlyLimit) || config.prHourlyLimit < 1) {
     throw new TypeError('prHourlyLimit must be a positive integer');
+  }
+  if (
+    !Number.isInteger(config.vulnerabilityAlerts?.prConcurrentLimit) ||
+    config.vulnerabilityAlerts.prConcurrentLimit < 1
+  ) {
+    throw new TypeError('vulnerabilityAlerts.prConcurrentLimit must be a positive integer');
   }
   if (typeof config.minimumReleaseAge !== 'string' || config.minimumReleaseAge.trim() === '') {
     throw new TypeError('minimumReleaseAge must be explicit');
@@ -115,11 +217,14 @@ export function validateHostedRenovateNpmConfig(config) {
     assertStringArray(rule.matchPackageNames, `${rule.groupName}.matchPackageNames`);
   }
 
+  validateAutomerge(config);
+  validatePnpmPins(config);
+
   return structuredClone(config);
 }
 
 export function mapRenovateOwnerGroups(config, packageNames) {
-  validateHostedRenovateNpmConfig(config);
+  validateHostedRenovateConfig(config);
   assertStringArray(packageNames, 'packageNames');
 
   const rules = renovateOwnerRules(config);
@@ -173,18 +278,25 @@ export function parsePnpmWorkspaceDependencySurface(input) {
   };
 }
 
-export function detectNpmVersionUpdateOwners({ dependabotConfig = '', renovateConfig } = {}) {
-  const owners = [];
-  if (isDependabotNpmVersionUpdateActive(dependabotConfig)) owners.push('dependabot');
-  if (isRenovateNpmVersionUpdateActive(renovateConfig)) owners.push('renovate');
-  return owners;
+export function detectVersionUpdateOwners({ dependabotConfig = '', renovateConfig } = {}) {
+  return Object.fromEntries(
+    Object.entries(VERSION_UPDATE_ECOSYSTEMS).map(([ecosystem, { dependabot, renovate }]) => {
+      const owners = [];
+      if (isDependabotVersionUpdateActive(dependabotConfig, dependabot)) owners.push('dependabot');
+      if (isRenovateManagerActive(renovateConfig, renovate)) owners.push('renovate');
+      return [ecosystem, owners];
+    }),
+  );
 }
 
-export function assertSingleNpmVersionUpdateOwner(owners) {
-  if (!Array.isArray(owners) || owners.length !== 1) {
-    throw new Error(
-      `expected exactly one active npm version-update owner, received: ${JSON.stringify(owners)}`,
-    );
+export function assertSingleVersionUpdateOwner(ownersByEcosystem) {
+  for (const ecosystem of Object.keys(VERSION_UPDATE_ECOSYSTEMS)) {
+    const owners = ownersByEcosystem?.[ecosystem];
+    if (!Array.isArray(owners) || owners.length !== 1) {
+      throw new Error(
+        `expected exactly one active ${ecosystem} version-update owner, received: ${JSON.stringify(owners)}`,
+      );
+    }
   }
 }
 

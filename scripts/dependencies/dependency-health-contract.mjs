@@ -20,11 +20,98 @@ function assertStringArray(value, fieldName) {
   value.forEach((item, index) => assertNonEmptyString(item, `${fieldName}[${index}]`));
 }
 
+const RELEASE_VERSION = /^\d+\.\d+\.\d+$/u;
+
+function assertMinimumVersions(value, fieldName) {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Object.keys(value).length === 0
+  ) {
+    throw new TypeError(`${fieldName} must be a non-empty object`);
+  }
+  for (const [name, version] of Object.entries(value)) {
+    assertNonEmptyString(name, `${fieldName} key`);
+    if (!RELEASE_VERSION.test(version)) {
+      throw new TypeError(`${fieldName}.${name} must be an x.y.z version`);
+    }
+  }
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+// Numeric x.y.z order; a prerelease of the same release sorts before the release.
+export function compareVersions(left, right) {
+  const parse = (version) => {
+    const [release, prerelease] = version.split('-', 2);
+    return { parts: release.split('.').map(Number), prerelease };
+  };
+  const a = parse(left);
+  const b = parse(right);
+  for (let index = 0; index < 3; index += 1) {
+    const difference = (a.parts[index] ?? 0) - (b.parts[index] ?? 0);
+    if (difference !== 0) return Math.sign(difference);
+  }
+  if (a.prerelease === b.prerelease) return 0;
+  if (a.prerelease === undefined) return 1;
+  if (b.prerelease === undefined) return -1;
+  return a.prerelease < b.prerelease ? -1 : 1;
+}
+
+// Every resolved version of a package in pnpm-lock.yaml `packages:` and `snapshots:` keys.
+export function lockResolutionVersions(lockfile, packageName) {
+  const key = new RegExp(`^ {2}'?${escapeRegExp(packageName)}@(\\d[^:('\\s]*)`, 'gmu');
+  return [...new Set([...lockfile.matchAll(key)].map(([, version]) => version))].sort(
+    compareVersions,
+  );
+}
+
+// Values of the top-level `overrides:` map in pnpm-workspace.yaml, keyed by unquoted selector.
+export function workspaceOverrides(workspace) {
+  const overrides = new Map();
+  const section = /^overrides:\n((?:(?: {2}.*|\s*#.*|)\n)*)/mu.exec(workspace)?.[1] ?? '';
+  for (const [, , selector, version] of section.matchAll(
+    /^ {2}(['"]?)(.+?)\1:\s*['"]?([^'"\s#]+)/gmu,
+  )) {
+    overrides.set(selector, version);
+  }
+  return overrides;
+}
+
+// Bots raise pinned overrides and lock resolutions, so the remediated version is a floor rather than an exact value.
+export function findMinimumVersionViolations({
+  workspace = '',
+  lockfile = '',
+  minimumWorkspaceOverrides = {},
+  minimumLockResolutions = {},
+}) {
+  const overrides = workspaceOverrides(workspace);
+  const findings = [];
+  for (const [selector, minimum] of Object.entries(minimumWorkspaceOverrides)) {
+    const version = overrides.get(selector);
+    if (version === undefined) findings.push(`missing workspace override: ${selector}`);
+    else if (!RELEASE_VERSION.test(version) || compareVersions(version, minimum) < 0) {
+      findings.push(`workspace override below ${minimum}: ${selector}@${version}`);
+    }
+  }
+  for (const [packageName, minimum] of Object.entries(minimumLockResolutions)) {
+    const versions = lockResolutionVersions(lockfile, packageName);
+    if (versions.length === 0) findings.push(`missing lock resolution: ${packageName}`);
+    for (const version of versions.filter((item) => compareVersions(item, minimum) < 0)) {
+      findings.push(`lock resolution below ${minimum}: ${packageName}@${version}`);
+    }
+  }
+  return findings;
+}
+
 export function parseDependencyHealthContract(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new TypeError('dependency health contract must be an object');
   }
-  if (input.schemaVersion !== 1) throw new TypeError('schemaVersion must equal 1');
+  if (input.schemaVersion !== 2) throw new TypeError('schemaVersion must equal 2');
   assertNonEmptyString(input.reviewedAt, 'reviewedAt');
   assertNonEmptyString(input.reviewAfter, 'reviewAfter');
   if (!Number.isFinite(Date.parse(input.reviewedAt))) {
@@ -34,7 +121,8 @@ export function parseDependencyHealthContract(input) {
     throw new TypeError('reviewAfter must be an ISO date');
   }
   assertStringArray(input.requiredWorkspaceEntries, 'requiredWorkspaceEntries');
-  assertStringArray(input.requiredLockResolutions, 'requiredLockResolutions');
+  assertMinimumVersions(input.minimumWorkspaceOverrides, 'minimumWorkspaceOverrides');
+  assertMinimumVersions(input.minimumLockResolutions, 'minimumLockResolutions');
   assertStringArray(input.forbiddenLockResolutions, 'forbiddenLockResolutions');
   if (!Array.isArray(input.peerExceptions) || input.peerExceptions.length === 0) {
     throw new TypeError('peerExceptions must be a non-empty array');
@@ -64,15 +152,18 @@ export function evaluateDependencyHealth({ contract, workspace, lockfile }) {
   const missingWorkspaceEntries = normalized.requiredWorkspaceEntries.filter(
     (entry) => !workspace.includes(entry),
   );
-  const missingLockResolutions = normalized.requiredLockResolutions.filter(
-    (resolution) => !hasLockResolution(lockfile, resolution),
-  );
+  const minimumVersionFindings = findMinimumVersionViolations({
+    workspace,
+    lockfile,
+    minimumWorkspaceOverrides: normalized.minimumWorkspaceOverrides,
+    minimumLockResolutions: normalized.minimumLockResolutions,
+  });
   const forbiddenLockResolutions = normalized.forbiddenLockResolutions.filter((resolution) =>
     hasLockResolution(lockfile, resolution),
   );
   const findings = [
     ...missingWorkspaceEntries.map((entry) => `missing workspace entry: ${entry}`),
-    ...missingLockResolutions.map((resolution) => `missing lock resolution: ${resolution}`),
+    ...minimumVersionFindings,
     ...forbiddenLockResolutions.map((resolution) => `forbidden lock resolution: ${resolution}`),
   ];
   return {
@@ -80,7 +171,7 @@ export function evaluateDependencyHealth({ contract, workspace, lockfile }) {
     reviewAfter: normalized.reviewAfter,
     peerExceptions: normalized.peerExceptions,
     missingWorkspaceEntries,
-    missingLockResolutions,
+    minimumVersionFindings,
     forbiddenLockResolutions,
     findings,
     healthy: findings.length === 0,

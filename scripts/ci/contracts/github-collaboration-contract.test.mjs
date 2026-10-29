@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
@@ -170,6 +170,8 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
   assert.match(remoteSettings, /Environments.*0/su);
   assert.match(remoteSettings, /CI summary.*GitHub Actions/su);
   assert.match(remoteSettings, /enabled=true.*paused=false/su);
+  assert.match(remoteSettings, /\| Dependabot security updates\s+\| disabled/u);
+  assert.match(remoteSettings, /\| Allow auto-merge\s+\| disabled/u);
   assert.doesNotMatch(remoteSettings, /gh api[^\n]*--method\s+(?:PATCH|PUT|POST|DELETE)/u);
 });
 
@@ -246,34 +248,38 @@ test('GitHub operator authentication stays layered, least-privilege, and secret-
   assert.doesNotMatch(authentication, /Authorization:\s*Bearer\s+\S+/iu);
 });
 
-test('Renovate owns npm updates while Dependabot retains non-npm ecosystems', () => {
-  const dependabot = read('.github/dependabot.yml');
+test('Renovate owns every version update while Dependabot keeps alerts only', () => {
   const renovate = JSON.parse(read('renovate.json'));
   const collaboration = read('docs/development/github/collaboration.md');
   const workspace = read('pnpm-workspace.yaml');
   const lockfile = read('pnpm-lock.yaml');
-  const targetBranches = dependabot.match(/target-branch: 'dev'/gu) ?? [];
+  const actionsGroup = renovate.packageRules.find(
+    ({ groupName }) => groupName === 'actions-minor-patch',
+  );
 
-  assert.doesNotMatch(dependabot, /package-ecosystem: 'npm'/u);
-  assert.equal(targetBranches.length, 7);
+  assert.equal(existsSync(resolve(repoRoot, '.github/dependabot.yml')), false);
+  assert.equal(existsSync(resolve(repoRoot, '.github/dependabot.yaml')), false);
   assert.equal(renovate.enabled, true);
-  assert.deepEqual(renovate.enabledManagers, ['npm']);
+  assert.deepEqual(renovate.enabledManagers, [
+    'npm',
+    'github-actions',
+    'dockerfile',
+    'docker-compose',
+  ]);
   assert.deepEqual(renovate.baseBranchPatterns, ['dev']);
   assert.equal(renovate.automerge, false);
+  assert.equal(renovate.platformAutomerge, false);
   assert.match(workspace, /^\s{2}typescript: 6\./mu);
   assert.doesNotMatch(workspace, /^\s{2}typescript: 7\./mu);
   assert.doesNotMatch(lockfile, /typescript@7(?:\.|:)/u);
-  assert.match(dependabot, /actions-minor-patch:/u);
-  assert.match(dependabot, /observability-minor-patch:/u);
-  assert.match(dependabot, /update-types:\n\s+- 'minor'\n\s+- 'patch'/u);
-  assert.match(dependabot, /package-ecosystem: 'github-actions'/u);
-  assert.match(dependabot, /package-ecosystem: 'docker'/u);
-  assert.match(dependabot, /package-ecosystem: 'docker-compose'/u);
-  assert.match(dependabot, /prefix: 'ci\(deps\): 자동 업데이트'/u);
-  assert.doesNotMatch(dependabot, /^\s+labels:/mu);
-  assert.doesNotMatch(dependabot, /multi-ecosystem-groups:/u);
-  assert.match(collaboration, /npm\/pnpm version update PR은 Renovate가 `dev`를 대상으로/u);
-  assert.match(collaboration, /security update는 GitHub의 default branch/u);
+  assert.match(renovate.commitMessagePrefix, /^chore\(deps\): /u);
+  assert.match(actionsGroup.commitMessagePrefix, /^ci\(deps\): /u);
+  assert.equal(renovate.labels, undefined);
+  assert.match(
+    collaboration,
+    /모든 version update와 보안 update PR은 Renovate가 `dev`를 대상으로/u,
+  );
+  assert.match(collaboration, /Dependabot은 alert만 맡습니다/u);
 });
 
 test('bounded change guidance classifies scope drift before mutation', () => {

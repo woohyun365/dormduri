@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
@@ -6,12 +7,19 @@ import test from 'node:test';
 import {
   buildDependencyFingerprint,
   compareDependencyFingerprint,
+  dependencyInputPaths,
   parseMeasurementEpoch,
 } from './ci-performance-epoch.mjs';
 
 const epochFixture = JSON.parse(
   readFileSync(resolve('scripts/ci/performance/fixtures/ci-performance-active-epoch.json'), 'utf8'),
 );
+// Fixed dependency input text. Bots change the real lockfile, workspace and inventory, so the fingerprint contract is
+// checked here and a measurement run records drift from the active epoch as changed-inputs.
+const fixedDependencyInputs = Object.fromEntries(
+  dependencyInputPaths.map((path) => [path, `fixed ${path} contents\n`]),
+);
+const sha256 = (text) => createHash('sha256').update(text).digest('hex');
 const closedApiCookieRemovalEpochFixture = JSON.parse(
   readFileSync(
     resolve(
@@ -207,7 +215,7 @@ const closedBackendAwsSdkReleaseAgeEpochFixture = JSON.parse(
   ),
 );
 
-test('active measurement epoch matches the current dependency inputs', () => {
+test('active measurement epoch fingerprints dependency inputs and compares them by hash', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
   assert.equal(epoch.versions.lintStaged, '17.5.0');
   assert.equal(epoch.versions.jsYaml, '4.3.2');
@@ -241,21 +249,28 @@ test('active measurement epoch matches the current dependency inputs', () => {
   assert.equal(epoch.versions.postcss, '8.5.28');
   const fingerprint = buildDependencyFingerprint({
     epoch,
-    readText: (path) => readFileSync(resolve(path), 'utf8'),
+    readText: (path) => fixedDependencyInputs[path],
     sourceSha: epoch.baseSha,
   });
+  const fixedFileSha256 = Object.fromEntries(
+    dependencyInputPaths.map((path) => [path, sha256(fixedDependencyInputs[path])]),
+  );
 
+  assert.deepEqual(Object.keys(epoch.fileSha256).sort(), [...dependencyInputPaths].sort());
   assert.deepEqual(fingerprint, {
     epochId: 'web-story-visual-check-axe-2026-10-21',
-    fileSha256: epoch.fileSha256,
+    fileSha256: fixedFileSha256,
     sourceSha: '124795825ffcf59de81ce1a7a60240720e08c793',
   });
-  assert.deepEqual(compareDependencyFingerprint(epoch, fingerprint), {
-    changedInputs: [],
-    comparisonBaseSha: epoch.baseSha,
-    comparisonEpochId: epoch.id,
-    state: 'compatible-active-epoch',
-  });
+  assert.deepEqual(
+    compareDependencyFingerprint({ ...epoch, fileSha256: fixedFileSha256 }, fingerprint),
+    {
+      changedInputs: [],
+      comparisonBaseSha: epoch.baseSha,
+      comparisonEpochId: epoch.id,
+      state: 'compatible-active-epoch',
+    },
+  );
 });
 
 test('closes the API cookie-removal epoch before collecting the Web story visual-check cohort', () => {
@@ -641,23 +656,34 @@ test('closes the Vitest 5 epoch before collecting the dependency-health cohort',
 
 test('run-head fingerprint drift is preserved instead of using current checkout hashes', () => {
   const epoch = parseMeasurementEpoch(epochFixture);
+  const activeEpoch = {
+    ...epoch,
+    fileSha256: Object.fromEntries(
+      dependencyInputPaths.map((path) => [path, sha256(fixedDependencyInputs[path])]),
+    ),
+  };
   const fingerprint = buildDependencyFingerprint({
     epoch,
     readText: (path) =>
-      path === 'infra/image-inventory.json'
-        ? `${readFileSync(resolve(path), 'utf8')}\ntransition-run`
-        : readFileSync(resolve(path), 'utf8'),
+      path === 'pnpm-lock.yaml'
+        ? `${fixedDependencyInputs[path]}transition-run`
+        : fixedDependencyInputs[path],
     sourceSha: '1111111111111111111111111111111111111111',
   });
-  const comparison = compareDependencyFingerprint(epoch, fingerprint);
+  const comparison = compareDependencyFingerprint(activeEpoch, fingerprint);
 
   assert.equal(fingerprint.sourceSha, '1111111111111111111111111111111111111111');
   assert.notEqual(
-    fingerprint.fileSha256['infra/image-inventory.json'],
-    epoch.fileSha256['infra/image-inventory.json'],
+    fingerprint.fileSha256['pnpm-lock.yaml'],
+    activeEpoch.fileSha256['pnpm-lock.yaml'],
   );
-  assert.deepEqual(comparison.changedInputs, ['infra/image-inventory.json']);
+  assert.deepEqual(comparison.changedInputs, ['pnpm-lock.yaml']);
   assert.equal(comparison.state, 'changed-inputs');
+  assert.deepEqual(
+    compareDependencyFingerprint(activeEpoch, { ...fingerprint, epochId: 'other-epoch' })
+      .changedInputs,
+    ['measurement-epoch', 'pnpm-lock.yaml'],
+  );
 });
 
 test('measurement epoch rejects malformed or incomplete dependency ownership', () => {

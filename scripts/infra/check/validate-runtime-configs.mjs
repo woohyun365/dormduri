@@ -5,14 +5,19 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
+import { loadImageInventory, resolveImageReference } from '../artifacts/image-inventory.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const outputArg = process.argv.find((argument) => argument.startsWith('--output='));
 const outputPath = outputArg
   ? resolve(repoRoot, outputArg.slice('--output='.length))
   : resolveArtifactPath(repoRoot, ['infra', 'runtime-configs.json']);
-const inventory = JSON.parse(readFileSync(resolve(repoRoot, 'infra/image-inventory.json'), 'utf8'));
-const images = new Map(inventory.images.map((image) => [image.name, image.reference]));
+const images = new Map(
+  loadImageInventory(repoRoot).images.map((image) => [
+    image.name,
+    resolveImageReference(repoRoot, image),
+  ]),
+);
 const temporaryDirectory = mkdtempSync('/tmp/knu-runtime-configs-');
 const checks = [];
 

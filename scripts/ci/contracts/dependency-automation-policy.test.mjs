@@ -1,18 +1,21 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
 import {
-  assertSingleNpmVersionUpdateOwner,
-  detectNpmVersionUpdateOwners,
+  assertSingleVersionUpdateOwner,
+  detectVersionUpdateOwners,
   mapRenovateOwnerGroups,
   parseDependencyAutomationEvidence,
   parsePnpmWorkspaceDependencySurface,
-  validateHostedRenovateNpmConfig,
+  validateHostedRenovateConfig,
 } from './dependency-automation-policy.mjs';
 
-const dependabotConfig = readFileSync(resolve(process.cwd(), '.github/dependabot.yml'), 'utf8');
+const dependabotConfigPath = resolve(process.cwd(), '.github/dependabot.yml');
+const dependabotConfig = existsSync(dependabotConfigPath)
+  ? readFileSync(dependabotConfigPath, 'utf8')
+  : '';
 const baseline = JSON.parse(
   readFileSync(
     resolve(process.cwd(), 'scripts/ci/contracts/fixtures/dependency-automation-baseline.json'),
@@ -61,81 +64,172 @@ function collectDependencyDeclarations() {
   };
 }
 
-test('keeps one active npm version-update owner', () => {
-  const owners = detectNpmVersionUpdateOwners({ dependabotConfig, renovateConfig });
+const RENOVATE_ONLY = {
+  npm: ['renovate'],
+  'github-actions': ['renovate'],
+  docker: ['renovate'],
+  'docker-compose': ['renovate'],
+};
 
-  assert.deepEqual(owners, ['renovate']);
-  assert.doesNotThrow(() => assertSingleNpmVersionUpdateOwner(owners));
+test('keeps Renovate as the only version-update owner for every ecosystem', () => {
+  const owners = detectVersionUpdateOwners({ dependabotConfig, renovateConfig });
+
+  assert.equal(dependabotConfig, '');
+  assert.equal(existsSync(resolve(process.cwd(), '.github/dependabot.yaml')), false);
+  assert.deepEqual(owners, RENOVATE_ONLY);
+  assert.doesNotThrow(() => assertSingleVersionUpdateOwner(owners));
 });
 
-test('rejects simultaneous Dependabot and Renovate npm ownership', () => {
-  const owners = detectNpmVersionUpdateOwners({
+test('rejects Dependabot and Renovate owning the same ecosystem', () => {
+  const owners = detectVersionUpdateOwners({
     dependabotConfig: `version: 2
 updates:
   - package-ecosystem: 'npm'
     directory: '/'
+  - package-ecosystem: 'docker-compose'
+    directory: '/infra/deploy'
 `,
-    renovateConfig: {
-      enabledManagers: ['npm'],
-    },
+    renovateConfig,
   });
 
-  assert.deepEqual(owners, ['dependabot', 'renovate']);
-  assert.throws(() => assertSingleNpmVersionUpdateOwner(owners), /exactly one active npm/u);
+  assert.deepEqual(owners.npm, ['dependabot', 'renovate']);
+  assert.deepEqual(owners['docker-compose'], ['dependabot', 'renovate']);
+  assert.deepEqual(owners.docker, ['renovate']);
+  assert.throws(() => assertSingleVersionUpdateOwner(owners), /exactly one active npm/u);
 });
 
-test('does not treat a disabled Renovate config as an active owner', () => {
-  const owners = detectNpmVersionUpdateOwners({
-    dependabotConfig,
-    renovateConfig: {
-      enabled: false,
-      enabledManagers: ['npm'],
-    },
+test('does not count a Dependabot ecosystem paused with a zero pull request limit', () => {
+  const owners = detectVersionUpdateOwners({
+    dependabotConfig: `version: 2
+updates:
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    open-pull-requests-limit: 0
+`,
+    renovateConfig,
   });
 
-  assert.deepEqual(owners, []);
+  assert.deepEqual(owners['github-actions'], ['renovate']);
 });
 
-test('rejects a configuration without an npm version-update owner', () => {
-  const owners = detectNpmVersionUpdateOwners({
-    renovateConfig: {
-      enabled: false,
-      enabledManagers: ['npm'],
-    },
+test('rejects an ecosystem without a version-update owner', () => {
+  const disabled = detectVersionUpdateOwners({
+    renovateConfig: { ...renovateConfig, enabled: false },
   });
+  assert.deepEqual(disabled.npm, []);
+  assert.throws(() => assertSingleVersionUpdateOwner(disabled), /exactly one active npm/u);
 
-  assert.deepEqual(owners, []);
-  assert.throws(() => assertSingleNpmVersionUpdateOwner(owners), /exactly one active npm/u);
+  const npmOnly = detectVersionUpdateOwners({ renovateConfig: { enabledManagers: ['npm'] } });
+  assert.deepEqual(npmOnly['github-actions'], []);
+  assert.throws(
+    () => assertSingleVersionUpdateOwner(npmOnly),
+    /exactly one active github-actions/u,
+  );
 });
 
-test('keeps the hosted Renovate policy active and bounded to npm', () => {
-  const policy = validateHostedRenovateNpmConfig(renovateConfig);
-  const owners = detectNpmVersionUpdateOwners({ dependabotConfig, renovateConfig });
+test('keeps the hosted Renovate policy active on dev with base branch config merged', () => {
+  const policy = validateHostedRenovateConfig(renovateConfig);
 
   assert.equal(policy.enabled, true);
-  assert.deepEqual(policy.enabledManagers, ['npm']);
+  assert.deepEqual(policy.enabledManagers, [
+    'npm',
+    'github-actions',
+    'dockerfile',
+    'docker-compose',
+  ]);
   assert.deepEqual(policy.baseBranchPatterns, ['dev']);
-  assert.equal(policy.automerge, false);
+  assert.equal(policy.useBaseBranchConfig, 'merge');
+  assert.notEqual(policy.configMigration, true);
   assert.equal(policy.dependencyDashboard, true);
   assert.ok(policy.prConcurrentLimit <= 5);
   assert.ok(policy.prHourlyLimit <= 2);
+  assert.equal(policy.vulnerabilityAlerts.prConcurrentLimit, 5);
+  assert.equal(policy.minimumReleaseAge, '3 days');
   assert.equal(policy.toolSettings.nodeMaxMemory, 1536);
   assert.equal(policy.env, undefined);
-  assert.deepEqual(owners, ['renovate']);
+
+  for (const [mutate, message] of [
+    [(config) => delete config.useBaseBranchConfig, /useBaseBranchConfig must be merge/u],
+    [(config) => (config.configMigration = true), /configMigration PRs must stay off/u],
+    [(config) => (config.enabledManagers = ['npm']), /enabledManagers must contain exactly/u],
+    [(config) => delete config.vulnerabilityAlerts, /vulnerabilityAlerts.prConcurrentLimit/u],
+  ]) {
+    const config = structuredClone(renovateConfig);
+    mutate(config);
+    assert.throws(() => validateHostedRenovateConfig(config), message);
+  }
+});
+
+test('lets Renovate itself squash-merge non-major updates only when green and up to date', () => {
+  const policy = validateHostedRenovateConfig(renovateConfig);
+  const automergeRules = policy.packageRules.filter((rule) => rule.automerge === true);
+
+  assert.equal(policy.automerge, false);
+  assert.equal(policy.automergeType, 'pr');
+  assert.equal(policy.automergeStrategy, 'squash');
+  assert.equal(policy.platformAutomerge, false);
+  assert.ok(!['conflicted', 'never'].includes(policy.rebaseWhen));
+  assert.ok(automergeRules.length > 0);
+  assert.ok(automergeRules.every((rule) => !rule.matchUpdateTypes.includes('major')));
+  assert.deepEqual(
+    automergeRules
+      .filter((rule) => rule.matchUpdateTypes.includes('digest'))
+      .map((rule) => rule.matchDatasources),
+    [['docker']],
+  );
+
+  for (const [mutate, message] of [
+    [(config) => (config.platformAutomerge = true), /platformAutomerge must be false/u],
+    [(config) => (config.automergeStrategy = 'merge-commit'), /automergeStrategy must be squash/u],
+    [(config) => (config.rebaseWhen = 'conflicted'), /rebaseWhen must keep/u],
+    [(config) => (config.rebaseWhen = 'never'), /rebaseWhen must keep/u],
+    [(config) => (config.automerge = true), /top-level automerge must stay false/u],
+    [
+      (config) => (config.vulnerabilityAlerts.automerge = true),
+      /vulnerability fixes must automerge only/u,
+    ],
+    [
+      (config) => config.packageRules.push({ matchUpdateTypes: ['major'], automerge: true }),
+      /must match only minor, patch, or digest/u,
+    ],
+    [
+      (config) => config.packageRules.push({ matchUpdateTypes: ['digest'], automerge: true }),
+      /digest automerge must stay limited to Docker images/u,
+    ],
+    [
+      (config) =>
+        config.packageRules.push({
+          matchUpdateTypes: ['patch'],
+          automerge: true,
+          platformAutomerge: true,
+        }),
+      /must not override platformAutomerge/u,
+    ],
+    [
+      (config) => {
+        config.packageRules = config.packageRules.filter((rule) => rule.automerge !== true);
+      },
+      /a non-major automerge rule must exist/u,
+    ],
+  ]) {
+    const config = structuredClone(renovateConfig);
+    mutate(config);
+    assert.throws(() => validateHostedRenovateConfig(config), message);
+  }
 });
 
 test('fails closed when the hosted pnpm memory guard is missing or enlarged', () => {
   const missingGuard = structuredClone(renovateConfig);
   delete missingGuard.toolSettings;
   assert.throws(
-    () => validateHostedRenovateNpmConfig(missingGuard),
+    () => validateHostedRenovateConfig(missingGuard),
     /nodeMaxMemory must equal 1536 MiB/u,
   );
 
   const enlargedGuard = structuredClone(renovateConfig);
   enlargedGuard.toolSettings.nodeMaxMemory = 2560;
   assert.throws(
-    () => validateHostedRenovateNpmConfig(enlargedGuard),
+    () => validateHostedRenovateConfig(enlargedGuard),
     /nodeMaxMemory must equal 1536 MiB/u,
   );
 });
@@ -145,7 +239,7 @@ test('does not treat pnpm worker overrides as a proved hosted OOM fix', () => {
   config.env = { PNPM_MAX_WORKERS: '1', PNPM_WORKERS: '1' };
 
   assert.throws(
-    () => validateHostedRenovateNpmConfig(config),
+    () => validateHostedRenovateConfig(config),
     /must not assume unproven PNPM_WORKERS overrides/u,
   );
 });
@@ -192,7 +286,7 @@ test('locks catalog, inline, workspace, override, and lockfile inputs explicitly
   );
 });
 
-test('keeps major updates independent and dashboard-gated', () => {
+test('keeps major updates independent, dashboard-gated, and manual in every manager', () => {
   const majorRule = renovateConfig.packageRules.find(
     (rule) =>
       Array.isArray(rule.matchUpdateTypes) &&
@@ -205,7 +299,36 @@ test('keeps major updates independent and dashboard-gated', () => {
   );
 
   assert.ok(majorRule);
+  assert.equal(majorRule.matchManagers, undefined);
+  assert.equal(majorRule.automerge, false);
   assert.deepEqual(groupedMajorRules, []);
+
+  const ungated = structuredClone(renovateConfig);
+  ungated.packageRules.find((rule) => rule.dependencyDashboardApproval === true).matchManagers = [
+    'npm',
+  ];
+  assert.throws(() => validateHostedRenovateConfig(ungated), /every manager must keep major/u);
+});
+
+test('groups non-npm updates so shared pins move in one PR', () => {
+  const groups = Object.fromEntries(
+    renovateConfig.packageRules
+      .filter((rule) => rule.groupName)
+      .map((rule) => [rule.groupName, rule]),
+  );
+
+  assert.deepEqual(groups['actions-minor-patch'].matchManagers, ['github-actions']);
+  assert.deepEqual(groups['postgres-image'].matchPackageNames, ['postgres']);
+  assert.deepEqual(groups['node-image'].matchPackageNames, ['node']);
+  assert.deepEqual(groups['observability-images'].matchFileNames, ['infra/observability/**']);
+  for (const name of [
+    'actions-minor-patch',
+    'postgres-image',
+    'node-image',
+    'observability-images',
+  ]) {
+    assert.ok(!groups[name].matchUpdateTypes.includes('major'), name);
+  }
 });
 
 test('blocks unsupported TypeScript and the complete ESLint major pair with revisit reasons', () => {
@@ -259,6 +382,24 @@ test('keeps pnpm package-manager upgrades manual until the toolchain moves toget
   assert.ok(packageManagerRule);
   assert.match(packageManagerRule.description, /Corepack/u);
   assert.match(packageManagerRule.description, /CI action/u);
+  assert.doesNotThrow(() => validateHostedRenovateConfig(renovateConfig));
+
+  // The github-actions manager reads the pnpm/action-setup `version` input as a `pnpm` dependency.
+  const rootOnly = structuredClone(renovateConfig);
+  const rootOnlyRule = rootOnly.packageRules.find((rule) =>
+    rule.matchPackageNames?.includes('pnpm'),
+  );
+  rootOnlyRule.matchManagers = ['npm'];
+  rootOnlyRule.matchDepTypes = ['packageManager'];
+  assert.throws(
+    () => validateHostedRenovateConfig(rootOnly),
+    /pnpm updates must stay disabled for the github-actions uses-with pin/u,
+  );
+
+  const majorOnly = structuredClone(renovateConfig);
+  majorOnly.packageRules.find((rule) => rule.matchPackageNames?.includes('pnpm')).matchUpdateTypes =
+    ['major'];
+  assert.throws(() => validateHostedRenovateConfig(majorOnly), /pnpm updates must stay disabled/u);
 });
 
 test('keeps both provider cancellations and the manual terminal counts reproducible', () => {

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 
 import { resolveArtifactPath } from '../../../artifacts/paths.mjs';
+import { loadImageInventory, resolveImageReference } from '../../artifacts/image-inventory.mjs';
 import {
   buildComposeArgs,
   cleanupUnusedNetworks,
@@ -50,8 +51,10 @@ const metricsTokenPath = resolve(temporaryDirectory, 'metrics-token');
 const evidenceDirectory = resolveArtifactPath(repoRoot, ['infra', 'full-stack-rehearsal']);
 const evidenceJsonPath = resolve(evidenceDirectory, `${runId}.json`);
 const evidenceMarkdownPath = resolve(evidenceDirectory, `${runId}.md`);
-const postgresImage =
-  'postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2';
+const postgresImage = resolveImageReference(
+  repoRoot,
+  loadImageInventory(repoRoot).images.find(({ name }) => name === 'postgres-full-stack-rehearsal'),
+);
 
 const secrets = createRuntimeSecrets();
 const secretValues = Object.values(secrets);

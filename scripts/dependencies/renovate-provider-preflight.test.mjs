@@ -153,7 +153,8 @@ test('keeps dependency update operations bounded and timeout recovery owner-awar
     'Create all pending approval PRs at once',
     'Automated PRs',
     'provider queue',
-    'Dependabot npm',
+    'Dependabot은 alert만',
+    '자동 merge 멈춤',
     'GitHub Actions',
     'Docker Compose',
   ]) {
