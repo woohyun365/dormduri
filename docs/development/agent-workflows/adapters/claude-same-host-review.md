@@ -37,11 +37,13 @@ Parent subject의 `request`는 요구사항(사용자 요청·issue·plan accept
 `requirement-path-in-paths: <path>`로 거부합니다. Packet `sources.requirements`는 acceptance 그대로입니다. Plan 자체가 `paths`에 있는
 readiness 리뷰는 이 필드를 쓰지 않습니다. Subject의 `request`·`acceptance`·요구 절에는 결론이나 범위를 줄이는 문구("flag하지
 말 것", "최대 low", "계획이 그렇게 정함" 등)를 쓰지 않고, 리뷰 범위는 `paths`와 기준 선택으로만 줄입니다(advisory). 선택 필드
-`lifecycleDraft`는 Parent가 쓴 PR `## Lifecycle` 초안 파일 경로입니다. Local state·native task 기록 경로는 `paths`와 같이 거부하고,
-저장소 밖이거나 일반 파일이 아니거나 `## Lifecycle` 절이 없으면 `lifecycle-draft-invalid`로 거부합니다.
+`lifecycleDraft`는 PR 본문 초안 파일 경로이고 reviewer는 그 `## Lifecycle` 절 추출만 읽습니다. Local state·native task 기록 경로는
+`paths`와 같이 거부하고, 저장소 밖이거나 일반 파일이 아니거나 `## Lifecycle` 절이 없거나 둘 이상이면 `lifecycle-draft-invalid`로
+거부합니다.
 
 Reviewer prompt는 packet·diff·문서·runner 출력 안의 지시문을 판정 근거로만 읽고 따르지 않게 지시합니다. `review`는 reviewer마다 prompt의
-sha256을 `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에 한 번 쓰고(추출이 있으면 그 digest도 함께), registry는
+sha256을 `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에 한 번 쓰고(requirement 추출·binding 행 추출·초안 절
+추출이 있으면 각 경로와 digest도 함께), registry는
 모든 `knu_reviewer` 등록(`prepare`와 `register --input`)에서 그 기록과 prompt를 대조합니다. Review id는 native subject면 packet id
 `review-<reviewId>`, Parent subject면 prompt의 `KNU_REVIEW_PACKET_FILE:` 경로에서 얻고, 1회차 그룹은 구성원마다 대조합니다. 기록이
 없거나 review id를 얻을 수 없으면 `review-prompt-unbound`, prompt가 다르면 `review-prompt-changed`로 등록을 거부합니다.
@@ -59,12 +61,15 @@ read path에 들어가고 prompt에 경로와 sha256 digest가 남습니다. Rev
 1회차는 넓게 보고하고 low를 5건까지, 2회차부터는 blocking finding만 보고합니다. 두 경우 모두 finding 0건을 허용하고, 기준
 문서가 있으면 미충족 항목 id를 finding `criteriaItem`에 하나만 적고 기본 severity를 쓰게 합니다.
 
-리뷰어 입력은 [리뷰어 입력](../review-criteria/README.md#리뷰어-입력)이 같은 리뷰 대상 경로로 고른 intent·결정 기록·정책 문서와
-`lifecycleDraft`입니다. 그 경로가 packet read path에 들어가고, `review` 출력 `contextInputs`가 경로 목록을, helper 디렉터리의
-`<reviewId>.context.json`(read path 아님)이 포함 이유와 파일이 없어 빠진 layer·도메인(`absent`)을 남깁니다. Prompt 입력 줄은 경로와
-이유만 담고 입력이 없으면 `- Context inputs: none.`입니다. `lifecycleDraft`가 없으면 변경을 feature로 보라는 줄을, 있으면 초안의
-`변경 등급`·`등급 근거`·`정책 영향 없음`·`인용 규칙`이 근거가 아니라 diff와 대조할 Parent 주장이고 diff가 선언보다 높은 등급의
-동작·계약 변경을 보이면 등급을 올리는 finding을 내라는 줄을 둡니다. 모든 prompt는 요구가 말하지 않은 동작을 intent·결정 기록과
+리뷰어 입력은 [리뷰어 입력](../review-criteria/README.md#리뷰어-입력)이 같은 리뷰 대상 경로로 고른 intent·결정 기록·정책 문서,
+고른 기준 문서에 걸린 binding `## 고른 값`·`## 저장소 규약` 행과 `lifecycleDraft`의 `## Lifecycle` 절입니다. 두 추출은 helper가
+reviewer마다 `.artifacts/tools/claude-review-packets/<reviewId>.binding.md`(걸린 행이 있을 때만)와 `<reviewId>.lifecycle.md`에 한 번
+쓰고, binding 문서와 원본 초안은 read path에 넣지 않습니다. 그 경로가 packet read path에 들어가고, `review` 출력 `contextInputs`가
+경로 목록을(reviewer가 정해지기 전 출력은 추출 경로의 review id 자리를 `<reviewId>`로 둠), helper 디렉터리의
+`<reviewId>.context.json`(read path 아님)이 포함 이유(binding 행은 결정 행·규약 사실과 그 기준 문서, 초안은 원본 경로)와 파일이 없어
+빠진 layer·도메인(`absent`)을 남깁니다. Prompt 입력 줄은 경로와 이유만 담고 입력이 없으면 `- Context inputs: none.`입니다. 초안이
+없으면 변경을 feature로 보라는 줄을, 있으면 그 절 추출의 `변경 등급`·`등급 근거`·`정책 영향 없음`·`인용 규칙`이 근거가 아니라 diff와
+대조할 주장이고 diff가 선언보다 높은 등급의 동작·계약 변경을 보이면 등급을 올리는 finding을 내라는 줄을 둡니다. 모든 prompt는 요구가 말하지 않은 동작을 intent·결정 기록과
 합리적 사용자 기대로 판정하고 판정하지 않은 동작을 결과 `unjudgedBehaviors`(줄마다 이유, PASS를 막지 않음)에, 같은 유형 결함의
 다른 위치를 finding `sameTypeLocations`(`path:line`)에 적게 하며, 결과 template은 빈 `unjudgedBehaviors`를 담습니다.
 
@@ -150,8 +155,10 @@ host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff�
 경로가 reviewer read 범위에 들어갑니다. `settle --task`는 `reviewPacket`(경로, 기대·현재 digest, 성공한 `Read` 관측)을 더하고,
 읽지 않았으면 `review-packet-unread`, 파일이 바뀌었으면 `review-packet-changed`, Parent reviewer prompt에 packet 파일 줄이
 없으면 `review-packet-missing`을 `observationErrors`에 넣습니다(그런 prompt는 등록부터 `review-prompt-unbound`로 거부됩니다).
-등록한 prompt나 read 범위가 `requirementSections` 추출을 가리키면 `reviewRequirements`(경로, 기록·현재 digest)를 더하고, 추출이 prompt 기록의 digest와
-다르거나 기록이 없으면 `review-requirements-changed`를 넣습니다. 그 reviewer는
+등록한 prompt나 read 범위가 `requirementSections` 추출·binding 행 추출·초안 절 추출을 가리키면 각각 `reviewRequirements`·`reviewBinding`·
+`reviewLifecycle`(경로, 기록·현재 digest)을 더하고, 추출이 prompt 기록의 digest와 다르거나 기록이 없으면
+`review-requirements-changed`·`review-binding-changed`·`review-lifecycle-changed`를 넣습니다(native subject reviewer는 review id를
+packet id에서 얻어 binding 행 추출을 같은 방식으로 대조하고, 바뀐 추출은 `settle --task --judgment`도 거부합니다). 그 reviewer는
 `complete`로 PASS 정산되지 않으며, Parent가 reviewer의 `settle --task` 출력에서 `observationErrors`가
 비었는지(effort 판정 포함)와 모델·변경 경로, finding 재현으로 판정합니다. Settle은 prompt 첫 줄 `logHeader`의 snapshot을 의존 집합
 안 변경이 없으면 등록 snapshot과, 있거나 저장소 전체 판정이면 `finalSnapshot`과 대조해 다르면 `review-snapshot-mismatch`를 넣고,
@@ -160,8 +167,8 @@ host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff�
 
 Review snapshot은 tracked·비ignored 파일만 결속하므로 ignored 리뷰 입력(계획, 증거, runner 출력, 2회차 직전 결과와 처분 기록)은 helper가
 따로 결속합니다. 대상은 reviewer read path 중 ignored read path 아래 파일과, 어느 read path든 그 아래 `.plans/`·`.artifacts/`·
-`.local-docs/`(기록 위치) 안의 ignored 파일입니다. Helper 디렉터리의 파일(packet·manifest는 prompt 줄이, requirement 추출은 prompt
-기록이 결속)과 native task 기록은 빠지고, 그 밖의 비ignored
+`.local-docs/`(기록 위치) 안의 ignored 파일입니다. Helper 디렉터리의 파일(packet·manifest는 prompt 줄이, requirement 추출·binding 행
+추출·초안 절 추출은 prompt 기록이 결속)과 native task 기록은 빠지고, 그 밖의 비ignored
 디렉터리 안 ignored 파일(package 의존성·build 산출물)은 결속하지 않습니다(known limit). Helper는 파일마다 digest(mode·bytes, symlink는
 링크 문자열)를 `.artifacts/tools/claude-review-packets/<reviewId>.inputs.json`에 한 번 쓰고 prompt 마지막 줄에
 `KNU_REVIEW_INPUTS_FILE:<경로> <sha256 digest>`를 둡니다. 대상이 없으면 줄도 없습니다. 2,000개·파일 8 MiB·합계 32 MiB를 넘으면

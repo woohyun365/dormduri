@@ -2373,7 +2373,9 @@ test('a change-grade draft is read as its bound Lifecycle section and the prompt
     assert.ok(paths.includes(path), 'the Lifecycle extract is a read path');
     assert.ok(!paths.includes(DRAFT_PATH), 'the draft itself is not a read path');
   }
-  assert.ok(!Object.keys(manifestOf(r, review).files).includes(DRAFT_PATH));
+  // The draft is no longer an ignored read input; the prompt record binds the extract instead.
+  const bound = review.inputsFile ? Object.keys(manifestOf(r, review).files) : [];
+  assert.ok(!bound.includes(DRAFT_PATH));
   assert.deepEqual(
     JSON.parse(readFileSync(join(r.root, review.promptFile.path), 'utf8')).lifecycle,
     review.lifecycleFile,

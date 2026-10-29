@@ -452,7 +452,7 @@ test('every input has a short label for reviewer input lines', async (t) => {
       `${INTENT} (product intent)`,
       `${FE_DECISIONS} (decision record, layer fe)`,
       'docs/policies/season-lifecycle.md (policy, domain season-lifecycle)',
-      `${BINDING_OUT} (binding rows for the selected criteria: 2 chosen values, 2 repository conventions)`,
+      `${BINDING_OUT} (binding rows for the selected criteria: chosen values 2, repository conventions 2)`,
       `${DRAFT_OUT} (Lifecycle draft given for this review)`,
     ],
   );
@@ -505,6 +505,24 @@ test('the command line prints the record and refuses usage errors', async (t) =>
   const unplaced = run('--root', root, '--lifecycle-draft', DRAFT, '--', SCREEN_MODEL);
   assert.equal(unplaced.status, 1, 'a draft without --lifecycle-out exits 1');
   assert.match(unplaced.stderr, /context-output-missing: .*--lifecycle-out/u);
+  // The draft itself and the other extract's output are never overwritten.
+  for (const out of [DRAFT, DRAFT_OUT]) {
+    const same = run(
+      '--root',
+      root,
+      '--binding-out',
+      DRAFT_OUT,
+      '--lifecycle-draft',
+      DRAFT,
+      '--lifecycle-out',
+      out,
+      '--',
+      SCREEN_MODEL,
+    );
+    assert.equal(same.status, 1, `--lifecycle-out ${out} exits 1`);
+    assert.match(same.stderr, /context-output-invalid/u, out);
+  }
+  assert.equal(readFileSync(join(root, DRAFT), 'utf8'), '## Lifecycle\n');
 });
 
 // RED 1: a path in one pack sublayer takes the chosen value rows of that sublayer only; the binding document is
@@ -640,6 +658,9 @@ test('the command line writes the binding extract and refuses a bad or missing o
     ['/tmp/binding.md', /context-output-invalid/u],
     ['../binding.md', /context-output-invalid/u],
     [BINDING, /context-output-invalid/u],
+    // A case variant names the same file on a case-insensitive filesystem.
+    [BINDING.replace('knu-binding', 'KNU-Binding'), /context-output-invalid/u],
+    [SCREEN_MODEL, /context-output-invalid/u],
   ]) {
     const refused = run('--binding-out', out, '--', SCREEN_MODEL);
     assert.equal(refused.status, 1, `${out} exits 1`);
