@@ -86,7 +86,7 @@ overrides:
   engine.io>ws: 8.21.3
   esbuild: 0.28.2
   postcss: 8.5.31
-  prisma>mysql2: 3.24.3
+  prisma>mysql2: 3.24.6
   socket.io-adapter>ws: 8.21.3
 
 importers:
@@ -5432,8 +5432,8 @@ packages:
     resolution: {integrity: sha512-WWdIxpyjEn+FhQJQQv9aQAYlHoNVdzIzUySNV1gHUPDSdZJ3yZn7pAAbQcV7B56Mvu881q9FZV+0Vx2xC44VWA==}
     engines: {node: ^18.17.0 || >=20.5.0}
 
-  mysql2@3.24.3:
-    resolution: {integrity: sha512-OKfWHkMAg9v06neq8FmSyhbxPQKABN9PAW5G9/bDTXzJBO5xXtkKL0V27vju7HQWk9UD4Od5BZsvCtBTB1CPEw==}
+  mysql2@3.24.6:
+    resolution: {integrity: sha512-enu73KhbAua2L3dIxjc6qg6ZJ7H3pt1BImZASWNWY5xSsmJ1ZuUPULTDGXgmJbI61vb+nJAG19IZclIq19UidQ==}
     engines: {node: '>= 8.0'}
     peerDependencies:
       '@types/node': '>= 8'
@@ -10407,7 +10407,7 @@ snapshots:
   css-tree@3.2.1:
     dependencies:
       mdn-data: 2.27.1
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   css.escape@1.5.1: {}
 
@@ -11920,7 +11920,7 @@ snapshots:
     dependencies:
       '@babel/parser': 7.29.8
       '@babel/types': 7.29.8
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   make-asynchronous@1.1.0:
     dependencies:
@@ -12023,7 +12023,7 @@ snapshots:
 
   mute-stream@2.0.0: {}
 
-  mysql2@3.24.3(@types/node@24.13.3):
+  mysql2@3.24.6(@types/node@24.13.3):
     dependencies:
       '@types/node': 24.13.3
       aws-ssl-profiles: 1.1.2
@@ -12440,7 +12440,7 @@ snapshots:
       '@prisma/dev': 0.24.17(typescript@6.0.3)
       '@prisma/engines': 7.10.1
       '@prisma/studio-core': 0.33.0(@types/react-dom@19.2.7(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      mysql2: 3.24.3(@types/node@24.13.3)
+      mysql2: 3.24.6(@types/node@24.13.3)
       postgres: 3.4.7
     optionalDependencies:
       typescript: 6.0.3
