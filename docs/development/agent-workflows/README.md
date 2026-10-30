@@ -10,6 +10,7 @@
 - [Agent execution contract](./agent-execution-contract.md): coding agent의 classify→inspect→route→act→verify→handoff 계약
 - [Owner–Lead collaboration](./owner-lead-collaboration.md): 기술 실행과 중요한 사용자 선택, 짧은 협의와 선택적 specialist 통신 경계
 - [Development lifecycle](./development-lifecycle.md): intent→검증→통합→관찰/feedback의 evidence owner와 scoped Done
+- [Lifecycle state machine](./lifecycle-state-machine.md): 작업 생명주기 상태·guard·역전이 정의 JSON의 field 의미, 문서 상태 header 검사와 일치 test
 - [Request intake](./request-intake/README.md): intent·authority·ambiguity와 Answer·Analyze·Plan 출력 계약
 - [Plan authoring](./plan-authoring/README.md): 공통 계획 계약과 FE·BE·Infrastructure progressive-disclosure guide
 - [Visual design](./visual-design/README.md): 내용·동작 보존과 스타일 탐색, 구체적 후보·독립 비평·수정·사람의 선택; Figma는 선택 사항

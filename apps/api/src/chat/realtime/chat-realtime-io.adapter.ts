@@ -26,6 +26,7 @@ export class ChatRealtimeIoAdapter extends IoAdapter {
 
   override createIOServer(port: number, options?: Partial<ServerOptions>): Server {
     // Nest creates the root before its namespace; do not predicate this on namespace.
-    return super.createIOServer(port, { ...options, ...this.boundaryOptions }) as Server;
+    // Nest may pass no options; Socket.IO's Server takes partial options although IoAdapter types them in full.
+    return super.createIOServer(port, { ...options, ...this.boundaryOptions } as ServerOptions);
   }
 }

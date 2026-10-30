@@ -8,7 +8,7 @@
     "dist"
   ],
   "engines": {
-    "node": ">=24 <25"
+    "node": ">=26 <27"
   },
   "exports": {
     "./auth": {

@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "versions": ["11.7.0", "11.15.1", "11.24.0"],
-  "trialCount": 1,
+  "versions": ["11.24.0", "12.15.0", "12.16.1"],
+  "trialCount": 3,
   "command": ["install", "--lockfile-only", "--recursive", "--ignore-scripts", "--ignore-pnpmfile"],
   "mutations": [
     {
       "file": "pnpm-workspace.yaml",
-      "from": "  '@types/node': 24.13.3",
-      "to": "  '@types/node': 24.13.2"
+      "from": "  '@types/node': 26.6.5",
+      "to": "  '@types/node': 26.6.4"
     },
     {
       "file": "pnpm-workspace.yaml",
@@ -16,13 +16,13 @@
     },
     {
       "file": "pnpm-workspace.yaml",
-      "from": "  '@typescript-eslint/eslint-plugin': 8.68.0",
-      "to": "  '@typescript-eslint/eslint-plugin': 8.67.0"
+      "from": "  '@typescript-eslint/eslint-plugin': 8.72.1",
+      "to": "  '@typescript-eslint/eslint-plugin': 8.72.0"
     },
     {
       "file": "pnpm-workspace.yaml",
-      "from": "  '@typescript-eslint/parser': 8.68.0",
-      "to": "  '@typescript-eslint/parser': 8.67.0"
+      "from": "  '@typescript-eslint/parser': 8.72.1",
+      "to": "  '@typescript-eslint/parser': 8.72.0"
     },
     {
       "file": "pnpm-workspace.yaml",
@@ -31,8 +31,8 @@
     },
     {
       "file": "pnpm-workspace.yaml",
-      "from": "  typescript-eslint: 8.68.0",
-      "to": "  typescript-eslint: 8.67.0"
+      "from": "  typescript-eslint: 8.72.1",
+      "to": "  typescript-eslint: 8.72.0"
     }
   ]
 }

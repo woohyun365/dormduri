@@ -291,7 +291,7 @@ test('the agent workflow gate runs the agent suite without installing packages',
     'name: Agent workflow gate',
     'needs: classify',
     "if: ${{ needs.classify.outputs.agent_workflow == 'true' }}",
-    "node-version: '24'",
+    "node-version: '26'",
     'node scripts/ci/lanes/run-repo-policy.mjs --suite agent-workflow',
   ]);
   for (const installStep of ['pnpm install', 'pnpm/action-setup', 'cache: pnpm'])
@@ -315,7 +315,7 @@ test('the lifecycle gate reads every pull request without waiting for classifica
     `if: ${PULL_REQUEST_CONDITION}`,
     'pull-requests: read',
     'fetch-depth: 0',
-    "node-version: '24'",
+    "node-version: '26'",
     'node scripts/ci/lifecycle/run.mjs',
   ]);
   assert.doesNotMatch(

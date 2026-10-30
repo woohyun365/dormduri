@@ -36,6 +36,7 @@ API public 명령은 fresh checkout에서 단독 실행할 수 있도록 `ci:pre
 - `test/operations`는 DB·reference data·infra artifact와 외부 provider/release smoke의 bounded contract를 검증한다. 실제 side effect 실행은 명시적 script와 env guard를 사용한다.
 - Stress raw artifact는 `test/stress/reports/.tmp-*`에 mode `0600`으로 만들고 종료 시 제거한다. parser와 renderer source는 `test/stress/evidence`가 소유한다.
 - `jest` runner/dependency를 재도입하지 않는다.
+- TypeScript CLI·stress 도구를 build 없이 실행하는 `package.json` script는 `node --import ./test/support/ts-esm-loader.mjs <file>.ts`를 쓴다. Loader는 `apps/api/tsconfig.json`의 compiler option으로 변환만 하고, type은 `src`도 포함하는 test tsconfig로 `typecheck:test`가 검사한다.
 
 ## Runner owner
 

@@ -69,8 +69,8 @@
       "parent": "@nestjs/cli > fork-ts-checker-webpack-plugin",
       "classification": "build-only",
       "action": "documented-exception",
-      "mitigation": "GHSA-gcqx-w48m-w2h4 (low) has no patched release. fork-ts-checker-webpack-plugin merges only its own build options with deepmerge during Nest CLI builds, receives no request input, and @nestjs/cli is absent from the production API artifact.",
-      "revisit": "Review by 2026-11-29, and earlier when deepmerge publishes a fix or @nestjs/cli or fork-ts-checker-webpack-plugin changes its deepmerge dependency."
+      "mitigation": "GHSA-gcqx-w48m-w2h4 (low) has no patched release. Nest CLI 12 made fork-ts-checker-webpack-plugin an optional webpack-only peer, and the API builds with SWC, so the dev lockfile no longer resolves deepmerge; the alert stays open on main until that lockfile is promoted. On main, fork-ts-checker-webpack-plugin merges only its own build options with deepmerge during Nest CLI builds, receives no request input, and @nestjs/cli is absent from the production API artifact.",
+      "revisit": "After the next dev to main promotion, confirm the alert closed on main and remove this entry. Review by 2026-11-29 if the promotion has not happened."
     },
     {
       "name": "engine.io",
@@ -136,8 +136,8 @@
       "parent": "@nestjs/platform-express",
       "classification": "shipped-not-called",
       "action": "runtime-remediation",
-      "mitigation": "NestJS 11.2.8 still pins vulnerable Multer 2.4.0 exactly, so an exact @nestjs/platform-express parent-scoped selector supplies patched 2.5.0 without creating a direct upload dependency or broad override.",
-      "revisit": "Remove the selector when a supported NestJS 11 parent owns Multer 2.5.0 or newer; recheck upload behavior if the application later adopts a direct multipart caller."
+      "mitigation": "NestJS 12.3.2 pins patched Multer 2.5.0 in @nestjs/platform-express, so the patched version resolves without a repository selector or a direct upload dependency.",
+      "revisit": "Recheck when @nestjs/platform-express changes its Multer pin, or when the application adopts a direct multipart caller."
     },
     {
       "name": "mysql2",

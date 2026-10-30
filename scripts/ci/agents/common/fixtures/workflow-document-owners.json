@@ -129,6 +129,12 @@
       "rationale": "공통 요청 예시와 명시적 host 선택을 유지하되 OMX launch/approve/rule 확인 절차는 Codex startup owner로 분리한다."
     },
     {
+      "path": "docs/development/agent-workflows/lifecycle-state-machine.md",
+      "owner": "general development workflow owner",
+      "kind": "explanation",
+      "rationale": "작업 생명주기 상태 정의 JSON의 field 의미, 확인 주체와 강도, 등급 경로·역전이·등록 검사 대응, 문서 상태 header 검사를 설명한다. 값은 정의 JSON이 소유하고 정의 test가 문서 표와 대조한다."
+    },
+    {
       "path": "docs/development/agent-workflows/orchestration.md",
       "owner": "general development workflow owner",
       "kind": "normative",

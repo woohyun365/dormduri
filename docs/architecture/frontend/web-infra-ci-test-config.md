@@ -6,18 +6,18 @@
 
 ## 현재 기준 스냅샷
 
-| 항목              | 기준                |
-| ----------------- | ------------------- |
-| Node              | `>=24 <25`          |
-| package manager   | `pnpm@11.24.0`      |
-| Next.js           | `16.2.9`            |
-| React / React DOM | `19.2.7` / `19.2.7` |
-| TypeScript        | `6.0.3`             |
-| ESLint            | `9.39.4`            |
-| Prettier          | `3.8.4`             |
-| Vite / Vitest     | `8.0.16` / `4.1.9`  |
-| Playwright        | `1.61.0`            |
-| Tailwind CSS      | `4.3.1`             |
+| 항목              | 기준                           |
+| ----------------- | ------------------------------ |
+| Node              | `>=26 <27`                     |
+| package manager   | pnpm 12(root `packageManager`) |
+| Next.js           | `16.2.9`                       |
+| React / React DOM | `19.2.7` / `19.2.7`            |
+| TypeScript        | `6.0.3`                        |
+| ESLint            | `9.39.4`                       |
+| Prettier          | `3.8.4`                        |
+| Vite / Vitest     | `8.0.16` / `4.1.9`             |
+| Playwright        | `1.61.0`                       |
+| Tailwind CSS      | `4.3.1`                        |
 
 버전 기준은 `pnpm-workspace.yaml`의 `catalog`와 root `package.json`의 `packageManager`가 우선이다. 새 FE 작업은 문서의 숫자를 그대로 믿지 말고 실제 catalog와 lockfile을 먼저 확인한다.
 

@@ -76,12 +76,11 @@
       "sonner",
       "source-map-support",
       "supertest",
-      "ts-node",
       "unplugin-swc",
       "zod"
     ],
     "workspacePackages": ["@repo/eslint-config", "@repo/shared", "@repo/tsconfig"],
-    "overrideSelectors": ["@nestjs/platform-express>multer", "esbuild", "postcss"],
+    "overrideSelectors": ["esbuild", "postcss"],
     "lockfile": "pnpm-lock.yaml"
   },
   "groups": {
@@ -98,7 +97,6 @@
       "husky",
       "lint-staged",
       "prettier",
-      "ts-node",
       "typescript",
       "typescript-eslint",
       "unplugin-swc"

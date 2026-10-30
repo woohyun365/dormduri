@@ -172,11 +172,9 @@ function copyTrackedWorkspace(source, destination) {
 
 function createIsolatedEnvironment(root) {
   const home = join(root, 'home');
-  const corepackHome = join(root, 'corepack');
   const temp = join(root, 'tmp');
-  for (const path of [home, corepackHome, temp]) mkdirSync(path, { recursive: true });
+  for (const path of [home, temp]) mkdirSync(path, { recursive: true });
   return {
-    COREPACK_HOME: corepackHome,
     HOME: home,
     LANG: process.env.LANG || 'C.UTF-8',
     LC_ALL: process.env.LC_ALL || process.env.LANG || 'C.UTF-8',
@@ -213,7 +211,31 @@ function tail(input, lines = 40) {
   return input.split(/\r?\n/u).slice(-lines).join('\n');
 }
 
-function runTrial({ fixture, version, trial }) {
+// Installs each pnpm version once into its own npm prefix, outside the timed command. pnpm 12 ships a native
+// binary through platform optional dependencies, so the version is selected by path instead of Corepack.
+function preparePnpm({ version, toolsRoot }) {
+  const prefix = join(toolsRoot, `pnpm-${version}`);
+  mkdirSync(prefix, { recursive: true });
+  const environment = createIsolatedEnvironment(join(toolsRoot, `env-${version}`));
+  const installed = run(
+    'npm',
+    ['install', '--prefix', prefix, '--no-audit', '--no-fund', `pnpm@${version}`],
+    { cwd: prefix, env: environment },
+  );
+  if (installed.status !== 0) {
+    throw new Error(`npm install pnpm@${version} failed: ${tail(installed.stderr)}`);
+  }
+  const binary = join(prefix, 'node_modules', '.bin', 'pnpm');
+  const versionCheck = run(binary, ['--version'], { cwd: prefix, env: environment });
+  if (versionCheck.status !== 0 || versionCheck.stdout.trim() !== version) {
+    throw new Error(
+      `installed ${versionCheck.stdout.trim() || 'no pnpm version'} instead of ${version}`,
+    );
+  }
+  return binary;
+}
+
+function runTrial({ fixture, version, trial, binary }) {
   const root = mkdtempSync(join(tmpdir(), `knu-pnpm-${version}-`));
   const workspace = join(root, 'workspace');
   mkdirSync(workspace, { recursive: true });
@@ -225,26 +247,9 @@ function runTrial({ fixture, version, trial }) {
     setWorkspacePackageManager(workspace, version);
     writeIsolatedPnpmConfig(workspace, root);
 
-    const prepared = run('corepack', ['prepare', `pnpm@${version}`, '--activate'], {
-      cwd: workspace,
-      env: environment,
-    });
-    if (prepared.status !== 0) {
-      throw new Error(`corepack prepare pnpm@${version} failed: ${tail(prepared.stderr)}`);
-    }
-    const versionCheck = run('corepack', ['pnpm', '--version'], {
-      cwd: workspace,
-      env: environment,
-    });
-    if (versionCheck.status !== 0 || versionCheck.stdout.trim() !== version) {
-      throw new Error(
-        `corepack selected ${versionCheck.stdout.trim() || 'no pnpm version'} instead of ${version}`,
-      );
-    }
-
     const timeArgs = process.platform === 'darwin' ? ['-l'] : ['-v'];
     const startedAt = Date.now();
-    const result = run('/usr/bin/time', [...timeArgs, 'corepack', 'pnpm', ...fixture.command], {
+    const result = run('/usr/bin/time', [...timeArgs, binary, ...fixture.command], {
       cwd: workspace,
       env: environment,
     });
@@ -284,7 +289,7 @@ export function buildBenchmarkSummary({ fixture, trials, generatedAt, sourceSha 
     sourceSha,
     coldRun: true,
     processBoundary:
-      'Measured peak RSS covers /usr/bin/time around Corepack and pnpm, not the parent Mend Renovate process tree.',
+      'Measured peak RSS covers /usr/bin/time around the pnpm command, not the parent Mend Renovate process tree.',
     fixture,
     trials,
     summaries,
@@ -299,12 +304,18 @@ async function main() {
   const fixture = parseBenchmarkFixture(JSON.parse(readFileSync(fixturePath, 'utf8')));
   const source = run('git', ['rev-parse', 'HEAD'], { cwd: repoRoot });
   if (source.status !== 0) throw new Error(`git rev-parse failed: ${source.stderr.trim()}`);
+  const toolsRoot = mkdtempSync(join(tmpdir(), 'knu-pnpm-tools-'));
   const trials = [];
-  for (const version of fixture.versions) {
-    for (let trial = 1; trial <= fixture.trialCount; trial += 1) {
-      process.stderr.write(`pnpm ${version} cold trial ${trial}/${fixture.trialCount}\n`);
-      trials.push(runTrial({ fixture, version, trial }));
+  try {
+    for (const version of fixture.versions) {
+      const binary = preparePnpm({ version, toolsRoot });
+      for (let trial = 1; trial <= fixture.trialCount; trial += 1) {
+        process.stderr.write(`pnpm ${version} cold trial ${trial}/${fixture.trialCount}\n`);
+        trials.push(runTrial({ fixture, version, trial, binary }));
+      }
     }
+  } finally {
+    rmSync(toolsRoot, { force: true, recursive: true });
   }
   const summary = buildBenchmarkSummary({
     fixture,

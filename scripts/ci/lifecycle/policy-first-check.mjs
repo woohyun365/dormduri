@@ -4,6 +4,7 @@
 // downgrade. Authoring rules: docs/development/github/collaboration.md (`Lifecycle` 절); rule ids, citation form and
 // the path table: docs/policies/README.md.
 
+import { parseDocumentHeader } from './document-header.mjs';
 import { POLICY_GRADES } from './lifecycle-section.mjs';
 
 export const POLICY_FIRST_CHECK_IDS = ['W-SCOPE', 'W-POLICY', 'W-CITE', 'W-IRREV', 'L-CONFIRM'];
@@ -198,17 +199,9 @@ export function policyPrefixes(readme) {
   return prefixes;
 }
 
-// Document status header: consecutive `**key**: value` lines right under the title; `**상태**` is the status.
+// Document status header (document-header.mjs): `**상태**` is the status.
 export function headerStatus(text) {
-  const lines = text.split('\n');
-  let index = lines.findIndex((line) => line.startsWith('# '));
-  if (index < 0) return null;
-  for (index += 1; index < lines.length && !lines[index].trim(); index += 1);
-  for (; index < lines.length && /^\*\*[^*]+\*\*:/u.test(lines[index]); index += 1) {
-    const status = /^\*\*상태\*\*:\s*(.+)$/u.exec(lines[index]);
-    if (status) return status[1].trim();
-  }
-  return null;
+  return parseDocumentHeader(text)?.status ?? null;
 }
 
 function confirmedByAt(context, revision, file) {

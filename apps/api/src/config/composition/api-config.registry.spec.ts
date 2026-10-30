@@ -1,10 +1,11 @@
-import { registerAs } from '@nestjs/config';
+import { ConfigModule, registerAs } from '@nestjs/config';
 import Joi from 'joi';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { defineApiConfigSlice, type NamedConfigFactory } from '../environment/config-slice.js';
 import { defineEnvKeys } from '../environment/env-key.definition.js';
 import {
   API_CONFIG_FACTORIES,
+  API_CONFIG_MODULE_OPTIONS,
   API_CONFIG_SLICES,
   API_ENV_KEYS,
   API_ENV_VALIDATION_SCHEMA,
@@ -77,6 +78,36 @@ describe('API config registry', () => {
     ]);
 
     expect(registry.envKeys.map(({ key }) => key)).toEqual(['FIRST', 'SECOND']);
+  });
+});
+
+// These cases go through ConfigModule.forRoot so they keep holding when the framework moves the Joi options.
+describe('API ConfigModule options', () => {
+  const originalEnv = { ...process.env };
+
+  afterEach(() => {
+    for (const key of Object.keys(process.env)) {
+      if (!(key in originalEnv)) delete process.env[key];
+    }
+    Object.assign(process.env, originalEnv);
+  });
+
+  it('accepts process keys the API schema does not own', async () => {
+    process.env.KNU_CONFIG_OPTIONS_UNOWNED_KEY = 'kept';
+
+    await expect(
+      ConfigModule.forRoot({ ...API_CONFIG_MODULE_OPTIONS, ignoreEnvFile: true }),
+    ).resolves.toBeDefined();
+  });
+
+  it('reports every invalid key in one validation error', async () => {
+    process.env.HTTP_TRUST_PROXY_HOPS = 'not-a-number';
+    process.env.AUTH_LOGIN_BURST_LIMIT = 'not-a-number';
+
+    const failure = ConfigModule.forRoot({ ...API_CONFIG_MODULE_OPTIONS, ignoreEnvFile: true });
+
+    await expect(failure).rejects.toThrow(/HTTP_TRUST_PROXY_HOPS/u);
+    await expect(failure).rejects.toThrow(/AUTH_LOGIN_BURST_LIMIT/u);
   });
 });
 

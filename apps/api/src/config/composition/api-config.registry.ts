@@ -1,3 +1,4 @@
+import type { ConfigModuleOptions } from '@nestjs/config';
 import Joi from 'joi';
 import emailConfig from '../../auth/adapters/email/email.config.js';
 import { emailEnvKeys, emailEnvSchema } from '../../auth/adapters/email/email.env.js';
@@ -187,6 +188,20 @@ export const API_ENV_VALIDATION_SCHEMA = apiConfigRegistry.validationSchema.cust
   'chat proxy activation profile',
 );
 export const API_ENV_KEYS: readonly EnvKeyDefinition[] = apiConfigRegistry.envKeys;
+// The root ConfigModule options. Validation reports every invalid key and leaves process keys the API
+// schema does not own alone; api-config.registry.spec.ts checks both through ConfigModule itself.
+export const API_CONFIG_MODULE_OPTIONS = {
+  isGlobal: true,
+  cache: true,
+  load: API_CONFIG_FACTORIES,
+  validationSchema: API_ENV_VALIDATION_SCHEMA,
+  validationOptions: {
+    libraryOptions: {
+      abortEarly: false,
+      allowUnknown: true,
+    },
+  },
+} satisfies ConfigModuleOptions;
 
 function assertUnique(kind: string, values: readonly string[]): void {
   const duplicates = [...new Set(values.filter((value, index) => values.indexOf(value) !== index))];
