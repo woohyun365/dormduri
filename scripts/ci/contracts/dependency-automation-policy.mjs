@@ -6,6 +6,10 @@ export const VERSION_UPDATE_ECOSYSTEMS = {
   'docker-compose': { dependabot: 'docker-compose', renovate: 'docker-compose' },
 };
 
+// Renovate managers with no Dependabot ecosystem. Renovate is their only possible owner, so the single-owner check
+// does not cover them; nodenv keeps .node-version on the Node line of the node-image group.
+export const RENOVATE_ONLY_MANAGERS = ['nodenv'];
+
 function extractDependabotBlocks(config, ecosystem) {
   if (typeof config !== 'string') return [];
   const blocks = config.split(/\n(?=\s*-\s+package-ecosystem:)/u);
@@ -71,26 +75,91 @@ const AUTOMERGE_CONTRACT_KEYS = [
   'rebaseWhen',
 ];
 
+// Toolchain updates a person holds back stay on the Dependency Dashboard as approval lines; a disabled rule would hide
+// them from the Dashboard.
+const DASHBOARD_HELD_PACKAGES = ['typescript', 'eslint', '@eslint/js', 'pnpm'];
+
+// Renovate reads a matchPackageNames entry that starts with / or ! or holds a glob character as a regex, negation or
+// glob. This check does not evaluate patterns, so a disabled rule with one counts as hiding every held package.
+const isPackageNamePattern = (name) => /^[/!]|[*?{}[\]]/u.test(name);
+
+function validateDashboardVisibility(config) {
+  for (const packageName of DASHBOARD_HELD_PACKAGES) {
+    const hidden = config.packageRules.some(
+      (rule) =>
+        rule.enabled === false &&
+        (rule.matchPackageNames === undefined ||
+          rule.matchPackageNames.includes(packageName) ||
+          rule.matchPackageNames.some(isPackageNamePattern)),
+    );
+    if (hidden) {
+      throw new TypeError(
+        `${packageName} updates must stay visible as a dashboard approval line, not disabled`,
+      );
+    }
+  }
+}
+
 // pnpm is pinned in the root packageManager field (npm manager) and in the CI pnpm/action-setup version input
-// (github-actions manager). Both move only with a reviewed toolchain change, so Renovate must not update either one.
+// (github-actions manager). One group rule puts both pins, for every update type, on one dashboard approval line and
+// branch, so they move together and a person merges the PR after the cold lockfile benchmark and CI.
 const PNPM_PIN_SURFACES = [
   ['npm', 'packageManager'],
   ['github-actions', 'uses-with'],
 ];
+const PNPM_GROUP = 'pnpm-package-manager';
 
 function validatePnpmPins(config) {
   for (const [manager, depType] of PNPM_PIN_SURFACES) {
-    const disabled = config.packageRules.some(
+    const gated = config.packageRules.some(
       (rule) =>
-        rule.enabled === false &&
+        rule.enabled !== false &&
+        rule.groupName === PNPM_GROUP &&
+        rule.dependencyDashboardApproval === true &&
+        rule.automerge === false &&
         rule.matchPackageNames?.includes('pnpm') &&
         rule.matchUpdateTypes === undefined &&
         (rule.matchManagers === undefined || rule.matchManagers.includes(manager)) &&
         (rule.matchDepTypes === undefined || rule.matchDepTypes.includes(depType)),
     );
-    if (!disabled) {
-      throw new TypeError(`pnpm updates must stay disabled for the ${manager} ${depType} pin`);
+    if (!gated) {
+      throw new TypeError(
+        `pnpm updates must stay on one dashboard approval line for the ${manager} ${depType} pin`,
+      );
     }
+  }
+}
+
+// Major updates open one PR per dependency. The exception is a group rule that selects major by update type for the
+// ESLint core pair, which moves together. The pnpm group takes every update type, majors included, without selecting
+// major; it is the only group rule without an update-type filter.
+const ESLINT_MAJOR_GROUP = 'eslint-major';
+
+function validateMajorGroups(config) {
+  const majorGroups = config.packageRules.filter(
+    (rule) => rule.groupName !== undefined && rule.matchUpdateTypes?.includes('major'),
+  );
+  const [eslintMajor] = majorGroups;
+  if (
+    majorGroups.length !== 1 ||
+    eslintMajor.groupName !== ESLINT_MAJOR_GROUP ||
+    eslintMajor.groupSlug !== ESLINT_MAJOR_GROUP ||
+    !sameMembers(eslintMajor.matchManagers, ['npm']) ||
+    !sameMembers(eslintMajor.matchUpdateTypes, ['major']) ||
+    !sameMembers(eslintMajor.matchPackageNames, ['eslint', '@eslint/js']) ||
+    eslintMajor.dependencyDashboardApproval !== true ||
+    eslintMajor.automerge !== false
+  ) {
+    throw new TypeError(
+      'the only major group must be eslint-major with exactly eslint and @eslint/js, dashboard-gated and manual',
+    );
+  }
+
+  const everyUpdateTypeGroups = config.packageRules.filter(
+    (rule) => rule.groupName !== undefined && rule.matchUpdateTypes === undefined,
+  );
+  if (everyUpdateTypeGroups.some((rule) => rule.groupName !== PNPM_GROUP)) {
+    throw new TypeError('only the pnpm-package-manager group may group every update type');
   }
 }
 
@@ -166,13 +235,13 @@ export function validateHostedRenovateConfig(config) {
     throw new TypeError('hosted Renovate version-update owner must remain enabled');
   }
   if (
-    !sameMembers(
-      config.enabledManagers,
-      Object.values(VERSION_UPDATE_ECOSYSTEMS).map(({ renovate }) => renovate),
-    )
+    !sameMembers(config.enabledManagers, [
+      ...Object.values(VERSION_UPDATE_ECOSYSTEMS).map(({ renovate }) => renovate),
+      ...RENOVATE_ONLY_MANAGERS,
+    ])
   ) {
     throw new TypeError(
-      'enabledManagers must contain exactly npm, github-actions, dockerfile, and docker-compose',
+      'enabledManagers must contain exactly npm, github-actions, dockerfile, docker-compose, and nodenv',
     );
   }
   if (!sameMembers(config.baseBranchPatterns, ['dev'])) {
@@ -241,7 +310,9 @@ export function validateHostedRenovateConfig(config) {
   }
 
   validateAutomerge(config);
+  validateDashboardVisibility(config);
   validatePnpmPins(config);
+  validateMajorGroups(config);
 
   return structuredClone(config);
 }
