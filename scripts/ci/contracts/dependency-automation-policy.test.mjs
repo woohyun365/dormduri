@@ -345,7 +345,11 @@ test('keeps major updates dashboard-gated and manual, grouping only the ESLint c
   assert.ok(majorRule);
   assert.equal(majorRule.matchManagers, undefined);
   assert.equal(majorRule.automerge, false);
-  assert.equal(groupedMajorRules.length, 1);
+  assert.equal(
+    groupedMajorRules.length,
+    1,
+    'exactly one group rule (eslint-major) selects major updates',
+  );
   assert.deepEqual(groupedMajorRules[0].matchManagers, ['npm']);
   assert.deepEqual(groupedMajorRules[0].matchUpdateTypes, ['major']);
   assert.deepEqual([...groupedMajorRules[0].matchPackageNames].sort(), ['@eslint/js', 'eslint']);

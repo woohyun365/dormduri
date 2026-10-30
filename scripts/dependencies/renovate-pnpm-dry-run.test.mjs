@@ -53,6 +53,7 @@ test('materializes a credential-free pnpm workspace from the active repository p
         rule.matchDepTypes?.includes('packageManager') &&
         rule.matchPackageNames?.includes('pnpm'),
     ),
+    'local config must keep the pnpm-package-manager dashboard approval group',
   );
   // The root packageManager is the only pnpm version owner; the fixture keeps no copy of it.
   assert.equal(fixture.packageManager, undefined);
