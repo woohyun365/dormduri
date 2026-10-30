@@ -14,10 +14,11 @@ Mend-hosted Renovate (base branch: dev)
 ├── npm manager
 │   ├── pnpm catalog + workspace manifests + one lockfile
 │   ├── nine minor/patch owner groups
-│   ├── unsupported TypeScript/@eslint majors disabled
-│   └── pnpm package-manager upgrade remains manual (root + CI setup input)
+│   ├── ESLint core pair major: one eslint-major approval line
+│   └── pnpm package-manager: one approval line for every update type (root + CI setup input)
 ├── github-actions manager (full commit SHA + version comment)
 ├── dockerfile + docker-compose managers (tag@sha256 digest)
+├── nodenv manager (.node-version, node-image group with the Docker Node image)
 ├── security updates from GitHub vulnerability alerts
 ├── security·patch·minor·Docker digest: Renovate self-merge after CI summary
 └── major: Dependency Dashboard approval (a security fix opens at once), human review
@@ -27,14 +28,14 @@ GitHub Dependabot
 ```
 
 한 version-update surface에 두 updater를 동시에 활성화하지 않는다. `renovate.json`은 npm, `github-actions`,
-`dockerfile`, `docker-compose` manager를 활성화하고 `dev`를 base branch로 사용한다. `.github/dependabot.yml`은 두지 않고
-저장소 Settings의 Dependabot security updates는 끈다. Repository policy는 ecosystem마다 owner가 0개이거나 2개인 상태를
-모두 거부한다.
+`dockerfile`, `docker-compose`, `nodenv` manager를 활성화하고 `dev`를 base branch로 사용한다. `.github/dependabot.yml`은
+두지 않고 저장소 Settings의 Dependabot security updates는 끈다. Repository policy는 ecosystem마다 owner가 0개이거나
+2개인 상태를 모두 거부한다. `nodenv`(`.node-version`)는 대응하는 Dependabot ecosystem이 없어 Renovate가 유일한 owner다.
 
 Renovate와 Dependabot은 기본 branch(`main`)의 설정을 읽는다. `useBaseBranchConfig: "merge"`는 `dev` base branch에
 `dev`의 `renovate.json`을 합쳐 적용하므로, 이 설정이 `main`에 올라간 뒤의 `dev` 설정 변경은 승격 없이 효력을 갖는다.
 `.github/dependabot.yml` 삭제와 manager 추가처럼 기본 branch 설정이 정하는 변경은 `dev` → `main` 승격 뒤에 효력을
-갖는다.
+갖는다. 그래서 `nodenv` manager는 승격 전까지 Dashboard의 Detected Dependencies에 `.node-version`을 보이지 않는다.
 
 ## pnpm catalog와 lockfile 결정
 
@@ -49,10 +50,12 @@ Renovate npm update는 다음 변경만 허용한다. Image·workflow update는 
 
 기존 semver range가 새 버전을 이미 허용하면 manifest는 바뀌지 않고 lockfile resolution만 갱신될 수 있다. 이는 누락이
 아니라 정상적인 inline dependency no-change 결과다. pnpm CLI 자체는 lockfile format, CI action, cold lockfile
-benchmark와 함께 검토해야 하므로 일반 dependency group에서 자동 갱신하지 않는다. 현재 pin은 `pnpm@12.16.1`이고 root
-`packageManager`가 그 version을 소유한다. CI setup과 provider-independent fixture는 같은 exact version을 적고 test가
-대조한다. Node 26에는 Corepack이 없으므로 Docker image와 restore drill은 root `packageManager` 값을 읽어 npm으로
-설치하며 version을 따로 적지 않는다.
+benchmark와 함께 검토해야 하므로 일반 dependency group에서 자동 갱신하지 않는다. Root `packageManager`가 pnpm
+version을 소유한다. CI의 `pnpm/action-setup` `version` 입력은 같은 exact version을 적고 test가 대조한다.
+`pnpm-package-manager` group은 두 표면의 모든 update type을 한 Dashboard 승인 줄·한 branch로 묶는다. 승인과 merge는
+사람이 한다. Provider-independent dry-run fixture는 root `packageManager`를 읽으므로 version을 따로 적지 않는다.
+Node 26에는 Corepack이 없으므로 Docker image와 restore drill은 root `packageManager` 값을 읽어 npm으로 설치하며
+version을 따로 적지 않는다.
 
 pnpm pin은 업데이트 신규성만으로 고르지 않는다. 같은 workspace와 lockfile-only command를 isolated cache/store에서
 세 번씩 실행한 cold comparison(2026-10-30)에서 이전 pin 11.24.0은 median 1.94 GB, 12.x memory-fix floor 12.15.0은
@@ -71,18 +74,20 @@ package-manager owner가 자동 dependency group과 분리되어야 하는 이�
 Repository가 직접 검증한 지원선은 다음과 같다. 행마다 검증 시점이 다르며, runtime·framework 행은 지원 종료 일정과
 다음 전환 trigger를 함께 적는다.
 
-| 책임              | 지원선                                    | 결정 근거                                                                                                                                                               |
-| ----------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node runtime      | Node 26.13.0 LTS                          | local·CI·Docker를 한 줄로 검증; maintenance 2027-10-20, EOL 2029-04-30; Node 27 LTS 시작(2027-10-20)이 전환 plan trigger                                                |
-| backend framework | NestJS 12.3.2                             | API unit·integration·e2e와 lifecycle hook 순서 test 검증; NestJS는 지원 종료 일정을 발표하지 않으므로 NestJS 13 stable release가 전환 plan trigger                      |
-| ESLint core       | 9.39.5                                    | shared/API lint와 전체 CI 통과; ESLint 10은 plugin peer support가 완성될 때까지 Issue #395가 소유                                                                       |
-| TypeScript ESLint | 8.69.0                                    | parser·plugin·meta package를 같은 owner group으로 검증                                                                                                                  |
-| Node type         | 26.6.5                                    | Node 26 runtime line과 일치                                                                                                                                             |
-| SWC resolution    | `@swc/core` 1.16.20, `unplugin-swc` 2.0.0 | lockfile exact-candidate와 API compiler boundary 검증                                                                                                                   |
-| staged-file gate  | lint-staged 17.4.1                        | Node/Git engine과 partial-stage·failure rollback 계약 검증                                                                                                              |
-| formatter         | Prettier 3.9.6                            | formatter-only migration과 repository-wide format 검증을 분리해 지원선 전환                                                                                             |
-| compiler          | TypeScript 6.0.3                          | TypeScript 7은 ESLint ecosystem 호환 전까지 Issue #335가 소유                                                                                                           |
-| package manager   | pnpm 12.16.1                              | 11.24.0 대비 동일 cold lockfile workload median peak RSS 40.6% 감소와 frozen install 검증; pnpm 13 출시나 hosted Renovate의 pnpm 12 설치·lockfile 실패가 재검토 trigger |
+| 책임              | 지원선                                                                  | 결정 근거                                                                                                                                                                                                                                                                                                                          |
+| ----------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node runtime      | Node 26 LTS(`.node-version` patch)                                      | local·CI·Docker를 한 줄로 검증; `.node-version`과 Docker Node image patch는 `node-image` group이 한 PR로 옮긴다(두 datasource의 숙성 시각이 달라 한쪽이 잠깐 앞설 수 있고, policy test는 major만 대조한다); maintenance 2027-10-20, EOL 2029-04-30; Node 27 LTS 시작(2027-10-20)이 전환 plan trigger                               |
+| backend framework | NestJS 12.3.2                                                           | API unit·integration·e2e와 lifecycle hook 순서 test 검증; NestJS는 지원 종료 일정을 발표하지 않으므로 NestJS 13 stable release가 전환 plan trigger                                                                                                                                                                                 |
+| ESLint core       | 9.39.5                                                                  | shared/API lint와 전체 CI 통과; ESLint 10은 `eslint`·`@eslint/js` pair의 `eslint-major` Dashboard 승인 줄로 보이고, plugin peer support가 완성되면 승인해 fresh migration으로 옮긴다                                                                                                                                               |
+| TypeScript ESLint | 8.69.0                                                                  | parser·plugin·meta package를 같은 owner group으로 검증                                                                                                                                                                                                                                                                             |
+| Node type         | 26.6.5                                                                  | Node 26 runtime line과 일치                                                                                                                                                                                                                                                                                                        |
+| SWC resolution    | `@swc/core` 1.16.20, `unplugin-swc` 2.0.0                               | lockfile exact-candidate와 API compiler boundary 검증                                                                                                                                                                                                                                                                              |
+| staged-file gate  | lint-staged 17.4.1                                                      | Node/Git engine과 partial-stage·failure rollback 계약 검증                                                                                                                                                                                                                                                                         |
+| formatter         | Prettier 3.9.6                                                          | formatter-only migration과 repository-wide format 검증을 분리해 지원선 전환                                                                                                                                                                                                                                                        |
+| compiler          | TypeScript 6.0.3                                                        | TypeScript 7은 일반 major Dashboard 승인 줄로 보이고, ESLint ecosystem 호환이 확인되면 승인해 fresh migration으로 옮긴다                                                                                                                                                                                                           |
+| package manager   | pnpm 12(root `packageManager`)                                          | 11.24.0 대비 동일 cold lockfile workload median peak RSS 40.6% 감소와 frozen install 검증; `pnpm-package-manager` 승인 줄이 root와 CI 입력을 함께 옮긴다; pnpm 13 출시나 hosted Renovate의 pnpm 12 설치·lockfile 실패가 재검토 trigger                                                                                             |
+| container base OS | Debian 13 trixie(`node:<patch>-trixie-slim`)                            | API·Web·ingress fixture image build, API ready·SIGTERM, Web `GET /`, native load(sharp·Prisma adapter-pg·`@node-rs/argon2`)를 arm64 local smoke로 검증(amd64는 production 배포 전 release rehearsal에서 확인); 정규 보안 지원 2028-08-09, LTS 2030-06-30; Debian 14 release 뒤 Node 공식 slim 기본이 바뀌는 것이 전환 plan trigger |
+| CI runner         | GitHub-hosted `ubuntu-24.04`(product job), `ubuntu-slim`(orchestration) | 모든 PR CI가 검증; `ubuntu-26.04` GA(2026-09-17)는 Dashboard major 승인 줄로 둔다; GitHub의 24.04 deprecation 공지가 전환 plan trigger이고, 전환 때 `workflow-command-boundary` test의 runner 단언과 CI 비용 정책 단가를 함께 고친다                                                                                               |
 
 Web framework가 소유하는 `eslint-config-next`는 lint-tooling group에서 분리한다. Formatter는 Prettier CLI가 소유하며
 ESLint 안에서 동일 formatting 책임을 중복 실행하는 `eslint-plugin-prettier`는 두지 않는다.
@@ -104,17 +109,24 @@ npm minor/patch update는 현재 owner boundary에 따라 다음 group으로 나
 Image와 workflow update는 다음 group으로 나눈다.
 
 - `actions-minor-patch`: GitHub Actions minor/patch. 커밋 제목은 `ci(deps):`를 쓴다.
-- `postgres-image`, `node-image`: 여러 파일이 공유하는 PostgreSQL·Node image의 minor/patch/digest
+- `postgres-image`, `node-image`: 여러 파일이 공유하는 PostgreSQL·Node image의 minor/patch/digest. `node-image`는
+  `.node-version`(nodenv, `node-version` datasource)도 같은 PR로 옮긴다. CI `actions/setup-node`의 `node-version` 입력은
+  major(`26`)만 적고 `github-releases` datasource로 추출되어 이 group에 들지 않는다. Node 27 major는 일반 major 승인
+  규칙이 받는다.
 - `observability-images`: `infra/observability/**` Compose image의 minor/patch/digest
 
 Image tag와 digest는 owner 파일(Dockerfile·Compose·workflow) 하나가 소유하고 `infra/image-inventory.json`은 image 이름,
 owner 파일, repository만 소유한다. CI는 bot이 갱신하는 version·digest 값을 복제하지 않고 pin 형식과 owner 일치만
 검사한다([CI README](../../development/ci/README.md)).
 
-Major update는 group에 섞지 않고 Dependency Dashboard 승인 뒤에 독립 PR로 연다. 취약점을 고치는 version이 major뿐이면
-security update PR은 Renovate `vulnerabilityAlerts` 기본값(`dependencyDashboardApproval: false`)대로 승인 없이 열리고,
-major 규칙이 자동 merge를 막아 사람이 검토한다. TypeScript 7과 현재 ESLint toolchain이 지원하지 않는 major는
-compatibility revisit 조건이 충족될 때까지 config에서 차단한다.
+Major update는 group에 섞지 않고 Dependency Dashboard 승인 뒤에 독립 PR로 연다. 예외는 함께 움직여야 하는 ESLint core
+pair 하나다. `eslint-major` group이 `eslint`·`@eslint/js` major를 한 승인 줄·한 branch(`renovate/major-eslint-major`)로
+묶는다. Update type으로 major를 고르는 group은 이것뿐이고 policy test가 다른 이름·package·manager를 거부한다.
+`pnpm-package-manager` group은 update type을 가리지 않고 pnpm의 모든 update를 한 승인 줄로 묶으므로 이 major 예외와
+다르다. 취약점을 고치는 version이 major뿐이면 security update PR은 Renovate `vulnerabilityAlerts`
+기본값(`dependencyDashboardApproval: false`)대로 승인 없이 열리고, major 규칙이 자동 merge를 막아 사람이 검토한다.
+현재 toolchain이 지원하지 않는 major(TypeScript 7, ESLint 10)도 config에서 끄지 않고 승인 줄로 남긴다. 호환 조건이
+충족되면 Owner가 승인해 fresh migration으로 옮긴다.
 
 ## 자동 merge 경계
 
@@ -154,6 +166,9 @@ PR로 되돌린다.
 | correctness         | PR #354의 Shared·API·Web·Infra·repository policy·CI summary 통과                 |
 | reconciliation      | merge 후 사용한 approval과 branch가 제거되고 Dashboard가 남은 후보를 다시 계산함 |
 
+위 표는 2026-08-24 config 기준이다. 지금은 TypeScript 7, ESLint core pair, pnpm package-manager update를 차단하지 않고
+Dashboard 승인 줄로 보인다.
+
 원본 hosted job log는 Git으로 추적하지 않는 `.artifacts/tools/dependency-automation/`에 둔다. 재현 가능한 account-free
 lookup과 canonical lockfile rehearsal은 `pnpm dependency:renovate:dry-run`과 `scripts/dependencies/`가 소유한다.
 
@@ -163,7 +178,8 @@ Credential 없이 실행하는 dry-run은 두 경계를 결합한다.
 
 1. Renovate local platform `lookup`
    - catalog와 API/Web inline dependency 후보를 추출한다.
-   - owner group과 차단된 major를 확인한다.
+   - owner group과 Dashboard 승인 대기 후보(major와 `pnpm-package-manager` 승인 줄)를 가른다.
+   - branch가 없는 후보, 곧 비활성 규칙이 숨긴 update가 있으면 실패한다.
 2. canonical pnpm artifact rehearsal
    - lookup에서 승인된 target만 임시 workspace에 적용한다.
    - `pnpm install --lockfile-only --ignore-scripts`를 두 번 실행한다.
@@ -203,7 +219,9 @@ Hosted provider나 한 manager를 중단할 때 기본 branch 설정에 owner가
   끈다.
 - Bot PR 하나가 merge까지 rebase로 CI를 세 번 넘게 다시 돌거나 생성부터 merge까지 일주일을 넘긴다.
 - pnpm catalog 또는 lockfile update semantics가 변경된다.
-- pnpm CLI와 CI action·cold lockfile benchmark를 원자적으로 갱신할 owner boundary가 마련된다.
+- Renovate가 root `packageManager`와 CI `pnpm/action-setup` `version` 입력을 한 `pnpm-package-manager` branch로 묶지
+  못한다(다른 depType으로 추출되는 등).
+- `dev` → `main` 승격 뒤에도 Dashboard Detected Dependencies에 `.node-version`이 보이지 않는다.
 - Renovate CLI가 `engines.node`에 Node 26을 선언한다. Local dry-run의 Node 24 실행 안내를 지운다.
 - Provider job이 반복적으로 timeout되거나 branch/lockfile이 비결정적으로 생성된다.
 - 현재 pnpm pin이 동일 cold workload에서 fix floor보다 10% 넘게 memory regression을 보이거나 hosted lockfile OOM signature가

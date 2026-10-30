@@ -14,7 +14,7 @@ Settings의 목표와 마지막 확인 값은 [Remote repository settings](./rem
 - App identity: GitHub App `mend/renovate`
 - Repository scope: `woohyun365/dormduri` 하나
 - Product: Renovate Only; IaC 비활성
-- Repository config: `renovate.json.enabled=true`, npm·`github-actions`·`dockerfile`·`docker-compose` manager, base `dev`,
+- Repository config: `renovate.json.enabled=true`, npm·`github-actions`·`dockerfile`·`docker-compose`·`nodenv` manager, base `dev`,
   security·patch·minor·Docker digest PR의 Renovate 자체 merge(`automergeType: "pr"`, `platformAutomerge: false`)
 - Portal: Dependency Updates ON, Silent mode OFF, Automated PRs ON, Require config file ON, onboarding PR OFF
 - Dashboard: [Issue #353](https://github.com/woohyun365/dormduri/issues/353)

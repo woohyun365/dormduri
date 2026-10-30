@@ -8,18 +8,19 @@
 
 ## Owner map
 
-| Ecosystem                       | Owner                  | Target |
-| ------------------------------- | ---------------------- | ------ |
-| npm/pnpm dependency versions    | Mend-hosted Renovate   | `dev`  |
-| GitHub Actions                  | Mend-hosted Renovate   | `dev`  |
-| Docker images(Dockerfile)       | Mend-hosted Renovate   | `dev`  |
-| Docker Compose images           | Mend-hosted Renovate   | `dev`  |
-| Security updates(alert 기반 PR) | Mend-hosted Renovate   | `dev`  |
-| Vulnerability alerts            | Dependabot(alert 전용) | 없음   |
-| pnpm package-manager            | Manual reviewed change | `dev`  |
+| Ecosystem                       | Owner                                               | Target |
+| ------------------------------- | --------------------------------------------------- | ------ |
+| npm/pnpm dependency versions    | Mend-hosted Renovate                                | `dev`  |
+| GitHub Actions                  | Mend-hosted Renovate                                | `dev`  |
+| Docker images(Dockerfile)       | Mend-hosted Renovate                                | `dev`  |
+| Docker Compose images           | Mend-hosted Renovate                                | `dev`  |
+| Security updates(alert 기반 PR) | Mend-hosted Renovate                                | `dev`  |
+| Vulnerability alerts            | Dependabot(alert 전용)                              | 없음   |
+| pnpm package-manager            | Mend-hosted Renovate(Dashboard 승인 줄, 사람 merge) | `dev`  |
+| `.node-version`(nodenv)         | Mend-hosted Renovate                                | `dev`  |
 
 두 bot은 기본 branch(`main`)의 설정을 읽는다. 이 owner map은 `.github/dependabot.yml` 삭제와 Renovate manager 추가가
-`dev` → `main` 승격으로 기본 branch에 올라간 뒤 효력을 갖는다.
+`dev` → `main` 승격으로 기본 branch에 올라간 뒤 효력을 갖는다. `nodenv` manager 추가로 생긴 `.node-version` 행도 같다.
 
 ## Routine Renovate flow
 
@@ -27,7 +28,8 @@
    뒤 3일을 기다린다.
 2. Security·patch·minor PR과 Docker image digest PR은 `CI summary`가 통과하고 `dev`에 최신이면 Renovate가 squash merge한다.
    `dev`가 움직이면 Renovate가 branch를 rebase하고 CI가 다시 돈다. 사람은 이 PR을 merge하지 않는다.
-3. Major는 [Dependency Dashboard #353](https://github.com/woohyun365/dormduri/issues/353)에서 한 후보만 체크해 PR을 연다.
+3. Major와 pnpm 승인 줄은 [Dependency Dashboard #353](https://github.com/woohyun365/dormduri/issues/353)에서 한 후보만 체크해
+   PR을 연다. pnpm은 아래 [pnpm package-manager 변경](#pnpm-package-manager-변경)의 비교를 먼저 한다.
    `Create all pending approval PRs at once`는 체크하지 않는다. 취약점을 고치는 version이 major뿐인 security update PR은
    승인 없이 바로 열린다.
 4. Major PR과 GitHub Actions digest PR(같은 tag가 다른 commit을 가리킴)은 아래 checklist로 읽고 사람이 squash merge한다.
@@ -62,7 +64,7 @@ Dashboard에서 여러 group이 같은 작업처럼 보여도 framework, persist
 | ---------------------- | ---------------------------------------------------------------------- |
 | `actions-minor-patch`  | GitHub Actions minor/patch(full commit SHA와 version 주석을 함께 갱신) |
 | `postgres-image`       | local·CI·rehearsal이 공유하는 PostgreSQL image                         |
-| `node-image`           | API·Web runtime과 fixture가 공유하는 Node image                        |
+| `node-image`           | API·Web runtime과 fixture가 공유하는 Node image와 `.node-version`      |
 | `observability-images` | `infra/observability/**` Compose image                                 |
 
 Image tag와 digest는 owner 파일 하나가 소유한다. `infra/image-inventory.json`은 image 이름, owner 파일, repository만
@@ -81,7 +83,7 @@ gh pr checks <number>
 - Catalog, owning manifest, lockfile, image·workflow owner 파일 밖의 unrelated file이 없는가?
 - GitHub Actions digest PR이면 같은 tag가 가리키는 새 commit을 upstream release·tag 이력에서 확인했는가?
 - Lockfile diff가 approved package group과 transitive resolution으로 설명되는가?
-- Major, pnpm package-manager, blocked compiler update가 섞이지 않았는가?
+- Major와 pnpm 승인 줄 update가 다른 group update와 섞이지 않았는가?
 - Shared·API·Web·Infra·repository policy와 CI summary가 모두 통과했는가?
 - Production dependency라면 release note, runtime behavior, migration 필요성을 별도로 검토했는가?
 
@@ -90,7 +92,7 @@ manifest diff로 만들지 않는다.
 
 ## Dashboard controls
 
-- Major checkbox: 해당 major branch를 다음 job에서 승인한다.
+- Major·pnpm checkbox: 해당 branch를 다음 job에서 승인한다. pnpm은 cold lockfile 비교 뒤에만 체크한다.
 - `Create all ...`: 사용하지 않는다.
 - Manual job checkbox: queue가 비어 있을 때만 한 번 사용한다.
 - Silent mode: incident나 installation 검증용 scan-only 경계다.
@@ -176,23 +178,25 @@ Provider 장애를 이유로 개인 PAT 기반 bot이나 repository-owned lifecy
 
 ## pnpm package-manager 변경
 
-pnpm CLI는 Renovate owner group checkbox로 승인하지 않는다. Root `packageManager`, CI reference, lockfile semantics와
-cold-resolution memory가 하나의 compatibility unit이기 때문이다. `github-actions` manager는 `pnpm/action-setup`의
-`version` 입력을 `pnpm` 의존성으로 읽으므로 root `packageManager`와 같은 비활성 규칙이 그 입력도 막는다. 변경 시 현재 pin,
-upstream memory-fix floor와 최신
-release-age-eligible stable candidate를 동일한 isolated cache/store workload로 비교하고 exit status, wall time, peak RSS를
-기록한다. Local 결과가 좋아도 hosted provider recovery로 간주하지 않으며, Renovate가 scan하는 `dev`에 반영한 뒤 한 번의 Mend scan에서
-lockfile command completion을 별도로 확인한다.
+pnpm CLI는 일반 owner group에 섞지 않는다. Root `packageManager`, CI reference, lockfile semantics와 cold-resolution
+memory가 하나의 compatibility unit이기 때문이다. `pnpm-package-manager` group이 root `packageManager`와
+`pnpm/action-setup`의 `version` 입력(`github-actions` manager가 `pnpm` 의존성으로 읽음)의 모든 update type을 한 Dashboard
+승인 줄·한 branch로 묶고 자동 merge하지 않는다. Root `packageManager`가 version을 소유하므로 다른 곳에 exact version
+사본을 두지 않는다.
 
-현재 검증 pin은 `pnpm@12.16.1`이다. pnpm 12는 native binary라 `toolSettings.nodeMaxMemory`가 pnpm을 제한하지
-않으므로 merge 전 memory 신호는 이 비교의 peak RSS뿐이다. 재현 가능한 비교는 `pnpm dependency:pnpm:cold-benchmark`를 사용하며, 결과 artifact는
-`.artifacts/tools/dependency-automation/`에만 둔다. 이 benchmark는 dependency update를 승인하거나 provider credential을
-사용하지 않으며 disposable workspace만 변경한다.
+1. 승인 전: 현재 pin, upstream memory-fix floor와 승인 줄의 후보를 동일한 isolated cache/store workload로 비교하고 exit
+   status, wall time, peak RSS를 기록한다. 재현 가능한 비교는 `pnpm dependency:pnpm:cold-benchmark`를 사용하며 결과
+   artifact는 `.artifacts/tools/dependency-automation/`에만 둔다. 이 benchmark는 dependency update를 승인하거나 provider
+   credential을 사용하지 않으며 disposable workspace만 변경한다.
+2. 비교가 통과하면 Dashboard에서 그 줄 하나만 체크한다.
+3. Renovate PR의 bot branch에 사람 commit을 더하지 않는다. CI가 통과하면 사람이 위 checklist로 리뷰하고 squash merge한다.
+   CI가 실패하면 Routine flow 5번대로 fresh `dev` 기반 branch에서 고친다.
+4. Hosted job이 lockfile command에서 `kernel-out-of-memory`로 끝나면 Owner가 그때 문제 해결 이슈를 만들어 처리한다.
+   [Mend-hosted Renovate pnpm lockfile OOM](../troubleshooting/tooling/renovate-pnpm11-hosted-oom.md)의 기록과 fallback은
+   그 이슈의 입력이다.
 
-Local RSS 감소와 full CI 성공은 repository compatibility 증거이지 hosted recovery 증거가 아니다. `dev` 반영 후
-수동 scan이 소비되었더라도 승인된 exact candidate의 paired lockfile completion과 branch/PR이 없으면 provider
-materialization을 `GO`로 기록하지 않는다. 이 경우 동일 scan을 반복하지 않고 terminal `NO-GO`로 닫은 뒤,
-첫 안전한 미래 owner-group candidate가 그 시점의 재평가를 소유하게 한다.
+pnpm 12는 native binary라 `toolSettings.nodeMaxMemory`가 pnpm을 제한하지 않으므로 merge 전 memory 신호는 1번 비교의
+peak RSS뿐이다. Local RSS 감소와 full CI 성공은 repository compatibility 증거이지 hosted lockfile 생성의 증거가 아니다.
 
 ## Repository formatter supported-line migration
 

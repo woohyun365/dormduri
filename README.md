@@ -137,7 +137,7 @@ AI가 실제 팀 협업이나 운영 경험을 대신한다고 보지 않습니�
 
 ### 필요 환경
 
-Node.js `>=26 <27` · pnpm `12.16.1` · Docker · Docker Compose
+Node.js `>=26 <27` · pnpm 12(version은 root `package.json`의 `packageManager`) · Docker · Docker Compose
 
 ### 로컬 실행
 

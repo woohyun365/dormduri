@@ -102,13 +102,14 @@ acceptance가 포함된 Issue만 `Closes #N`으로 종료합니다.
 ## Dependency update flow
 
 - 모든 version update와 보안 update PR은 Renovate가 `dev`를 대상으로 생성하고(npm/pnpm, GitHub Actions, Dockerfile,
-  Docker Compose), 제품 변경과 같은 integration gate를 거친 뒤 `main`으로 승격합니다. Dependabot은 alert만 맡습니다.
+  Docker Compose, `.node-version`), 제품 변경과 같은 integration gate를 거친 뒤 `main`으로 승격합니다. Dependabot은 alert만 맡습니다.
   Dependabot security update는 `target-branch`와 상관없이 default branch를 대상으로 하므로 저장소 Settings에서 끕니다.
 - security·patch·minor PR과 Docker image digest PR은 `CI summary`가 통과하고 `dev`에 최신이면 Renovate가 squash merge합니다.
   major와 GitHub Actions digest PR은 사람이 검토합니다. 자세한 절차는
   [Dependency update operations](./dependency-updates.md)를 따릅니다.
 - minor/patch update는 Renovate의 bounded owner group 안에서만 묶습니다. major update와 서로 다른 runtime stack은 원인
-  격리를 위해 독립 PR로 유지합니다.
+  격리를 위해 독립 PR로 유지합니다. 예외는 함께 움직이는 ESLint core pair(`eslint`·`@eslint/js`) major의 `eslint-major`
+  승인 줄 하나입니다. pnpm은 update type과 관계없이 root와 CI 입력을 한 승인 줄로 묶고 사람이 merge합니다.
 - Renovate는 label을 붙이지 않습니다. custom label이 필요하다면 원격 repository에 실제로 존재하는지 먼저 확인합니다.
 - 두 bot은 default branch의 설정을 읽습니다. 기존 PR은 설정 변경만으로 target branch가 바뀐다고 가정하지 않고, 설정이
   default branch에 반영된 뒤 close/recreate 여부를 확인합니다.

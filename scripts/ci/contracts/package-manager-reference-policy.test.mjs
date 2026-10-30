@@ -6,6 +6,7 @@ import test from 'node:test';
 const manifest = JSON.parse(readFileSync(resolve('package.json'), 'utf8'));
 const expectedVersion = manifest.packageManager?.match(/^pnpm@(\d+\.\d+\.\d+)$/u)?.[1];
 
+// Renovate's pnpm-package-manager group moves the root packageManager and these setup inputs on one branch.
 // The restore drill installs the root packageManager itself, so it carries no version to compare.
 const workflowPaths = [
   '.github/workflows/api-ci.yml',
@@ -22,11 +23,6 @@ test('CI pnpm setup references match the exact root pnpm version', () => {
     assert.ok(versions.length > 0, `${path} must contain an active pnpm setup reference`);
     assert.deepEqual([...new Set(versions)], [expectedVersion], `${path} pnpm version drifted`);
   }
-
-  const renovateFixture = JSON.parse(
-    readFileSync(resolve('scripts/dependencies/fixtures/renovate-pnpm-dry-run.json'), 'utf8'),
-  );
-  assert.equal(renovateFixture.packageManager, manifest.packageManager);
 });
 
 test('the restore drill and Docker images install pnpm from the root packageManager', () => {
