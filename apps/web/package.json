@@ -43,7 +43,7 @@
     "@sentry/nextjs": "catalog:",
     "@tabler/icons-react": "^3.49.0",
     "lucide-react": "^1.61.0",
-    "motion": "^13.5.1",
+    "motion": "^14.7.1",
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
