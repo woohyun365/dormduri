@@ -21,7 +21,8 @@
 
 두 bot은 기본 branch(`main`)의 설정을 읽는다. Dependabot 쪽(`.github/dependabot.yml` 삭제)은 `dev` → `main` 승격으로
 기본 branch에 올라간 뒤 효력을 갖는다. Renovate 쪽은 [base branch 설정 합치기](../../architecture/platform/dependency-automation.md#현재-구조)를
-따른다. manager 추가(`.node-version` 행)는 `dev` merge 뒤에, `dev`에서 지운 `packageRules`는 승격 뒤에 효력을 갖는다.
+따른다. manager 추가(`.node-version` 행)는 `dev` merge 뒤에 효력을 갖는다. `dev`에서 지운 `packageRules` 값은 다른 `dev` 규칙이
+다시 정하지 않으면 승격 뒤에 효력을 갖는다.
 
 ## Routine Renovate flow
 

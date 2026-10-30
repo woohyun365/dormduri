@@ -35,10 +35,16 @@ GitHub Dependabot
 Renovate와 Dependabot은 기본 branch(`main`)의 설정을 읽는다. Renovate는 `useBaseBranchConfig: "merge"`로 `dev` base
 branch를 처리할 때 `main` 설정 위에 `dev`의 `renovate.json`을 합친다. 합치는 방식은 option마다 다르다.
 
-- `enabledManagers`처럼 mergeable이 아닌 option은 `dev` 값이 `main` 값을 바꾼다. 그래서 manager 추가는 `dev` merge 뒤
-  Renovate 실행부터 효력을 갖고, `nodenv`의 `.node-version`도 그때부터 Dashboard Detected Dependencies에 보인다.
-- `packageRules`처럼 mergeable인 배열은 `main` 규칙 뒤에 `dev` 규칙을 이어 붙인다. `dev`에서 더한 규칙과 뒤 규칙이 덮는
-  값은 바로 효력을 갖지만, `dev`에서 지운 규칙은 `main` 사본이 계속 적용되므로 `dev` → `main` 승격 뒤에 효력을 갖는다.
+- `enabledManagers`처럼 dependency 처리에 쓰는 mergeable이 아닌 option은 `dev` 값이 `main` 값을 바꾼다. 그래서 manager
+  추가는 `dev` merge 뒤 Renovate 실행부터 효력을 갖고, `nodenv`의 `.node-version`도 그때부터 Dashboard Detected
+  Dependencies에 보인다.
+- `packageRules`처럼 mergeable인 배열은 `main` 규칙 뒤에 `dev` 규칙을 이어 붙이고, 같은 key는 뒤 규칙의 값이 이긴다. `dev`에서
+  더한 규칙과 `dev` 규칙이 다시 정하는 값은 바로 효력을 갖는다. `dev`에서 지운 규칙의 값은 그 key를 다시 정하는 `dev` 규칙이
+  없을 때만(예: `enabled: false`, 지운 group의 `groupName`) `main` 사본이 계속 적용되어 `dev` → `main` 승격 뒤에 효력을
+  갖는다. 지운 group 규칙의 `automerge: false`처럼 다른 `dev` 규칙(minor·patch `automerge: true`)이 다시 정하는 값은 `dev` merge
+  직후 바뀐다.
+- Base branch 목록(`baseBranchPatterns`)은 합친 뒤 기본 branch 값으로 되돌리고, Dependency Dashboard는 기본 branch 설정으로
+  만든다. 이런 repository 수준 설정은 승격 뒤에 효력을 갖는다.
 - `.github/dependabot.yml` 삭제처럼 Dependabot 설정은 기본 branch에서만 효력을 갖는다.
 
 ## pnpm catalog와 lockfile 결정
@@ -190,7 +196,9 @@ Credential 없이 실행하는 dry-run은 두 경계를 결합한다.
    - 두 번째 lockfile hash가 같아야 통과한다.
 
 Local platform은 branch 생성을 지원하지 않으므로 이 검증은 hosted App을 대체하지 않는다. Provider permission 없이
-config·package-manager correctness를 빠르게 회귀 검증하기 위한 보조 경계다.
+config·package-manager correctness를 빠르게 회귀 검증하기 위한 보조 경계다. Dry-run은 checkout의 `renovate.json` 하나만
+읽고 기본 branch 설정과 합치지 않는다. 그래서 `dev`에서 지웠지만 승격 전 `main`에 남은 규칙(예: `enabled: false`)이 hosted
+후보를 숨기는 기간은 dry-run이 통과해도 [현재 구조](#현재-구조)의 합치는 방식으로 판단한다.
 
 Renovate CLI는 `engines.node`를 `^24.11.0`으로만 선언하고, 그 밖의 Node에서는 "Unsupported node environment" error를
 남긴 뒤 non-zero로 끝난다. 그래서 Renovate가 Node 26을 선언할 때까지 local dry-run은 Node 24 runtime으로 실행한다(예:
@@ -226,8 +234,9 @@ Hosted provider나 한 manager를 중단할 때 기본 branch 설정에 owner가
 - pnpm catalog 또는 lockfile update semantics가 변경된다.
 - Renovate가 root `packageManager`와 CI `pnpm/action-setup` `version` 입력을 한 `pnpm-package-manager` branch로 묶지
   못한다(다른 depType으로 추출되는 등).
-- Renovate가 `useBaseBranchConfig: "merge"`의 합치는 방식(`enabledManagers`는 `dev` 값으로 바꾸고 `packageRules`는 `main`
-  규칙 뒤에 이어 붙임)을 바꾼다. [현재 구조](#현재-구조)의 효력 시점 서술을 다시 확인한다.
+- Renovate가 `useBaseBranchConfig: "merge"`의 합치는 방식(`enabledManagers`는 `dev` 값으로 바꾸고, `packageRules`는 `main`
+  규칙 뒤에 이어 붙이고, `baseBranchPatterns`는 기본 branch 값으로 되돌림)을 바꾼다. [현재 구조](#현재-구조)의 효력 시점 서술을
+  다시 확인한다.
 - Renovate CLI가 `engines.node`에 Node 26을 선언한다. Local dry-run의 Node 24 실행 안내를 지운다.
 - Provider job이 반복적으로 timeout되거나 branch/lockfile이 비결정적으로 생성된다.
 - 현재 pnpm pin이 동일 cold workload에서 fix floor보다 10% 넘게 memory regression을 보이거나 hosted lockfile OOM signature가
