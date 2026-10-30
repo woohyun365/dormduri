@@ -7,6 +7,7 @@ import {
   applyFixtureTargets,
   buildFixtureFiles,
   createSanitizedDryRunEnvironment,
+  dashboardApprovalBranches,
   parseDryRunFixture,
   parseRenovateLookupLog,
   summarizeChangedFiles,
@@ -86,8 +87,14 @@ test('passes only public-registry process state to the disposable tools', () => 
   });
 });
 
-test('parses proposed owner branches while keeping blocked updates out of final branches', () => {
-  const evidence = parseRenovateLookupLog(lookupLog);
+test('names the non-major approval group branches of the active repository policy', () => {
+  assert.deepEqual(dashboardApprovalBranches(repositoryConfig), ['renovate/pnpm-package-manager']);
+});
+
+test('parses owner branches and keeps dashboard approval lines apart from them', () => {
+  const evidence = parseRenovateLookupLog(lookupLog, {
+    approvalBranches: dashboardApprovalBranches(repositoryConfig),
+  });
 
   assert.equal(evidence.renovateVersion, '44.7.2');
   assert.deepEqual(evidence.extraction, { depCount: 8, fileCount: 4 });
@@ -100,12 +107,56 @@ test('parses proposed owner branches while keeping blocked updates out of final 
     ],
   );
   assert.deepEqual(
-    evidence.blockedUpdates.map(({ packageName }) => packageName),
+    evidence.pendingApprovalUpdates.map(({ packageName, updateType, branchName }) => [
+      packageName,
+      updateType,
+      branchName,
+    ]),
+    [['typescript', 'major', 'renovate/typescript-7.x']],
+  );
+  assert.deepEqual(evidence.hiddenUpdates, []);
+  assert.equal(evidence.durationMs, 409);
+  assert.equal(evidence.outputBytes, Buffer.byteLength(lookupLog));
+});
+
+test('treats a pnpm release as an approval line and a branchless update as hidden', () => {
+  const records = lookupLog
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+  const packageFiles = records.find(({ msg }) => msg === 'packageFiles with updates');
+  const root = packageFiles.config.npm.find(({ packageFile }) => packageFile === 'package.json');
+  const pnpm = root.deps.find(({ depName }) => depName === 'pnpm');
+  pnpm.updates = [
+    { newVersion: '12.17.0', updateType: 'minor', branchName: 'renovate/pnpm-package-manager' },
+  ];
+  const pnpmBranch = {
+    level: 20,
+    repository: 'local',
+    branch: 'renovate/pnpm-package-manager',
+    msg: 'Branch is not pending, removing pending upgrades',
+  };
+  const withPnpm = [pnpmBranch, ...records].map((record) => JSON.stringify(record)).join('\n');
+  const withoutTypescriptBranch = lookupLog
+    .trim()
+    .split('\n')
+    .filter((line) => JSON.parse(line).branch !== 'renovate/typescript-7.x')
+    .join('\n');
+  const options = { approvalBranches: dashboardApprovalBranches(repositoryConfig) };
+
+  const pnpmEvidence = parseRenovateLookupLog(withPnpm, options);
+  assert.deepEqual(
+    pnpmEvidence.pendingApprovalUpdates.map(({ packageName }) => packageName),
+    ['pnpm', 'typescript'],
+  );
+  assert.ok(!pnpmEvidence.proposedUpdates.some(({ packageName }) => packageName === 'pnpm'));
+
+  const hiddenEvidence = parseRenovateLookupLog(withoutTypescriptBranch, options);
+  assert.deepEqual(
+    hiddenEvidence.hiddenUpdates.map(({ packageName }) => packageName),
     ['typescript'],
   );
-  assert.equal(evidence.filteredUpdateCount, 1);
-  assert.equal(evidence.durationMs, 1600);
-  assert.equal(evidence.outputBytes, Buffer.byteLength(lookupLog));
+  assert.deepEqual(hiddenEvidence.pendingApprovalUpdates, []);
 });
 
 test('applies only the three approved source targets before canonical lockfile regeneration', () => {

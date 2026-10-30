@@ -35,17 +35,16 @@
       "file": "apps/web/package.json"
     }
   ],
-  "blockedUpdates": [
+  "pendingApprovalUpdates": [
     {
       "kind": "catalog",
       "packageName": "typescript",
       "from": "6.0.3",
-      "candidate": "7.0.2",
       "updateType": "major",
       "file": "pnpm-workspace.yaml"
     }
   ],
-  "suppressedPackageManagers": ["pnpm"],
+  "approvalPackageManagers": ["pnpm"],
   "allowedChangedFiles": [
     "apps/api/package.json",
     "apps/web/package.json",

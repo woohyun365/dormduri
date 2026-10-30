@@ -51,24 +51,33 @@ export function parseDryRunFixture(input) {
   if (!Array.isArray(input.updates) || input.updates.length !== 3) {
     throw new TypeError('updates must contain the catalog, API, and Web cases');
   }
-  if (!Array.isArray(input.blockedUpdates) || input.blockedUpdates.length < 1) {
-    throw new TypeError('blockedUpdates must include the unsupported major case');
+  if (
+    !Array.isArray(input.pendingApprovalUpdates) ||
+    !input.pendingApprovalUpdates.some(({ updateType }) => updateType === 'major')
+  ) {
+    throw new TypeError('pendingApprovalUpdates must include the dashboard-gated major case');
   }
   if (
-    !Array.isArray(input.suppressedPackageManagers) ||
-    !input.suppressedPackageManagers.includes('pnpm')
+    !Array.isArray(input.approvalPackageManagers) ||
+    !input.approvalPackageManagers.includes('pnpm')
   ) {
-    throw new TypeError('suppressedPackageManagers must include pnpm');
+    throw new TypeError('approvalPackageManagers must include pnpm');
   }
   if (!Array.isArray(input.allowedChangedFiles) || input.allowedChangedFiles.length !== 4) {
     throw new TypeError('allowedChangedFiles must contain three sources and one lockfile');
   }
 
-  for (const [index, update] of [...input.updates, ...input.blockedUpdates].entries()) {
+  for (const [index, update] of [...input.updates, ...input.pendingApprovalUpdates].entries()) {
     for (const fieldName of ['kind', 'packageName', 'from', 'updateType', 'file']) {
       assertNonEmptyString(update[fieldName], `update[${index}].${fieldName}`);
     }
-    assertNonEmptyString(update.to ?? update.candidate, `update[${index}].target`);
+  }
+  for (const [index, update] of input.updates.entries()) {
+    assertNonEmptyString(update.to, `updates[${index}].to`);
+  }
+  // A pending approval line takes whatever version upstream publishes next, so the fixture names no target.
+  if (input.pendingApprovalUpdates.some((update) => update.to !== undefined)) {
+    throw new TypeError('pendingApprovalUpdates must not pin a target version');
   }
 
   const kinds = uniqueSorted(input.updates.map(({ kind }) => kind));
@@ -107,7 +116,7 @@ export function buildFixtureFiles({ fixture, packageManager, repositoryConfig })
   localConfig.packageRules.push(...fixture.updates.map(exactVersionRule));
 
   const catalogUpdate = fixture.updates.find(({ kind }) => kind === 'catalog');
-  const blockedCatalog = fixture.blockedUpdates.find(({ kind }) => kind === 'catalog');
+  const pendingCatalog = fixture.pendingApprovalUpdates.find(({ kind }) => kind === 'catalog');
   const apiUpdate = fixture.updates.find(({ kind }) => kind === 'inline-api');
   const webUpdate = fixture.updates.find(({ kind }) => kind === 'inline-web');
 
@@ -118,7 +127,7 @@ export function buildFixtureFiles({ fixture, packageManager, repositoryConfig })
       dependencies: { [apiUpdate.packageName]: apiUpdate.from },
       devDependencies: {
         [catalogUpdate.packageName]: 'catalog:',
-        [blockedCatalog.packageName]: 'catalog:',
+        [pendingCatalog.packageName]: 'catalog:',
       },
     }),
     'apps/web/package.json': json({
@@ -138,7 +147,7 @@ export function buildFixtureFiles({ fixture, packageManager, repositoryConfig })
       '',
       'catalog:',
       `  ${catalogUpdate.packageName}: ${catalogUpdate.from}`,
-      `  ${blockedCatalog.packageName}: ${blockedCatalog.from}`,
+      `  ${pendingCatalog.packageName}: ${pendingCatalog.from}`,
       '',
     ].join('\n'),
     'renovate.json': json(localConfig),
@@ -171,17 +180,34 @@ function ownerGroupFromBranch(branchName) {
   return branchName?.startsWith('renovate/') ? branchName.slice('renovate/'.length) : null;
 }
 
-export function parseRenovateLookupLog(input) {
+// Non-major branches that open only after a person approves them on the Dependency Dashboard. The policy keeps every
+// major dashboard-gated, and Renovate names a group's major branch renovate/major-<groupSlug>, so a group that takes
+// only majors (eslint-major) adds no branch here.
+export function dashboardApprovalBranches(repositoryConfig) {
+  return repositoryConfig.packageRules
+    .filter((rule) => rule.groupSlug && rule.dependencyDashboardApproval === true)
+    .filter(
+      ({ matchUpdateTypes }) =>
+        !matchUpdateTypes || matchUpdateTypes.some((updateType) => updateType !== 'major'),
+    )
+    .map((rule) => `renovate/${rule.groupSlug}`)
+    .sort();
+}
+
+// Lookup mode stops before Renovate processes branches, so the log does not show the approval state. A candidate is
+// pending approval when it is a major or sits on an approval group branch. The harness clears minimumReleaseAge, so
+// every enabled branch logs a branch record; a candidate without one was filtered out by a disabled rule.
+export function parseRenovateLookupLog(input, { approvalBranches = [] } = {}) {
   assertNonEmptyString(input, 'Renovate lookup log');
   const records = parseJsonLogLines(input);
   const started = records.find(({ msg }) => msg === 'Renovate started');
   const extraction = records.find(({ msg }) => msg === 'Dependency extraction complete');
   const packageFiles = records.find(({ msg }) => msg === 'packageFiles with updates');
   const finished = records.find(({ msg }) => msg === 'Repository finished');
-  const filtered = records.find(({ msg }) => /Filtered out \d+ disabled update/u.test(msg));
-  const finalBranches = new Set(
+  const branches = new Set(
     records.filter(({ branch }) => typeof branch === 'string').map(({ branch }) => branch),
   );
+  const approval = new Set(approvalBranches);
 
   if (!started?.renovateVersion || !extraction?.stats?.total || !packageFiles?.config?.npm) {
     throw new Error('Renovate lookup log is missing required extraction evidence');
@@ -204,21 +230,23 @@ export function parseRenovateLookupLog(input) {
     ),
   );
   const sortByPackageName = (left, right) => left.packageName.localeCompare(right.packageName);
-  const filteredMatch = filtered?.msg.match(/Filtered out (\d+) disabled update/u);
+  const visible = candidates.filter(({ branchName }) => branches.has(branchName));
+  const isPendingApproval = ({ branchName, updateType }) =>
+    updateType === 'major' || approval.has(branchName);
 
   return {
-    blockedUpdates: candidates
-      .filter(({ branchName }) => !finalBranches.has(branchName))
-      .sort(sortByPackageName),
     durationMs: finished.durationMs,
     extraction: {
       depCount: extraction.stats.total.depCount,
       fileCount: extraction.stats.total.fileCount,
     },
-    filteredUpdateCount: Number(filteredMatch?.[1] ?? 0),
+    hiddenUpdates: candidates
+      .filter(({ branchName }) => !branches.has(branchName))
+      .sort(sortByPackageName),
     outputBytes: Buffer.byteLength(input),
-    proposedUpdates: candidates
-      .filter(({ branchName }) => finalBranches.has(branchName))
+    pendingApprovalUpdates: visible.filter(isPendingApproval).sort(sortByPackageName),
+    proposedUpdates: visible
+      .filter((candidate) => !isPendingApproval(candidate))
       .sort(sortByPackageName),
     renovateVersion: started.renovateVersion,
   };
@@ -346,6 +374,19 @@ function assertLookupMatchesFixture(evidence, fixture) {
   ) {
     throw new Error(`Renovate extraction drifted: ${JSON.stringify(evidence.extraction)}`);
   }
+  if (evidence.hiddenUpdates.length !== 0) {
+    throw new Error(
+      `Renovate filtered out updates that must stay on the Dashboard: ${JSON.stringify(evidence.hiddenUpdates.map(({ packageName }) => packageName))}`,
+    );
+  }
+  const automaticPackageManager = evidence.proposedUpdates.find(({ packageName }) =>
+    fixture.approvalPackageManagers.includes(packageName),
+  );
+  if (automaticPackageManager) {
+    throw new Error(
+      `${automaticPackageManager.packageName} must wait for dashboard approval, not ${automaticPackageManager.branchName}`,
+    );
+  }
 
   const expectedProposed = fixture.updates
     .map(({ file, ownerGroup, packageName, to, updateType }) => ({
@@ -371,10 +412,16 @@ function assertLookupMatchesFixture(evidence, fixture) {
     );
   }
 
-  const expectedBlocked = fixture.blockedUpdates.map(({ packageName }) => packageName).sort();
-  const actualBlocked = evidence.blockedUpdates.map(({ packageName }) => packageName).sort();
-  if (JSON.stringify(actualBlocked) !== JSON.stringify(expectedBlocked)) {
-    throw new Error(`blocked update mismatch: ${JSON.stringify(actualBlocked)}`);
+  // An approval package manager shows up only when upstream has a newer release, so its line may or may not appear.
+  const pendingOf = (updates) =>
+    updates
+      .filter(({ packageName }) => !fixture.approvalPackageManagers.includes(packageName))
+      .map(({ packageName, updateType }) => ({ packageName, updateType }))
+      .sort((left, right) => left.packageName.localeCompare(right.packageName));
+  const expectedPending = pendingOf(fixture.pendingApprovalUpdates);
+  const actualPending = pendingOf(evidence.pendingApprovalUpdates);
+  if (JSON.stringify(actualPending) !== JSON.stringify(expectedPending)) {
+    throw new Error(`pending approval update mismatch: ${JSON.stringify(actualPending)}`);
   }
 }
 
@@ -435,7 +482,9 @@ export async function runRenovatePnpmDryRun({ environment = process.env } = {}) 
         timeoutSeconds: remainingTimeoutSeconds(),
       },
     );
-    const lookupEvidence = parseRenovateLookupLog(lookup.output);
+    const lookupEvidence = parseRenovateLookupLog(lookup.output, {
+      approvalBranches: dashboardApprovalBranches(repositoryConfig),
+    });
     assertLookupMatchesFixture(lookupEvidence, fixture);
     const afterLookup = readFixtureFiles(fixtureDirectory, managedFiles);
     if (summarizeChangedFiles(beforeLookup, afterLookup, []).length !== 0) {
@@ -487,7 +536,7 @@ export async function runRenovatePnpmDryRun({ environment = process.env } = {}) 
         idempotentLockfile: true,
         lockfileSha256: firstLockfileHash,
       },
-      suppressedPackageManagers: fixture.suppressedPackageManagers,
+      approvalPackageManagers: fixture.approvalPackageManagers,
       runtime: {
         initialInstallMs: initialInstall.durationMs,
         lookupProcessMs: lookup.durationMs,
