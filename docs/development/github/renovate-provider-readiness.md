@@ -8,7 +8,8 @@
 [Dependency update operations](./dependency-updates.md)를 따른다.
 
 2026-08-24 현재 상태는 **selected-repository 설치·active extraction·controlled PR 검증 완료**다. 아래는 운영 기준(목표
-설정)이다. Repository config는 기본 branch에 승격된 뒤, Portal 값은 Owner가 바꾼 뒤 효력을 가지며, Portal과 저장소
+설정)이다. Repository config는 [base branch 설정 합치기](../../architecture/platform/dependency-automation.md#현재-구조)에 따라
+`dev` merge 또는 기본 branch 승격 뒤, Portal 값은 Owner가 바꾼 뒤 효력을 가지며, Portal과 저장소
 Settings의 목표와 마지막 확인 값은 [Remote repository settings](./remote-repository-settings.md)가 기록한다.
 
 - App identity: GitHub App `mend/renovate`

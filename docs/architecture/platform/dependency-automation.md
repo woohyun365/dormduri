@@ -32,10 +32,14 @@ GitHub Dependabot
 두지 않고 저장소 Settings의 Dependabot security updates는 끈다. Repository policy는 ecosystem마다 owner가 0개이거나
 2개인 상태를 모두 거부한다. `nodenv`(`.node-version`)는 대응하는 Dependabot ecosystem이 없어 Renovate가 유일한 owner다.
 
-Renovate와 Dependabot은 기본 branch(`main`)의 설정을 읽는다. `useBaseBranchConfig: "merge"`는 `dev` base branch에
-`dev`의 `renovate.json`을 합쳐 적용하므로, 이 설정이 `main`에 올라간 뒤의 `dev` 설정 변경은 승격 없이 효력을 갖는다.
-`.github/dependabot.yml` 삭제와 manager 추가처럼 기본 branch 설정이 정하는 변경은 `dev` → `main` 승격 뒤에 효력을
-갖는다. 그래서 `nodenv` manager는 승격 전까지 Dashboard의 Detected Dependencies에 `.node-version`을 보이지 않는다.
+Renovate와 Dependabot은 기본 branch(`main`)의 설정을 읽는다. Renovate는 `useBaseBranchConfig: "merge"`로 `dev` base
+branch를 처리할 때 `main` 설정 위에 `dev`의 `renovate.json`을 합친다. 합치는 방식은 option마다 다르다.
+
+- `enabledManagers`처럼 mergeable이 아닌 option은 `dev` 값이 `main` 값을 바꾼다. 그래서 manager 추가는 `dev` merge 뒤
+  Renovate 실행부터 효력을 갖고, `nodenv`의 `.node-version`도 그때부터 Dashboard Detected Dependencies에 보인다.
+- `packageRules`처럼 mergeable인 배열은 `main` 규칙 뒤에 `dev` 규칙을 이어 붙인다. `dev`에서 더한 규칙과 뒤 규칙이 덮는
+  값은 바로 효력을 갖지만, `dev`에서 지운 규칙은 `main` 사본이 계속 적용되므로 `dev` → `main` 승격 뒤에 효력을 갖는다.
+- `.github/dependabot.yml` 삭제처럼 Dependabot 설정은 기본 branch에서만 효력을 갖는다.
 
 ## pnpm catalog와 lockfile 결정
 
@@ -193,6 +197,7 @@ Renovate CLI는 `engines.node`를 `^24.11.0`으로만 선언하고, 그 밖의 N
 `fnm exec --using=24 pnpm dependency:renovate:dry-run`). Lockfile 작업은 PATH의 pnpm 12 native binary가 맡으므로 hosted
 Renovate와 같은 조합이다. Hosted Renovate는 Mend runtime의 Node로 실행되어 이 제약을 받지 않는다.
 
+- [Renovate useBaseBranchConfig](https://docs.renovatebot.com/configuration-options/#usebasebranchconfig)
 - [Renovate local platform](https://docs.renovatebot.com/modules/platform/local/)
 - [Renovate npm/pnpm manager](https://docs.renovatebot.com/modules/manager/npm/)
 
@@ -221,7 +226,8 @@ Hosted provider나 한 manager를 중단할 때 기본 branch 설정에 owner가
 - pnpm catalog 또는 lockfile update semantics가 변경된다.
 - Renovate가 root `packageManager`와 CI `pnpm/action-setup` `version` 입력을 한 `pnpm-package-manager` branch로 묶지
   못한다(다른 depType으로 추출되는 등).
-- `dev` → `main` 승격 뒤에도 Dashboard Detected Dependencies에 `.node-version`이 보이지 않는다.
+- Renovate가 `useBaseBranchConfig: "merge"`의 합치는 방식(`enabledManagers`는 `dev` 값으로 바꾸고 `packageRules`는 `main`
+  규칙 뒤에 이어 붙임)을 바꾼다. [현재 구조](#현재-구조)의 효력 시점 서술을 다시 확인한다.
 - Renovate CLI가 `engines.node`에 Node 26을 선언한다. Local dry-run의 Node 24 실행 안내를 지운다.
 - Provider job이 반복적으로 timeout되거나 branch/lockfile이 비결정적으로 생성된다.
 - 현재 pnpm pin이 동일 cold workload에서 fix floor보다 10% 넘게 memory regression을 보이거나 hosted lockfile OOM signature가
