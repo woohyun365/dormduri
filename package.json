@@ -1,7 +1,7 @@
 {
   "name": "knu-roommate",
   "private": true,
-  "packageManager": "pnpm@11.24.0",
+  "packageManager": "pnpm@12.16.1",
   "engines": {
     "node": ">=26 <27"
   },

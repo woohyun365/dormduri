@@ -56,11 +56,6 @@ catalog:
   vite: 8.3.5
   vitest: 5.0.5
 
-onlyBuiltDependencies:
-  - '@sentry/cli'
-  - '@swc/core'
-  - esbuild
-
 # These exceptions are parent-scoped, dated compatibility contracts rather than
 # broad warning suppression. Their owner tests and removal triggers live in
 # scripts/dependencies/fixtures/dependency-health-contract.json.

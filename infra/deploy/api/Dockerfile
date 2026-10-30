@@ -6,7 +6,8 @@ FROM ${NODE_IMAGE} AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=${PNPM_HOME}:${PATH}
 WORKDIR /workspace
-RUN corepack enable
+COPY package.json ./
+RUN npm install --global "$(node -p "require('./package.json').packageManager")"
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./

@@ -57,10 +57,9 @@ jobs:
         with:
           node-version: '26'
 
-      - name: Enable pnpm through Corepack
+      - name: Install pnpm from the root packageManager
         run: |
-          corepack enable
-          corepack prepare pnpm@11.24.0 --activate
+          npm install --global "$(node -p "require('./package.json').packageManager")"
           pnpm --version
 
       - name: Install dependencies

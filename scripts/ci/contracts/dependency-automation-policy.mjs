@@ -208,7 +208,7 @@ export function validateHostedRenovateConfig(config) {
   }
   if (config.toolSettings?.nodeMaxMemory !== HOSTED_RENOVATE_NODE_MAX_MEMORY_MIB) {
     throw new TypeError(
-      `toolSettings.nodeMaxMemory must equal ${HOSTED_RENOVATE_NODE_MAX_MEMORY_MIB} MiB for the hosted pnpm lockfile boundary`,
+      `toolSettings.nodeMaxMemory must equal ${HOSTED_RENOVATE_NODE_MAX_MEMORY_MIB} MiB as the Node heap guard for pnpm 11.x and earlier`,
     );
   }
   if (config.env?.PNPM_WORKERS !== undefined || config.env?.PNPM_MAX_WORKERS !== undefined) {

@@ -254,7 +254,7 @@ test('lets Renovate itself squash-merge non-major updates only when green and up
   assert.doesNotThrow(() => validateHostedRenovateConfig(stoppedGroup));
 });
 
-test('fails closed when the hosted pnpm memory guard is missing or enlarged', () => {
+test('fails closed when the Node heap guard for pnpm 11.x and earlier is missing or enlarged', () => {
   const missingGuard = structuredClone(renovateConfig);
   delete missingGuard.toolSettings;
   assert.throws(
@@ -416,7 +416,7 @@ test('keeps pnpm package-manager upgrades manual until the toolchain moves toget
   );
 
   assert.ok(packageManagerRule);
-  assert.match(packageManagerRule.description, /Corepack/u);
+  assert.match(packageManagerRule.description, /cold lockfile benchmark/u);
   assert.match(packageManagerRule.description, /CI action/u);
   assert.doesNotThrow(() => validateHostedRenovateConfig(renovateConfig));
 

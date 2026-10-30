@@ -21,8 +21,8 @@ const fixture = parseBenchmarkFixture(
   ),
 );
 
-test('benchmark fixture freezes the Mend lockfile command and three pnpm 11 candidates', () => {
-  assert.deepEqual(fixture.versions, ['11.7.0', '11.15.1', '11.24.0']);
+test('benchmark fixture freezes the Mend lockfile command, the pin, the 12.x memory-fix floor and the candidate', () => {
+  assert.deepEqual(fixture.versions, ['11.24.0', '12.15.0', '12.16.1']);
   assert.deepEqual(fixture.command, [
     'install',
     '--lockfile-only',
@@ -30,7 +30,7 @@ test('benchmark fixture freezes the Mend lockfile command and three pnpm 11 cand
     '--ignore-scripts',
     '--ignore-pnpmfile',
   ]);
-  assert.equal(fixture.trialCount, 1);
+  assert.equal(fixture.trialCount, 3);
   assert.ok(fixture.mutations.every(({ file }) => file === 'pnpm-workspace.yaml'));
 });
 
@@ -131,5 +131,5 @@ test('benchmark summary keeps local process-boundary evidence explicit', () => {
   });
   assert.equal(summary.coldRun, true);
   assert.match(summary.processBoundary, /not the parent Mend Renovate process tree/u);
-  assert.equal(summary.selection.selectedVersion, '11.24.0');
+  assert.equal(summary.selection.selectedVersion, '12.16.1');
 });
