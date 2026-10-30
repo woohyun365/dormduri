@@ -18,25 +18,13 @@ import { LegalModule } from './legal/legal.module.js';
 import { SeasonParticipantsModule } from './season-participants/season-participants.module.js';
 import { SocialSafetyModule } from './social-safety/social-safety.module.js';
 import { SupportModule } from './support/support.module.js';
-import {
-  API_CONFIG_FACTORIES,
-  API_ENV_VALIDATION_SCHEMA,
-} from './config/composition/api-config.registry.js';
+import { API_CONFIG_MODULE_OPTIONS } from './config/composition/api-config.registry.js';
 import { ObservabilityModule } from './platform/observability/observability.module.js';
 import { NoticesModule } from './notices/notices.module.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      cache: true,
-      load: API_CONFIG_FACTORIES,
-      validationSchema: API_ENV_VALIDATION_SCHEMA,
-      validationOptions: {
-        abortEarly: false,
-        allowUnknown: true,
-      },
-    }),
+    ConfigModule.forRoot(API_CONFIG_MODULE_OPTIONS),
     ScheduleModule.forRoot(),
     ObservabilityModule,
     AuthModule,

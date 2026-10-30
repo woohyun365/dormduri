@@ -81,7 +81,7 @@
       "zod"
     ],
     "workspacePackages": ["@repo/eslint-config", "@repo/shared", "@repo/tsconfig"],
-    "overrideSelectors": ["@nestjs/platform-express>multer", "esbuild", "postcss"],
+    "overrideSelectors": ["esbuild", "postcss"],
     "lockfile": "pnpm-lock.yaml"
   },
   "groups": {

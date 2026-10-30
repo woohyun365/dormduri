@@ -30,7 +30,7 @@
 ```mermaid
 flowchart LR
     Browser[브라우저]:::external -->|HTTPS| Web[Next.js 16<br/>UI + BFF]:::frontend
-    Web -->|Zod contract| API[NestJS 11<br/>정책 owner]:::backend
+    Web -->|Zod contract| API[NestJS 12<br/>정책 owner]:::backend
     API -->|Prisma + pg| DB[(PostgreSQL 18)]:::database
 
     classDef frontend fill:#def8fc,stroke:#0891b2,color:#111827
@@ -122,7 +122,7 @@ AI가 실제 팀 협업이나 운영 경험을 대신한다고 보지 않습니�
 | Runtime   | Node.js 26, pnpm 11                                                 | workspace와 CI runtime 일치                    |
 | 언어      | TypeScript 6                                                        | FE·BE·shared contract의 정적 경계              |
 | Web       | Next.js 16, React 19, Tailwind CSS 4                                | App Router, BFF, 반응형 제품 UI                |
-| API       | NestJS 11, Joi, Pino                                                | DI 기반 도메인 owner, 런타임 설정, 구조화 로그 |
+| API       | NestJS 12, Joi, Pino                                                | DI 기반 도메인 owner, 런타임 설정, 구조화 로그 |
 | Contract  | Zod 4 (`packages/shared`)                                           | 요청·응답 런타임 검증과 타입 공유              |
 | 저장소    | PostgreSQL 18, Prisma 7, `pg`                                       | 관계·제약·트랜잭션과 타입 있는 query           |
 | 보안      | Argon2id, HMAC·envelope 암호화, opaque session                      | 자격 증명과 session lifecycle 보호             |

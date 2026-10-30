@@ -19,11 +19,6 @@ overrides:
   # parent on the patched line; the dependency-health contract checks it. Remove
   # it when every build parent's declared range starts at 0.28.1 or newer.
   esbuild: 0.28.2
-  # Security backports whose current owning parents still pin a vulnerable
-  # version exactly.
-  # NestJS 11.2.8 pins vulnerable Multer 2.4.0 exactly. Keep the patch limited
-  # to its Express adapter until a supported NestJS 11 parent owns 2.5.0+.
-  '@nestjs/platform-express>multer': 2.5.0
   # Next 16.3 and 16.4 pin PostCSS 8.5.23 exactly. One root line keeps that pin
   # and the Tailwind, Vite, Storybook, and Sentry ranges on a single patched
   # PostCSS instead of a Next-only duplicate. Remove it when every build parent

@@ -169,7 +169,6 @@ test('retained security overrides and resolved lock entries keep the known vulne
       workspace,
       lockfile,
       minimumWorkspaceOverrides: {
-        '@nestjs/platform-express>multer': '2.5.0',
         postcss: '8.5.28',
       },
       minimumLockResolutions: {
@@ -198,6 +197,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
 
   for (const removedSelector of [
     "'@babel/core':",
+    "'@nestjs/platform-express>multer':",
     "'@prisma/config>deepmerge-ts':",
     "'brace-expansion@<2.0.0':",
     "'brace-expansion@>=5.0.0 <6.0.0':",
@@ -276,7 +276,6 @@ test('residual no-fix and retained-override exceptions stay evidence-backed', ()
     'baseline-browser-mapping',
     'deepmerge',
     'js-yaml',
-    'multer',
     'mysql2',
     'next',
     'postcss',
