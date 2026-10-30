@@ -275,7 +275,6 @@ test('residual no-fix and retained-override exceptions stay evidence-backed', ()
   for (const packageName of [
     '@humanfs/node',
     'baseline-browser-mapping',
-    'deepmerge',
     'js-yaml',
     'mysql2',
     'next',
