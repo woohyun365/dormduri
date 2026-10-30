@@ -235,6 +235,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
     'brace-expansion@5.0.9',
     'brace-expansion@5.0.10',
     'brace-expansion@5.0.11',
+    'deepmerge@4.3.1',
     'fast-uri@3.1.2',
     'fast-uri@3.1.6',
     'flatted@3.3.3',
