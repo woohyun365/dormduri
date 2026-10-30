@@ -14,24 +14,21 @@ allowBuilds:
 # Keep only active parent-boundary exceptions. Remove a selector as soon as its
 # owner resolves an equal-or-newer safe version and the closest regression passes.
 overrides:
-  # Prisma 7.10.0 still pins the vulnerable deepmerge-ts 7 line in its CLI
-  # config graph. Keep this selector parent-scoped until Prisma owns 8.0.2+.
-  '@prisma/config>deepmerge-ts': 8.0.2
-  # Next 16.3 allows React Hooks lint 7.x, but pnpm otherwise preserves the
-  # older transitive lock entry.
-  'eslint-config-next>eslint-plugin-react-hooks': 7.1.1
-  # Remaining security backports whose current owning parents have not widened
-  # their declared ranges yet.
-  # NestJS 11.2.3 pins vulnerable Multer 2.2.0 exactly. Keep the patch limited
-  # to its Express adapter until a supported NestJS 11 parent owns 2.3.0+.
-  '@nestjs/platform-express>multer': 2.5.0
-  'engine.io>ws': 8.21.3
-  # Every current Vite, Storybook, Nest, Sentry, Webpack, and unplugin parent
-  # accepts this fixed line. Revalidate all build owners before changing it.
+  # Vite (^0.27 || ^0.28) and Storybook (^0.18 ... ^0.28) still admit esbuild
+  # lines below 0.28.1 (GHSA-gv7w-rqvm-qjhr), so one root floor keeps every build
+  # parent on the patched line; the dependency-health contract checks it. Remove
+  # it when every build parent's declared range starts at 0.28.1 or newer.
   esbuild: 0.28.2
+  # Security backports whose current owning parents still pin a vulnerable
+  # version exactly.
+  # NestJS 11.2.8 pins vulnerable Multer 2.4.0 exactly. Keep the patch limited
+  # to its Express adapter until a supported NestJS 11 parent owns 2.5.0+.
+  '@nestjs/platform-express>multer': 2.5.0
+  # Next 16.3 and 16.4 pin PostCSS 8.5.23 exactly. One root line keeps that pin
+  # and the Tailwind, Vite, Storybook, and Sentry ranges on a single patched
+  # PostCSS instead of a Next-only duplicate. Remove it when every build parent
+  # resolves 8.5.28+ without it.
   postcss: 8.5.31
-  'prisma>mysql2': 3.24.6
-  'socket.io-adapter>ws': 8.21.3
 
 catalog:
   '@types/node': 24.13.3
@@ -44,7 +41,7 @@ catalog:
   '@typescript-eslint/eslint-plugin': 8.69.0
   '@typescript-eslint/parser': 8.69.0
   '@vitejs/plugin-react': 6.1.1
-  '@vitest/coverage-v8': 5.0.0
+  '@vitest/coverage-v8': 5.0.5
   eslint: 9.39.5
   eslint-config-next: 16.3.4
   eslint-config-prettier: 10.1.8
@@ -57,7 +54,7 @@ catalog:
   typescript: 6.0.3
   typescript-eslint: 8.69.0
   vite: 8.2.4
-  vitest: 5.0.0
+  vitest: 5.0.5
 
 onlyBuiltDependencies:
   - '@sentry/cli'

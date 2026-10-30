@@ -139,6 +139,18 @@ Root `pnpm-workspace.yaml` override는 일반적인 dependency update 수단이 
 selector 후보가 Dashboard에서 사라졌는지 확인하되, provider 결과가 source·lockfile 검증을 대신하지 않는다. Parent가
 지원하지 않는 major 후보는 체크하지 않고 fresh bounded migration으로 넘긴다.
 
+## Alert inventory 점검
+
+Renovate [SECURITY] PR은 direct dependency만 고치므로 transitive alert는 사람이 확인한다. Dependency security owner가 월
+1회, 그리고 Renovate 보안 PR이 merge되지 않거나 실패할 때 `pnpm security:dependabot:inventory`를 실행한다.
+
+- 분류 ledger(`scripts/security/fixtures/dependency-alert-classification.json`)에 없는 package가 있으면 script가 그 package를
+  모두(alert 수·최고 severity) 적고 실패한다. 각 package를 정책 3절 상태로 분류해 ledger에 더한 뒤 다시 실행한다.
+- High·critical alert는 owner와 `unknown`이 아닌 분류가 있어야 통과한다. Patch가 없는 alert는 정책 5절 예외 필드를 ledger
+  `mitigation`·`revisit`에 둔다.
+- 열린 alert가 없는 분류는 `staleClassifications`로 출력되고 실패가 아니다. Alert는 기본 branch 기준이므로, 승격 뒤 기본
+  branch에서 닫힘을 확인한 다음 retained override·예외의 근거가 아닌 항목을 지운다.
+
 ## 남은 Dependabot PR
 
 `.github/dependabot.yml` 삭제가 승격으로 기본 branch에 올라가면 Dependabot은 version update PR을 더 열지 않는다. 이미 열린

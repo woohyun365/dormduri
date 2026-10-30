@@ -79,25 +79,63 @@ function countBy(values, key) {
   return Object.fromEntries([...counts].sort(([left], [right]) => left.localeCompare(right)));
 }
 
+const SEVERITY_ORDER = ['low', 'medium', 'high', 'critical'];
+const RELEASE_BLOCKING_SEVERITIES = new Set(['high', 'critical']);
+
+// One run names every unclassified package, so the ledger can be updated in a single pass.
+function describeMissingClassifications(alerts) {
+  const missing = new Map();
+  for (const { package: packageName, severity } of alerts) {
+    const entry = missing.get(packageName) ?? { count: 0, severity: 'low' };
+    entry.count += 1;
+    if (SEVERITY_ORDER.indexOf(severity) > SEVERITY_ORDER.indexOf(entry.severity)) {
+      entry.severity = severity;
+    }
+    missing.set(packageName, entry);
+  }
+  return [...missing]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, { count, severity }]) => `${name} (${count} alerts, max ${severity})`)
+    .join(', ');
+}
+
 export function buildDependencyAlertInventory(alertsInput, classificationInput) {
   if (!Array.isArray(alertsInput)) throw new TypeError('alerts must be an array');
   const classification = parseDependencyAlertClassification(classificationInput);
   const rules = new Map(classification.packages.map((item) => [item.name, item]));
-  const alerts = alertsInput.map(normalizeAlert).map((alert) => {
-    const rule = rules.get(alert.package);
-    if (!rule) throw new Error(`missing package classification: ${alert.package}`);
-    return { ...alert, ...structuredClone(rule) };
-  });
+  const normalized = alertsInput.map(normalizeAlert);
+  const unclassified = normalized.filter(({ package: packageName }) => !rules.has(packageName));
+  if (unclassified.length > 0) {
+    throw new Error(
+      `missing package classification: ${describeMissingClassifications(unclassified)}`,
+    );
+  }
+  const alerts = normalized.map((alert) => ({
+    ...alert,
+    ...structuredClone(rules.get(alert.package)),
+  }));
   const observedPackages = new Set(alerts.map(({ package: packageName }) => packageName));
   const staleClassifications = classification.packages
     .map(({ name }) => name)
     .filter((name) => !observedPackages.has(name));
   const unownedHigh = alerts.filter(
     ({ severity, owner, classification: reachability }) =>
-      severity === 'high' && (!owner || reachability === 'unknown'),
+      RELEASE_BLOCKING_SEVERITIES.has(severity) && (!owner || reachability === 'unknown'),
   );
   if (unownedHigh.length > 0) {
-    throw new Error(`unowned high alerts: ${unownedHigh.map(({ number }) => number).join(', ')}`);
+    throw new Error(
+      `unowned high or critical alerts: ${unownedHigh.map(({ number }) => number).join(', ')}`,
+    );
+  }
+  // An alert without a patched release can only stay open as a documented exception.
+  const unpatchedWithoutException = alerts.filter(
+    ({ patchedVersion, mitigation, revisit }) =>
+      patchedVersion === null && (!mitigation?.trim() || !revisit?.trim()),
+  );
+  if (unpatchedWithoutException.length > 0) {
+    throw new Error(
+      `unpatched alerts without mitigation and revisit: ${unpatchedWithoutException.map(({ number }) => number).join(', ')}`,
+    );
   }
   return {
     schemaVersion: 1,
@@ -147,8 +185,9 @@ const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv
 if (isMain) {
   try {
     const result = runDependencyAlertInventory();
+    const { summary, staleClassifications } = result.inventory;
     process.stdout.write(
-      `${JSON.stringify({ outputPath: result.outputPath, summary: result.inventory.summary }, null, 2)}\n`,
+      `${JSON.stringify({ outputPath: result.outputPath, summary, staleClassifications }, null, 2)}\n`,
     );
   } catch (error) {
     process.stderr.write(`${error.stack ?? error.message}\n`);
