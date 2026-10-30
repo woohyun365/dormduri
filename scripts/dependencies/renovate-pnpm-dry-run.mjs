@@ -13,6 +13,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDirectory, '../..');
 const fixturePath = resolve(scriptDirectory, 'fixtures/renovate-pnpm-dry-run.json');
 const repositoryConfigPath = resolve(repoRoot, 'renovate.json');
+const rootManifestPath = resolve(repoRoot, 'package.json');
 const maxCapturedOutputBytes = 5 * 1024 * 1024;
 
 function json(value) {
@@ -35,7 +36,9 @@ export function parseDryRunFixture(input) {
   }
   if (input.schemaVersion !== 1) throw new TypeError('schemaVersion must equal 1');
   assertNonEmptyString(input.renovateVersion, 'renovateVersion');
-  assertNonEmptyString(input.packageManager, 'packageManager');
+  if (input.packageManager !== undefined) {
+    throw new TypeError('packageManager comes from the root package.json, not the fixture');
+  }
   if (
     !Number.isInteger(input.expectedExtraction?.fileCount) ||
     !Number.isInteger(input.expectedExtraction?.depCount)
@@ -85,8 +88,9 @@ function exactVersionRule(update) {
   };
 }
 
-export function buildFixtureFiles({ fixture, repositoryConfig }) {
+export function buildFixtureFiles({ fixture, packageManager, repositoryConfig }) {
   parseDryRunFixture(fixture);
+  assertNonEmptyString(packageManager, 'packageManager');
   if (
     !repositoryConfig ||
     typeof repositoryConfig !== 'object' ||
@@ -126,7 +130,7 @@ export function buildFixtureFiles({ fixture, repositoryConfig }) {
     'package.json': json({
       name: 'knu-renovate-pnpm-fixture',
       private: true,
-      packageManager: fixture.packageManager,
+      packageManager,
     }),
     'pnpm-workspace.yaml': [
       'packages:',
@@ -377,13 +381,14 @@ function assertLookupMatchesFixture(evidence, fixture) {
 export async function runRenovatePnpmDryRun({ environment = process.env } = {}) {
   const fixture = parseDryRunFixture(JSON.parse(readFileSync(fixturePath, 'utf8')));
   const repositoryConfig = JSON.parse(readFileSync(repositoryConfigPath, 'utf8'));
+  const { packageManager } = JSON.parse(readFileSync(rootManifestPath, 'utf8'));
   const fixtureDirectory = mkdtempSync(join(tmpdir(), 'knu-renovate-pnpm-'));
   const homeDirectory = mkdtempSync(join(tmpdir(), 'knu-renovate-home-'));
   const sanitizedEnvironment = createSanitizedDryRunEnvironment({
     baseEnvironment: environment,
     homeDirectory,
   });
-  const materializedFiles = buildFixtureFiles({ fixture, repositoryConfig });
+  const materializedFiles = buildFixtureFiles({ fixture, packageManager, repositoryConfig });
   const artifactDirectory = resolveArtifactPath(repoRoot, ['dependency-automation']);
   const artifactLogPath = resolve(artifactDirectory, 'renovate-pnpm-local-lookup.ndjson');
   const artifactSummaryPath = resolve(artifactDirectory, 'renovate-pnpm-dry-run.json');

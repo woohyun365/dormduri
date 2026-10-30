@@ -22,13 +22,14 @@ const fixture = parseDryRunFixture(
   ),
 );
 const repositoryConfig = JSON.parse(readFileSync(resolve(repoRoot, 'renovate.json'), 'utf8'));
+const { packageManager } = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'));
 const lookupLog = readFileSync(
   resolve(repoRoot, 'scripts/dependencies/fixtures/renovate-local-lookup.ndjson'),
   'utf8',
 );
 
 test('materializes a credential-free pnpm workspace from the active repository policy', () => {
-  const files = buildFixtureFiles({ fixture, repositoryConfig });
+  const files = buildFixtureFiles({ fixture, packageManager, repositoryConfig });
   const localConfig = JSON.parse(files['renovate.json']);
 
   assert.deepEqual(Object.keys(files).sort(), [
@@ -46,11 +47,15 @@ test('materializes a credential-free pnpm workspace from the active repository p
   assert.ok(
     localConfig.packageRules.some(
       (rule) =>
-        rule.enabled === false &&
+        rule.groupName === 'pnpm-package-manager' &&
+        rule.dependencyDashboardApproval === true &&
         rule.matchDepTypes?.includes('packageManager') &&
         rule.matchPackageNames?.includes('pnpm'),
     ),
   );
+  // The root packageManager is the only pnpm version owner; the fixture keeps no copy of it.
+  assert.equal(fixture.packageManager, undefined);
+  assert.equal(JSON.parse(files['package.json']).packageManager, packageManager);
   assert.match(files['pnpm-workspace.yaml'], /vitest: 4\.0\.0/u);
   assert.match(files['apps/api/package.json'], /"@nestjs\/common": "11\.1\.20"/u);
   assert.match(files['apps/web/package.json'], /"motion": "12\.37\.0"/u);
@@ -104,7 +109,7 @@ test('parses proposed owner branches while keeping blocked updates out of final 
 });
 
 test('applies only the three approved source targets before canonical lockfile regeneration', () => {
-  const before = buildFixtureFiles({ fixture, repositoryConfig });
+  const before = buildFixtureFiles({ fixture, packageManager, repositoryConfig });
   const after = applyFixtureTargets(before, fixture);
   const changes = summarizeChangedFiles(before, after, fixture.allowedChangedFiles);
 

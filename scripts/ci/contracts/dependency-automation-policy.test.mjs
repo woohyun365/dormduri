@@ -322,7 +322,7 @@ test('locks catalog, inline, workspace, override, and lockfile inputs explicitly
   );
 });
 
-test('keeps major updates independent, dashboard-gated, and manual in every manager', () => {
+test('keeps major updates dashboard-gated and manual, grouping only the ESLint core pair', () => {
   const majorRule = renovateConfig.packageRules.find(
     (rule) =>
       Array.isArray(rule.matchUpdateTypes) &&
@@ -330,6 +330,7 @@ test('keeps major updates independent, dashboard-gated, and manual in every mana
       rule.matchUpdateTypes[0] === 'major' &&
       rule.dependencyDashboardApproval === true,
   );
+  // A group rule that selects major by update type; the pnpm group takes every update type and is checked apart.
   const groupedMajorRules = renovateConfig.packageRules.filter(
     (rule) => rule.groupName && rule.matchUpdateTypes?.includes('major'),
   );
@@ -337,13 +338,60 @@ test('keeps major updates independent, dashboard-gated, and manual in every mana
   assert.ok(majorRule);
   assert.equal(majorRule.matchManagers, undefined);
   assert.equal(majorRule.automerge, false);
-  assert.deepEqual(groupedMajorRules, []);
+  assert.equal(groupedMajorRules.length, 1);
+  assert.deepEqual(groupedMajorRules[0].matchManagers, ['npm']);
+  assert.deepEqual(groupedMajorRules[0].matchUpdateTypes, ['major']);
+  assert.deepEqual([...groupedMajorRules[0].matchPackageNames].sort(), ['@eslint/js', 'eslint']);
+  assert.equal(groupedMajorRules[0].groupName, 'eslint-major');
+  assert.equal(groupedMajorRules[0].groupSlug, 'eslint-major');
+  assert.equal(groupedMajorRules[0].dependencyDashboardApproval, true);
+  assert.equal(groupedMajorRules[0].automerge, false);
 
   const ungated = structuredClone(renovateConfig);
   ungated.packageRules.find((rule) => rule.dependencyDashboardApproval === true).matchManagers = [
     'npm',
   ];
   assert.throws(() => validateHostedRenovateConfig(ungated), /every manager must keep major/u);
+
+  const eslintMajor = (config) =>
+    config.packageRules.find((rule) => rule.groupName === 'eslint-major');
+  for (const mutate of [
+    (config) =>
+      config.packageRules.push({
+        matchManagers: ['npm'],
+        matchUpdateTypes: ['major'],
+        matchPackageNames: ['next', 'react'],
+        groupName: 'web-major',
+        groupSlug: 'web-major',
+        dependencyDashboardApproval: true,
+        automerge: false,
+      }),
+    (config) => eslintMajor(config).matchPackageNames.push('typescript'),
+    (config) => (eslintMajor(config).matchPackageNames = ['eslint']),
+    (config) => (eslintMajor(config).matchManagers = ['npm', 'github-actions']),
+    (config) => (eslintMajor(config).groupName = 'lint-major'),
+    (config) => (eslintMajor(config).matchUpdateTypes = ['major', 'minor']),
+    (config) => delete eslintMajor(config).dependencyDashboardApproval,
+  ]) {
+    const config = structuredClone(renovateConfig);
+    mutate(config);
+    assert.throws(
+      () => validateHostedRenovateConfig(config),
+      /the only major group must be eslint-major/u,
+    );
+  }
+
+  const everyTypeGroup = structuredClone(renovateConfig);
+  everyTypeGroup.packageRules.push({
+    matchManagers: ['npm'],
+    matchPackageNames: ['next'],
+    groupName: 'next-everything',
+    groupSlug: 'next-everything',
+  });
+  assert.throws(
+    () => validateHostedRenovateConfig(everyTypeGroup),
+    /only the pnpm-package-manager group may group every update type/u,
+  );
 });
 
 test('groups non-npm updates so shared pins move in one PR', () => {
@@ -367,18 +415,50 @@ test('groups non-npm updates so shared pins move in one PR', () => {
   }
 });
 
-test('blocks unsupported TypeScript and the complete ESLint major pair with revisit reasons', () => {
+test('shows TypeScript and the ESLint core pair majors as dashboard approval lines', () => {
+  const majorGroupsFor = (packageName) =>
+    renovateConfig.packageRules
+      .filter(
+        (rule) =>
+          rule.groupName &&
+          rule.matchUpdateTypes?.includes('major') &&
+          rule.matchPackageNames?.includes(packageName),
+      )
+      .map((rule) => rule.groupName);
+
   for (const packageName of ['typescript', 'eslint', '@eslint/js']) {
-    const blockedRule = renovateConfig.packageRules.find(
+    const disabledRule = renovateConfig.packageRules.find(
       (rule) =>
         rule.enabled === false &&
-        rule.matchPackageNames?.includes(packageName) &&
-        rule.matchUpdateTypes?.includes('major'),
+        (rule.matchPackageNames === undefined || rule.matchPackageNames.includes(packageName)),
     );
-
-    assert.ok(blockedRule, `${packageName} major must remain disabled`);
-    assert.match(blockedRule.description, /revisit:/u);
+    assert.equal(disabledRule, undefined, `${packageName} updates must not be disabled`);
   }
+  // TypeScript 7 takes the general major rule as its own approval line; eslint and @eslint/js share one.
+  assert.deepEqual(majorGroupsFor('typescript'), []);
+  assert.deepEqual(majorGroupsFor('eslint'), ['eslint-major']);
+  assert.deepEqual(majorGroupsFor('@eslint/js'), ['eslint-major']);
+
+  for (const packageNames of [['typescript'], ['eslint', '@eslint/js']]) {
+    const config = structuredClone(renovateConfig);
+    config.packageRules.push({
+      description: 'revisit: hide this major again.',
+      matchManagers: ['npm'],
+      matchUpdateTypes: ['major'],
+      matchPackageNames: packageNames,
+      enabled: false,
+    });
+    assert.throws(
+      () => validateHostedRenovateConfig(config),
+      /updates must stay visible as a dashboard approval line/u,
+    );
+  }
+  const disableAll = structuredClone(renovateConfig);
+  disableAll.packageRules.push({ matchManagers: ['npm'], enabled: false });
+  assert.throws(
+    () => validateHostedRenovateConfig(disableAll),
+    /typescript updates must stay visible as a dashboard approval line/u,
+  );
 });
 
 test('keeps eslint-config-next with the Web framework owner', () => {
@@ -407,35 +487,69 @@ test('separates API framework, persistence, runtime, observability, contract, an
   });
 });
 
-test('keeps pnpm package-manager upgrades manual until the toolchain moves together', () => {
-  const packageManagerRule = renovateConfig.packageRules.find(
-    (rule) =>
-      rule.enabled === false &&
-      rule.matchDepTypes?.includes('packageManager') &&
-      rule.matchPackageNames?.includes('pnpm'),
-  );
-
-  assert.ok(packageManagerRule);
-  assert.match(packageManagerRule.description, /cold lockfile benchmark/u);
-  assert.match(packageManagerRule.description, /CI action/u);
-  assert.doesNotThrow(() => validateHostedRenovateConfig(renovateConfig));
-
-  // The github-actions manager reads the pnpm/action-setup `version` input as a `pnpm` dependency.
-  const rootOnly = structuredClone(renovateConfig);
-  const rootOnlyRule = rootOnly.packageRules.find((rule) =>
+test('puts the root and CI pnpm pins on one dashboard approval line for every update type', () => {
+  const pnpmRules = renovateConfig.packageRules.filter((rule) =>
     rule.matchPackageNames?.includes('pnpm'),
   );
-  rootOnlyRule.matchManagers = ['npm'];
-  rootOnlyRule.matchDepTypes = ['packageManager'];
+
+  assert.equal(pnpmRules.length, 1);
+  const [pnpmRule] = pnpmRules;
+  assert.deepEqual(pnpmRule.matchManagers, ['npm', 'github-actions']);
+  assert.deepEqual(pnpmRule.matchDepTypes, ['packageManager', 'uses-with']);
+  assert.deepEqual(pnpmRule.matchPackageNames, ['pnpm']);
+  assert.equal(pnpmRule.matchUpdateTypes, undefined);
+  assert.equal(pnpmRule.groupName, 'pnpm-package-manager');
+  assert.equal(pnpmRule.groupSlug, 'pnpm-package-manager');
+  assert.equal(pnpmRule.dependencyDashboardApproval, true);
+  assert.equal(pnpmRule.automerge, false);
+  assert.equal(pnpmRule.enabled, undefined);
+  assert.match(pnpmRule.description, /cold lockfile benchmark/u);
+  assert.match(pnpmRule.description, /pnpm\/action-setup/u);
+  // The first rule automerges every minor and patch; this later group rule wins and keeps pnpm manual.
+  assert.ok(
+    renovateConfig.packageRules.indexOf(pnpmRule) >
+      renovateConfig.packageRules.findLastIndex((rule) => rule.automerge === true),
+  );
+  assert.doesNotThrow(() => validateHostedRenovateConfig(renovateConfig));
+
+  const pnpmRuleOf = (config) =>
+    config.packageRules.find((rule) => rule.matchPackageNames?.includes('pnpm'));
+  // The github-actions manager reads the pnpm/action-setup `version` input as a `pnpm` dependency.
+  const rootOnly = structuredClone(renovateConfig);
+  pnpmRuleOf(rootOnly).matchManagers = ['npm'];
+  pnpmRuleOf(rootOnly).matchDepTypes = ['packageManager'];
   assert.throws(
     () => validateHostedRenovateConfig(rootOnly),
-    /pnpm updates must stay disabled for the github-actions uses-with pin/u,
+    /pnpm updates must stay on one dashboard approval line for the github-actions uses-with pin/u,
   );
 
-  const majorOnly = structuredClone(renovateConfig);
-  majorOnly.packageRules.find((rule) => rule.matchPackageNames?.includes('pnpm')).matchUpdateTypes =
-    ['major'];
-  assert.throws(() => validateHostedRenovateConfig(majorOnly), /pnpm updates must stay disabled/u);
+  for (const mutate of [
+    (config) => (pnpmRuleOf(config).matchUpdateTypes = ['major']),
+    (config) => delete pnpmRuleOf(config).dependencyDashboardApproval,
+    (config) => (pnpmRuleOf(config).automerge = undefined),
+    (config) => delete pnpmRuleOf(config).groupName,
+  ]) {
+    const config = structuredClone(renovateConfig);
+    mutate(config);
+    assert.throws(
+      () => validateHostedRenovateConfig(config),
+      /pnpm updates must stay on one dashboard approval line/u,
+    );
+  }
+
+  const disabled = structuredClone(renovateConfig);
+  pnpmRuleOf(disabled).enabled = false;
+  assert.throws(
+    () => validateHostedRenovateConfig(disabled),
+    /pnpm updates must stay visible as a dashboard approval line/u,
+  );
+
+  const automerged = structuredClone(renovateConfig);
+  pnpmRuleOf(automerged).automerge = true;
+  assert.throws(
+    () => validateHostedRenovateConfig(automerged),
+    /automerge rules must match only minor, patch, or digest/u,
+  );
 });
 
 test('keeps both provider cancellations and the manual terminal counts reproducible', () => {

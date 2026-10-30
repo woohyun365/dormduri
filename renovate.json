@@ -214,25 +214,24 @@
       "automerge": false
     },
     {
-      "description": "revisit: enable TypeScript 7 only after Next.js, NestJS, ESLint, and the repository compiler toolchain declare compatible support.",
-      "matchManagers": ["npm"],
-      "matchUpdateTypes": ["major"],
-      "matchPackageNames": ["typescript"],
-      "enabled": false
-    },
-    {
-      "description": "revisit: enable ESLint 10 only after eslint-plugin-import, eslint-plugin-jsx-a11y, eslint-plugin-react, and every repository config consumer declare compatible support.",
+      "description": "Keep the ESLint core pair on one dashboard approval line: eslint and @eslint/js majors move together on one branch and never automerge. This is the only major group.",
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["major"],
       "matchPackageNames": ["eslint", "@eslint/js"],
-      "enabled": false
+      "groupName": "eslint-major",
+      "groupSlug": "eslint-major",
+      "dependencyDashboardApproval": true,
+      "automerge": false
     },
     {
-      "description": "revisit: keep pnpm package-manager upgrades manual, in the root packageManager and the CI pnpm/action-setup version input, until a person reviews the CLI, lockfile, cold lockfile benchmark, and CI action together.",
+      "description": "Put every pnpm package-manager update, in the root packageManager and the CI pnpm/action-setup version input, on one dashboard approval line and branch. Compare the cold lockfile benchmark before approving; a person merges the PR after CI.",
       "matchManagers": ["npm", "github-actions"],
       "matchDepTypes": ["packageManager", "uses-with"],
       "matchPackageNames": ["pnpm"],
-      "enabled": false
+      "groupName": "pnpm-package-manager",
+      "groupSlug": "pnpm-package-manager",
+      "dependencyDashboardApproval": true,
+      "automerge": false
     }
   ]
 }
