@@ -81,16 +81,7 @@
       "zod"
     ],
     "workspacePackages": ["@repo/eslint-config", "@repo/shared", "@repo/tsconfig"],
-    "overrideSelectors": [
-      "@nestjs/platform-express>multer",
-      "@prisma/config>deepmerge-ts",
-      "engine.io>ws",
-      "esbuild",
-      "eslint-config-next>eslint-plugin-react-hooks",
-      "postcss",
-      "prisma>mysql2",
-      "socket.io-adapter>ws"
-    ],
+    "overrideSelectors": ["@nestjs/platform-express>multer", "esbuild", "postcss"],
     "lockfile": "pnpm-lock.yaml"
   },
   "groups": {

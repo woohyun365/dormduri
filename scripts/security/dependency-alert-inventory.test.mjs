@@ -70,6 +70,74 @@ test('fails closed when a new vulnerable package has no classification', () => {
   );
 });
 
+test('names every unclassified package in one failure, not only the first (#711)', () => {
+  assert.throws(
+    () =>
+      buildDependencyAlertInventory(
+        [
+          alert({ number: 4, packageName: 'zz-unclassified', severity: 'low' }),
+          alert({ number: 5, packageName: 'ws' }),
+          alert({ number: 6, packageName: 'aa-unclassified', severity: 'medium' }),
+          alert({ number: 7, packageName: 'aa-unclassified', severity: 'critical' }),
+        ],
+        classification,
+      ),
+    (error) => {
+      assert.equal(
+        error.message,
+        'missing package classification: aa-unclassified (2 alerts, max critical), zz-unclassified (1 alerts, max low)',
+      );
+      return true;
+    },
+  );
+});
+
+test('critical alerts need an owner and known reachability like high alerts', () => {
+  const input = structuredClone(classification);
+  input.packages.push({
+    name: 'unknown-reachability',
+    owner: 'web-runtime',
+    parent: 'apps/web',
+    classification: 'unknown',
+    action: 'runtime-remediation',
+  });
+  assert.throws(
+    () =>
+      buildDependencyAlertInventory(
+        [alert({ number: 8, packageName: 'unknown-reachability', severity: 'critical' })],
+        input,
+      ),
+    /unowned high or critical alerts: 8/u,
+  );
+});
+
+test('alerts without a patched release need mitigation and revisit whatever the action', () => {
+  const unpatched = alert({ number: 10, packageName: 'hono' });
+  unpatched.security_vulnerability.first_patched_version = null;
+  assert.throws(
+    () => buildDependencyAlertInventory([unpatched], classification),
+    /unpatched alerts without mitigation and revisit: 10/u,
+  );
+
+  const input = structuredClone(classification);
+  Object.assign(
+    input.packages.find(({ name }) => name === 'hono'),
+    { mitigation: 'Not reachable from request input.', revisit: 'Review by 2026-11-29.' },
+  );
+  assert.doesNotThrow(() => buildDependencyAlertInventory([unpatched], input));
+});
+
+test('reports classifications without an open alert as stale instead of failing', () => {
+  const result = buildDependencyAlertInventory(
+    [alert({ number: 9, packageName: 'ws' })],
+    classification,
+  );
+
+  assert.ok(result.staleClassifications.includes('hono'));
+  assert.ok(!result.staleClassifications.includes('ws'));
+  assert.equal(result.staleClassifications.length, classification.packages.length - 1);
+});
+
 test('rejects duplicate classification owners', () => {
   const input = structuredClone(classification);
   input.packages.push(structuredClone(input.packages[0]));
@@ -101,22 +169,28 @@ test('retained security overrides and resolved lock entries keep the known vulne
       workspace,
       lockfile,
       minimumWorkspaceOverrides: {
-        'engine.io>ws': '8.21.3',
-        '@nestjs/platform-express>multer': '2.3.0',
+        '@nestjs/platform-express>multer': '2.5.0',
         postcss: '8.5.28',
-        'prisma>mysql2': '3.24.3',
-        'socket.io-adapter>ws': '8.21.3',
       },
       minimumLockResolutions: {
         '@nestjs/platform-express': '11.2.3',
         '@humanfs/node': '0.16.8',
+        '@vitest/mocker': '5.0.3',
         'baseline-browser-mapping': '2.11.18',
+        'body-parser': '2.4.0',
+        'engine.io': '6.6.10',
+        'fast-uri': '3.1.9',
         'js-yaml': '4.3.2',
-        multer: '2.3.0',
+        multer: '2.5.0',
         mysql2: '3.24.3',
-        next: '16.3.4',
-        qs: '6.16.0',
-        sharp: '0.35.4',
+        next: '16.4.1',
+        piscina: '4.9.4',
+        'proxy-addr': '2.0.8',
+        qs: '6.16.1',
+        sharp: '0.35.5',
+        'source-map-js': '1.2.2',
+        undici: '8.12.2',
+        ws: '8.21.3',
       },
     }),
     [],
@@ -124,8 +198,10 @@ test('retained security overrides and resolved lock entries keep the known vulne
 
   for (const removedSelector of [
     "'@babel/core':",
+    "'@prisma/config>deepmerge-ts':",
     "'brace-expansion@<2.0.0':",
     "'brace-expansion@>=5.0.0 <6.0.0':",
+    "'engine.io>ws':",
     "'express>body-parser':",
     'fast-uri:',
     'flatted:',
@@ -134,7 +210,9 @@ test('retained security overrides and resolved lock entries keep the known vulne
     'lodash:',
     "'nanoid@<4.0.0':",
     "'picomatch@<3.0.0':",
+    "'prisma>mysql2':",
     "'socket.io>socket.io-parser':",
+    "'socket.io-adapter>ws':",
     'qs:',
     'yaml:',
   ]) {
@@ -144,9 +222,21 @@ test('retained security overrides and resolved lock entries keep the known vulne
   for (const vulnerable of [
     '@humanfs/node@0.16.7',
     'body-parser@2.2.2',
+    'body-parser@2.3.0',
+    'engine.io@6.6.8',
     'brace-expansion@1.1.12',
+    'brace-expansion@1.1.18',
+    'brace-expansion@1.1.19',
+    'brace-expansion@1.1.20',
+    'brace-expansion@2.1.4',
+    'brace-expansion@2.1.5',
+    'brace-expansion@2.1.6',
     'brace-expansion@5.0.6',
+    'brace-expansion@5.0.9',
+    'brace-expansion@5.0.10',
+    'brace-expansion@5.0.11',
     'fast-uri@3.1.2',
+    'fast-uri@3.1.6',
     'flatted@3.3.3',
     'form-data@4.0.5',
     'hono@4.12.18',
@@ -159,15 +249,22 @@ test('retained security overrides and resolved lock entries keep the known vulne
     'nanoid@3.3.12',
     'next@16.3.0',
     'picomatch@2.3.1',
+    'piscina@4.9.3',
     'postcss@8.5.15',
+    'proxy-addr@2.0.7',
     'qs@6.14.1',
     'qs@6.15.2',
+    'qs@6.16.0',
     'socket.io-parser@4.2.6',
     'sharp@0.35.3',
+    'sharp@0.35.4',
+    'source-map-js@1.2.1',
+    'undici@8.10.0',
     'valibot@1.2.0',
     'ws@8.20.1',
     'yaml@2.8.2',
     'baseline-browser-mapping@2.10.37',
+    '@vitest/mocker@5.0.0',
   ]) {
     assert.doesNotMatch(lockfile, new RegExp(escapeRegExp(vulnerable), 'u'));
   }
@@ -177,6 +274,7 @@ test('residual no-fix and retained-override exceptions stay evidence-backed', ()
   for (const packageName of [
     '@humanfs/node',
     'baseline-browser-mapping',
+    'deepmerge',
     'js-yaml',
     'multer',
     'mysql2',

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-09-09",
+  "reviewedAt": "2026-10-30",
   "defaultBranch": "main",
   "packages": [
     {
@@ -27,12 +27,26 @@
       "revisit": "Recheck the classification when ESLint changes its filesystem implementation or the production artifact boundary changes."
     },
     {
+      "name": "@sentry/nextjs",
+      "owner": "web-runtime",
+      "parent": "apps/web",
+      "classification": "shipped-reachable",
+      "action": "runtime-remediation"
+    },
+    {
+      "name": "@vitest/mocker",
+      "owner": "test-tooling",
+      "parent": "vitest",
+      "classification": "test-only",
+      "action": "toolchain-remediation"
+    },
+    {
       "name": "baseline-browser-mapping",
       "owner": "web-build",
       "parent": "Next browser target resolution",
       "classification": "build-only",
       "action": "toolchain-remediation",
-      "mitigation": "Next 16.3.4 resolves baseline-browser-mapping 2.11.0 or newer through its supported dependency graph without a repository override.",
+      "mitigation": "Next 16.4.3 declares baseline-browser-mapping ^2.9.19, so 2.11.0 or newer resolves through its supported dependency graph without a repository override.",
       "revisit": "Recheck the browser target graph when Next changes its baseline-browser-mapping dependency or the Web build target policy changes."
     },
     {
@@ -45,9 +59,25 @@
     {
       "name": "brace-expansion",
       "owner": "lint-and-build",
-      "parent": "eslint/Nest CLI/Storybook",
+      "parent": "minimatch via ESLint/Nest CLI/@swc/cli/Sentry bundler plugins",
       "classification": "build-only",
       "action": "toolchain-remediation"
+    },
+    {
+      "name": "deepmerge",
+      "owner": "api-build",
+      "parent": "@nestjs/cli > fork-ts-checker-webpack-plugin",
+      "classification": "build-only",
+      "action": "documented-exception",
+      "mitigation": "GHSA-gcqx-w48m-w2h4 (low) has no patched release. fork-ts-checker-webpack-plugin merges only its own build options with deepmerge during Nest CLI builds, receives no request input, and @nestjs/cli is absent from the production API artifact.",
+      "revisit": "Review by 2026-11-29, and earlier when deepmerge publishes a fix or @nestjs/cli or fork-ts-checker-webpack-plugin changes its deepmerge dependency."
+    },
+    {
+      "name": "engine.io",
+      "owner": "api-realtime",
+      "parent": "socket.io",
+      "classification": "shipped-reachable",
+      "action": "runtime-remediation"
     },
     {
       "name": "fast-uri",
@@ -78,6 +108,13 @@
       "action": "artifact-remediation"
     },
     {
+      "name": "joi",
+      "owner": "api-config",
+      "parent": "apps/api",
+      "classification": "shipped-reachable",
+      "action": "runtime-remediation"
+    },
+    {
       "name": "js-yaml",
       "owner": "lint-and-nest-cli",
       "parent": "eslint/Nest CLI",
@@ -99,8 +136,8 @@
       "parent": "@nestjs/platform-express",
       "classification": "shipped-not-called",
       "action": "runtime-remediation",
-      "mitigation": "NestJS 11.2.3 still pins vulnerable Multer 2.2.0, so an exact @nestjs/platform-express parent-scoped selector supplies patched 2.3.0 without creating a direct upload dependency or broad override.",
-      "revisit": "Remove the selector when a supported NestJS 11 parent owns Multer 2.3.0 or newer; recheck upload behavior if the application later adopts a direct multipart caller."
+      "mitigation": "NestJS 11.2.8 still pins vulnerable Multer 2.4.0 exactly, so an exact @nestjs/platform-express parent-scoped selector supplies patched 2.5.0 without creating a direct upload dependency or broad override.",
+      "revisit": "Remove the selector when a supported NestJS 11 parent owns Multer 2.5.0 or newer; recheck upload behavior if the application later adopts a direct multipart caller."
     },
     {
       "name": "mysql2",
@@ -108,8 +145,8 @@
       "parent": "prisma",
       "classification": "shipped-not-called",
       "action": "artifact-remediation",
-      "mitigation": "The driver remains in the shipped Prisma CLI graph, while application database calls use PostgreSQL through pg and @prisma/adapter-pg.",
-      "revisit": "Remove the parent-scoped selector when Prisma declares mysql2 3.24.3 or newer, or when a verified production deploy excludes the Prisma CLI graph."
+      "mitigation": "Prisma 7.10.1 declares mysql2 3.24.4 exactly, so the patched driver resolves in the shipped Prisma CLI graph without a repository override, while application database calls use PostgreSQL through pg and @prisma/adapter-pg.",
+      "revisit": "Recheck when Prisma changes its mysql2 dependency, or when a verified production deploy excludes the Prisma CLI graph."
     },
     {
       "name": "nanoid",
@@ -124,7 +161,7 @@
       "parent": "apps/web",
       "classification": "shipped-reachable",
       "action": "runtime-remediation",
-      "mitigation": "The Web runtime moves to the supported Next 16.3.4 patch and verifies the standalone build plus browser surfaces rather than suppressing either critical advisory.",
+      "mitigation": "The Web runtime is on the supported Next 16.4.3 patch (16.4.1 or newer fixes both critical advisories) and verifies the standalone build plus browser surfaces rather than suppressing either advisory.",
       "revisit": "Recheck Next security advisories on every supported-line migration and before a production release."
     },
     {
@@ -135,13 +172,27 @@
       "action": "toolchain-remediation"
     },
     {
+      "name": "piscina",
+      "owner": "api-build",
+      "parent": "@nestjs/cli > @swc/cli",
+      "classification": "build-only",
+      "action": "toolchain-remediation"
+    },
+    {
       "name": "postcss",
       "owner": "web-build",
       "parent": "Tailwind/Next/Vite",
       "classification": "build-only",
       "action": "toolchain-remediation",
-      "mitigation": "The root override keeps PostCSS 8.5.28 while current build parents still include older exact patches.",
+      "mitigation": "The root override keeps PostCSS at or above the patched 8.5.28 (Renovate raises its value) while Next still pins 8.5.23 exactly.",
       "revisit": "Remove the override when Next, Tailwind, Sentry, Storybook, and Vite all resolve PostCSS 8.5.28 or newer without it and their closest build regressions pass."
+    },
+    {
+      "name": "proxy-addr",
+      "owner": "api-http",
+      "parent": "@nestjs/platform-express > express",
+      "classification": "shipped-reachable",
+      "action": "runtime-remediation"
     },
     {
       "name": "qs",
@@ -158,7 +209,7 @@
       "parent": "Next image optimizer",
       "classification": "shipped-reachable",
       "action": "runtime-remediation",
-      "mitigation": "Next 16.3.4 naturally resolves Sharp 0.35.4 and the Web standalone artifact plus next/image callers are verified without a root override.",
+      "mitigation": "Next 16.4.3 declares Sharp ^0.35.5 as an optional dependency, so the patched release resolves without a root override and the Web standalone artifact plus next/image callers are verified.",
       "revisit": "Recheck the image optimizer graph when Next or the production image handling policy changes."
     },
     {
@@ -169,6 +220,27 @@
       "action": "runtime-remediation"
     },
     {
+      "name": "source-map-js",
+      "owner": "web-build",
+      "parent": "PostCSS via Next/Webpack and magicast via Prisma config",
+      "classification": "shipped-not-called",
+      "action": "artifact-remediation"
+    },
+    {
+      "name": "storybook",
+      "owner": "web-build",
+      "parent": "apps/web Storybook",
+      "classification": "build-only",
+      "action": "toolchain-remediation"
+    },
+    {
+      "name": "undici",
+      "owner": "test-tooling",
+      "parent": "jsdom via vitest",
+      "classification": "test-only",
+      "action": "toolchain-remediation"
+    },
+    {
       "name": "valibot",
       "owner": "prisma-toolchain",
       "parent": "prisma > @prisma/dev",
@@ -176,13 +248,20 @@
       "action": "artifact-remediation"
     },
     {
+      "name": "vite",
+      "owner": "web-build",
+      "parent": "Storybook builder and vitest",
+      "classification": "build-only",
+      "action": "toolchain-remediation"
+    },
+    {
       "name": "ws",
       "owner": "api-realtime-and-storybook",
       "parent": "socket.io and Storybook",
       "classification": "mixed",
       "action": "runtime-remediation",
-      "mitigation": "Parent-scoped overrides keep the Engine.IO and Socket.IO adapter paths on ws 8.21.3 while their declared ranges stop at the 8.20 line.",
-      "revisit": "Remove each selector when engine.io and socket.io-adapter widen or update their ws dependency and realtime plus Storybook regressions pass."
+      "mitigation": "engine.io 6.6.11 and socket.io-adapter 2.5.8 declare ws ~8.21.0, so the patched 8.21.3 resolves through their ranges without a repository override.",
+      "revisit": "Recheck when engine.io, socket.io-adapter, or Storybook changes its ws range; realtime plus Storybook regressions cover both paths."
     },
     {
       "name": "yaml",

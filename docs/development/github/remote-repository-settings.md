@@ -53,7 +53,7 @@ consumer가 확인된 경우에만 classic Branches 전환을 별도 migration�
 ## Evidence 상태
 
 - `VERIFIED_REMOTE`: 아래 read-only command로 현재 원격값을 확인했고 기대 상태와 일치합니다.
-- `VERIFIED_OWNER_UI`: 공개된 read endpoint가 없는 설정을 repository owner가 GitHub UI에서 직접 확인했습니다.
+- `VERIFIED_OWNER_UI`: 공개된 read endpoint가 없는 설정을 repository owner가 GitHub UI 또는 연결된 provider UI(Mend Portal 등)에서 직접 확인했습니다.
 - `PENDING_OWNER_ACTION`: 현재값은 확인했지만 변경에는 repository owner의 명시적 승인이 필요합니다.
 - `PENDING_ACCOUNT_TIER`: 현재 account tier가 설정 또는 검증을 지원하지 않습니다.
 - `PENDING_EVIDENCE`: endpoint 의미나 현재값을 아직 확인하지 못했습니다.
@@ -67,39 +67,39 @@ consumer가 확인된 경우에만 classic Branches 전환을 별도 migration�
 - repository: `woohyun365/dormduri`
 - operator: local authenticated `gh` read-only inspection
 
-| Setting                     | Actual                                                                               | Status                 |
-| --------------------------- | ------------------------------------------------------------------------------------ | ---------------------- |
-| Plan / visibility           | GitHub Pro / private                                                                 | `VERIFIED_REMOTE`      |
-| Default branch              | `main`                                                                               | `VERIFIED_REMOTE`      |
-| Repository features         | Issues on; Wiki, Projects, Discussions, template off                                 | `VERIFIED_REMOTE`      |
-| Merge methods               | merge commit + squash enabled, rebase off; PR title + PR body; auto-merge off        | `VERIFIED_REMOTE`      |
-| Delete branch on merge      | `delete_branch_on_merge=true`; merged bounded head 자동 정리                         | `VERIFIED_REMOTE`      |
-| Actions                     | selected; GitHub-owned true, verified creators false, `pnpm/action-setup@*` only     | `VERIFIED_REMOTE`      |
-| Full-SHA requirement        | `sha_pinning_required=true`                                                          | `VERIFIED_REMOTE`      |
-| `dev` ruleset               | `dev-integration-gate` active on exact `dev`; linear history, squash only, no bypass | `VERIFIED_REMOTE`      |
-| `main` ruleset              | `main-release-gate` active on default branch; no linear rule, merge only, no bypass  | `VERIFIED_REMOTE`      |
-| PR rule                     | both zero approvals and conversation resolution; target-specific merge method        | `VERIFIED_REMOTE`      |
-| Required status             | both require `CI summary`, GitHub Actions app `15368`, strict up-to-date off         | `VERIFIED_REMOTE`      |
-| Force push / deletion       | non-fast-forward and deletion blocked                                                | `VERIFIED_REMOTE`      |
-| Vulnerability alerts        | endpoint `204`                                                                       | `VERIFIED_REMOTE`      |
-| Dependabot malware alerts   | enabled                                                                              | `VERIFIED_OWNER_UI`    |
-| Dependabot security updates | 목표 disabled; 마지막 확인 `enabled=true`, `paused=false`                            | `PENDING_OWNER_ACTION` |
-| Mend Portal Automated PRs   | 목표 ON; 마지막 확인 OFF(2026-08-24 provider 검증)                                   | `PENDING_OWNER_ACTION` |
-| Workflow token              | `default_workflow_permissions=read`, PR approval off                                 | `VERIFIED_REMOTE`      |
-| Private fork PR             | workflow/write token disabled; fork workflow execution disabled                      | `VERIFIED_REMOTE`      |
-| Artifact/log retention      | owner UI 7 days                                                                      | `VERIFIED_OWNER_UI`    |
-| Actions cache policy        | owner UI 7-day retention / 10GiB eviction; API 7,475,286,431 bytes, 29 entries       | `VERIFIED_REMOTE`      |
-| Actions artifacts           | 104 active, 8,178,655 bytes; observed retention 7 days (2026-08-27)                  | `VERIFIED_REMOTE`      |
-| Effective shared storage    | owner Billing UI와 Packages billing contract 기준 Pro shared storage 2GB             | `VERIFIED_OWNER_UI`    |
-| GitHub Packages             | owner UI에서 package 0개 확인; 별도 Packages credential 없음                         | `VERIFIED_OWNER_UI`    |
-| Installed GitHub Apps       | owner UI: ChatGPT Codex Connector selected repo only, Renovate                       | `VERIFIED_OWNER_UI`    |
-| Classic branch protection   | `main`·`dev` 모두 없음; active Rulesets가 effective protection owner                 | `VERIFIED_REMOTE`      |
-| Remote branch inventory     | protected `main`, `dev`만 존재; 기존 merged head 23개 owner-approved cleanup 완료    | `VERIFIED_REMOTE`      |
-| Environments                | 0; unused legacy `copilot` environment 삭제                                          | `VERIFIED_REMOTE`      |
-| Webhooks / deploy keys      | 각각 0                                                                               | `VERIFIED_REMOTE`      |
-| Repository secrets/vars     | Actions·Dependabot·Codespaces·legacy environment 모두 0                              | `VERIFIED_REMOTE`      |
-| Pages                       | disabled                                                                             | `VERIFIED_REMOTE`      |
-| Code/Secret paid products   | Code Scanning disabled; personal private repo에서 별도 paid owner decision까지 보류  | `VERIFIED_REMOTE`      |
+| Setting                     | Actual                                                                               | Status              |
+| --------------------------- | ------------------------------------------------------------------------------------ | ------------------- |
+| Plan / visibility           | GitHub Pro / private                                                                 | `VERIFIED_REMOTE`   |
+| Default branch              | `main`                                                                               | `VERIFIED_REMOTE`   |
+| Repository features         | Issues on; Wiki, Projects, Discussions, template off                                 | `VERIFIED_REMOTE`   |
+| Merge methods               | merge commit + squash enabled, rebase off; PR title + PR body; auto-merge off        | `VERIFIED_REMOTE`   |
+| Delete branch on merge      | `delete_branch_on_merge=true`; merged bounded head 자동 정리                         | `VERIFIED_REMOTE`   |
+| Actions                     | selected; GitHub-owned true, verified creators false, `pnpm/action-setup@*` only     | `VERIFIED_REMOTE`   |
+| Full-SHA requirement        | `sha_pinning_required=true`                                                          | `VERIFIED_REMOTE`   |
+| `dev` ruleset               | `dev-integration-gate` active on exact `dev`; linear history, squash only, no bypass | `VERIFIED_REMOTE`   |
+| `main` ruleset              | `main-release-gate` active on default branch; no linear rule, merge only, no bypass  | `VERIFIED_REMOTE`   |
+| PR rule                     | both zero approvals and conversation resolution; target-specific merge method        | `VERIFIED_REMOTE`   |
+| Required status             | both require `CI summary`, GitHub Actions app `15368`, strict up-to-date off         | `VERIFIED_REMOTE`   |
+| Force push / deletion       | non-fast-forward and deletion blocked                                                | `VERIFIED_REMOTE`   |
+| Vulnerability alerts        | endpoint `204`                                                                       | `VERIFIED_REMOTE`   |
+| Dependabot malware alerts   | enabled                                                                              | `VERIFIED_OWNER_UI` |
+| Dependabot security updates | disabled; `enabled=false`, `paused=false`(2026-10-29)                                | `VERIFIED_REMOTE`   |
+| Mend Portal Automated PRs   | ON; owner Portal 확인, 승인 없이 non-major Renovate PR 생성 관측(2026-10-29)         | `VERIFIED_OWNER_UI` |
+| Workflow token              | `default_workflow_permissions=read`, PR approval off                                 | `VERIFIED_REMOTE`   |
+| Private fork PR             | workflow/write token disabled; fork workflow execution disabled                      | `VERIFIED_REMOTE`   |
+| Artifact/log retention      | owner UI 7 days                                                                      | `VERIFIED_OWNER_UI` |
+| Actions cache policy        | owner UI 7-day retention / 10GiB eviction; API 7,475,286,431 bytes, 29 entries       | `VERIFIED_REMOTE`   |
+| Actions artifacts           | 104 active, 8,178,655 bytes; observed retention 7 days (2026-08-27)                  | `VERIFIED_REMOTE`   |
+| Effective shared storage    | owner Billing UI와 Packages billing contract 기준 Pro shared storage 2GB             | `VERIFIED_OWNER_UI` |
+| GitHub Packages             | owner UI에서 package 0개 확인; 별도 Packages credential 없음                         | `VERIFIED_OWNER_UI` |
+| Installed GitHub Apps       | owner UI: ChatGPT Codex Connector selected repo only, Renovate                       | `VERIFIED_OWNER_UI` |
+| Classic branch protection   | `main`·`dev` 모두 없음; active Rulesets가 effective protection owner                 | `VERIFIED_REMOTE`   |
+| Remote branch inventory     | protected `main`, `dev`만 존재; 기존 merged head 23개 owner-approved cleanup 완료    | `VERIFIED_REMOTE`   |
+| Environments                | 0; unused legacy `copilot` environment 삭제                                          | `VERIFIED_REMOTE`   |
+| Webhooks / deploy keys      | 각각 0                                                                               | `VERIFIED_REMOTE`   |
+| Repository secrets/vars     | Actions·Dependabot·Codespaces·legacy environment 모두 0                              | `VERIFIED_REMOTE`   |
+| Pages                       | disabled                                                                             | `VERIFIED_REMOTE`   |
+| Code/Secret paid products   | Code Scanning disabled; personal private repo에서 별도 paid owner decision까지 보류  | `VERIFIED_REMOTE`   |
 
 이 표는 snapshot입니다. 미래 작업은 표의 문장을 current truth로 가정하지 않고 아래 command로 다시 조회합니다.
 

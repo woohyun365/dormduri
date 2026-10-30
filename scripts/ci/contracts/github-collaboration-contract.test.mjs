@@ -123,7 +123,7 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
     'CI summary',
     'Vulnerability alerts',
     'Dependabot security updates',
-    'enabled=true',
+    'enabled=false',
     'squash merge',
     'merge commit',
     'dev-integration-gate',
@@ -169,7 +169,7 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
   assert.match(remoteSettings, /Remote branch inventory.*`main`, `dev`/su);
   assert.match(remoteSettings, /Environments.*0/su);
   assert.match(remoteSettings, /CI summary.*GitHub Actions/su);
-  assert.match(remoteSettings, /enabled=true.*paused=false/su);
+  assert.match(remoteSettings, /enabled=false.*paused=false/su);
   assert.match(remoteSettings, /\| Dependabot security updates\s+\| disabled/u);
   assert.match(remoteSettings, /\| Allow auto-merge\s+\| disabled/u);
   assert.doesNotMatch(remoteSettings, /gh api[^\n]*--method\s+(?:PATCH|PUT|POST|DELETE)/u);
