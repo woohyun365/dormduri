@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import {
   applyFixtureTargets,
+  assertLookupMatchesFixture,
   buildFixtureFiles,
   createSanitizedDryRunEnvironment,
   dashboardApprovalBranches,
@@ -28,6 +29,32 @@ const lookupLog = readFileSync(
   resolve(repoRoot, 'scripts/dependencies/fixtures/renovate-local-lookup.ndjson'),
   'utf8',
 );
+const lookupRecords = () =>
+  lookupLog
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+const toLog = (records) => records.map((record) => JSON.stringify(record)).join('\n');
+
+// The recorded lookup with a pnpm release on branchName; lookup mode logs a branch record for it.
+function lookupWithPnpm(branchName) {
+  const records = lookupRecords();
+  const packageFiles = records.find(({ msg }) => msg === 'packageFiles with updates');
+  const root = packageFiles.config.npm.find(({ packageFile }) => packageFile === 'package.json');
+  const pnpm = root.deps.find(({ depName }) => depName === 'pnpm');
+  pnpm.updates = [{ newVersion: '12.17.0', updateType: 'minor', branchName }];
+  const branch = {
+    level: 20,
+    repository: 'local',
+    branch: branchName,
+    msg: 'Branch is not pending, removing pending upgrades',
+  };
+  return toLog([branch, ...records]);
+}
+
+// The recorded lookup without the branch records of branchName, as when a disabled rule filters its update out.
+const lookupWithoutBranch = (branchName) =>
+  toLog(lookupRecords().filter(({ branch }) => branch !== branchName));
 
 test('materializes a credential-free pnpm workspace from the active repository policy', () => {
   const files = buildFixtureFiles({ fixture, packageManager, repositoryConfig });
@@ -121,43 +148,43 @@ test('parses owner branches and keeps dashboard approval lines apart from them',
 });
 
 test('treats a pnpm release as an approval line and a branchless update as hidden', () => {
-  const records = lookupLog
-    .trim()
-    .split('\n')
-    .map((line) => JSON.parse(line));
-  const packageFiles = records.find(({ msg }) => msg === 'packageFiles with updates');
-  const root = packageFiles.config.npm.find(({ packageFile }) => packageFile === 'package.json');
-  const pnpm = root.deps.find(({ depName }) => depName === 'pnpm');
-  pnpm.updates = [
-    { newVersion: '12.17.0', updateType: 'minor', branchName: 'renovate/pnpm-package-manager' },
-  ];
-  const pnpmBranch = {
-    level: 20,
-    repository: 'local',
-    branch: 'renovate/pnpm-package-manager',
-    msg: 'Branch is not pending, removing pending upgrades',
-  };
-  const withPnpm = [pnpmBranch, ...records].map((record) => JSON.stringify(record)).join('\n');
-  const withoutTypescriptBranch = lookupLog
-    .trim()
-    .split('\n')
-    .filter((line) => JSON.parse(line).branch !== 'renovate/typescript-7.x')
-    .join('\n');
   const options = { approvalBranches: dashboardApprovalBranches(repositoryConfig) };
 
-  const pnpmEvidence = parseRenovateLookupLog(withPnpm, options);
+  const pnpmEvidence = parseRenovateLookupLog(
+    lookupWithPnpm('renovate/pnpm-package-manager'),
+    options,
+  );
   assert.deepEqual(
     pnpmEvidence.pendingApprovalUpdates.map(({ packageName }) => packageName),
     ['pnpm', 'typescript'],
   );
   assert.ok(!pnpmEvidence.proposedUpdates.some(({ packageName }) => packageName === 'pnpm'));
 
-  const hiddenEvidence = parseRenovateLookupLog(withoutTypescriptBranch, options);
+  const hiddenEvidence = parseRenovateLookupLog(
+    lookupWithoutBranch('renovate/typescript-7.x'),
+    options,
+  );
   assert.deepEqual(
     hiddenEvidence.hiddenUpdates.map(({ packageName }) => packageName),
     ['typescript'],
   );
   assert.deepEqual(hiddenEvidence.pendingApprovalUpdates, []);
+});
+
+test('fails the dry-run on a hidden update or a pnpm release outside its approval branch', () => {
+  const options = { approvalBranches: dashboardApprovalBranches(repositoryConfig) };
+  const check = (log) => assertLookupMatchesFixture(parseRenovateLookupLog(log, options), fixture);
+
+  assert.doesNotThrow(() => check(lookupLog));
+  assert.doesNotThrow(() => check(lookupWithPnpm('renovate/pnpm-package-manager')));
+  assert.throws(
+    () => check(lookupWithoutBranch('renovate/typescript-7.x')),
+    /filtered out updates that must stay on the Dashboard: \["typescript"\]/u,
+  );
+  assert.throws(
+    () => check(lookupWithPnpm('renovate/pnpm-12.x')),
+    /pnpm must wait for dashboard approval, not renovate\/pnpm-12\.x/u,
+  );
 });
 
 test('applies only the three approved source targets before canonical lockfile regeneration', () => {

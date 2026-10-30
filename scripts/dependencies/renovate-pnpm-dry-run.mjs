@@ -362,7 +362,9 @@ function runCommand(command, args, { cwd, environment, timeoutSeconds }) {
   });
 }
 
-function assertLookupMatchesFixture(evidence, fixture) {
+// The dry-run fails when a candidate has no branch (a disabled rule hid it from the Dashboard) or when an approval
+// package manager lands on an automatic branch.
+export function assertLookupMatchesFixture(evidence, fixture) {
   if (evidence.renovateVersion !== fixture.renovateVersion) {
     throw new Error(
       `Renovate version mismatch: expected ${fixture.renovateVersion}, received ${evidence.renovateVersion}`,
