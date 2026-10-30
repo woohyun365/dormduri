@@ -456,14 +456,6 @@ test('shows TypeScript and the ESLint core pair majors as dashboard approval lin
       )
       .map((rule) => rule.groupName);
 
-  for (const packageName of ['typescript', 'eslint', '@eslint/js']) {
-    const disabledRule = renovateConfig.packageRules.find(
-      (rule) =>
-        rule.enabled === false &&
-        (rule.matchPackageNames === undefined || rule.matchPackageNames.includes(packageName)),
-    );
-    assert.equal(disabledRule, undefined, `${packageName} updates must not be disabled`);
-  }
   // TypeScript 7 takes the general major rule as its own approval line; eslint and @eslint/js share one.
   assert.deepEqual(majorGroupsFor('typescript'), []);
   assert.deepEqual(majorGroupsFor('eslint'), ['eslint-major']);
@@ -489,6 +481,19 @@ test('shows TypeScript and the ESLint core pair majors as dashboard approval lin
     () => validateHostedRenovateConfig(disableAll),
     /typescript updates must stay visible as a dashboard approval line/u,
   );
+  // A regex, glob or negation entry may match a held package, so a disabled rule with one is rejected too.
+  for (const pattern of ['/^typescript$/', 'typescript{,-eslint}', 'eslint*', '!next']) {
+    const config = structuredClone(renovateConfig);
+    config.packageRules.push({ matchPackageNames: [pattern], enabled: false });
+    assert.throws(
+      () => validateHostedRenovateConfig(config),
+      /updates must stay visible as a dashboard approval line/u,
+      pattern,
+    );
+  }
+  const disableOther = structuredClone(renovateConfig);
+  disableOther.packageRules.push({ matchPackageNames: ['@tabler/icons-react'], enabled: false });
+  assert.doesNotThrow(() => validateHostedRenovateConfig(disableOther));
 });
 
 test('keeps eslint-config-next with the Web framework owner', () => {

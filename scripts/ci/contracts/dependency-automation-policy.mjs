@@ -79,12 +79,18 @@ const AUTOMERGE_CONTRACT_KEYS = [
 // them from the Dashboard.
 const DASHBOARD_HELD_PACKAGES = ['typescript', 'eslint', '@eslint/js', 'pnpm'];
 
+// Renovate reads a matchPackageNames entry that starts with / or ! or holds a glob character as a regex, negation or
+// glob. This check does not evaluate patterns, so a disabled rule with one counts as hiding every held package.
+const isPackageNamePattern = (name) => /^[/!]|[*?{}[\]]/u.test(name);
+
 function validateDashboardVisibility(config) {
   for (const packageName of DASHBOARD_HELD_PACKAGES) {
     const hidden = config.packageRules.some(
       (rule) =>
         rule.enabled === false &&
-        (rule.matchPackageNames === undefined || rule.matchPackageNames.includes(packageName)),
+        (rule.matchPackageNames === undefined ||
+          rule.matchPackageNames.includes(packageName) ||
+          rule.matchPackageNames.some(isPackageNamePattern)),
     );
     if (hidden) {
       throw new TypeError(
