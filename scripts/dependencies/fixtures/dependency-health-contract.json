@@ -1,10 +1,9 @@
 {
   "schemaVersion": 2,
-  "reviewedAt": "2026-09-08",
+  "reviewedAt": "2026-10-30",
   "reviewAfter": "2026-12-08",
   "requiredWorkspaceEntries": ["'@swc/cli>chokidar': '4'", "'tsconfck>typescript': '6'"],
   "minimumWorkspaceOverrides": {
-    "@prisma/config>deepmerge-ts": "8.0.2",
     "esbuild": "0.28.2"
   },
   "minimumLockResolutions": {
