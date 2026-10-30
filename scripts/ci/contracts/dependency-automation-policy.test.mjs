@@ -424,6 +424,23 @@ test('groups non-npm updates so shared pins move in one PR', () => {
   }
 });
 
+test('the API, Web and ingress fixture images stay on the .node-version patch of one trixie-slim digest pin', () => {
+  const read = (path) => readFileSync(resolve(process.cwd(), path), 'utf8');
+  const references = [
+    read('infra/deploy/api/Dockerfile').match(/^ARG NODE_IMAGE=(\S+)$/mu)?.[1],
+    read('infra/deploy/web/Dockerfile').match(/^ARG NODE_IMAGE=(\S+)$/mu)?.[1],
+    read('scripts/infra/rehearsal/ingress-trust/Dockerfile').match(/^FROM (node:\S+)$/mu)?.[1],
+  ];
+  const nodeVersion = read('.node-version').trim();
+
+  assert.equal(new Set(references).size, 1, `Node image references drifted: ${references}`);
+  // node-image keeps the tag suffix on every update, so the Debian line changes only in a reviewed PR.
+  assert.match(
+    references[0],
+    new RegExp(`^node:${nodeVersion.replaceAll('.', '\\.')}-trixie-slim@sha256:[0-9a-f]{64}$`, 'u'),
+  );
+});
+
 test('shows TypeScript and the ESLint core pair majors as dashboard approval lines', () => {
   const majorGroupsFor = (packageName) =>
     renovateConfig.packageRules
