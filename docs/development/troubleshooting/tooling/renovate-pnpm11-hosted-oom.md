@@ -59,6 +59,10 @@ Repository `renovate.json`은 `toolSettings.nodeMaxMemory=1536`을 유지한다.
 pnpm 12는 Node로 실행되지 않는 native binary라 이 값이 pnpm을 제한하지 않는다. 값과 fail-closed test는 pin을 11.x로
 되돌릴 때 바로 효력을 갖도록 그대로 둔다. pnpm 12에서 merge 전 memory 신호는
 [pnpm package-manager 변경](../../github/dependency-updates.md#pnpm-package-manager-변경)의 cold benchmark peak RSS뿐이다.
+Pin을 11.x로 되돌리는 일은 아래 OOM 대응 fallback이 아니라 그 절차(현재 pin과 후보의 cold benchmark, frozen install,
+CI)를 거치는 별도의 pin 결정이다. Hosted Renovate의 pnpm 12 설치·lockfile 실패는
+[지원선 표](../../../architecture/platform/dependency-automation.md#검증된-runtimetooling-지원선)가 정한 그 결정의 재검토
+trigger다.
 
 `PNPM_WORKERS`와 `PNPM_MAX_WORKERS`는 provider allowlist에 포함될 수 있지만 현재 repository config에는 두지 않는다.
 Upstream evidence에서 worker 수 감소만으로 peak memory가 해결되지 않은 사례가 있으며, 효과가 입증되지 않은 environment
@@ -90,7 +94,7 @@ PR #400과 #401은 clean install, lint, typecheck, repository policy, API/Web/In
 
 다음은 fallback이 아니다.
 
-- pnpm downgrade
+- OOM 대응으로 하는 pnpm downgrade(pin 변경은 위 [현재 복구 정책](#현재-복구-정책)의 pin 결정 절차가 소유)
 - `minimumReleaseAge` 또는 supply-chain trust/install policy 완화
 - npm Dependabot과 Renovate의 동시 활성화
 - 승인되지 않은 package까지 한 번에 업데이트
@@ -155,19 +159,19 @@ migration 판단이다.
 
 ## 유지보수·포트폴리오 evidence map
 
-| 질문                                 | Repository evidence                                                                        |
-| ------------------------------------ | ------------------------------------------------------------------------------------------ |
-| 어떤 문제가 있었나                   | 승인된 Renovate branch가 pnpm 11 lockfile command 시작 후 completion 없이 kernel OOM       |
-| 어떻게 원인을 분리했나               | extraction·approval·package rewrite 성공과 lockfile child-process 경계를 log에서 분리      |
-| bounded retry 결과는 무엇인가        | `nodeMaxMemory=1536`이 로드됐지만 3.0 GB ceiling에서 1분 39초 후 같은 kernel OOM           |
-| 왜 memory를 무조건 늘리지 않았나     | parent process·OS headroom과 hosted runner total memory를 함께 보존해야 함                 |
-| 왜 worker override를 고정하지 않았나 | upstream에서 peak-memory 개선이 입증되지 않았고 config drift 비용이 있음                   |
-| 왜 provider를 바로 교체하지 않았나   | one-owner 정책과 기존 extraction/grouping 성공을 보존하는 bounded fix가 더 작고 reversible |
-| 실패하면 어떻게 복구하나             | 한 번의 hosted retry 후 exact-candidate local materialization과 PR #400·#401 검증          |
-| 무엇을 포기하지 않았나               | supported pnpm line, supply-chain controls, owner grouping, review·rollback 경계           |
-| pnpm pin은 어떤 근거로 바꿨나        | 동일 cold workload에서 11.7.0 3.42 GB 대비 11.24.0 1.93 GB, frozen compatibility 재검증    |
-| 승격 후 무엇을 확인했나              | PR #404·#405, main push run `33514768400`, Dashboard manual request 소비                   |
-| hosted recovery는 성공했나           | 안전한 exact candidate가 없어 materialization 미실행, terminal `NO-GO`                     |
+| 질문                                 | Repository evidence                                                                                                                                   |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 어떤 문제가 있었나                   | 승인된 Renovate branch가 pnpm 11 lockfile command 시작 후 completion 없이 kernel OOM                                                                  |
+| 어떻게 원인을 분리했나               | extraction·approval·package rewrite 성공과 lockfile child-process 경계를 log에서 분리                                                                 |
+| bounded retry 결과는 무엇인가        | `nodeMaxMemory=1536`이 로드됐지만 3.0 GB ceiling에서 1분 39초 후 같은 kernel OOM                                                                      |
+| 왜 memory를 무조건 늘리지 않았나     | parent process·OS headroom과 hosted runner total memory를 함께 보존해야 함                                                                            |
+| 왜 worker override를 고정하지 않았나 | upstream에서 peak-memory 개선이 입증되지 않았고 config drift 비용이 있음                                                                              |
+| 왜 provider를 바로 교체하지 않았나   | one-owner 정책과 기존 extraction/grouping 성공을 보존하는 bounded fix가 더 작고 reversible                                                            |
+| 실패하면 어떻게 복구하나             | 한 번의 hosted retry 후 exact-candidate local materialization과 PR #400·#401 검증                                                                     |
+| 무엇을 포기하지 않았나               | supported pnpm line, supply-chain controls, owner grouping, review·rollback 경계                                                                      |
+| pnpm pin은 어떤 근거로 바꿨나        | 동일 cold workload에서 11.7.0 3.42 GB 대비 11.24.0 1.93 GB(11.x), 11.24.0 median 1.94 GB 대비 12.16.1 1.15 GB(12.x), 각각 frozen compatibility 재검증 |
+| 승격 후 무엇을 확인했나              | PR #404·#405, main push run `33514768400`, Dashboard manual request 소비                                                                              |
+| hosted recovery는 성공했나           | 안전한 exact candidate가 없어 materialization 미실행, terminal `NO-GO`                                                                                |
 
 ## 검증
 

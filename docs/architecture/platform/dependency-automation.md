@@ -57,7 +57,9 @@ benchmark와 함께 검토해야 하므로 일반 dependency group에서 자동 
 pnpm pin은 업데이트 신규성만으로 고르지 않는다. 같은 workspace와 lockfile-only command를 isolated cache/store에서
 세 번씩 실행한 cold comparison(2026-10-30)에서 이전 pin 11.24.0은 median 1.94 GB, 12.x memory-fix floor 12.15.0은
 1.09 GB, release-age-eligible 12.16.1은 1.15 GB(최대 1.19 GB) peak RSS를 기록했다. 12.16.1은 floor 대비 10%
-regression 한도 안에 있고 11.24.0보다 40.6% 낮다. pnpm 12는 Node로 실행되지 않는 native binary라
+regression 한도 안에 있고 11.24.0보다 40.6% 낮다. 측정은 macOS arm64에서 `/usr/bin/time -l`로 pnpm command 하나의
+peak RSS를 잰 값이라 Mend-hosted Linux container의 memory 사용량이나 3.0 GB ceiling 여유를 직접 보여 주지 않고, 같은
+host에서 version끼리 비교한 상대 신호다. pnpm 12는 Node로 실행되지 않는 native binary라
 `toolSettings.nodeMaxMemory`가 pnpm을 제한하지 않으므로, merge 전 memory 신호는 이 비교의 peak RSS뿐이다. 이 실험은
 package-manager owner가 자동 dependency group과 분리되어야 하는 이유를 보여 준다. 11.x 시기의 비교(11.7.0 3.42 GB,
 11.15.1 2.18 GB, 11.24.0 1.93 GB)와 hosted OOM의 전체 과정·제약·disposition은

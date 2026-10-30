@@ -106,10 +106,7 @@ describe('deployment infra', () => {
     expect(dockerfile).toContain('ARG NODE_IMAGE=node:');
     expect(dockerfile).toContain('FROM ${NODE_IMAGE} AS base');
     expect(dockerfile).toContain('FROM ${NODE_IMAGE} AS runtime');
-    expect(dockerfile).not.toContain('corepack');
-    expect(dockerfile).toContain(
-      `RUN npm install --global "$(node -p "require('./package.json').packageManager")"`,
-    );
+    // scripts/ci/contracts/package-manager-reference-policy.test.mjs owns how every image installs pnpm.
     expect(dockerfile).toContain('pnpm install --frozen-lockfile');
     expect(dockerfile).toContain(
       'pnpm --dir apps/api exec tsc -p ../../packages/shared/tsconfig.json',
