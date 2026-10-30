@@ -80,14 +80,13 @@ if (!existsSync(summaryPath)) {
   process.exit(artilleryExitCode);
 }
 
-const tsNodeRegister =
-  'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));';
+const tsLoader = './test/support/ts-esm-loader.mjs';
 const parserRun = spawnSync(
   process.execPath,
   [
     '--no-deprecation',
     '--import',
-    tsNodeRegister,
+    tsLoader,
     parserPath,
     summaryPath,
     '--scenario',

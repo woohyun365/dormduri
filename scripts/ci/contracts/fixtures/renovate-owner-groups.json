@@ -76,7 +76,6 @@
       "sonner",
       "source-map-support",
       "supertest",
-      "ts-node",
       "unplugin-swc",
       "zod"
     ],
@@ -98,7 +97,6 @@
       "husky",
       "lint-staged",
       "prettier",
-      "ts-node",
       "typescript",
       "typescript-eslint",
       "unplugin-swc"

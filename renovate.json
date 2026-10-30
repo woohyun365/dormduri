@@ -49,7 +49,6 @@
         "husky",
         "lint-staged",
         "prettier",
-        "ts-node",
         "typescript",
         "typescript-eslint",
         "unplugin-swc"
