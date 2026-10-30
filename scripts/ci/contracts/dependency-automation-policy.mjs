@@ -6,6 +6,10 @@ export const VERSION_UPDATE_ECOSYSTEMS = {
   'docker-compose': { dependabot: 'docker-compose', renovate: 'docker-compose' },
 };
 
+// Renovate managers with no Dependabot ecosystem. Renovate is their only possible owner, so the single-owner check
+// does not cover them; nodenv keeps .node-version on the Node line of the node-image group.
+export const RENOVATE_ONLY_MANAGERS = ['nodenv'];
+
 function extractDependabotBlocks(config, ecosystem) {
   if (typeof config !== 'string') return [];
   const blocks = config.split(/\n(?=\s*-\s+package-ecosystem:)/u);
@@ -225,13 +229,13 @@ export function validateHostedRenovateConfig(config) {
     throw new TypeError('hosted Renovate version-update owner must remain enabled');
   }
   if (
-    !sameMembers(
-      config.enabledManagers,
-      Object.values(VERSION_UPDATE_ECOSYSTEMS).map(({ renovate }) => renovate),
-    )
+    !sameMembers(config.enabledManagers, [
+      ...Object.values(VERSION_UPDATE_ECOSYSTEMS).map(({ renovate }) => renovate),
+      ...RENOVATE_ONLY_MANAGERS,
+    ])
   ) {
     throw new TypeError(
-      'enabledManagers must contain exactly npm, github-actions, dockerfile, and docker-compose',
+      'enabledManagers must contain exactly npm, github-actions, dockerfile, docker-compose, and nodenv',
     );
   }
   if (!sameMembers(config.baseBranchPatterns, ['dev'])) {

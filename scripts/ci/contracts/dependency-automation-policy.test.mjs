@@ -131,11 +131,13 @@ test('keeps the hosted Renovate policy active on dev with base branch config mer
   const policy = validateHostedRenovateConfig(renovateConfig);
 
   assert.equal(policy.enabled, true);
+  // nodenv reads .node-version and has no Dependabot ecosystem, so it adds no second owner to check.
   assert.deepEqual(policy.enabledManagers, [
     'npm',
     'github-actions',
     'dockerfile',
     'docker-compose',
+    'nodenv',
   ]);
   assert.deepEqual(policy.baseBranchPatterns, ['dev']);
   assert.equal(policy.useBaseBranchConfig, 'merge');
@@ -152,6 +154,11 @@ test('keeps the hosted Renovate policy active on dev with base branch config mer
     [(config) => delete config.useBaseBranchConfig, /useBaseBranchConfig must be merge/u],
     [(config) => (config.configMigration = true), /configMigration PRs must stay off/u],
     [(config) => (config.enabledManagers = ['npm']), /enabledManagers must contain exactly/u],
+    [
+      (config) =>
+        (config.enabledManagers = config.enabledManagers.filter((manager) => manager !== 'nodenv')),
+      /enabledManagers must contain exactly .*nodenv/u,
+    ],
     [(config) => delete config.vulnerabilityAlerts, /vulnerabilityAlerts.prConcurrentLimit/u],
   ]) {
     const config = structuredClone(renovateConfig);
@@ -404,6 +411,8 @@ test('groups non-npm updates so shared pins move in one PR', () => {
   assert.deepEqual(groups['actions-minor-patch'].matchManagers, ['github-actions']);
   assert.deepEqual(groups['postgres-image'].matchPackageNames, ['postgres']);
   assert.deepEqual(groups['node-image'].matchPackageNames, ['node']);
+  // The Node images (docker) and .node-version (nodenv, node-version datasource) move in one PR.
+  assert.deepEqual(groups['node-image'].matchDatasources, ['docker', 'node-version']);
   assert.deepEqual(groups['observability-images'].matchFileNames, ['infra/observability/**']);
   for (const name of [
     'actions-minor-patch',

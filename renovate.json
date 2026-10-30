@@ -1,8 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "Hosted Renovate owns every version update and vulnerability fix PR (npm, GitHub Actions, Dockerfile and Compose images) and targets dev for CI validation.",
+  "description": "Hosted Renovate owns every version update and vulnerability fix PR (npm, GitHub Actions, Dockerfile and Compose images, and the .node-version file) and targets dev for CI validation.",
   "enabled": true,
-  "enabledManagers": ["npm", "github-actions", "dockerfile", "docker-compose"],
+  "enabledManagers": ["npm", "github-actions", "dockerfile", "docker-compose", "nodenv"],
   "baseBranchPatterns": ["dev"],
   "useBaseBranchConfig": "merge",
   "dependencyDashboard": true,
@@ -192,8 +192,8 @@
       "groupSlug": "postgres-image"
     },
     {
-      "description": "Keep the API, Web and fixture Node.js base images on one Node.js line in a single PR.",
-      "matchDatasources": ["docker"],
+      "description": "Keep the API, Web and fixture Node.js base images and the local .node-version on one Node.js line in a single PR.",
+      "matchDatasources": ["docker", "node-version"],
       "matchPackageNames": ["node"],
       "matchUpdateTypes": ["minor", "patch", "digest"],
       "groupName": "node-image",
