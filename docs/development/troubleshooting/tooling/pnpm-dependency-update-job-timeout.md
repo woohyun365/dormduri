@@ -20,7 +20,7 @@ direct dependency를 한 process에서 반복 계산했고, group은 PR 조합�
 - Renovate scan 완료 후 `needs-approval`: timeout이 아니라 Dashboard 승인 대기다.
 - Lockfile conflict: branch가 만들어진 뒤 pnpm regeneration 또는 base drift에서 발생한다.
 - pnpm lockfile command 시작 후 `exec completed` 없이 `kernel-out-of-memory`: queue timeout이 아니라
-  [Mend Renovate pnpm 11 OOM](./renovate-pnpm11-hosted-oom.md) 경계를 따른다.
+  [Mend Renovate pnpm lockfile OOM](./renovate-pnpm11-hosted-oom.md) 경계를 따른다.
 
 ## 현재 해결 구조
 
@@ -39,7 +39,7 @@ direct dependency를 한 process에서 반복 계산했고, group은 PR 조합�
 
 ```bash
 pnpm dependency:renovate:provider-preflight
-pnpm dependency:renovate:dry-run
+fnm exec --using=24 pnpm dependency:renovate:dry-run # Renovate CLI가 Node 24만 선언함(dependency-automation 문서)
 gh issue view 353
 gh pr list --author app/renovate --state open
 ```

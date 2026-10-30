@@ -169,7 +169,8 @@ describe('real Express response and observability boundary', () => {
       .set('x-request-id', 'request-12345678');
     expect(response.status).toBe(200);
     expect(response.text).toBe('# HELP api_http_requests_total test\n');
-    expect(response.headers['content-type']).toBe('text/plain; charset=utf-8; version=0.0.4');
+    // Express keeps the registry's parameter order when it sets the charset (content-type 2.x does not sort).
+    expect(response.headers['content-type']).toBe('text/plain; version=0.0.4; charset=utf-8');
     expect(response.headers['cache-control']).toBe('no-store');
     expect(response.headers['x-request-id']).toBe('request-12345678');
     expect(registry.metrics).toHaveBeenCalledTimes(1);

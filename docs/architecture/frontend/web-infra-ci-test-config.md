@@ -8,8 +8,8 @@
 
 | 항목              | 기준                |
 | ----------------- | ------------------- |
-| Node              | `>=24 <25`          |
-| package manager   | `pnpm@11.24.0`      |
+| Node              | `>=26 <27`          |
+| package manager   | `pnpm@12.16.1`      |
 | Next.js           | `16.2.9`            |
 | React / React DOM | `19.2.7` / `19.2.7` |
 | TypeScript        | `6.0.3`             |

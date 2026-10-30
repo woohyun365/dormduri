@@ -62,6 +62,16 @@ export default defineConfig([
     ...tseslint.configs.disableTypeChecked,
   },
   {
+    files: ['test/support/**/*.mjs'],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      parserOptions: {
+        project: false,
+        projectService: false,
+      },
+    },
+  },
+  {
     files: ['src/**/*.spec.ts'],
     rules: {
       'no-restricted-imports': [

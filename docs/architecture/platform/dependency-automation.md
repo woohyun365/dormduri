@@ -48,30 +48,41 @@ Renovate npm update는 다음 변경만 허용한다. Image·workflow update는 
 - canonical `pnpm-lock.yaml`
 
 기존 semver range가 새 버전을 이미 허용하면 manifest는 바뀌지 않고 lockfile resolution만 갱신될 수 있다. 이는 누락이
-아니라 정상적인 inline dependency no-change 결과다. pnpm CLI 자체는 lockfile format, Corepack, CI action과 함께 검토해야
-하므로 일반 dependency group에서 자동 갱신하지 않는다. 현재 pin은 `pnpm@11.24.0`이며 root manifest, CI setup과
-provider-independent fixture가 같은 exact version을 사용한다.
+아니라 정상적인 inline dependency no-change 결과다. pnpm CLI 자체는 lockfile format, CI action, cold lockfile
+benchmark와 함께 검토해야 하므로 일반 dependency group에서 자동 갱신하지 않는다. 현재 pin은 `pnpm@12.16.1`이고 root
+`packageManager`가 그 version을 소유한다. CI setup과 provider-independent fixture는 같은 exact version을 적고 test가
+대조한다. Node 26에는 Corepack이 없으므로 Docker image와 restore drill은 root `packageManager` 값을 읽어 npm으로
+설치하며 version을 따로 적지 않는다.
 
-11.24.0은 업데이트 신규성만으로 선택하지 않았다. 같은 workspace와 lockfile-only command를 isolated
-cache/store에서 실행한 단일 cold comparison에서 11.7.0은 3.42 GB, memory-fix floor 11.15.1은 2.18 GB,
-release-age-eligible 11.24.0은 1.93 GB peak RSS를 기록했다. 이 실험은 package-manager owner가 자동 dependency
-group과 분리되어야 하는 이유를 보여 준다. 전체 과정·제약·hosted disposition은
-[Mend-hosted Renovate pnpm 11 OOM](../../development/troubleshooting/tooling/renovate-pnpm11-hosted-oom.md)이 소유한다.
+pnpm pin은 업데이트 신규성만으로 고르지 않는다. 같은 workspace와 lockfile-only command를 isolated cache/store에서
+세 번씩 실행한 cold comparison(2026-10-30)에서 이전 pin 11.24.0은 median 1.94 GB, 12.x memory-fix floor 12.15.0은
+1.09 GB, release-age-eligible 12.16.1은 1.15 GB(최대 1.19 GB) peak RSS를 기록했다. 12.16.1은 floor 대비 10%
+regression 한도 안에 있고 11.24.0보다 40.6% 낮다. 측정은 macOS arm64에서 `/usr/bin/time -l`로 pnpm command 하나의
+peak RSS를 잰 값이라 Mend-hosted Linux container의 memory 사용량이나 3.0 GB ceiling 여유를 직접 보여 주지 않고, 같은
+host에서 version끼리 비교한 상대 신호다. pnpm 12는 Node로 실행되지 않는 native binary라
+`toolSettings.nodeMaxMemory`가 pnpm을 제한하지 않으므로, merge 전 memory 신호는 이 비교의 peak RSS뿐이다. 이 실험은
+package-manager owner가 자동 dependency group과 분리되어야 하는 이유를 보여 준다. 11.x 시기의 비교(11.7.0 3.42 GB,
+11.15.1 2.18 GB, 11.24.0 1.93 GB)와 hosted OOM의 전체 과정·제약·disposition은
+[Mend-hosted Renovate pnpm lockfile OOM](../../development/troubleshooting/tooling/renovate-pnpm11-hosted-oom.md)이
+소유한다.
 
-## 검증된 lint/tooling 지원선
+## 검증된 runtime·tooling 지원선
 
-2026-09-01 기준 repository가 직접 검증한 지원선은 다음과 같다.
+Repository가 직접 검증한 지원선은 다음과 같다. 행마다 검증 시점이 다르며, runtime·framework 행은 지원 종료 일정과
+다음 전환 trigger를 함께 적는다.
 
-| 책임              | 지원선                                    | 결정 근거                                                                                         |
-| ----------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| ESLint core       | 9.39.5                                    | shared/API lint와 전체 CI 통과; ESLint 10은 plugin peer support가 완성될 때까지 Issue #395가 소유 |
-| TypeScript ESLint | 8.69.0                                    | parser·plugin·meta package를 같은 owner group으로 검증                                            |
-| Node type         | 24.13.3                                   | Node 24 runtime line과 일치                                                                       |
-| SWC resolution    | `@swc/core` 1.16.2, `unplugin-swc` 1.5.11 | lockfile exact-candidate와 API compiler boundary 검증                                             |
-| staged-file gate  | lint-staged 17.4.1                        | Node/Git engine과 partial-stage·failure rollback 계약 검증                                        |
-| formatter         | Prettier 3.9.6                            | formatter-only migration과 repository-wide format 검증을 분리해 지원선 전환                       |
-| compiler          | TypeScript 6.0.3                          | TypeScript 7은 ESLint ecosystem 호환 전까지 Issue #335가 소유                                     |
-| package manager   | pnpm 11.24.0                              | 11.7.0 대비 동일 cold lockfile workload peak RSS 43.4% 감소와 frozen install 검증                 |
+| 책임              | 지원선                                    | 결정 근거                                                                                                                                                               |
+| ----------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node runtime      | Node 26.13.0 LTS                          | local·CI·Docker를 한 줄로 검증; maintenance 2027-10-20, EOL 2029-04-30; Node 27 LTS 시작(2027-10-20)이 전환 plan trigger                                                |
+| backend framework | NestJS 12.3.2                             | API unit·integration·e2e와 lifecycle hook 순서 test 검증; NestJS는 지원 종료 일정을 발표하지 않으므로 NestJS 13 stable release가 전환 plan trigger                      |
+| ESLint core       | 9.39.5                                    | shared/API lint와 전체 CI 통과; ESLint 10은 plugin peer support가 완성될 때까지 Issue #395가 소유                                                                       |
+| TypeScript ESLint | 8.69.0                                    | parser·plugin·meta package를 같은 owner group으로 검증                                                                                                                  |
+| Node type         | 26.6.5                                    | Node 26 runtime line과 일치                                                                                                                                             |
+| SWC resolution    | `@swc/core` 1.16.20, `unplugin-swc` 2.0.0 | lockfile exact-candidate와 API compiler boundary 검증                                                                                                                   |
+| staged-file gate  | lint-staged 17.4.1                        | Node/Git engine과 partial-stage·failure rollback 계약 검증                                                                                                              |
+| formatter         | Prettier 3.9.6                            | formatter-only migration과 repository-wide format 검증을 분리해 지원선 전환                                                                                             |
+| compiler          | TypeScript 6.0.3                          | TypeScript 7은 ESLint ecosystem 호환 전까지 Issue #335가 소유                                                                                                           |
+| package manager   | pnpm 12.16.1                              | 11.24.0 대비 동일 cold lockfile workload median peak RSS 40.6% 감소와 frozen install 검증; pnpm 13 출시나 hosted Renovate의 pnpm 12 설치·lockfile 실패가 재검토 trigger |
 
 Web framework가 소유하는 `eslint-config-next`는 lint-tooling group에서 분리한다. Formatter는 Prettier CLI가 소유하며
 ESLint 안에서 동일 formatting 책임을 중복 실행하는 `eslint-plugin-prettier`는 두지 않는다.
@@ -161,6 +172,11 @@ Credential 없이 실행하는 dry-run은 두 경계를 결합한다.
 Local platform은 branch 생성을 지원하지 않으므로 이 검증은 hosted App을 대체하지 않는다. Provider permission 없이
 config·package-manager correctness를 빠르게 회귀 검증하기 위한 보조 경계다.
 
+Renovate CLI는 `engines.node`를 `^24.11.0`으로만 선언하고, 그 밖의 Node에서는 "Unsupported node environment" error를
+남긴 뒤 non-zero로 끝난다. 그래서 Renovate가 Node 26을 선언할 때까지 local dry-run은 Node 24 runtime으로 실행한다(예:
+`fnm exec --using=24 pnpm dependency:renovate:dry-run`). Lockfile 작업은 PATH의 pnpm 12 native binary가 맡으므로 hosted
+Renovate와 같은 조합이다. Hosted Renovate는 Mend runtime의 Node로 실행되어 이 제약을 받지 않는다.
+
 - [Renovate local platform](https://docs.renovatebot.com/modules/platform/local/)
 - [Renovate npm/pnpm manager](https://docs.renovatebot.com/modules/manager/npm/)
 
@@ -187,7 +203,8 @@ Hosted provider나 한 manager를 중단할 때 기본 branch 설정에 owner가
   끈다.
 - Bot PR 하나가 merge까지 rebase로 CI를 세 번 넘게 다시 돌거나 생성부터 merge까지 일주일을 넘긴다.
 - pnpm catalog 또는 lockfile update semantics가 변경된다.
-- pnpm CLI와 Corepack·CI action을 원자적으로 갱신할 owner boundary가 마련된다.
+- pnpm CLI와 CI action·cold lockfile benchmark를 원자적으로 갱신할 owner boundary가 마련된다.
+- Renovate CLI가 `engines.node`에 Node 26을 선언한다. Local dry-run의 Node 24 실행 안내를 지운다.
 - Provider job이 반복적으로 timeout되거나 branch/lockfile이 비결정적으로 생성된다.
 - 현재 pnpm pin이 동일 cold workload에서 fix floor보다 10% 넘게 memory regression을 보이거나 hosted lockfile OOM signature가
   서로 다른 bounded owner group에서 다시 발생한다.

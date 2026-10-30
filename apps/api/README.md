@@ -11,7 +11,7 @@
 
 ## 1. 기본 구성
 
-- API 런타임: NestJS 11
+- API 런타임: NestJS 12
 - ORM: Prisma 7
 - DB: PostgreSQL 18
 - Prisma schema: `apps/api/prisma/schema.prisma`
