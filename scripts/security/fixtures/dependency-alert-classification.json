@@ -46,7 +46,7 @@
       "parent": "Next browser target resolution",
       "classification": "build-only",
       "action": "toolchain-remediation",
-      "mitigation": "Next 16.4.1 resolves baseline-browser-mapping 2.11.0 or newer through its supported dependency graph without a repository override.",
+      "mitigation": "Next 16.4.3 declares baseline-browser-mapping ^2.9.19, so 2.11.0 or newer resolves through its supported dependency graph without a repository override.",
       "revisit": "Recheck the browser target graph when Next changes its baseline-browser-mapping dependency or the Web build target policy changes."
     },
     {
@@ -161,7 +161,7 @@
       "parent": "apps/web",
       "classification": "shipped-reachable",
       "action": "runtime-remediation",
-      "mitigation": "The Web runtime moves to the supported Next 16.4.1 patch and verifies the standalone build plus browser surfaces rather than suppressing either critical advisory.",
+      "mitigation": "The Web runtime is on the supported Next 16.4.3 patch (16.4.1 or newer fixes both critical advisories) and verifies the standalone build plus browser surfaces rather than suppressing either advisory.",
       "revisit": "Recheck Next security advisories on every supported-line migration and before a production release."
     },
     {
@@ -209,7 +209,7 @@
       "parent": "Next image optimizer",
       "classification": "shipped-reachable",
       "action": "runtime-remediation",
-      "mitigation": "Next 16.4.1 declares Sharp ^0.35.5, so the patched release resolves without a root override and the Web standalone artifact plus next/image callers are verified.",
+      "mitigation": "Next 16.4.3 declares Sharp ^0.35.5 as an optional dependency, so the patched release resolves without a root override and the Web standalone artifact plus next/image callers are verified.",
       "revisit": "Recheck the image optimizer graph when Next or the production image handling policy changes."
     },
     {
