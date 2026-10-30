@@ -119,7 +119,7 @@ AI가 실제 팀 협업이나 운영 경험을 대신한다고 보지 않습니�
 
 | 영역      | 현재 기준                                                           | 선택 목적                                      |
 | --------- | ------------------------------------------------------------------- | ---------------------------------------------- |
-| Runtime   | Node.js 26, pnpm 11                                                 | workspace와 CI runtime 일치                    |
+| Runtime   | Node.js 26, pnpm 12                                                 | workspace와 CI runtime 일치                    |
 | 언어      | TypeScript 6                                                        | FE·BE·shared contract의 정적 경계              |
 | Web       | Next.js 16, React 19, Tailwind CSS 4                                | App Router, BFF, 반응형 제품 UI                |
 | API       | NestJS 12, Joi, Pino                                                | DI 기반 도메인 owner, 런타임 설정, 구조화 로그 |
@@ -137,7 +137,7 @@ AI가 실제 팀 협업이나 운영 경험을 대신한다고 보지 않습니�
 
 ### 필요 환경
 
-Node.js `>=26 <27` · pnpm `11.24.0` · Docker · Docker Compose
+Node.js `>=26 <27` · pnpm `12.16.1` · Docker · Docker Compose
 
 ### 로컬 실행
 

@@ -1,9 +1,9 @@
-# Mend-hosted Renovate pnpm 11 lockfile OOM
+# Mend-hosted Renovate pnpm lockfile OOM
 
 ## 책임
 
-이 문서는 Mend-hosted Renovate가 pnpm 11 workspace의 lockfile을 생성하다 kernel OOM으로 종료될 때 증상 판별, bounded
-복구, local fallback과 재검토 조건을 소유한다. 일반 provider queue·approval 문제는
+이 문서는 Mend-hosted Renovate가 pnpm workspace의 lockfile을 생성하다 kernel OOM으로 종료될 때 증상 판별, bounded
+복구, local fallback과 재검토 조건을 소유한다. 2026-09-01 pnpm 11.7.0 사례는 아래에 이력으로 남긴다. 일반 provider queue·approval 문제는
 [pnpm dependency update timeout](./pnpm-dependency-update-job-timeout.md), 일상 dependency update 절차는
 [Dependency update operations](../../github/dependency-updates.md)를 따른다.
 
@@ -55,6 +55,10 @@ Repository `renovate.json`은 `toolSettings.nodeMaxMemory=1536`을 유지한다.
 제한하여 Mend-hosted runner 안에서 Renovate와 OS가 사용할 headroom을 남기는 bounded provider control이다.
 이 값은 provider OOM의 해결 보장이 아니라 과도한 child heap을 막는 방어선이다. 실제 bounded retry는 이 값을 로드한
 상태에서도 total-memory ceiling에 도달했다.
+
+pnpm 12는 Node로 실행되지 않는 native binary라 이 값이 pnpm을 제한하지 않는다. 값과 fail-closed test는 pin을 11.x로
+되돌릴 때 바로 효력을 갖도록 그대로 둔다. pnpm 12에서 merge 전 memory 신호는
+[pnpm package-manager 변경](../../github/dependency-updates.md#pnpm-package-manager-변경)의 cold benchmark peak RSS뿐이다.
 
 `PNPM_WORKERS`와 `PNPM_MAX_WORKERS`는 provider allowlist에 포함될 수 있지만 현재 repository config에는 두지 않는다.
 Upstream evidence에서 worker 수 감소만으로 peak memory가 해결되지 않은 사례가 있으며, 효과가 입증되지 않은 environment
@@ -144,8 +148,10 @@ paired lockfile `exec completed`, 새 Renovate branch 또는 PR도 생성되지 
 
 pnpm version 재검토는 warm cache 체감이 아니라 같은 workspace 입력, isolated metadata/cache/store, 동일 lockfile-only 명령으로
 현재 pin과 upstream fix line을 비교한다. Exit status, wall time, peak RSS를 함께 기록하고 repository compatibility가 통과한
-최신 지원 11.x만 승격한다. Default branch 반영 후 Mend scan은 한 번만 허용하며, 다시 OOM이면 provider/runtime NO-GO로
-종료한다. pnpm 12 또는 self-hosted Renovate는 이 결과와 별개의 migration 판단이다.
+release-age-eligible 최신 지원 version만 승격한다(절차는
+[pnpm package-manager 변경](../../github/dependency-updates.md#pnpm-package-manager-변경)). Renovate가 scan하는 `dev`에 반영한
+뒤 Mend scan은 한 번만 허용하며, 다시 OOM이면 provider/runtime NO-GO로 종료한다. Self-hosted Renovate는 이 결과와 별개의
+migration 판단이다.
 
 ## 유지보수·포트폴리오 evidence map
 

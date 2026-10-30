@@ -16,7 +16,7 @@
 | Docker Compose images           | Mend-hosted Renovate   | `dev`  |
 | Security updates(alert 기반 PR) | Mend-hosted Renovate   | `dev`  |
 | Vulnerability alerts            | Dependabot(alert 전용) | 없음   |
-| pnpm package-manager/Corepack   | Manual reviewed change | `dev`  |
+| pnpm package-manager            | Manual reviewed change | `dev`  |
 
 두 bot은 기본 branch(`main`)의 설정을 읽는다. 이 owner map은 `.github/dependabot.yml` 삭제와 Renovate manager 추가가
 `dev` → `main` 승격으로 기본 branch에 올라간 뒤 효력을 갖는다.
@@ -100,7 +100,7 @@ Checkbox를 선택해도 job이 실행되기 전까지 branch와 PR은 생성되
 클릭하지 않고, Silent mode에서 manual scan 한 번으로 provider path를 분리 검증한다.
 
 Approved job이 pnpm lockfile command를 시작한 뒤 completion 없이 `kernel-out-of-memory`로 끝나면 compatibility 실패로
-처리하지 않는다. [Mend-hosted Renovate pnpm 11 OOM](../troubleshooting/tooling/renovate-pnpm11-hosted-oom.md)의 한 번의
+처리하지 않는다. [Mend-hosted Renovate pnpm lockfile OOM](../troubleshooting/tooling/renovate-pnpm11-hosted-oom.md)의 한 번의
 bounded resource retry와 exact-candidate fallback을 따른다.
 
 ## 자동 merge 멈춤
@@ -176,19 +176,20 @@ Provider 장애를 이유로 개인 PAT 기반 bot이나 repository-owned lifecy
 
 ## pnpm package-manager 변경
 
-pnpm CLI는 Renovate owner group checkbox로 승인하지 않는다. Root `packageManager`, Corepack/CI reference, lockfile semantics와
+pnpm CLI는 Renovate owner group checkbox로 승인하지 않는다. Root `packageManager`, CI reference, lockfile semantics와
 cold-resolution memory가 하나의 compatibility unit이기 때문이다. `github-actions` manager는 `pnpm/action-setup`의
 `version` 입력을 `pnpm` 의존성으로 읽으므로 root `packageManager`와 같은 비활성 규칙이 그 입력도 막는다. 변경 시 현재 pin,
 upstream memory-fix floor와 최신
 release-age-eligible stable candidate를 동일한 isolated cache/store workload로 비교하고 exit status, wall time, peak RSS를
-기록한다. Local 결과가 좋아도 hosted provider recovery로 간주하지 않으며, default branch 반영 후 한 번의 Mend scan에서
+기록한다. Local 결과가 좋아도 hosted provider recovery로 간주하지 않으며, Renovate가 scan하는 `dev`에 반영한 뒤 한 번의 Mend scan에서
 lockfile command completion을 별도로 확인한다.
 
-현재 검증 pin은 `pnpm@11.24.0`이다. 재현 가능한 비교는 `pnpm dependency:pnpm:cold-benchmark`를 사용하며, 결과 artifact는
+현재 검증 pin은 `pnpm@12.16.1`이다. pnpm 12는 native binary라 `toolSettings.nodeMaxMemory`가 pnpm을 제한하지
+않으므로 merge 전 memory 신호는 이 비교의 peak RSS뿐이다. 재현 가능한 비교는 `pnpm dependency:pnpm:cold-benchmark`를 사용하며, 결과 artifact는
 `.artifacts/tools/dependency-automation/`에만 둔다. 이 benchmark는 dependency update를 승인하거나 provider credential을
 사용하지 않으며 disposable workspace만 변경한다.
 
-Local RSS 감소와 full CI 성공은 repository compatibility 증거이지 hosted recovery 증거가 아니다. Main 반영 후
+Local RSS 감소와 full CI 성공은 repository compatibility 증거이지 hosted recovery 증거가 아니다. `dev` 반영 후
 수동 scan이 소비되었더라도 승인된 exact candidate의 paired lockfile completion과 branch/PR이 없으면 provider
 materialization을 `GO`로 기록하지 않는다. 이 경우 동일 scan을 반복하지 않고 terminal `NO-GO`로 닫은 뒤,
 첫 안전한 미래 owner-group candidate가 그 시점의 재평가를 소유하게 한다.
