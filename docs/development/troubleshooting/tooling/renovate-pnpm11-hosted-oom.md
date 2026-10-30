@@ -173,7 +173,7 @@ migration 판단이다.
 
 ```bash
 node --test scripts/ci/contracts/dependency-automation-policy.test.mjs
-pnpm dependency:renovate:dry-run
+fnm exec --using=24 pnpm dependency:renovate:dry-run # Renovate CLI가 Node 24만 선언함(dependency-automation 문서)
 pnpm test:repo-policy
 ```
 

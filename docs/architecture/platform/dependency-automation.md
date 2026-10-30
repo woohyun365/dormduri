@@ -170,6 +170,11 @@ Credential 없이 실행하는 dry-run은 두 경계를 결합한다.
 Local platform은 branch 생성을 지원하지 않으므로 이 검증은 hosted App을 대체하지 않는다. Provider permission 없이
 config·package-manager correctness를 빠르게 회귀 검증하기 위한 보조 경계다.
 
+Renovate CLI는 `engines.node`를 `^24.11.0`으로만 선언하고, 그 밖의 Node에서는 "Unsupported node environment" error를
+남긴 뒤 non-zero로 끝난다. 그래서 Renovate가 Node 26을 선언할 때까지 local dry-run은 Node 24 runtime으로 실행한다(예:
+`fnm exec --using=24 pnpm dependency:renovate:dry-run`). Lockfile 작업은 PATH의 pnpm 12 native binary가 맡으므로 hosted
+Renovate와 같은 조합이다. Hosted Renovate는 Mend runtime의 Node로 실행되어 이 제약을 받지 않는다.
+
 - [Renovate local platform](https://docs.renovatebot.com/modules/platform/local/)
 - [Renovate npm/pnpm manager](https://docs.renovatebot.com/modules/manager/npm/)
 
@@ -197,6 +202,7 @@ Hosted provider나 한 manager를 중단할 때 기본 branch 설정에 owner가
 - Bot PR 하나가 merge까지 rebase로 CI를 세 번 넘게 다시 돌거나 생성부터 merge까지 일주일을 넘긴다.
 - pnpm catalog 또는 lockfile update semantics가 변경된다.
 - pnpm CLI와 CI action·cold lockfile benchmark를 원자적으로 갱신할 owner boundary가 마련된다.
+- Renovate CLI가 `engines.node`에 Node 26을 선언한다. Local dry-run의 Node 24 실행 안내를 지운다.
 - Provider job이 반복적으로 timeout되거나 branch/lockfile이 비결정적으로 생성된다.
 - 현재 pnpm pin이 동일 cold workload에서 fix floor보다 10% 넘게 memory regression을 보이거나 hosted lockfile OOM signature가
   서로 다른 bounded owner group에서 다시 발생한다.

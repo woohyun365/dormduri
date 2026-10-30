@@ -18,9 +18,7 @@ test('CI pnpm setup references match the exact root pnpm version', () => {
   assert.ok(expectedVersion, 'root packageManager must pin an exact pnpm version');
   for (const path of workflowPaths) {
     const source = readFileSync(resolve(path), 'utf8');
-    const versions = [
-      ...source.matchAll(/version:\s*(\d+\.\d+\.\d+)/gu),
-    ].map((match) => match[1]);
+    const versions = [...source.matchAll(/version:\s*(\d+\.\d+\.\d+)/gu)].map((match) => match[1]);
     assert.ok(versions.length > 0, `${path} must contain an active pnpm setup reference`);
     assert.deepEqual([...new Set(versions)], [expectedVersion], `${path} pnpm version drifted`);
   }
