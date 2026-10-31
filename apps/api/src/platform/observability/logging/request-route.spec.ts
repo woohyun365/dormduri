@@ -59,6 +59,8 @@ describe('request route-template extraction', () => {
     ['api', 123, 'UNKNOWN_ROUTE'],
     ['/', '/', '/'],
     ['/api/', '/users/:id', '/api/users/:id'],
+    ['/api/', '/', '/api'],
+    ['api', 'users/:id/', '/api/users/:id'],
     ['api', [false, 'users/:id', '/other'], '/api/users/:id'],
     [123, 'users/:id', '/users/:id'],
     [['api/users', 'other'], '/', '/api/users'],

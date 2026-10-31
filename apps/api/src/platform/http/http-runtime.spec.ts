@@ -14,21 +14,26 @@ function makeHttpSettings(overrides: Partial<HttpRuntimeSettings> = {}): HttpRun
   };
 }
 
-function makeAppMock() {
-  const getHttpAdapter = vi.fn();
+type SecurityHook = (
+  request: unknown,
+  response: {
+    setHeader(name: string, value: string): unknown;
+    removeHeader(name: string): unknown;
+  },
+) => Error | undefined;
+
+function makeAppMock({ securityHook = true }: { securityHook?: boolean } = {}) {
+  const registerSecurityHook = vi.fn<(hook: SecurityHook) => void>();
+  const getHttpAdapter = vi.fn(() => (securityHook ? { registerSecurityHook } : {}));
   const appUse = vi.fn();
   const enableCors = vi.fn();
   const app = {
     getHttpAdapter,
     use: appUse,
     enableCors,
-  } as unknown as INestApplication & {
-    getHttpAdapter: ReturnType<typeof vi.fn>;
-    use: ReturnType<typeof vi.fn>;
-    enableCors: ReturnType<typeof vi.fn>;
-  };
+  } as unknown as INestApplication;
 
-  return { app, getHttpAdapter, appUse, enableCors };
+  return { app, registerSecurityHook, appUse, enableCors };
 }
 
 describe('buildHttpCorsOptions', () => {
@@ -49,8 +54,8 @@ describe('buildHttpCorsOptions', () => {
 });
 
 describe('configureHttpRuntime', () => {
-  it('registers helmet then explicit non-cookie CORS without a cookie parser or adapter settings', () => {
-    const { app, getHttpAdapter, appUse, enableCors } = makeAppMock();
+  it('registers helmet as the adapter security hook, then explicit non-cookie CORS', () => {
+    const { app, registerSecurityHook, appUse, enableCors } = makeAppMock();
 
     configureHttpRuntime(
       app,
@@ -58,9 +63,9 @@ describe('configureHttpRuntime', () => {
     );
 
     // Trust proxy is fixed when the adapter is created (http-adapter.ts), not set here.
-    expect(getHttpAdapter).not.toHaveBeenCalled();
-    expect(appUse).toHaveBeenCalledTimes(1);
-    expect(appUse.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(registerSecurityHook).toHaveBeenCalledTimes(1);
+    expect(appUse).not.toHaveBeenCalled();
+    expect(registerSecurityHook.mock.invocationCallOrder[0]).toBeLessThan(
       enableCors.mock.invocationCallOrder[0]!,
     );
     expect(enableCors).toHaveBeenCalledWith(
@@ -68,12 +73,35 @@ describe('configureHttpRuntime', () => {
     );
   });
 
+  it('writes the helmet headers synchronously and lets the request continue', () => {
+    const { app, registerSecurityHook } = makeAppMock();
+    configureHttpRuntime(app, makeHttpSettings());
+    const hook = registerSecurityHook.mock.calls[0]![0];
+    const response = { setHeader: vi.fn(), removeHeader: vi.fn() };
+
+    expect(hook({ headers: {} }, response)).toBeUndefined();
+    expect(response.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Content-Security-Policy',
+      expect.stringContaining("default-src 'self'"),
+    );
+    expect(response.removeHeader).toHaveBeenCalledWith('X-Powered-By');
+  });
+
+  it('fails startup when the adapter has no security hook for the headers', () => {
+    const { app } = makeAppMock({ securityHook: false });
+
+    expect(() => configureHttpRuntime(app, makeHttpSettings())).toThrow(
+      'The HTTP adapter cannot run the security headers before routing.',
+    );
+  });
+
   it('does not enable permissive wildcard CORS when origins are absent', () => {
-    const { app, appUse, enableCors } = makeAppMock();
+    const { app, registerSecurityHook, enableCors } = makeAppMock();
 
     configureHttpRuntime(app, makeHttpSettings());
 
-    expect(appUse).toHaveBeenCalledTimes(1);
+    expect(registerSecurityHook).toHaveBeenCalledTimes(1);
     expect(enableCors).not.toHaveBeenCalled();
   });
 });

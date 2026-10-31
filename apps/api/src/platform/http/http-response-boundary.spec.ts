@@ -7,6 +7,7 @@ import {
   Header,
   Logger,
   Post,
+  Query,
   type INestApplication,
 } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, Reflector } from '@nestjs/core';
@@ -35,10 +36,21 @@ import { createHttpAdapter } from './http-adapter.js';
 
 // The exception filter sets the type itself; NodeAdapter does not append a charset (JSON is UTF-8).
 const ERROR_CONTENT_TYPE = 'application/json';
+const ALLOWED_ORIGIN = 'https://app.example.com';
 
 @Controller('boundary-probe')
 class BoundaryProbeController {
   constructor(private readonly context: RequestContextService) {}
+
+  @Get('ok')
+  ok() {
+    return { ok: true };
+  }
+
+  @Get('query')
+  query(@Query() query: unknown) {
+    return { query };
+  }
 
   @Get('json-error')
   jsonError() {
@@ -119,7 +131,7 @@ describe('real HTTP adapter response and observability boundary', () => {
       ],
     }).compile();
     app = module.createNestApplication(createHttpAdapter(false), { logger: false });
-    configureHttpRuntime(app, { trustProxy: false, corsAllowedOrigins: [] });
+    configureHttpRuntime(app, { trustProxy: false, corsAllowedOrigins: [ALLOWED_ORIGIN] });
     const middleware = new RequestContextMiddleware(context);
     app.use((req: IncomingMessage, res: ServerResponse, next: () => void) =>
       middleware.use(req, res, next),
@@ -467,5 +479,101 @@ describe('real HTTP adapter response and observability boundary', () => {
       expect.objectContaining({ operation: 'http_exception', route: 'UNKNOWN_ROUTE' }),
       'http exception handled',
     );
+  });
+  function expectSecurityHeaders(response: request.Response) {
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+    expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
+    expect(response.headers['strict-transport-security']).toBe(
+      'max-age=31536000; includeSubDomains',
+    );
+    expect(response.headers['content-security-policy']).toContain("default-src 'self'");
+    expect(response.headers['x-powered-by']).toBeUndefined();
+  }
+
+  it.each([
+    ['a success', () => request(url).get('/boundary-probe/ok'), 200],
+    ['an unknown route', () => request(url).get('/boundary-probe/missing'), 404],
+    ['a malformed JSON body', () => postEcho('application/json', '{"a":'), 400],
+    ['a malformed percent-encoded path', () => request(url).get('/boundary-probe/%FF'), 400],
+  ] as const)('sends the Helmet headers on %s response', async (_name, send, status) => {
+    const response = await send();
+    expect(response.status).toBe(status);
+    expectSecurityHeaders(response);
+  });
+
+  it('answers REST CORS for the allowlisted origin only', async () => {
+    const preflight = await request(url)
+      .options('/boundary-probe/ok')
+      .set('origin', ALLOWED_ORIGIN)
+      .set('access-control-request-method', 'GET')
+      .set('access-control-request-headers', 'authorization,x-request-id');
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers['access-control-allow-origin']).toBe(ALLOWED_ORIGIN);
+    expect(preflight.headers['access-control-allow-methods']).toBe(
+      'GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS',
+    );
+    expect(preflight.headers['access-control-allow-headers']).toBe(
+      'Authorization,Content-Type,X-Request-Id',
+    );
+    expect(preflight.headers['access-control-allow-credentials']).toBeUndefined();
+    expectSecurityHeaders(preflight);
+
+    const allowed = await request(url).get('/boundary-probe/ok').set('origin', ALLOWED_ORIGIN);
+    expect(allowed.headers['access-control-allow-origin']).toBe(ALLOWED_ORIGIN);
+    expect(allowed.headers['access-control-expose-headers']).toBe('X-Request-Id');
+
+    const otherOrigin = await request(url)
+      .get('/boundary-probe/ok')
+      .set('origin', 'https://other.example.com');
+    expect(otherOrigin.status).toBe(200);
+    expect(otherOrigin.headers['access-control-allow-origin']).toBeUndefined();
+
+    const otherPreflight = await request(url)
+      .options('/boundary-probe/ok')
+      .set('origin', 'https://other.example.com')
+      .set('access-control-request-method', 'GET');
+    expect(otherPreflight.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('answers a malformed percent-encoded path before the CORS and request-context middleware', async () => {
+    const response = await request(url)
+      .get('/boundary-probe/%FF')
+      .set('origin', ALLOWED_ORIGIN)
+      .set('x-request-id', 'request-12345678');
+    expect(response.status).toBe(400);
+    expect(response.headers['content-type']).toBe(ERROR_CONTENT_TYPE);
+    expect(errorBody(response)).toMatchObject({
+      success: false,
+      error: 'URI malformed',
+      code: 'BAD_REQUEST',
+      statusCode: 400,
+      path: '/boundary-probe/%FF',
+    });
+    // Helmet runs through the adapter security hook; CORS and request IDs are middleware.
+    expectSecurityHeaders(response);
+    expect(response.headers['access-control-allow-origin']).toBeUndefined();
+    expect(response.headers['x-request-id']).toBeUndefined();
+    expect(logger.write).toHaveBeenCalledExactlyOnceWith(
+      expect.any(String),
+      expect.objectContaining({ operation: 'http_exception', route: 'UNKNOWN_ROUTE' }),
+      'http exception handled',
+    );
+  });
+
+  it('sends no ETag, so a conditional request gets the full 200 response', async () => {
+    const first = await request(url).get('/boundary-probe/ok');
+    expect(first.status).toBe(200);
+    expect(first.headers.etag).toBeUndefined();
+
+    // The earlier Express adapter answered 304 here.
+    const conditional = await request(url).get('/boundary-probe/ok').set('if-none-match', '*');
+    expect(conditional.status).toBe(200);
+    expect(conditional.body).toEqual({ ok: true });
+  });
+
+  it('parses query strings into flat bracket keys and repeated-key arrays', async () => {
+    const response = await request(url).get('/boundary-probe/query?a[b]=1&c=2&c=3&d=x+y&e=%2F');
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ query: { 'a[b]': '1', c: ['2', '3'], d: 'x y', e: '/' } });
   });
 });

@@ -28,8 +28,9 @@ function selectRoutePath(path: unknown): string | null {
 }
 
 /**
- * Joins the controller and handler path metadata the way Nest registers the route. The API
- * uses no global prefix or versioning, so the two paths are the whole route template.
+ * Joins the controller and handler path metadata the way Nest registers the route (one leading
+ * slash, no trailing slash). The API uses no global prefix, versioning or RouterModule paths, so
+ * the two paths are the whole route template.
  */
 export function resolveRouteTemplate(controllerPath: unknown, handlerPath: unknown): string {
   const selectedHandlerPath = selectRoutePath(handlerPath);
@@ -40,7 +41,8 @@ export function resolveRouteTemplate(controllerPath: unknown, handlerPath: unkno
   const controller = normalizeRoutePath(selectRoutePath(controllerPath) ?? '');
   const resolved = `${controller}${normalizeRoutePath(selectedHandlerPath)}` || '/';
 
-  return resolved.replace(/\/+/g, '/');
+  const collapsed = resolved.replace(/\/+/g, '/');
+  return collapsed.length > 1 && collapsed.endsWith('/') ? collapsed.slice(0, -1) : collapsed;
 }
 
 export function resolveExecutionRouteTemplate(
