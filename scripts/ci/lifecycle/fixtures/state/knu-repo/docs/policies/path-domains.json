@@ -1,0 +1,14 @@
+{
+  "schema": "lifecycle-path-domains/v1",
+  "confirmedBy": { "status": "owner-confirmed", "date": "2026-10-17", "basis": "#1" },
+  "productRoots": ["apps/**"],
+  "entries": [{ "globs": ["apps/api/src/matching/**"], "domains": ["matching-lifecycle"] }],
+  "noDomain": [{ "globs": ["apps/web/public/**"], "reason": "정적 자산" }],
+  "irreversiblePaths": [
+    {
+      "glob": "apps/api/prisma/migrations/**",
+      "policy": "docs/policies/data-retention.md",
+      "reason": "DB migration"
+    }
+  ]
+}

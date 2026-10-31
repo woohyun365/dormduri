@@ -6,9 +6,9 @@ field 의미와 그 값을 읽는 규칙을 설명하고, 상태·guard·역전�
 JSON이다. [정의 test](../../../scripts/ci/lifecycle/lifecycle-definition.test.mjs)가 세 표의 id·층·나가는 상태·강도·확인
 주체를 JSON과 대조하고, 정의를 계약 값(상태 13, guard 14, 역전이 5, 등록 검사 8)과 검사 code의 출력에 묶는다.
 
-지금 정의를 읽는 것은 정의 test뿐이다. 상태 계산과 hook·CI 연결은 아직 없고, CI `Lifecycle gate`가 PR마다 판정하는 것은
-`checks`의 등록 검사다([Lifecycle 절](../github/collaboration.md#lifecycle-절)). guard의 `hook`·`ci` 값은 그 guard를 강제할
-위치의 설계다.
+지금 정의를 읽는 것은 정의 test와 상태 계산기([계산 규칙](#계산-규칙))다. hook·CI 연결은 아직 없고, CI `Lifecycle gate`가
+PR마다 판정하는 것은 `checks`의 등록 검사다([Lifecycle 절](../github/collaboration.md#lifecycle-절)). guard의 `hook`·`ci` 값은
+그 guard를 강제할 위치의 설계다.
 
 ## 정의 field
 
@@ -151,6 +151,81 @@ guard는 그 상태를 나가는 조건이다. 층마다 위에서부터 첫 실
 - 검사 code가 괄호로 쓰는 출력 label(`(경로)`·`(형식)`)은 검사 id가 아니라 `checks`에 없다. 정의 test는 `checks` id가 검사
   code의 출력(`POLICY_FIRST_CHECK_IDS`, `AREA_CHECK_ID`, `evaluateReviewSnapshot` finding)과 같은지 보므로 검사를 더하거나
   지우면 정의를 함께 고친다.
+
+## 계산 규칙
+
+[`lifecycle-state.mjs`](../../../scripts/ci/lifecycle/lifecycle-state.mjs)의 `computeLifecycleState(input, definition)`는
+정의와 입력 하나(`lifecycle-state-input/v1`)로 층별 상태를 계산하는 순수 함수다. 결과(`lifecycle-state/v1`)는 `grade`
+(`declared`·`effective`·`raised`), `project`(`state`·`failed`·`legacy`·`recheck`), `work`(`state`·`failed`·`warnings`·
+`skipped`·`checkFailures`)다. 그 결과로 무엇을 막을지는 결과를 쓰는 쪽(hook·`delegate` 진입·CI)이 정한다.
+
+| 입력                                              | 값                                                                                                                                                                                                                  |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `grade`                                           | 변경 등급. 없으면 feature이고 모르는 값은 입력 오류다                                                                                                                                                               |
+| `artifacts`                                       | `config`·`prdOverview`·`policyDomains`·`crossCutting`·`l1`·`l2`·`pathDomains`. 문서는 `{ id, path, header }`, 대응 기록 항목은 `{ id, path, record }`, 경로 표는 `{ id, path, table }`                              |
+| `plan`                                            | `domains`·`layers`·`paths`·`readinessPass`·`implementationReady`·`decisions`·`visualClaim`·`designConfirmation`(`source`·`artifact`·`revision`). local은 plan, CI는 PR 본문 `Lifecycle` 절에서 같은 모양으로 만든다 |
+| `overrides`                                       | `Lifecycle` 절 override 줄 모양 `{ check, reason, revisit }`                                                                                                                                                        |
+| `changedPaths`                                    | 바뀐 경로 목록                                                                                                                                                                                                      |
+| `bugfixBasis`                                     | bugfix·hotfix의 기준 대조 결과 `found`·`missing`                                                                                                                                                                    |
+| `policyFindings`·`areaFindings`·`review.findings` | 등록 검사 출력(`evaluatePolicyFirst`·`evaluateAreaCriteria`·`evaluateReviewSnapshot`)                                                                                                                               |
+| `review`·`merged`·`evidenced`                     | 리뷰 PASS·정산, merge, evidence 단계 완료                                                                                                                                                                           |
+
+- 층마다 guard를 정의 순서로 계산하고 실패한 첫 guard의 상태에서 멈춘다. 같은 상태를 나가는 guard(`W-POLICY`·`W-DESIGN`)는
+  함께 계산하고 그 뒤 guard는 계산하지 않는다. `failed`는 그 상태 guard의 실패(`{ id, reason, needs }`, 구현 불가 블록의
+  `failedGuards` 모양)이고, 모두 통과하면 마지막 상태다.
+- 문서는 header `상태`가 `owner-confirmed`이면, 대응 기록 항목은 기록의 `confirmedBy`가 `owner-confirmed`이면 충족이다.
+  `legacy`는 충족이되 `project.legacy`에 적고 `not-applicable`도 기록의 Owner 확인이 있어야 충족이다. `P-POLICY-SET`은 정책
+  도메인 목록과 cross-cutting 대상 목록이 있는지, `P-ARCH`는 L1 충족·L2 기록 하나 이상·경로 표를 본다. `P-GRADE`는 늘
+  통과다.
+- 작업 층은 등급 `path`의 첫 상태에서 시작한다. feature·policy-change는 `W-SCOPE`가 프로젝트 층 `architected`와 plan 선언
+  (`domains`·`layers`, 하나 이상의 `paths`)을 본다. bugfix·hotfix는 `planned`를 거치지 않으므로 프로젝트 층의 첫 실패
+  guard를 그대로 `work.failed`에 두고, `W-SCOPE`의 선언 대조는 `warnOnly`라 경고로 계산한다. trivial은 `P-ARCH`의 L1
+  확인만 본다. `bugfixBasis`가 `missing`이면 feature로 올려 계산하고 `grade.raised`에 이유를 적는다.
+- 등급 `skip`의 guard는 `skipped`, `warnOnly` guard의 실패는 `warnings`다. `warnOnly`가 아니면서 등급 `path` 밖 상태를
+  나가는 guard와 조건이 거짓인 조건부 guard는 계산하지 않는다(bugfix·hotfix의 `W-SCOPE`는 `planned`를 나가지만
+  `warnOnly`라 경고로 계산한다).
+- 바뀐 정책 도메인은 `plan.domains`와 `changedPaths`에 경로 표(`createPathTable`)를 적용한 판정의 합집합이고, `W-POLICY`는
+  그 도메인마다 `policy:<도메인>` 산출물의 충족을 본다. 표 행과 `noDomain` 어디에도 맞지 않는 바뀐 제품 경로는 `W-SCOPE`
+  경고이고 needs는 `경로 표 행 추가(L-CONFIRM Owner 확인)`다.
+- `W-READY`는 `implementationReady`, readiness PASS 날짜, 비가역 결정, `R-UPSTREAM`을 본다. 비가역 결정은 plan readiness의
+  규칙과 같다: `irreversible`이고 `unknown`·`provisional`이거나 Owner 확인 없는 `validated`이면 reason
+  `irreversible-decision-unconfirmed`다. `W-PATHS`는 `changedPaths`가 비면 reason `바뀐 경로 없음`, `plan.paths` glob 밖
+  경로가 있으면 그 경로를 적어 실패다.
+- `R-UPSTREAM`(`upstreamRecheck`): header 문서는 `근거` 링크가 가리키는 산출물(문서는 `path`, 대응 기록 항목은 `sources`로
+  찾는다)의 확인일이 자기 확인일보다 늦으면 재확인 필요이고 `project.recheck`에 `{ id, upstream }`으로 적는다. 대응 기록
+  항목의 확인일은 기록의 `confirmedBy.date`다. plan은 readiness PASS 날짜가 PRD 개요·L1·선언 도메인 정책의 확인일보다
+  이르거나 선언 도메인 정책이 재확인 필요면 재확인 필요다. 이 비교로 `W-POLICY`·`W-READY`를 reason `R-UPSTREAM` 실패로
+  계산하는 것은 feature·policy-change뿐이다.
+- 등록 검사 finding의 `warn`은 `warnings`다. guard가 있는 검사의 `fail`은 그 guard를 계산할 때 그 guard의 실패
+  (`W-CITE`는 `W-READY`)이고, guard가 없는 검사(`W-IRREV`·`L-CONFIRM`·`W-AREA`·`W-CAUSE`)의 `fail`은 상태를 바꾸지 않고
+  `checkFailures`다. 괄호 출력 label(`(경로)`·`(형식)`)은 검사가 아니라 읽지 않고, 그 밖에 `checks`에 없는 check id는
+  입력 오류다.
+- override 줄의 `check`가 실패한 guard나 등록 검사 id와 같으면 그 실패를 `override`(`reason`·`revisit`)를 붙인 경고로 옮기고
+  계산을 이어 간다. `L-CONFIRM` 줄은 적용하지 않고 `override 대상이 아님` 경고를 낸다(`run.mjs`의 `nonOverridable`과
+  같다). 실패가 없는 id의 줄은 바꾸는 것이 없고, 프로젝트 층 결과에는 적용하지 않는다.
+- 모르는 schema·등급·field, `schema`·`artifacts` 누락, override 줄 모양 오류, `checks`에 없는 finding check id는
+  `LifecycleInputError`다.
+
+같은 module의 다른 함수:
+
+- `evaluateBoundary({ packDecisionId, reversibility, inScope })`: 셋이 `null`·`easy`·`true`면 블록이 아니고, 하나라도
+  다르면 `{ blocked: true, reverse: 'R-AMBIG', reasons }`(벗어난 입력 이름)다.
+- `reverseTarget(id, { grade, reviewedState }, definition)`: `R-REJECT`는 `reviewedState`, 등급별 `target`은 그 등급의
+  값, 나머지는 정의의 `target`이다. `sameFixStop({ grade, failedFixes }, definition)`은 `failedFixes`가 `sameFixLimit`
+  이상이면 `{ reverse: 'R-SIGNAL', target, ask: 'structure' }`이고 아니면 `null`이다.
+- `buildBlockedReport(fields)`·`validateBlockedReport(block)`은 `lifecycle-blocked/v1` 필드(`request`·`state`·`failedGuards`·
+  `questions`·`resume`·`inspected`와 그 안 필드)만 허용한다. 검증 결과는 `[{ field, code }]`이고 code는 `unknown-field`·
+  `missing-field`다. `renderBlockedMarkdown(block)`은 사람이 읽는 Markdown이다.
+- `collectProjectInputs({ readFile, listFiles, layout })`는 workspace layout root(`config`·`product`·`policies`·
+  `architecture`·`decisions`·`artifact-map`·`path-domains`)에서 산출물을 모은다. `상태` 줄이 있는 header의 문서는
+  header로, 없으면(header 없음, `상태` 줄 없는 key 줄만 있음) 대응 기록 항목으로 본다. 정책 우선 검사의 `headerStatus`와
+  같은 기준이다. PRD 개요는 제품 root의 `overview.md`, L1은 architecture root의 `README.md`, L2는 decisions root의
+  `상태` 줄 있는 결정 기록(README 밖)과 대응 기록의 `l2:` 항목이다. 대응 기록 `l2:` 항목의 경로가 저장소 밖(절대 경로,
+  `..`)이거나 `policy:` 항목 이름이 파일 이름 하나가 아니면(`/`·`\`, `.`으로 시작) 읽지 않고 입력 오류다. 정책 목록과 cross-cutting 대상(`level` `cross-cutting`)은 대응 기록의 `policy:` 항목과
+  policies root 문서에서 읽는다. binding에 `config` root가 없으면 제품 root 대응을 config로 본다.
+- CLI `node scripts/ci/lifecycle/lifecycle-state.mjs --repo <root> [--input <json>]`은 `lifecycle-state/v1` JSON을 낸다.
+  입력에 `artifacts`가 없으면 `<root>`에서 모은다. 계산이 끝나면 상태와 무관하게 exit 0이고, `<root>`가 디렉터리가 아님,
+  읽기·JSON parse 실패와 `LifecycleInputError`는 stderr 한 줄과 exit 2다.
 
 ## 정책 규칙 id 번호
 
