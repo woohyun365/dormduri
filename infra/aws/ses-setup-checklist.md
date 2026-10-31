@@ -18,7 +18,7 @@ SES_CONFIGURATION_SET=dormduri-production
 ```
 
 - `SES_FROM_EMAIL`은 SES verified identity 범위에 포함되어야 한다.
-- Application config에서는 `SES_CONFIGURATION_SET`을 비워둘 수 있지만 production release에는 bounce·complaint·reject·delivery delay·rendering failure event destination이 연결된 구성 세트를 둔다. delivery는 받는 사람 주소가 담기므로 사람 메일함으로 보내지 않고 SES 계정 지표(또는 주소 없는 metric destination)로 본다.
+- Application config에서는 `SES_CONFIGURATION_SET`을 비워둘 수 있지만 production release에는 bounce·complaint·reject·delivery delay·rendering failure event destination과 Delivery CloudWatch event destination이 연결된 구성 세트를 둔다. delivery는 메일마다 생기므로 사람 메일함으로 보내지 않고 받는 사람 주소가 없는 CloudWatch 지표로 본다([Delivery 지표](#delivery-지표-cloudwatch-event-destination)).
 - secret 값은 Git commit, Docker image layer, application log, metric label에 남기지 않는다.
 
 ## 요금 plan
@@ -26,6 +26,7 @@ SES_CONFIGURATION_SET=dormduri-production
 - SES 요금은 plan 단위다. 2026-07-21부터 새 계정(과 2025-06-01 이후 SES 사용 기록이 없는 계정·Region 조합)의 기본 plan은 Essentials이고 고정 월요금이 없다. 보낸 메일 수만큼 단가가 붙는다.
 - Mailbox simulator로 보낸 메일도 일반 수신자에게 보낸 메일과 같은 단가로 청구된다.
 - SNS event destination의 알림은 SNS 요금이 따로 붙는다.
+- 구성 세트의 CloudWatch event destination은 지표마다 CloudWatch 요금이 붙는다. SES 기본 계정 지표는 무료다.
 - 단가와 실제 월 금액은 [서버 비용](../../docs/deploy/server-costs.md)이 소유한다. 근거: [SES pricing](https://aws.amazon.com/ses/pricing/)(2026-10-31 확인).
 
 ## Identity / DKIM / sandbox
@@ -42,8 +43,7 @@ SES_CONFIGURATION_SET=dormduri-production
 구성 세트의 SNS event destination이 결과 event를 SNS 주제로 보내고, 운영자는 그 주제의 email 구독으로 받는다. Event destination·주제 이름, 주제 Region과 구독 주소는 Owner console에 있다.
 
 1. SNS 주제는 **Standard**로 만든다. SES는 FIFO 주제를 지원하지 않는다.
-2. 구성 세트에 SNS event destination을 더하고 event 종류로 Bounce, Complaint, Reject, Delivery delay, Rendering failure를 고른다. Delivery는 고르지 않는다. Delivery 알림에는 받는 사람 주소가 담겨 메일마다 사람 메일함에 쌓인다.
-3. 주제 접근 정책에 SES의 `sns:Publish`를 허용하고 `AWS:SourceAccount`와 `AWS:SourceArn`(구성 세트 ARN)으로 좁힌다. `<...>`는 placeholder다.
+2. 주제 접근 정책에 SES의 `sns:Publish`를 허용하고 `AWS:SourceAccount`와 `AWS:SourceArn`(구성 세트 ARN)으로 좁힌다. `<...>`는 placeholder다.
 
    ```json
    {
@@ -65,11 +65,25 @@ SES_CONFIGURATION_SET=dormduri-production
    }
    ```
 
-4. 주제를 AWS KMS로 암호화하면 customer managed key를 쓰고, 그 key 정책에 `ses.amazonaws.com`의 `kms:GenerateDataKey*`·`kms:Decrypt`를 허용한다. 이 권한이 없으면 SES가 주제에 publish하지 못한다.
+3. 주제를 AWS KMS로 암호화하면 customer managed key를 쓰고, 그 key 정책에 `ses.amazonaws.com`의 `kms:GenerateDataKey*`·`kms:Decrypt`를 허용한다. 이 권한이 없으면 SES가 주제에 publish하지 못한다.
+4. 구성 세트에 SNS event destination을 더하고 event 종류로 Bounce, Complaint, Reject, Delivery delay, Rendering failure를 고른다. Delivery는 메일마다 생기므로 고르지 않고 아래 [Delivery 지표](#delivery-지표-cloudwatch-event-destination)로 본다.
 5. 주제에 email 구독을 만들면 확인 메일이 온다. 구독을 확인해야 알림이 오므로 SNS console에서 구독 상태가 confirmed인지 본다.
 6. 연결은 아래 [Auth mail sandbox smoke](#auth-mail-sandbox-smoke)의 simulator 발송으로 확인한다.
 
-근거: [SNS event destination](https://docs.aws.amazon.com/ses/latest/dg/event-publishing-add-event-destination-sns.html), [Configuring SNS notifications](https://docs.aws.amazon.com/ses/latest/dg/configure-sns-notifications.html), [SNS encryption key](https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html#compatibility-with-aws-services)(2026-10-31 확인).
+알림 본문(JSON)에는 event 종류와 관계없이 원래 메일의 받는 사람 주소(`mail.destination`)가 담기고, bounce·complaint·delivery delay 알림은 수신자별 주소도 담는다. 구독 주소는 Owner가 고른 운영자 메일함이다. Incident evidence·이슈·PR에는 주소를 옮기지 않고 bounded outcome만 적는다([계정 인증 정책](../../docs/policies/account-authentication.md#abuseauditsecurity-eventmail-monitoring-baseline)). 이 메일함의 처리위탁 기록과 보존 기간은 개인정보 처리위탁 문서 작업(#289)이 정한다.
+
+근거: [SNS event destination](https://docs.aws.amazon.com/ses/latest/dg/event-publishing-add-event-destination-sns.html), [Configuring SNS notifications](https://docs.aws.amazon.com/ses/latest/dg/configure-sns-notifications.html), [SNS encryption key](https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html#compatibility-with-aws-services), [SNS event 본문](https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-contents.html)(2026-10-31 확인).
+
+## Delivery 지표: CloudWatch event destination
+
+Delivery는 메일마다 생기므로 사람 메일함으로 보내지 않고, 같은 구성 세트의 CloudWatch event destination으로 받는 사람 주소가 없는 지표만 남긴다. 지금 구성에는 없고 API 단계 auth release 준비 때 더한다. 지금 상태는 [Production environment](../../docs/deploy/production-environment.md) 메일 행이 소유한다.
+
+1. 구성 세트에 CloudWatch event destination을 더하고 event 종류로 Delivery만 고른다.
+2. Dimension은 하나만 둔다. Value source는 Message Tag, dimension 이름은 SES auto-tag `ses:configuration-set`, 기본값은 `dormduri-production`이다. CloudWatch에는 dimension 값과 count만 가고 받는 사람 주소는 가지 않는다.
+3. Event 종류·dimension 이름·값의 조합마다 지표가 하나 생기고 지표마다 CloudWatch 요금이 붙는다. 위 구성은 지표 하나다.
+4. SES 기본 계정 지표는 구성 세트 event publishing이 아니고, simulator 발송이 거기에 세어지는지는 공식 문서에 없다. 그래서 release 근거로 쓰지 않는다.
+
+근거: [CloudWatch event destination](https://docs.aws.amazon.com/ses/latest/dg/event-publishing-add-event-destination-cloudwatch.html)(2026-10-31 확인).
 
 ## Feedback forwarding과 받는 곳
 
@@ -124,15 +138,15 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts \
 2. `pnpm --dir apps/api auth:ses:smoke -- --dry-run`으로 설정 경계를 먼저 확인한다.
 3. Sandbox 계정이면 수신자로 SES mailbox simulator 주소(`success`·`bounce`·`complaint` 뒤에 `@simulator.amazonses.com`)를 쓰고, `--dry-run` 없이 실행한다.
 4. 출력에는 recipient나 raw provider error를 남기지 않고 bounded category만 기록한다.
-5. SES API 접수 뒤 결과 event를 확인한다. Simulator 주소마다 생기는 event와 지금 destination(Delivery 제외)에서 보이는 곳은 아래와 같다.
+5. SES API 접수 뒤 결과 event를 확인한다. Simulator 주소마다 생기는 event와 release 구성(SNS event destination 5종, Delivery CloudWatch event destination)에서 보이는 곳은 아래와 같다. Delivery CloudWatch event destination을 더하기 전에는 Delivery를 확인할 곳이 없다.
 
-   | Simulator 수신자 | 생기는 event             | 확인하는 곳                                                |
-   | ---------------- | ------------------------ | ---------------------------------------------------------- |
-   | success          | Delivery 1               | SES 계정 지표(SES Region CloudWatch의 SES `Delivery` 지표) |
-   | bounce           | Bounce 1                 | SNS 구독 email                                             |
-   | complaint        | Delivery 1 + Complaint 1 | Complaint는 SNS 구독 email, Delivery는 SES 계정 지표       |
+   | Simulator 수신자 | 생기는 event             | 확인하는 곳                                                               |
+   | ---------------- | ------------------------ | ------------------------------------------------------------------------- |
+   | success          | Delivery 1               | 구성 세트 CloudWatch Delivery 지표                                        |
+   | bounce           | Bounce 1                 | SNS 구독 email                                                            |
+   | complaint        | Delivery 1 + Complaint 1 | Complaint는 SNS 구독 email, Delivery는 구성 세트 CloudWatch Delivery 지표 |
 
-   Simulator 발송도 일반 발송과 같은 단가로 청구되고, 일일 발송 한도(sending quota)에는 세지 않는다. 초당 최대 발송률에는 묶인다. Simulator는 bounce 주소를 suppression list에 넣지 않고 bounce·complaint 비율 지표에도 반영하지 않는다. Reject는 simulator 주소가 없다.
+   Simulator 발송도 일반 발송과 같은 단가로 청구되고, 일일 발송 한도(sending quota)에는 세지 않는다. 초당 최대 발송률에는 묶인다. Simulator는 bounce 주소를 suppression list에 넣지 않고, bounce·complaint 비율과 reputation 지표에도 반영하지 않는다. Reject는 simulator 주소가 없다.
 
 6. 실제 받는 메일함 시험은 simulator로 확인한 뒤 필요할 때만 한다. Sandbox에서는 그 받는 주소를 SES email identity로 만들고 확인 메일의 link로 확인한 뒤 보낸다. 시험이 끝나면 그 email identity를 지운다. 남겨 두면 그 주소를 From으로 쓸 수 있다.
 7. 실패 시 category 기준으로 대응한다.
@@ -149,5 +163,5 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts \
 - `EMAIL_PROVIDER=stub`은 production에서 허용하지 않는다.
 - `SES_FROM_EMAIL`은 verified identity여야 한다.
 - Production access 해제 전에는 실제 사용자 발송을 release complete로 보지 않는다.
-- Production release에는 bounce·complaint·reject·delivery delay·rendering failure event destination이 연결된 구성 세트를 둔다. 이 구성 세트가 없으면 release complete로 보지 않는다. delivery는 사람 메일함으로 보내지 않고 SES 계정 지표(또는 주소 없는 metric destination)로 본다.
+- Production release에는 bounce·complaint·reject·delivery delay·rendering failure event destination과 Delivery CloudWatch event destination이 연결된 구성 세트를 둔다. 이 구성 세트가 없으면 release complete로 보지 않는다. delivery는 메일마다 생기므로 사람 메일함으로 보내지 않고 받는 사람 주소가 없는 CloudWatch 지표로 본다.
 - 상세 command와 secret-free evidence 형식은 `infra/runbooks/release/components/auth/password-reset-evidence.md`를 따른다.

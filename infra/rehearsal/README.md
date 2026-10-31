@@ -21,9 +21,9 @@ Lightsail secret delivery의 AWS-account-free candidate/activation/rollback faul
 | `observability-base`       | runtime-base         | `infra/observability/compose.base.yml` → shared resources                 | private observability topology base                                                                              |
 | `observability-production` | production-candidate | `observability-base` → `infra/observability/compose.production.yml`       | Production 관측 stack 후보([production stack runbook](../runbooks/operations/observability/production-stack.md)) |
 | `observability-rehearsal`  | rehearsal-only       | `observability-base` → rehearsal network                                  | constrained observability와 external local network                                                               |
-| `web-rehearsal`            | rehearsal-only       | 관측 stack → `compose.web.yml` → `compose.web.fixture.yml`                | Web/BFF standalone rehearsal + upstream fixture                                                                  |
-| `full-stack-api-rehearsal` | rehearsal-only       | API base → resource budget → disposable PostgreSQL 18                     | Full-stack API/nginx/DB rehearsal only                                                                           |
-| `full-stack-web-rehearsal` | rehearsal-only       | 관측 stack → shared resource budget → `compose.web.yml`                   | 실제 API에 연결하며 fixture를 제외한 Web rehearsal                                                               |
+| `web-rehearsal`            | rehearsal-only       | `observability-rehearsal` → `compose.web.yml` → `compose.web.fixture.yml` | Web/BFF standalone rehearsal + upstream fixture                                                                  |
+| `full-stack-api-rehearsal` | rehearsal-only       | `api-rehearsal` → `compose.postgres.yml`(disposable PostgreSQL 18)        | Full-stack API/nginx/DB rehearsal only                                                                           |
+| `full-stack-web-rehearsal` | rehearsal-only       | `observability-rehearsal` → `compose.web.yml`                             | 실제 API에 연결하며 fixture를 제외한 Web rehearsal                                                               |
 | `ingress-trust`            | production-candidate | `api-base` → `compose.web.yml` → `infra/deploy/compose.ingress-trust.yml` | Single public ingress forwarding trust 검증 대상                                                                 |
 
 `infra/compose-profiles.json`이 파일 순서의 source of truth다. 직접 `-f` 순서를 재작성하지 않고 다음 entry를 사용한다.
@@ -41,11 +41,12 @@ pnpm infra:compose -- observability-rehearsal config
 
 `compose.web.yml`은 Web service 하나를 정의하고 두 곳에 쓰인다.
 
-- Rehearsal: `web-rehearsal`·`full-stack-web-rehearsal`이 관측 stack 뒤에 합성해 local Web/BFF standalone rehearsal을
-  돌린다. Local 가정(local image 이름, `web.local.invalid` origin, loopback publish, 관측 network)은 이 역할의 것이다.
+- Rehearsal: `web-rehearsal`·`full-stack-web-rehearsal`이 `observability-rehearsal` 뒤에 합성해 local Web/BFF standalone
+  rehearsal을 돌린다. Local 가정(local image 이름, `web.local.invalid` origin, loopback publish, 관측 network)은 이 역할의
+  것이다.
 - Production candidate: `ingress-trust`가 `compose.api.yml` 다음에 이 Web service를 그대로 쓰고,
-  `infra/deploy/compose.ingress-trust.yml`이 port·network·environment를 reset/replace한다. 파일 순서는
-  [ingress-trust target](../deploy/README.md#renderer와-고정-compose-순서)이 고정하고 renderer와 test가 강제한다.
+  `infra/deploy/compose.ingress-trust.yml`이 port를 reset하고 network를 override하며 environment·build arg·healthcheck를
+  덮어쓴다. 파일 순서는 [ingress-trust target](../deploy/README.md#renderer와-고정-compose-순서)이 고정하고 renderer와 test가 강제한다.
 
 Compose inventory 검사(`scripts/infra/check/inspect.mjs`)는 파일마다 처음 나온 profile의 분류를 쓰므로 이 파일은 rehearsal-only로 분류된다.
 `ingress-trust`는 forwarding trust 검증 대상이고, 지금 운영 중인 Web 단계 host의 compose가 아니다. 운영 Web 단계 배포

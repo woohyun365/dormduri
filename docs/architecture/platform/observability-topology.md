@@ -22,8 +22,8 @@ Route 53 HTTPS health check (apex /, SNI)
 - Health check는 밖에서 본 공개 HTTPS 응답만 확인한다. Host 안 container 상태, 응답 지연 분포와 로그는 보지 않는다.
 - Route 53 health check 지표는 `us-east-1`에 있으므로 alarm과 그 SNS 주제도 `us-east-1`에 둔다.
 - Host가 점검 mode(503)인 동안 alarm은 ALARM 상태다. 첫 Web 배포 뒤 OK가 되는지 확인한다.
-- SES 결과 알림(구성 세트 event destination → SNS email)은 메일 발송 결과 알림이고 runtime 관측이 아니다. 기준은
-  [SES setup checklist](../../../infra/aws/ses-setup-checklist.md)다.
+- SES 결과 알림(구성 세트 event destination → SNS email)은 메일 발송 결과 알림이고 runtime 관측이 아니다. 알림 본문에는
+  받는 사람 주소가 담기므로 관측 stack으로 모으지 않는다. 기준은 [SES setup checklist](../../../infra/aws/ses-setup-checklist.md)다.
 - Health check·alarm·주제 이름과 받는 주소는 Owner console에 있다([식별자 규칙](../../deploy/README.md#식별자-규칙)).
 
 ## 이후 목표

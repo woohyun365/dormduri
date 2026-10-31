@@ -19,7 +19,7 @@ Resource 종류·상태와 확인하는 Owner console 위치는 [Production envi
 Route 53 dormduri.com (apex, www → apex redirect)
 └── Lightsail host 4 GB (서울, static IP, firewall 80·443만)
     └── containerized nginx ingress (HTTPS 종료, Let's Encrypt)
-        └── Web (Next.js standalone, UI + BFF)
+        └── Web (Next.js standalone, UI + BFF, 첫 배포 전)
 ```
 
 - 공개 진입: `dormduri.com` apex·`www` A record가 host static IP를 가리킨다. Canonical Web host는 apex이고 `www`는
@@ -30,7 +30,7 @@ Route 53 dormduri.com (apex, www → apex redirect)
   [Observability topology](./observability-topology.md#지금-web-단계)가 적는다.
 - 메일: SES(서울) domain identity와 구성 세트가 있고 계정은 sandbox다. 메일을 보내는 API는 아직 없다. 준비·시험 절차는
   [SES setup checklist](../../../infra/aws/ses-setup-checklist.md)가 소유한다.
-- 이 단계는 아래 이후 목표의 User App host에서 Web과 ingress만 먼저 올린 것이다. Host 크기(4 GB)와 ingress 하나에서
+- 이 단계는 아래 이후 목표의 User App host에 ingress와 Web만 먼저 두는 단계다. Host 크기(4 GB)와 ingress 하나에서
   HTTPS를 종료하는 방식은 이후 목표와 같다.
 
 ## 이후 목표
@@ -65,8 +65,9 @@ Managed PostgreSQL
 ### 목표 배포 구성도
 
 아래 그림은 API·관측 stack·managed PostgreSQL을 더한 목표 구성이고 로컬 리허설의 기준이다. 지금 적용한 것은 위
-[지금 Web 단계](#지금-web-단계)의 host·ingress·Web뿐이다. API·DB·secret 전달·관측 경로는 그 단계에서 실제 운영 환경으로
-검증한 뒤 출시 근거로 확정한다.
+[지금 Web 단계](#지금-web-단계)의 host와 ingress(점검 mode)이고 Web은 첫 배포 전이다. Web 단계에서 확인한 것은 apex의
+TLS 종료다. 공개 ingress의 Web·API 경로 분리, provider 식별자와 네트워크, API·DB·secret 전달·관측 경로는 그 단계에서
+실제 운영 환경으로 검증한 뒤 출시 근거로 확정한다.
 
 다이어그램 색은 역할을 뜻한다: <b>청록</b> 사용자 화면 · <b>초록</b> 서버 애플리케이션 · <b>보라</b> 데이터베이스 · <b>주황</b> 관리형 클라우드 · <b>장미색</b> 보안·경계 · <b>회색</b> 사용자·운영 도구.
 
@@ -80,7 +81,7 @@ flowchart TB
 
     subgraph UserHost[사용자 앱 host · 2vCPU/4GiB]
         direction TB
-        Ingress[HTTPS ingress<br/>TLS 종료]:::security
+        Ingress[HTTPS ingress<br/>TLS 종료 · 경로 검증 예정]:::security
         Web[Next.js standalone<br/>UI + BFF]:::frontend
         ApiIngress[API Nginx<br/>private upstream 경계]:::security
         API[NestJS API<br/>정책 + 트랜잭션]:::backend
