@@ -221,7 +221,7 @@ guard는 그 상태를 나가는 조건이다. 층마다 위에서부터 첫 실
   header로, 없으면(header 없음, `상태` 줄 없는 key 줄만 있음) 대응 기록 항목으로 본다. 정책 우선 검사의 `headerStatus`와
   같은 기준이다. PRD 개요는 제품 root의 `overview.md`, L1은 architecture root의 `README.md`, L2는 decisions root의
   `상태` 줄 있는 결정 기록(README 밖)과 대응 기록의 `l2:` 항목이다. 대응 기록 `l2:` 항목의 경로가 저장소 밖(절대 경로,
-  `..`)이면 읽지 않고 입력 오류다. 정책 목록과 cross-cutting 대상(`level` `cross-cutting`)은 대응 기록의 `policy:` 항목과
+  `..`)이거나 `policy:` 항목 이름이 파일 이름 하나가 아니면(`/`·`\`, `.`으로 시작) 읽지 않고 입력 오류다. 정책 목록과 cross-cutting 대상(`level` `cross-cutting`)은 대응 기록의 `policy:` 항목과
   policies root 문서에서 읽는다. binding에 `config` root가 없으면 제품 root 대응을 config로 본다.
 - CLI `node scripts/ci/lifecycle/lifecycle-state.mjs --repo <root> [--input <json>]`은 `lifecycle-state/v1` JSON을 낸다.
   입력에 `artifacts`가 없으면 `<root>`에서 모은다. 계산이 끝나면 상태와 무관하게 exit 0이고, `<root>`가 디렉터리가 아님,

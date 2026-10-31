@@ -1032,6 +1032,10 @@ export function collectProjectInputs({
   const recordPolicies = (map?.artifacts ?? [])
     .filter((entry) => entry.artifact.startsWith('policy:'))
     .map((entry) => entry.artifact.slice('policy:'.length));
+  // A policy name is one file name under the policies root, never a path.
+  for (const name of recordPolicies)
+    if (!/^[^/\\.][^/\\]*$/u.test(name))
+      throw new LifecycleInputError(`대응 기록 policy:${name}의 이름이 정책 문서 이름이 아님`);
   const documentPolicies = policiesRoot
     ? markdownUnder(policiesRoot.path)
         .filter((path) => posix.dirname(path) === policiesRoot.path)
