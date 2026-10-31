@@ -328,6 +328,9 @@ test('fixture 10 P-ARCH는 경로 표·L2 기록을 보고 미분류 제품 경�
   const unclassified = allPass();
   unclassified.changedPaths.push('apps/api/src/billing/invoice.ts');
   unclassified.plan.paths.push('apps/api/src/billing/**');
+  // A product path the table puts in noDomain is classified: no unclassified warning.
+  unclassified.changedPaths.push('apps/web/public/logo.svg');
+  unclassified.plan.paths.push('apps/web/public/**');
   const result = compute(unclassified);
   assert.equal(result.work.state, 'evidenced');
   assert.deepEqual(byId(result.work.warnings, 'W-SCOPE'), [
