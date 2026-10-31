@@ -1,8 +1,8 @@
 # FE 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-10-28
-**확인 근거**: [#659](https://github.com/woohyun365/dormduri/issues/659) 본문의 결정 요약(component-architecture의 renderer 중립 셋), [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(`fe.comp.route-entry-import-guard`, design-system), [#706](https://github.com/woohyun365/dormduri/issues/706)(`fe.ds.copy-style` 서비스 이름이 바뀔 때의 면책 문장)
+**확인일**: 2026-10-31
+**확인 근거**: [#659](https://github.com/woohyun365/dormduri/issues/659) 본문의 결정 요약(component-architecture의 renderer 중립 셋), [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(`fe.comp.route-entry-import-guard`, design-system), [#706](https://github.com/woohyun365/dormduri/issues/706)(`fe.ds.copy-style` 서비스 이름이 바뀔 때의 면책 문장), [#293](https://github.com/woohyun365/dormduri/issues/293)의 채택 판정 댓글(rendering-boundary의 `fe.render.react-compiler`)
 **근거**: [새 화면 계층](../../../apps/web/src/screens/README.md), [시각 값 token](../../../apps/web/src/styles/tokens/README.md), [Landing 화면](../../../apps/web/src/screens/landing/README.md), [Domain/SWE/Web/FE pack](../../development/agent-workflows/domain/swe-web/fe.md)
 
 `Domain/SWE/Web/FE` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
@@ -92,6 +92,33 @@
 - 재검토 조건: 새 화면 계층을 쓰는 route가 둘 이상이 될 때(Auth·Legal·Main을 새 계층으로 만들 때), route 파일이 기능 내부 경로를
   import한 사례가 리뷰에서 나올 때
 - 출처: #671, Owner 확인 2026-10-26
+- pack 결정: 없음
+
+## rendering-boundary
+
+이 절의 설정 원본은 `apps/web/react-compiler.config.ts`이고 적용 범위·확인 방법은
+[Web infra CI/test/config 기준](../frontend/web-infra-ci-test-config.md#nextjs-production-baseline)이 소유합니다. 측정은
+[React Compiler evidence](../../evidence/frontend/react-compiler-evidence.md)입니다.
+
+#### fe.render.react-compiler
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: Landing부터 Web 전체에 React Compiler를 `infer` mode로 켠다(`panicThreshold: 'none'`, 기존 memoization 보장 유지
+  `enablePreserveExistingMemoizationGuarantees: true`). option 원본은 `apps/web/react-compiler.config.ts` 하나이고 Next build·Vitest·
+  Storybook이 같은 값을 쓴다. Vitest·Storybook은 Next browser build와 같은 파일만 compile한다. 기존 `useMemo`·`useCallback`은 지우지
+  않는다. compile된 뒤 깨지는 component는 코드를 Rules of React에 맞게 고치고, 그럴 수 없을 때만 `"use no memo"`와 이유·보호 test를 둔다
+- 근거: Next 16에서 top-level stable 설정이고, compiler lint 위반이 0건이었다. 채팅방처럼 입력 상태와 긴 목록이 한 component에 있는
+  화면은 글자마다 목록 전체를 다시 그렸고, compile 뒤 입력 중 JS 실행이 크게 줄었다. 비용은 cold build 시간과 client JS 증가이고 측정
+  중단 조건 안이었다(evidence). test runner도 같은 compiler를 거쳐 production과 같은 코드를 검사한다. 비가역이 아니고 설정 revert나
+  `reactCompiler` 한 줄 삭제로 되돌린다
+- 기각한 대안: annotation mode pilot 뒤 확대(#293 원문 순서. lint 위반 0건이라 단계가 필요 없었다), production build만 켜기(test가
+  compile된 코드를 검사하지 못한다), test runner마다 option을 따로 쓰기(값이 어긋날 수 있다), Rust compiler(`oxc-transform-react`)와
+  Next `experimental.turbopackRustReactCompiler`(experimental), compile을 건너뛴 파일 전체를 이 변경에서 고치기(화면 코드가 넓게
+  바뀐다. 측정 대상인 채팅방만 고쳤다)
+- 재검토 조건: build 시간이나 client JS 증가가 evidence의 중단 조건을 넘을 때, 배포 환경 Web Vitals(LCP·INP)가 나빠질 때,
+  `"use no memo"` 파일이 셋을 넘을 때, `@vitejs/plugin-react`가 Rust compiler를 stable로 낼 때, compile을 건너뛴 화면을 다시 만들 때
+- 출처: #293, Owner 확인 2026-10-31
 - pack 결정: 없음
 
 ## design-system
