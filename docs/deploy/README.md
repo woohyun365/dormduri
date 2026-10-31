@@ -27,16 +27,17 @@
 
 ## 식별자 규칙
 
-이 저장소는 공개 저장소입니다. 이 디렉터리와 운영 기록(plan·evidence·log·run 요약·PR·Issue·Release 본문·attestation·workflow
-artifact)은 아래 규칙을 따릅니다.
+이 저장소는 공개 저장소입니다. 이 디렉터리와 운영 기록은 아래 규칙을 따릅니다.
 
 - 기록할 수 있는 값: 공개 도메인·host 이름, Region, Lightsail bundle 이름, ECR repository 이름(registry host 제외), image
   digest, commit SHA, workflow run URL, tag·Release 이름, SSM document 이름
 - 기록하지 않는 값: AWS account ID(registry host와 ARN에 든 값 포함), IP 주소, instance·managed node ID, activation code·ID,
-  access portal URL, email 주소, ACME account URI, secret과 인증 code. 이런 값이 필요한 자리에는 "Owner console"이라고 적습니다.
-- 두 목록 어디에도 없는 resource 이름(IAM role·permission set·SNS 주제·alarm·health check·event destination 이름 등)도 적지
-  않고 resource 종류와 "Owner console"로 적습니다. 예외는 저장소가 이미 application 설정 값으로 쓰는 이름입니다(SES 구성 세트
-  이름).
+  access portal URL, email 주소, ACME account URI, secret과 인증 code. Git 밖 plan·evidence·log를 포함한 모든 기록(run 요약,
+  PR·Issue·Release 본문, attestation, workflow artifact)에 적용합니다. 이런 값이 필요한 자리에는 "Owner console"이라고 적습니다.
+- 두 목록 어디에도 없는 resource 이름(IAM role·permission set·SNS 주제·alarm·health check·event destination 이름 등)은 공개되는
+  기록(tracked 문서, PR·Issue·Release 본문, run 요약, attestation, workflow artifact)에 적지 않고 resource 종류와 "Owner
+  console"로 적습니다. 예외는 저장소의 설정·workflow 파일에 값으로 들어가는 이름입니다: SES 구성 세트 이름(application env
+  `SES_CONFIGURATION_SET`의 값), GitHub environment 이름(workflow가 참조하는 값).
 - GitHub 소유자·저장소 숫자 ID는 공개 API로 조회되지만 사람이 쓰는 기록에는 적지 않습니다. GitHub이 만드는 attestation 인증서와
   provenance에는 이 값이 들어가므로 attestation은 이 항목의 예외입니다.
 
