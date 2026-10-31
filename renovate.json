@@ -66,6 +66,7 @@
         "@tailwindcss/postcss",
         "@types/react",
         "@types/react-dom",
+        "babel-plugin-react-compiler",
         "eslint-config-next",
         "lucide-react",
         "motion",
@@ -84,7 +85,9 @@
       "matchUpdateTypes": ["minor", "patch"],
       "matchPackageNames": [
         "@axe-core/playwright",
+        "@babel/core",
         "@playwright/test",
+        "@rolldown/plugin-babel",
         "@storybook/addon-docs",
         "@storybook/nextjs-vite",
         "@testing-library/jest-dom",
@@ -99,6 +102,12 @@
       ],
       "groupName": "web-test-storybook",
       "groupSlug": "web-test-storybook"
+    },
+    {
+      "description": "Hold @rolldown/plugin-babel inside the @vitejs/plugin-react peer range (^0.1.7 || ^0.2.0) so an out-of-range release never reaches dev on its own. Lift or widen this rule in the update that widens the @vitejs/plugin-react peer range.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["@rolldown/plugin-babel"],
+      "allowedVersions": "<0.3.0"
     },
     {
       "description": "Group compatible API framework minor/patch updates.",

@@ -1,5 +1,6 @@
 import { withSentryConfig } from '@sentry/nextjs/config';
 import type { NextConfig } from 'next';
+import { reactCompilerOptions } from './react-compiler.config';
 import { resolveSentryBuildConfig } from './src/observability/sentry/build-config';
 
 function buildSentryCsp(): string | undefined {
@@ -41,6 +42,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ['127.0.0.1'],
   typedRoutes: true,
   output: 'standalone',
+  reactCompiler: reactCompilerOptions,
   productionBrowserSourceMaps: sentryBuild.uploadEnabled,
   typescript: {
     tsconfigPath: 'tsconfig.product.json',
