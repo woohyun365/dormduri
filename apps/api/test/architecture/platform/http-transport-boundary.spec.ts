@@ -4,14 +4,18 @@ import { join, relative, sep } from 'node:path';
 import ts from 'typescript';
 
 const sourceRoot = join(process.cwd(), 'src');
-// Exact Express runtime owners; Node lifecycle types need no Express exception.
+// Exact HTTP adapter owners and the one module each may import; Node lifecycle types need no
+// adapter exception. Express modules have no owner since the API moved to the NodeAdapter.
 // No wildcard permission for new product or platform imports.
 const nativeOwners = {
-  'platform/http/http-runtime.ts': 'Express trust-proxy and middleware registration',
-} satisfies Record<string, string>;
+  'platform/http/http-adapter.ts': {
+    module: '@nestjs/platform-node',
+    reason: 'NodeAdapter creation with the trust-proxy and parameter-length options',
+  },
+} satisfies Record<string, { module: string; reason: string }>;
 
 function nativeModule(name: string) {
-  return ['express', 'cookie-parser', '@nestjs/platform-express'].some(
+  return ['express', 'cookie-parser', '@nestjs/platform-express', '@nestjs/platform-node'].some(
     (module) => name === module || name.startsWith(`${module}/`),
   );
 }
@@ -43,7 +47,10 @@ function nativeImports(source: string): string[] {
 function violations(path: string, source: string): string[] {
   return nativeImports(source)
     .filter((module) => {
-      return module !== 'express' || !Object.hasOwn(nativeOwners, path);
+      const owner = Object.hasOwn(nativeOwners, path)
+        ? nativeOwners[path as keyof typeof nativeOwners]
+        : undefined;
+      return module !== owner?.module;
     })
     .map((module) => `${path}: ${module}`);
 }
@@ -65,12 +72,10 @@ describe('HTTP transport boundary', () => {
         violations(relative(sourceRoot, path).split(sep).join('/'), readFileSync(path, 'utf8')),
       ),
     ).toEqual([]);
-    for (const [path, reason] of Object.entries(nativeOwners)) {
+    for (const [path, { module, reason }] of Object.entries(nativeOwners)) {
       expect(reason.length).toBeGreaterThan(0);
       expect(existsSync(join(sourceRoot, path)), path).toBe(true);
-      expect(nativeImports(readFileSync(join(sourceRoot, path), 'utf8')), path).toContain(
-        'express',
-      );
+      expect(nativeImports(readFileSync(join(sourceRoot, path), 'utf8')), path).toContain(module);
     }
   });
 
@@ -83,6 +88,8 @@ describe('HTTP transport boundary', () => {
     `import express = require('express');`,
     `import { response } from 'express/lib/response';`,
     `import { ExpressAdapter } from '@nestjs/platform-express';`,
+    `import { NodeAdapter } from '@nestjs/platform-node';`,
+    `import type { NodeRequest } from '@nestjs/platform-node';`,
   ])('rejects a new nested product import: %s', (source) => {
     expect(violations('support/application/nested/example.ts', source)).toHaveLength(1);
   });
@@ -94,23 +101,32 @@ describe('HTTP transport boundary', () => {
     expect(
       violations('auth/auth.controller.ts', `import parser from 'cookie-parser';`),
     ).toHaveLength(1);
+    expect(
+      violations(
+        'platform/http/http-runtime.ts',
+        `import { NodeAdapter } from '@nestjs/platform-node';`,
+      ),
+    ).toHaveLength(1);
   });
 
   it.each([
     'platform/observability/logging/request-context.middleware.ts',
     'platform/observability/logging/request-logging.interceptor.ts',
     'platform/observability/metrics/http-metrics.interceptor.ts',
-  ])('rejects broad Express types in the Node lifecycle owner %s', (path) => {
+  ])('rejects broad adapter types in the Node lifecycle owner %s', (path) => {
     expect(violations(path, `import type { Response } from 'express';`)).toHaveLength(1);
+    expect(
+      violations(path, `import type { NodeResponse } from '@nestjs/platform-node';`),
+    ).toHaveLength(1);
     expect(violations(path, `import type { ServerResponse } from 'node:http';`)).toEqual([]);
   });
 
-  it('allows exact Express runtime owners and normal framework imports', () => {
-    for (const path of Object.keys(nativeOwners))
-      expect(violations(path, `import type { Request } from 'express';`)).toEqual([]);
-    expect(
-      violations('platform/http/http-runtime.ts', `import parser from 'cookie-parser';`),
-    ).toHaveLength(1);
+  it('allows exact adapter owners only their module, and normal framework imports', () => {
+    for (const [path, { module }] of Object.entries(nativeOwners)) {
+      expect(violations(path, `import { NodeAdapter } from '${module}';`)).toEqual([]);
+      expect(violations(path, `import type { Request } from 'express';`)).toHaveLength(1);
+      expect(violations(path, `import parser from 'cookie-parser';`)).toHaveLength(1);
+    }
     expect(
       violations('support/support.controller.ts', `import { Body } from '@nestjs/common';`),
     ).toEqual([]);

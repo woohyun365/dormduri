@@ -36,7 +36,7 @@
       "@nestjs/common",
       "@nestjs/config",
       "@nestjs/core",
-      "@nestjs/platform-express",
+      "@nestjs/platform-node",
       "@nestjs/platform-socket.io",
       "@nestjs/schedule",
       "@nestjs/schematics",
@@ -54,7 +54,6 @@
       "@testing-library/jest-dom",
       "@testing-library/react",
       "@testing-library/user-event",
-      "@types/express",
       "@types/pg",
       "@types/react",
       "@types/react-dom",
@@ -83,7 +82,7 @@
       "zod"
     ],
     "workspacePackages": ["@repo/eslint-config", "@repo/shared", "@repo/tsconfig"],
-    "overrideSelectors": ["esbuild", "postcss"],
+    "overrideSelectors": ["@nestjs/platform-node>qs", "esbuild", "postcss"],
     "lockfile": "pnpm-lock.yaml"
   },
   "groups": {
@@ -142,7 +141,7 @@
       "@nestjs/common",
       "@nestjs/config",
       "@nestjs/core",
-      "@nestjs/platform-express",
+      "@nestjs/platform-node",
       "@nestjs/platform-socket.io",
       "@nestjs/schedule",
       "@nestjs/schematics",
@@ -155,7 +154,6 @@
       "@aws-sdk/client-secrets-manager",
       "@aws-sdk/client-sesv2",
       "@node-rs/argon2",
-      "@types/express",
       "cron",
       "dotenv",
       "helmet",

@@ -54,6 +54,7 @@ import { ReportIntakeService } from '../../social-safety/reports/application/rep
 import { EnforcementNoticeController } from '../../social-safety/enforcements/enforcement-notice.controller.js';
 import { EnforcementNoticeService } from '../../social-safety/enforcements/application/enforcement-notice.service.js';
 import { ApiExceptionFilter } from './api-exception.filter.js';
+import { createHttpAdapter } from './http-adapter.js';
 
 const actor = {
   id: 'user-1',
@@ -628,7 +629,7 @@ describe('rollout HTTP contract', () => {
       .overrideGuard(ActiveMatchContextGuard)
       .useValue({ canActivate: () => true })
       .compile();
-    app = module.createNestApplication({ logger: false });
+    app = module.createNestApplication(createHttpAdapter(false), { logger: false });
     app.useGlobalGuards(module.get(AuthenticatedUserGuard));
     app.useGlobalFilters(
       new ApiExceptionFilter(
@@ -701,7 +702,7 @@ describe('rollout HTTP contract', () => {
     },
   );
   it.each(named.filter((route) => route.body))('legacy missing body: $name', async (route) => {
-    // Explicitly omit the payload; Express may expose undefined or an empty object.
+    // Explicitly omit the payload; the adapter may expose undefined or an empty object.
     const missing = await request(url)
       [route.verb](route.path)
       .auth('valid-token', { type: 'bearer' })

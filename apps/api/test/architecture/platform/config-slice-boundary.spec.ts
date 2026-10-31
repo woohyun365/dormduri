@@ -190,6 +190,7 @@ const configFactoryBaseline = {
     consumers: [
       'src/chat/realtime/chat-realtime.config.ts',
       'src/config/composition/api-config.registry.ts',
+      'src/platform/http/http-adapter.ts',
       'src/platform/http/http-runtime.ts',
       'src/platform/http/http.env.ts',
     ],

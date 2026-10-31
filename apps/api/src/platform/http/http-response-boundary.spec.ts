@@ -1,17 +1,20 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BadRequestException,
+  Body,
   Controller,
   Get,
   Header,
   Logger,
+  Post,
   type INestApplication,
 } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, Reflector } from '@nestjs/core';
 import type { ConfigType } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { ThrottlerException } from '@nestjs/throttler';
-import type { Request, Response, NextFunction } from 'express';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { gzipSync } from 'node:zlib';
 import request from 'supertest';
 import { HealthController } from '../../health/health.controller.js';
 import { HealthService } from '../../health/health.service.js';
@@ -26,7 +29,12 @@ import { AppLoggerService } from '../observability/logging/app-logger.service.js
 import { RequestLoggingInterceptor } from '../observability/logging/request-logging.interceptor.js';
 import { RequestContextMiddleware } from '../observability/logging/request-context.middleware.js';
 import { RequestContextService } from '../observability/logging/request-context.service.js';
+import { RequestRouteTemplateGuard } from '../observability/logging/request-route-template.guard.js';
 import observabilityConfig from '../observability/observability.config.js';
+import { createHttpAdapter } from './http-adapter.js';
+
+// The exception filter sets the type itself; NodeAdapter does not append a charset (JSON is UTF-8).
+const ERROR_CONTENT_TYPE = 'application/json';
 
 @Controller('boundary-probe')
 class BoundaryProbeController {
@@ -55,6 +63,11 @@ class BoundaryProbeController {
     throw new BadRequestException('invalid request');
   }
 
+  @Post('echo')
+  echo(@Body() body: unknown) {
+    return { body, polluted: ({} as Record<string, unknown>).polluted ?? null };
+  }
+
   @Get('context')
   async requestContext() {
     await new Promise<void>((resolve) => setImmediate(resolve));
@@ -62,7 +75,7 @@ class BoundaryProbeController {
   }
 }
 
-describe('real Express response and observability boundary', () => {
+describe('real HTTP adapter response and observability boundary', () => {
   let app: INestApplication;
   let url: string;
   const settings: ConfigType<typeof observabilityConfig> = {
@@ -102,15 +115,19 @@ describe('real Express response and observability boundary', () => {
         { provide: AppLoggerService, useValue: logger },
         { provide: HttpMetricsService, useValue: metrics },
         { provide: APP_FILTER, useClass: ApiExceptionFilter },
+        { provide: APP_GUARD, useClass: RequestRouteTemplateGuard },
       ],
     }).compile();
-    app = module.createNestApplication({ logger: false });
+    app = module.createNestApplication(createHttpAdapter(false), { logger: false });
     configureHttpRuntime(app, { trustProxy: false, corsAllowedOrigins: [] });
     const middleware = new RequestContextMiddleware(context);
-    app.use((req: Request, res: Response, next: NextFunction) => middleware.use(req, res, next));
+    app.use((req: IncomingMessage, res: ServerResponse, next: () => void) =>
+      middleware.use(req, res, next),
+    );
+    const reflector = module.get(Reflector);
     app.useGlobalInterceptors(
-      new RequestLoggingInterceptor(logger as never),
-      new HttpMetricsInterceptor(metrics as never),
+      new RequestLoggingInterceptor(logger as never, reflector),
+      new HttpMetricsInterceptor(metrics as never, reflector),
     );
     await app.listen(0, '127.0.0.1');
     url = await app.getUrl();
@@ -169,7 +186,7 @@ describe('real Express response and observability boundary', () => {
       .set('x-request-id', 'request-12345678');
     expect(response.status).toBe(200);
     expect(response.text).toBe('# HELP api_http_requests_total test\n');
-    // Express keeps the registry's parameter order when it sets the charset (content-type 2.x does not sort).
+    // The scrape sets the registry's own type, so the adapter neither adds nor reorders a charset.
     expect(response.headers['content-type']).toBe('text/plain; version=0.0.4; charset=utf-8');
     expect(response.headers['cache-control']).toBe('no-store');
     expect(response.headers['x-request-id']).toBe('request-12345678');
@@ -206,7 +223,7 @@ describe('real Express response and observability boundary', () => {
         .set('x-request-id', 'request-12345678')
         .set('x-correlation-id', 'correlation-12345678');
       expect(response.status).toBe(status);
-      expect(response.headers['content-type']).toBe('application/json; charset=utf-8');
+      expect(response.headers['content-type']).toBe(ERROR_CONTENT_TYPE);
       expect(response.headers['cache-control']).toBe('no-store');
       expect(response.headers['x-request-id']).toBe('request-12345678');
       expect(response.headers['retry-after']).toBe(retry === undefined ? undefined : String(retry));
@@ -235,12 +252,20 @@ describe('real Express response and observability boundary', () => {
       settings.metricsEnabled = enabled;
       const response = await request(url).get('/internal/metrics');
       expect(response.status).toBe(status);
-      expect(response.headers['content-type']).toBe('application/json; charset=utf-8');
+      expect(response.headers['content-type']).toBe(ERROR_CONTENT_TYPE);
       expect(response.headers['cache-control']).toBeUndefined();
       expect(errorBody(response)).toMatchObject({ code, statusCode: status });
       expect(registry.getContentType).not.toHaveBeenCalled();
       expect(registry.metrics).not.toHaveBeenCalled();
-      expect(logger.write).toHaveBeenCalledTimes(1);
+      expect(logger.write).toHaveBeenCalledExactlyOnceWith(
+        expect.any(String),
+        expect.objectContaining({
+          operation: 'http_exception',
+          route: '/internal/metrics',
+          statusCode: status,
+        }),
+        'http exception handled',
+      );
       expect(metrics.recordException).toHaveBeenCalledTimes(1);
       expect(metrics.startRequest).not.toHaveBeenCalled();
       expect(adapterWarning).not.toHaveBeenCalled();
@@ -250,7 +275,7 @@ describe('real Express response and observability boundary', () => {
   it('ordinary JSON errors preserve envelope and one exception/completion event each', async () => {
     const response = await request(url).get('/boundary-probe/json-error');
     expect(response.status).toBe(400);
-    expect(response.headers['content-type']).toBe('application/json; charset=utf-8');
+    expect(response.headers['content-type']).toBe(ERROR_CONTENT_TYPE);
     expect(errorBody(response)).toEqual({
       success: false,
       error: 'invalid request',
@@ -278,7 +303,7 @@ describe('real Express response and observability boundary', () => {
   it('replaces a pre-set problem+json header with the common JSON error type without warning', async () => {
     const response = await request(url).get('/boundary-probe/problem');
     expect(response.status).toBe(400);
-    expect(response.headers['content-type']).toBe('application/json; charset=utf-8');
+    expect(response.headers['content-type']).toBe(ERROR_CONTENT_TYPE);
     expect(errorBody(response)).toMatchObject({ code: 'BAD_REQUEST' });
     expectCompletedError(400, 'BAD_REQUEST', '/boundary-probe/problem');
   });
@@ -341,5 +366,106 @@ describe('real Express response and observability boundary', () => {
     expect(errorBody(response)).toMatchObject({ code: 'BAD_REQUEST' });
     expect(metrics.recordRequest).toHaveBeenCalledTimes(1);
     expect(finishInFlight).toHaveBeenCalledTimes(1);
+  });
+
+  function postEcho(type: string, body: string) {
+    return request(url).post('/boundary-probe/echo').set('content-type', type).send(body);
+  }
+
+  // Compatibility check for the '@nestjs/platform-node>qs' workspace override: the adapter's
+  // urlencoded parser calls qs.parse for nested keys and arrays.
+  it('parses JSON and nested urlencoded bodies', async () => {
+    const json = await postEcho('application/json', '{"a":{"b":1},"c":[2,3]}');
+    expect(json.status).toBe(201);
+    expect(json.body).toEqual({ body: { a: { b: 1 }, c: [2, 3] }, polluted: null });
+
+    const form = await postEcho('application/x-www-form-urlencoded', 'a[b]=1&c=2&c=3');
+    expect(form.status).toBe(201);
+    expect(form.body).toEqual({ body: { a: { b: '1' }, c: ['2', '3'] }, polluted: null });
+  });
+
+  it.each([
+    ['malformed JSON', 'application/json', '{"a":', 400, 'BAD_REQUEST'],
+    [
+      'oversized JSON',
+      'application/json',
+      JSON.stringify({ a: 'x'.repeat(110 * 1024) }),
+      413,
+      'HTTP_413',
+    ],
+    ['JSON __proto__ key', 'application/json', '{"__proto__":{"polluted":1}}', 400, 'BAD_REQUEST'],
+    [
+      'JSON constructor.prototype key',
+      'application/json',
+      '{"constructor":{"prototype":{"polluted":1}}}',
+      400,
+      'BAD_REQUEST',
+    ],
+    [
+      'urlencoded __proto__ key',
+      'application/x-www-form-urlencoded',
+      '__proto__[polluted]=1',
+      400,
+      'BAD_REQUEST',
+    ],
+    [
+      'urlencoded constructor.prototype key',
+      'application/x-www-form-urlencoded',
+      'constructor[prototype][polluted]=1',
+      400,
+      'BAD_REQUEST',
+    ],
+  ] as const)(
+    'answers a rejected %s body with the common error envelope',
+    async (_name, type, body, status, code) => {
+      const response = await postEcho(type, body);
+      expect(response.status).toBe(status);
+      expect(response.headers['content-type']).toBe(ERROR_CONTENT_TYPE);
+      expect(errorBody(response)).toMatchObject({
+        success: false,
+        code,
+        statusCode: status,
+        path: '/boundary-probe/echo',
+      });
+      expect(metrics.recordException).toHaveBeenCalledExactlyOnceWith({
+        code,
+        domain: 'platform',
+        statusCode: status,
+      });
+      expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    },
+  );
+
+  // body-parser below 2.4.0 crashed the process here (GHSA-27r3-jxmh-p828); the adapter's own
+  // parser must answer and keep serving now that body-parser left the dependency graph.
+  it('keeps serving after a compressed body with trailing bytes', async () => {
+    const body = Buffer.concat([gzipSync('{"a":1}'), Buffer.from('trailing bytes')]);
+    const response = await request(url)
+      .post('/boundary-probe/echo')
+      .set('content-type', 'application/json')
+      .set('content-encoding', 'gzip')
+      .send(body);
+    expect([201, 400]).toContain(response.status);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    const next = await postEcho('application/json', '{"after":true}');
+    expect(next.status).toBe(201);
+    expect(next.body).toEqual({ body: { after: true }, polluted: null });
+  });
+
+  it('matches paths case-sensitively and answers another case with the 404 envelope', async () => {
+    const response = await request(url).get('/BOUNDARY-PROBE/json-error');
+    expect(response.status).toBe(404);
+    expect(response.headers['content-type']).toBe(ERROR_CONTENT_TYPE);
+    expect(errorBody(response)).toMatchObject({
+      code: 'NOT_FOUND',
+      statusCode: 404,
+      path: '/BOUNDARY-PROBE/json-error',
+    });
+    expect(logger.write).toHaveBeenCalledExactlyOnceWith(
+      expect.any(String),
+      expect.objectContaining({ operation: 'http_exception', route: 'UNKNOWN_ROUTE' }),
+      'http exception handled',
+    );
   });
 });

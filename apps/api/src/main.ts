@@ -10,7 +10,8 @@ async function bootstrap() {
     { NestFactory },
     { AppModule },
     { default: appConfig },
-    { default: httpConfig },
+    { default: httpConfig, readHttpTrustProxy },
+    { createHttpAdapter },
     { AppLoggerService },
     { configureHttpRuntime },
     { default: chatRealtimeConfig },
@@ -20,12 +21,15 @@ async function bootstrap() {
     import('./app.module.js'),
     import('./platform/runtime/app.config.js'),
     import('./platform/http/http.config.js'),
+    import('./platform/http/http-adapter.js'),
     import('./platform/observability/logging/app-logger.service.js'),
     import('./platform/http/http-runtime.js'),
     import('./chat/realtime/chat-realtime.config.js'),
     import('./chat/realtime/chat-realtime-io.adapter.js'),
   ]);
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  // The adapter reads the trust-proxy env with the HTTP config reader, after the environment is prepared.
+  const httpAdapter = createHttpAdapter(readHttpTrustProxy(process.env));
+  const app = await NestFactory.create(AppModule, httpAdapter, { bufferLogs: true });
   try {
     app.useLogger(app.get(AppLoggerService));
     const appSettings = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);

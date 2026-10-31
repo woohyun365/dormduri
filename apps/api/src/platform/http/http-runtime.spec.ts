@@ -1,5 +1,4 @@
 import type { INestApplication } from '@nestjs/common';
-import type { Express } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildHttpCorsOptions,
@@ -16,12 +15,11 @@ function makeHttpSettings(overrides: Partial<HttpRuntimeSettings> = {}): HttpRun
 }
 
 function makeAppMock() {
-  const expressSet = vi.fn();
+  const getHttpAdapter = vi.fn();
   const appUse = vi.fn();
   const enableCors = vi.fn();
-  const expressApp = { set: expressSet } as unknown as Express;
   const app = {
-    getHttpAdapter: vi.fn(() => ({ getInstance: vi.fn(() => expressApp) })),
+    getHttpAdapter,
     use: appUse,
     enableCors,
   } as unknown as INestApplication & {
@@ -30,7 +28,7 @@ function makeAppMock() {
     enableCors: ReturnType<typeof vi.fn>;
   };
 
-  return { app, expressSet, appUse, enableCors };
+  return { app, getHttpAdapter, appUse, enableCors };
 }
 
 describe('buildHttpCorsOptions', () => {
@@ -51,19 +49,17 @@ describe('buildHttpCorsOptions', () => {
 });
 
 describe('configureHttpRuntime', () => {
-  it('registers trust proxy then helmet then explicit non-cookie CORS without a cookie parser', () => {
-    const { app, expressSet, appUse, enableCors } = makeAppMock();
+  it('registers helmet then explicit non-cookie CORS without a cookie parser or adapter settings', () => {
+    const { app, getHttpAdapter, appUse, enableCors } = makeAppMock();
 
     configureHttpRuntime(
       app,
       makeHttpSettings({ trustProxy: 2, corsAllowedOrigins: ['https://app.example.com'] }),
     );
 
-    expect(expressSet).toHaveBeenCalledWith('trust proxy', 2);
+    // Trust proxy is fixed when the adapter is created (http-adapter.ts), not set here.
+    expect(getHttpAdapter).not.toHaveBeenCalled();
     expect(appUse).toHaveBeenCalledTimes(1);
-    expect(expressSet.mock.invocationCallOrder[0]).toBeLessThan(
-      appUse.mock.invocationCallOrder[0]!,
-    );
     expect(appUse.mock.invocationCallOrder[0]).toBeLessThan(
       enableCors.mock.invocationCallOrder[0]!,
     );
@@ -73,11 +69,11 @@ describe('configureHttpRuntime', () => {
   });
 
   it('does not enable permissive wildcard CORS when origins are absent', () => {
-    const { app, expressSet, enableCors } = makeAppMock();
+    const { app, appUse, enableCors } = makeAppMock();
 
     configureHttpRuntime(app, makeHttpSettings());
 
-    expect(expressSet).toHaveBeenCalledWith('trust proxy', false);
+    expect(appUse).toHaveBeenCalledTimes(1);
     expect(enableCors).not.toHaveBeenCalled();
   });
 });

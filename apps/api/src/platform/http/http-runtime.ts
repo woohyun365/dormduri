@@ -1,6 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
-import type { Express } from 'express';
 import helmet from 'helmet';
 import type httpConfig from './http.config.js';
 
@@ -19,8 +18,7 @@ export function configureHttpRuntime(
   app: INestApplication,
   httpSettings: HttpRuntimeSettings,
 ): void {
-  const expressApp = app.getHttpAdapter().getInstance() as Express;
-  expressApp.set('trust proxy', httpSettings.trustProxy);
+  // Trust proxy is a NodeAdapter constructor option (see http-adapter.ts), not a runtime setting.
   app.use(helmet());
 
   const corsOptions = buildHttpCorsOptions(httpSettings.corsAllowedOrigins);

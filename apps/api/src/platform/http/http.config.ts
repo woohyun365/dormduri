@@ -10,7 +10,8 @@ export const DEFAULT_HTTP_TRUST_PROXY_HOPS = 0;
 
 export type HttpTrustProxy = false | number | string[];
 
-const EXPRESS_TRUST_PROXY_PRESETS = new Set(['linklocal', 'loopback', 'uniquelocal']);
+// Subnet names the adapter's forwarded-address parser (@fastify/proxy-addr) expands.
+const TRUST_PROXY_PRESETS = new Set(['linklocal', 'loopback', 'uniquelocal']);
 
 export function readHttpTrustProxy(env: NodeJS.ProcessEnv = process.env): HttpTrustProxy {
   const hops = readNumberEnv(env, HTTP_TRUST_PROXY_HOPS_ENV, DEFAULT_HTTP_TRUST_PROXY_HOPS, {
@@ -41,7 +42,7 @@ export function parseHttpTrustProxyCidrs(raw: string | undefined): string[] {
   const uniqueValues = Array.from(new Set(values));
 
   for (const value of uniqueValues) {
-    if (EXPRESS_TRUST_PROXY_PRESETS.has(value)) {
+    if (TRUST_PROXY_PRESETS.has(value)) {
       continue;
     }
 
@@ -57,7 +58,7 @@ export function parseHttpTrustProxyCidrs(raw: string | undefined): string[] {
       parsedPrefix > maximumPrefix
     ) {
       throw new Error(
-        `[config] ${HTTP_TRUST_PROXY_CIDRS_ENV} must contain valid IP/CIDR or Express subnet presets.`,
+        `[config] ${HTTP_TRUST_PROXY_CIDRS_ENV} must contain valid IP/CIDR or proxy subnet presets.`,
       );
     }
   }

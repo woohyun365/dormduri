@@ -6,20 +6,23 @@ import { HttpAdapterHost } from '@nestjs/core';
 import { ApiExceptionFilter } from './api-exception.filter.js';
 import { serviceUnavailableError, tooManyRequestsError } from './api-error.js';
 import type { AppLoggerService } from '../observability/logging/app-logger.service.js';
+import { recordRequestRouteTemplate } from '../observability/logging/request-route.js';
 
 function createHost(
   response: { status: Mock; json: Mock },
   request: { originalUrl?: string } = {},
 ): ArgumentsHost {
+  const httpRequest = {
+    method: 'GET',
+    originalUrl: '/api/test',
+    url: '/api/test',
+    ...request,
+  };
+  // The global route template guard records the template before the filter runs.
+  recordRequestRouteTemplate(httpRequest, '/test');
   return {
     switchToHttp: () => ({
-      getRequest: () => ({
-        method: 'GET',
-        originalUrl: '/api/test',
-        route: { path: '/test' },
-        url: '/api/test',
-        ...request,
-      }),
+      getRequest: () => httpRequest,
       getResponse: () => response,
     }),
   } as ArgumentsHost;
