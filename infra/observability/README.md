@@ -193,7 +193,7 @@ SLACK_ALERT_CHANNEL=#knu-roommate-alerts-test
 
 실제 webhook URL은 `infra/observability/.env.observability`에만 둔다. `infra/observability/.env.observability.example`, Alertmanager example, 문서, PR/이슈에는 secret 값을 남기지 않는다. 자세한 절차는 `infra/runbooks/operations/observability/slack-delivery.md`와 `infra/runbooks/incidents/observability-alert-delivery.md`를 따른다.
 
-Slack payload는 `alertname`, `service`, `env`, `severity`, bounded summary, runbook만 포함한다. userId/email/threadId/raw body/RRPD payload는 금지한다.
+Slack payload는 `alertname`, `service`, `env`, `severity`, bounded summary, runbook만 포함한다. userId/email/threadId/raw body/RRPD payload는 금지한다. 금지 항목 전체(token·cookie·raw path·stack trace 포함)는 [Slack alert payload](./slack/slack-alert-payload.md)가 소유한다.
 
 ## Resource guidance
 

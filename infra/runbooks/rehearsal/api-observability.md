@@ -9,7 +9,7 @@
 - Slack webhook URL, metrics bearer token, DB URL, auth token, cookie는 command output/report/issue에 붙이지 않는다.
 - API structured log `ts`는 UTC ISO(`Z`)를 유지한다. Grafana/Loki/nginx display는 KST로 확인한다.
 - 이 문서의 관측 포함 실행은 Docker engine을 2 CPU / 4096MiB로 제한한 local constrained rehearsal이다.
-- Web/BackOffice는 현재 compose에 포함되지 않으며 local PostgreSQL은 managed PostgreSQL 성능을 대표하지 않는다.
+- 이 checklist가 올리는 API·관측 compose(`api-stress`·`observability-rehearsal` profile)에는 Web/BackOffice가 없다. Web은 위 별도 rehearsal을 쓴다. Local PostgreSQL은 managed PostgreSQL 성능을 대표하지 않는다.
 
 ## 1. Preflight
 

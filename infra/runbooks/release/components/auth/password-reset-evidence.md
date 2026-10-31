@@ -58,7 +58,7 @@ pnpm --dir apps/api auth:ses:smoke -- --dry-run
 
 AWS credential, verified identity와 Configuration Set event destination이 준비된 staging/sandbox에서 `--dry-run`을 제거한다. 출력은 recipient나 provider raw error를 포함하지 않고 `accepted`, provider message id 존재 여부 또는 bounded failure category만 기록한다.
 
-`accepted`는 SES API 접수 증거다. Configuration Set의 delivery/bounce/complaint event가 CloudWatch/SNS/EventBridge destination에 도착한 별도 evidence가 있어야 release gate를 통과한다.
+`accepted`는 SES API 접수 증거다. Release gate를 통과하려면 Configuration Set에 bounce/complaint/reject/delivery delay/rendering failure event destination과 delivery CloudWatch event destination이 연결되어 있고, simulator bounce/complaint event가 그 destination에, simulator success의 delivery가 그 CloudWatch 지표에 도착한 별도 evidence가 있어야 한다. Delivery는 메일마다 생기므로 사람 메일함으로 보내지 않고 받는 사람 주소가 없는 CloudWatch 지표로 확인한다([SES setup checklist](../../../../aws/ses-setup-checklist.md#release-gate)).
 
 ## 4. Abuse/timing/worker evidence
 

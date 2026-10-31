@@ -30,7 +30,9 @@ resource 이름은 "Owner console"로 적습니다. 비용은 [서버 비용](./
 
 - 운영자의 host 접근은 Systems Manager Session Manager를 기본으로 씁니다. SSH는 break-glass로만 쓰고, Owner가 Lightsail browser
   SSH 허용 규칙을 잠시 켠 뒤 끝나면 지웁니다(22는 평소 닫힘).
-- SES event destination에는 받는 사람 주소가 담기는 Deliveries를 넣지 않았습니다.
+- SES SNS event destination에는 메일마다 생기는 Deliveries를 넣지 않았습니다. 알림 본문에는 event 종류와 관계없이 받는 사람
+  주소가 담깁니다. Delivery는 API 단계 auth release 준비 때 구성 세트 CloudWatch event destination(주소 없는 지표)으로
+  더합니다([SES setup checklist](../../infra/aws/ses-setup-checklist.md#delivery-지표-cloudwatch-event-destination)).
 - Sandbox 해제(production access)는 공개 Landing URL이 생긴 뒤 요청합니다.
 
 ## 계정과 비용 알림
