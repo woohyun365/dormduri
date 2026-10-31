@@ -19,19 +19,24 @@ export const reactCompilerOptions = {
   },
 } as const satisfies NextReactCompilerOptions & PluginOptions;
 
-// Test, story and fixture code. Next.js never builds it, so it stays as written around the compiled components.
+// Test, story and fixture code (and the Storybook config). Next.js never builds it, so it stays as written around the
+// compiled components. Matched from the app `src/` directory so the checkout path itself never matches.
 const harnessFile =
-  /[\\/](?:__tests__|__stories__|__fixtures__|stories|test-support|test)[\\/]|\.(?:test|spec|stories)\.[cm]?[jt]sx?$/u;
-const appRouterFile = /[\\/]src[\\/]app[\\/]/u;
+  /\/(?:__tests__|__stories__|__fixtures__|stories|test-support|test)\/|\.(?:test|spec|stories)\.[cm]?[jt]sx?$/u;
 const useClientDirective = /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*['"]use client['"]/u;
 
-// Next.js runs React Compiler only on the browser bundle (its loader skips the server layers), so App Router modules
-// without 'use client' (server pages and layouts) are never compiled. Vitest and Storybook build every file for one
-// client environment, so they apply the same scope through the compiler `sources` option.
+// Next.js runs React Compiler only on the browser bundle (its loader skips the server layers and node_modules), so App
+// Router modules without 'use client' (server pages and layouts) are never compiled. Vitest and Storybook build every
+// file for one client environment, so they apply the same scope through the compiler `sources` option;
+// @rolldown/plugin-babel already skips node_modules.
 export function isCompiledByNextBrowserBuild(filename: string): boolean {
-  const path = filename.split('?')[0] ?? filename;
-  if (harnessFile.test(path)) return false;
-  if (appRouterFile.test(path)) return useClientDirective.test(readFileSync(path, 'utf8'));
+  const path = (filename.split('?')[0] ?? filename).replaceAll('\\', '/');
+  if (path.includes('/.storybook/')) return false;
+  const srcIndex = path.lastIndexOf('/src/');
+  if (srcIndex === -1) return true;
+  const fromSrc = path.slice(srcIndex);
+  if (harnessFile.test(fromSrc)) return false;
+  if (fromSrc.startsWith('/src/app/')) return useClientDirective.test(readFileSync(path, 'utf8'));
   return true;
 }
 
