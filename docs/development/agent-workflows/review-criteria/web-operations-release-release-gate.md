@@ -13,13 +13,13 @@ severity가 높은 항목으로 판정합니다. 이 문서의 항목을 상속�
 
 ### O1. release handoff와 증거 없는 GO 금지
 
-- 질문: release가 배포할 artifact 식별자, 대상 owner, secret 목록 상태(값 제외), smoke·관측·되돌림 판단을 증거로 갖추고, 증거가 빠지면 NO-GO로 적는가?
+- 질문: release가 배포할 artifact 식별자, 대상 owner, secret 목록 상태(값 제외), smoke·관측·되돌림 판단을 증거로 갖추고, 증거가 빠지면 NO-GO로 적으며, 단계 배포는 그 단계의 항목만 갖추고 GO·NO-GO를 전체 release의 최종 판정에만 두는가?
 - 기본 severity: `high`
 - 적용 조건: 배포 대상·release 절차·release 증거를 더하거나 바꾸는 변경
-- 결함 패턴: 배포할 artifact 식별자(commit·image digest) 없이 release를 주장함, 대상 owner·secret 목록 상태·smoke·관측·되돌림 판단 가운데 일부를 빠뜨림, 증거가 없는데 GO로 적음, secret 값을 handoff에 적음
-- PASS 근거: release handoff에 바꿀 수 없는 artifact 식별자, 대상·환경 owner, 값 없는 secret 목록 상태, network·health·migration·provider smoke 결과, 관측·운영자 접근, 되돌림 판단이 있고 빠진 항목은 NO-GO로 적혀 있다
-- 지침: release handoff는 바꿀 수 없는 artifact 식별자, 대상·환경 owner, secret 목록 상태(값 제외), smoke 결과, 관측·운영자 접근, 되돌림 판단과 알려진 위험을 적는다. 증거가 하나라도 빠지면 NO-GO로 적는다
-- 피함: 식별자 없는 release, 증거 없는 GO, handoff에 secret 값 쓰기
+- 결함 패턴: 배포할 artifact 식별자(commit·image digest) 없이 release를 주장함, 대상 owner·secret 목록 상태·smoke·관측·되돌림 판단 가운데 일부를 빠뜨림, 증거가 없는데 GO로 적음, secret 값을 handoff에 적음, 단계 배포 기록이 GO·NO-GO를 선언함
+- PASS 근거: release handoff에 바꿀 수 없는 artifact 식별자, 대상·환경 owner, 값 없는 secret 목록 상태, network·health·migration·provider smoke 결과, 관측·운영자 접근, 되돌림 판단이 있고 빠진 항목은 NO-GO로 적혀 있다. 단계 배포(최종 판정 전에 일부 구성요소만 올리는 rollout) 기록은 그 단계가 올리거나 바꾸는 구성요소의 항목을 갖추고 해당 없는 항목을 '해당 없음(이유)'으로 적으며, GO·NO-GO는 전체 release의 최종 판정에만 있다
+- 지침: release handoff는 바꿀 수 없는 artifact 식별자, 대상·환경 owner, secret 목록 상태(값 제외), smoke 결과, 관측·운영자 접근, 되돌림 판단과 알려진 위험을 적는다. 증거가 하나라도 빠지면 NO-GO로 적는다. 단계 배포는 그 단계가 올리거나 바꾸는 구성요소의 항목만 요구하고 해당 없는 항목은 '해당 없음(이유)'으로 적는다. 단계 기록은 GO·NO-GO를 선언하지 않고, 최종 판정은 전체 release에서 한다
+- 피함: 식별자 없는 release, 증거 없는 GO, handoff에 secret 값 쓰기, 단계 기록에서 GO·NO-GO 선언하기, 그 단계에 없는 구성요소의 증거가 없다는 이유로 단계를 NO-GO로 적기
 
 ### O2. rollout 순서·호환 구간·되돌림·사람 승인
 

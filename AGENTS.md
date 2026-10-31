@@ -27,6 +27,7 @@
 - `docs/architecture`: 현재 책임 경계와 설계 결정
 - `docs/development`: 개발·CI 기준과 troubleshooting
 - `docs/runbooks`: 제품·서비스 운영 절차
+- `docs/deploy`: 지금 적용한 운영 환경과 서버·도메인·메일 비용(식별자 없음); 배포·복구 절차는 `infra/runbooks/`
 - `docs/evidence`: 개선의 측정값·설계 근거·문제 해결 기록(사람 대상, 규칙 owner 아님)
 - `infra`: 배포 후보, rehearsal, observability, release runbook
 - 로컬 infra 환경 선택: `infra/runbooks/rehearsal/local-environments.md`에서 OrbStack·독립 Linux VM의 용도와 증거 경계를 확인한다.
@@ -88,7 +89,7 @@
 ## 6. Cleanup과 refactor
 
 - 수정 전에 cleanup plan을 작성한다.
-- 기존 동작이 보호되지 않았다면 regression test를 먼저 추가한다.
+- 기존 동작이 보호되지 않았다면 그 동작의 regression test를 먼저 추가한다.
 - 추가보다 삭제, 새 abstraction보다 기존 boundary 복구를 우선한다.
 - 호출부가 없는 코드인지 repo-wide search로 확인하고 dynamic import·framework convention도 점검한다.
 - 한 번에 하나의 smell과 책임 경계를 다뤄 diff를 review 가능하게 유지한다.
