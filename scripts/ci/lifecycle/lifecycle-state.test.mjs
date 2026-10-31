@@ -334,7 +334,7 @@ test('fixture 11 KNU 대응 기록은 architected이고 PRD 개요는 legacy다'
   assert.deepEqual(JSON.parse(cli.stdout).project, result.project);
 });
 
-// The P1b decision record states as plan-readiness-policy.mjs declares them.
+// The decision record states as plan-readiness-policy.mjs declares them.
 function readinessDecisionStates() {
   const source = readFileSync(resolve(repoRoot, READINESS_POLICY), 'utf8');
   const list = /const DECISION_STATES = new Set\(\[([^\]]*)\]\)/u.exec(source)?.[1] ?? '';
@@ -659,7 +659,7 @@ const FEATURE_PATH = {
   skip: [],
   warnOnly: [],
 };
-// Grade values of the state machine (change grades and the P0 state table grade bullet).
+// Grade values the calculator reads: path, procedure steps, skip and warnOnly of each change grade.
 const GRADES = {
   trivial: {
     path: ['implementing', 'reviewing', 'merged', 'evidenced'],

@@ -31,7 +31,8 @@ import {
 export const STATE_SCHEMA = 'lifecycle-state/v1';
 export const STATE_INPUT_SCHEMA = 'lifecycle-state-input/v1';
 export const BLOCKED_SCHEMA = 'lifecycle-blocked/v1';
-// The P1b decision record states (`decisions[].status`, plan-readiness-policy.mjs); the test compares the two lists.
+// The decision record states of plan readiness (`decisions[].status`, plan-readiness-policy.mjs); the test compares the
+// two lists.
 export const DECISION_STATES = [
   'known',
   'unknown',
@@ -223,7 +224,7 @@ function readPlan(read, value) {
   return value;
 }
 
-// Required: schema, artifacts. A missing grade is feature (a body without a grade line, P2a).
+// Required: schema, artifacts. A missing grade is feature, as for a PR body without a grade line.
 function normalizeInput(input) {
   const read = inputReader();
   read.object(input, '입력', INPUT_FIELDS, ['schema', 'artifacts']);
@@ -784,7 +785,7 @@ export function computeLifecycleState(input, definition) {
 // ---------------------------------------------------------------------------------------------------------------------
 // Boundary, reverse transitions, blocked report
 
-// Implementation boundary (3.5절): outside the pack decision list, easily reversible and inside the declared scope is a
+// Implementation boundary (guide: 구현 불가 경계): outside the pack decision list, easily reversible and inside the declared scope is a
 // Lead decision, not a trigger. Any input outside that is an R-AMBIG block; `reasons` names those inputs.
 export function evaluateBoundary({ packDecisionId, reversibility, inScope } = {}) {
   if (packDecisionId !== null && (typeof packDecisionId !== 'string' || !packDecisionId.trim()))
@@ -838,7 +839,7 @@ export function sameFixStop({ grade, failedFixes } = {}, definition) {
     : null;
 }
 
-// `lifecycle-blocked/v1` fields (P0 contract): every field is required and no other field is allowed.
+// `lifecycle-blocked/v1` fields: every field is required and no other field is allowed.
 const fields = (shape) => ({ fields: shape });
 const items = (shape) => ({ items: shape });
 const BLOCKED_SHAPE = fields({
