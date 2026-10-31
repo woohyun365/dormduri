@@ -90,9 +90,10 @@ types rather than native request types. Error paths still use `originalUrl ?? ur
 precedence. Observability failures remain fail-open, while response write failures are not silently swallowed.
 
 `test/architecture/platform/http-transport-boundary.spec.ts` permits the production `@nestjs/platform-node` import only in
-`http-adapter.ts` and rejects Express imports everywhere. `http-runtime.ts` registers the middleware (Helmet precedes optional
-non-cookie CORS) through the Nest application without an adapter import. The following platform owners retain Node HTTP
-lifecycle semantics without importing adapter Request/Response types:
+`http-adapter.ts` and rejects Express imports everywhere. `http-runtime.ts` registers Helmet as the adapter security hook and then
+optional non-cookie CORS, without an adapter import. The hook takes the middleware position `app.use()` would give it, and
+NodeAdapter also runs it for a request its router rejects before any middleware, so that response keeps the security headers.
+The following platform owners retain Node HTTP lifecycle semantics without importing adapter Request/Response types:
 
 | Owner                                                  | Required boundary                                                                                     |
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
@@ -128,17 +129,27 @@ Remove/review native exceptions only with their owner and regression proof, not 
   request line reaches the route's Zod binding and keeps the 400 envelope instead of the adapter's default 414. A larger
   request line is still answered by Node with 431 before the adapter, as before.
 
-Behavior that differs from the earlier Express adapter and is locked by `http-response-boundary.spec.ts`:
+`http-response-boundary.spec.ts` locks the Helmet headers on success, 404 and 400 responses and the REST CORS answers
+(allowlisted preflight 204, exposed `X-Request-Id`, no CORS headers for another origin), which are the same as before.
+Behavior that differs from the earlier Express adapter and is locked by the same spec:
 
 - Path matching is case-sensitive; another case answers the common 404 envelope with `UNKNOWN_ROUTE`.
+- A path with malformed percent-encoding (`/x/%FF`) is rejected by the router before any middleware with the 400 envelope
+  (`URI malformed`; Express answered 400 with another message). Helmet still runs through the security hook, but the response
+  no longer has the CORS headers Express sent. It has no `X-Request-Id`, as before, and its route label is `UNKNOWN_ROUTE`.
 - Error envelopes from the exception filter use `application/json` without a charset parameter. Successful JSON responses
   keep `application/json; charset=utf-8`.
 - JSON and urlencoded bodies with `__proto__` or `constructor.prototype` keys answer the 400 envelope instead of reaching
   the handler. Malformed JSON answers 400 and a body over the 100 KB default answers the 413 envelope.
 - Successful responses carry no `ETag`, so a conditional request gets 200 instead of 304. Query strings are parsed by
-  `fast-querystring` and give the same objects as the earlier `simple` parser.
+  `fast-querystring` into the same objects as the earlier `simple` parser: bracket keys stay flat strings and a repeated key
+  becomes an array.
 - The urlencoded body parser calls `qs.parse`. The workspace override `'@nestjs/platform-node>qs'` keeps it on a patched
   qs line until a NodeAdapter release depends on one; the nested-body tests guard that override.
+
+Route matching also differs: a static path segment matches before a parameter whatever the registration order, where Express
+took the first registered route. When a parameter route of one method covers another route's static path, the static route
+answers. The HTTP adapter evidence records the route list check at the switch.
 
 HTTP ingress configuration owns trust-proxy and CORS. The direct API does not parse browser cookies or own cookie policy/settings;
 browser authentication cookies belong to the Web/BFF. Do not restore an unused cookie parser/config surface without a direct-API

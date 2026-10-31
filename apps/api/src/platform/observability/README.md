@@ -58,8 +58,9 @@ once/statusCode만 타입으로 요구한다. Adapter request 타입 전체를 �
 ### Route template
 
 HTTP adapter(`@nestjs/platform-node`의 NodeAdapter)는 request에 일치한 route를 남기지 않는다. 그래서 route template은
-Nest가 route 등록에 쓰는 controller·handler path metadata를 이어 만든다(`logging/request-route.ts`). API는 global
-prefix와 versioning을 쓰지 않으므로 두 path가 template 전체다.
+Nest가 route 등록에 쓰는 controller·handler path metadata를 이어 만든다(`logging/request-route.ts`). Nest 등록처럼 앞
+`/` 하나를 두고 끝 `/`는 지운다. API는 global prefix·versioning·RouterModule path를 쓰지 않으므로 두 path가 template
+전체이고, `test/architecture/platform/logging-boundary.spec.ts`가 그 전제를 지킨다.
 
 - 두 interceptor는 handler 실행 context에서 template을 직접 계산한다.
 - Guard·throttle 거절처럼 interceptor 전에 끝나는 요청은 이 module의 global guard(`RequestRouteTemplateGuard`)가
