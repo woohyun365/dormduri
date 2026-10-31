@@ -1,10 +1,10 @@
-# KNU Roommate
+# 돔두리
 
 강원대학교 재학생이 **생활패턴이 맞는 기숙사 룸메이트를 찾고, 대화와 매칭 신청으로 한 학기의 룸메이트를 정하도록 돕는 시즌 기반 웹 서비스**입니다.
 
-> **현재 상태**: 출시 전 · 제품 코드, 자동 검증, 로컬 인프라 리허설 구현 완료 · 실제 사용자와 운영 환경 검증은 아직 하지 않음
+> **현재 상태**: Web 단계 배포 준비 · 운영 host·도메인·TLS·메일 준비 완료, Web CD와 첫 배포 전 · API·DB·관측 스택은 이후 단계 · 실제 사용자 검증은 아직 하지 않음
 
-[서비스 소개](./SERVICE.md) · [제품 정책](./docs/policies/README.md) · [아키텍처](./docs/architecture/README.md) · [개선 기록](./docs/evidence/README.md) · [AI 에이전트 하네스](#ai-에이전트-하네스) · [기여 안내](./CONTRIBUTING.md) · [운영 Runbook](./infra/runbooks/README.md)
+[서비스 소개](./SERVICE.md) · [제품 정책](./docs/policies/README.md) · [아키텍처](./docs/architecture/README.md) · [개선 기록](./docs/evidence/README.md) · [AI 에이전트 하네스](#ai-에이전트-하네스) · [기여 안내](./CONTRIBUTING.md) · [처음 참여하기](./docs/development/onboarding.md) · [운영 환경](./docs/deploy/README.md) · [운영 Runbook](./infra/runbooks/README.md)
 
 ## 한눈에 보기
 
@@ -44,13 +44,13 @@ flowchart LR
 - **API 도메인 owner**는 기능 가능 여부, 트랜잭션 전제 조건과 종료 사유를 계산합니다. 같은 DB schema를 써도 다른 도메인의 상태는 그 도메인이 연 service·port로만 바꿉니다([도메인 데이터 소유권](./docs/architecture/backend/domain-data-ownership.md)).
 - **PostgreSQL**은 UNIQUE 제약과 트랜잭션으로 최종 경쟁 상태를 판정합니다.
 
-배포 예정 구성(사용자 앱 host + private 관리형 PostgreSQL, 관측 스택 장애 격리)은 실제 배포를 마친 구성이 아니라 출시 전 계획과 로컬 리허설의 기준입니다. 구성도와 설명은 [운영 runtime 구성](./docs/architecture/platform/production-runtime-topology.md#출시-전-배포-구성도)에 있습니다.
+지금 Web 단계에는 AWS 서울 region의 Lightsail host 하나에 nginx ingress를 두고 점검 mode로 운영하며, Web image는 아직 배포하지 않았습니다([운영 환경](./docs/deploy/production-environment.md)). API를 올린 이후 목표 구성(사용자 앱 host + private 관리형 PostgreSQL, 관측 스택 장애 격리)은 아직 배포하지 않은 계획과 로컬 리허설의 기준입니다. 구성도와 설명은 [운영 runtime 구성](./docs/architecture/platform/production-runtime-topology.md)에 있습니다.
 
 ## 대표 설계 결정
 
 1. **화면 상태가 아니라 시즌 참여 aggregate를 기준으로 삼았습니다.** 탐색·상세·매칭·채팅은 화면별 boolean이 아니라 `SeasonParticipant`, 등록 확정 트랜잭션과 서버 capability로 판단합니다([시즌 참여 정책](./docs/policies/season-participation.md) · [룸메이트 탐색 정책](./docs/policies/roommate-searching.md) · [기능 가능 여부 설계](./docs/architecture/frontend/action-capability-source-of-truth.md)).
 2. **사전 확인 API와 최종 트랜잭션의 책임을 나눴습니다.** 닉네임 확인 성공을 예약으로 보지 않고 회원가입 트랜잭션과 DB 제약이 최종 판정하며, 인증은 1회용 grant, Argon2id, DB에 저장하는 opaque session과 rotation·revoke 경계를 씁니다([계정 인증 정책](./docs/policies/account-authentication.md) · [opaque session 결정](./docs/architecture/backend/auth/jwt-vs-opaque-session-transport-decision.md)).
-3. **서버 크기보다 자원 owner와 실패 경계를 먼저 정했습니다.** 2 vCPU / 4 GiB 사용자 앱 host에서 제품 container limit 합계를 2,976 MiB로 묶고, 관측 스택이 멈춰도 사용자 요청은 막히지 않게 했습니다. 실제 운영 성능 주장이 아니라 출시 전 리허설 기준입니다([운영 runtime 구성](./docs/architecture/platform/production-runtime-topology.md) · [풀스택 리허설 자원 예산](./infra/runbooks/rehearsal/full-stack.md) · [출시 준비 상태](./infra/runbooks/release/components/infrastructure-target/readiness.md)).
+3. **서버 크기보다 자원 owner와 실패 경계를 먼저 정했습니다.** 2 vCPU / 4 GiB 사용자 앱 host(지금 Web 단계 host와 같은 크기)에 API·Web·관측을 함께 올리는 이후 목표에서 제품 container limit 합계를 2,976 MiB로 묶고, 관측 스택이 멈춰도 사용자 요청은 막히지 않게 했습니다. 실제 운영 성능 주장이 아니라 리허설 기준입니다([운영 runtime 구성](./docs/architecture/platform/production-runtime-topology.md) · [풀스택 리허설 자원 예산](./infra/runbooks/rehearsal/full-stack.md) · [출시 준비 상태](./infra/runbooks/release/components/infrastructure-target/readiness.md)).
 
 ## 측정으로 확인한 개선
 
@@ -113,27 +113,31 @@ AI가 실제 팀 협업이나 운영 경험을 대신한다고 보지 않습니�
 
 ## 운영과 관측
 
+지금 Web 단계의 관측은 외부 가용성 경보(Route 53 HTTPS health check → CloudWatch alarm → SNS email)뿐입니다. 아래 수집 구성은 API 단계에서 켜는 목표입니다.
+
 관측은 배포 뒤 **사용자가 겪은 실패를 재현하고 변경의 영향을 판단하기 위한 제품 경계**로 설계했습니다. API·BFF 구조화 로그는 Loki, 런타임·도메인 지표는 Prometheus, 브라우저 오류·성능은 Sentry, 관리형 DB 자원은 CloudWatch로 나누고, 수집기 장애가 제품 요청을 막지 않게 합니다. 로그와 지표는 매칭 성공률 같은 제품 분석을 대신하지 않습니다. 도구 책임은 [관측 구성](./docs/architecture/platform/observability-topology.md), 개인정보·보존·접근 범위는 [운영 관측 정책](./docs/policies/operational-observability.md)이 정합니다.
 
 ## 기술 스택
 
-| 영역      | 현재 기준                                                           | 선택 목적                                      |
-| --------- | ------------------------------------------------------------------- | ---------------------------------------------- |
-| Runtime   | Node.js 26, pnpm 12                                                 | workspace와 CI runtime 일치                    |
-| 언어      | TypeScript 6                                                        | FE·BE·shared contract의 정적 경계              |
-| Web       | Next.js 16, React 19, Tailwind CSS 4                                | App Router, BFF, 반응형 제품 UI                |
-| API       | NestJS 12, Joi, Pino                                                | DI 기반 도메인 owner, 런타임 설정, 구조화 로그 |
-| Contract  | Zod 4 (`packages/shared`)                                           | 요청·응답 런타임 검증과 타입 공유              |
-| 저장소    | PostgreSQL 18, Prisma 7, `pg`                                       | 관계·제약·트랜잭션과 타입 있는 query           |
-| 보안      | Argon2id, HMAC·envelope 암호화, opaque session                      | 자격 증명과 session lifecycle 보호             |
-| 검증      | Vitest 5, Testing Library, Supertest, Playwright 1.63, Storybook 10 | unit부터 브라우저·화면까지 계층 분리           |
-| 관측      | Prometheus, Loki, Alloy, Grafana, Alertmanager, Sentry              | 지표·로그·브라우저 신호의 책임 분리            |
-| 전달      | Docker Compose, GitHub Actions                                      | 재현 가능한 로컬 리허설과 선택 실행 CI         |
-| 출시 대상 | AWS Lightsail, RDS PostgreSQL, Secrets Manager                      | 실제 계정 근거가 필요한 출시 전 결정           |
+| 영역     | 현재 기준                                                                                         | 선택 목적                                      |
+| -------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Runtime  | Node.js 26, pnpm 12                                                                               | workspace와 CI runtime 일치                    |
+| 언어     | TypeScript 6                                                                                      | FE·BE·shared contract의 정적 경계              |
+| Web      | Next.js 16, React 19, Tailwind CSS 4                                                              | App Router, BFF, 반응형 제품 UI                |
+| API      | NestJS 12, Joi, Pino                                                                              | DI 기반 도메인 owner, 런타임 설정, 구조화 로그 |
+| Contract | Zod 4 (`packages/shared`)                                                                         | 요청·응답 런타임 검증과 타입 공유              |
+| 저장소   | PostgreSQL 18, Prisma 7, `pg`                                                                     | 관계·제약·트랜잭션과 타입 있는 query           |
+| 보안     | Argon2id, HMAC·envelope 암호화, opaque session                                                    | 자격 증명과 session lifecycle 보호             |
+| 검증     | Vitest 5, Testing Library, Supertest, Playwright 1.63, Storybook 10                               | unit부터 브라우저·화면까지 계층 분리           |
+| 관측     | Prometheus, Loki, Alloy, Grafana, Alertmanager, Sentry                                            | 지표·로그·브라우저 신호의 책임 분리            |
+| 전달     | Docker Compose, GitHub Actions                                                                    | 재현 가능한 로컬 리허설과 선택 실행 CI         |
+| 운영     | 지금 AWS Lightsail·Route 53·ECR·Systems Manager·SES, API 단계에 관리형 PostgreSQL·Secrets Manager | Web 단계 운영 환경과 API 단계 목표             |
 
 버전의 기준은 [`package.json`](./package.json), [`pnpm-workspace.yaml`](./pnpm-workspace.yaml)의 catalog, 각 app package와 고정된 container image입니다.
 
 ## 시작하기
+
+처음 참여한다면 [Onboarding](./docs/development/onboarding.md)에서 저장소 구조·검사 명령·협업 규칙의 위치를 먼저 봅니다.
 
 ### 필요 환경
 
@@ -184,6 +188,7 @@ dormduri/
 │   ├── architecture/        # 장기 기술 결정과 책임 경계
 │   ├── evidence/            # 개선의 측정값·설계 근거·문제 해결 기록
 │   ├── runbooks/            # 제품 도메인 반복 운영 절차
+│   ├── deploy/              # 지금 운영 환경과 서버 비용
 │   └── development/         # 개발·CI 기준, 에이전트 workflow, troubleshooting
 ├── infra/                   # 배포, 리허설, 관측과 출시 준비
 ├── scripts/                 # CI, 검증, 리허설, 에이전트 workflow 실행기
@@ -195,27 +200,30 @@ dormduri/
 
 ## 현재 상태와 한계
 
-| 항목                           | 상태           | 의미                                                                                   |
-| ------------------------------ | -------------- | -------------------------------------------------------------------------------------- |
-| 제품 기능·contract·DB baseline | 구현됨         | 저장소 코드와 자동 테스트로 검증 가능                                                  |
-| Monorepo CI와 로컬 검증        | 구현됨         | 바뀐 경로별 검증 명령과 workflow 존재                                                  |
-| 풀스택 로컬 리허설             | 리허설 가능    | 제한된 Docker 자원에서 재현할 수 있는 harness와 runbook                                |
-| 운영 provider·DNS·TLS·RDS      | 출시 근거 대기 | 실제 provider에서 DNS·TLS, private DB, 백업·복원, rollback과 관측 내구성을 검증해야 함 |
-| 실사용자 UX·운영 지표          | 아직 없음      | 실제 사용자 데이터와 운영 장애 경험이 없음. 출시와 사용자 검증 이후 측정               |
-| BackOffice                     | 설계 결정만    | 별도 host·배포·권한 경계만 정했고 제품은 미구현                                        |
+| 항목                           | 상태                  | 의미                                                                                           |
+| ------------------------------ | --------------------- | ---------------------------------------------------------------------------------------------- |
+| 제품 기능·contract·DB baseline | 구현됨                | 저장소 코드와 자동 테스트로 검증 가능                                                          |
+| Monorepo CI와 로컬 검증        | 구현됨                | 바뀐 경로별 검증 명령과 workflow 존재                                                          |
+| 풀스택 로컬 리허설             | 리허설 가능           | 제한된 Docker 자원에서 재현할 수 있는 harness와 runbook                                        |
+| Web 단계 운영 환경             | 준비 완료, 첫 배포 전 | AWS 서울 region에 host·도메인·TLS·메일을 준비하고 점검 mode로 둠. Web CD와 첫 배포는 다음 작업 |
+| API·DB·관측 운영               | 이후 단계             | 실제 환경에서 private DB, 백업·복원, rollback과 관측 내구성을 검증해야 함                      |
+| 실사용자 UX·운영 지표          | 아직 없음             | 실제 사용자 데이터와 운영 장애 경험이 없음. 출시와 사용자 검증 이후 측정                       |
+| BackOffice                     | 설계 결정만           | 별도 host·배포·권한 경계만 정했고 제품은 미구현                                                |
 
 - 강원대학교 공식 서비스가 아니며, 학교의 기숙사 배정·호실 선택 결과를 보장하지 않습니다.
 - 사용자 행동 분석과 매칭 품질 평가는 운영 로그가 아니라, 목적·동의·schema를 따로 갖춘 제품 분석으로 설계해야 합니다.
 
 ## 문서 안내
 
-| 문서                                         | 내용                                                              |
-| -------------------------------------------- | ----------------------------------------------------------------- |
-| [서비스 소개](./SERVICE.md)                  | 사용자 문제, 제품 범위와 핵심 흐름                                |
-| [제품 정책](./docs/policies/README.md)       | 인증, 시즌, 프로필, 매칭, 채팅, 안전, 보존 정책의 source of truth |
-| [아키텍처](./docs/architecture/README.md)    | FE·BE·데이터·플랫폼의 장기 결정과 근거                            |
-| [개선 기록](./docs/evidence/README.md)       | 개선의 측정값, 원인, 대안과 전후 비교                             |
-| [제품 Runbook](./docs/runbooks/README.md)    | 시즌 운영과 제품 도메인 절차                                      |
-| [인프라 Runbook](./infra/runbooks/README.md) | 리허설, 장애 대응, 출시 준비와 근거                               |
-| [개발 가이드](./docs/development/README.md)  | CI 기준, 에이전트 workflow와 재사용 가능한 troubleshooting        |
-| [기여 안내](./CONTRIBUTING.md)               | 개발 환경, 변경 경계와 AI 보조 workflow 진입점                    |
+| 문서                                              | 내용                                                              |
+| ------------------------------------------------- | ----------------------------------------------------------------- |
+| [서비스 소개](./SERVICE.md)                       | 사용자 문제, 제품 범위와 핵심 흐름                                |
+| [제품 정책](./docs/policies/README.md)            | 인증, 시즌, 프로필, 매칭, 채팅, 안전, 보존 정책의 source of truth |
+| [아키텍처](./docs/architecture/README.md)         | FE·BE·데이터·플랫폼의 장기 결정과 근거                            |
+| [개선 기록](./docs/evidence/README.md)            | 개선의 측정값, 원인, 대안과 전후 비교                             |
+| [제품 Runbook](./docs/runbooks/README.md)         | 시즌 운영과 제품 도메인 절차                                      |
+| [인프라 Runbook](./infra/runbooks/README.md)      | 리허설, 장애 대응, 출시 준비와 근거                               |
+| [운영 환경](./docs/deploy/README.md)              | 지금 적용한 운영 환경과 서버·도메인·메일 비용                     |
+| [처음 참여하기](./docs/development/onboarding.md) | 저장소 구조·로컬 실행·검사 명령·문서 위치·협업 규칙의 입구        |
+| [개발 가이드](./docs/development/README.md)       | CI 기준, 에이전트 workflow와 재사용 가능한 troubleshooting        |
+| [기여 안내](./CONTRIBUTING.md)                    | 개발 환경, 변경 경계와 AI 보조 workflow 진입점                    |

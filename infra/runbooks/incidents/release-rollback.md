@@ -85,4 +85,4 @@ DB schema/data 영향이 의심되면 자동 down migration을 기본 경로로 
 | Alert delivery    | firing/resolved 또는 manual smoke           |
 | DB metrics        | CPU, connections, memory, IOPS, queue       |
 
-현재 문서는 실제 rollback transport를 구현하지 않는다. Hosting target, artifact registry, approval, traffic switching, rollback SLO가 확정되면 `docs/development/future-production-deployment-inputs.md`를 입력으로 별도 CD 계획을 작성한다.
+현재 문서는 실제 rollback transport를 구현하지 않는다. Hosting target, artifact registry, approval, traffic switching, rollback SLO가 확정되면 `docs/deploy/production-environment.md`를 입력으로 별도 CD 계획을 작성한다.
