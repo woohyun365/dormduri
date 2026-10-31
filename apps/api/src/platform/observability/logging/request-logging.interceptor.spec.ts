@@ -1,23 +1,42 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { CallHandler, ExecutionContext } from '@nestjs/common';
+import { SetMetadata, type CallHandler, type ExecutionContext } from '@nestjs/common';
+import { PATH_METADATA } from '@nestjs/common/constants.js';
+import { Reflector } from '@nestjs/core';
 import { EventEmitter } from 'node:events';
-import type { Request, Response } from 'express';
+import type { ServerResponse } from 'node:http';
 import { of } from 'rxjs';
 import { RequestLoggingInterceptor } from './request-logging.interceptor.js';
 import type { AppLoggerService } from './app-logger.service.js';
 
-function makeExecutionContext(request: Request, response: Response): ExecutionContext {
+type ProbeResponse = Pick<ServerResponse, 'once' | 'statusCode'> & EventEmitter;
+
+class RouteProbeController {}
+
+// The interceptor reads the route template from the handler's Nest path metadata.
+function makeExecutionContext(
+  request: object,
+  response: ProbeResponse,
+  routePath: string,
+): ExecutionContext {
+  const handler = () => undefined;
+  SetMetadata(PATH_METADATA, routePath)(handler);
   return {
+    getClass: () => RouteProbeController,
+    getHandler: () => handler,
     getType: () => 'http',
     switchToHttp: () => ({
       getRequest: () => request,
       getResponse: () => response,
     }),
-  } as ExecutionContext;
+  } as unknown as ExecutionContext;
+}
+
+function makeInterceptor(logger: Pick<AppLoggerService, 'write'>) {
+  return new RequestLoggingInterceptor(logger as AppLoggerService, new Reflector());
 }
 
 function makeResponse(statusCode = 200) {
-  const response = Object.assign(new EventEmitter(), { statusCode }) as unknown as Response;
+  const response = Object.assign(new EventEmitter(), { statusCode }) as unknown as ProbeResponse;
   const once = vi.spyOn(response, 'once');
 
   return {
@@ -31,18 +50,19 @@ function makeResponse(statusCode = 200) {
 describe('RequestLoggingInterceptor', () => {
   it('records safe request completion metadata without body/header/cookie values', () => {
     const write = vi.fn();
-    const interceptor = new RequestLoggingInterceptor({ write } as unknown as AppLoggerService);
+    const interceptor = makeInterceptor({ write });
     const { emitFinish, response, once } = makeResponse(201);
     const request = {
       body: { password: 'secret' },
       cookies: { accessToken: 'token' },
       headers: { authorization: 'Bearer token' },
       method: 'POST',
-      route: { path: '/auth/login' },
-    } as unknown as Request;
+    };
 
     interceptor
-      .intercept(makeExecutionContext(request, response), { handle: () => of('ok') } as CallHandler)
+      .intercept(makeExecutionContext(request, response, '/auth/login'), {
+        handle: () => of('ok'),
+      } as CallHandler)
       .subscribe();
     expect(once).toHaveBeenCalledExactlyOnceWith('finish', expect.any(Function));
     expect(write).not.toHaveBeenCalled();
@@ -65,20 +85,17 @@ describe('RequestLoggingInterceptor', () => {
   });
 
   it('does not let logger failure affect request stream', () => {
-    const interceptor = new RequestLoggingInterceptor({
+    const interceptor = makeInterceptor({
       write: vi.fn(() => {
         throw new Error('logger unavailable');
       }),
-    } as unknown as AppLoggerService);
+    });
     const { emitFinish, response } = makeResponse(500);
-    const request = {
-      method: 'GET',
-      route: { path: '/health' },
-    } as unknown as Request;
+    const request = { method: 'GET' };
 
     expect(() => {
       interceptor
-        .intercept(makeExecutionContext(request, response), {
+        .intercept(makeExecutionContext(request, response, '/health'), {
           handle: () => of('ok'),
         } as CallHandler)
         .subscribe();
@@ -88,12 +105,14 @@ describe('RequestLoggingInterceptor', () => {
 
   it('does not log completion for a response that only closes', () => {
     const write = vi.fn();
-    const interceptor = new RequestLoggingInterceptor({ write } as unknown as AppLoggerService);
+    const interceptor = makeInterceptor({ write });
     const { emitClose, response, once } = makeResponse();
-    const request = { method: 'GET', route: { path: '/test' } } as unknown as Request;
+    const request = { method: 'GET' };
 
     interceptor
-      .intercept(makeExecutionContext(request, response), { handle: () => of('ok') } as CallHandler)
+      .intercept(makeExecutionContext(request, response, '/test'), {
+        handle: () => of('ok'),
+      } as CallHandler)
       .subscribe();
     expect(write).not.toHaveBeenCalled();
     emitClose();

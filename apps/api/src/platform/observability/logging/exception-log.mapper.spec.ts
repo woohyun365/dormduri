@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import type { Request } from 'express';
 import type { NormalizedApiError } from '../../http/api-error.js';
 import { mapExceptionToLogEvent } from './exception-log.mapper.js';
+import { recordRequestRouteTemplate } from './request-route.js';
 
-function makeRequest(): Request {
-  return {
+// The route template guard records the template before the filter maps the exception.
+function makeRequest() {
+  const request = {
     method: 'GET',
     originalUrl: '/api/users/raw-id?email=student@knu.ac.kr',
-    route: { path: '/users/:id' },
-  } as unknown as Request;
+  };
+  recordRequestRouteTemplate(request, '/users/:id');
+  return request;
 }
 
 function makeNormalized(statusCode: number): NormalizedApiError {
@@ -39,6 +41,12 @@ describe('exception log mapper', () => {
         statusCode: 400,
       },
     });
+  });
+
+  it('keeps the bounded UNKNOWN_ROUTE label for a request no route matched', () => {
+    expect(mapExceptionToLogEvent({ method: 'GET' }, makeNormalized(404)).event.route).toBe(
+      'UNKNOWN_ROUTE',
+    );
   });
 
   it('uses warn for auth/rate-limit responses and error for 5xx', () => {

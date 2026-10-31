@@ -1,8 +1,8 @@
 import type { NormalizedApiError } from '../../http/api-error.js';
 import { statusClassFromStatusCode, type AppLogEvent, type AppLogLevel } from './log-event.js';
-import { resolveRequestRouteTemplate, type RequestRouteShape } from './request-route.js';
+import { readRecordedRequestRouteTemplate } from './request-route.js';
 
-export interface ExceptionLogRequest extends RequestRouteShape {
+export interface ExceptionLogRequest {
   method: string;
 }
 
@@ -27,7 +27,7 @@ export function mapExceptionToLogEvent(
       method: request.method,
       operation: 'http_exception',
       outcome: 'failure',
-      route: resolveRequestRouteTemplate(request),
+      route: readRecordedRequestRouteTemplate(request),
       statusClass: statusClassFromStatusCode(normalized.statusCode),
       statusCode: normalized.statusCode,
     },

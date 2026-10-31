@@ -12,6 +12,7 @@ import { ChatRealtimeTicketService } from '../../chat/realtime/chat-realtime-tic
 import { ChatRealtimeRateLimiterService } from '../../chat/realtime/chat-realtime-rate-limiter.service.js';
 import { ChatRealtimeMetricsService } from '../../chat/realtime/chat-realtime.metrics.js';
 import { ApiExceptionFilter } from './api-exception.filter.js';
+import { createHttpAdapter } from './http-adapter.js';
 
 describe('authenticated chat query binding', () => {
   let app: INestApplication;
@@ -34,7 +35,7 @@ describe('authenticated chat query binding', () => {
         AuthenticatedUserGuard,
       ],
     }).compile();
-    app = module.createNestApplication({ logger: false });
+    app = module.createNestApplication(createHttpAdapter(false), { logger: false });
     app.useGlobalGuards(module.get(AuthenticatedUserGuard));
     app.useGlobalFilters(
       new ApiExceptionFilter(

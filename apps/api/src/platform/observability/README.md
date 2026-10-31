@@ -50,14 +50,28 @@ error code/name, hashed actor/session 같은 운영 필드만 담는다.
 - route-template 추출과 exception log mapping은 필요한 필드만 가진 structural carrier를 받는다. metrics guard의
   Authorization 읽기에도 native request 전체를 전달하지 않는다.
 
-Middleware는 Node HTTP headers/setHeader와 no-arg next callback만, 두 interceptor는 기존 RequestRouteShape와 method,
-Node response의 once/statusCode만 타입으로 요구한다. Express 타입 전체를 전달하거나 별도 공통 transport facade를 만들지
+Middleware는 Node HTTP headers/setHeader와 no-arg next callback만, 두 interceptor는 method와 Node response의
+once/statusCode만 타입으로 요구한다. Adapter request 타입 전체를 전달하거나 별도 공통 transport facade를 만들지
 않는다. Node finish/close listener와 AsyncLocalStorage 실행 시점은 그대로 유지한다. Observable 완료나 finish를 client
 수신 완료로 해석하지 않으며, close-only의 기본 statusCode 200도 client 성공을 증명하지 않는다.
 
-Express import 예외는 `test/architecture/platform/http-transport-boundary.spec.ts`가 runtime bootstrap으로 한정한다.
-Express route template과 trust-proxy 동작에 대한 의존성까지 제거됐다는 뜻은 아니다. Middleware/interceptor spec과
-`platform/http/http-response-boundary.spec.ts`가 이벤트 횟수·close-only/실패 정리·response header·요청별 async context를 검증한다.
+### Route template
+
+HTTP adapter(`@nestjs/platform-node`의 NodeAdapter)는 request에 일치한 route를 남기지 않는다. 그래서 route template은
+Nest가 route 등록에 쓰는 controller·handler path metadata를 이어 만든다(`logging/request-route.ts`). Nest 등록처럼 앞
+`/` 하나를 두고 끝 `/`는 지운다. API는 global prefix·versioning·RouterModule path를 쓰지 않으므로 두 path가 template
+전체이고, `test/architecture/platform/logging-boundary.spec.ts`가 그 전제를 지킨다.
+
+- 두 interceptor는 handler 실행 context에서 template을 직접 계산한다.
+- Guard·throttle 거절처럼 interceptor 전에 끝나는 요청은 이 module의 global guard(`RequestRouteTemplateGuard`)가
+  request에 기록한 template을 exception filter가 읽는다. AppModule이 이 module을 AuthModule보다 먼저 import해 이
+  guard가 인증·throttle guard보다 먼저 돈다. `test/integration/platform/request-route-template.integration.spec.ts`가
+  실제 AppModule에서 401·429 거절 log의 template을 고정한다.
+- 어떤 route와도 맞지 않는 요청(대소문자가 다른 path 포함)은 `UNKNOWN_ROUTE`다.
+
+Adapter import 예외는 `test/architecture/platform/http-transport-boundary.spec.ts`가 `platform/http/http-adapter.ts`
+하나로 한정한다. Middleware/interceptor spec과 `platform/http/http-response-boundary.spec.ts`가 이벤트 횟수·close-only/실패
+정리·response header·요청별 async context를 검증한다.
 
 ## Metrics label policy
 
@@ -74,7 +88,7 @@ Express route template과 trust-proxy 동작에 대한 의존성까지 제거됐
 - userId/email/threadId/messageId/sessionId/requestId/correlationId/IP
 - token/cookie/authorization/password 같은 credential성 값
 
-`route`는 Express route template 또는 `UNKNOWN_ROUTE`만 사용한다.
+`route`는 Nest path metadata로 만든 route template 또는 `UNKNOWN_ROUTE`만 사용한다.
 
 ## Domain metrics bridge
 

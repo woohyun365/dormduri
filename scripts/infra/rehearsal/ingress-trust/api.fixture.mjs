@@ -6,6 +6,7 @@ const require = createRequire('/workspace/apps/api/package.json');
 require('reflect-metadata');
 const { Module } = require('@nestjs/common');
 const { NestFactory, HttpAdapterHost, Reflector } = require('@nestjs/core');
+const { NodeAdapter } = require('@nestjs/platform-node');
 const api = (path) => import(pathToFileURL(`/workspace/apps/api/dist/${path}.js`).href);
 const [
   config,
@@ -93,13 +94,18 @@ Module({
     Reflector,
   ],
 })(FixtureModule);
-const app = await NestFactory.create(FixtureModule, { logger: false, abortOnError: false });
+// HTTP trust proxy stays off, as before, so the adapter needs no options.
+const app = await NestFactory.create(FixtureModule, new NodeAdapter(), {
+  logger: false,
+  abortOnError: false,
+});
 try {
   app.useWebSocketAdapter(new ChatRealtimeIoAdapter(app, settings));
   app.useGlobalGuards(app.get(AuthenticatedUserGuard));
   app.useGlobalFilters(
     new ApiExceptionFilter({ write() {} }, { recordException() {} }, app.get(HttpAdapterHost)),
   );
+  // The NodeAdapter router takes Express-style routes; its response has json, sendStatus, type and send.
   const server = app.getHttpAdapter().getInstance();
   const limiter = app.get(ChatRealtimeRateLimiterService);
   // Diagnostic routes exist only in this account-free fixture, never in the production application.

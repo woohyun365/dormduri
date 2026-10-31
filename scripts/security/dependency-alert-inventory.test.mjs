@@ -169,14 +169,16 @@ test('retained security overrides and resolved lock entries keep the known vulne
       workspace,
       lockfile,
       minimumWorkspaceOverrides: {
+        '@nestjs/platform-node>qs': '6.16.1',
         postcss: '8.5.28',
       },
       minimumLockResolutions: {
-        '@nestjs/platform-express': '11.2.3',
+        // NodeAdapter's forwarded-address parser; 5.1.1 carries the IPv4-mapped subnet fix
+        // that proxy-addr 2.0.8 shipped for GHSA-jqcg-44mw-7w3h.
+        '@fastify/proxy-addr': '5.1.1',
         '@humanfs/node': '0.16.8',
         '@vitest/mocker': '5.0.3',
         'baseline-browser-mapping': '2.11.18',
-        'body-parser': '2.4.0',
         'engine.io': '6.6.10',
         'fast-uri': '3.1.9',
         'js-yaml': '4.3.2',
@@ -184,7 +186,6 @@ test('retained security overrides and resolved lock entries keep the known vulne
         mysql2: '3.24.3',
         next: '16.4.1',
         piscina: '4.9.4',
-        'proxy-addr': '2.0.8',
         qs: '6.16.1',
         sharp: '0.35.5',
         'source-map-js': '1.2.2',
@@ -252,6 +253,7 @@ test('retained security overrides and resolved lock entries keep the known vulne
     'picomatch@2.3.1',
     'piscina@4.9.3',
     'postcss@8.5.15',
+    '@fastify/proxy-addr@5.1.0',
     'proxy-addr@2.0.7',
     'qs@6.14.1',
     'qs@6.15.2',
