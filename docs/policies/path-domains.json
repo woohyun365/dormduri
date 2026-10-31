@@ -2,8 +2,8 @@
   "schema": "lifecycle-path-domains/v1",
   "confirmedBy": {
     "status": "owner-confirmed",
-    "date": "2026-10-28",
-    "basis": "#706"
+    "date": "2026-10-31",
+    "basis": "#293"
   },
   "productRoots": [
     "apps/**",
@@ -404,6 +404,7 @@
         "packages/shared/eslint.config.mjs",
         "apps/*/vitest.config*.ts",
         "packages/shared/vitest.config.ts",
+        "apps/web/react-compiler.config.ts",
         "apps/web/playwright*.ts",
         "apps/web/postcss.config.mjs",
         "apps/api/nest-cli.json",
