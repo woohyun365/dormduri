@@ -20,7 +20,7 @@
 - 수준: `policy`
 - 질문: release를 내보낼지(GO) 무엇으로 판정할까?
 - 선택지:
-  - 증거 checklist(빠지면 NO-GO): artifact 식별자·대상 owner·secret 목록 상태·smoke·관측·되돌림 판단을 항목마다 확인한다. 무엇이 확인됐는지 남지만 release마다 증거를 모아야 한다
+  - 증거 checklist(빠지면 NO-GO): artifact 식별자·대상 owner·secret 목록 상태·smoke·관측·되돌림 판단을 항목마다 확인한다. 무엇이 확인됐는지 남지만 release마다 증거를 모아야 한다. 단계 배포(최종 판정 전에 일부 구성요소만 올리는 rollout)는 그 단계 구성요소의 항목만 확인하고, GO·NO-GO는 전체 release의 최종 판정에서 한다
   - 담당자 판단: 담당자가 상황을 보고 정한다. 빠르지만 판단 근거가 남지 않는다. 증거 없이 GO를 적으면 연결된 기준 항목 `web-operations-release-release-gate.md O1`이 결함으로 본다
   - 자동 지표만: 오류율·지연 같은 지표가 기준 안이면 내보낸다. 사람 손이 적지만 지표가 보지 않는 owner·secret·되돌림 판단이 빠진다. 연결된 기준 항목 `web-operations-release-release-gate.md O1`이 결함으로 본다
 - 먼저 정할 결정: 없음
@@ -57,7 +57,7 @@
 
 ### 위험
 
-- 식별자 없는 release와 증거 없는 GO(O1), 함께 도는 옛·새 app을 깨는 schema·data 배포와 되돌림 경로 없는 release(O2), rehearsal 통과를 운영 성공으로 쓰기와 추측한 provider 값(O3)
+- 식별자 없는 release, 증거 없는 GO와 단계 기록의 GO·NO-GO 선언(O1), 함께 도는 옛·새 app을 깨는 schema·data 배포와 되돌림 경로 없는 release(O2), rehearsal 통과를 운영 성공으로 쓰기와 추측한 provider 값(O3)
 - 비가역 선택: `ops.release.rollback-mode`(`costly`. schema·data 변경 방식과 배포 절차가 이 결정을 따른다)
 - 사람 승인 지점: 되돌릴 수 없는 운영 적용(파괴적 schema 변경·data 삭제)은 agent가 계획·diff까지 만들고 사람이 승인한 뒤 실행한다(O2)
 
