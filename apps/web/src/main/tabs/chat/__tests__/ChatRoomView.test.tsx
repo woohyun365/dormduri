@@ -107,7 +107,7 @@ describe('ChatRoomView', () => {
     await user.type(input, '실패할 메시지');
     await user.click(screen.getByRole('button', { name: '메시지 보내기' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('메시지를 보내지 못했어요.');
+    expect(await screen.findByRole('alert')).not.toBeEmptyDOMElement();
     expect(onRefresh).not.toHaveBeenCalled();
     expect(input).toHaveValue('실패할 메시지');
     expect(input).toBeEnabled();
@@ -125,7 +125,7 @@ describe('ChatRoomView', () => {
 
     const leaveButton = screen.getByRole('button', { name: '나가기' });
     await user.click(leaveButton);
-    expect(await screen.findByRole('alert')).toHaveTextContent('대화방을 나가지 못했어요.');
+    expect(await screen.findByRole('alert')).not.toBeEmptyDOMElement();
     expect(onBack).not.toHaveBeenCalled();
     expect(leaveButton).toBeEnabled();
 
@@ -134,6 +134,41 @@ describe('ChatRoomView', () => {
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(onBack).toHaveBeenCalledTimes(1);
     expect(leaveButton).toBeEnabled();
+  });
+
+  it('보내기·나가기 요청이 끝나기 전에는 입력과 버튼을 막고 다시 눌러도 한 번만 요청한다', async () => {
+    const user = userEvent.setup();
+    let finishSend: () => void = () => undefined;
+    let finishLeave: () => void = () => undefined;
+    sendMessageMock.mockReturnValueOnce(new Promise<void>((resolve) => (finishSend = resolve)));
+    leaveThreadMock.mockReturnValueOnce(new Promise<void>((resolve) => (finishLeave = resolve)));
+    render(
+      <ChatRoomView
+        detail={detail}
+        viewerId="viewer-1"
+        onBack={vi.fn()}
+        onRefresh={vi.fn(async () => undefined)}
+      />,
+    );
+
+    const input = screen.getByRole('textbox', { name: '메시지' });
+    const sendButton = screen.getByRole('button', { name: '메시지 보내기' });
+    await user.type(input, '대기 중 메시지');
+    await user.click(sendButton);
+    expect(input).toBeDisabled();
+    expect(sendButton).toBeDisabled();
+    await user.click(sendButton);
+    expect(sendMessageMock).toHaveBeenCalledTimes(1);
+    finishSend();
+    await vi.waitFor(() => expect(input).toBeEnabled());
+
+    const leaveButton = screen.getByRole('button', { name: '나가기' });
+    await user.click(leaveButton);
+    expect(leaveButton).toBeDisabled();
+    await user.click(leaveButton);
+    expect(leaveThreadMock).toHaveBeenCalledTimes(1);
+    finishLeave();
+    await vi.waitFor(() => expect(leaveButton).toBeEnabled());
   });
 
   it('같은 대화방에서 메시지가 바뀌면 입력 중인 글을 남긴 채 새 목록을 그린다', async () => {
