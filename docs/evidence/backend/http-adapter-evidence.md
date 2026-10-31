@@ -31,17 +31,18 @@ API의 HTTP adapter를 Express(`@nestjs/platform-express`)에서 NestJS 12의 No
 
 ## 3. Go/no-go 판정
 
-| 조건              | 결과                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| N-G1 package 성숙 | 기준은 최신 patch release 뒤 7일이었다(12.3.2는 2026-10-27 release). Owner가 2026-10-31에 면제했다. merge 직전 NestJS 저장소의 열린 regression(trustProxy·body parser·Socket.IO·exception filter)을 PR 본문에 기록한다                                                                                                                                                                                                                                                                   |
-| N-G2 처리량       | 통과. 아래 표                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| N-G3 동등성       | 통과. API unit·integration·e2e, trust proxy 네 조합 44건, 응답 동작 test가 NodeAdapter에서 green이다. Local fullstack에서 채팅 ticket으로 Engine.IO WebSocket upgrade(101)와 연결 유지, 잘못된 ticket 거절을 확인했다. Web fullstack e2e 39건 중 1건이 실패했는데, 같은 test를 8회씩 돌리면 전환 전 Express API에서 1회, NodeAdapter에서 0회 실패해 Web 쪽 기존 flaky로 판정했다. Ingress-trust rehearsal fixture는 API 판정을 모두 통과했고 runner의 network 격리 검사만 실패했다(아래) |
-| N-G4 보안 하한    | 12.3.2는 `qs`를 6.16.0으로 고정한다. 6.16.0은 GHSA-6pq8-jhm2-2vcw(≤ 6.16.0, 6.16.1 수정)에 걸린다. NodeAdapter body parser는 `qs.parse`만 부르고 이 advisory는 `qs.stringify`의 comma 형식이지만, 보안 하한을 낮추지 않으려고 `'@nestjs/platform-node>qs': 6.16.1` 범위 override를 두었다. 제거 조건은 `qs` 6.16.1 이상에 기대는 NodeAdapter release다                                                                                                                                   |
+| 조건              | 결과                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| N-G1 package 성숙 | 기준은 최신 patch release 뒤 7일이었다(12.3.2는 2026-10-27 release). Owner가 2026-10-31에 면제했다. merge 직전 NestJS 저장소의 열린 regression(trustProxy·body parser·Socket.IO·exception filter)을 PR 본문에 기록한다                                                                                                                                                                                                                                                                                                                                                                 |
+| N-G2 처리량       | 통과. 아래 표                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| N-G3 동등성       | 통과. API unit·integration·e2e, trust proxy 네 조합 44건, 보안 header·CORS와 응답 동작 test가 NodeAdapter에서 green이다. Local fullstack에서 채팅 ticket으로 Engine.IO WebSocket upgrade(101)와 연결 유지, 잘못된 ticket 거절을 확인했다. Web fullstack e2e 39건 중 1건이 실패했는데, 같은 test를 8회씩 돌리면 전환 전 Express API에서 1회, NodeAdapter에서 0회 실패해 Web 쪽 기존 flaky로 판정했다. Ingress-trust rehearsal fixture는 API 판정을 모두 통과했고 runner의 network 격리 검사만 실패했다(아래). 그래서 rehearsal은 통과가 아니라 API 판정 통과와 격리 미검증으로 기록한다 |
+| N-G4 보안 하한    | 12.3.2는 `qs`를 6.16.0으로 고정한다. 6.16.0은 GHSA-6pq8-jhm2-2vcw(≤ 6.16.0, 6.16.1 수정)에 걸린다. NodeAdapter body parser는 `qs.parse`만 부르고 이 advisory는 `qs.stringify`의 comma 형식이지만, 보안 하한을 낮추지 않으려고 `'@nestjs/platform-node>qs': 6.16.1` 범위 override를 두었다. 제거 조건은 `qs` 6.16.1 이상에 기대는 NodeAdapter release다                                                                                                                                                                                                                                 |
 
 Ingress-trust rehearsal fixture(`--mode=fixture-http`, local OrbStack)는 NodeAdapter로 띄운 실제 ticket controller·guard·IP
 limiter·Socket.IO gateway로 ticket 발급, BFF client 구분, IPv6 edge 보존, polling·WebSocket 연결과 거절, private listener ACL,
 metrics token 판정을 모두 통과했다. 실패한 것은 public·collector network에서 API·Web·private listener로 가는 금지 TCP 경로가 실제로
-막히는지의 검사뿐이다. 같은 runner에서 전환 전 source로 돌린 2026-10-30의 두 run도 같은 검사만 같은 방식으로 실패했다. TCP 격리는
+막히는지의 검사뿐이다. 같은 runner에서 전환 전 source로 돌린 2026-10-30의 두 run도 같은 검사만 같은 방식으로 실패했다. PR 최종 API
+source로 image를 다시 build한 run(image source manifest가 PR의 API·Web·package 입력과 같음)도 같은 결과였다. TCP 격리는
 [로컬 환경 runbook](../../../infra/runbooks/rehearsal/local-environments.md)대로 독립 Linux VM에서 확인할 항목이고 adapter와 무관하다.
 
 N-G2 측정(번갈아 띄운 순서대로, 오류 응답 0건):
@@ -75,20 +76,27 @@ average는 약 3.5였다.
 같은 요청에 대한 Express(`a14b860b`)와 NodeAdapter의 응답이다. 500이나 공통 envelope 밖 body는 없었으므로 exception 정규화 코드는
 고치지 않았다.
 
-| 요청                                                     | Express                           | NodeAdapter                           |
-| -------------------------------------------------------- | --------------------------------- | ------------------------------------- |
-| 잘못된 JSON                                              | 400 envelope                      | 400 envelope                          |
-| 100 KB 초과 JSON                                         | 413 envelope(`HTTP_413`)          | 413 envelope(`HTTP_413`)              |
-| JSON `__proto__`·`constructor.prototype` key             | 201, handler까지 감               | 400 envelope                          |
-| urlencoded `constructor[prototype]` key                  | 201, handler까지 감               | 400 envelope                          |
-| urlencoded 중첩·반복 key(`a[b]=1&c=2&c=3`)               | 201, 중첩 객체와 배열             | 201, 같은 값                          |
-| route parameter 101자·8,000자                            | route까지 감(Zod 판정)            | route까지 감(Zod 판정)                |
-| request line 16 KB 초과                                  | Node 431, 빈 body                 | Node 431, 빈 body                     |
-| 대소문자가 다른 path                                     | 200, match됨                      | 404 envelope, route는 `UNKNOWN_ROUTE` |
-| exception filter 응답 `Content-Type`                     | `application/json; charset=utf-8` | `application/json`                    |
-| 성공 JSON 응답 `Content-Type`                            | `application/json; charset=utf-8` | `application/json; charset=utf-8`     |
-| query string 8가지(반복 key, `+`, escape, 대괄호 key 등) | 같은 객체                         | 같은 객체                             |
-| 성공 응답 `ETag`와 `If-None-Match` 재요청                | weak `ETag`, 재요청 304           | `ETag` 없음, 재요청 200               |
+| 요청                                                     | Express                           | NodeAdapter                            |
+| -------------------------------------------------------- | --------------------------------- | -------------------------------------- |
+| 잘못된 JSON                                              | 400 envelope                      | 400 envelope                           |
+| 100 KB 초과 JSON                                         | 413 envelope(`HTTP_413`)          | 413 envelope(`HTTP_413`)               |
+| JSON `__proto__`·`constructor.prototype` key             | 201, handler까지 감               | 400 envelope                           |
+| urlencoded `constructor[prototype]` key                  | 201, handler까지 감               | 400 envelope                           |
+| urlencoded 중첩·반복 key(`a[b]=1&c=2&c=3`)               | 201, 중첩 객체와 배열             | 201, 같은 값                           |
+| route parameter 101자·8,000자                            | route까지 감(Zod 판정)            | route까지 감(Zod 판정)                 |
+| request line 16 KB 초과                                  | Node 431, 빈 body                 | Node 431, 빈 body                      |
+| 대소문자가 다른 path                                     | 200, match됨                      | 404 envelope, route는 `UNKNOWN_ROUTE`  |
+| exception filter 응답 `Content-Type`                     | `application/json; charset=utf-8` | `application/json`                     |
+| 성공 JSON 응답 `Content-Type`                            | `application/json; charset=utf-8` | `application/json; charset=utf-8`      |
+| query string 8가지(반복 key, `+`, escape, 대괄호 key 등) | 같은 객체                         | 같은 객체                              |
+| 성공 응답 `ETag`와 `If-None-Match` 재요청                | weak `ETag`, 재요청 304           | `ETag` 없음, 재요청 200                |
+| 성공·404·잘못된 JSON 400 응답의 Helmet header            | 있음                              | 있음                                   |
+| REST CORS(허용 preflight, 허용 origin, 다른 origin)      | 204·허용 header, 다른 origin 없음 | 같음                                   |
+| 잘못된 percent-encoding path(`/x/%FF`)                   | 400 envelope, Helmet·CORS header  | 400 envelope, Helmet header, CORS 없음 |
+| 같은 method에서 parameter route가 static path를 덮을 때  | 먼저 등록한 route                 | static route                           |
+| 끝 `/`가 붙은 path, `HEAD` 요청                          | match됨, 200                      | match됨, 200                           |
+| urlencoded 중첩 8단·parameter 1,001개·배열 index 30      | 201·413·201                       | 같음                                   |
+| server timeout(keep-alive·header·request)                | 5 s·60 s·300 s                    | 같음                                   |
 
 - Prototype key body를 거절하는 변화는 받아들였다. 정상 client가 보내지 않는 key다.
 - 대소문자 변화도 받아들였다. API를 부르는 곳은 Web BFF의 고정 소문자 경로와 저장소 stress script뿐이다.
@@ -96,6 +104,17 @@ average는 약 3.5였다.
 - Query string 해석기는 Express `simple`(Node `querystring`)에서 `fast-querystring`으로 바뀌었지만 같은 입력에 같은 객체를 냈다.
 - `ETag`가 없어져 조건부 재요청의 304도 없어졌다. 정확성은 같고 전송량만 달라진다. `ETag`에 기대는 코드는 없고 Web BFF는 304를
   body 없는 응답으로 일반 처리만 한다. 이 변화는 받아들였다.
+- NodeAdapter router는 path의 percent-encoding을 풀지 못하면 어떤 middleware도 돌리지 않고 바로 error handler로 보낸다.
+  처음에는 Helmet을 `app.use()`로 걸어 이 400 응답에서 보안 header가 빠졌다. Helmet을 adapter security hook으로 옮겨(NodeAdapter가
+  이 거절에도 hook을 돈다) header를 되돌렸다. CORS는 middleware라 이 응답에 붙지 않는다. 정상 client가 보내지 않는 path이고 응답은
+  JSON 400이라 받아들였다. Request ID middleware는 Express에서도 이 요청에 돌지 않았다.
+- NodeAdapter router(find-my-way)는 등록 순서와 무관하게 static 구간을 parameter보다 먼저 match한다. 전환 시점 controller 21개의
+  route 85개(AST로 읽은 84개와 metrics route 상수 1개)에는 같은 method의 parameter route가 다른 route의 static path를 덮는 쌍,
+  같은 method·path 중복, 끝 `/`, 배열 path, wildcard가 하나도 없었다. 그래서 handler가 바뀌는 요청은 없다.
+- 이 절의 변화 수용은 Web BFF 호출 경로로 client 영향을 확인한 구현자의 판단이고 PR revert로 되돌린다. Owner가 확인한 것은 adapter
+  채택, `qs` override, 성숙 기간 면제다.
+- 위 표에서 malformed path·ETag·query·Helmet·CORS 행은 `http-response-boundary.spec.ts`가 NodeAdapter 쪽 값을 고정한다. 우선순위·
+  끝 `/`·HEAD·urlencoded 한도·server timeout 행은 같은 probe controller를 두 adapter에 띄운 비교 기록이다.
 - 처음 계획은 101자 parameter도 400 envelope으로 기대했다. 실제 대상 route(지원 FAQ id)는 128자까지 유효해서 101자는 handler까지 가고,
   129자·8,000자가 400 envelope이다. 확인하려던 것(adapter 414가 아니라 route의 Zod 판정까지 간다)은 같다.
 - `body-parser` 2.4.0 미만이 process를 멈추게 하던 요청(압축 body 뒤에 덧붙인 byte, GHSA-27r3-jxmh-p828)도 NodeAdapter가 응답하고
