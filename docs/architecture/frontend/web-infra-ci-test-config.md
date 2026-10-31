@@ -4,7 +4,7 @@
 
 이 문서는 `apps/web` 변경을 안전하게 진행하기 위한 Next.js, TypeScript, ESLint, Vitest, Playwright, BFF/env 기준의 source of truth다. 제품 기능의 UX/정책 판단이 아니라, Web 변경이 어떤 로컬/CI 게이트와 런타임 경계를 통과해야 하는지를 고정한다.
 
-## 현재 기준 스냅샷
+## Version owner 파일
 
 Version 값은 이 문서에 복사하지 않는다. Renovate가 갱신하는 값은 owner 파일 하나가 갖는다([Bot이 갱신하는 값](../../development/ci/README.md#bot이-갱신하는-값)). 새 FE 작업은 아래 owner 파일과 `pnpm-lock.yaml`의 실제 설치 version을 먼저 확인한다.
 
