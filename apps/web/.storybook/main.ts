@@ -1,4 +1,7 @@
+import babel from '@rolldown/plugin-babel';
 import type { StorybookConfig } from '@storybook/nextjs-vite';
+import { reactCompilerPreset } from '@vitejs/plugin-react';
+import { reactCompilerViteOptions } from '../react-compiler.config';
 
 const config: StorybookConfig = {
   framework: {
@@ -21,6 +24,16 @@ const config: StorybookConfig = {
   ],
   addons: ['@storybook/addon-docs'],
   staticDirs: [],
+  // @storybook/nextjs-vite reads next.config.ts but does not apply its reactCompiler option, so stories add the same
+  // compiler options and file scope (react-compiler.config.ts) as a Vite plugin and render the code the Next.js browser
+  // build produces.
+  viteFinal: (viteConfig) => ({
+    ...viteConfig,
+    plugins: [
+      ...(viteConfig.plugins ?? []),
+      babel({ presets: [reactCompilerPreset(reactCompilerViteOptions)] }),
+    ],
+  }),
 };
 
 export default config;
