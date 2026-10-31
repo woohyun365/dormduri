@@ -12,7 +12,7 @@
 // are collected from <root>. Exit 0 = computed (whatever the state), 2 = input error (an unreadable or unparsable input
 // or artifact file, LifecycleInputError).
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, posix, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -669,13 +669,18 @@ function computeWork(value, definition, { grade, project, recheck }) {
   };
 
   // Registered check findings: a warn is a warning; a fail of a check with a guard is that guard's fail; a fail of a
-  // check without one changes no state and is a check failure. Labels outside `checks` (`(경로)`) are not read.
+  // check without one changes no state and is a check failure. Parenthesised output labels (`(경로)`, `(형식)`) are
+  // not checks and are not read; any other id outside `checks` is an input error.
   const guardFindings = new Map();
   const findings = [
     ...value.policyFindings,
     ...value.areaFindings,
     ...(value.review?.findings ?? []),
-  ].filter((finding) => checks.has(finding.check));
+  ].filter((finding) => {
+    if (checks.has(finding.check)) return true;
+    if (/^\(.+\)$/u.test(finding.check)) return false;
+    throw new LifecycleInputError(`등록 검사에 없는 finding check: ${finding.check}`);
+  });
   for (const finding of findings) {
     const { guard } = checks.get(finding.check);
     if (finding.level === 'warn') warnings.push({ id: finding.check, reason: finding.reason });
@@ -965,6 +970,16 @@ export function renderBlockedMarkdown(block) {
 // binding's product root stands for the config. Policy lists and cross-cutting targets come from the tracking record
 // (`policy:<name>` items, level `cross-cutting`) and the policy documents; L2 is every decision record with a header
 // under the decisions root plus the record's `l2:` items.
+// A document has a header when its key lines carry a status line; key lines without one are read as no header, the
+// same rule as headerStatus of the policy-first check.
+const hasStatusHeader = (document) => Boolean(document?.header?.status);
+
+// A repository-relative path that stays inside the repository.
+function insideRepository(path) {
+  const normal = posix.normalize(path);
+  return !posix.isAbsolute(normal) && normal !== '..' && !normal.startsWith('../');
+}
+
 export function collectProjectInputs({
   readFile,
   listFiles = () => [],
@@ -987,7 +1002,7 @@ export function collectProjectInputs({
   };
   const artifact = (id, path) => {
     const document = documentAt(id, path);
-    if (document?.header) return document;
+    if (hasStatusHeader(document)) return document;
     const entry = item(id);
     if (entry)
       return {
@@ -1046,11 +1061,13 @@ export function collectProjectInputs({
   const l2 = decisionsRoot
     ? markdownUnder(decisionsRoot.path)
         .map((path) => documentAt(`l2:${path}`, path))
-        .filter((document) => document?.header)
+        .filter(hasStatusHeader)
     : [];
   for (const entry of map?.artifacts ?? []) {
     if (!entry.artifact.startsWith('l2:')) continue;
     const path = entry.sources?.[0] ?? entry.artifact.slice('l2:'.length);
+    if (!insideRepository(path))
+      throw new LifecycleInputError(`대응 기록 ${entry.artifact}의 경로가 저장소 밖: ${path}`);
     if (!l2.some((known) => known.id === entry.artifact || known.path === path))
       l2.push(artifact(entry.artifact, path));
   }
@@ -1074,6 +1091,14 @@ export function collectProjectInputs({
 
 // ---------------------------------------------------------------------------------------------------------------------
 // CLI
+
+function isDirectory(path) {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
 
 function repositoryReader(repo) {
   return {
@@ -1126,6 +1151,8 @@ export function runLifecycleState(argv, { stdout = process.stdout, stderr = proc
       options: { repo: { type: 'string' }, input: { type: 'string' } },
     });
     if (!values.repo) throw new LifecycleInputError('--repo 없음');
+    if (!isDirectory(values.repo))
+      throw new LifecycleInputError(`--repo ${values.repo}: 디렉터리가 아님`);
     const definition = readJson(
       new URL('./lifecycle-definition.json', import.meta.url),
       '상태 정의',

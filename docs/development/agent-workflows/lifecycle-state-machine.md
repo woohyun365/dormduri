@@ -181,8 +181,9 @@ guard는 그 상태를 나가는 조건이다. 층마다 위에서부터 첫 실
   (`domains`·`layers`, 하나 이상의 `paths`)을 본다. bugfix·hotfix는 `planned`를 거치지 않으므로 프로젝트 층의 첫 실패
   guard를 그대로 `work.failed`에 두고, `W-SCOPE`의 선언 대조는 `warnOnly`라 경고로 계산한다. trivial은 `P-ARCH`의 L1
   확인만 본다. `bugfixBasis`가 `missing`이면 feature로 올려 계산하고 `grade.raised`에 이유를 적는다.
-- 등급 `skip`의 guard는 `skipped`, `warnOnly` guard의 실패는 `warnings`다. 등급 `path` 밖 상태의 guard와 조건이 거짓인
-  조건부 guard는 계산하지 않는다.
+- 등급 `skip`의 guard는 `skipped`, `warnOnly` guard의 실패는 `warnings`다. `warnOnly`가 아니면서 등급 `path` 밖 상태를
+  나가는 guard와 조건이 거짓인 조건부 guard는 계산하지 않는다(bugfix·hotfix의 `W-SCOPE`는 `planned`를 나가지만
+  `warnOnly`라 경고로 계산한다).
 - 바뀐 정책 도메인은 `plan.domains`와 `changedPaths`에 경로 표(`createPathTable`)를 적용한 판정의 합집합이고, `W-POLICY`는
   그 도메인마다 `policy:<도메인>` 산출물의 충족을 본다. 표 행과 `noDomain` 어디에도 맞지 않는 바뀐 제품 경로는 `W-SCOPE`
   경고이고 needs는 `경로 표 행 추가(L-CONFIRM Owner 확인)`다.
@@ -195,13 +196,15 @@ guard는 그 상태를 나가는 조건이다. 층마다 위에서부터 첫 실
   항목의 확인일은 기록의 `confirmedBy.date`다. plan은 readiness PASS 날짜가 PRD 개요·L1·선언 도메인 정책의 확인일보다
   이르거나 선언 도메인 정책이 재확인 필요면 재확인 필요다. 이 비교로 `W-POLICY`·`W-READY`를 reason `R-UPSTREAM` 실패로
   계산하는 것은 feature·policy-change뿐이다.
-- 등록 검사 finding의 `warn`은 `warnings`다. guard가 있는 검사의 `fail`은 그 guard를 계산할 때 그 guard의 실패(`W-CITE`는 `W-READY`)이고, guard가
-  없는 검사(`W-IRREV`·`L-CONFIRM`·`W-AREA`·`W-CAUSE`)의 `fail`은 상태를 바꾸지 않고 `checkFailures`다. `checks`에 없는 출력
-  label(`(경로)`)은 읽지 않는다.
+- 등록 검사 finding의 `warn`은 `warnings`다. guard가 있는 검사의 `fail`은 그 guard를 계산할 때 그 guard의 실패
+  (`W-CITE`는 `W-READY`)이고, guard가 없는 검사(`W-IRREV`·`L-CONFIRM`·`W-AREA`·`W-CAUSE`)의 `fail`은 상태를 바꾸지 않고
+  `checkFailures`다. 괄호 출력 label(`(경로)`·`(형식)`)은 검사가 아니라 읽지 않고, 그 밖에 `checks`에 없는 check id는
+  입력 오류다.
 - override 줄의 `check`가 실패한 guard나 등록 검사 id와 같으면 그 실패를 `override`(`reason`·`revisit`)를 붙인 경고로 옮기고
   계산을 이어 간다. `L-CONFIRM` 줄은 적용하지 않고 `override 대상이 아님` 경고를 낸다(`run.mjs`의 `nonOverridable`과
   같다). 실패가 없는 id의 줄은 바꾸는 것이 없고, 프로젝트 층 결과에는 적용하지 않는다.
-- 모르는 schema·등급·field, `schema`·`artifacts` 누락, override 줄 모양 오류는 `LifecycleInputError`다.
+- 모르는 schema·등급·field, `schema`·`artifacts` 누락, override 줄 모양 오류, `checks`에 없는 finding check id는
+  `LifecycleInputError`다.
 
 같은 module의 다른 함수:
 
@@ -214,14 +217,15 @@ guard는 그 상태를 나가는 조건이다. 층마다 위에서부터 첫 실
   `questions`·`resume`·`inspected`와 그 안 필드)만 허용한다. 검증 결과는 `[{ field, code }]`이고 code는 `unknown-field`·
   `missing-field`다. `renderBlockedMarkdown(block)`은 사람이 읽는 Markdown이다.
 - `collectProjectInputs({ readFile, listFiles, layout })`는 workspace layout root(`config`·`product`·`policies`·
-  `architecture`·`decisions`·`artifact-map`·`path-domains`)에서 산출물을 모은다. header가 있는 문서는 header로, 없으면
-  대응 기록 항목으로 본다. PRD 개요는 제품 root의 `overview.md`, L1은 architecture root의 `README.md`, L2는 decisions
-  root의 header가 있는 결정 기록(README 밖)과 대응 기록의 `l2:` 항목이다. 정책 목록과 cross-cutting 대상(`level`
-  `cross-cutting`)은 대응 기록의 `policy:` 항목과 policies root 문서에서 읽는다. binding에 `config` root가 없으면 제품 root
-  대응을 config로 본다.
+  `architecture`·`decisions`·`artifact-map`·`path-domains`)에서 산출물을 모은다. `상태` 줄이 있는 header의 문서는
+  header로, 없으면(header 없음, `상태` 줄 없는 key 줄만 있음) 대응 기록 항목으로 본다. 정책 우선 검사의 `headerStatus`와
+  같은 기준이다. PRD 개요는 제품 root의 `overview.md`, L1은 architecture root의 `README.md`, L2는 decisions root의
+  `상태` 줄 있는 결정 기록(README 밖)과 대응 기록의 `l2:` 항목이다. 대응 기록 `l2:` 항목의 경로가 저장소 밖(절대 경로,
+  `..`)이면 읽지 않고 입력 오류다. 정책 목록과 cross-cutting 대상(`level` `cross-cutting`)은 대응 기록의 `policy:` 항목과
+  policies root 문서에서 읽는다. binding에 `config` root가 없으면 제품 root 대응을 config로 본다.
 - CLI `node scripts/ci/lifecycle/lifecycle-state.mjs --repo <root> [--input <json>]`은 `lifecycle-state/v1` JSON을 낸다.
-  입력에 `artifacts`가 없으면 `<root>`에서 모은다. 계산이 끝나면 상태와 무관하게 exit 0이고, 읽기·JSON parse 실패와
-  `LifecycleInputError`는 stderr 한 줄과 exit 2다.
+  입력에 `artifacts`가 없으면 `<root>`에서 모은다. 계산이 끝나면 상태와 무관하게 exit 0이고, `<root>`가 디렉터리가 아님,
+  읽기·JSON parse 실패와 `LifecycleInputError`는 stderr 한 줄과 exit 2다.
 
 ## 정책 규칙 id 번호
 
