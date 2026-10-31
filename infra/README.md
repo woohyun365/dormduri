@@ -12,7 +12,7 @@
 | `rehearsal/`     | production candidate에만 합성하는 local resource·network·fixture overlay  | 실제 release evidence, production DB 성능                       |
 | `observability/` | Prometheus·Loki·Grafana·Alloy·Alertmanager configuration asset            | incident 절차, release 판정, managed Sentry 저장소              |
 | `db/`            | migration·role grant·credential smoke operator script                     | DB 생성, credential 발급, backup 승인                           |
-| `aws/`           | 미래 AWS target 입력과 setup checklist                                    | IaC, 실제 resource 상태, release 완료 증거                      |
+| `aws/`           | AWS setup checklist와 release-gated 입력                                  | IaC, 지금 적용한 구성의 설명(`docs/deploy/`), release 완료 증거 |
 | `artifacts/`     | OCI build evidence schema                                                 | 생성된 artifact 자체                                            |
 | `runbooks/`      | release, operation, incident, rehearsal 실행 절차와 evidence handoff      | 제품 정책과 architecture 설명                                   |
 
@@ -28,6 +28,7 @@ workflow)이 갖고 Renovate가 갱신한다. `runtime-hardening.json`, `compose
 - 관측 configuration: [`observability/README.md`](./observability/README.md)
 - DB operator script: [`db/README.md`](./db/README.md)
 - 실제 배포 준비: [`runbooks/release/production-release-readiness.md`](./runbooks/release/production-release-readiness.md)
+- 지금 적용한 운영 환경과 서버 비용: [`docs/deploy/README.md`](../docs/deploy/README.md)
 
 ## 불변 규칙
 

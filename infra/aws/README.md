@@ -1,10 +1,10 @@
 # AWS target checklists
 
-`infra/aws`는 AWS를 실제 배포 provider로 선택하는 시점에 운영자와 release 담당 세션이 확인할
-**release-gated 입력 목록**을 소유한다. 현재 resource를 생성하거나 AWS SDK/CLI를 실행하는 IaC
-디렉터리가 아니다.
+`infra/aws`는 배포 target으로 고른 AWS에서 운영자와 release 담당 세션이 확인할 **release-gated 입력 목록**과
+setup checklist를 소유한다. 지금 적용한 구성과 계정·비용 알림은
+[`docs/deploy/production-environment.md`](../../docs/deploy/production-environment.md)가 설명한다. 현재 resource를 생성하거나
+AWS SDK/CLI를 실행하는 IaC 디렉터리가 아니다.
 
-- `beginner-account-budget-checklist.md`: 계정, 비용 알림, 기본 예산 경계
 - `rds-setup-checklist.md`: PostgreSQL 18, private network, backup/PITR, SSL, connection budget
 - `secrets-manager-checklist.md`: Secrets Manager origin, GitHub OIDC release principal, mounted-file
   application read source와 rotation 입력

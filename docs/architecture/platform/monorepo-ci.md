@@ -4,7 +4,7 @@
 
 KNU Roommate의 pull request와 default `main` push 검증은 `.github/workflows/ci.yml`이 진입점이다. `dev`는 active ruleset이 PR-only integration과 green `CI summary`를 요구하므로 merge 직후 같은 graph를 다시 실행하지 않는다. Workflow는 변경 경로를 분류하고 필요한 reusable app workflow만 호출한다. Pull request에서는 분류와 무관하게 `Lifecycle gate`도 실행하고, 항상 존재하는 `CI summary` job에서 선택된 lane과 `Lifecycle gate`의 성공 여부를 fail-closed로 판정한다.
 
-현재 workflow는 CI만 제공한다. Image publish, production environment approval, deployment identity, rollout, traffic switch, rollback은 포함하지 않는다. Production CD 구현 전 입력은 `docs/development/future-production-deployment-inputs.md`가 소유한다.
+현재 workflow는 CI만 제공한다. Image publish, production environment approval, deployment identity, rollout, traffic switch, rollback은 포함하지 않는다. Production CD 구현 전 입력은 `docs/deploy/production-environment.md`가 소유한다.
 
 ## Decision과 drivers
 
