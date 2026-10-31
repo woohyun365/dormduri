@@ -238,7 +238,7 @@ catalogs:
       version: 5.0.5
 
 overrides:
-  '@nestjs/platform-node>qs': 6.16.1
+  '@nestjs/platform-node>qs': 6.17.0
   esbuild: 0.28.2
   postcss: 8.5.32
 
@@ -5957,6 +5957,10 @@ packages:
     resolution: {integrity: sha512-5Px6J7rfHBAGUhNQ3es4YzcOdBBw0SDcVtThJml4RdnKw4tKs2epA0kPZ+K8X+WiHktT93RHVcQ/3ym5aTCgtg==}
     engines: {node: '>=0.6'}
 
+  qs@6.17.0:
+    resolution: {integrity: sha512-5LK5BZ2XDHMvcUJaf0CQ5HL3aVgKbpklvByC7qLSxYkfE8COEEbJg5xCHWCTqzqi0Gs4Jn5Mv5v3R38W6edscA==}
+    engines: {node: '>=0.6'}
+
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
 
@@ -8057,7 +8061,7 @@ snapshots:
       multer: 2.5.0
       on-finished: 2.4.1
       path-to-regexp: 8.4.2
-      qs: 6.16.1
+      qs: 6.17.0
       secure-json-parse: 4.1.0
       send: 1.2.1(supports-color@8.1.1)
       serve-static: 2.2.1(supports-color@8.1.1)
@@ -12370,6 +12374,11 @@ snapshots:
   pure-rand@6.1.0: {}
 
   qs@6.16.1:
+    dependencies:
+      es-define-property: 1.0.1
+      side-channel: 1.1.1
+
+  qs@6.17.0:
     dependencies:
       es-define-property: 1.0.1
       side-channel: 1.1.1
