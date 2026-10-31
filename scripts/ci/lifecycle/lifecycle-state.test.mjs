@@ -5,7 +5,17 @@
 // edge cases.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readdirSync, readFileSync } from 'node:fs';
+import {
+  chmodSync,
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, join, relative, resolve, sep } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -66,7 +76,7 @@ const fixtureReader = (root) => ({
   },
 });
 
-// The fixture reader with some files replaced or added (repository path → text).
+// The fixture reader with some files replaced, added or (with null) removed (repository path → text).
 const overlayReader = (base, files) => ({
   readFile: (path) => (path in files ? files[path] : base.readFile(path)),
   listFiles: (directory) =>
@@ -75,7 +85,9 @@ const overlayReader = (base, files) => ({
         ...base.listFiles(directory),
         ...Object.keys(files).filter((path) => path.startsWith(`${directory}/`)),
       ]),
-    ].sort(),
+    ]
+      .filter((path) => files[path] !== null)
+      .sort(),
 });
 const MAP_PATH = 'docs/product/artifact-map.json';
 const knuMap = () => JSON.parse(readFileSync(resolve(KNU_REPO, MAP_PATH), 'utf8'));
@@ -864,4 +876,404 @@ test('등급 값과 문서 등급·등록 검사 표가 정의와 같고 header 
     ['header-status-invalid'],
   );
   assert.match(statusless[0].message, /상태 줄 없음/u);
+});
+
+test('층마다 첫 실패 상태에서 멈추고 같은 상태를 나가는 guard는 함께 계산한다', async () => {
+  const { compute } = await calculator();
+  const fresh = compute({
+    schema: 'lifecycle-state-input/v1',
+    artifacts: { config: { id: 'config', path: '.htc/config.json' } },
+  });
+  assert.deepEqual(ids(fresh.project.failed), ['P-DIRECTION']);
+  assert.deepEqual([...new Set(ids(fresh.work.failed))], ['W-SCOPE']);
+
+  const both = allPass();
+  both.plan.domains.push('payments');
+  both.plan.designConfirmation = null;
+  const policyReady = compute(both);
+  assert.equal(policyReady.work.state, 'policy-ready');
+  assert.deepEqual(ids(policyReady.work.failed), ['W-POLICY', 'W-DESIGN']);
+
+  const draftOverview = allPass();
+  draftOverview.artifacts.prdOverview.header.status = 'draft';
+  const planned = compute(draftOverview);
+  assert.equal(planned.work.state, 'planned');
+  assert.deepEqual(
+    planned.work.failed.map((entry) => [entry.id, entry.reason]),
+    [['W-SCOPE', '프로젝트 층이 architected가 아님: P-DIRECTION 실패']],
+  );
+});
+
+test('작업 층 시작 확인은 bugfix·hotfix가 프로젝트 층 전체, trivial이 L1만 보고 path 밖 guard는 계산하지 않는다', async () => {
+  const { compute } = await calculator();
+  for (const grade of ['bugfix', 'hotfix']) {
+    const input = { ...allPass(), grade, bugfixBasis: 'found' };
+    input.artifacts.prdOverview.header.status = 'draft';
+    const result = compute(input);
+    assert.equal(result.work.state, 'policy-ready', grade);
+    assert.deepEqual(ids(result.work.failed), ['P-DIRECTION'], grade);
+  }
+  const trivial = (change) => {
+    const input = { ...allPass(), grade: 'trivial', plan: null, changedPaths: ['docs/guide.md'] };
+    change(input);
+    return compute(input);
+  };
+  const tableless = trivial((input) => {
+    input.artifacts.pathDomains = null;
+  });
+  assert.deepEqual(ids(tableless.project.failed), ['P-ARCH']);
+  assert.equal(tableless.work.state, 'evidenced');
+  assert.deepEqual(tableless.work.failed, []);
+  const design = trivial((input) => {
+    input.plan = { visualClaim: true };
+  });
+  assert.equal(design.work.state, 'evidenced');
+  assert.deepEqual(design.work.failed, []);
+});
+
+test('W-SCOPE는 선언 field 셋을 보고 W-POLICY는 경로 표가 판정한 도메인도 본다', async () => {
+  const { compute } = await calculator();
+  for (const [field, change] of [
+    ['domains', (plan) => delete plan.domains],
+    ['layers', (plan) => delete plan.layers],
+    ['paths', (plan) => (plan.paths = [])],
+  ]) {
+    const input = allPass();
+    change(input.plan);
+    const result = compute(input);
+    assert.equal(result.work.state, 'planned', field);
+    assert.deepEqual(
+      result.work.failed.map((entry) => [entry.id, entry.reason]),
+      [['W-SCOPE', `plan 선언 없음: ${field}`]],
+      field,
+    );
+  }
+  const judged = {
+    ...allPass(),
+    grade: 'bugfix',
+    bugfixBasis: 'found',
+    plan: null,
+    changedPaths: ['apps/api/src/payments/charge.ts'],
+  };
+  judged.artifacts.pathDomains.table.entries.push({
+    globs: ['apps/api/src/payments/**'],
+    domains: ['payments'],
+  });
+  const result = compute(judged);
+  assert.equal(result.work.state, 'policy-ready');
+  assert.deepEqual(
+    result.work.failed.map((entry) => [entry.id, entry.reason]),
+    [['W-POLICY', '정책 문서 없음: payments']],
+  );
+});
+
+test('R-UPSTREAM은 Owner 확인된 더 늦은 날짜만 세고 같은 날은 재확인이 아니다', async () => {
+  const { compute, upstreamRecheck } = await calculator();
+  const sameDay = allPass();
+  sameDay.artifacts.prdOverview.header.confirmedOn = '2026-10-03';
+  assert.deepEqual(byId(compute(sameDay).project.recheck, 'policy:matching'), []);
+
+  const stale = (date) => {
+    const input = allPass();
+    input.plan.readinessPass.date = date;
+    return upstreamRecheck(input).plan.stale;
+  };
+  assert.equal(stale('2026-10-04'), false);
+  assert.equal(stale('2026-10-03'), true);
+
+  const draftOverview = allPass();
+  draftOverview.artifacts.prdOverview.header.status = 'draft';
+  draftOverview.artifacts.prdOverview.header.confirmedOn = '2026-10-09';
+  assert.deepEqual(compute(draftOverview).project.recheck, []);
+  const draftL1 = allPass();
+  draftL1.artifacts.l1 = recordItem('l1', 'composite', 'draft', ['docs/architecture/README.md']);
+  draftL1.artifacts.l1.record.confirmedBy.date = '2026-10-20';
+  assert.deepEqual(compute(draftL1).project.recheck, []);
+
+  const stalePolicy = allPass();
+  stalePolicy.artifacts.prdOverview.header.confirmedOn = '2026-10-05';
+  assert.deepEqual(upstreamRecheck(stalePolicy).plan.reasons, [
+    '선언 도메인 정책 재확인 필요: policy:matching',
+  ]);
+
+  const anchored = allPass();
+  anchored.artifacts.l1.header.confirmedOn = '2026-10-10';
+  anchored.artifacts.l2[0].header.basis = ['../README.md#결정-목록'];
+  assert.deepEqual(
+    byId(compute(anchored).project.recheck, 'l2:docs/architecture/decisions/be.md'),
+    [{ id: 'l2:docs/architecture/decisions/be.md', upstream: ['l1'] }],
+  );
+});
+
+test('override 줄은 check id가 같은 실패에만 적용한다', async () => {
+  const { compute } = await calculator();
+  const input = allPass();
+  input.plan.designConfirmation = null;
+  input.overrides = [{ check: 'W-MERGE', reason: 'Owner 지시', revisit: '다음 PR' }];
+  const result = compute(input);
+  assert.equal(result.work.state, 'policy-ready');
+  assert.deepEqual(ids(result.work.failed), ['W-DESIGN']);
+  assert.deepEqual(result.work.warnings, []);
+});
+
+// Malformed inputs, one change each from the all-pass input; every one is an input error.
+const INVALID_INPUTS = [
+  ['plan이 객체가 아님', (input) => (input.plan = 5)],
+  ['모르는 최상위 field', (input) => (input.extra = 1)],
+  ['산출물 id가 문자열 아님', (input) => (input.artifacts.prdOverview.id = 5)],
+  [
+    'header와 record 둘 다',
+    (input) =>
+      (input.artifacts.l1.record = {
+        mapping: 'doc',
+        confirmedBy: { status: 'owner-confirmed', date: '2026-10-01' },
+      }),
+  ],
+  ['header 근거 없음', (input) => delete input.artifacts.l1.header.basis],
+  [
+    'record mapping 값',
+    (input) =>
+      (input.artifacts.l1 = {
+        id: 'l1',
+        path: MAP_PATH,
+        record: { mapping: 'other', confirmedBy: { status: 'draft', date: null } },
+      }),
+  ],
+  [
+    'record 확인일 field 없음',
+    (input) =>
+      (input.artifacts.l1 = {
+        id: 'l1',
+        path: MAP_PATH,
+        record: { mapping: 'doc', confirmedBy: { status: 'draft' } },
+      }),
+  ],
+  [
+    'record 확인 없음',
+    (input) => (input.artifacts.l1 = { id: 'l1', path: MAP_PATH, record: { mapping: 'doc' } }),
+  ],
+  ['경로 표 schema', (input) => (input.artifacts.pathDomains.table.schema = 'path-domains/v0')],
+  ['산출물 목록이 배열 아님', (input) => (input.artifacts.l2 = {})],
+  ['바뀐 경로가 배열 아님', (input) => (input.changedPaths = 'apps/api/src/matching/service.ts')],
+  ['finding 목록이 배열 아님', (input) => (input.policyFindings = {})],
+  ['finding level 값', (input) => (input.policyFindings[0].level = 'error')],
+  ['plan domains가 배열 아님', (input) => (input.plan.domains = 'matching')],
+  ['readiness PASS 날짜 형식', (input) => (input.plan.readinessPass.date = '2026/10/06')],
+  ['plan boolean', (input) => (input.plan.implementationReady = 'yes')],
+  ['결정 목록이 배열 아님', (input) => (input.plan.decisions = {})],
+  ['Owner 확인 날짜 형식', (input) => (input.plan.decisions[0].ownerConfirmation.date = '10-06')],
+  ['시각 방향 확정 field', (input) => (input.plan.designConfirmation = { source: '#16' })],
+  ['override 목록이 배열 아님', (input) => (input.overrides = {})],
+  ['merged boolean', (input) => (input.merged = 'yes')],
+  ['bugfixBasis 값', (input) => (input.bugfixBasis = 'maybe')],
+  ['리뷰 정산 boolean', (input) => (input.review.settled = 'yes')],
+];
+
+test('입력 형식 오류는 LifecycleInputError이고 merged·evidenced가 없으면 미완료다', async () => {
+  const { compute } = await calculator();
+  for (const [name, change] of INVALID_INPUTS) {
+    const input = allPass();
+    change(input);
+    assert.throws(() => compute(input), LifecycleInputError, name);
+  }
+  const header = allPass();
+  header.artifacts.prdOverview.header = null;
+  assert.equal(compute(header).project.state, 'discovery');
+  for (const [field, id] of [
+    ['merged', 'W-MERGE'],
+    ['evidenced', 'W-EVID'],
+  ]) {
+    const input = allPass();
+    delete input[field];
+    assert.equal(compute(input).work.failed[0]?.id, id, field);
+  }
+});
+
+test('정의·경계·역전이·같은 결함 멈춤의 잘못된 입력은 오류다', async () => {
+  const { computeLifecycleState, evaluateBoundary, reverseTarget, sameFixStop } =
+    await stateModule();
+  const otherSchema = { ...definition, schema: 'lifecycle-definition/v0' };
+  assert.throws(() => computeLifecycleState(allPass(), otherSchema), TypeError);
+  for (const boundary of [{ packDecisionId: '' }, { packDecisionId: 5 }, { inScope: 'yes' }])
+    assert.throws(
+      () =>
+        evaluateBoundary({
+          packDecisionId: null,
+          reversibility: 'easy',
+          inScope: true,
+          ...boundary,
+        }),
+      LifecycleInputError,
+      JSON.stringify(boundary),
+    );
+  assert.throws(() => reverseTarget('R-NOPE', {}, definition), LifecycleInputError);
+  assert.throws(
+    () => reverseTarget('R-SIGNAL', { grade: 'typo' }, definition),
+    LifecycleInputError,
+  );
+  for (const failedFixes of [-1, 1.5, '3'])
+    assert.throws(
+      () => sameFixStop({ grade: 'bugfix', failedFixes }, definition),
+      LifecycleInputError,
+      String(failedFixes),
+    );
+  assert.throws(
+    () => sameFixStop({ grade: 'typo', failedFixes: 1 }, definition),
+    LifecycleInputError,
+  );
+  assert.equal(sameFixStop({ grade: 'bugfix', failedFixes: 0 }, definition), null);
+});
+
+test('구현 불가 블록 검증은 schema·배열 field를 보고 Markdown은 빈 값과 목록 밖 결정을 적는다', async () => {
+  const { buildBlockedReport, validateBlockedReport, renderBlockedMarkdown } = await stateModule();
+  const block = buildBlockedReport({
+    request: '팀 일정 관리 앱을 만들어 줘',
+    state: { project: 'discovery', work: 'planned' },
+    failedGuards: [
+      { id: 'P-DIRECTION', reason: 'PRD 개요 없음', needs: 'PRD 개요(owner-confirmed)' },
+    ],
+    questions: [
+      {
+        id: 'q1',
+        guard: null,
+        decisionRef: null,
+        text: '첫 사용자는 누구인가요?',
+        options: [{ id: 'a', summary: '작은 팀', tradeoff: '권한이 단순하다' }],
+        default: { option: 'a', why: '빨리 확인할 수 있다' },
+        reversible: 'easy',
+        expertCheck: true,
+      },
+    ],
+    resume: [],
+    inspected: [],
+  });
+  assert.deepEqual(validateBlockedReport({ ...block, schema: 'lifecycle-blocked/v2' }), [
+    { field: 'schema', code: 'missing-field' },
+  ]);
+  assert.deepEqual(validateBlockedReport({ ...block, questions: {} }), [
+    { field: 'questions', code: 'missing-field' },
+  ]);
+  const markdown = renderBlockedMarkdown(block);
+  for (const text of [
+    '(guard 없음, 결정 목록 밖, 되돌림 `easy`, 전문가 확인 필요)',
+    '- 재개 조건: 없음',
+    '- 판정 근거(읽은 파일): 없음',
+  ])
+    assert.ok(markdown.includes(text), text);
+  const listed = renderBlockedMarkdown({
+    ...block,
+    questions: [
+      {
+        ...block.questions[0],
+        guard: 'P-DIRECTION',
+        decisionRef: 'fe.render.server-client-default',
+        expertCheck: false,
+      },
+    ],
+  });
+  assert.ok(
+    listed.includes('(guard `P-DIRECTION`, 결정 `fe.render.server-client-default`, 되돌림 `easy`)'),
+  );
+  assert.ok(
+    renderBlockedMarkdown({ ...block, questions: [] }).endsWith('#### 다음 질문\n\n없음\n'),
+  );
+});
+
+test('collectProjectInputs: config root, 대응 기록 없는 저장소, 정책 문서 위치, L2 중복, 대응 기록 정책 이름', async () => {
+  const { collectProjectInputs } = await calculator();
+  const layout = loadWorkspaceLayout();
+  const collect = (files, withLayout = layout) =>
+    collectProjectInputs({
+      ...overlayReader(fixtureReader(KNU_REPO), files),
+      layout: withLayout,
+    });
+  const configLayout = {
+    ...layout,
+    roots: [...layout.roots, { id: 'config', path: '.htc/config.json' }],
+  };
+  assert.equal(collect({}, configLayout).config, null);
+  assert.deepEqual(collect({ '.htc/config.json': '{}' }, configLayout).config, {
+    id: 'config',
+    path: '.htc/config.json',
+  });
+
+  const mapless = collect({ [MAP_PATH]: null, 'docs/policies/sub/nested.md': '# 하위 문서\n' });
+  assert.deepEqual(ids(mapless.policyDomains), ['policy:data-retention', 'policy:legal-basis']);
+  assert.ok(mapless.policyDomains.every((artifact) => artifact.header === null));
+  assert.equal(mapless.crossCutting, null);
+  assert.deepEqual(
+    byId(
+      collect({ 'docs/policies/extra-rule.md': '# 추가 규칙\n\n본문\n' }).policyDomains,
+      'policy:extra-rule',
+    ),
+    [{ id: 'policy:extra-rule', path: 'docs/policies/extra-rule.md', header: null }],
+  );
+
+  const aliased = knuMap();
+  aliased.artifacts.push({
+    artifact: 'l2:fe',
+    mapping: 'doc',
+    sources: ['docs/architecture/decisions/fe.md'],
+  });
+  const l2 = ids(collect({ [MAP_PATH]: JSON.stringify(aliased) }).l2);
+  assert.deepEqual(
+    l2.filter((id) => id === 'l2:fe' || id.endsWith('/fe.md')),
+    ['l2:docs/architecture/decisions/fe.md'],
+  );
+
+  for (const name of ['../outside', 'sub/rule']) {
+    const unsafe = knuMap();
+    unsafe.artifacts.push({ artifact: `policy:${name}`, mapping: 'doc' });
+    assert.throws(() => collect({ [MAP_PATH]: JSON.stringify(unsafe) }), LifecycleInputError, name);
+  }
+});
+
+test('CLI: --repo 없음, --input의 산출물 유지, 결정 디렉터리 없음·중첩, 읽기 오류', async () => {
+  const { compute } = await calculator();
+  const none = runCli([]);
+  assert.equal(none.status, 2);
+  assert.match(none.stderr, /--repo 없음/u);
+  const given = runCli(['--repo', KNU_REPO, '--input', resolve(FIXTURES, 'feature-all-pass.json')]);
+  assert.equal(given.status, 0, given.stderr);
+  assert.deepEqual(JSON.parse(given.stdout), compute(allPass()));
+
+  const tree = mkdtempSync(join(tmpdir(), 'lifecycle-state-'));
+  const locked = [];
+  try {
+    cpSync(KNU_REPO, tree, { recursive: true });
+    rmSync(join(tree, 'docs/architecture/decisions'), { recursive: true });
+    const map = knuMap();
+    map.artifacts = map.artifacts.filter((entry) => !entry.artifact.startsWith('l2:'));
+    writeFileSync(join(tree, MAP_PATH), JSON.stringify(map));
+    const noDecisions = runCli(['--repo', tree]);
+    assert.equal(noDecisions.status, 0, noDecisions.stderr);
+    assert.deepEqual(ids(JSON.parse(noDecisions.stdout).project.failed), ['P-ARCH']);
+
+    mkdirSync(join(tree, 'docs/architecture/decisions/be'), { recursive: true });
+    writeFileSync(
+      join(tree, 'docs/architecture/decisions/be/queue.md'),
+      '# 큐\n\n**상태**: draft\n',
+    );
+    const nested = runCli(['--repo', tree]);
+    assert.equal(nested.status, 0, nested.stderr);
+    assert.deepEqual(JSON.parse(nested.stdout).project.failed, []);
+
+    // Read errors other than a missing file are input errors (not checkable as root, who reads mode 000 files).
+    if (process.getuid?.() !== 0)
+      for (const [path, pattern] of [
+        [MAP_PATH, /artifact-map\.json를 읽지 못함/u],
+        ['docs/architecture/decisions', /decisions 목록을 읽지 못함/u],
+      ]) {
+        chmodSync(join(tree, path), 0o000);
+        locked.push(path);
+        const denied = runCli(['--repo', tree]);
+        chmodSync(join(tree, path), path.endsWith('.json') ? 0o644 : 0o755);
+        locked.pop();
+        assert.equal(denied.status, 2, path);
+        assert.match(denied.stderr, pattern);
+      }
+  } finally {
+    for (const path of locked) chmodSync(join(tree, path), 0o755);
+    rmSync(tree, { recursive: true, force: true });
+  }
 });
