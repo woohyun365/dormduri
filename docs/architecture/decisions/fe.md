@@ -104,14 +104,14 @@
 
 - 판정: Ask
 - 상태: validated
-- 고른 선택지: Landing부터 Web 전체에 React Compiler를 `infer` mode로 켠다(`panicThreshold: 'none'`, 기존 memoization 보장 유지
+- 고른 선택지: Web(`apps/web`) 전체에 React Compiler를 `infer` mode로 켠다(`panicThreshold: 'none'`, 기존 memoization 보장 유지
   `enablePreserveExistingMemoizationGuarantees: true`). option 원본은 `apps/web/react-compiler.config.ts` 하나이고 Next build·Vitest·
   Storybook이 같은 값을 쓴다. Vitest·Storybook은 Next browser build와 같은 파일만 compile한다. 기존 `useMemo`·`useCallback`은 지우지
   않는다. compile된 뒤 깨지는 component는 코드를 Rules of React에 맞게 고치고, 그럴 수 없을 때만 `"use no memo"`와 이유·보호 test를 둔다
 - 근거: Next 16에서 top-level stable 설정이고, compiler lint 위반이 0건이었다. 채팅방처럼 입력 상태와 긴 목록이 한 component에 있는
   화면은 글자마다 목록 전체를 다시 그렸고, compile 뒤 입력 중 JS 실행이 크게 줄었다. 비용은 cold build 시간과 client JS 증가이고 측정
   중단 조건 안이었다(evidence). test runner도 같은 compiler를 거쳐 production과 같은 코드를 검사한다. 비가역이 아니고 설정 revert나
-  `reactCompiler` 한 줄 삭제로 되돌린다
+  `reactCompiler` 줄과 test runner의 compiler plugin을 빼는 commit으로 되돌린다
 - 기각한 대안: annotation mode pilot 뒤 확대(#293 원문 순서. lint 위반 0건이라 단계가 필요 없었다), production build만 켜기(test가
   compile된 코드를 검사하지 못한다), test runner마다 option을 따로 쓰기(값이 어긋날 수 있다), Rust compiler(`oxc-transform-react`)와
   Next `experimental.turbopackRustReactCompiler`(experimental), compile을 건너뛴 파일 전체를 이 변경에서 고치기(화면 코드가 넓게

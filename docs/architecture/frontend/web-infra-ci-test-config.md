@@ -108,8 +108,8 @@ API 서버, DB, 실사용 auth fixture가 필요한 end-to-end journey는 별도
 - Web Vitals reporter는 metric 이름/값과 attribution key 목록만 남긴다. DOM selector, URL, element text 같은 attribution value는 전송하지 않는다.
 - 로컬 디버그 로그가 필요할 때만 `NEXT_PUBLIC_WEB_VITALS_DEBUG=1`을 설정한다. 기본값은 no-op이다.
 - React Compiler를 `infer` mode로 켠다. option 원본은 `apps/web/react-compiler.config.ts`이고 Next·Vitest·Storybook이 같은 값을 쓴다. 기존 memoization은 그대로 둔다. 결정과 측정은 [FE 결정 기록](../decisions/fe.md#ferenderreact-compiler)과 [React Compiler evidence](../../evidence/frontend/react-compiler-evidence.md)다.
-  - Next는 browser bundle에만 compiler를 적용한다. Vitest(`vitest.config.ts`)와 Storybook(`.storybook/main.ts`)은 `@vitejs/plugin-react`의 `reactCompilerPreset`을 `@rolldown/plugin-babel`로 등록하고, 같은 파일의 `sources` 범위로 Next가 compile하지 않는 파일(`'use client'`가 없는 App Router module, test·story·fixture 코드)을 뺀다. Storybook은 framework SWC transform보다 앞에 plugin을 둔다.
-  - `panicThreshold: 'none'`이라 compiler가 처리하지 못하는 component·Hook은 build를 깨지 않고 compile 없이 남는다. compiler lint(`eslint-config-next`)는 이런 미지원 구문(`try … finally`, `try` 안의 optional chaining·`??` 등)을 보고하지 않는다. 상태가 자주 바뀌는 화면을 고칠 때는 그 파일이 compile되는지 evidence의 재현 명령으로 확인한다.
+  - Next는 browser bundle에만 compiler를 적용한다. Vitest(`vitest.config.ts`)와 Storybook(`.storybook/main.ts`)은 `@vitejs/plugin-react`의 `reactCompilerPreset`을 `@rolldown/plugin-babel`로 등록하고, 같은 파일의 `sources` 범위로 Next가 compile하지 않는 파일(`'use client'`가 없는 App Router module, test·story·fixture 코드, `.storybook` 설정)을 뺀다. Storybook은 framework SWC transform보다 앞에 plugin을 둔다.
+  - `panicThreshold: 'none'`이라 compiler가 처리하지 못하는 component·Hook은 build를 깨지 않고 compile 없이 남는다. compiler lint(`eslint-config-next`)는 이런 미지원 구문(`try … finally`, `try` 안의 optional chaining·`??` 등)을 보고하지 않는다. 상태가 자주 바뀌는 화면을 고칠 때는 그 파일이 compile되는지 evidence의 파일별 compile 결과 방법(compiler `logger` event)으로 확인한다.
   - compile된 뒤 동작이 깨지면 먼저 코드를 Rules of React에 맞게 고친다. 그럴 수 없을 때만 그 component에 `"use no memo"`와 같은 줄 이유 주석, 그 동작을 지키는 test를 둔다.
 
 ## Gate 결과 해석
