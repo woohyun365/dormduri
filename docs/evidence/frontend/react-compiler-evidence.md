@@ -26,6 +26,7 @@ commit 목록에 있습니다. 모든 측정은 한 Apple Silicon 장비(arm64, 
 | S1 build 시간       | `apps/web/.next`를 지우고 `pnpm exec next build`의 시작부터 끝까지 wall time. 끔·켬을 3회씩 번갈아(끔, 켬, 끔, 켬, 끔, 켬) 중앙값을 비교한다. 끔은 `next.config.ts`의 `reactCompiler`만 `false`로 바꾼다                                                                                                                                                                         |
 | S2 client JS        | 같은 build의 `.next/static` 아래 `*.js` gzip 합계                                                                                                                                                                                                                                                                                                                                |
 | compile 표식        | `react.memo_cache_sentinel` 또는 `react/compiler-runtime` import가 있는 JS 파일 수. production은 `.next/static`(browser)과 `.next/server`, Storybook은 정적 build 출력, Vitest는 `vitest.config.ts`를 config로 쓰는 Vite server로 `src` 아래 `.ts`·`.tsx`(test·story·fixture·`.d.ts` 파일 제외, 600개)를 transform한 결과. 끔은 Vitest·Storybook 설정에서 compiler plugin만 뺀다 |
+| compile 범위 대조   | production source(test·story·fixture·test helper 디렉터리 제외, 589개)에서 `'use client'` module을 시작점으로 값 import(`import type` 제외, `@/` alias와 상대 경로, 동적 `import()` 포함)를 따라간 파일 집합을 Next browser build 범위로 근사하고, `react-compiler.config.ts`의 `sources` 판정과 파일 단위로 비교한다                                                            |
 | 파일별 compile 결과 | production source(test·story·fixture·test helper 디렉터리 제외) 각 파일을 같은 option의 `babel-plugin-react-compiler`로 transform하고 compiler `logger`의 `CompileSuccess`·`CompileError` event를 모은다                                                                                                                                                                         |
 | S3 Landing LCP      | [Landing rebuild evidence](./landing-rebuild-evidence.md#2-측정-방법과-재현-명령)의 LCP 정의(production standalone, Playwright Chromium Desktop Chrome·Pixel 5, 빈 cache context 5회 중앙값)에 CPU 4배 throttle 조건을 더했다. 끔·켬 서버를 같이 띄우고 한 회 안에서 번갈아 연다                                                                                                 |
 | S4 채팅 입력 지연   | Storybook 정적 build에 메시지 200개 채팅방 story를 더해(측정용, 추적하지 않음) Desktop Chrome으로 연다. CPU 4배 throttle에서 입력창에 40자를 80ms 간격으로 치고, Event Timing API(`type: 'event'`, `durationThreshold: 16`)의 `keydown`·`input` entry 최대 `duration`을 끔·켬 5회씩 번갈아 잰다                                                                                  |
@@ -74,40 +75,44 @@ runtime과 local API로 재는 harness가 없어 Storybook 정적 build로 쟀�
 
 ## 5. 대안과 기각
 
-| 대안                                                                                 | 판단                                                                                                                                                                    |
-| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| annotation mode pilot 뒤 확대(#293 원문 순서)                                        | 기각. lint 위반 0건이고 Owner가 Web 전체 범위를 정해 단계가 필요 없다                                                                                                   |
-| production build만 켜기                                                              | 기각. Vitest·Storybook이 compile된 코드를 검사하지 못한다                                                                                                               |
-| test runner마다 option을 따로 쓰기                                                   | 기각. 값이 어긋날 수 있다. option 원본을 `apps/web/react-compiler.config.ts` 하나로 두고 Next·Vitest·Storybook이 import한다                                             |
-| Vitest에서 모든 파일을 compile하고 깨진 test를 고치거나 `"use no memo"`를 두기       | 기각. production이 compile하지 않는 파일을 compile하면 production에 없는 실패를 고치게 된다. compiler `sources` option으로 Next browser build와 같은 파일만 compile한다 |
-| Rust compiler(`oxc-transform-react`), Next `experimental.turbopackRustReactCompiler` | 기각. experimental이다                                                                                                                                                  |
-| 건너뛴 파일 모두 이 작업에서 고치기                                                  | 기각(Owner). 화면 코드가 넓게 바뀐다. 측정 대상인 채팅방만 고치고 나머지는 7절의 재측정 조건으로 둔다                                                                   |
-| 채팅방을 고치지 않고 설정만 merge                                                    | 기각(Owner). S4가 나아지지 않았다. 채팅방은 다시 만들 예정이라 동작을 바꾸지 않는 최소 수정만 했다                                                                      |
-| 새 dependency를 `pnpm-workspace.yaml` catalog에 두기                                 | 기각. 셋 다 `apps/web`만 쓰고, catalog에 `@babel/core`를 두면 보안 inventory test의 제거 selector 단언이 깨진다. `apps/web/package.json`에 정확한 버전으로 둔다         |
+| 대안                                                                                 | 판단                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| annotation mode pilot 뒤 확대(#293 원문 순서)                                        | 기각. lint 위반 0건이고 Owner가 Web 전체 범위를 정해 단계가 필요 없다                                                                                                                                                       |
+| production build만 켜기                                                              | 기각. Vitest·Storybook이 compile된 코드를 검사하지 못한다                                                                                                                                                                   |
+| test runner마다 option을 따로 쓰기                                                   | 기각. 값이 어긋날 수 있다. option 원본을 `apps/web/react-compiler.config.ts` 하나로 두고 Next·Vitest·Storybook이 import한다                                                                                                 |
+| Vitest에서 모든 파일을 compile하고 깨진 test를 고치거나 `"use no memo"`를 두기       | 기각. production이 compile하지 않는 파일을 compile하면 production에 없는 실패를 고치게 된다. compiler `sources` option으로 Next가 compile하지 않는 App Router server module과 test·story·fixture 코드를 뺀다(6절 범위 대조) |
+| Rust compiler(`oxc-transform-react`), Next `experimental.turbopackRustReactCompiler` | 기각. experimental이다                                                                                                                                                                                                      |
+| 건너뛴 파일 모두 이 작업에서 고치기                                                  | 기각(Owner). 화면 코드가 넓게 바뀐다. 측정 대상인 채팅방만 고치고 나머지는 7절의 재측정 조건으로 둔다                                                                                                                       |
+| 채팅방을 고치지 않고 설정만 merge                                                    | 기각(Owner). S4가 나아지지 않았다. 채팅방은 다시 만들 예정이라 동작을 바꾸지 않는 최소 수정만 했다                                                                                                                          |
+| 새 dependency를 `pnpm-workspace.yaml` catalog에 두기                                 | 기각. 셋 다 `apps/web`만 쓰고, catalog에 `@babel/core`를 두면 보안 inventory test의 제거 selector 단언이 깨진다. `apps/web/package.json`에 정확한 버전으로 둔다                                                             |
 
 ## 6. 개선별 전후 측정
 
 `6214a112`에서 compiler 끔 → 켬(채팅방 수정 포함):
 
-| 개선·비용         | 끔 → 켬                                                                                                                                              | 판정·확인                                                          |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| S1 build 시간     | 14.283·13.727·12.188초(중앙값 13.727) → 18.463·16.482·14.895초(중앙값 16.482), +20.1%                                                                | 중단 조건 25% 안                                                   |
-| S2 client JS      | 45개 667.6 KiB → 47개 769.9 KiB, +15.3%                                                                                                              | 중단 조건 20% 안                                                   |
-| compile 표식      | production browser 1 → 30개(47개 중), server 0 → 0. Storybook 1 → 40개(sentinel 1 → 500). Vitest transform 600개 중 0 → 297개(`.tsx` 318개 중 276개) | Next는 browser bundle에만 적용한다. Vitest·Storybook도 같은 범위다 |
-| S3 Landing LCP    | throttle 없음 Desktop 60 → 64ms, Pixel 5 60 → 56ms. CPU 4배 Desktop 188 → 164ms, Pixel 5 164 → 156ms                                                 | 악화 없음                                                          |
-| S4 채팅 입력 지연 | 최대 지연 중앙값 40 → 16ms(켬 5회 중 2회는 16ms 이상 entry 없음). entry 수 80 → 0~10                                                                 | 60% 개선                                                           |
-| S4 보조(JS 실행)  | 메시지 200개 817.6 → 28.4ms, 500개 1895.6 → 29.3ms(40자 입력 동안 `ScriptDuration` 증가 중앙값)                                                      | 메시지 수가 늘어도 켬은 거의 그대로다                              |
+| 개선·비용         | 끔 → 켬                                                                                                                                              | 판정·확인                                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| S1 build 시간     | 14.283·13.727·12.188초(중앙값 13.727) → 18.463·16.482·14.895초(중앙값 16.482), +20.1%                                                                | 중단 조건 25% 안                                                                                 |
+| S2 client JS      | 45개 667.6 KiB → 47개 769.9 KiB, +15.3%                                                                                                              | 중단 조건 20% 안                                                                                 |
+| compile 표식      | production browser 1 → 30개(47개 중), server 0 → 0. Storybook 1 → 40개(sentinel 1 → 500). Vitest transform 600개 중 0 → 297개(`.tsx` 318개 중 276개) | Next는 browser bundle에만 적용한다. Vitest·Storybook 켬 표식은 최종 범위 함수로 다시 세어 같았다 |
+| S3 Landing LCP    | throttle 없음 Desktop 60 → 64ms, Pixel 5 60 → 56ms. CPU 4배 Desktop 188 → 164ms, Pixel 5 164 → 156ms                                                 | 악화 없음                                                                                        |
+| S4 채팅 입력 지연 | 최대 지연 중앙값 40 → 16ms(켬 5회 중 2회는 16ms 이상 entry 없음). entry 수 80 → 0~10                                                                 | 60% 개선                                                                                         |
+| S4 보조(JS 실행)  | 메시지 200개 817.6 → 28.4ms, 500개 1895.6 → 29.3ms(40자 입력 동안 `ScriptDuration` 증가 중앙값)                                                      | 메시지 수가 늘어도 켬은 거의 그대로다                                                            |
+
+compile 범위 대조: `'use client'` module 120개에서 닿는 `.ts`·`.tsx` 파일 426개가 `sources` 504개 안에 모두 있다. Next가 compile하는데 `sources`가
+빼는 파일은 0개, `sources`만 compile하는 파일은 78개(`.tsx` 24개: server page가 그리는 Landing section과 법적 고지 layout 등)다.
+이 78개는 test·story에서만 compile되며 그 상태로 test가 모두 통과했다. 정적 import 대조라 Next가 실제로 만든 module 목록과 다를 수 있다.
 
 채팅방 수정 전(`850ea25c`·`b27c637f`) 비교: S1 +22.5%, S2 +15.2%, S3 악화 없음, S4는 끔 40ms·켬 40ms로 그대로였고 JS 실행 중앙값도 767 →
 765ms(200개), 1855 → 1870ms(500개)로 같았다. `ChatRoomView`가 compile을 건너뛰었기 때문이다. 수정은 두 가지다. 보내기·나가기의 `finally { setX(false) }`를
 `try`/`catch` 뒤 `setX(false)`로 옮기고, `try` 안의 `crypto.randomUUID` optional chaining을 module 함수로 뺐다. 동작은 보내기 성공·실패,
-나가기 실패 뒤 재시도, 새 메시지 rerender 때 입력 유지 test 4개가 수정 전후 모두 통과해 같다. 수정 뒤 `ChatRoomView`는 memo slot 79개로
+나가기 실패 뒤 재시도, 새 메시지 rerender 때 입력 유지, 요청 중 입력·버튼 비활성과 중복 클릭 무시 test 5개가 수정 전후 모두 통과해 같다. 수정 뒤 `ChatRoomView`는 memo slot 79개로
 compile된다.
 
 회귀 방지:
 
-- Vitest: 처음 모두 compile했을 때 8개 실패 → `sources` 범위 적용 뒤 223개 파일 1542개 모두 통과. 새 test는 `InlineTextEditor` 편집·취소·저장
-  1개와 채팅방 4개다.
+- Vitest: 처음 모두 compile했을 때 8개 실패 → `sources` 범위 적용 뒤 223개 파일 1543개 모두 통과. 새 test는 `InlineTextEditor` 편집·취소·저장
+  1개와 채팅방 5개다.
 - `"use no memo"`: 0개.
 - Storybook 렌더·axe 84개 통과(Linux 스크린샷 8개는 macOS에서 skip), Web Playwright 36개, local fullstack Playwright(local API·DB,
   `next dev`) 39개 통과, Web Docker image build 통과.
@@ -130,7 +135,7 @@ compile된다.
 
 - "React Compiler를 켜면서 무엇을 확인했나": lint 위반 0건은 compile 성공이 아니었다. 파일별 compile event로 건너뛴 함수를 찾았고,
   측정 대상 화면이 나아지지 않은 원인이 거기 있었다.
-- "test는 production과 같은 코드를 검사하나": option 원본 하나를 세 도구가 읽고, Next가 compile하는 파일만 test·story에서도 compile한다.
-  세 출력의 표식 수를 끔·켬으로 세어 확인했다.
+- "test는 production과 같은 코드를 검사하나": option 원본 하나를 세 도구가 읽는다. test·story의 compile 범위는 경로 근사라 Next가
+  compile하는 파일을 모두 포함하고 server 전용 component 일부를 더 compile한다. 세 출력의 표식 수와 정적 import 대조로 확인했다.
 - "효과가 없을 때 어떻게 했나": 채팅방 S4가 그대로라 merge 전에 멈추고 원인을 찾았다. 버릴 worktree에서 두 곳만 고쳐 효과를 잰 뒤 Owner가
   이 작업에 넣기로 정했다. 동작은 수정 전에 더한 test로 지켰다.

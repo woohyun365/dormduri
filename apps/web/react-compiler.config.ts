@@ -25,10 +25,13 @@ const harnessFile =
   /\/(?:__tests__|__stories__|__fixtures__|stories|test-support|test)\/|\.(?:test|spec|stories)\.[cm]?[jt]sx?$/u;
 const useClientDirective = /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*['"]use client['"]/u;
 
-// Next.js runs React Compiler only on the browser bundle (its loader skips the server layers and node_modules), so App
-// Router modules without 'use client' (server pages and layouts) are never compiled. Vitest and Storybook build every
-// file for one client environment, so they apply the same scope through the compiler `sources` option;
-// @rolldown/plugin-babel already skips node_modules.
+// Next.js runs React Compiler only on modules in the browser bundle (its loader skips the server layers and
+// node_modules). Vitest and Storybook build every file for one client environment and cannot see that module graph,
+// so the compiler `sources` option approximates it by path: App Router modules compile only with 'use client', and
+// other app modules compile unless they are test, story or fixture code. The approximation is wider than Next:
+// server-only components outside src/app (Landing sections that a server page renders, for example) compile in tests
+// and stories but not in production. A src/app module without 'use client' that a client module imports would be
+// compiled by Next but not here. @rolldown/plugin-babel already skips node_modules.
 export function isCompiledByNextBrowserBuild(filename: string): boolean {
   const path = (filename.split('?')[0] ?? filename).replaceAll('\\', '/');
   if (path.includes('/.storybook/')) return false;
