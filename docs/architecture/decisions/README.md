@@ -65,3 +65,4 @@
 | Layer 파일              | Pack layer                                                                  | 하위 layer 절                                                   |
 | ----------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | [FE 결정 기록](./fe.md) | [Domain/SWE/Web/FE](../../development/agent-workflows/domain/swe-web/fe.md) | `component-architecture`, `rendering-boundary`, `design-system` |
+| [BE 결정 기록](./be.md) | [Domain/SWE/Web/BE](../../development/agent-workflows/domain/swe-web/be.md) | `application-architecture`                                      |

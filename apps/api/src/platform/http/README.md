@@ -89,30 +89,56 @@ Nest adapter; health readiness and metrics response headers also use the adapter
 types rather than native request types. Error paths still use `originalUrl ?? url`; Retry-After keeps its existing coercion and extras
 precedence. Observability failures remain fail-open, while response write failures are not silently swallowed.
 
-`test/architecture/platform/http-transport-boundary.spec.ts` permits the production Express import only in `http-runtime.ts`,
-which owns Express trust-proxy and middleware registration (Helmet precedes optional non-cookie CORS). The following platform
-owners retain Node HTTP lifecycle semantics without importing the full Express Request/Response types:
+`test/architecture/platform/http-transport-boundary.spec.ts` permits the production `@nestjs/platform-node` import only in
+`http-adapter.ts` and rejects Express imports everywhere. `http-runtime.ts` registers the middleware (Helmet precedes optional
+non-cookie CORS) through the Nest application without an adapter import. The following platform owners retain Node HTTP
+lifecycle semantics without importing adapter Request/Response types:
 
 | Owner                                                  | Required boundary                                                                                     |
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
 | `observability/logging/request-context.middleware.ts`  | Node request headers, response setHeader and a no-arg next callback for request IDs/AsyncLocalStorage |
-| `observability/logging/request-logging.interceptor.ts` | RequestRouteShape + method, Node response statusCode and finish-only logging                          |
+| `observability/logging/request-logging.interceptor.ts` | Request method, route template from Nest path metadata, Node response statusCode, finish-only logging |
 | `observability/metrics/http-metrics.interceptor.ts`    | The same narrow request shape, Node response finish/close with exactly-once finalization              |
 
-Types reuse `node:http` members and the existing `RequestRouteShape`, not a shared transport facade. Listener registration and
-AsyncLocalStorage timing remain unchanged. Observable/controller completion is not response completion; Node finish is not proof
-of client receipt. A close-only response does not produce a completion log, while metrics still finalizes once with its current
-statusCode (a default 200 on abort does not prove client success). Express route shape and trust-proxy assumptions remain explicit;
-narrowing types is not full adapter portability or a zero-native-dependency claim.
+Types reuse `node:http` members, not a shared transport facade. Listener registration and AsyncLocalStorage timing remain
+unchanged. Observable/controller completion is not response completion; Node finish is not proof of client receipt. A
+close-only response does not produce a completion log, while metrics still finalizes once with its current statusCode (a
+default 200 on abort does not prove client success). Route templates and their guard-rejection path are described in
+`platform/observability/README.md`; narrowing types is not full adapter portability or a zero-native-dependency claim.
 
 The exception filter owns the JSON representation of the common error envelope. It explicitly sets `application/json` through
 the Nest adapter before replying, replacing any pre-set success or non-JSON media type without an adapter warning. Metrics sets
 its registry Content-Type only after successful collection; collection failures use the common JSON error response. Unknown
 failures remain 500 and explicit service-unavailable errors remain 503, with the existing Retry-After/envelope behavior.
-`http-response-boundary.spec.ts` exercises the real Nest/Express response, successful scrape, collection and pre-set-header errors,
+`http-response-boundary.spec.ts` exercises the real Nest/NodeAdapter response, successful scrape, collection and pre-set-header errors,
 metrics access rejection, request IDs, async context and event counts. Adjacent runtime/filter/interceptor tests cover ordering,
 coercion and completion paths. Response-write failures remain visible; already-sent/streaming recovery is not a new policy here.
 Remove/review native exceptions only with their owner and regression proof, not to obtain a zero-import count.
+
+## HTTP adapter
+
+`main.ts` creates the application with the NodeAdapter from `@nestjs/platform-node`, built only by `http-adapter.ts`
+(`createHttpAdapter`). Tests that need production adapter behavior use the same factory. The adapter options are:
+
+- `trustProxy`: `HTTP_TRUST_PROXY_HOPS` becomes a per-hop function that trusts that many proxies, and
+  `HTTP_TRUST_PROXY_CIDRS` passes its IP/CIDR list and the `loopback`, `linklocal` and `uniquelocal` presets as is. A bare
+  number would trust no proxy in this adapter, so the hop count must go through `toNodeTrustProxy`. `http-adapter.spec.ts`
+  checks `req.ip` and `req.protocol` against the values the earlier Express adapter derived from the same settings.
+- `maxParamLength`: `HTTP_MAX_PARAM_LENGTH` (16384, Node's default `maxHeaderSize`). Any parameter that fits in an accepted
+  request line reaches the route's Zod binding and keeps the 400 envelope instead of the adapter's default 414. A larger
+  request line is still answered by Node with 431 before the adapter, as before.
+
+Behavior that differs from the earlier Express adapter and is locked by `http-response-boundary.spec.ts`:
+
+- Path matching is case-sensitive; another case answers the common 404 envelope with `UNKNOWN_ROUTE`.
+- Error envelopes from the exception filter use `application/json` without a charset parameter. Successful JSON responses
+  keep `application/json; charset=utf-8`.
+- JSON and urlencoded bodies with `__proto__` or `constructor.prototype` keys answer the 400 envelope instead of reaching
+  the handler. Malformed JSON answers 400 and a body over the 100 KB default answers the 413 envelope.
+- Successful responses carry no `ETag`, so a conditional request gets 200 instead of 304. Query strings are parsed by
+  `fast-querystring` and give the same objects as the earlier `simple` parser.
+- The urlencoded body parser calls `qs.parse`. The workspace override `'@nestjs/platform-node>qs'` keeps it on a patched
+  qs line until a NodeAdapter release depends on one; the nested-body tests guard that override.
 
 HTTP ingress configuration owns trust-proxy and CORS. The direct API does not parse browser cookies or own cookie policy/settings;
 browser authentication cookies belong to the Web/BFF. Do not restore an unused cookie parser/config surface without a direct-API
@@ -135,5 +161,5 @@ git diff --check
 
 `trusted-proxy-peer.ts` owns Node-only canonical IP parsing and immutable explicit IP/CIDR matchers.
 It is not a general request facade or a TCP firewall. Chat consumes this stricter activation contract;
-HTTP-only Express hop/preset compatibility remains owned by `http.config.ts`. A trusted peer match
+HTTP-only hop/preset compatibility remains owned by `http.config.ts` and `http-adapter.ts`. A trusted peer match
 is meaningful only with separately verified ingress sanitation and network membership.
