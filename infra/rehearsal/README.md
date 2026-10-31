@@ -1,6 +1,7 @@
 # Local rehearsal Compose profiles
 
-이 디렉터리는 production 후보에 자동 합성되지 않는 local/constrained rehearsal 설정만 소유한다.
+이 디렉터리는 local/constrained rehearsal 설정을 소유한다. 예외는 `compose.web.yml` 하나다. 이 파일은 rehearsal profile과
+production-candidate profile `ingress-trust`에 함께 합성된다([`compose.web.yml`의 두 역할](#composewebyml의-두-역할)).
 
 OrbStack과 독립 Linux VM의 선택, profile별 자원 및 증거 경계는
 [Local environment selector](../runbooks/rehearsal/local-environments.md)를 먼저 확인한다.
@@ -11,16 +12,19 @@ Lightsail secret delivery의 AWS-account-free candidate/activation/rollback faul
 
 ## Profile composition
 
-| Profile                    | Compose order                                                      | Responsibility                                         |
-| -------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------ |
-| `api-base`                 | `infra/deploy/compose.api.yml`                                     | API/nginx production-neutral runtime candidate         |
-| `api-rehearsal`            | `api-base` → `compose.api.runtime.yml`                             | 제품 container resource budget와 observability network |
-| `api-stress`               | `api-rehearsal` → `apps/api/test/stress/docker/compose.stress.yml` | stress-only throttle와 proxy knobs                     |
-| `observability-base`       | `infra/observability/compose.base.yml`                             | private observability topology base                    |
-| `observability-rehearsal`  | `observability-base` → shared resources → rehearsal network        | constrained observability와 external local network     |
-| `web-rehearsal`            | 관측 stack → `compose.web.yml` → `compose.web.fixture.yml`         | Web/BFF standalone rehearsal + upstream fixture        |
-| `full-stack-api-rehearsal` | API base → resource budget → disposable PostgreSQL 18              | Full-stack API/nginx/DB rehearsal only                 |
-| `full-stack-web-rehearsal` | 관측 stack → shared resource budget → `compose.web.yml`            | 실제 API에 연결하며 fixture를 제외한 Web rehearsal     |
+| Profile                    | 분류                 | Compose order                                                             | Responsibility                                                                                                   |
+| -------------------------- | -------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `api-base`                 | production-candidate | `infra/deploy/compose.api.yml`                                            | API/nginx production-neutral runtime candidate                                                                   |
+| `api-rehearsal`            | rehearsal-only       | `api-base` → `compose.api.runtime.yml`                                    | 제품 container resource budget와 observability network                                                           |
+| `api-stress`               | stress-only          | `api-rehearsal` → `apps/api/test/stress/docker/compose.stress.yml`        | stress-only throttle와 proxy knobs                                                                               |
+| `api-stress-standalone`    | stress-only          | `api-base` → `apps/api/test/stress/docker/compose.stress.yml`             | 관측 stack과 resource budget 없이 실행하는 production-like stress smoke                                          |
+| `observability-base`       | runtime-base         | `infra/observability/compose.base.yml` → shared resources                 | private observability topology base                                                                              |
+| `observability-production` | production-candidate | `observability-base` → `infra/observability/compose.production.yml`       | Production 관측 stack 후보([production stack runbook](../runbooks/operations/observability/production-stack.md)) |
+| `observability-rehearsal`  | rehearsal-only       | `observability-base` → rehearsal network                                  | constrained observability와 external local network                                                               |
+| `web-rehearsal`            | rehearsal-only       | 관측 stack → `compose.web.yml` → `compose.web.fixture.yml`                | Web/BFF standalone rehearsal + upstream fixture                                                                  |
+| `full-stack-api-rehearsal` | rehearsal-only       | API base → resource budget → disposable PostgreSQL 18                     | Full-stack API/nginx/DB rehearsal only                                                                           |
+| `full-stack-web-rehearsal` | rehearsal-only       | 관측 stack → shared resource budget → `compose.web.yml`                   | 실제 API에 연결하며 fixture를 제외한 Web rehearsal                                                               |
+| `ingress-trust`            | production-candidate | `api-base` → `compose.web.yml` → `infra/deploy/compose.ingress-trust.yml` | Single public ingress forwarding trust 검증 대상                                                                 |
 
 `infra/compose-profiles.json`이 파일 순서의 source of truth다. 직접 `-f` 순서를 재작성하지 않고 다음 entry를 사용한다.
 
@@ -32,6 +36,21 @@ pnpm infra:compose -- observability-rehearsal config
 ```
 
 `up`은 profile이 요구하는 external network를 idempotent하게 생성한다. `down`은 Compose resource를 정리한 뒤 더 이상 연결된 container가 없는 managed network만 제거한다. Production/RDS endpoint를 생성·reset하지 않는다.
+
+### `compose.web.yml`의 두 역할
+
+`compose.web.yml`은 Web service 하나를 정의하고 두 곳에 쓰인다.
+
+- Rehearsal: `web-rehearsal`·`full-stack-web-rehearsal`이 관측 stack 뒤에 합성해 local Web/BFF standalone rehearsal을
+  돌린다. Local 가정(local image 이름, `web.local.invalid` origin, loopback publish, 관측 network)은 이 역할의 것이다.
+- Production candidate: `ingress-trust`가 `compose.api.yml` 다음에 이 Web service를 그대로 쓰고,
+  `infra/deploy/compose.ingress-trust.yml`이 port·network·environment를 reset/replace한다. 파일 순서는
+  [ingress-trust target](../deploy/README.md#renderer와-고정-compose-순서)이 고정하고 renderer와 test가 강제한다.
+
+Compose inventory 검사(`scripts/infra/check/inspect.mjs`)는 파일마다 처음 나온 profile의 분류를 쓰므로 이 파일은 rehearsal-only로 분류된다.
+`ingress-trust`는 forwarding trust 검증 대상이고, 지금 운영 중인 Web 단계 host의 compose가 아니다. 운영 Web 단계 배포
+구성은 [Production environment](../../docs/deploy/production-environment.md)가 설명하고 Web CD 작업이 저장소에 더한다. 그
+뒤 이 파일과 운영 compose의 역할 정리는 그 작업이 맡는다.
 
 ## 4GiB product + RDS-like local allowance rehearsal
 

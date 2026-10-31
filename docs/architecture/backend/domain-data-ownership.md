@@ -140,7 +140,7 @@ Owner-public 서비스로 얻는 DTO와 위 direct read를 혼동하지 않는�
 
 ## Runtime 밖의 caller
 
-- `apps/api/prisma/seed.ts`, `prisma/seeds/reference/`, seed fixture는 기준/개발 데이터 publication을 담당한다.
+- `apps/api/prisma/seed.js`, `prisma/seeds/reference/`, seed fixture는 기준/개발 데이터 publication을 담당한다.
   Runtime command의 authority가 아니며 fixture-only 접근을 production owner 규칙의 예외로 재사용하지 않는다.
 - `apps/api/test/`의 integration/stress fixture, `src/**/test-support/`, specs는 재현 환경의 setup/teardown이다.
   Production import를 허용하지 않는다. Generated Prisma/TypedSQL은 schema/SQL 산출물이지 업무 owner가 아니다.
