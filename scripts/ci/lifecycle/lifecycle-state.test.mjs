@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { assessPlanReadiness } from '../../agents/common/plan-readiness-policy.mjs';
 import { loadWorkspaceLayout } from '../../artifacts/workspace-layout.mjs';
 import { checkDocumentHeader } from './document-header.mjs';
-import { LifecycleInputError } from './policy-first-check.mjs';
+import { headerStatus, LifecycleInputError } from './policy-first-check.mjs';
 import { LIFECYCLE_CHECKS } from './run.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
@@ -63,6 +63,33 @@ const fixtureReader = (root) => ({
       if (error.code === 'ENOENT') return [];
       throw error;
     }
+  },
+});
+
+// The fixture reader with some files replaced or added (repository path → text).
+const overlayReader = (base, files) => ({
+  readFile: (path) => (path in files ? files[path] : base.readFile(path)),
+  listFiles: (directory) =>
+    [
+      ...new Set([
+        ...base.listFiles(directory),
+        ...Object.keys(files).filter((path) => path.startsWith(`${directory}/`)),
+      ]),
+    ].sort(),
+});
+const MAP_PATH = 'docs/product/artifact-map.json';
+const knuMap = () => JSON.parse(readFileSync(resolve(KNU_REPO, MAP_PATH), 'utf8'));
+// A tracking record item as the calculator input takes it.
+const recordItem = (id, mapping, status, sources = []) => ({
+  id,
+  path: MAP_PATH,
+  record: {
+    mapping,
+    sources,
+    confirmedBy:
+      status === 'owner-confirmed'
+        ? { status, date: '2026-10-01', basis: '#10' }
+        : { status, date: null, basis: null },
   },
 });
 
@@ -332,6 +359,71 @@ test('fixture 11 KNU 대응 기록은 architected이고 PRD 개요는 legacy다'
   const cli = runCli(['--repo', KNU_REPO]);
   assert.equal(cli.status, 0, cli.stderr);
   assert.deepEqual(JSON.parse(cli.stdout).project, result.project);
+
+  const collect = (files) =>
+    collectProjectInputs({
+      ...overlayReader(fixtureReader(KNU_REPO), files),
+      layout: loadWorkspaceLayout(),
+    });
+  // A tracking record that is not Owner-confirmed confirms nothing.
+  const draftMap = knuMap();
+  draftMap.confirmedBy = { status: 'draft', date: null, basis: null };
+  const draft = compute({
+    schema: 'lifecycle-state-input/v1',
+    artifacts: collect({ [MAP_PATH]: JSON.stringify(draftMap) }),
+  });
+  assert.equal(draft.project.state, 'discovery');
+  assert.equal(draft.project.failed[0].id, 'P-DIRECTION');
+  assert.deepEqual(draft.project.legacy, []);
+
+  // Key lines without a status line are no header (as headerStatus reads them): the record decides, and such a
+  // decision document is no L2 record.
+  const ownerOnly = '# 법적 근거\n\n**Owner**: legal\n\n본문\n';
+  assert.equal(headerStatus(ownerOnly), null);
+  const keysOnly = collect({
+    'docs/policies/legal-basis.md': ownerOnly,
+    'docs/architecture/decisions/be.md': '# BE 결정\n\n**Owner**: be\n\n본문\n',
+  });
+  assert.ok('record' in byId(keysOnly.policyDomains, 'policy:legal-basis')[0]);
+  assert.ok(!ids(keysOnly.l2).includes('l2:docs/architecture/decisions/be.md'));
+  assert.equal(
+    compute({ schema: 'lifecycle-state-input/v1', artifacts: keysOnly }).project.state,
+    'architected',
+  );
+
+  // Record sources outside the repository are an input error, never read.
+  for (const source of ['../outside.md', '/etc/hosts']) {
+    const outside = knuMap();
+    outside.artifacts.push({ artifact: `l2:${source}`, mapping: 'doc', sources: [source] });
+    assert.throws(() => collect({ [MAP_PATH]: JSON.stringify(outside) }), LifecycleInputError);
+  }
+});
+
+test('대응 기록 항목은 기록의 Owner 확인으로만 충족이고 not-applicable도 같다', async () => {
+  const { compute } = await calculator();
+  const legacy = (status) => {
+    const input = allPass();
+    input.artifacts.prdOverview = recordItem('prd-overview', 'legacy', status);
+    return compute(input);
+  };
+  const unconfirmed = legacy('draft');
+  assert.equal(unconfirmed.project.state, 'discovery');
+  assert.deepEqual(ids(unconfirmed.project.failed), ['P-DIRECTION']);
+  assert.deepEqual(unconfirmed.project.legacy, []);
+  const confirmed = legacy('owner-confirmed');
+  assert.equal(confirmed.project.state, 'architected');
+  assert.deepEqual(confirmed.project.failed, []);
+  assert.deepEqual(confirmed.project.legacy, ['prd-overview']);
+
+  const notApplicable = (status) => {
+    const input = allPass();
+    input.artifacts.policyDomains[1] = recordItem('policy:matching', 'not-applicable', status);
+    return compute(input);
+  };
+  const open = notApplicable('draft');
+  assert.equal(open.work.state, 'policy-ready');
+  assert.deepEqual(ids(open.work.failed), ['W-POLICY']);
+  assert.equal(notApplicable('owner-confirmed').work.state, 'evidenced');
 });
 
 // The decision record states as plan-readiness-policy.mjs declares them.
@@ -410,6 +502,18 @@ test('fixture 13 R-UPSTREAM은 확인일 비교로 W-READY·W-POLICY를 실패�
   assert.deepEqual(byId(policy.project.recheck, 'policy:matching'), [
     { id: 'policy:matching', upstream: ['prd-overview'] },
   ]);
+
+  // A record item is found by its sources: L1 kept in the tracking record and confirmed after the L2 decision that
+  // links it.
+  const recordL1 = allPass();
+  recordL1.artifacts.l1 = recordItem('l1', 'composite', 'owner-confirmed', [
+    'docs/architecture/README.md',
+  ]);
+  recordL1.artifacts.l1.record.confirmedBy.date = '2026-10-20';
+  assert.deepEqual(
+    byId(compute(recordL1).project.recheck, 'l2:docs/architecture/decisions/be.md'),
+    [{ id: 'l2:docs/architecture/decisions/be.md', upstream: ['l1'] }],
+  );
 
   // bugfix·hotfix·trivial do not compare dates; the project recheck list stays.
   const bugfix = compute({ ...stalePolicy, grade: 'bugfix', bugfixBasis: 'found' });
@@ -499,11 +603,27 @@ test('fixture 15 결과·입력 오류', async () => {
   assert.equal(grade, 'feature');
   assert.equal(compute(withoutGrade).grade.effective, 'feature');
 
-  const missing = runCli(['--repo', KNU_REPO, '--input', resolve(FIXTURES, 'no-such-input.json')]);
-  assert.equal(missing.status, 2);
-  assert.equal(missing.stdout, '');
-  assert.equal(missing.stderr.trim().split('\n').length, 1);
-  assert.match(missing.stderr, /no-such-input\.json/u);
+  // Parenthesised output labels are not checks and are not read; any other id outside `checks` is an input error.
+  const labelled = allPass();
+  labelled.policyFindings.push(
+    finding('(경로)', 'warn', '미분류 제품 경로: apps/x.ts'),
+    finding('(형식)', 'fail', '절 형식'),
+  );
+  assert.deepEqual(compute(labelled), compute(allPass()));
+  const typo = allPass();
+  typo.policyFindings.push(finding('W-SCOPES', 'fail', '오타'));
+  assert.throws(() => compute(typo), LifecycleInputError);
+
+  for (const args of [
+    ['--repo', KNU_REPO, '--input', resolve(FIXTURES, 'no-such-input.json')],
+    ['--repo', resolve(FIXTURES, 'no-such-repo')],
+  ]) {
+    const missing = runCli(args);
+    assert.equal(missing.status, 2, args.join(' '));
+    assert.equal(missing.stdout, '');
+    assert.equal(missing.stderr.trim().split('\n').length, 1);
+    assert.match(missing.stderr, /no-such-(input\.json|repo)/u);
+  }
 });
 
 // Input coverage: every guard and registered check row with the one input value that fails it, from the all-pass
@@ -535,6 +655,22 @@ const GUARD_ROWS = [
   ['W-REVIEW', (input) => (input.review.pass = false), 'work.failed'],
   ['W-MERGE', (input) => (input.merged = false), 'work.failed'],
   ['W-EVID', (input) => (input.evidenced = false), 'work.failed'],
+];
+// Further failing values of guards with more than one judgement input, with the reason they give.
+const MORE_GUARD_ROWS = [
+  [
+    'P-POLICY-SET',
+    (input) => (input.artifacts.policyDomains = null),
+    'project.failed',
+    '정책 도메인 목록 없음',
+  ],
+  [
+    'W-READY',
+    (input) => (input.plan.readinessPass = null),
+    'work.failed',
+    'readiness PASS 날짜 없음',
+  ],
+  ['W-REVIEW', (input) => (input.review.settled = false), 'work.failed', '리뷰 정산 없음'],
 ];
 const CHECK_ROWS = [
   ['W-SCOPE', 'policyFindings', 'fail', 'work.failed', 'W-SCOPE'],
@@ -576,6 +712,12 @@ test('fixture 16 판정 입력 전수: 한 입력만 실패 값이면 그 id가 
     const input = allPass();
     mutate(input);
     assert.equal(at(compute(input), where)[0]?.id, id, `guard ${id}`);
+  }
+  for (const [id, mutate, where, reason] of MORE_GUARD_ROWS) {
+    const input = allPass();
+    mutate(input);
+    const [first] = at(compute(input), where);
+    assert.deepEqual([first?.id, first?.reason], [id, reason], `guard ${id}`);
   }
   for (const [id, source, level, where, expected] of CHECK_ROWS) {
     const input = allPass();
