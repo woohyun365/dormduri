@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
-import { assertSourceManifest, sourceManifest } from './source-manifest.mjs';
+import {
+  assertSourceManifest,
+  contextExcludedPatterns,
+  sourceManifest,
+} from './source-manifest.mjs';
 import test from 'node:test';
 import { expectedReset } from './client.mjs';
 import {
@@ -192,15 +196,22 @@ test('image attribution drops local auth state and stress temp files but keeps t
   });
 });
 
-test('source manifest drops every .dockerignore exclusion under the fixture COPY roots', () => {
+// Top-level names the fixture Dockerfile copies from the repository root.
+const copyRoots = ['apps', 'packages', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'];
+
+test('source manifest mirrors every .dockerignore exclusion under the fixture COPY roots', () => {
   const lines = readFileSync(new URL('../../../../.dockerignore', import.meta.url), 'utf8')
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith('#') && !line.startsWith('!'));
+  // Docker ignores a leading "/" or "./" and a trailing "/" when it matches a line.
+  const patterns = lines.map((line) => line.replace(/^(?:\.?\/)+/u, '').replace(/\/$/u, ''));
+  for (const pattern of contextExcludedPatterns)
+    assert.ok(patterns.includes(pattern), `.dockerignore no longer excludes ${pattern}`);
   const checked = { anyDepth: 0, scoped: 0 };
   withSourceRoot((root, original) => {
-    for (const line of lines) {
-      const pattern = line.replace(/\/$/u, '');
+    for (const [index, pattern] of patterns.entries()) {
+      const line = lines[index];
       let path;
       if (pattern.startsWith('**/')) {
         path = `apps/web/src/${pattern.slice(3)}`;
@@ -208,7 +219,21 @@ test('source manifest drops every .dockerignore exclusion under the fixture COPY
       } else if (/^(?:apps\/(?:api|web)|packages)\//u.test(pattern)) {
         path = pattern;
         checked.scoped++;
-      } else continue;
+      } else {
+        // A line outside those two forms must not reach the COPY roots: this check cannot mirror it.
+        const first = pattern.split('/')[0];
+        assert.match(
+          first,
+          /^[\w.*-]+$/u,
+          `Unsupported .dockerignore syntax for this check: ${line}`,
+        );
+        const glob = new RegExp(`^${first.replaceAll('.', '\\.').replaceAll('*', '[^/]*')}$`, 'u');
+        assert.ok(
+          !copyRoots.some((name) => glob.test(name)),
+          `Unsupported .dockerignore form inside the fixture COPY roots: ${line}`,
+        );
+        continue;
+      }
       assert.match(
         path,
         /^[\w.*/-]+$/u,

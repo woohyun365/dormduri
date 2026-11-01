@@ -18,9 +18,18 @@ const generated = new Set([
   'test-results',
   'logs',
 ]);
-// Path-scoped .dockerignore rules inside the COPY roots; index.test.mjs checks every such rule.
-const contextExcluded =
-  /^(?:apps\/web\/playwright\/\.auth|apps\/api\/test\/stress\/(?:fixtures|reports)\/\.tmp-[^/]*)$/u;
+// Path-scoped .dockerignore lines inside the COPY roots, copied verbatim; index.test.mjs keeps the two lists in sync.
+export const contextExcludedPatterns = [
+  'apps/web/playwright/.auth',
+  'apps/api/test/stress/fixtures/.tmp-*',
+  'apps/api/test/stress/reports/.tmp-*',
+];
+const contextExcluded = new RegExp(
+  `^(?:${contextExcludedPatterns
+    .map((pattern) => pattern.replace(/[.+?^${}()|[\]\\]/gu, '\\$&').replaceAll('*', '[^/]*'))
+    .join('|')})$`,
+  'u',
+);
 export function sourceManifest(root, fixtureRoot = resolve(root, fixturePath)) {
   const files = {};
   const file = (absolute, name) => {
