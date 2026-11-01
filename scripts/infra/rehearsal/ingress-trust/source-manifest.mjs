@@ -18,6 +18,18 @@ const generated = new Set([
   'test-results',
   'logs',
 ]);
+// Path-scoped .dockerignore lines inside the COPY roots, copied verbatim; index.test.mjs keeps the two lists in sync.
+export const contextExcludedPatterns = [
+  'apps/web/playwright/.auth',
+  'apps/api/test/stress/fixtures/.tmp-*',
+  'apps/api/test/stress/reports/.tmp-*',
+];
+const contextExcluded = new RegExp(
+  `^(?:${contextExcludedPatterns
+    .map((pattern) => pattern.replace(/[.+?^${}()|[\]\\]/gu, '\\$&').replaceAll('*', '[^/]*'))
+    .join('|')})$`,
+  'u',
+);
 export function sourceManifest(root, fixtureRoot = resolve(root, fixturePath)) {
   const files = {};
   const file = (absolute, name) => {
@@ -25,14 +37,15 @@ export function sourceManifest(root, fixtureRoot = resolve(root, fixturePath)) {
   };
   const walk = (name) => {
     for (const entry of readdirSync(resolve(root, name), { withFileTypes: true })) {
+      const child = `${name}/${entry.name}`;
       if (
         generated.has(entry.name) ||
         entry.name.startsWith('.env') ||
         /(?:\.log|\.map|\.tsbuildinfo)$/u.test(entry.name) ||
-        entry.name === '.DS_Store'
+        entry.name === '.DS_Store' ||
+        contextExcluded.test(child)
       )
         continue;
-      const child = `${name}/${entry.name}`;
       if (entry.isDirectory()) walk(child);
       else if (entry.isFile()) file(resolve(root, child), child);
       else throw new Error(`Unsupported fixture source entry: ${child}`);

@@ -39,3 +39,11 @@ apps/api/test/stress/reports/.tmp-*
 infra/observability/.env.observability
 infra/observability/prometheus/secrets/*.local
 infra/observability/**/data
+# 로컬 인증 상태·pnpm store·비밀 후보(.gitignore 짝). apps/api·apps/web·packages 안에 걸리는 줄은 ingress-trust source manifest도 같게 뺀다.
+.pnpm-store
+apps/web/playwright/.auth
+apps/api/test/stress/fixtures/.tmp-*
+infra/observability/alertmanager/alertmanager.yml
+infra/observability/alertmanager/*.local.yml
+infra/observability/prometheus/secrets/*
+!infra/observability/prometheus/secrets/*.example
