@@ -211,7 +211,7 @@ Prettier처럼 repository 전체의 텍스트를 다시 쓰는 formatter는 일�
 2. Markdown처럼 rendered meaning이 바뀔 수 있는 입력 결함은 formatter migration 전에 별도 PR로 교정합니다.
 3. formatter write는 allowlist 밖 파일, generated code, migration, local artifact를 변경하면 실패시킵니다.
 4. TypeScript/TSX 변경은 AST parse/printer parity, typecheck, owner test와 production build로 semantic no-op을 검증합니다.
-5. dependency fingerprint가 바뀌면 이전 CI cohort를 닫고 새 measurement epoch를 엽니다.
+5. CI 성능 표본은 run head dependency fingerprint로 나뉘므로 formatter migration 전후 run을 같은 cohort로 비교하지 않습니다.
 
 Formatter migration은 ESLint rule 재설계나 unrelated dependency update의 운반 수단이 아닙니다. 호환성 교정, 버전 입력,
-결과 포맷 diff, CI measurement epoch를 각각 독립적으로 설명할 수 있어야 합니다.
+결과 포맷 diff, CI fingerprint cohort를 각각 독립적으로 설명할 수 있어야 합니다.

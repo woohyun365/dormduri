@@ -65,7 +65,7 @@ pnpm --dir apps/web ci:storybook:visual
 - Storybook static build(`storybook-static/`)를 `e2e/storybook/static-server.ts`(`node:http`)로 열고, `index.json`에서 `importPath`가 `./src/screens/`·`./src/styles/tokens/`인 story만 검사한다. 기존 story는 대상이 아니다. 대상 story는 meta `tags`에 `knu-layer`를 둬 새 layer 배경·글꼴에서 판정되게 하고, 없으면 검사가 실패한다.
 - story마다 page error·console error 0과, `document.fonts.ready` 뒤 `#storybook-root`의 axe(`wcag2a`·`wcag2aa`·`wcag21a`·`wcag21aa`·`wcag22aa`) 위반 0을 본다.
 - `visual` tag story는 Linux에서만 `toHaveScreenshot`(full page)으로 `e2e/storybook/stories.storybook.ts-snapshots/*-linux.png`와 비교한다. macOS 등에서는 렌더·axe만 돌고 스크린샷 test는 annotation과 함께 skip된다.
-- 기준 이미지는 CI runner와 같은 Linux(ubuntu 24.04 x86_64, `playwright install --with-deps chromium`)에서 만든다. 메인 checkout에 Linux `node_modules`를 설치하지 않고 저장소 밖 독립 clone과 container를 쓴다. 의도한 시각 변경은 같은 환경에서 `--update-snapshots`로 다시 만들어 함께 commit하고, 차이를 tolerance로 넓히지 않는다.
+- 기준 이미지는 CI runner와 같은 Linux(Web job `runs-on` label과 같은 Ubuntu x86_64, `playwright install --with-deps chromium`)에서 만든다. 메인 checkout에 Linux `node_modules`를 설치하지 않고 저장소 밖 독립 clone과 container를 쓴다. 의도한 시각 변경은 같은 환경에서 `--update-snapshots`로 다시 만들어 함께 commit하고, 차이를 tolerance로 넓히지 않는다.
 - Storybook의 `next/font/google`은 글꼴을 build에 포함하지 않고 실행 때 `fonts.gstatic.com`에서 받는다. 그래서 이 검사는 network가 필요하고, Google이 글꼴 CSS·파일을 바꾸면 source 변경 없이 스크린샷이 달라질 수 있다. 그때는 위 Linux 환경에서 기준을 다시 만들어 차이를 확인한 뒤 commit한다.
 - CI는 Storybook 변경(`.storybook`·story, `src/styles`·`src/screens`, token CSS를 import하는 `src/app/globals.css`와 `postcss.config.mjs`, 이 config와 `e2e/storybook`)에서 Web job의 Playwright 설치 뒤 `ci:storybook:visual`을 실행한다.
 

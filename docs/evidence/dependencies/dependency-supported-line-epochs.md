@@ -3,8 +3,8 @@
 > **Audience:** human-to-human portfolio, onboarding, and engineering discussion reference.
 > 이 문서는 dependency 규칙의 owner가 아닙니다. version-update owner와 catalog·lockfile 경계는
 > [Dependency automation architecture](../../architecture/platform/dependency-automation.md), 승인·PR 절차는
-> [Dependency update operations](../../development/github/dependency-updates.md)가 소유합니다. 각 epoch가 CI 측정 표본을 어떻게
-> 나누는지는 [Monorepo CI baseline](../ci/monorepo-ci-baseline.md#active-post-native-measurement-epoch)에 둡니다.
+> [Dependency update operations](../../development/github/dependency-updates.md)가 소유합니다. CI 측정 표본이 dependency
+> input으로 어떻게 나뉘는지는 [Monorepo CI baseline](../ci/monorepo-ci-baseline.md#run-head-dependency-fingerprint-cohort)에 둡니다.
 
 지원선 갱신과 보안 정합화를 dependency epoch 단위로 기록합니다. Epoch마다 함께 바꾼 package와 그 이유, 남긴 version과 그
 이유, 검증 경계를 적습니다. Epoch의 dependency input은 CI 측정 fingerprint를 바꾸므로, 서로 다른 epoch의 CI 표본은 한

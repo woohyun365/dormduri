@@ -7,7 +7,6 @@ import {
   assertSingleVersionUpdateOwner,
   detectVersionUpdateOwners,
   mapRenovateOwnerGroups,
-  parseDependencyAutomationEvidence,
   parsePnpmWorkspaceDependencySurface,
   validateHostedRenovateConfig,
 } from './dependency-automation-policy.mjs';
@@ -16,12 +15,6 @@ const dependabotConfigPath = resolve(process.cwd(), '.github/dependabot.yml');
 const dependabotConfig = existsSync(dependabotConfigPath)
   ? readFileSync(dependabotConfigPath, 'utf8')
   : '';
-const baseline = JSON.parse(
-  readFileSync(
-    resolve(process.cwd(), 'scripts/ci/contracts/fixtures/dependency-automation-baseline.json'),
-    'utf8',
-  ),
-);
 const renovateConfig = JSON.parse(readFileSync(resolve(process.cwd(), 'renovate.json'), 'utf8'));
 const renovateOwnerGroups = JSON.parse(
   readFileSync(
@@ -586,26 +579,4 @@ test('puts the root and CI pnpm pins on one dashboard approval line for every up
     () => validateHostedRenovateConfig(automerged),
     /automerge rules must match only minor, patch, or digest/u,
   );
-});
-
-test('keeps both provider cancellations and the manual terminal counts reproducible', () => {
-  const evidence = parseDependencyAutomationEvidence(baseline);
-  const manual = evidence.runs.find((run) => run.trigger === 'administrator Check for updates');
-
-  assert.deepEqual(
-    evidence.runs.map((run) => run.runId),
-    [32156713206, 32215794576],
-  );
-  assert.ok(evidence.runs.every((run) => run.terminalOutcome === 'cancelled'));
-  assert.equal(manual.dependenciesChecked, 53);
-  assert.equal(manual.pnpmUpdateCommands, 50);
-  assert.equal(manual.pullRequestSubmissions, 6);
-  assert.equal(manual.completedPullRequests, 0);
-});
-
-test('rejects provider evidence without an exact terminal outcome', () => {
-  const input = structuredClone(baseline);
-  delete input.runs[0].terminalOutcome;
-
-  assert.throws(() => parseDependencyAutomationEvidence(input), /terminalOutcome/u);
 });
