@@ -307,8 +307,8 @@ check로 사용한다.
   up-to-date, force push/deletion 차단.
 - `main-release-gate`: default `main`, PR 필수, conversation resolution, merge commit only, `CI summary`, force push/deletion
   차단.
-- Strict up-to-date는 `dev`에서만 켠다. `dev`는 Renovate 자동 merge와 사람 PR로 자주 움직이고(첫 승격 뒤 약 2.1일 동안
-  34번), PR CI가 검사한 base와 merge 시점의 `dev`가 달라지는 일이 잦다. Strict는 그런 PR의 merge를 막고 Update branch 뒤
+- Strict up-to-date는 `dev`에서만 켠다. `dev`는 Renovate 자동 merge와 사람 PR로 자주 움직이고(Renovate 자동 merge 설정을 `main`에
+  올린 뒤 약 2.1일 동안 34번), PR CI가 검사한 base와 merge 시점의 `dev`가 달라지는 일이 잦다. Strict는 그런 PR의 merge를 막고 Update branch 뒤
   `CI summary`를 다시 요구한다. 사람 PR의 추가 CI 수는 이전의 수동 확인 절차와 같다. 대안인 `dev` push CI는 merge 뒤에야 깨진
   조합을 알고 `dev`가 움직일 때마다 전체 CI가 돌아 쓰지 않는다. 근거와 수치는
   [`dev` up-to-date gate evidence](../../evidence/ci/dev-up-to-date-gate-evidence.md)가 소유한다. `main`은 `dev`→`main` 승격

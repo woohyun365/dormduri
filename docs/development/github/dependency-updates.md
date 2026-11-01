@@ -154,6 +154,7 @@ Renovate [SECURITY] PR은 direct dependency만 고치므로 transitive alert는 
   `mitigation`·`revisit`에 둔다.
 - 열린 alert가 없는 분류는 `staleClassifications`로 출력되고 실패가 아니다. Alert는 기본 branch 기준이므로, 승격 뒤 기본
   branch에서 닫힘을 확인한 다음 retained override·예외의 근거가 아닌 항목을 지운다.
+- 월 1회 점검 때 [날짜 snapshot 재확인](../../README.md#날짜-snapshot-재확인) 대상 문서의 마지막 확인일도 본다.
 
 ## 남은 Dependabot PR
 

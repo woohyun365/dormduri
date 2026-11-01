@@ -202,10 +202,8 @@ test('stops an expired-policy run before reading the billing token or calling Gi
   const expiresAt = new Date(`${policy.billingCredential.expiresOn}T00:00:00.000Z`);
   const dayAfter = new Date(expiresAt.getTime() + 24 * 60 * 60 * 1000);
 
-  assert.throws(
-    () => runAccountEvidence(options, { KNU_GITHUB_PLAN_READ_TOKEN: 'unused' }, dayAfter),
-    /credential-policy-expired/u,
-  );
+  // No token is given, so a missing or late expiry check fails with credential-missing instead of reaching the network.
+  assert.throws(() => runAccountEvidence(options, {}, dayAfter), /credential-policy-expired/u);
   assert.throws(() => runAccountEvidence(options, {}, expiresAt), /credential-missing/u);
 });
 

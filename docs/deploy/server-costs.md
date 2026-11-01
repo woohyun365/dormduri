@@ -60,6 +60,7 @@ PostgreSQL, API, BackOffice)의 planning budget은
 - 연 1회: 도메인 자동 갱신 청구를 확인합니다(Route 53 > Registered domains의 만료일).
 - Budgets 알림(실제 비용 50%·80%·100%, 예측 비용 100%)을 받으면 그 달 예상 금액과 서비스별 증가 항목을 바로 확인합니다.
 - 공식 단가가 바뀌거나 resource를 추가·삭제하면 이 표와 확인일을 고칩니다.
+- 월 1회 청구서를 확인할 때 [날짜 snapshot 재확인](../README.md#날짜-snapshot-재확인) 대상 문서의 마지막 확인일도 봅니다.
 - 확인하는 곳: Billing and Cost Management > Bills, Budgets
 
 ## 기록하지 않는 것

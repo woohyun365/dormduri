@@ -231,6 +231,9 @@ selected-repository credential을 설계합니다.
 
 ### Current account-security evidence
 
+아래 줄은 Owner가 GitHub UI에서 2026-08-27에 확인한 값입니다. Push protection은 2026-11-01 원격 조회로 다시 확인했습니다.
+Read-only API로 볼 수 없어 Owner가 다시 확인할 때만 고칩니다.
+
 - verified email 2개
 - passkey와 TOTP 각각 실제 로그인 검증 완료; GitHub Mobile 유지, SMS fallback 제거
 - recovery code는 owner-controlled local secure storage에 보관

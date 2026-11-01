@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
@@ -167,7 +167,32 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
   assert.match(remoteSettings, /delete_branch_on_merge=true/u);
   assert.match(remoteSettings, /Rulesets.*classic Branches/su);
   assert.match(remoteSettings, /Remote branch inventory.*`main`, `dev`/su);
-  assert.match(remoteSettings, /Environments.*0/su);
+  // The Environments row lists "<count>: `<name>`(...)", and every listed environment must be the one a workflow uses
+  // (expected state: only environments with a caller).
+  const environmentsRow = remoteSettings.match(
+    /^\| Environments +\| (\d+): (.+?) +\| `[A-Z_]+` +\|$/mu,
+  );
+  assert.ok(environmentsRow, 'Environments row must record "<count>: <names>" and a status');
+  const documentedEnvironments = [...environmentsRow[2].matchAll(/`([\w-]+)`\(/gu)].map(
+    (match) => match[1],
+  );
+  assert.equal(
+    documentedEnvironments.length,
+    Number(environmentsRow[1]),
+    'Environments count must match the listed names',
+  );
+  const workflowEnvironments = new Set(
+    readdirSync(resolve(repoRoot, '.github/workflows'))
+      .filter((name) => /\.ya?ml$/u.test(name))
+      .flatMap((name) =>
+        [
+          ...read(`.github/workflows/${name}`).matchAll(
+            /^\s+environment:[ \t]*(?:([\w-]+)|\n\s+name:[ \t]*([\w-]+))[ \t]*$/gmu,
+          ),
+        ].map((match) => match[1] ?? match[2]),
+      ),
+  );
+  assert.deepEqual([...workflowEnvironments].sort(), [...documentedEnvironments].sort());
   assert.match(remoteSettings, /CI summary.*GitHub Actions/su);
   assert.match(remoteSettings, /enabled=false.*paused=false/su);
   assert.match(remoteSettings, /\| Dependabot security updates\s+\| disabled/u);

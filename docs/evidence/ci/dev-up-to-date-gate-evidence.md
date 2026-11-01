@@ -6,8 +6,8 @@
 > 소유합니다.
 
 `dev-integration-gate` ruleset의 "Require branches to be up to date before merging"(strict)를 켠 결정의 기록입니다
-([#713](https://github.com/woohyun365/dormduri/issues/713)). 측정 구간은 첫 `dev`→`main` 승격 PR #737의 merge
-(2026-10-29T12:42:09Z)부터 #784의 merge(2026-10-31T15:25:37Z, `dcfa5d9c`)까지 약 2.1일입니다.
+([#713](https://github.com/woohyun365/dormduri/issues/713)). 측정 구간은 Renovate 자동 merge 설정(#733)을 기본 branch
+`main`에 올린 승격 PR #737의 merge(2026-10-29T12:42:09Z)부터 #784의 merge(2026-10-31T15:25:37Z, `dcfa5d9c`)까지 약 2.1일입니다.
 
 ## 1. 문제와 관측
 
@@ -15,18 +15,18 @@
 - `dev-integration-gate`는 `CI summary`를 요구했지만 strict가 꺼져 있어, PR head가 최신 `dev`보다 뒤처져도 merge할 수
   있었습니다. 그러면 squash merge가 만드는 `dev` tree(최신 `dev`와 PR 변경의 조합)는 어떤 CI도 검사하지 않은 상태로
   `dev`에 들어갑니다.
-- 첫 승격 뒤 Renovate가 security·patch·minor·digest PR을 스스로 merge하면서 `dev`가 자주 움직였습니다(3절).
+- 그 승격 뒤 Renovate가 security·patch·minor·digest PR을 스스로 merge하면서 `dev`가 자주 움직였습니다(3절).
 - 그동안은 사람이 merge 직전에 PR CI가 검사한 `dev`와 지금 `origin/dev`를 비교하는 수동 절차로 막았습니다. GitHub가
   강제하지 않아 그 절차를 모르는 PR이나 실수를 막지 못합니다.
 
 ## 2. 측정 방법과 재현 명령
 
-| 신호                  | 방법                                                                                                                                                                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev` 이동            | `gh pr list --repo woohyun365/dormduri --base dev --state merged --search "merged:2026-10-29T12:45:00Z..2026-10-31T15:26:00Z" --limit 100 --json number,author,mergedAt`. Author가 `app/renovate`인 PR은 사람이 merge했어도 bot PR로 셉니다 |
-| 사람 PR의 재검사      | 위 목록의 사람 PR마다 `gh run list --workflow ci.yml --event pull_request --branch <head branch> --json headSha`로 CI가 돈 서로 다른 head SHA 수를 셉니다. 다시 받은 횟수는 그 수에서 1을 뺀 값입니다                                       |
-| 뒤처진 채 merge한 PR  | merge 직전 수동 절차의 확인 기록(#713 댓글)                                                                                                                                                                                                 |
-| 전체 PR CI 한 번 비용 | Historical full PR p50의 분 올림 합 28분([Monorepo CI baseline](./monorepo-ci-baseline.md))                                                                                                                                                 |
+| 신호                  | 방법                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev` 이동            | `gh pr list --repo woohyun365/dormduri --base dev --state merged --search "merged:2026-10-29T12:45:00Z..2026-10-31T15:26:00Z" --limit 100 --json number,author,mergedAt`. Author가 `app/renovate`인 PR은 사람이 merge했어도 bot PR로 셉니다                                                                                                                                                                |
+| 사람 PR의 재검사      | 위 목록의 사람 PR마다 `gh run list --workflow ci.yml --event pull_request --branch <head branch> --json headSha`로 CI가 돈 서로 다른 head SHA를 찾습니다. 첫 head 뒤의 head마다 `dev`를 받은 것인지(PR commit 목록의 `dev` merge commit, rebase로 바뀐 base, Update branch 기록)와 #713 관측 댓글(merge 직전 수동 확인 기록)로 원인을 확인하고, `dev`를 받은 head만 셉니다. 리뷰 수정 push는 세지 않습니다 |
+| 뒤처진 채 merge한 PR  | merge 직전 수동 절차의 확인 기록(#713 댓글)                                                                                                                                                                                                                                                                                                                                                                |
+| 전체 PR CI 한 번 비용 | Historical full PR p50의 분 올림 합 28분([Monorepo CI baseline](./monorepo-ci-baseline.md))                                                                                                                                                                                                                                                                                                                |
 
 ## 3. Baseline
 
@@ -51,7 +51,7 @@ KST 날짜별 `dev` 이동:
 | #784 |         2 | CI 시작 35초 뒤와 다음 CI 시작 38초 뒤 bot merge(#751, #782), Update branch 두 번 |
 
 나머지 사람 PR 여섯(#760·#766·#769·#772·#774·#783)은 다시 받지 않았습니다. 사람 PR 11개 가운데 5개가 `dev`를 다시 받아 CI가
-6번 더 돌았고, 수동 절차를 지켜 뒤처진 채 merge한 사람 PR은 0개입니다. 첫 승격 전(2026-10-20~29)에는 사람 PR 24개 가운데 1개
+6번 더 돌았고, 수동 절차를 지켜 뒤처진 채 merge한 사람 PR은 0개입니다. 그 승격 전(2026-10-20~29)에는 사람 PR 24개 가운데 1개
 (#691)가 뒤처진 채 merge됐습니다.
 
 ## 4. 원인
@@ -89,8 +89,8 @@ Bot PR은 막히지 않습니다. Renovate의 `rebaseWhen=auto`는 자동 merge 
   전체 PR CI 한 번이 약 28분으로 과금됩니다.
 - Mend Renovate App이 ruleset을 읽을 수 있는지는 확인하지 못했습니다. 영향은 자동 merge가 아닌 Renovate PR의 rebase
   시점뿐입니다.
-- 재측정: strict를 켠 뒤 사람 PR 20개 또는 2주 가운데 먼저 오는 때에 Update branch 횟수와 추가 CI 횟수를 다시 셉니다. 같은 PR이
-  하루에 세 번 넘게 다시 받으면 그때 다시 판단합니다.
+- 재측정: strict를 켠 뒤 사람 PR 20개 또는 2주 가운데 먼저 오는 때에 Update branch 횟수와 추가 CI 횟수를 2절과 같은 방법(`dev`를
+  받은 head만)으로 다시 셉니다. 같은 PR이 하루에 세 번 넘게 다시 받으면 그때 다시 판단합니다.
 
 ## 8. Interview evidence map
 

@@ -4,7 +4,8 @@ GitHub repository setting은 tracked file과 별도의 control plane입니다. �
 확인 방법, dated actual state, blocker와 다음 owner를 기록합니다. Repository code 변경 완료를 remote enforcement 완료로
 간주하지 않습니다.
 
-- 마지막 확인일: 2026-11-01. Owner UI로만 볼 수 있는 행은 그 행에 적은 날짜가 확인일입니다.
+- 마지막 확인일: 2026-11-01. 행에 날짜를 적은 행(Owner UI로만 볼 수 있는 값, 이번 조회로 다시 읽지 못한 값)은 그 날짜가
+  확인일입니다.
 - 다시 볼 때: ruleset·Actions·security 설정을 바꿀 때, 저장소를 private으로 바꾸기 전([비공개 전환 전 확인](#비공개-전환-전-확인)),
   그리고 [날짜 snapshot 재확인](../../README.md#날짜-snapshot-재확인)의 월 1회 점검 때.
 
@@ -87,7 +88,7 @@ consumer가 확인된 경우에만 classic Branches 전환을 별도 migration�
 | Setting                     | Actual                                                                                                                                                                                                                                      | Status                 |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
 | Visibility                  | public. Release version부터 private으로 운영할 목표([#710](https://github.com/woohyun365/dormduri/issues/710))                                                                                                                              | `VERIFIED_REMOTE`      |
-| Plan                        | GitHub Pro(2026-08-27)                                                                                                                                                                                                                      | `VERIFIED_REMOTE`      |
+| Plan                        | GitHub Pro(2026-08-27). 2026-11-01에는 operator token의 `user` 응답에 plan이 없어 다시 읽지 못함                                                                                                                                            | `VERIFIED_REMOTE`      |
 | Default branch              | `main`                                                                                                                                                                                                                                      | `VERIFIED_REMOTE`      |
 | Repository features         | Issues on; Wiki, Projects, Discussions, template off                                                                                                                                                                                        | `VERIFIED_REMOTE`      |
 | Merge methods               | merge commit + squash enabled, rebase off; PR title + PR body; auto-merge off; `allow_update_branch=false`                                                                                                                                  | `VERIFIED_REMOTE`      |
@@ -106,7 +107,7 @@ consumer가 확인된 경우에만 classic Branches 전환을 별도 migration�
 | Workflow token              | `default_workflow_permissions=read`, PR approval off                                                                                                                                                                                        | `VERIFIED_REMOTE`      |
 | Fork PR workflow            | public approval policy `all_external_contributors`; private 전용 설정 endpoint는 public에서 `422`                                                                                                                                           | `VERIFIED_REMOTE`      |
 | Artifact/log retention      | 7 days(`maximum_allowed_days` 90)                                                                                                                                                                                                           | `VERIFIED_REMOTE`      |
-| Actions cache policy        | 7일 미접근 삭제 / 10GiB eviction; API 약 10.33GiB, 50 entries                                                                                                                                                                               | `VERIFIED_REMOTE`      |
+| Actions cache policy        | 7일 미접근 삭제 / 10GiB eviction; API 약 10.33GiB, 50 entries. 기대 상태(10GB 이내) 초과, 재검토 [#795](https://github.com/woohyun365/dormduri/issues/795)                                                                                  | `PENDING_OWNER_ACTION` |
 | Actions artifacts           | 328 active, 약 439MiB; retention 7 days                                                                                                                                                                                                     | `VERIFIED_REMOTE`      |
 | Effective shared storage    | owner Billing UI와 Packages billing contract 기준 Pro shared storage 2GB(2026-08-27)                                                                                                                                                        | `VERIFIED_OWNER_UI`    |
 | GitHub Packages             | owner UI에서 package 0개 확인(2026-08-27); 별도 Packages credential 없음                                                                                                                                                                    | `VERIFIED_OWNER_UI`    |
@@ -123,8 +124,9 @@ consumer가 확인된 경우에만 classic Branches 전환을 별도 migration�
 
 현재 cache는 50개 entry / 약 10.33GiB로 10GiB eviction 경계를 넘었고, GitHub가 마지막 접근이 오래된 entry부터 지우는
 중입니다. pnpm store family는 20개 / 약 6.40GiB, Next family는 15개 / 약 3.93GiB, Web `tsc` family는 15개 / 0.01GiB 미만입니다.
-80%부터 key 폭증과 eviction thrash를 검토하는 기준을 넘었으므로 검토는
-[Monorepo CI architecture의 재검토 trigger](../../architecture/platform/monorepo-ci.md#verification과-revisit-trigger)가 맡습니다.
+80%부터 key 폭증과 eviction thrash를 검토하는
+[Monorepo CI architecture의 재검토 trigger](../../architecture/platform/monorepo-ci.md#verification과-revisit-trigger)를 넘었고,
+family별 key와 저장 범위는 [#795](https://github.com/woohyun365/dormduri/issues/795)가 다시 정합니다.
 Active artifact는 328개 / 약 439MiB이고 artifact/log retention은 7일입니다. Owner Billing UI와 Packages billing contract가 제시하는 Pro shared storage
 2GB를 effective account boundary로 사용합니다. Actions 문서의 Pro artifact 1GB 표기는 provider 문서 간 차이로 별도
 reference를 보존하되, account allowance를 1GB로 축소하지 않습니다. 어느 경우에도 artifact/Packages shared storage와 별도
@@ -155,14 +157,32 @@ gh api "repos/$REPO/code-scanning/default-setup"
 gh api "repos/$REPO/code-scanning/analyses?per_page=100" --jq '[.[].ref] | group_by(.) | map({ref: .[0], count: length})'
 gh api "repos/$REPO/actions/cache/usage"
 gh api --paginate "repos/$REPO/actions/artifacts?per_page=100"
+gh api "repos/$REPO/actions/permissions/selected-actions"
+for kind in code-scanning dependabot secret-scanning; do
+  gh api "repos/$REPO/$kind/alerts?state=open&per_page=100" --jq length
+done
 gh api "repos/$REPO/environments"
+for env in $(gh api "repos/$REPO/environments" --jq '.environments[].name'); do
+  gh api "repos/$REPO/environments/$env" \
+    --jq '{name,can_admins_bypass,protection_rules:[.protection_rules[] | {type, reviewers: (.reviewers // [] | length)}],deployment_branch_policy}'
+  gh api "repos/$REPO/environments/$env/deployment-branch-policies" --jq '[.branch_policies[].name]'
+  gh api "repos/$REPO/environments/$env/secrets" --jq .total_count
+  gh api "repos/$REPO/environments/$env/variables" --jq .total_count
+done
+for path in actions/secrets actions/variables dependabot/secrets codespaces/secrets; do
+  gh api "repos/$REPO/$path" --jq .total_count
+done
 gh api "repos/$REPO/hooks"
 gh api "repos/$REPO/keys"
+gh api "repos/$REPO/pages"
+gh api "repos/$REPO/branches?per_page=100" --jq '.[] | {name, protected}'
+gh pr list --repo "$REPO" --state open --json number,headRefName
 ```
 
 - response header의 token, credential, 개인 식별 정보는 evidence에 복사하지 않습니다.
 - `403`은 기능 미구현으로 단정하지 않고 token/account-tier/endpoint authority를 구분합니다.
-- `404`는 endpoint 의미를 확인합니다. Vulnerability alerts endpoint에서는 disabled 상태를 의미할 수 있습니다.
+- `404`는 endpoint 의미를 확인합니다. Vulnerability alerts endpoint에서는 disabled 상태를, Pages endpoint에서는 Pages가 없음을
+  의미할 수 있습니다.
 - `fork-pr-contributor-approval`은 public 저장소의 fork PR 승인 정책입니다. Private 저장소의 fork PR 설정은
   `repos/$REPO/actions/permissions/fork-pr-workflows-private-repos`가 읽고 public 저장소에서는 `422`를 돌려주므로 private 전환
   뒤에 씁니다.
