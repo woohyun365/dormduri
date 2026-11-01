@@ -6,16 +6,13 @@
 // denied when they target an accepted or released child, or a reviewer child (a root allow sealed a review registration
 // for it) running or not. The allow record binds the task name to its role and model and
 // seals the registration; SubagentStart/SubagentStop record the child identity, model, task path and own-turn effort
-// that completion checks compare with that bind. While a writer lane the root spawned is neither accepted nor released,
-// a root apply_patch that writes a tracked or unignored path is denied (Parent write guard); a guard that cannot decide
-// lets the edit through and records the error. Records go to `.codex/state/knu-subagent-hooks/<parent session>.jsonl`,
-// which workspace-write children cannot write; a child can edit a registration, but the fields the task name spells
+// that completion checks compare with that bind. Records go to `.codex/state/knu-subagent-hooks/<parent session>.jsonl`,
+// which read-only children cannot write; a child can edit a registration, but the fields the task name spells
 // must spell it and the seal keeps what the guard compared. Imports stay inside `node:` so no child-editable module
 // decides a result.
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, mkdirSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const HOOK_RECORD_SCHEMA = 'knu-codex-subagent-hook/v1';
@@ -26,18 +23,13 @@ export const REGISTRY_DIRECTORY = '.artifacts/tools/codex-native';
 const REGISTRATION_SCHEMA = 'knu-codex-task-registration/v1';
 const ACCEPTANCE_SCHEMA = 'knu-codex-task-acceptance/v1';
 const RELEASE_SCHEMA = 'knu-codex-task-release/v1';
-const PATCH_TOOL = 'apply_patch';
-// apply_patch file headers, indented or not; a move writes its destination as well as its source. A line that starts
-// like a file header but has no readable path is a target the guard cannot name.
-const PATCH_TARGET = /^\s*\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$/u;
-const PATCH_HEADER = /^\s*\*\*\*\s*(?:Add|Update|Delete|Move)\b/u;
 const TASK_NAME = /^[a-z0-9_]{1,128}$/u;
 const DISPATCH_TOKEN = /^[a-z0-9]{4,12}$/u;
 const LANE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const ROOT_PATH = '/root/';
 const SPAWN_FIELDS = ['task_name', 'agent_type', 'model', 'reasoning_effort', 'fork_turns'];
 const POLICY_PATH = '.codex/hooks/knu-hook-policy.json';
-const POLICY_SCHEMA = 'knu-codex-hook-policy/v3';
+const POLICY_SCHEMA = 'knu-codex-hook-policy/v4';
 // Codex joins the V2 tool namespace to the name without a separator (`collaborationspawn_agent`).
 const GUARDED_TOOL = /^(.*?)(spawn_agent|followup_task|send_message)$/u;
 const SESSION_ID = /^[A-Za-z0-9-]{1,128}$/u;
@@ -50,12 +42,10 @@ const INPUT_FIELDS = [
   'target',
 ];
 
-// registry = { read(taskName), used(taskName), settled(target), released(target), review(target), writers(roles) } over
-// the Parent session's registration directory and hook records; workspace = { classify(targets, cwd) } for apply_patch
-// targets.
-export function decideToolUse(payload, policy, registry, workspace) {
+// registry = { read(taskName), used(taskName), settled(target), released(target), review(target) } over the Parent
+// session's registration directory and hook records.
+export function decideToolUse(payload, policy, registry) {
   const name = typeof payload?.tool_name === 'string' ? payload.tool_name : '';
-  if (name === PATCH_TOOL) return decideParentWrite(payload, policy, registry, workspace);
   const match = GUARDED_TOOL.exec(name);
   if (!match) return { action: 'ignore' };
   const [, namespace, tool] = match;
@@ -102,35 +92,6 @@ export function decideToolUse(payload, policy, registry, workspace) {
   )
     return decided('deny', 'lane-accepted');
   return { ...decided('allow'), registration: { digest: found.digest, ...sealed } };
-}
-
-// A child writes its own lane, and with no writer open the Parent writes freely: neither is guarded or recorded.
-function decideParentWrite(payload, policy, registry, workspace) {
-  if (typeof payload.agent_id === 'string') return { action: 'ignore' };
-  const writers = registry?.writers?.(policy.writerRoles) ?? [];
-  if (writers.length === 0) return { action: 'ignore' };
-  const decided = (action, reason, paths) => ({
-    action,
-    tool: PATCH_TOOL,
-    caller: 'root',
-    ...(reason ? { reason } : {}),
-    write: { writers, paths },
-  });
-  const { targets, unread } = patchTargets(payload.tool_input?.command);
-  // apply_patch refuses a patch without a file header itself.
-  if (targets.length === 0) return decided('record', 'write-target-unknown', []);
-  const paths = workspace.classify(targets, payload.cwd);
-  if (paths.some(({ verdict }) => verdict === 'guarded'))
-    return decided('deny', 'parent-write-during-writer', paths);
-  return decided('record', unread ? 'write-target-unknown' : null, paths);
-}
-
-function patchTargets(patch) {
-  if (typeof patch !== 'string') return { targets: [], unread: false };
-  const lines = patch.split(/\r?\n/u);
-  const targets = lines.flatMap((line) => PATCH_TARGET.exec(line)?.slice(1, 2) ?? []);
-  const headers = lines.filter((line) => PATCH_HEADER.test(line)).length;
-  return { targets, unread: headers > targets.length };
 }
 
 function validRegistration(registration, sessionId, taskName) {
@@ -195,7 +156,7 @@ function boundedFork(value) {
   return value === 'none';
 }
 
-export function buildHookRecord(payload, { policy, registry, workspace, now, ...provenance } = {}) {
+export function buildHookRecord(payload, { policy, registry, now, ...provenance } = {}) {
   const event = payload?.hook_event_name;
   const base = {
     schema: HOOK_RECORD_SCHEMA,
@@ -206,7 +167,7 @@ export function buildHookRecord(payload, { policy, registry, workspace, now, ...
     ...provenance,
   };
   if (event === 'PreToolUse') {
-    const decision = decideToolUse(payload, policy, registry, workspace);
+    const decision = decideToolUse(payload, policy, registry);
     if (decision.action === 'ignore') return null;
     return {
       ...base,
@@ -216,10 +177,7 @@ export function buildHookRecord(payload, { policy, registry, workspace, now, ...
       ...(decision.caller === 'child' ? { agentId: payload.agent_id } : {}),
       decision: decision.action,
       ...(decision.reason ? { reason: decision.reason } : {}),
-      // A write record keeps repository paths and the open writers, never the patch text.
-      ...(decision.write
-        ? { write: decision.write }
-        : { input: summarizeInput(payload.tool_input) }),
+      input: summarizeInput(payload.tool_input),
       ...(decision.registration ? { registration: decision.registration } : {}),
     };
   }
@@ -290,7 +248,6 @@ export function runHook({ payload, root, now }) {
   const record = buildHookRecord(payload, {
     policy,
     registry: fileRegistry(root, payload?.session_id),
-    workspace: gitWorkspace(root),
     now,
     policyDigest: digest(policyText),
     scriptDigest: digest(readFileSync(fileURLToPath(import.meta.url))),
@@ -394,63 +351,7 @@ function fileRegistry(root, sessionId) {
         )
       );
     },
-    // Writer tasks the root spawned (the sealed role is a writer role) that are neither accepted nor released.
-    writers(roles) {
-      // A torn line may be the allow record of an open writer, so the guard cannot decide.
-      if (records().some((record) => record === undefined))
-        throw new Error('hook record file has malformed lines');
-      const names = rootAllows()
-        .filter((record) => roles.includes(record.registration?.spawnArguments?.agent_type))
-        .map((record) => record.input.task_name);
-      return [...new Set(names)].filter((name) => !settled(name) && !released(name));
-    },
   };
-}
-
-// Classifies apply_patch targets against the checkout: outside the repository, ignored by git (`git check-ignore`
-// treats tracked files as not ignored), or guarded. Real paths follow links, so a link in an ignored directory to a
-// tracked file is guarded; a git failure throws and the guard lets the edit through.
-function gitWorkspace(root) {
-  return {
-    classify(targets, cwd) {
-      const top = realpathSync.native(root);
-      const located = targets.map((target) => {
-        const path = relative(
-          top,
-          realTarget(resolve(typeof cwd === 'string' ? cwd : root, target)),
-        );
-        return path === '..' || path.startsWith(`..${sep}`) || isAbsolute(path)
-          ? { path: null, verdict: 'outside' }
-          : { path: path.split(sep).join('/'), verdict: 'guarded' };
-      });
-      const inside = located.filter(({ verdict }) => verdict === 'guarded').map(({ path }) => path);
-      if (inside.length === 0) return located;
-      const result = spawnSync('git', ['-C', top, 'check-ignore', '-z', '--stdin'], {
-        input: `${inside.join('\0')}\0`,
-        encoding: 'utf8',
-      });
-      // Exit 0 lists ignored paths, 1 means none is ignored; anything else is a failure.
-      if (result.status !== 0 && result.status !== 1)
-        throw new Error(`git check-ignore failed (${result.status ?? result.error?.code})`);
-      const ignored = new Set(result.stdout.split('\0').filter(Boolean));
-      return located.map((entry) =>
-        entry.verdict === 'guarded' && ignored.has(entry.path)
-          ? { ...entry, verdict: 'ignored' }
-          : entry,
-      );
-    },
-  };
-}
-
-// The real path of the nearest existing ancestor, joined with the part that does not exist yet.
-function realTarget(path) {
-  try {
-    return realpathSync.native(path);
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-    const parent = dirname(path);
-    return parent === path ? path : join(realTarget(parent), basename(path));
-  }
 }
 
 function parsePolicy(text) {
@@ -462,8 +363,6 @@ function parsePolicy(text) {
     policy?.schema !== POLICY_SCHEMA ||
     !strings(policy.allowedModels) ||
     !strings(policy.roster) ||
-    !strings(policy.writerRoles) ||
-    !policy.writerRoles.every((role) => policy.roster.includes(role)) ||
     pairs === null ||
     typeof pairs !== 'object' ||
     Array.isArray(pairs) ||
@@ -485,10 +384,7 @@ function appendRecord(root, record) {
 }
 
 function hookOutput(event, record) {
-  if (event === 'PreToolUse' && record?.decision === 'deny')
-    return record.toolName === PATCH_TOOL
-      ? writeDenyOutput(record.write)
-      : denyOutput(record.reason);
+  if (event === 'PreToolUse' && record?.decision === 'deny') return denyOutput(record.reason);
   // SubagentStop requires JSON on stdout after exit 0; other events print nothing.
   return event === 'SubagentStop' ? '{}' : '';
 }
@@ -499,16 +395,6 @@ function denyOutput(reason) {
       'explicit model that the role has a profile pair for, and fork_turns "none"; children may not spawn, an ' +
       'accepted or released child is not resumed or retried, and a reviewer child takes no follow-up or message ' +
       '(ask in a new review round).',
-  );
-}
-
-function writeDenyOutput({ writers, paths }) {
-  const guarded = paths.filter(({ verdict }) => verdict === 'guarded').map(({ path }) => path);
-  return decisionOutput(
-    `KNU parent write guard: parent-write-during-writer. Writer task ${writers.join(', ')} is open, so the Parent ` +
-      `may not apply_patch tracked or unignored paths (${guarded.join(', ')}). Settle it first (codex:completion, ` +
-      `independent QA, codex:accept), or after the child ended run codex:release --task ${writers[0]} --ended. ` +
-      'Ignored paths (.artifacts/, .plans/) and paths outside the repository stay writable.',
   );
 }
 
@@ -531,28 +417,7 @@ function main() {
     stdout = runHook({ payload, root }).stdout;
   } catch (error) {
     const event = payload?.hook_event_name;
-    if (event === 'PreToolUse' && payload?.tool_name === PATCH_TOOL) {
-      // A Parent write guard that cannot decide lets the edit through and records why, if it can.
-      stdout = '';
-      try {
-        appendRecord(root, {
-          schema: HOOK_RECORD_SCHEMA,
-          event,
-          at: new Date().toISOString(),
-          sessionId: payload.session_id ?? null,
-          turnId: payload.turn_id ?? null,
-          toolName: PATCH_TOOL,
-          toolUseId: payload.tool_use_id ?? null,
-          caller: typeof payload.agent_id === 'string' ? 'child' : 'root',
-          decision: 'record',
-          reason: 'guard-error',
-          error: error.message,
-          pid: process.pid,
-        });
-      } catch {
-        // The record directory itself failed; the edit still goes through.
-      }
-    } else if (
+    if (
       // A spawn guard that cannot decide denies the spawn rather than failing open.
       event === 'PreToolUse' &&
       decideToolUse(payload, { roster: [], allowedModels: [], allowedRoleModels: {} }).tool ===

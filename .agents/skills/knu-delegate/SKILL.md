@@ -1,11 +1,12 @@
 ---
 name: knu-delegate
-description: 이 저장소에서 Codex Parent가 bounded 작업을 KNU 역할(knu_explorer·knu_researcher·knu_executor 계열)에 위임할 때 spec에서 dispatch를 만들고 등록해 spawn하는 절차입니다. Child 역할에서는 쓰지 않습니다.
+description: 이 저장소에서 Codex Parent가 bounded 읽기 작업을 KNU 역할(knu_explorer·knu_researcher 계열)에 위임할 때 spec에서 dispatch를 만들고 등록해 spawn하는 절차입니다. 구현은 위임하지 않습니다. Child 역할에서는 쓰지 않습니다.
 ---
 
 # KNU 위임
 
-작은 작업이나 shell로 충분한 작업은 Parent가 직접 합니다. 위임 판단과 model 선택 규칙의 원본은
+작은 작업이나 shell로 충분한 작업은 Parent가 직접 합니다. 구현·디버깅·test(`implementation`·`debugging`·`test`)는 child에
+위임하지 않고 Parent가 직접 하며, 그런 lane은 routing이 `lead-task-kind`로 보류합니다. 위임 판단과 model 선택 규칙의 원본은
 [Routine task-model operation](../../../docs/development/agent-workflows/adapters/codex.md#routine-task-model-operation)과
 [Model recommendation](../../../docs/development/agent-workflows/adapters/codex-delegation.md#model-recommendation)입니다.
 
@@ -17,25 +18,24 @@ description: 이 저장소에서 Codex Parent가 bounded 작업을 KNU 역할(kn
 
 ```json
 {
-  "request": "법적 근거 test를 추가해줘.",
+  "request": "법적 근거 owner를 분석해줘.",
   "mode": "fresh",
   "repositoryEvidence": [{ "path": "docs/policies/legal-basis.md", "kind": "policy" }],
   "dispatchToken": "<4-12자 소문자·숫자, dispatch마다 새로>",
   "lanes": [
     {
-      "id": "legal-test",
+      "id": "legal-read",
       "domain": "legal-policy",
-      "taskKind": "implementation",
+      "taskKind": "lookup",
       "priority": "medium",
       "impactRisk": "low",
       "objective": "…",
       "question": "…",
-      "allowedEvidence": ["repo", "test"],
-      "allowedTools": ["repository-read", "workspace-edit", "test-runner"],
+      "allowedEvidence": ["repo"],
+      "allowedTools": ["repository-read"],
       "readScope": ["docs/policies"],
-      "writeOwnership": ["apps/web/src/legal/example.test.ts"],
       "dependencies": [],
-      "expectedOutputFields": ["changedFiles", "behavior"],
+      "expectedOutputFields": ["owner", "evidence"],
       "verification": ["…"],
       "benefit": { "kind": "latency", "rationale": "…" },
       "delivery": {
@@ -64,8 +64,8 @@ description: 이 저장소에서 Codex Parent가 bounded 작업을 KNU 역할(kn
   `test`·`external-source` 중 하나입니다(`scripts/agents/common/domain-guide-registry.mjs`).
 - `sources[].path`는 `repositoryEvidence`가 context pack에 넣은 경로여야 합니다. Digest는 CLI가 현재 파일 bytes로 계산합니다.
 - `facts[].sources`와 `claims[].facts`는 같은 lane 안의 index입니다.
-- `verifies`는 그 fact가 확인하는 검증 key입니다. 읽기는 `acceptance`·`independentCheck`, 구현은 `acceptance`·`regression`·
-  `astraQa`, 고정 입력 추출은 여기에 `fixedInput`·`outputSchema`·`singleStep`을 더합니다. 실제 source 근거가 있는 fact에만 붙입니다.
+- `verifies`는 그 fact가 확인하는 검증 key입니다. 읽기는 `acceptance`·`independentCheck`, 고정 입력 추출은 여기에
+  `fixedInput`·`outputSchema`·`singleStep`을 더합니다. 실제 source 근거가 있는 fact에만 붙입니다.
 - `claims`는 [Reasoning effort routing](../../../docs/development/agent-workflows/adapters/codex.md#reasoning-effort-routing)의
   계층 판정을 predicate로 적습니다. Medium은 `M-01`부터 `M-15`까지 모두 confirmed로 적을 때만 성립합니다. XHigh로 올리는
   mandatory signal은 `X-01`부터 `X-10`까지와 직접 XHigh domain predicate(`BE-01-concurrency-transaction` 등, `routing-policy.mjs`의
@@ -86,6 +86,6 @@ description: 이 저장소에서 Codex Parent가 bounded 작업을 KNU 역할(kn
 3. 출력의 `spawnArguments`를 바꾸지 않고 spawn 도구에 그대로 넘깁니다. 메시지에는 delegation 파일의 그 dispatch `contract`
    (objective, 범위, acceptance, stop·handoff 조건)를 담습니다. 등록이 없거나 인자가 다르면 hook이 spawn을 거부합니다
    ([등록·수락](../../../docs/development/agent-workflows/adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
-4. Child 완료 뒤 `$knu-settle`로 정산합니다. 결과 대조와 독립 QA(구현 lane은 필수 Astra QA, `$knu-review`)가 수락보다 먼저입니다.
+4. Child 완료 뒤 `$knu-settle`로 정산합니다. 결과 대조와 QA trigger에 따른 독립 QA(`$knu-review`)가 수락보다 먼저입니다.
 
 후보 자격은 routing이, 호출 시점의 (역할, model) 쌍은 hook이 확인합니다. 이 skill의 출력은 업무 권한 승인이 아닙니다.

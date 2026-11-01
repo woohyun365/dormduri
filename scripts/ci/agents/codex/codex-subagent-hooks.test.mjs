@@ -82,7 +82,7 @@ function patchCall(patch, { child = false } = {}) {
     tool_name: 'apply_patch',
     tool_use_id: 'exec-1',
     tool_input: { command: `*** Begin Patch\n${patch}\n*** End Patch` },
-    ...(child ? { agent_id: CHILD, agent_type: 'knu_executor' } : {}),
+    ...(child ? { agent_id: CHILD, agent_type: 'knu_explorer' } : {}),
   };
 }
 
@@ -150,7 +150,7 @@ test('guard denies an allowed model that the role has no profile pair for', asyn
   for (const input of [
     { agent_type: 'knu_reviewer', model: SOL },
     { agent_type: 'knu_explorer', model: LUNA },
-    { agent_type: 'knu_executor_medium', model: SOL },
+    { agent_type: 'knu_researcher_medium', model: SOL },
     // The pair check runs before the fork check, so a bad pair names its own reason.
     { agent_type: 'knu_reviewer', model: LUNA, fork_turns: 'all' },
   ])
@@ -209,7 +209,7 @@ test('guard only records follow-up and message tools and ignores unrelated tools
   assert.deepEqual(decideToolUse({ ...call('Bash'), tool_name: 'Bash' }, POLICY), {
     action: 'ignore',
   });
-  // A child writes its own lane: its apply_patch is never guarded or recorded.
+  // No apply_patch is guarded or recorded, from a child or the root.
   assert.deepEqual(
     decideToolUse(patchCall('*** Add File: README.md\n+x', { child: true }), POLICY),
     {
@@ -269,7 +269,7 @@ test('guard denies follow-up and message calls to a review child and keeps the l
   );
 });
 
-test('a root apply_patch with no writer running prints nothing and writes no record', (t) => {
+test('a root apply_patch prints nothing and writes no record', (t) => {
   const root = mkdtempSync(join(tmpdir(), 'knu-hook-patch-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, '.codex/hooks'), { recursive: true });
@@ -440,24 +440,21 @@ test('a guard failure denies the spawn instead of failing open', (t) => {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, '.codex/hooks'), { recursive: true });
   copyFileSync(hookPath, join(root, '.codex/hooks/knu-subagent-hooks.mjs'));
-  // A broken copy, stale v1 and v2 copies and a v3 copy without valid pairs or writer roles all fail closed.
-  const writerRoles = ['knu_executor'];
-  const unpaired = { allowedModels: POLICY.allowedModels, roster: POLICY.roster, writerRoles };
+  // A broken copy, stale v1 to v3 copies and a v4 copy without valid pairs all fail closed.
+  const unpaired = { allowedModels: POLICY.allowedModels, roster: POLICY.roster };
   const paired = { ...unpaired, allowedRoleModels: POLICY.allowedRoleModels };
   for (const policy of [
     '{broken',
     JSON.stringify({ schema: 'knu-codex-hook-policy/v1', ...unpaired }),
-    JSON.stringify({ schema: 'knu-codex-hook-policy/v2', ...paired, writerRoles: undefined }),
-    JSON.stringify({ schema: 'knu-codex-hook-policy/v3', ...unpaired }),
-    JSON.stringify({ schema: 'knu-codex-hook-policy/v3', ...unpaired, allowedRoleModels: [] }),
+    JSON.stringify({ schema: 'knu-codex-hook-policy/v2', ...paired }),
+    JSON.stringify({ schema: 'knu-codex-hook-policy/v3', ...paired }),
+    JSON.stringify({ schema: 'knu-codex-hook-policy/v4', ...unpaired }),
+    JSON.stringify({ schema: 'knu-codex-hook-policy/v4', ...unpaired, allowedRoleModels: [] }),
     JSON.stringify({
-      schema: 'knu-codex-hook-policy/v3',
+      schema: 'knu-codex-hook-policy/v4',
       ...unpaired,
       allowedRoleModels: { knu_explorer: 'gpt-6-astra' },
     }),
-    JSON.stringify({ schema: 'knu-codex-hook-policy/v3', ...paired, writerRoles: undefined }),
-    JSON.stringify({ schema: 'knu-codex-hook-policy/v3', ...paired, writerRoles: [] }),
-    JSON.stringify({ schema: 'knu-codex-hook-policy/v3', ...paired, writerRoles: ['worker'] }),
   ]) {
     writeFileSync(join(root, '.codex/hooks/knu-hook-policy.json'), policy);
     const result = spawnSync(
@@ -1124,187 +1121,8 @@ test('the completion report counts session starts that no allow record bound', a
 
 // Parent write guard: while a writer lane spawned by the root is neither accepted nor released, a root apply_patch may
 // not write a tracked or unignored path. The registry names the open writers; the workspace classifies patch targets.
-const WRITER_POLICY = {
-  ...POLICY,
-  writerRoles: ['knu_executor_medium', 'knu_executor', 'knu_executor_xhigh'],
-};
-
-function writeRegistry(writers, seen = []) {
-  return {
-    read: () => null,
-    used: () => false,
-    settled: () => false,
-    released: () => false,
-    writers: (roles) => {
-      seen.push(roles);
-      return writers;
-    },
-  };
-}
-
-function workspaceOf(verdicts, seen = []) {
-  return {
-    classify: (targets, cwd) => {
-      seen.push({ targets, cwd });
-      return targets.map((path) => ({ path, verdict: verdicts[path] ?? 'guarded' }));
-    },
-  };
-}
-
-test('a root apply_patch that writes a tracked path while a writer runs is denied with the paths and writers', async () => {
-  const { decideToolUse } = await hooks();
-  const roles = [];
-  const classified = [];
-  const call = {
-    ...patchCall('*** Update File: README.md\n@@\n-a\n+secret patch text'),
-    cwd: '/repo',
-  };
-  assert.deepEqual(
-    decideToolUse(
-      call,
-      WRITER_POLICY,
-      writeRegistry(['lane_one_k3x9'], roles),
-      workspaceOf({}, classified),
-    ),
-    {
-      action: 'deny',
-      tool: 'apply_patch',
-      caller: 'root',
-      reason: 'parent-write-during-writer',
-      write: { writers: ['lane_one_k3x9'], paths: [{ path: 'README.md', verdict: 'guarded' }] },
-    },
-  );
-  assert.deepEqual(roles, [WRITER_POLICY.writerRoles]);
-  assert.deepEqual(classified, [{ targets: ['README.md'], cwd: '/repo' }]);
-});
-
-test('a root apply_patch to ignored or outside paths while a writer runs is recorded, not denied', async () => {
-  const { decideToolUse } = await hooks();
-  const call = patchCall('*** Add File: .artifacts/a.md\n+x\n*** Add File: /elsewhere/b.md\n+y');
-  assert.deepEqual(
-    decideToolUse(
-      call,
-      WRITER_POLICY,
-      writeRegistry(['lane_one_k3x9']),
-      workspaceOf({ '.artifacts/a.md': 'ignored', '/elsewhere/b.md': 'outside' }),
-    ),
-    {
-      action: 'record',
-      tool: 'apply_patch',
-      caller: 'root',
-      write: {
-        writers: ['lane_one_k3x9'],
-        paths: [
-          { path: '.artifacts/a.md', verdict: 'ignored' },
-          { path: '/elsewhere/b.md', verdict: 'outside' },
-        ],
-      },
-    },
-  );
-});
-
-test('every patch target counts: added, updated, deleted and the destination of a move', async () => {
-  const { decideToolUse } = await hooks();
-  const classified = [];
-  const patch = [
-    '*** Add File: a.md',
-    '+x',
-    '*** Delete File: b.md',
-    '*** Update File: .artifacts/c.md',
-    '*** Move to: d.md',
-    '@@',
-    '-x',
-    '+y',
-  ].join('\n');
-  const decision = decideToolUse(
-    patchCall(patch),
-    WRITER_POLICY,
-    writeRegistry(['lane_one_k3x9']),
-    workspaceOf({ 'a.md': 'ignored', 'b.md': 'ignored', '.artifacts/c.md': 'ignored' }, classified),
-  );
-  assert.equal(classified.length, 1, 'the guard classifies the apply_patch targets once');
-  assert.deepEqual(classified[0].targets, ['a.md', 'b.md', '.artifacts/c.md', 'd.md']);
-  assert.equal(decision.action, 'deny');
-  assert.deepEqual(
-    decision.write.paths.filter(({ verdict }) => verdict === 'guarded'),
-    [{ path: 'd.md', verdict: 'guarded' }],
-  );
-});
-
-test('indented file headers count, and a file header the guard cannot read is recorded', async () => {
-  const { decideToolUse } = await hooks();
-  const classified = [];
-  const registry = writeRegistry(['lane_one_k3x9']);
-  const indented = decideToolUse(
-    patchCall('*** Begin Patch\n  *** Update File: README.md\n@@\n-a\n+b\n*** End Patch'),
-    WRITER_POLICY,
-    registry,
-    workspaceOf({}, classified),
-  );
-  assert.deepEqual(classified[0]?.targets, ['README.md'], 'an indented header is a target');
-  assert.equal(indented.action, 'deny');
-  // A header line without a readable path next to an ignored target: recorded with the reason, never silent.
-  const unread = decideToolUse(
-    patchCall('*** Add File: .artifacts/a.md\n+x\n*** Update File:\n@@\n-a\n+b\n*** End of File'),
-    WRITER_POLICY,
-    registry,
-    workspaceOf({ '.artifacts/a.md': 'ignored' }),
-  );
-  assert.equal(unread.action, 'record');
-  assert.equal(unread.reason, 'write-target-unknown', 'an unreadable file header is recorded');
-  assert.deepEqual(unread.write.paths, [{ path: '.artifacts/a.md', verdict: 'ignored' }]);
-  // Other patch markers are not file headers.
-  const plain = decideToolUse(
-    patchCall('*** Begin Patch\n*** Add File: .artifacts/a.md\n+x\n*** End of File\n*** End Patch'),
-    WRITER_POLICY,
-    registry,
-    workspaceOf({ '.artifacts/a.md': 'ignored' }),
-  );
-  assert.equal(plain.reason, undefined);
-});
-
-test('no open writer, a child caller or an unreadable patch leaves the write unguarded', async () => {
-  const { decideToolUse } = await hooks();
-  const untouched = {
-    classify: () => {
-      throw new Error('classify must not run');
-    },
-  };
-  const call = patchCall('*** Update File: README.md\n+x');
-  assert.deepEqual(decideToolUse(call, WRITER_POLICY, writeRegistry([]), untouched), {
-    action: 'ignore',
-  });
-  assert.deepEqual(
-    decideToolUse(
-      patchCall('*** Update File: README.md\n+x', { child: true }),
-      WRITER_POLICY,
-      writeRegistry(['lane_one_k3x9']),
-      untouched,
-    ),
-    { action: 'ignore' },
-  );
-  // apply_patch refuses a patch with no file header itself; the guard records that it could not read a target.
-  assert.deepEqual(
-    decideToolUse(
-      { ...call, tool_input: { command: 'not a patch' } },
-      WRITER_POLICY,
-      writeRegistry(['lane_one_k3x9']),
-      untouched,
-    ),
-    {
-      action: 'record',
-      tool: 'apply_patch',
-      caller: 'root',
-      reason: 'write-target-unknown',
-      write: { writers: ['lane_one_k3x9'], paths: [] },
-    },
-  );
-});
-
-// A git repository root with the installed hook and policy, a tracked file, ignored directories and a writer
-// registration; `run` feeds one payload to the installed hook.
-function writerRoot(t, { git = true } = {}) {
-  const root = mkdtempSync(join(tmpdir(), 'knu-hook-writer-'));
+function hookRoot(t) {
+  const root = mkdtempSync(join(tmpdir(), 'knu-hook-root-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, '.codex/hooks'), { recursive: true });
   copyFileSync(hookPath, join(root, '.codex/hooks/knu-subagent-hooks.mjs'));
@@ -1312,11 +1130,9 @@ function writerRoot(t, { git = true } = {}) {
   writeFileSync(join(root, '.gitignore'), '.artifacts/\n.codex/state/\n');
   writeFileSync(join(root, 'README.md'), 'tracked\n');
   mkdirSync(join(root, 'docs'));
-  if (git) {
-    const git = (...args) => spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
-    git('init', '-q');
-    git('add', 'README.md', '.gitignore');
-  }
+  const git = (...args) => spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
+  git('init', '-q');
+  git('add', 'README.md', '.gitignore');
   const registrations = join(root, '.artifacts/tools/codex-native', SESSION);
   mkdirSync(registrations, { recursive: true });
   const register = (call) =>
@@ -1348,97 +1164,20 @@ function writerRoot(t, { git = true } = {}) {
   return { root, registrations, register, run, reason, lines };
 }
 
-const writerSpawn = spawnCall({ agent_type: 'knu_executor', reasoning_effort: 'high' });
+const laneSpawn = spawnCall({ reasoning_effort: 'high' });
 
-test('the installed hook denies tracked Parent writes from the writer spawn until its acceptance', (t) => {
-  const { root, registrations, register, run, reason, lines } = writerRoot(t);
-  const patch = (body, cwd) => reason(run(patchCall(body), cwd));
-  const update = (path) => `*** Update File: ${path}\n@@\n-tracked\n+secret patch text`;
-
-  // A reviewer is not a writer: its spawn does not open the guard.
-  const reviewer = spawnCall({
-    task_name: 'review_k3x9_1',
-    agent_type: 'knu_reviewer',
-    reasoning_effort: 'xhigh',
-  });
-  writeFileSync(
-    join(registrations, 'review_k3x9_1.json'),
-    JSON.stringify({
-      ...registrationFor(reviewer),
-      kind: 'review',
-      reviewId: 'review-k3x9-1',
-      round: 1,
-      reviewOf: ['lane-one'],
-      laneId: undefined,
-      retry: undefined,
-    }),
-  );
-  assert.equal(reason(run(reviewer)), null);
-  assert.equal(patch(update('README.md')), null);
-
-  register(writerSpawn);
-  assert.equal(reason(run(writerSpawn)), null);
-  const denied = patch(update('README.md'));
-  assert.match(denied, /parent-write-during-writer/u);
-  assert.match(denied, /lane_one_k3x9/u);
-  assert.match(denied, /codex:release --task lane_one_k3x9 --ended/u);
-  // An untracked file outside the ignore rules is guarded as well, and so is a relative path from another cwd.
-  assert.match(patch('*** Add File: docs/new.md\n+x'), /parent-write-during-writer/u);
-  assert.match(patch(update('../README.md'), join(root, 'docs')), /parent-write-during-writer/u);
-  // Ignored paths and paths outside the repository stay writable.
-  assert.equal(patch('*** Add File: .artifacts/notes.md\n+x'), null);
-  const outside = mkdtempSync(join(tmpdir(), 'knu-hook-outside-'));
-  t.after(() => rmSync(outside, { recursive: true, force: true }));
-  assert.equal(patch(`*** Add File: ${join(outside, 'x.md')}\n+x`), null);
-  // A move into a tracked path and a link from an ignored directory to a tracked file are tracked writes.
-  assert.match(
-    patch('*** Update File: .artifacts/notes.md\n*** Move to: moved.md\n@@\n-x\n+y'),
-    /parent-write-during-writer/u,
-  );
-  symlinkSync(join(root, 'README.md'), join(root, '.artifacts/link.md'));
-  assert.match(patch(update('.artifacts/link.md')), /parent-write-during-writer/u);
-  // The child writes its own lane.
-  assert.equal(reason(run(patchCall(update('README.md'), { child: true }))), null);
-
-  writeFileSync(
-    join(registrations, 'lane_one_k3x9.accepted.json'),
-    JSON.stringify({
-      schema: 'knu-codex-task-acceptance/v1',
-      sessionId: SESSION,
-      taskName: 'lane_one_k3x9',
-      agentId: CHILD,
-    }),
-  );
-  assert.equal(patch(update('README.md')), null);
-
-  const writes = lines().filter(({ toolName }) => toolName === 'apply_patch');
-  assert.deepEqual(
-    writes.map(({ decision, reason: why }) => [decision, why ?? null]),
-    [
-      ['deny', 'parent-write-during-writer'],
-      ['deny', 'parent-write-during-writer'],
-      ['deny', 'parent-write-during-writer'],
-      ['record', null],
-      ['record', null],
-      ['deny', 'parent-write-during-writer'],
-      ['deny', 'parent-write-during-writer'],
-    ],
-  );
-  assert.deepEqual(writes[0].write, {
-    writers: ['lane_one_k3x9'],
-    paths: [{ path: 'README.md', verdict: 'guarded' }],
-  });
-  assert.deepEqual(writes[3].write.paths, [{ path: '.artifacts/notes.md', verdict: 'ignored' }]);
-  assert.deepEqual(writes[4].write.paths, [{ path: null, verdict: 'outside' }]);
-  assert.ok(writes.every(({ caller }) => caller === 'root'));
-  assert.doesNotMatch(JSON.stringify(lines()), /secret patch text/u);
-});
-
-test('a release record of this session closes the guard; another session or schema does not', (t) => {
-  const { registrations, register, run, reason } = writerRoot(t);
-  register(writerSpawn);
-  assert.equal(reason(run(writerSpawn)), null);
-  const patch = () => reason(run(patchCall('*** Update File: README.md\n+x')));
+test('a release record of this session denies resuming the child; another session or schema does not', (t) => {
+  const { registrations, register, run, reason } = hookRoot(t);
+  register(laneSpawn);
+  assert.equal(reason(run(laneSpawn)), null);
+  const resume = (target) =>
+    reason(
+      run({
+        ...laneSpawn,
+        tool_name: 'collaborationfollowup_task',
+        tool_input: { target, message: 'again' },
+      }),
+    );
   const release = (changes) =>
     JSON.stringify({
       schema: 'knu-codex-task-release/v1',
@@ -1452,28 +1191,16 @@ test('a release record of this session closes the guard; another session or sche
     join(registrations, 'old.released.json'),
     release({ schema: 'knu-codex-task-release/v0' }),
   );
-  assert.match(patch(), /parent-write-during-writer/u);
+  assert.equal(resume('lane_one_k3x9'), null);
   writeFileSync(join(registrations, 'lane_one_k3x9.released.json'), release());
-  assert.equal(patch(), null);
-  // A released child is not resumed: a writer resumed outside the guard would write next to the Parent.
   for (const target of ['lane_one_k3x9', CHILD, '/root/lane_one_k3x9'])
-    assert.match(
-      reason(
-        run({
-          ...writerSpawn,
-          tool_name: 'collaborationfollowup_task',
-          tool_input: { target, message: 'again' },
-        }),
-      ),
-      /released-child/u,
-      target,
-    );
+    assert.match(resume(target), /released-child/u, target);
 });
 
 // Registrations are child-writable, so the review mark is the root allow record's seal; the agent id is the one the
 // reviewer's start recorded on its task path.
 test('the installed hook reads the review seal from its own records, not from the registration file', (t) => {
-  const { root, registrations, register, run, reason, lines } = writerRoot(t);
+  const { root, registrations, register, run, reason, lines } = hookRoot(t);
   const reviewer = spawnCall({
     task_name: 'review_k3x9_1',
     agent_type: 'knu_reviewer',
@@ -1585,54 +1312,4 @@ test('the installed hook reads the review seal from its own records, not from th
     ],
   );
   assert.doesNotMatch(JSON.stringify(lines()), /one more thing/u);
-});
-
-test('a Parent write guard that cannot decide lets the write through and records the error', (t) => {
-  // Not a git repository: the ignore check fails while a writer is open.
-  const plain = writerRoot(t, { git: false });
-  plain.register(writerSpawn);
-  assert.equal(plain.reason(plain.run(writerSpawn)), null);
-  assert.equal(plain.reason(plain.run(patchCall('*** Update File: README.md\n+x'))), null);
-  const [error] = plain.lines().filter(({ toolName }) => toolName === 'apply_patch');
-  assert.ok(error, 'the guard records a guard-error for the apply_patch it let through');
-  assert.equal(error.decision, 'record');
-  assert.equal(error.reason, 'guard-error');
-  assert.equal(typeof error.error, 'string');
-
-  // A broken policy still denies a spawn, but never blocks a file edit.
-  const broken = writerRoot(t);
-  writeFileSync(join(broken.root, '.codex/hooks/knu-hook-policy.json'), '{broken');
-  assert.match(broken.reason(broken.run(writerSpawn)), /guard-error/u);
-  assert.equal(broken.reason(broken.run(patchCall('*** Update File: README.md\n+x'))), null);
-  assert.deepEqual(
-    broken.lines().map(({ toolName, reason: why }) => [toolName, why]),
-    [['apply_patch', 'guard-error']],
-  );
-
-  // A torn record line hides whether a writer is open: the guard records the error and lets the edit through.
-  const torn = writerRoot(t);
-  torn.register(writerSpawn);
-  assert.equal(torn.reason(torn.run(writerSpawn)), null);
-  const tornFile = join(torn.root, '.codex/state/knu-subagent-hooks', `${SESSION}.jsonl`);
-  writeFileSync(tornFile, `{"torn\n${readFileSync(tornFile, 'utf8')}`);
-  assert.equal(
-    torn.reason(torn.run(patchCall('*** Update File: README.md\n+x'))),
-    null,
-    'a torn record line is a guard-error that lets the edit through',
-  );
-  const tornLast = JSON.parse(readFileSync(tornFile, 'utf8').trim().split('\n').at(-1));
-  assert.deepEqual(
-    [tornLast.toolName, tornLast.reason],
-    ['apply_patch', 'guard-error'],
-    'a torn record line is a guard-error, not a closed guard',
-  );
-
-  // An unreadable record file fails the guard too; the edit still goes through.
-  const unreadable = writerRoot(t);
-  mkdirSync(join(unreadable.root, '.codex/state/knu-subagent-hooks', `${SESSION}.jsonl`), {
-    recursive: true,
-  });
-  const result = unreadable.run(patchCall('*** Update File: README.md\n+x'));
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout, '');
 });

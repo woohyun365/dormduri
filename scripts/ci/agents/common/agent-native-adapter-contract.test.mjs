@@ -29,14 +29,12 @@ const ROLE_EFFORT = {
   knu_explorer: 'high',
   knu_explorer_xhigh: 'xhigh',
   knu_researcher: 'high',
-  knu_executor: 'high',
-  knu_executor_xhigh: 'xhigh',
   knu_reviewer: 'xhigh',
 };
 const roleSource = (role) => read(`.claude/agents/${role}.md`);
 const roleBody = (source) => source.replace(/^---\n[\s\S]*?\n---\n/u, '');
 
-test('six project Claude agents declare bounded native tools and a fixed effort', () => {
+test('four project Claude agents declare bounded native tools and a fixed effort', () => {
   const readOnly = new Set(['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch']);
 
   for (const [role, effort] of Object.entries(ROLE_EFFORT)) {
@@ -61,22 +59,58 @@ test('six project Claude agents declare bounded native tools and a fixed effort'
     assert.equal(new Set(tools).size, tools.length, `${path}: duplicate tool`);
     assert.ok(!tools.includes('Agent'), `${path}: child re-delegation is not allowed`);
     assert.doesNotMatch(frontmatter, /^permissionMode: bypassPermissions$/mu);
-    if (role.startsWith('knu_executor')) {
-      assert.ok(tools.includes('Edit') && tools.includes('Bash'));
-    } else {
-      assert.ok(
-        tools.every((tool) => readOnly.has(tool)),
-        `${path}: read-only role has write-capable tool`,
-      );
-    }
+    assert.ok(
+      tools.every((tool) => readOnly.has(tool)),
+      `${path}: read-only role has write-capable tool`,
+    );
     assert.equal(isIgnored(path), false, `${path}: project role must be portable`);
     assert.match(source, /docs\/development\/agent-workflows\//u);
   }
   assert.equal(
-    roleBody(roleSource('knu_executor_xhigh')),
-    roleBody(roleSource('knu_executor')),
-    'the xhigh variant differs from knu_executor only in its frontmatter',
+    roleBody(roleSource('knu_explorer_xhigh')),
+    roleBody(roleSource('knu_explorer')),
+    'the xhigh variant differs from knu_explorer only in its frontmatter',
   );
+});
+
+// Implementation is the Parent's own work (D-OSS-35): every repository child role on both hosts is
+// read-only, so the single writer holds because no child has a write tool.
+test('executor retirement: both hosts keep only read-only repository child roles', () => {
+  const roles = (dir, extension) =>
+    readdirSync(resolve(root, dir))
+      .filter((file) => file.startsWith('knu_') && file.endsWith(extension))
+      .map((file) => file.slice(0, -extension.length))
+      .sort();
+  const claude = roles('.claude/agents', '.md');
+  assert.deepEqual(claude, [
+    'knu_explorer',
+    'knu_explorer_xhigh',
+    'knu_researcher',
+    'knu_reviewer',
+  ]);
+  for (const role of claude) {
+    const tools = /^tools: (.+)$/mu
+      .exec(roleSource(role))?.[1]
+      ?.split(',')
+      .map((item) => item.trim());
+    for (const tool of ['Edit', 'Write', 'Bash', 'NotebookEdit'])
+      assert.ok(tools && !tools.includes(tool), `${role}: ${tool}`);
+  }
+  const codex = roles('.codex/agents', '.toml');
+  assert.deepEqual(codex, [
+    'knu_explorer',
+    'knu_explorer_medium',
+    'knu_explorer_xhigh',
+    'knu_researcher',
+    'knu_researcher_medium',
+    'knu_researcher_xhigh',
+    'knu_reviewer',
+  ]);
+  for (const role of codex) {
+    const text = read(`.codex/agents/${role}.toml`);
+    assert.match(text, /^sandbox_mode = "read-only"$/mu, `${role}: sandbox_mode`);
+    assert.doesNotMatch(text, /workspace-write/u, `${role}: workspace-write`);
+  }
 });
 
 test('the xhigh explorer is a tracked role that differs from knu_explorer only in its frontmatter', () => {
@@ -117,7 +151,7 @@ const OFFICIAL_SUBAGENT_FIELDS = [
   'experimental',
 ];
 
-test('effort documents cover rejection reasons, six roles, field dispositions and Parent judgment', () => {
+test('effort documents cover rejection reasons, four roles, field dispositions and Parent judgment', () => {
   const adapters = 'docs/development/agent-workflows/adapters/';
   const recovery = read(`${adapters}claude-code.md`).split('## Recovery')[1] ?? '';
   for (const stale of ['kind `extract`를 받지 않습니다', '현재 KNU 역할에는 effort 필드가 없어'])
@@ -139,7 +173,8 @@ test('effort documents cover rejection reasons, six roles, field dispositions an
   const registry = read(`${adapters}claude-native-registry.md`);
   for (const role of Object.keys(ROLE_EFFORT))
     assert.match(registry, new RegExp(`^\\| \`${role}\` +\\|`, 'mu'), `registry role row: ${role}`);
-  for (const stale of ['네', '다섯'])
+  assert.ok(registry.includes('네 `.claude/agents/knu_*.md`'), 'registry counts four roles');
+  for (const stale of ['다섯', '여섯'])
     assert.ok(
       !registry.includes(`${stale} \`.claude/agents/knu_*.md\``),
       `registry counts ${stale} roles`,
@@ -462,7 +497,7 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
       '회차가 상한에 이르면 **quality stop**입니다',
       '## OMC 공존과 skill routing',
       '**현재 요청 > `AGENTS.md`·`CLAUDE.md` > 이 adapter > OMC·Home 권장**',
-      '위임한 저장소 쓰기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다',
+      '위임한 저장소 읽기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다',
       '정산은 `complete`(또는 `settle --judgment`)와\n  Parent 작성 변경의 `settlement:"parent-adjudication"` 판정을 포함합니다',
       '이 규칙은 runtime 차단이 아니라 운영 규칙입니다',
       '| OMC 요청·skill',
@@ -499,7 +534,7 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
       '1~255의 `expectedExit`',
       '기대·실제 exit는 packet `tests`와 결과 template에 함께 보입니다',
       'Parent가 응답을 옮겨 적는 parent-adjudication으로 우회하지 않습니다',
-      'writer subject면 응답 artifact를 포함할 수 없습니다',
+      '응답 artifact를 포함하고 그 내용이 정산된 응답과 같아야 합니다',
       '디렉터리 안의 symlink는 검사하지 않고 working tree 변경으로 snapshot에 드러나며, hard link는 탐지 대상이 아닙니다',
     ],
   };
@@ -526,12 +561,9 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
       '`knu_explorer_xhigh` `bounded-extraction` `haiku` xhigh `claude-haiku-5-5`(2.1.306) 고정 입력 추출 관측',
       '`knu_explorer` `bounded-extraction` `haiku` —(미지원) `claude-haiku-4-5-20251001` 고정 입력 추출 대체됨(등록 거부)',
       '`knu_explorer` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) 고정 입력 추출 관측',
-      '`knu_executor` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.284) bounded 구현·검증 관측',
       '`knu_researcher` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) 공식 근거 읽기 관측',
       '`knu_reviewer` `complex-critical` `opus` xhigh `claude-opus-5-5`(2.1.286) 독립 source review 관측',
       '`knu_explorer` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) repository 읽기 조사 관측',
-      '`knu_executor` `complex-critical` `opus` high `claude-opus-5-5`(2.1.286) 복잡한 구현 관측',
-      '`knu_executor_xhigh` `complex-critical` `opus` xhigh `claude-opus-5-5`(2.1.286) 고위험 구현 관측',
     ],
     'routine table keeps only live-observed rows adopted by the Owner',
   );

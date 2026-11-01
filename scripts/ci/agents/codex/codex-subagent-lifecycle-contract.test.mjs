@@ -311,8 +311,8 @@ test('routine cold start and withdrawal have tracked owners with bounded adoptio
   assert.match(decisions, /id="routine-model-adoption"/u);
   assert.match(decisions, /2026-09-24\.3/u);
   // The historical revision stays; the installed revision must also be recorded.
-  assert.ok(decisions.includes(getModelProfile('standard-build').policyRevision));
-  assert.match(decisions, /astra-bounded-recovery.*knu_executor.*gpt-6-astra.*low/u);
+  assert.ok(decisions.includes(getModelProfile('standard-read').policyRevision));
+  assert.match(decisions, /astra-bounded-recovery[^\n]*gpt-6-astra \/ low/u);
   assert.match(decisions, /explorer.*researcher.*low.*미채택/u);
   assert.doesNotMatch(decisions, /Luna high/u);
   assert.match(decisions, /provider-effective.*미관측/iu);

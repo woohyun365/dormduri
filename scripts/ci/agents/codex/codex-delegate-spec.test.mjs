@@ -32,16 +32,15 @@ function spec(patch = {}) {
       verifies: ['acceptance'],
     },
     {
-      statement: 'The owner test covers the current wording.',
+      statement: 'The Parent checks the owner against the policy section.',
       sources: [0],
       confidence: 'high',
-      verifies: ['regression'],
+      verifies: ['independentCheck'],
     },
     {
-      statement: 'An Astra reviewer reads the change.',
+      statement: 'The policy section is the only legal basis source.',
       sources: [0],
       confidence: 'high',
-      verifies: ['astraQa'],
     },
   ];
   const claims = Array.from({ length: 15 }, (_, index) => ({
@@ -51,23 +50,22 @@ function spec(patch = {}) {
     rationale: 'The inspected policy section supports this boundedness predicate.',
   }));
   const lane = {
-    id: 'legal-test',
+    id: 'legal-read',
     domain: 'legal-policy',
-    taskKind: 'implementation',
+    taskKind: 'lookup',
     priority: 'medium',
     impactRisk: 'low',
-    objective: 'Implement bounded legal test.',
-    question: 'Which assertion locks current behavior?',
-    allowedEvidence: ['repo', 'test'],
-    allowedTools: ['repository-read', 'workspace-edit', 'test-runner'],
+    objective: 'Find the bounded legal basis owner.',
+    question: 'Which policy section names the legal basis owner?',
+    allowedEvidence: ['repo'],
+    allowedTools: ['repository-read'],
     readScope: ['docs/policies'],
-    writeOwnership: ['apps/web/src/legal/example.test.ts'],
     dependencies: [],
-    expectedOutputFields: ['changedFiles', 'behavior'],
-    verification: ['Run the closest owner tests.'],
+    expectedOutputFields: ['owner', 'evidence'],
+    verification: ['Cite the policy section.'],
     benefit: {
       kind: 'latency',
-      rationale: 'The write lane has bounded ownership and no result dependency.',
+      rationale: 'The read lane has a bounded scope and no result dependency.',
     },
     delivery: {
       snapshot: 'current-source-snapshot',
@@ -85,7 +83,7 @@ function spec(patch = {}) {
   };
   if (patch.evidence) Object.assign(lane.evidence, patch.evidence);
   return {
-    request: '법적 근거 test를 추가해줘.',
+    request: '법적 근거 owner를 분석해줘.',
     mode: 'fresh',
     repositoryEvidence: [{ path: SOURCE, kind: 'policy' }],
     dispatchToken: TOKEN,
@@ -100,18 +98,18 @@ test('an eligible lane without a request gets the routine candidate and a regist
   assert.equal(out.dispatchToken, TOKEN);
   assert.deepEqual(out.lanes, [
     {
-      laneId: 'legal-test',
+      laneId: 'legal-read',
       modelRequest: 'default',
-      profileId: 'standard-build',
-      role: 'knu_executor',
+      profileId: 'standard-read',
+      role: 'knu_explorer',
       effort: 'high',
       model: 'gpt-6.1-sol',
     },
   ]);
   assert.equal(out.dispatches.length, 1);
   assert.deepEqual(out.dispatches[0].spawnArguments, {
-    task_name: `legal_test_${TOKEN}`,
-    agent_type: 'knu_executor',
+    task_name: `legal_read_${TOKEN}`,
+    agent_type: 'knu_explorer',
     model: 'gpt-6.1-sol',
     reasoning_effort: 'high',
     fork_turns: 'none',
@@ -119,7 +117,7 @@ test('an eligible lane without a request gets the routine candidate and a regist
   // The computed request names the facts the spec tagged, by their stable ids.
   const request = out.dispatches[0].contract.routeRecommendation.modelRecommendation.request;
   assert.deepEqual(request.purpose, 'routine');
-  assert.deepEqual(Object.keys(request.verificationFacts), ['acceptance', 'regression', 'astraQa']);
+  assert.deepEqual(Object.keys(request.verificationFacts), ['acceptance', 'independentCheck']);
   // Recomputed here from the file bytes: the source digest and every id derived from it.
   const source = {
     path: SOURCE,
@@ -131,10 +129,10 @@ test('an eligible lane without a request gets the routine candidate and a regist
       .digest('hex')}`,
   };
   const sourceIds = [createSemanticSourceId(source)];
-  const [acceptance, regression, astraQa] = spec().lanes[0].evidence.facts.map(({ statement }) =>
+  const [acceptance, independentCheck] = spec().lanes[0].evidence.facts.map(({ statement }) =>
     createSemanticFactId({ statement, sourceIds, confidence: 'high' }),
   );
-  assert.deepEqual(request.verificationFacts, { acceptance, regression, astraQa });
+  assert.deepEqual(request.verificationFacts, { acceptance, independentCheck });
   // The output file is what codex:register reads.
   const temp = mkdtempSync(join(tmpdir(), 'knu-delegate-'));
   try {
@@ -143,7 +141,7 @@ test('an eligible lane without a request gets the routine candidate and a regist
       sessionId: 'n4b-test',
       dispatch: out.dispatches[0],
     });
-    assert.equal(registered.taskName, `legal_test_${TOKEN}`);
+    assert.equal(registered.taskName, `legal_read_${TOKEN}`);
   } finally {
     rmSync(temp, { recursive: true, force: true });
   }
@@ -153,7 +151,6 @@ test('an ineligible or opted-out lane keeps the request omitted and goes to the 
   for (const [label, patch, modelRequest] of [
     ['gap', { evidence: { gaps: ['unknown owner'] } }, 'omitted'],
     ['medium confidence', { evidence: { confidence: 'medium' } }, 'omitted'],
-    ['high impact', { lane: { impactRisk: 'high' } }, 'omitted'],
     [
       'untagged facts',
       { evidence: { facts: spec().lanes[0].evidence.facts.map(({ verifies, ...fact }) => fact) } },
@@ -191,13 +188,12 @@ test('a lane the delegation defers names its own reason, not the dispatch of the
   const bare = {
     ...ready,
     id: 'bare-lane',
-    writeOwnership: ['apps/web/src/legal/other.test.ts'],
     evidence: { ...ready.evidence, claims: [] },
   };
   const out = delegateSpec.buildDelegation(spec({ top: { lanes: [ready, bare] } }), { root });
   assert.deepEqual(
     out.dispatches.map(({ laneId }) => laneId),
-    ['legal-test'],
+    ['legal-read'],
   );
   const deferred = out.lanes.find(({ laneId }) => laneId === 'bare-lane').deferred;
   assert.equal(deferred.stage, 'delegation', JSON.stringify(deferred));
@@ -209,7 +205,7 @@ test('a lane the delegation defers names its own reason, not the dispatch of the
 
 test('an explicit request is kept as the Parent wrote it, with facts from the tags', () => {
   const out = delegateSpec.buildDelegation(
-    spec({ lane: { modelRequest: { profileId: 'standard-build', purpose: 'pilot' } } }),
+    spec({ lane: { modelRequest: { profileId: 'standard-read', purpose: 'pilot' } } }),
     { root },
   );
   assert.equal(out.lanes[0].modelRequest, 'explicit');
@@ -278,23 +274,23 @@ test('the CLI writes the delegation and the review dispatch files codex:register
     });
     assert.equal(lanes.exitCode, 0);
     const written = JSON.parse(readFileSync(outPath, 'utf8'));
-    assert.equal(written.dispatches[0].spawnArguments.task_name, `legal_test_${TOKEN}`);
+    assert.equal(written.dispatches[0].spawnArguments.task_name, `legal_read_${TOKEN}`);
     assert.deepEqual(JSON.parse(lanes.stdout).lanes, written.lanes);
 
     const reviewPath = join(temp, 'review.json');
     const review = delegateSpec.runDelegateCommand(
-      ['review', '--lanes', 'legal-test', '--token', TOKEN, '--round', '2', '--out', reviewPath],
+      ['review', '--lanes', 'legal-read', '--token', TOKEN, '--round', '2', '--out', reviewPath],
       { root },
     );
     assert.equal(review.exitCode, 0);
     assert.deepEqual(
       JSON.parse(readFileSync(reviewPath, 'utf8')),
-      createReviewDispatch({ laneIds: ['legal-test'], dispatchToken: TOKEN, round: 2 }),
+      createReviewDispatch({ laneIds: ['legal-read'], dispatchToken: TOKEN, round: 2 }),
     );
     // Both written files go through the codex:register command as they are.
     const registryRoot = join(temp, 'registry-root');
     for (const [file, taskName] of [
-      [outPath, `legal_test_${TOKEN}`],
+      [outPath, `legal_read_${TOKEN}`],
       [reviewPath, `review_${TOKEN}_2`],
     ]) {
       const registered = runRegistryCommand(
@@ -311,7 +307,7 @@ test('the CLI writes the delegation and the review dispatch files codex:register
     }
     for (const argv of [
       ['lanes', '--spec', specPath],
-      ['review', '--lanes', 'legal-test', '--token', TOKEN, '--out', reviewPath, '--model', 'x'],
+      ['review', '--lanes', 'legal-read', '--token', TOKEN, '--out', reviewPath, '--model', 'x'],
       ['delegate'],
     ])
       assert.throws(

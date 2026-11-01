@@ -406,32 +406,26 @@ test('static Claude model selection is consumed but never upgrades the strict na
     issuedAt: '2026-09-27T01:00:00.000Z',
     expiresAt: '2026-09-27T01:20:00.000Z',
     task: {
-      taskId: 'static-build',
-      kind: 'build',
+      taskId: 'static-read',
+      kind: 'read',
       impactRisk: 'medium',
       complexity: 'bounded',
       uncertainty: 'resolved',
-      role: 'knu_executor',
-      allowedTools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
+      role: 'knu_explorer',
+      allowedTools: ['Read', 'Grep', 'Glob'],
       readScope: ['scripts/agents/claude'],
-      writeScope: ['scripts/agents/claude'],
-      writeOwner: 'builder',
+      writeScope: [],
+      writeOwner: null,
       childValue: 'independent-verification',
       independent: true,
       knownGaps: [],
-      facts: [
-        'source-bound',
-        'bounded-scope',
-        'acceptance',
-        'oracle',
-        'independent-qa',
-        'regression',
-        'one-writer',
-      ].map((key) => ({
-        key,
-        sourceRef: 'docs/development/agent-workflows/qa.md',
-        confidence: 'high',
-      })),
+      facts: ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'].map(
+        (key) => ({
+          key,
+          sourceRef: 'docs/development/agent-workflows/qa.md',
+          confidence: 'high',
+        }),
+      ),
     },
   };
   const w = prepareClaudeWorkflow({ ...i, nativeRequest });
@@ -456,7 +450,7 @@ test('static Claude model selection is consumed but never upgrades the strict na
       nativeRequest: { ...nativeRequest, ...patch },
       reportedRuntimeEvidence: {
         support: 'supported',
-        role: 'knu_executor',
+        role: 'knu_explorer',
         requestedAlias: 'sonnet',
       },
     });

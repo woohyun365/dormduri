@@ -1,6 +1,6 @@
 # QA workflow
 
-인수 기준·독립성·증거 packet은 host 공통입니다. Codex cohort의 필수 Astra QA는
+인수 기준·독립성·증거 packet은 host 공통입니다. Codex의 독립 QA(`knu_reviewer`, Astra `review` profile)는
 [Codex adapter](./adapters/codex.md)와 [채택 결정](./agentic-architecture-decisions.md)이 소유하며,
 Claude reviewer의 독립 검토로 그 requirement를 충족했다고 주장하지 않습니다. 반대로 Claude Code의 native
 read-only 여부는 [Claude adapter](./adapters/claude-code.md)의 실제 permission/tool 관측이 필요합니다.
@@ -151,7 +151,7 @@ acceptance coverage gap 0**이 merge 조건입니다. 보고된 blocking finding
 Read-only 검토가 모든 test 실행을 허용하는 것은 아닙니다. cache, service, fixture DB나 screenshot을 만드는 명령은
 side effect를 확인한 authorized runner에게 넘깁니다. Reviewer는 재현·테스트를 제안할 수 있지만 구현 checkout을 조용히
 수정하지 않습니다. 회귀 테스트 추가가 필요하면 write ownership을 별도로 정하고 같은 파일에 두 writer를 두지 않습니다.
-Role 파일/이름은 tool permission을 넓히지 않습니다. Codex에서 `knu_reviewer`/`knu_executor`를 사용하는 mapping은
+Role 파일/이름은 tool permission을 넓히지 않습니다. Codex에서 `knu_reviewer`를 사용하는 mapping은
 [Codex delegation](./adapters/codex-delegation.md)을 확인하고, 다른 host는 [해당 adapter](./adapters/README.md)를 따릅니다.
 
 ## Portable QA packet

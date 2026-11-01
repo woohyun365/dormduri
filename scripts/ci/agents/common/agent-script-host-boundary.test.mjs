@@ -69,7 +69,7 @@ test('common QA packet cannot grant Claude runtime or accept Codex-only defaults
   });
   assert.equal(validation.decision, 'accept');
   assert.equal(validation.verificationClass, 'runner-live-required');
-  packet.modelRequest = { profileId: 'standard-build' };
+  packet.modelRequest = { profileId: 'standard-read' };
   assert.equal(common.validateCrossModelPacket(packet).decision, 'reject');
 });
 

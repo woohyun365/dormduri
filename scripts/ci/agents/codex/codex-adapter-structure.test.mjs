@@ -47,8 +47,6 @@ const OBSERVED = {
     '`knu_researcher` 미관측',
   ],
   'elevated-read': ['미관측'],
-  'standard-build': ['`knu_executor`', '`gpt-6.1-sol`/high', '0.161.0'],
-  'elevated-build': ['`knu_executor_xhigh`', '`gpt-6.1-sol`/xhigh', '0.162.1'],
 };
 const KEPT = [
   '## 구조',

@@ -16,10 +16,9 @@ Pass 2 계층을 먼저 판정한 뒤 선택 입력 `modelRequest`가 있을 때
 | `extract`         | `gpt-6-luna` / `knu_explorer_xhigh`(xhigh)            | Medium, low                      | 고정 repository 입력·output schema·단일 semantic extraction·독립 검사 | routine | `knu_explorer_xhigh` `gpt-6-luna`/xhigh(0.160.0)                            |
 | `standard-read`   | `gpt-6.1-sol` / `knu_explorer`·`knu_researcher`(high) | Medium, low·medium               | lookup·analysis·research read-only, acceptance·독립 검사              | routine | `knu_explorer` `gpt-6.1-sol`/high(0.160.0·0.162.0), `knu_researcher` 미관측 |
 | `elevated-read`   | `gpt-6.1-sol` / `_xhigh` 읽기 역할(xhigh)             | High·XHigh 또는 impact high 읽기 | 위와 같음                                                             | routine | 미관측                                                                      |
-| `standard-build`  | `gpt-6.1-sol` / `knu_executor`(high)                  | Medium, low·medium               | 구현·test, 단일 write owner, acceptance·regression·독립 Astra QA      | routine | `knu_executor` `gpt-6.1-sol`/high(0.161.0)                                  |
-| `elevated-build`  | `gpt-6.1-sol` / `knu_executor_xhigh`(xhigh)           | High(non-deep), low·medium       | 위와 같음                                                             | routine | `knu_executor_xhigh` `gpt-6.1-sol`/xhigh(0.162.1)                           |
 
-- Astra: Parent, 최종 QA, 구현의 XHigh·impact high(`deep-build`), 미해결 실패·위험/품질 gap, admission 밖 Pass 2 결과.
+- Astra: Parent, 최종 QA, 미해결 실패·위험/품질 gap, admission 밖 Pass 2 결과.
+- 구현·디버깅·test(`implementation`·`debugging`·`test`)는 child에 위임하지 않고 Parent가 직접 합니다(routing gap `lead-task-kind`).
 
 관측 열은 native live에서 child own-turn(hook Stop 기록·rollout `turn_context`)으로 본 역할·model/effort와 그때의 codex-cli 버전이며 routine 상태를 바꾸지 않습니다.
 관측 열은 조합별 model·effort 적용 이력이지 품질 근거가 아니며, 작업마다의 품질 gate는 아래 완료 대조와 독립 검사입니다. 미관측은 역할 변형 단위의 표시이고 그 행의 routine 상태는 아래 Owner 채택이 정하며, 그
@@ -28,8 +27,8 @@ Pass 2 계층을 먼저 판정한 뒤 선택 입력 `modelRequest`가 있을 때
 
 모든 후보는 complete boundedness 조건(high-confidence facts, 빈 gap/domain/composite signal)을 요구합니다. Standard profile은
 complete Medium 계층, elevated profile은 같은 조건의 High 계층입니다(읽기는 XHigh와 impact high 읽기도 포함). Task/cohort/검증 fact와 write/context gate도 통과해야 합니다.
-6.1 Sol 후보는 Owner 채택(2026-10-06)으로 routine입니다. 별도 품질 canary 없이 채택했으므로 작업마다 oracle·독립 검사,
-구현의 필수 Astra QA와 [hook 관측](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)(관측 model·effort의 완료 대조)이 품질을 지킵니다.
+6.1 Sol 후보는 Owner 채택(2026-10-06)으로 routine입니다. 별도 품질 canary 없이 채택했으므로 작업마다 oracle·독립 검사와
+[hook 관측](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)(관측 model·effort의 완료 대조)이 품질을 지킵니다.
 Pilot 요청도 그대로 받습니다. Semantic 계층과 후보 역할의
 effort는 별도 축입니다. Low effort·Parent 모델 변경·일반 role을 이용한 project pin 우회는 포함하지 않습니다.
 
@@ -49,7 +48,7 @@ Parent가 태그한 검증 fact와 Pass 2 결과로 맞는 행을 채웁니다(`
 맞는 행이 없는 lane·`false` lane과 최종 QA는 Astra입니다. Reviewer를 포함한 모든 `knu_*` 역할은 model pin 없이 profile model을 명시적으로 받지만,
 실제 loaded role에 pin이 있으면 lower model 인자로 이를 우회하지 않습니다. 설정 파일과 native 지원은 아래처럼 별도로 확인합니다.
 Descriptor의 `spawnArguments`를 그대로 native 호출에 전달하고, 호출 시점의 (역할, model) 쌍·fork는 hook이 다시 검사합니다.
-Lower-model lane도 일반 동시 한도를 따릅니다(같은 role의 다른 model lane 포함). 품질/지원 불일치는 pending writer를 회수한 뒤 [재시도 한 번](../request-intake/orchestration-recovery.md#recovery-ceiling) 또는 Parent 판단·handoff로 넘기며,
+Lower-model lane도 일반 동시 한도를 따릅니다(같은 role의 다른 model lane 포함). 품질/지원 불일치는 pending child를 회수한 뒤 [재시도 한 번](../request-intake/orchestration-recovery.md#recovery-ceiling) 또는 Parent 판단·handoff로 넘기며,
 quota/capacity/permission 거절을 모델 변경으로 우회하지 않습니다.
 
 공식 단가의 비용 우위는 task-aware 선택의 근거입니다. 호출별 usage/weekly 측정 부재는 품질 GO/운영 채택의 차단 조건이
@@ -76,7 +75,7 @@ profile을 current source/config에 다시 승인해 복귀하며 허용 목록�
 
 세대교체·철회는 다음 순서로 재현합니다.
 
-1. 변경 profile의 신규 dispatch를 중단하고 current registry/binding·source/config·채택 결정·미완료 writer를 확인합니다.
+1. 변경 profile의 신규 dispatch를 중단하고 current registry/binding·source/config·채택 결정·미완료 child를 확인합니다.
 2. 선택된 실제 모델의 exact ID/effort/지원·품질 근거를 확인한 뒤 **중앙 profile data + 새 policyRevision**으로 변경합니다.
    Eligibility를 바꾸면 그 알고리즘도 owner이며 revision이 필요합니다. 역할별 TOML 복제나 `latest` alias로 넘기지 않습니다.
 3. 기존 static/integration 회귀로 새 binding과 stale binding 거절을 검증합니다. 검증되지 않은 미래 ID를
@@ -94,13 +93,12 @@ Dispatch는 config 입력을 받지 않으므로 loaded config의 drift는 dispa
 
 ## Task model configuration and fresh loading
 
-| 설정 owner                                                     | 계약                                                                                                                                                                                                                                                |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.codex/config.toml`                                           | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음                                                                                                                                                                 |
-| `knu_executor_medium`, `knu_executor`, `knu_executor_xhigh`    | effort pin medium·high·xhigh, model pin 없음, workspace-write와 단일 write owner                                                                                                                                                                    |
-| `knu_explorer*`, `knu_researcher*`(각 `_medium`·기본·`_xhigh`) | effort pin medium·high·xhigh, model pin 없음, read-only와 각 조사 책임                                                                                                                                                                              |
-| `knu_reviewer`                                                 | effort pin xhigh, model pin 없음(`review` profile Astra), read-only                                                                                                                                                                                 |
-| `.codex/hooks.json`, `.codex/hooks/knu-*`                      | spawn guard(등록 대조·봉인)·수락·해제 child 후속 deny·writer 실행 중 Parent 쓰기 guard(`apply_patch`)·subagent 완료 기록, 허용 model·역할 쌍·roster·`writerRoles` 정책 사본([hook](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)) |
+| 설정 owner                                                     | 계약                                                                                                                                                                                  |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.codex/config.toml`                                           | child 기본 Astra/high, child 상한 6. Parent 모델·provider·전역 설정은 소유하지 않음                                                                                                   |
+| `knu_explorer*`, `knu_researcher*`(각 `_medium`·기본·`_xhigh`) | effort pin medium·high·xhigh, model pin 없음, read-only와 각 조사 책임                                                                                                                |
+| `knu_reviewer`                                                 | effort pin xhigh, model pin 없음(`review` profile Astra), read-only                                                                                                                   |
+| `.codex/hooks.json`, `.codex/hooks/knu-*`                      | spawn guard(등록 대조·봉인)·수락·해제 child 후속 deny·subagent 완료 기록, 허용 model·역할 쌍·roster 정책 사본([hook](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)) |
 
 Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents default → Parent 상속보다 우선합니다.
 그래서 effort는 역할 pin이 정하고, dispatch descriptor는 spawn의 `reasoning_effort`를 그 값으로 채웁니다. Model pin이
@@ -110,7 +108,7 @@ Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents 
 
 설정 변경 후 실제 dispatch 전 Parent가 수행할 확인([공통 원칙](../agent-execution-contract.md#configuration-changes)의 Codex 절차):
 
-1. 현재 branch/HEAD/working tree와 프로젝트 config·열 개 role 파일·hook 파일의 digest를 기록하고 예상 변경만 있는지 확인합니다.
+1. 현재 branch/HEAD/working tree와 프로젝트 config·일곱 개 role 파일·hook 파일의 digest를 기록하고 예상 변경만 있는지 확인합니다.
    이름·sandbox·instructions·기본값·model pin 부재·상한은 별도로 대조합니다.
 2. 실제 host의 fresh native role/schema, explicit model/effort/scoped fork 지원과 loaded 설정의 출처를 확인합니다.
    역할 설명에 model 고정 문구가 없는 것과 특정 TOML bytes가 실제 로드된 것은 같은 증거가 아닙니다.
@@ -136,7 +134,7 @@ Rollback은 이 역할 설정 변경의 corrective revert와 연결된 tests/doc
 
 - 품질/지원/scope 변화 시 해당 cohort의 신규 사용을 멈추고 철회를 [현재 profile 결정](../agentic-architecture-decisions.md#task-model-effort-structure)에
   기록합니다. **철회는 Parent의 운영 책임**이며 불일치 source/config/role·실패한 checks는 그대로 남깁니다. Scope/권한·보안·허위 완료는 [quality stop](./codex.md#parent-high-운영과-quality-stop)을 적용합니다.
-- Pending writer의 결과·도구·변경을 먼저 회수합니다. 현재 source로 새 Astra ordinary contract를 판정하거나 Parent가 직접 처리합니다.
+- Pending child의 결과·도구 사용을 먼저 회수합니다. 현재 source로 새 Astra ordinary contract를 판정하거나 Parent가 직접 처리합니다.
   Candidate의 model 필드만 Astra로 바꾸거나 scope를 늘려 재시도하지 않습니다. Quota/cap/permission 거절은 다른 모델로 우회하지 않습니다.
 - 재채택은 문제 원인과 required checks·독립 QA, current profile/host/source/config를 다시 확인한 **새** 채택 결정입니다.
   단순한 config 복원이 adoption GO를 복구하지 않습니다. 설정 rollback이 정말 필요하면 정확한 권한·diff로 수행하며 현재 child가

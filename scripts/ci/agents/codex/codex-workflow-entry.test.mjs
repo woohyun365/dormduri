@@ -321,14 +321,34 @@ test('explicit justified direct QA disposition is preserved; missing disposition
   );
 });
 
+// Regression for the executor retirement (D-RET-2): a Lead that implements directly (no child) owes
+// independent review exactly when its disposition says so, with no build-profile obligation on top.
+test('a Lead direct implementation needs independent review exactly when its disposition requires it', () => {
+  for (const intent of ['implement', 'debug'])
+    for (const required of [true, false]) {
+      const i = {
+        ...input(intent),
+        reviewDisposition: { required, reason: 'Lead judged the risk against qa.md.' },
+      };
+      const w = prepareCodexWorkflow(i);
+      assert.equal(w.delegation?.recommendedChildren?.length ?? 0, 0, `${intent}: no child`);
+      assert.equal(w.requiresIndependentReview, required, `${intent}/${required}`);
+      assert.equal(
+        validateCodexWorkflowResults(i, { results: [result(w)] }).valid,
+        !required,
+        `${intent}/${required}: completion without review`,
+      );
+    }
+});
+
 // Same positive semantic predicates as the existing cohort oracle, through the actual caller.
 function boundedInput() {
   const i = {
-    ...input('implement'),
-    request: 'Legal test 구현해줘.',
+    ...input('analyze'),
+    request: 'Legal 개선 지점 분석해줘.',
     directAssignment: undefined,
     repositoryEvidence: [{ path: 'docs/policies/legal-basis.md', kind: 'policy' }],
-    reviewDisposition: { required: false, reason: 'Probe cannot waive mandatory cohort QA.' },
+    reviewDisposition: { required: true, reason: 'The read lane result needs independent QA.' },
     assignments: { 'legal-test': { owner: 'builder', dispatchId: 'child-1' } },
   };
   const current = prepareCodexWorkflow({ ...i, assignments: {} }).contextPack.sources[0];
@@ -370,30 +390,29 @@ function boundedInput() {
     {
       id: 'legal-test',
       domain: 'legal-policy',
-      taskKind: 'implementation',
+      taskKind: 'lookup',
       priority: 'medium',
       impactRisk: 'low',
-      objective: 'Implement bounded legal test.',
-      question: 'Which assertion locks current behavior?',
-      allowedEvidence: ['repo', 'test'],
-      allowedTools: ['repository-read', 'workspace-edit', 'test-runner'],
+      objective: 'Find the bounded legal basis owner.',
+      question: 'Which policy section names the legal basis owner?',
+      allowedEvidence: ['repo'],
+      allowedTools: ['repository-read'],
       readScope: ['docs/policies'],
-      writeOwnership: ['apps/web/src/legal/example.test.ts'],
+      writeOwnership: [],
       dependencies: [],
-      expectedOutputFields: ['changedFiles', 'behavior'],
-      verification: ['Run the closest owner tests.'],
+      expectedOutputFields: ['owner', 'evidence'],
+      verification: ['Cite the policy section.'],
       benefit: {
         kind: 'latency',
-        rationale: 'The write lane has bounded ownership and no result dependency.',
+        rationale: 'The read lane has a bounded scope and no result dependency.',
       },
       pass2Evidence: evidence,
       modelRequest: {
-        profileId: 'standard-build',
+        profileId: 'standard-read',
         purpose: 'pilot',
         verificationFacts: {
           acceptance: evidence.facts[0].factId,
-          regression: evidence.facts[1].factId,
-          astraQa: evidence.facts[2].factId,
+          independentCheck: evidence.facts[1].factId,
         },
       },
     },
@@ -405,7 +424,6 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     w = prepareCodexWorkflow(i);
   assert.equal(w.lanes.length, 1);
   assert.equal(w.requiresIndependentReview, true);
-  assert.equal(w.requiresAstraReview, true);
   assert.equal(
     w.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation.recommendedModel,
     'gpt-6.1-sol',

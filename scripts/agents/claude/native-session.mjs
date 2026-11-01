@@ -12,7 +12,6 @@ import {
   lstatSync,
   statSync,
   readlinkSync,
-  unlinkSync,
 } from 'node:fs';
 import { join, resolve, dirname, relative, basename, isAbsolute } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -21,7 +20,12 @@ import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { validateAdapterReview, validateCrossModelPacket } from '../common/index.mjs';
 import { resultFindingIds, validateAdjudication } from '../common/review-adjudication.mjs';
 import { prepareClaudeWorkflow, validateClaudeWorkflowResults } from './workflow-entry.mjs';
-import { claudeModelSupportsEffort, claudeRecoveryStep } from './model-policy.mjs';
+import {
+  IMPLEMENTATION_RETIRED,
+  claudeModelSupportsEffort,
+  claudeRecoveryStep,
+  isRetiredClaudeTask,
+} from './model-policy.mjs';
 import {
   CHILD_TRANSCRIPT_BYTE_LIMIT,
   childTranscriptLimitReason,
@@ -82,8 +86,7 @@ function taskDirectory(root, id) {
   // Fixed repo-local owner: do not let ambient artifact configuration redirect hook writes.
   return resolveArtifactPath(root, ['claude-native', id], {});
 }
-// A read-only subject's response is its deliverable, so review reads it from this file. A writer's
-// response carries builder rationale and self-assessment, so it never becomes review input.
+// A read-only subject's response is its deliverable, so review reads it from this file.
 function subjectResponsePath(root, id) {
   return relative(root, join(taskDirectory(root, id), 'subject-response.txt'));
 }
@@ -392,13 +395,6 @@ function markInvalid(dir, reason) {
     if (error.code !== 'EEXIST') throw error;
   }
 }
-function writerPath(root) {
-  return resolveArtifactPath(root, ['claude-native', 'writer.json'], {});
-}
-function releaseWriter(root, taskId) {
-  const path = writerPath(root);
-  if (existsSync(path) && jsonFile(path).taskId === taskId) unlinkSync(path);
-}
 function responseErrors(record, r) {
   const errors = [];
   if (!r || r.status !== 'completed' || typeof r.agentId !== 'string' || !r.agentId)
@@ -567,7 +563,7 @@ function bindRecovery(root, sessionId, workflowInput, recovery) {
     kind: workflowInput?.nativeRequest?.task?.kind,
   });
   check(
-    recovery.cause === 'context-missing' ? step === 0 : step === 1 || step === 2,
+    recovery.cause === 'context-missing' ? step === 0 : step === 1,
     `recovery-step: ${recovery.cause} cannot move from ${from.profileId}/${from.role} to this task`,
   );
   // A superseded first task is the result of its used retry, so it is reported as used, even when
@@ -621,15 +617,9 @@ export function registerClaudeNativeTask({
   );
   const root = realpathSync(workflowInput?.root ?? process.cwd());
   const role = workflowInput?.nativeRequest?.task?.role;
+  check(!isRetiredClaudeTask(workflowInput?.nativeRequest?.task), IMPLEMENTATION_RETIRED);
   check(
-    [
-      'knu_explorer',
-      'knu_explorer_xhigh',
-      'knu_researcher',
-      'knu_executor',
-      'knu_executor_xhigh',
-      'knu_reviewer',
-    ].includes(role),
+    ['knu_explorer', 'knu_explorer_xhigh', 'knu_researcher', 'knu_reviewer'].includes(role),
     'unknown repository role',
   );
   const bound =
@@ -742,20 +732,14 @@ export function registerClaudeNativeTask({
       'packet read scope exceeds reviewer task scope',
     );
     const responsePath = subjectResponsePath(root, subject.record.taskId);
-    if (subject.record.input.directAssignment.writeOwnership.length === 0) {
-      check(
-        allowedReadPaths.includes(responsePath),
-        'read-only subject review needs its response artifact',
-      );
-      check(
-        sameSubjectResponse(root, responsePath, subjectResponseText(subjectObservation)),
-        'subject response artifact does not match the settled response',
-      );
-    } else
-      check(
-        !covered(responsePath, allowedReadPaths),
-        'writer subject response is not review input',
-      );
+    check(
+      allowedReadPaths.includes(responsePath),
+      'read-only subject review needs its response artifact',
+    );
+    check(
+      sameSubjectResponse(root, responsePath, subjectResponseText(subjectObservation)),
+      'subject response artifact does not match the settled response',
+    );
     // Only the bound read-only response artifact may be read from the native evidence directory.
     check(
       allowedReadPaths.every(
@@ -1290,7 +1274,6 @@ function settleStoppedTask(task) {
     JSON.stringify({ path, digest: hash(bytes), responseDigest: observation.responseDigest }),
     { flag: 'wx', mode: 0o600 },
   );
-  releaseWriter(record.root, record.taskId);
 }
 // Report missing completion, not a fabricated success, and name why the recorded Stop did not settle.
 function settleIfStopped(task) {
@@ -1413,10 +1396,10 @@ function repositoryPath(root, absolute) {
   const path = relative(root, join(realpathSync(existing), ...rest));
   return !path || path === '..' || path.startsWith('../') || isAbsolute(path) ? null : path;
 }
-// Edit, Write and NotebookEdit guard. It denies only a subagent writing native evidence, and this
-// session's main thread writing a tracked or non-ignored path while its writer task holds the lease.
-// It never allows. Bash and other tools do not reach it, and a missing or failed hook lets the
-// write through, so the collector still refuses unattributable changes at settlement.
+// Edit, Write and NotebookEdit guard. It denies only a subagent writing native evidence; no child
+// writes the repository (D-OSS-35), so the main thread is never held back. It never allows. Bash and
+// other tools do not reach it, and a missing or failed hook lets the write through, so the collector
+// still refuses unattributable changes at settlement.
 export function guardClaudeNativeFileWrite(event, { root = process.cwd() } = {}) {
   const input = event?.tool_input ?? {};
   const target = event?.tool_name === 'NotebookEdit' ? input.notebook_path : input.file_path;
@@ -1425,23 +1408,9 @@ export function guardClaudeNativeFileWrite(event, { root = process.cwd() } = {})
   const base = typeof event.cwd === 'string' && isAbsolute(event.cwd) ? event.cwd : root;
   const path = repositoryPath(root, resolve(base, target));
   if (path === null) return {};
-  if (event.agent_id)
-    return isClaudeNativeEvidencePath(root, path)
-      ? deny('native evidence is written by the hook and helper only')
-      : {};
-  const lease = writerPath(root);
-  if (!existsSync(lease)) return {};
-  const { taskId, sessionId } = jsonFile(lease);
-  check(typeof taskId === 'string' && typeof sessionId === 'string', 'invalid writer lease');
-  if (sessionId !== event.session_id) return {};
-  const ignored = spawnSync('git', ['-C', root, 'check-ignore', '-q', '--', path], {
-    timeout: 5000,
-  });
-  if (ignored.status === 0) return {};
-  check(ignored.status === 1, 'git check-ignore failed');
-  return deny(
-    `Parent write during active writer task ${taskId}: settle it first, or after the child ended run pnpm claude:native release --task ${taskId} --ended`,
-  );
+  if (event.agent_id && isClaudeNativeEvidencePath(root, path))
+    return deny('native evidence is written by the hook and helper only');
+  return {};
 }
 export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } = {}) {
   root = realpathSync(root);
@@ -1489,7 +1458,6 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
     event.tool_input?.subagent_type?.startsWith('knu_') ||
     event.tool_input?.prompt?.includes('KNU_NATIVE_TASK:');
   if (!managed) return {}; // OMC/native unrelated roles retain their own contract.
-  let acquiredWriter = false;
   let currentTask;
   let terminalObserved = false;
   try {
@@ -1546,14 +1514,6 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
           pointer = null;
         }
         check(pointer === record.taskId, 'recovery binding mismatch');
-      }
-      if (b.writeScope.length) {
-        writeFileSync(
-          writerPath(root),
-          JSON.stringify({ taskId: record.taskId, sessionId: record.sessionId }),
-          { flag: 'wx', mode: 0o600 },
-        );
-        acquiredWriter = true;
       }
       writeFileSync(
         join(dir, 'attempt.json'),
@@ -1621,7 +1581,6 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
         : null;
     const observation = saveCompletion(task, attempt, r, event.hook_event_name, childTranscript);
     const errors = observation.errors;
-    if (terminalObserved) releaseWriter(root, record.taskId);
     return {
       hookSpecificOutput: {
         hookEventName: event.hook_event_name,
@@ -1629,11 +1588,7 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
       },
     };
   } catch (error) {
-    if (acquiredWriter) releaseWriter(root, currentTask.record.taskId);
-    if (currentTask && terminalObserved) {
-      markInvalid(currentTask.dir, error.message);
-      releaseWriter(root, currentTask.record.taskId);
-    }
+    if (currentTask && terminalObserved) markInvalid(currentTask.dir, error.message);
     if (event.hook_event_name === 'PreToolUse') return deny(error.message);
     return {
       hookSpecificOutput: {
@@ -2267,7 +2222,7 @@ export function completeClaudeNativeTask(
 }
 
 // Observation view for the task helper. Like complete, it first settles a recorded Stop (writing
-// completion.json and releasing that task's writer lease), but it accepts no result and writes no receipt.
+// completion.json), but it accepts no result and writes no receipt.
 export function observeClaudeNativeTask(id, { root = process.cwd() } = {}) {
   root = realpathSync(root);
   const task = loadTask(root, id);
@@ -2292,10 +2247,6 @@ export function writeClaudeNativeSubjectResponse(id, { root = process.cwd() } = 
     state.errors.length === 0,
     `completed subject observation required: ${state.errors.join(',')}`,
   );
-  check(
-    task.record.input.directAssignment.writeOwnership.length === 0,
-    'writer subject response is not review input',
-  );
   const path = subjectResponsePath(root, id);
   const text = subjectResponseText(state.observation);
   if (existsSync(join(root, path)))
@@ -2318,7 +2269,6 @@ export function releaseClaudeNativeTask(id, { root = process.cwd(), ended = fals
   check(ended === true, 'verify actual native task ended before release');
   root = realpathSync(root);
   const { dir } = loadTask(root, id);
-  releaseWriter(root, id);
   markInvalid(dir, 'explicitly-released-after-end');
   return { taskId: id, released: true, completed: false };
 }

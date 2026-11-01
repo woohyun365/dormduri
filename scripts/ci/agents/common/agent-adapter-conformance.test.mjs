@@ -363,13 +363,13 @@ test('fresh QA reuses real packet/result validator and remains static, not live 
     result: structuredClone(qa.baseResult),
     currentSnapshot: packet.snapshot,
     reviewerId: 'third-reviewer',
-    builderIds: ['executor-h3'],
+    builderIds: ['builder-h3'],
   };
   const outcome = validateAdapterReview(data);
   assert.equal(outcome.valid, true, JSON.stringify(outcome));
   assert.equal(outcome.verificationClass, 'static-contract');
   assert.ok(outcome.liveChecks.includes('context-isolation-observed'));
-  assertRejected(validateAdapterReview({ ...data, reviewerId: 'executor-h3' }), 'independent');
+  assertRejected(validateAdapterReview({ ...data, reviewerId: 'builder-h3' }), 'independent');
   assertRejected(
     validateAdapterReview({
       ...data,

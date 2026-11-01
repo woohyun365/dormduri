@@ -104,7 +104,6 @@
   ```text
   subject response artifact does not match the settled response
   read-only subject review needs its response artifact
-  writer subject response is not review input
   records[<n>]: RED record needs purpose "red" and an integer expectedExit from 1 to 255
   ```
 
@@ -126,20 +125,20 @@
 - 선택 근거(`selectionBasisRef`)와 fact `sourceRef`는 영문자·숫자로 시작하고 `#`·`//`·`.`·`..` 경로 조각을 쓸 수 없습니다.
   숨김 디렉터리 경로처럼 `.`으로 시작하는 참조는 `unsafe-reference:<field>`입니다.
 - Task의 `impactRisk`가 intake가 판정한 요청 risk보다 낮으면 `risk-downgrade`입니다.
-- Task `readScope`가 빈 배열이면 model policy가 `invalid-input`으로 거부합니다. 쓰기 task도 읽을 경로를 하나 이상 적습니다.
+- Task `readScope`가 빈 배열이면 model policy가 `invalid-input`으로 거부합니다.
+- Kind `build` spec은 `prepare`와 등록 모두 `implementation-retired`로 거부합니다. 구현 child 경로(build kind와 executor 역할)는
+  철회됐습니다. Parent가 직접 구현하고 그 diff를 `/knu-review --parent-subject`로 리뷰받습니다.
 - Task `facts`에는 kind별 필수 fact가 모두 있어야 하며, 빠지면 `required-facts`입니다. 필수 fact는 model policy 기준으로 다음과
   같습니다.
 
-  | kind      | 필수 fact                                                                                             |
-  | --------- | ----------------------------------------------------------------------------------------------------- |
-  | `extract` | `source-bound`, `fixed-input`, `single-step`, `output-schema`, `acceptance`, `independent-check`      |
-  | `read`    | `source-bound`, `bounded-scope`, `acceptance`, `oracle`, `independent-qa`                             |
-  | `build`   | `source-bound`, `bounded-scope`, `acceptance`, `oracle`, `independent-qa`, `regression`, `one-writer` |
-  | `review`  | `source-bound`, `bounded-scope`, `acceptance`, `oracle`, `independent-qa`, `fresh-context`            |
+  | kind      | 필수 fact                                                                                        |
+  | --------- | ------------------------------------------------------------------------------------------------ |
+  | `extract` | `source-bound`, `fixed-input`, `single-step`, `output-schema`, `acceptance`, `independent-check` |
+  | `read`    | `source-bound`, `bounded-scope`, `acceptance`, `oracle`, `independent-qa`                        |
+  | `review`  | `source-bound`, `bounded-scope`, `acceptance`, `oracle`, `independent-qa`, `fresh-context`       |
 
 - Effort는 역할 파일의 `effort`가 정합니다. 등록은 그 값(`medium`·`high`·`xhigh`)을 기대값으로 기록하고, 없거나 다른 값이면
-  `invalid-role-effort`입니다. Model policy는 impact `high` build에 `complex-critical`의 `knu_executor_xhigh`만 허용하고,
-  `knu_executor_xhigh`는 `complex-critical` build에서만 허용합니다. `knu_explorer_xhigh`는 `bounded-extraction`과 거기서 결속한
+  `invalid-role-effort`입니다. Model policy는 `knu_explorer_xhigh`를 `bounded-extraction`과 거기서 결속한
   1단계 재시도(`bounded-standard`)에서만 허용합니다. 어긋나면 `effort-tier`입니다. `bounded-extraction`은 `knu_explorer_xhigh`만
   받아 `knu_explorer`는 `role`이고, `knu_explorer_xhigh`는 kind `extract`만 받아 그 밖은 `kind-role`입니다.
 - 추출(kind `extract`)은 impact `low`·complexity `bounded`·uncertainty `resolved`일 때만 독립 QA 없이 등록됩니다. 어느 profile이든
@@ -165,7 +164,7 @@
   그 기록과 하나라도 다르면(추가·삭제·변경) 정산을 거부합니다.
 - `parent-adjudication` reviewer는 native subject가 없어 `settle --judgment`로 정산할 수 없습니다.
 - Read-only subject의 응답은 helper가 `subject-response.txt`에 한 번 쓰고 reviewer 등록 때 정산된 응답과 대조합니다. 파일을 고치면
-  거부됩니다. Writer subject의 응답은 builder 추론이라 read path에 넣을 수 없습니다. 다른 native task 기록은 대소문자를 바꾼 경로,
+  거부됩니다. 다른 native task 기록은 대소문자를 바꾼 경로,
   symlink, `.artifacts` 아래에서 연결된 디렉터리, Parent subject 경로로도 `native task evidence is not review input`으로
   거부됩니다. `.artifacts` 밖 디렉터리 안의 symlink와 hard link는 탐지하지 않으므로 native 기록을 연결해 두지 않습니다.
 - 리뷰 회차 입력: `--round`는 양의 정수이고, 2회차부터 `--previous-result`가 필요하며 1회차에는 줄 수 없습니다. 직전 결과는
@@ -231,9 +230,9 @@
 - 참조는 `plan:<Plan ID>/<절>`·`owner-request:<ID>`처럼 영문자로 시작하는 형식을 씁니다.
 - `risk-downgrade`는 요청 risk를 낮추지 말고 task `impactRisk`를 요청 risk 이상으로 올리거나 요청을 나눕니다.
 - `required-facts`·빈 `readScope`의 `invalid-input`은 원인 절의 kind별 필수 fact와 `readScope` 규칙대로 spec을 고칩니다.
-- `effort-tier`는 high-risk build를 `knu_executor_xhigh`·`complex-critical`로 다시 prepare합니다. `knu_explorer_xhigh`의
-  `effort-tier`는 Haiku 추출이면 `bounded-extraction`으로, Sonnet 추출·읽기면 `knu_explorer`로 다시 prepare합니다. Effort 변형은
-  Opus build(`knu_executor_xhigh`)와 추출(`knu_explorer_xhigh`)에만 있습니다. `invalid-role-effort`는 역할 파일을 고치고 새 세션에서 관측한 뒤 위임합니다.
+- `knu_explorer_xhigh`의 `effort-tier`는 Haiku 추출이면 `bounded-extraction`으로, Sonnet 추출·읽기면 `knu_explorer`로 다시
+  prepare합니다. Effort 변형은 추출(`knu_explorer_xhigh`)에만 있습니다. `invalid-role-effort`는 역할 파일을 고치고 새 세션에서 관측한 뒤 위임합니다.
+- `implementation-retired`는 구현을 위임하지 말고 Parent가 직접 구현한 뒤 `/knu-review --parent-subject`로 리뷰받습니다.
 - `independent QA required for this profile`은 task 사실을 바꾸지 말고 `reviewDisposition.required:true`로 두고 review를 연결합니다.
 - `effort-transcript-pending`은 잠시 뒤 `settle --task`를 다시 실행합니다. 나머지 effort 사유(`effort-transcript-too-large` 포함)는
   그 결과를 쓰지 않고 새 task로 다시 위임합니다. `effort-transcript-too-large`는 task를 나눠 다시 위임하고 transcript를 손으로
@@ -325,11 +324,9 @@ invalid prepare spec: recovery-format: {of: <first taskId>, cause}
 - `result-error`와 `omission`은 사다리를 한 단계 올립니다. `context-missing`은 같은 profile과 role로 다시 등록하고(0단계)
   prompt에만 맥락을 더할 수 있습니다.
 - 1단계는 `bounded-standard` + role R(Sonnet high)에서 `complex-critical` + 같은 R(Opus high)로 올립니다. R은 `knu_explorer`,
-  `knu_researcher`, `knu_executor`입니다. 추출은 `bounded-extraction` + `knu_explorer_xhigh`(Haiku xhigh)에서 `bounded-standard` +
-  같은 역할(Sonnet xhigh)로 올리는 1단계도 있습니다(kind `extract`).
-- 2단계는 `complex-critical`의 `knu_executor`(Opus high)에서 `complex-critical`의 `knu_executor_xhigh`(Opus xhigh)로 올립니다.
-  build에만 씁니다.
-- 1·2단계 retry만 `critical-signal` 요건을 면제받습니다. 다른 admission 검사는 모든 등록에 그대로 적용됩니다.
+  `knu_researcher`입니다. 추출은 `bounded-extraction` + `knu_explorer_xhigh`(Haiku xhigh)에서 `bounded-standard` +
+  같은 역할(Sonnet xhigh)로 올리는 1단계도 있습니다(kind `extract`). 1단계 위의 단계는 없습니다.
+- 1단계 retry만 `critical-signal` 요건을 면제받습니다. 다른 admission 검사는 모든 등록에 그대로 적용됩니다.
 - 같은 session과 같은 사실의 retry는 한 번만 등록됩니다.
 
 ### 사유와 다음 행동
@@ -353,13 +350,12 @@ invalid prepare spec: recovery-format: {of: <first taskId>, cause}
 4. `recovery-step`
    - 원인: 요청한 profile·role이 첫 task에서 올라가는 사다리 단계와 다릅니다. 단계를 건너뛰거나 그대로 두는 경우와
      `context-missing`인데 profile이나 role을 바꾼 경우가 해당합니다. `result-error`·`omission`은 올릴 단계가 없는 첫 task에서도
-     이 사유입니다. `knu_reviewer`, `knu_executor_xhigh`, `complex-critical`의 `knu_explorer`·`knu_researcher`, build가 아닌
-     `complex-critical`의 `knu_executor`에는 올릴 단계가 없습니다.
+     이 사유입니다. `knu_reviewer`와 `complex-critical`의 `knu_explorer`·`knu_researcher`에는 올릴 단계가 없습니다.
    - 다음 행동: 사다리 단계에 맞춰 spec의 profile·role을 고칩니다. 올릴 단계가 없으면 멈추고 Owner에게 묻습니다.
 5. `recovery-not-ran`
    - 원인: 첫 task의 실행 관측이 유효하지 않습니다. `attempt.json`이나 `completion.json`이 없거나, 저장된 관측이 유효하지
      않거나, 지금 관측에 오류가 있거나, 관측 effort가 역할 effort와 다릅니다. 모델 능력표가 effort 미지원으로 둔 exact ID만 effort
-     검사에서 제외됩니다. 괄호 안에 관측 오류가 붙습니다. 첫 task 완료 뒤 working tree를 바꾸면(편집, commit, child 변경 되돌리기) 관측 오류가 생겨 이
+     검사에서 제외됩니다. 괄호 안에 관측 오류가 붙습니다. 첫 task 완료 뒤 working tree를 바꾸면(편집, commit) 관측 오류가 생겨 이
      사유가 됩니다.
    - 다음 행동: 첫 task 완료부터 retry 등록까지 working tree를 바꾸지 않습니다. 첫 task를 먼저 정산합니다. 완료 알림 뒤 `settle --task <첫 taskId>`를 실행하고 `observationErrors`를 읽습니다.
      `effort-transcript-pending`이면 잠시 뒤 다시 정산합니다. 정산 뒤에도 오류가 남으면 첫 task는 복구 대상이 아닙니다. 위
@@ -420,7 +416,7 @@ reproduction log`, `only the members of one first-round group`, `a first-round c
 `a missing, misplaced, unreadable or other manifest`, `a read path in another case than its stored name`,
 `builder completion judges the manifest of every delivered group member`
 테스트가 고정합니다. Effort·QA 규칙은
-`high-risk builds require the xhigh executor`, `extract QA exemption keeps the low, bounded, resolved range`,
+`extract QA exemption keeps the low, bounded, resolved range`,
 `the capability table lists effortless exact IDs`, `a Haiku ID with effort support is held to the role effort`,
 `a Haiku first task with effort support binds a retry only after running at the role effort`,
 `bounded-extraction takes only the xhigh explorer`, `the xhigh explorer works in bounded-standard only as a bound extraction retry`,

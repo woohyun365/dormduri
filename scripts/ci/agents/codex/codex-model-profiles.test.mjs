@@ -41,7 +41,7 @@ test('one allowlist owns child models and rejects any other ID for the same reas
     ` ${BASELINE_CHILD_MODEL}`,
   ])
     assert.throws(() => assertAllowedChildModel(model), UNLISTED_REASON);
-  const binding = createModelProfileBinding(getModelProfile('standard-build'));
+  const binding = createModelProfileBinding(getModelProfile('standard-read'));
   assert.throws(
     () => assertCurrentModelProfileBinding({ ...binding, model: UNLISTED_MODEL }),
     UNLISTED_REASON,
@@ -72,8 +72,6 @@ const CANDIDATE_PROFILES = [
   ['extract', 'gpt-6-luna', 'xhigh'],
   ['standard-read', 'gpt-6.1-sol', 'high'],
   ['elevated-read', 'gpt-6.1-sol', 'xhigh'],
-  ['standard-build', 'gpt-6.1-sol', 'high'],
-  ['elevated-build', 'gpt-6.1-sol', 'xhigh'],
 ];
 
 test('finite immutable candidate profiles bind their model and the effort of their roles', () => {
@@ -103,7 +101,7 @@ test('finite immutable candidate profiles bind their model and the effort of the
 });
 
 test('binding hashes complete policy canonically; synthetic future profiles never become installed', () => {
-  const p = getModelProfile('standard-build');
+  const p = getModelProfile('standard-read');
   const current = createModelProfileBinding(p);
   assert.deepEqual(
     createModelProfileBinding(Object.fromEntries(Object.entries(p).reverse())),
@@ -166,7 +164,7 @@ test('quality-only revision grants do not survive recovery policy activation', (
 });
 
 // GPT-6 Sol to GPT-6.1 Sol and the effort structure: each change came with a new revision.
-const SOL_PROFILES = ['standard-read', 'elevated-read', 'standard-build', 'elevated-build'];
+const SOL_PROFILES = ['standard-read', 'elevated-read'];
 const SOL6_REVISION = '2026-09-24.3';
 const STALE_REASON = {
   name: 'TypeError',
@@ -209,7 +207,7 @@ test('a reused Sol 6 grant fails like any unlisted model, with no rule naming it
 // Fingerprint/data seam only: this does not install a registry or protect against
 // an operator restoring old validator code together with old grants.
 test('rollback data with a new revision has a new binding, not a revived old grant', () => {
-  const current = getModelProfile('standard-build');
+  const current = getModelProfile('standard-read');
   const original = createModelProfileBinding(current);
   const changed = createModelProfileBinding({
     ...current,
@@ -244,9 +242,6 @@ const EXPECTED_PROFILES = {
     ['knu_explorer_xhigh', 'knu_researcher_xhigh'],
     ['knu_explorer_xhigh', 'knu_researcher_xhigh'],
   ],
-  'standard-build': ['candidate', 'gpt-6.1-sol', ['knu_executor'], ['knu_executor']],
-  'elevated-build': ['candidate', 'gpt-6.1-sol', ['knu_executor_xhigh'], ['knu_executor_xhigh']],
-  'deep-build': ['assignment', 'gpt-6-astra', ['knu_executor', 'knu_executor_xhigh'], null],
   review: ['assignment', 'gpt-6-astra', ['knu_reviewer'], null],
   'astra-fallback': [
     'assignment',
@@ -258,8 +253,6 @@ const EXPECTED_PROFILES = {
       'knu_researcher_medium',
       'knu_researcher',
       'knu_researcher_xhigh',
-      'knu_executor_medium',
-      'knu_executor',
     ],
     null,
   ],
@@ -306,22 +299,17 @@ test('allowed (role, model) pairs are the profile roles with their profile model
     knu_researcher_medium: [astra],
     knu_researcher: [astra, sol],
     knu_researcher_xhigh: [astra, sol],
-    knu_executor_medium: [astra],
-    knu_executor: [astra, sol],
-    knu_executor_xhigh: [astra, sol],
     knu_reviewer: [astra],
   });
   assert.deepEqual(Object.keys(ALLOWED_ROLE_MODELS), Object.keys(ROLE_EFFORTS));
   assert.ok(
     Object.isFrozen(ALLOWED_ROLE_MODELS) && Object.isFrozen(ALLOWED_ROLE_MODELS.knu_reviewer),
   );
-  // The promotion ladder (failed row 1 → 6.1 Sol, rows 2~5 → Astra, same role) stays inside these pairs.
+  // The promotion ladder (failed row 1 → 6.1 Sol, rows 2~3 → Astra, same role) stays inside these pairs.
   for (const [profileId, next] of [
     ['extract', sol],
     ['standard-read', astra],
     ['elevated-read', astra],
-    ['standard-build', astra],
-    ['elevated-build', astra],
   ])
     for (const role of getModelProfile(profileId).roles)
       assert.equal(isAllowedRoleModel(role, next), true, `${profileId}:${role}`);
@@ -329,7 +317,6 @@ test('allowed (role, model) pairs are the profile roles with their profile model
     ['knu_reviewer', sol],
     ['knu_explorer_medium', luna],
     ['knu_explorer', luna],
-    ['knu_executor_medium', sol],
     ['knu_explorer', UNLISTED_MODEL],
     ['default', astra],
     ['constructor', astra],
@@ -345,8 +332,6 @@ test('the recovery ladder raises a lane one rung on its own role inside the allo
     extract: 'elevated-read',
     'standard-read': 'astra-fallback',
     'elevated-read': 'astra-fallback',
-    'standard-build': 'deep-build',
-    'elevated-build': 'deep-build',
   });
   for (const profileId of MODEL_PROFILE_IDS) {
     const profile = getModelProfile(profileId);
@@ -366,9 +351,9 @@ test('the recovery ladder raises a lane one rung on its own role inside the allo
       assert.equal(rungs.indexOf(step.model), rungs.indexOf(profile.model) + 1, profileId);
     }
   }
-  assert.throws(() => getRecoveryStep('standard-read', 'knu_executor'), {
+  assert.throws(() => getRecoveryStep('standard-read', 'knu_reviewer'), {
     name: 'TypeError',
-    message: 'Role knu_executor is not in profile standard-read.',
+    message: 'Role knu_reviewer is not in profile standard-read.',
   });
   assert.throws(() => getRecoveryStep('missing-profile', 'knu_explorer'), TypeError);
 });
@@ -391,19 +376,15 @@ test('a ladder rung is used only when its next profile admits the lane boundary 
     false,
   );
   assert.equal(
-    recoveryRungAdmits(profile('standard-read'), profile('standard-build'), 'knu_explorer'),
+    recoveryRungAdmits(profile('standard-read'), profile('review'), 'knu_explorer'),
     false,
   );
   assert.equal(
-    recoveryRungAdmits(profile('elevated-build'), profile('astra-fallback'), 'knu_executor_xhigh'),
+    recoveryRungAdmits(profile('standard-read'), profile('astra-fallback'), 'knu_explorer_xhigh'),
     false,
   );
   assert.equal(
-    recoveryRungAdmits(profile('standard-build'), profile('deep-build'), 'knu_executor_xhigh'),
-    false,
-  );
-  assert.equal(
-    recoveryRungAdmits(profile('standard-build'), profile('deep-build'), 'knu_executor'),
+    recoveryRungAdmits(profile('standard-read'), profile('astra-fallback'), 'knu_explorer'),
     true,
   );
   assert.equal(

@@ -93,9 +93,7 @@ function commandIssues(command, flags) {
 
 // Required facts per kind, as the rejection document lists them.
 function documentedFacts() {
-  const rows = [
-    ...read(REJECTIONS).matchAll(/^\s*\|\s*`(extract|read|build|review)`\s*\|(.+)\|\s*$/gmu),
-  ];
+  const rows = [...read(REJECTIONS).matchAll(/^\s*\|\s*`(extract|read|review)`\s*\|(.+)\|\s*$/gmu)];
   return Object.fromEntries(
     rows.map(([, kind, cell]) => [kind, [...cell.matchAll(/`([^`]+)`/gu)].map((m) => m[1])]),
   );
@@ -103,18 +101,15 @@ function documentedFacts() {
 const KIND_PROBE = {
   extract: { profileId: 'bounded-extraction', role: 'knu_explorer_xhigh', request: '분석해줘' },
   read: { profileId: 'bounded-standard', role: 'knu_explorer', request: '분석해줘' },
-  build: { profileId: 'bounded-standard', role: 'knu_executor', request: '구현해줘' },
   review: { profileId: 'complex-critical', role: 'knu_reviewer', request: '리뷰해줘' },
 };
 const TOOLS = {
   knu_explorer: ['Read', 'Grep', 'Glob'],
   knu_explorer_xhigh: ['Read', 'Grep', 'Glob'],
-  knu_executor: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
   knu_reviewer: ['Read', 'Grep', 'Glob'],
 };
 function eligibility(kind, factKeys) {
   const probe = KIND_PROBE[kind];
-  const writing = kind === 'build';
   const envelope = buildTaskEnvelope({ request: `sample.txt 내용을 ${probe.request}.` });
   const issuedAt = new Date();
   return evaluateClaudeProfileEligibility({
@@ -131,8 +126,8 @@ function eligibility(kind, factKeys) {
       role: probe.role,
       allowedTools: [...TOOLS[probe.role]],
       readScope: ['sample.txt'],
-      writeScope: writing ? ['sample.txt'] : [],
-      writeOwner: writing ? 'builder' : null,
+      writeScope: [],
+      writeOwner: null,
       childValue: 'independent-verification',
       independent: true,
       knownGaps: [],
@@ -228,7 +223,7 @@ test('the delegate template passes prepare and the rejection document binds fact
   const rejections = read(REJECTIONS);
   assert.match(rejections, /`readScope`[^\n]*`invalid-input`/u);
   const documented = documentedFacts();
-  assert.deepEqual(Object.keys(documented).sort(), ['build', 'extract', 'read', 'review']);
+  assert.deepEqual(Object.keys(documented).sort(), ['extract', 'read', 'review']);
   for (const [kind, keys] of Object.entries(documented)) {
     assert.ok(keys.length > 0, kind);
     assert.deepEqual(eligibility(kind, keys).reasons, [], `${kind}: documented facts suffice`);
@@ -499,10 +494,7 @@ test('the delegate skill routine table matches the adapter routine rows one to o
   const WORK = new Map([
     ['고정 입력 추출', '고정 입력 추출'],
     ['공식 근거 조사', '공식 근거 읽기'],
-    ['bounded 구현', 'bounded 구현·검증'],
     ['repository 읽기', 'repository 읽기 조사'],
-    ['복잡한 구현', '복잡한 구현'],
-    ['impact `high` 구현', '고위험 구현'],
   ]);
   const status = (value) => (value.startsWith('Q') ? 'Q' : value);
   const alias = { '`haiku`': 'Haiku', '`sonnet`': 'Sonnet', '`opus`': 'Opus' };

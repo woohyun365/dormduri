@@ -36,25 +36,24 @@ leader-only final decision, response, integration, verification
 선택형 `modelRequest`는 기존 lane 또는 `selectAgentRoute()` 입력에서 같은 strict schema를 사용합니다.
 
 ```text
-profileId: extract | standard-read | elevated-read | standard-build | elevated-build
+profileId: extract | standard-read | elevated-read
 purpose: pilot | routine
 verificationFacts:
   standard-read, elevated-read: acceptance / independentCheck
-  standard-build, elevated-build: acceptance / regression / astraQa
   extract: acceptance / fixedInput / outputSchema / singleStep / independentCheck
 ```
 
-Assignment profile(`deep-build`·`review`·`astra-fallback`)은 routing이 정하는 Astra 배정이라 `modelRequest`로 요청할 수 없습니다.
+Assignment profile(`review`·`astra-fallback`)은 routing이 정하는 Astra 배정이라 `modelRequest`로 요청할 수 없습니다.
 
-각 verification 값은 current Pass 2의 high-confidence `factId`입니다. Acceptance와 실행 가능한 검사/독립 확인,
-구현 lane의 regression 및 Astra QA 계획을 실제 source에 근거해 작성합니다. Policy가 자연어 사실의 진실이나 앞으로
+각 verification 값은 current Pass 2의 high-confidence `factId`입니다. Acceptance와 실행 가능한 검사/독립 확인을
+실제 source에 근거해 작성합니다. Policy가 자연어 사실의 진실이나 앞으로
 실행할 QA 성공을 인증하지는 않으므로 Parent가 원문 근거와 최종 결과를 확인합니다. 임의의 다른 fact를 연결해서는 안 됩니다.
 
 [채택 범위와 cold-start 순서](./codex.md#routine-task-model-operation)를 확인한 일반 Parent는 매 bounded delegation에서 task/위험/검증 방법을 판정하고 적합한 `modelRequest`를 채웁니다.
 `codex:delegate`는 spec에서 `modelRequest`를 생략한 lane에 Parent가 태그한 검증 fact와 Pass 2 결과로 맞는 profile을
 `purpose=routine`으로 채우고(`defaultModelRequest()`), 맞는 profile이 없으면 생략합니다. `false`는 Astra를 고정합니다.
 사용자에게 모델명을 매번 다시 선택하게 하지 않습니다. 단, cohort 채택과 이번 task의 실제 작업 권한은 별개입니다.
-GPT-6.1 Sol은 `standard-build`·`elevated-build`의 구현/test 또는 `standard-read`·`elevated-read`의 lookup/analysis/research
+GPT-6.1 Sol은 `standard-read`·`elevated-read`의 lookup/analysis/research
 후보이며 routine과 pilot 모두 받습니다. GPT-6 Luna는 `extract`의 low-impact
 lookup/analysis 고정 입력·단일 semantic extraction만 후보입니다. Luna에는 무제한 조사·공식 웹 탐색·쓰기 권한을 부여하지 않습니다. 단순 grep/list/format이면 child 없이 도구를 씁니다.
 
@@ -152,8 +151,9 @@ Native의 numeric fork 지원 여부는 이 계약의 필수 확장 사유가 �
 
 - Pass 1: TaskEnvelope의 intent·authority·impact risk와 candidate task shape를 보존합니다.
 - Pass 2: current ContextPack source에 연결된 stable fact와 semantic predicate claim을 검증합니다.
-- 역할 family: lookup/analysis는 `knu_explorer`, official research는 `knu_researcher`, implementation/debug/test는
-  `knu_executor`, review/verification/architecture evidence lane은 `knu_reviewer`입니다.
+- 역할 family: lookup/analysis는 `knu_explorer`, official research는 `knu_researcher`, review/verification/architecture
+  evidence lane은 `knu_reviewer`입니다. Implementation/debug/test는 child에 위임하지 않고 Lead가 하며, 그 `bounded-child`
+  요청은 spawn 없이 `lead-task-kind` gap으로 끝납니다.
 - 계층(`tier`): complete positive boundedness evidence는 Medium, mandatory/deep-composite evidence는 XHigh, 나머지 substantial
   evidence는 High입니다. Low/Max/Ultra는 repository child route가 아닙니다.
 - 역할 변형과 effort: 계층·impact가 family 안의 변형(`_medium`·기본·`_xhigh`)과 `profileId`를 고르고, `effort`는 그 역할
@@ -171,7 +171,8 @@ proof가 아닙니다. 호출 시점의 역할 roster·(역할, model) 쌍은 [p
 - 일반 proactive fan-out: 최대 2 child
 - Pass 2 evidence에 연결된 high-value third lane: 최대 3 child
 - 명시적인 owner-directed fan-out: 최대 6 child
-- 선택 가능한 write-capable child: 최대 1개
+- write-capable child: 없음. child 역할 family가 있는 kind의 lane이 `writeOwnership`·`workspace-edit`을 가지면 contract가 거부하고,
+  dispatch도 쓰기 가능한 child contract를 거부합니다(쓰기 범위는 Lead kind lane만 가짐)
 - sibling write scope가 겹치면 해당 lane들은 independent가 아니므로 선택하지 않음
 
 각 `routeRecommendation`은 역할 변형·pin effort·계층·`profileId`뿐 아니라 validated Pass 2 assessment, evidence ID와 confidence를

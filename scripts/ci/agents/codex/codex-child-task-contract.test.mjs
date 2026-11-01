@@ -120,7 +120,7 @@ test('same reviewer delta can reuse only a currently revalidated bounded context
   assert.equal(result.applied, false);
   for (const patch of [
     { laneId: 'other' },
-    { role: 'knu_executor' },
+    { role: 'knu_explorer' },
     { sameOutcome: false },
     { scopeUnchanged: false },
     { independentReview: false },
@@ -436,7 +436,34 @@ test('keeps ambiguous, dependent, low-benefit, and missing-Pass-2 work child-fre
   assert.match(missingPass2.gaps.join(' '), /pass2-semantic-evidence-required/u);
 });
 
-test('rejects lexical risk substitution and never selects more than one write child', () => {
+// Every child role is read-only (D-OSS-35): only a Lead task kind may own writes, so a child-kind lane that asks to
+// write fails closed instead of becoming a write-capable child on a read role.
+test('a child-kind lane that owns writes fails closed', () => {
+  const { envelope, contextPack } = legalFlow();
+  for (const overrides of [
+    { allowedTools: ['repository-read', 'workspace-edit'], writeOwnership: ['apps/api/src/legal'] },
+    { taskKind: 'lookup', writeOwnership: ['apps/api/src/legal'] },
+  ])
+    assert.throws(
+      () =>
+        recommendDelegation({
+          envelope,
+          contextPack,
+          laneCandidates: [repositoryLane(contextPack, overrides)],
+        }),
+      /child lane is read-only/u,
+      JSON.stringify(overrides),
+    );
+  // A Lead task kind keeps its write ownership because it never becomes a child.
+  const lead = recommendDelegation({
+    envelope,
+    contextPack,
+    laneCandidates: [implementationLane(contextPack, { writeOwnership: ['apps/api/src/legal'] })],
+  });
+  assert.deepEqual(lead.recommendedChildren, []);
+});
+
+test('rejects lexical risk substitution and keeps implementation lanes with the Lead', () => {
   const { envelope, contextPack } = legalFlow('Legal 구현을 수정해줘.');
   assert.throws(
     () =>
@@ -464,11 +491,9 @@ test('rejects lexical risk substitution and never selects more than one write ch
       }),
     ],
   });
-  assert.deepEqual(
-    distinctWrites.recommendedChildren.map(({ laneId }) => laneId),
-    ['api-writer'],
-  );
-  assert.match(distinctWrites.gaps.join(' '), /write-child-limit-exceeded/u);
+  // Implementation stays with the Lead (D-OSS-35): neither write lane becomes a child.
+  assert.deepEqual(distinctWrites.recommendedChildren, []);
+  assert.match(distinctWrites.gaps.join(' '), /lead-task-kind/u);
 
   const overlappingWrites = recommendDelegation({
     envelope,
@@ -526,7 +551,7 @@ test('child contract policy remains advisory and does not own runtime lifecycle'
 });
 
 test('child contracts propagate optional model advice without relaxing write or verification ownership', () => {
-  const { envelope, contextPack } = legalFlow('Legal test 구현해줘.');
+  const { envelope, contextPack } = legalFlow();
   const parts = Array.from({ length: 15 }, (_, i) =>
     semanticEvidence(contextPack, {
       predicateId: `M-${String(i + 1).padStart(2, '0')}`,
@@ -537,17 +562,15 @@ test('child contracts propagate optional model advice without relaxing write or 
     ['sources', 'facts', 'predicateClaims'].map((key) => [key, parts.flatMap((part) => part[key])]),
   );
   Object.assign(evidence, { inferences: [], gaps: [], confidence: 'high' });
-  const lane = implementationLane(contextPack, {
+  const lane = repositoryLane(contextPack, {
     impactRisk: 'low',
-    writeOwnership: ['apps/web/src/legal/example.test.ts'],
     pass2Evidence: evidence,
     modelRequest: {
-      profileId: 'standard-build',
+      profileId: 'standard-read',
       purpose: 'pilot',
       verificationFacts: {
         acceptance: evidence.facts[0].factId,
-        regression: evidence.facts[1].factId,
-        astraQa: evidence.facts[2].factId,
+        independentCheck: evidence.facts[1].factId,
       },
     },
   });

@@ -1,6 +1,6 @@
 import { assertValidTaskEnvelope } from '../common/intake-policy.mjs';
 import { createHash } from 'node:crypto';
-import { normalizeModelRequest, selectAgentRoute } from './routing-policy.mjs';
+import { isChildTaskKind, normalizeModelRequest, selectAgentRoute } from './routing-policy.mjs';
 
 const HARD_CHILD_LIMIT = 6;
 const PROACTIVE_NORMAL_LIMIT = 2;
@@ -178,9 +178,6 @@ export function createModelScopeDigest(contract) {
 function assessNormalizedLane(lane, allLanes) {
   const reasons = [];
   if (lane.dependencies.length > 0) reasons.push('lane-has-result-dependencies');
-  if (lane.taskKind === 'implementation' && lane.writeOwnership.length === 0) {
-    reasons.push('implementation-write-owner-missing');
-  }
 
   const conflictingLaneIds = allLanes
     .filter((peer) => peer.id !== lane.id && writeScopesOverlap(lane, peer))
@@ -222,12 +219,21 @@ function normalizeLane(lane, envelope) {
     'allowedEvidence',
   );
   const allowedTools = normalizeEnumArray(
-    lane.allowedTools ?? defaultTools(taskKind, writeOwnership.length > 0),
+    lane.allowedTools ?? defaultTools(taskKind),
     ALLOWED_TOOLS,
     'allowedTools',
   );
   if (allowedTools.includes('workspace-edit') && writeOwnership.length === 0) {
     throw new TypeError('workspace-edit requires explicit writeOwnership.');
+  }
+  // Every child role is read-only (D-OSS-35): only a Lead task kind, which never becomes a child, may own writes.
+  if (
+    isChildTaskKind(taskKind) &&
+    (writeOwnership.length > 0 || allowedTools.includes('workspace-edit'))
+  ) {
+    throw new TypeError(
+      'A child lane is read-only: only implementation, debugging and test lanes, which stay with the Lead, own writes.',
+    );
   }
 
   return {
@@ -599,20 +605,6 @@ function selectEligibleLanes(eligible, ownerDirectedChildLimit) {
       continue;
     }
 
-    if (
-      lane.writeOwnership.length > 0 &&
-      selected.some(({ lane: selectedLane }) => selectedLane.writeOwnership.length > 0)
-    ) {
-      deferSelection(
-        deferredReasons,
-        gaps,
-        lane.id,
-        'Only one write-capable child lane may be selected.',
-        'write-child-limit-exceeded',
-      );
-      continue;
-    }
-
     if (ownerDirectedChildLimit === null && selected.length >= PROACTIVE_NORMAL_LIMIT) {
       const boundHighValue =
         lane.benefit.value === 'high' &&
@@ -712,17 +704,10 @@ function normalizeBenefit(value) {
   return normalized;
 }
 
-function defaultTools(taskKind, hasWriteOwnership) {
-  if (taskKind === 'research') return ['official-web-read'];
-  if (hasWriteOwnership && ['implementation', 'debugging'].includes(taskKind)) {
-    return ['repository-read', 'workspace-edit'];
-  }
-  if (taskKind === 'test') {
-    return hasWriteOwnership
-      ? ['repository-read', 'test-runner', 'workspace-edit']
-      : ['repository-read', 'test-runner'];
-  }
-  return ['repository-read'];
+// Implementation, debugging and test stay with the Lead (routing never spawns them), so no default grants a write or
+// test tool.
+function defaultTools(taskKind) {
+  return taskKind === 'research' ? ['official-web-read'] : ['repository-read'];
 }
 
 function normalizeScopeArray(values, field, { allowHttps = true, allowEmpty = false } = {}) {

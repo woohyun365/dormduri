@@ -32,6 +32,7 @@ import {
 } from '../common/review-adjudication.mjs';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { prepareClaudeWorkflow } from './workflow-entry.mjs';
+import { IMPLEMENTATION_RETIRED, isRetiredClaudeTask } from './model-policy.mjs';
 import { CHILD_TRANSCRIPT_BYTE_LIMIT } from './native-session-evidence.mjs';
 import {
   registerClaudeNativeTask,
@@ -60,14 +61,7 @@ const PROMPT_LIMIT = 12000;
 // what the Parent actually receives. The stored response is capped at 1 MB, far above a normal report.
 const DELIVERY_RULE =
   'Your delivered report (the SubagentHandback message when that tool is available, otherwise your final reply) is the only text the Parent receives. Put the complete result in it without summarizing; it may be long (the record limit is 1 MB).';
-const KNU_ROLES = [
-  'knu_explorer',
-  'knu_explorer_xhigh',
-  'knu_researcher',
-  'knu_executor',
-  'knu_executor_xhigh',
-  'knu_reviewer',
-];
+const KNU_ROLES = ['knu_explorer', 'knu_explorer_xhigh', 'knu_researcher', 'knu_reviewer'];
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/u;
 const SPEC_REQUIRED = [
   'sessionId',
@@ -143,7 +137,8 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
   if (typeof spec.owner !== 'string' || !ID.test(spec.owner)) issues.push('owner-identifier');
   if (!textList(spec.acceptance) || !spec.acceptance.length) issues.push('acceptance-required');
   if (!Array.isArray(spec.facts) || !spec.facts.length) issues.push('facts-required');
-  if (!KNU_ROLES.includes(spec.role)) issues.push('unknown-role');
+  if (isRetiredClaudeTask(spec)) issues.push(IMPLEMENTATION_RETIRED);
+  else if (!KNU_ROLES.includes(spec.role)) issues.push('unknown-role');
   // Checked here because the delivery rule below would turn an empty prompt into a non-empty one.
   if (typeof spec.prompt !== 'string' || !spec.prompt.trim()) issues.push('prompt-required');
   for (const key of ['readScope', 'writeScope'])
@@ -605,7 +600,6 @@ function subjectOf({ subjectTaskId, parentSubject }, root) {
       objective: record.requestSummary,
       owner: record.input.directAssignment.owner,
       acceptance: record.input.directAssignment.acceptance,
-      readOnly: record.input.directAssignment.writeOwnership.length === 0,
       readPaths: [
         ...new Set([
           ...record.input.nativeRequest.task.readScope,
@@ -1124,9 +1118,7 @@ export function buildClaudeNativeReview(
   if (subject.settlement === 'native-subject') {
     // The reviewer can check a read-only subject's claims against its read scope; the response
     // itself is read from a file bound to the settled response.
-    subject.responsePath = subject.readOnly
-      ? writeClaudeNativeSubjectResponse(subject.taskId, { root })
-      : undefined;
+    subject.responsePath = writeClaudeNativeSubjectResponse(subject.taskId, { root });
   }
   // Both settlements read the raw runner outputs, so no reviewer depends on a runner's summary.
   const sharedPaths = [
