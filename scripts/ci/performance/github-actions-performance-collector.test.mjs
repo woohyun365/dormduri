@@ -66,6 +66,7 @@ test('summarizes GitHub run wall, raw compute, billed rounding, queue, cache, te
     missCount: 0,
     nextBuildHit: true,
     nextBuildInterpretation: 'hit-observed',
+    pnpmCacheScope: null,
     pnpmInterpretation: 'hit-observed',
   });
   assert.deepEqual(evidence.tests, {
@@ -155,29 +156,32 @@ test('leaves unknown runner labels unpriced instead of guessing a class', () => 
   assert.equal(evidence.estimatedGrossUsd, null);
 });
 
-test('records the run-head fingerprint and reads a pnpm cache miss against the PR lockfile change', () => {
+test('records the run-head fingerprint and reads a pnpm cache miss against the default-branch lockfile', () => {
+  const runHeadLockfile = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   const runHeadFingerprint = {
     ...fixture.runHeadFingerprint,
-    fileSha256: {
-      ...fixture.runHeadFingerprint.fileSha256,
-      'pnpm-lock.yaml': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    },
+    fileSha256: { ...fixture.runHeadFingerprint.fileSha256, 'pnpm-lock.yaml': runHeadLockfile },
   };
-  const missWith = (changedPaths) =>
+  const scope = (lockfileSha256) => ({ lockfileSha256, ref: 'main', sha: 'c'.repeat(40) });
+  const missWith = (pnpmCacheScope) =>
     buildRunEvidence({
       ...fixture,
-      changedPaths,
+      changedPaths: ['apps/web/src/example.tsx'],
       log: 'Cache not found for input keys:\n',
+      pnpmCacheScope,
       runHeadFingerprint,
     });
 
-  const lockfileChange = missWith(['pnpm-lock.yaml', 'apps/web/package.json']);
-  assert.deepEqual(lockfileChange.dependencyFingerprint, runHeadFingerprint);
-  assert.equal(lockfileChange.cache.pnpmInterpretation, 'expected-dependency-key-change');
+  // The pull request leaves the lockfile alone, but its base moved the lockfile away from the default branch.
+  const drift = missWith(scope('a'.repeat(64)));
+  assert.deepEqual(drift.dependencyFingerprint, runHeadFingerprint);
+  assert.deepEqual(drift.cache.pnpmCacheScope, scope('a'.repeat(64)));
+  assert.equal(drift.cache.pnpmInterpretation, 'expected-dependency-key-change');
   assert.equal(
-    missWith(['apps/web/src/example.tsx']).cache.pnpmInterpretation,
+    missWith(scope(runHeadLockfile)).cache.pnpmInterpretation,
     'investigate-eviction-or-configuration',
   );
+  assert.equal(missWith(null).cache.pnpmInterpretation, 'not-determined');
 });
 
 test('separates expected change surface from the jobs the historical workflow actually ran', () => {

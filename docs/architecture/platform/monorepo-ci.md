@@ -150,11 +150,11 @@ Web unit tests는 전용 Web unit CI job의 한 Vitest process 안에서 두 pro
 
 - Node-safe `.ts` tests: Node environment, DOM setup 없음
 - `.tsx` tests와 명시적 `.dom.test.ts`: jsdom environment, `src/test-setup.ts` 적용
-- Current inventory: Node 107 files / 621 cases, jsdom 114 files / 611 cases; total 221 files / 1,232 cases
 - Pool: repeated local correctness/timing을 통과한 `threads`; 고정 `maxWorkers`는 사용하지 않음
 
-DOM 의존 TypeScript test는 suffix로 owner를 드러내며, `scripts/ci/product/web-vitest-project-ownership.test.mjs`가 exact-once
-inventory, Node project의 Testing Library exclusion, jsdom-only setup을 고정한다. Node/jsdom project를 각각 별도 GitHub
+DOM 의존 TypeScript test는 suffix로 owner를 드러내며, `scripts/ci/product/web-vitest-project-ownership.test.mjs`가 test 파일마다
+project 하나(두 project 모두 비어 있지 않음), Node project의 Testing Library exclusion, jsdom-only setup을 고정한다. 파일·case 수는
+고정하지 않는다. Node/jsdom project를 각각 별도 GitHub
 job이나 artifact로 나누지 않는다. Unit cohort 전체만 static/build/browser core와 병렬화한다.
 
 Hosted Web-only evidence는 동일 221 files / 1,232 cases에서 Web unit 181s와 one-time rerun 184s를 기록했다. 이전 full-PR

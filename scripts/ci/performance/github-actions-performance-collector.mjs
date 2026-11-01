@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -11,8 +12,10 @@ import { classifyChanges } from '../lanes/classify-changes.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../..');
 const ansiPattern = /\u001b\[[0-9;]*m/gu;
-// Every workflow restores the pnpm store with `cache-dependency-path: pnpm-lock.yaml`.
-const pnpmCacheKeyInputs = ['pnpm-lock.yaml'];
+// Every workflow restores the pnpm store with `cache-dependency-path: pnpm-lock.yaml`, so the cache key follows the run head
+// lockfile. CI saves caches only on pull requests and on default-branch pushes, and a pull request restores only its own
+// caches and the default branch's, so a miss is expected when the run head lockfile differs from the default-branch
+// lockfile the run could restore. The collector does not see a pull request's own earlier caches.
 
 function secondsBetween(start, end) {
   const startMs = Date.parse(start ?? '');
@@ -112,6 +115,7 @@ export function buildRunEvidence({
   pricing = null,
   pullRequest = null,
   runHeadFingerprint = null,
+  pnpmCacheScope = null,
 }) {
   const completedJobs = jobs.filter(
     (job) => job.started_at && job.completed_at && job.conclusion !== 'skipped',
@@ -186,7 +190,7 @@ export function buildRunEvidence({
   const wastedJobs = completedJobs.filter((job) =>
     ['action_required', 'cancelled', 'failure', 'stale', 'timed_out'].includes(job.conclusion),
   );
-  const pnpmCacheKeyChanged = changedPaths.some((path) => pnpmCacheKeyInputs.includes(path));
+  const runHeadLockfileSha256 = runHeadFingerprint?.fileSha256?.['pnpm-lock.yaml'] ?? null;
   const webSourceChanged = changedPaths.some((path) => path.startsWith('apps/web/'));
   const cacheEvidence = {
     ...parsedLog.cache,
@@ -198,14 +202,17 @@ export function buildRunEvidence({
           : webSourceChanged
             ? 'expected-source-key-change'
             : 'investigate-eviction-or-configuration',
+    pnpmCacheScope,
     pnpmInterpretation:
       parsedLog.cache.missCount === 0
         ? parsedLog.cache.hitKeys.length > 0
           ? 'hit-observed'
           : 'not-observed'
-        : pnpmCacheKeyChanged
-          ? 'expected-dependency-key-change'
-          : 'investigate-eviction-or-configuration',
+        : !pnpmCacheScope?.lockfileSha256 || !runHeadLockfileSha256
+          ? 'not-determined'
+          : runHeadLockfileSha256 !== pnpmCacheScope.lockfileSha256
+            ? 'expected-dependency-key-change'
+            : 'investigate-eviction-or-configuration',
   };
   const estimatedGrossUsd = jobEvidence.every((job) => job.estimatedGrossUsd !== null)
     ? roundCurrency(jobEvidence.reduce((total, job) => total + job.estimatedGrossUsd, 0))
@@ -312,6 +319,28 @@ function ghLines(args) {
   return output ? output.split('\n').filter(Boolean) : [];
 }
 
+// The default-branch commit that was current when the run started holds the lockfile of the caches the run could restore.
+function collectPnpmCacheScope(repository, run) {
+  const { default_branch: ref } = ghJson(['api', `repos/${repository}`]);
+  const until = encodeURIComponent(run.run_started_at ?? run.created_at);
+  const [commit] = ghJson([
+    'api',
+    `repos/${repository}/commits?sha=${encodeURIComponent(ref)}&until=${until}&per_page=1`,
+  ]);
+  if (!commit?.sha) return null;
+  const lockfile = ghText([
+    'api',
+    '-H',
+    'Accept: application/vnd.github.raw+json',
+    `repos/${repository}/contents/pnpm-lock.yaml?ref=${commit.sha}`,
+  ]);
+  return {
+    lockfileSha256: createHash('sha256').update(lockfile).digest('hex'),
+    ref,
+    sha: commit.sha,
+  };
+}
+
 function collectRunContext(repository, run) {
   const pulls = ghJson(['api', `repos/${repository}/commits/${run.head_sha}/pulls`]);
   const pullRequest = pulls.find((pull) => pull.head?.sha === run.head_sha) ?? pulls[0] ?? null;
@@ -370,6 +399,7 @@ export function collectGithubActionsRun(repository, runId, { pricing } = {}) {
     changedPaths: context.changedPaths,
     jobs,
     log,
+    pnpmCacheScope: collectPnpmCacheScope(repository, run),
     pricing,
     pullRequest: context.pullRequest,
     run,

@@ -111,8 +111,10 @@ pnpm ci:performance:collect -- \
 The collector accepts completed runs and records run/job/stage timing, queue, raw compute, per-job rounded minutes, runner labels,
 cache hit/size, test counts, artifact metadata, PR/base identity, expected/observed lane, retry와 failed/cancelled compute를
 기록합니다. 단가는 runner label을 class(`ubuntu-slim` → `linux-slim`, 표준 `ubuntu-<YY.MM>` → `linux-2-core`)로 바꿔 policy에서
-찾으므로 새 Ubuntu label도 policy 수정 없이 단가를 받습니다. Dataset schema 4는 run-head dependency fingerprint를 기록하고
-측정 구간 필드는 없습니다. Natural PRs populate surface cohorts; no-op PRs are not created only to increase sample count.
+찾으므로 새 Ubuntu label도 policy 수정 없이 단가를 받습니다. pnpm cache miss는 run을 시작할 때 default branch head의 lockfile과
+run head lockfile이 다르면 예상된 key 변경으로 봅니다. CI는 PR과 default branch push에서만 cache를 만들어 PR이 복원할 수 있는
+것이 자기 PR과 default branch의 cache뿐이기 때문입니다. Dataset schema 4는 run-head dependency fingerprint를 기록하고 측정 구간
+필드는 없습니다. Natural PRs populate surface cohorts; no-op PRs are not created only to increase sample count.
 
 현재 resource snapshot과 cohort report를 함께 생성합니다.
 
