@@ -21,8 +21,22 @@ const fixture = parseBenchmarkFixture(
   ),
 );
 
-test('benchmark fixture freezes the Mend lockfile command, the pin, the 12.x memory-fix floor and the candidate', () => {
-  assert.deepEqual(fixture.versions, ['11.24.0', '12.15.0', '12.16.1']);
+function semverParts(version) {
+  assert.match(version, /^[0-9]+\.[0-9]+\.[0-9]+$/u);
+  return version.split('.').map(Number);
+}
+
+function compareSemver(left, right) {
+  const [a, b] = [semverParts(left), semverParts(right)];
+  return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+}
+
+test('benchmark fixture compares baseline, fix floor, and latest pnpm with the Mend lockfile command', () => {
+  // The benchmark reads versions by role: [baseline, fix floor, latest].
+  assert.equal(fixture.versions.length, 3);
+  const [baselineVersion, fixFloorVersion, latestVersion] = fixture.versions;
+  assert.ok(compareSemver(baselineVersion, fixFloorVersion) < 0);
+  assert.ok(compareSemver(fixFloorVersion, latestVersion) < 0);
   assert.deepEqual(fixture.command, [
     'install',
     '--lockfile-only',
@@ -129,7 +143,9 @@ test('benchmark summary keeps local process-boundary evidence explicit', () => {
     generatedAt: '2026-09-01T00:00:00.000Z',
     sourceSha: 'a'.repeat(40),
   });
+  const [, , latestVersion] = fixture.versions;
   assert.equal(summary.coldRun, true);
   assert.match(summary.processBoundary, /not the parent Mend Renovate process tree/u);
-  assert.equal(summary.selection.selectedVersion, '12.16.1');
+  assert.equal(summary.selection.decision, 'promote');
+  assert.equal(summary.selection.selectedVersion, latestVersion);
 });

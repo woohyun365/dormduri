@@ -3,8 +3,8 @@
 > **Audience:** human-to-human portfolio, onboarding, and engineering discussion reference.
 > 이 문서는 CI 규칙의 owner가 아닙니다. 현재 job graph·예산·설계 결정은
 > [Monorepo CI architecture](../../architecture/platform/monorepo-ci.md), 경로별 lane은
-> [CI surface ownership](../../development/ci/ci-surface-ownership.md)이 소유합니다. Run별 stage 시간, A/B 상세, 측정
-> epoch, cache inventory는 측정 원장인 [Monorepo CI baseline](./monorepo-ci-baseline.md)에 둡니다. 이후 agent 경로의
+> [CI surface ownership](../../development/ci/ci-surface-ownership.md)이 소유합니다. Run별 stage 시간, A/B 상세, fingerprint
+> cohort, cache inventory는 측정 원장인 [Monorepo CI baseline](./monorepo-ci-baseline.md)에 둡니다. 이후 agent 경로의
 > 분류 개선은 [CI change classification evidence](./ci-change-classification-evidence.md)가 이어서 기록합니다.
 
 이 문서는 monorepo CI를 처음 구조화한 개선과 이어진 hosted 성능 개선을 기록합니다. 첫 구조화는 변경 분류에 따른 lane 선택과
@@ -55,7 +55,7 @@ gh run list --commit "$sha" --json databaseId,workflowName,event,conclusion \
 p50은 표본 5개, p95는 표본 10개가 모인 뒤에만 적습니다. p50은 중앙값(짝수 개면 가운데 두 값의 평균), p95는
 nearest-rank입니다. 한두 번의 의도적 실행(A/B source run)은 p50·p95로 올리지 않습니다. 2026-08-26 이후 run은
 `pnpm ci:performance:collect`·`pnpm ci:performance:report`로 수집했으며, dependency fingerprint가 다른 run을 한 cohort로
-섞지 않습니다(도구와 epoch 규칙은 [baseline](./monorepo-ci-baseline.md#active-post-native-measurement-epoch)).
+섞지 않습니다(도구와 cohort 규칙은 [baseline](./monorepo-ci-baseline.md#run-head-dependency-fingerprint-cohort)).
 
 ## 3. Baseline
 

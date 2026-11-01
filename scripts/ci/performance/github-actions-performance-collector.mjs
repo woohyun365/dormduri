@@ -6,15 +6,13 @@ import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
-import {
-  buildDependencyFingerprint,
-  compareDependencyFingerprint,
-  parseMeasurementEpoch,
-} from './ci-performance-epoch.mjs';
+import { buildDependencyFingerprint } from './dependency-fingerprint.mjs';
 import { classifyChanges } from '../lanes/classify-changes.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../..');
 const ansiPattern = /\u001b\[[0-9;]*m/gu;
+// Every workflow restores the pnpm store with `cache-dependency-path: pnpm-lock.yaml`.
+const pnpmCacheKeyInputs = ['pnpm-lock.yaml'];
 
 function secondsBetween(start, end) {
   const startMs = Date.parse(start ?? '');
@@ -29,6 +27,13 @@ function unique(values) {
 
 function roundCurrency(value) {
   return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+// Pricing is keyed by runner class, not by label, so a new Ubuntu label keeps its rate without editing the policy.
+export function runnerClass(label) {
+  if (label === 'ubuntu-slim') return 'linux-slim';
+  if (/^ubuntu-(?:[0-9]{2}\.[0-9]{2}|latest)$/u.test(label ?? '')) return 'linux-2-core';
+  return null;
 }
 
 function jobLane(job) {
@@ -104,7 +109,6 @@ export function buildRunEvidence({
   artifacts,
   changedPaths = [],
   log,
-  measurementEpoch = null,
   pricing = null,
   pullRequest = null,
   runHeadFingerprint = null,
@@ -119,8 +123,9 @@ export function buildRunEvidence({
     const runnerSku =
       runnerLabels.find((label) => /^(?:ubuntu|windows|macos)-/u.test(label)) ?? null;
     const billingMultiplier = runnerSku?.startsWith('ubuntu-') ? 1 : null;
+    const jobRunnerClass = runnerClass(runnerSku);
     const runnerRateUsdPerMinute =
-      wallSeconds === 0 ? 0 : (pricing?.runnerRatesUsdPerMinute?.[runnerSku] ?? null);
+      wallSeconds === 0 ? 0 : (pricing?.runnerRatesUsdPerMinute?.[jobRunnerClass] ?? null);
     const estimatedGrossUsd =
       runnerRateUsdPerMinute === null
         ? null
@@ -140,6 +145,7 @@ export function buildRunEvidence({
             ? null
             : roundedJobMinutes * billingMultiplier,
       roundedJobMinutes,
+      runnerClass: jobRunnerClass,
       runnerRateUsdPerMinute,
       runnerLabels,
       runnerSku,
@@ -180,18 +186,7 @@ export function buildRunEvidence({
   const wastedJobs = completedJobs.filter((job) =>
     ['action_required', 'cancelled', 'failure', 'stale', 'timed_out'].includes(job.conclusion),
   );
-  const dependencyComparison =
-    measurementEpoch && runHeadFingerprint
-      ? compareDependencyFingerprint(measurementEpoch, runHeadFingerprint)
-      : {
-          changedInputs: [],
-          comparisonBaseSha: null,
-          comparisonEpochId: null,
-          state: 'unavailable',
-        };
-  const changedDependencyInputs = dependencyComparison.changedInputs.filter(
-    (path) => path !== 'measurement-epoch',
-  );
+  const pnpmCacheKeyChanged = changedPaths.some((path) => pnpmCacheKeyInputs.includes(path));
   const webSourceChanged = changedPaths.some((path) => path.startsWith('apps/web/'));
   const cacheEvidence = {
     ...parsedLog.cache,
@@ -208,7 +203,7 @@ export function buildRunEvidence({
         ? parsedLog.cache.hitKeys.length > 0
           ? 'hit-observed'
           : 'not-observed'
-        : changedDependencyInputs.length > 0
+        : pnpmCacheKeyChanged
           ? 'expected-dependency-key-change'
           : 'investigate-eviction-or-configuration',
   };
@@ -245,7 +240,6 @@ export function buildRunEvidence({
     },
     conclusion: run.conclusion,
     createdAt: run.created_at,
-    dependencyCompatibility: dependencyComparison,
     dependencyFingerprint: runHeadFingerprint,
     estimatedGrossUsd,
     event: run.event,
@@ -260,14 +254,6 @@ export function buildRunEvidence({
       sourcePullRequestHeadSha: pullRequest?.head?.sha ?? null,
     },
     jobs: jobEvidence,
-    measurementEpoch: measurementEpoch
-      ? {
-          baseSha: measurementEpoch.baseSha,
-          capturedAt: measurementEpoch.capturedAt,
-          id: measurementEpoch.id,
-          state: measurementEpoch.state,
-        }
-      : null,
     outcome: {
       cancelledJobCount: cancelledJobs.length,
       failedJobCount: failedJobs.length,
@@ -354,7 +340,7 @@ function collectRunContext(repository, run) {
   };
 }
 
-export function collectGithubActionsRun(repository, runId, { measurementEpoch, pricing } = {}) {
+export function collectGithubActionsRun(repository, runId, { pricing } = {}) {
   const run = ghJson(['api', `repos/${repository}/actions/runs/${runId}`]);
   if (run.status !== 'completed' || !run.conclusion) {
     throw new Error(`run ${runId} is not completed`);
@@ -370,7 +356,6 @@ export function collectGithubActionsRun(repository, runId, { measurementEpoch, p
   const log = ghText(['run', 'view', String(runId), '--repo', repository, '--log']);
   const context = collectRunContext(repository, run);
   const runHeadFingerprint = buildDependencyFingerprint({
-    epoch: measurementEpoch,
     readText: (path) =>
       ghText([
         'api',
@@ -385,7 +370,6 @@ export function collectGithubActionsRun(repository, runId, { measurementEpoch, p
     changedPaths: context.changedPaths,
     jobs,
     log,
-    measurementEpoch,
     pricing,
     pullRequest: context.pullRequest,
     run,
@@ -434,14 +418,6 @@ export function resolveCollectorOutputPath(output, now = new Date()) {
 function main(argv) {
   const options = parseArgs(argv);
   const outputPath = resolveCollectorOutputPath(options.output);
-  const measurementEpoch = parseMeasurementEpoch(
-    JSON.parse(
-      readFileSync(
-        resolve(repoRoot, 'scripts/ci/performance/fixtures/ci-performance-active-epoch.json'),
-        'utf8',
-      ),
-    ),
-  );
   const policy = JSON.parse(
     readFileSync(
       resolve(repoRoot, 'scripts/ci/performance/fixtures/github-actions-performance-policy.json'),
@@ -453,11 +429,10 @@ function main(argv) {
     repository: options.repository,
     runs: options.runIds.map((runId) =>
       collectGithubActionsRun(options.repository, runId, {
-        measurementEpoch,
         pricing: { ...policy.pricing, reviewedAt: policy.reviewedAt },
       }),
     ),
-    schemaVersion: 3,
+    schemaVersion: 4,
   };
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`);

@@ -139,7 +139,7 @@ Next 16은 Turbopack을 기본 bundler로 사용하고 repository에 Babel fallb
 flag를 별도로 강제하지 않고 current Next default/config compatibility를 lockfile upgrade 때 재검증한다.
 
 Classify, Lifecycle gate, CI summary는 product compile을 수행하지 않으므로 official `ubuntu-slim` 1-core x64 runner를 사용한다.
-Repository policy는 slim에서 docs/config feedback budget을 넘겨 standard `ubuntu-24.04`로 복구했다. Shared/API/Web/Infra도
+Repository policy는 slim에서 docs/config feedback budget을 넘겨 standard x64 runner로 복구했다. Shared/API/Web/Infra도
 standard x64에 남는다. Product arm64는 Prisma, SWC, Argon2, Playwright, Docker와 cache architecture parity를 증명하기
 전에는 사용하지 않는다. Larger runner는 personal repository의 current owner surface가 아니며 cost-neutral evidence도 없어
 사용하지 않는다.
@@ -194,12 +194,11 @@ reuse는 후속 DAG 최적화 대상이다. Timing과 cost 수치는
 
 `scripts/ci/lanes/run-timed-command.mjs`는 install, prepare, static, unit, DB suite, build, browser 단계를 실행하면서 `GITHUB_STEP_SUMMARY`에 시간과 성공 여부를 남긴다. 실패한 command의 exit code를 그대로 반환하므로 timing 수집이 gate 의미를 바꾸지 않는다.
 
-Historical pre-optimization evidence와 active post-change measurement epoch는 같은 fixture가 소유하지 않는다.
-`ci-performance-baseline.json`은 비교 denominator를 immutable하게 보존하고, `ci-performance-active-epoch.json`은 current
-dependency/image input을 소유한다. Actions collector는 current checkout이 아니라 각 workflow run head commit의 input을
-읽어 fingerprint를 생성한다. Image input은 `infra/image-inventory.json`과 그 inventory가 가리키는 owner 파일의 image
-reference이므로 tag나 digest만 바뀐 image update도 fingerprint를 바꾼다. Report는 epoch, exact input hash, event, change
-surface가 다른 표본을 하나의 cohort로 합치지 않는다.
+개선 전 비교 denominator는 [Monorepo CI baseline](../../evidence/ci/monorepo-ci-baseline.md)의 기준값 표와 Git 이력이
+보존하고 fixture로 두지 않는다. Actions collector는 current checkout이 아니라 각 workflow run head commit의 dependency
+input을 읽어 fingerprint를 생성한다. Image input은 `infra/image-inventory.json`과 그 inventory가 가리키는 owner 파일의 image
+reference이므로 tag나 digest만 바뀐 image update도 fingerprint를 바꾼다. Report는 이 fingerprint로 표본을 묶고, exact input
+hash, event, change surface가 다른 표본을 하나의 cohort로 합치지 않는다. 손으로 회전하는 측정 구간 fixture는 두지 않는다.
 
 API summary 단계:
 

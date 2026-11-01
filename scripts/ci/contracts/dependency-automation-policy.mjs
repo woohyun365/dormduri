@@ -393,36 +393,3 @@ export function assertSingleVersionUpdateOwner(ownersByEcosystem) {
     }
   }
 }
-
-export function parseDependencyAutomationEvidence(input) {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    throw new TypeError('dependency automation evidence must be an object');
-  }
-  if (input.schemaVersion !== 1) throw new TypeError('schemaVersion must equal 1');
-  if (!Number.isInteger(input.directDependencyCount) || input.directDependencyCount <= 0) {
-    throw new TypeError('directDependencyCount must be a positive integer');
-  }
-  if (!Array.isArray(input.runs) || input.runs.length < 2) {
-    throw new TypeError('runs must contain automatic and manual evidence');
-  }
-
-  input.runs.forEach((run, index) => {
-    if (!Number.isInteger(run.runId) || run.runId <= 0) {
-      throw new TypeError(`runs[${index}].runId must be a positive integer`);
-    }
-    if (!Number.isInteger(run.jobId) || run.jobId <= 0) {
-      throw new TypeError(`runs[${index}].jobId must be a positive integer`);
-    }
-    if (run.terminalOutcome !== 'cancelled') {
-      throw new TypeError(`runs[${index}].terminalOutcome must equal cancelled`);
-    }
-    if (typeof run.durationSeconds !== 'number' || run.durationSeconds <= 0) {
-      throw new TypeError(`runs[${index}].durationSeconds must be positive`);
-    }
-    if (!Number.isInteger(run.completedPullRequests) || run.completedPullRequests < 0) {
-      throw new TypeError(`runs[${index}].completedPullRequests must be non-negative`);
-    }
-  });
-
-  return structuredClone(input);
-}

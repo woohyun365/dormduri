@@ -1,7 +1,7 @@
 # Monorepo CI baseline
 
-API/Web CI 구조 개선의 측정 원장입니다. 개선 전 denominator, accepted A/B evidence, current measurement epoch, cache·artifact
-inventory를 run ID 단위로 재현 가능하게 기록합니다. 제품 정책의 source of truth는 아닙니다.
+API/Web CI 구조 개선의 측정 원장입니다. 개선 전 denominator, accepted A/B evidence, run-head dependency fingerprint cohort,
+cache·artifact inventory를 run ID 단위로 재현 가능하게 기록합니다. 제품 정책의 source of truth는 아닙니다.
 
 > 이 문서는 시점별 측정 기록입니다. 경로별 표면·lane·owner의 현재 책임은
 > [CI surface ownership](../../development/ci/ci-surface-ownership.md)이 소유합니다. 이 측정들이 어떤 문제에서 출발해 어떤
@@ -20,23 +20,28 @@ inventory를 run ID 단위로 재현 가능하게 기록합니다. 제품 정책
 ## Historical pre-optimization dependency denominator
 
 2026-08-26 기준 개선 전 비교 표본은 `dev` commit `db9638295f8191eced847950fb704c19ae780ba8`의 dependency/toolchain
-상태를 사용했습니다. 정확한 input SHA-256, acceptance run, queue, security, cache snapshot은
-`scripts/ci/performance/fixtures/ci-performance-baseline.json`의 immutable `dependencyBaseline`이 소유합니다.
+상태를 사용했습니다. 아래 표가 그 기준값입니다. Input SHA-256, workflow 파일 hash, job별 단계 시간, suite별 test 수를 담은
+원본 JSON(`scripts/ci/performance/fixtures/ci-performance-baseline.json`)은 그 파일을 지운 commit의 부모에 있습니다
+(`git log --diff-filter=D -1 -- <경로>`로 그 commit을 찾습니다).
 
-Historical `fileSha256`와 `workflowBaselineSha256`는 current tree를 따라 갱신하지 않습니다. 현재 표본의 compatibility는
-별도 `ci-performance-active-epoch.json`과 각 run head에서 읽은 fingerprint가 소유합니다.
+이 기준값은 current tree를 따라 갱신하지 않습니다. 지금 표본끼리 비교할 수 있는지는 각 run head에서 읽은 fingerprint가
+정합니다([Run-head dependency fingerprint cohort](#run-head-dependency-fingerprint-cohort)).
 
-| Boundary               | Frozen value                                                       |
-| ---------------------- | ------------------------------------------------------------------ |
-| Node / pnpm            | Node 24.19.0 / pnpm 11.7.0                                         |
-| pnpm action            | v6.0.10 / `0977fd99...`                                            |
-| PostgreSQL             | 18.6 / `d3e1620b...a65b2`                                          |
-| Alertmanager           | 0.34.0 / `690c7b52...0340d`                                        |
-| Grafana                | 13.2.0 / `3fd54ae1...2429b`                                        |
-| Security               | open alerts 0, reviewed dismissed residuals 4                      |
-| Dependency queue       | open PR 0, Dashboard approvals 0, Automated PRs owner-verified off |
-| Actions cache snapshot | 29 entries / 7,475,286,431 bytes (about 6.96GiB)                   |
-| Current test inventory | 690 files / 3,401 cases                                            |
+| Boundary                | Frozen value                                                       |
+| ----------------------- | ------------------------------------------------------------------ |
+| Capture                 | 2026-08-18T15:38:44Z, full dependency compatibility integration    |
+| Source run              | `32154640034` / head `0a83bff1`                                    |
+| Dependency baseline     | 2026-08-26T06:25:12Z / `dev` `db963829`                            |
+| Workflow wall / compute | 629s / 1,489s(job 8개 compute 합)                                  |
+| Node / pnpm             | Node 24.19.0 / pnpm 11.7.0                                         |
+| pnpm action             | v6.0.10 / `0977fd99...`                                            |
+| PostgreSQL              | 18.6 / `d3e1620b...a65b2`                                          |
+| Alertmanager            | 0.34.0 / `690c7b52...0340d`                                        |
+| Grafana                 | 13.2.0 / `3fd54ae1...2429b`                                        |
+| Security                | open alerts 0, reviewed dismissed residuals 4                      |
+| Dependency queue        | open PR 0, Dashboard approvals 0, Automated PRs owner-verified off |
+| Actions cache snapshot  | 29 entries / 7,475,286,431 bytes (about 6.96GiB)                   |
+| Current test inventory  | 690 files / 3,401 cases                                            |
 
 Accepted hosted runs are PR #356 `32688187840`, #357 `32691749046`, #358 `32694665874`, #362 `32910632496`, and #363
 `32936730911`. A security-critical dependency change invalidates this freeze or requires explicit reconciliation before later
@@ -46,55 +51,20 @@ This is a CI measurement input, not production release evidence. Grafana 13.2 lo
 sample to 25.3s and 27.4s while staying within health/resource gates; production persistent-volume rollback and provider billing
 remain separate release/owner evidence.
 
-## Active post-native measurement epoch
+## Run-head dependency fingerprint cohort
 
-Current collection uses `scripts/ci/performance/fixtures/ci-performance-active-epoch.json`. The collector reads `pnpm-lock.yaml`,
-`pnpm-workspace.yaml`, and `infra/image-inventory.json` from the workflow run's head commit through GitHub and hashes those exact
-contents. A later local checkout can no longer relabel an older run with a newer fingerprint.
+Collector는 workflow run의 head commit에서 `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `infra/image-inventory.json`을 GitHub로
+읽어 그 내용의 SHA-256을 기록합니다. Image inventory hash에는 inventory가 가리키는 owner 파일의 image reference도 들어가므로
+tag나 digest만 바뀐 image update도 fingerprint를 바꿉니다. Report는 세 hash가 같은 run만 한 cohort로 묶고, 다른 hash가
+섞이거나 fingerprint source SHA가 run head SHA와 다르면 report를 만들지 않습니다. 나중의 local checkout이 옛 run에 새
+fingerprint를 붙일 수 없습니다.
 
-| Boundary               | Current value                                                                                       |
-| ---------------------- | --------------------------------------------------------------------------------------------------- |
-| Epoch                  | `web-story-visual-check-axe-2026-10-21` / `collecting`                                              |
-| Base                   | `124795825ffcf59de81ce1a7a60240720e08c793`                                                          |
-| Dependency fingerprint | lock `91d17a09...`, workspace `4b334572...`, image inventory `f684f83d...`                          |
-| Package manager        | pnpm 11.24.0 / Joi 18.2.8 / MySQL2 3.24.3 / Multer 2.3.0 / SWC core 1.16.2 / unplugin 1.5.11        |
-| Compatible samples     | none yet; the Web test-only `@axe-core/playwright` devDependency changes the dependency fingerprint |
-| Confidence             | none yet; the closed cookie-removal epoch keeps its 2026-10-11 cohort (below)                       |
-
-Web test 전용 devDependency `@axe-core/playwright` 4.14.0(전이 `axe-core` 4.14.0) 추가로 lockfile만 바뀌며 기존 package
-version, workspace 설정과 runtime image는 유지됩니다. 같은 변경이 Storybook-owned 변경의 Web job에 Storybook story 검사
-step을 더하므로 Storybook을 고른 Web run은 이전 Storybook build만 하던 run과 비교하지 않습니다. Base는 이 변경 전
-integration 기준점이고 fingerprint는 변경 후 candidate input을 식별합니다. 새 hosted 표본은 실제 run-head SHA로 수집하며,
-이 기준 갱신 자체를 성능 개선이나 production release evidence로 해석하지 않습니다. 아래 "Agent workflow lane 뒤 분류별
-표본"의 2026-10-11 수집은 닫힌 `api-http-cookie-surface-removal-2026-09-12` epoch의 표본입니다.
-
-The previous cohorts are closed and preserved in
-`scripts/ci/performance/fixtures/ci-performance-epoch-native-ci-2026-08-28.json` and
-`scripts/ci/performance/fixtures/ci-performance-epoch-lint-toolchain-2026-09-01.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-lint-tooling-supported-line-2026-09-01.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-lint-staged17-2026-09-01.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-pnpm11-memory-fixed-2026-09-01.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-transitive-override-lifecycle-2026-09-02.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-api-runtime-supported-lines-2026-09-02.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-api-persistence-supported-lines-2026-09-02.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-api-observability-client-2026-09-03.json`,
-`scripts/ci/performance/fixtures/ci-performance-epoch-repository-prettier-3-9-2026-09-03.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-api-aws-sdk-supported-lines-2026-09-04.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-api-supertest-types-supported-line-2026-09-05.json`,
-`scripts/ci/performance/fixtures/ci-performance-epoch-shared-zod-supported-line-2026-09-06.json`,
-`scripts/ci/performance/fixtures/ci-performance-epoch-dependency-security-five-alert-2026-09-07.json`,
-`scripts/ci/performance/fixtures/ci-performance-epoch-external-runtime-image-patch-2026-09-07.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-backend-nestjs11-supported-line-2026-09-07.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-api-aws-sdk-follow-up-2026-09-07.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-repository-lint-tooling-current-line-2026-09-08.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-repository-vitest5-cross-surface-test-infrastructure-2026-09-08.json`,
-`scripts/ci/performance/fixtures/ci-performance-epoch-repository-dependency-health-peer-audit-store-reliability-2026-09-08.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-web-supported-line-security-consolidated-2026-09-09.json`,
-`scripts/ci/performance/fixtures/ci-performance-epoch-backend-runtime-persistence-security-consolidated-2026-09-09.json`,
-`scripts/ci/performance/fixtures/ci-performance-epoch-backend-aws-sdk-release-age-reconciliation-2026-09-09.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-repository-shared-tooling-security-final-reconciliation-2026-09-09.json`, and
-`scripts/ci/performance/fixtures/ci-performance-epoch-api-http-cookie-surface-removal-2026-09-12.json`. Their compatible samples remain valid
-only inside each frozen dependency fingerprint; they are not relabeled as samples of the current Web story visual-check epoch.
+2026-11-01까지는 손으로 열고 닫는 측정 구간(measurement epoch) fixture가 표본을 나눴습니다. Renovate 자동 merge 뒤
+dependency 입력이 거의 매일 바뀌어 구간을 손으로 회전할 수 없어 fixture와 그 순서 test를 지웠습니다. 마지막 활성 구간
+`web-story-visual-check-axe-2026-10-21`(호환 표본 없음)과 닫힌 구간 25개의 정의(base commit, input hash, version 목록)는
+`scripts/ci/performance/fixtures/`에서 그 fixture를 지운 commit의 부모에 있습니다. 아래 하위 절의 구간 이름은 수집 당시
+기록이고, "Agent workflow lane 뒤 분류별 표본"(2026-10-11 수집)은 닫힌 `api-http-cookie-surface-removal-2026-09-12` 구간의
+표본입니다.
 
 ### Repository-policy setup reliability incident
 
@@ -140,8 +110,9 @@ pnpm ci:performance:collect -- \
 
 The collector accepts completed runs and records run/job/stage timing, queue, raw compute, per-job rounded minutes, runner labels,
 cache hit/size, test counts, artifact metadata, PR/base identity, expected/observed lane, retry와 failed/cancelled compute를
-기록합니다. Dataset schema 3 also records the measurement epoch and run-head fingerprint. Natural PRs populate surface cohorts;
-no-op PRs are not created only to increase sample count.
+기록합니다. 단가는 runner label을 class(`ubuntu-slim` → `linux-slim`, 표준 `ubuntu-<YY.MM>` → `linux-2-core`)로 바꿔 policy에서
+찾으므로 새 Ubuntu label도 policy 수정 없이 단가를 받습니다. Dataset schema 4는 run-head dependency fingerprint를 기록하고
+측정 구간 필드는 없습니다. Natural PRs populate surface cohorts; no-op PRs are not created only to increase sample count.
 
 현재 resource snapshot과 cohort report를 함께 생성합니다.
 
@@ -156,9 +127,10 @@ pnpm ci:performance:report -- \
   --output=.artifacts/tools/ci-performance/cohort-report.json
 ```
 
-Report는 중복 run ID를 제거하고 dependency fingerprint가 다른 표본, active epoch input을 변경한 run, run head SHA와
-fingerprint source SHA가 다른 schema 3 evidence를 거부합니다. 주요 성능 cohort는 `pull_request` event만 사용하며, 과거
-`dev` push처럼 다른 event는 별도 event cohort로 남겨 섞인 통계를 만들지 않습니다.
+Report는 schema 4 dataset만 읽습니다. 중복 run ID를 제거하고, dependency fingerprint hash가 다른 표본과 run head SHA와
+fingerprint source SHA가 다른 run을 거부합니다. 옛 schema 2·3 dataset은 그 dataset을 만든 commit의 report로 읽습니다. 주요
+성능 cohort는 `pull_request` event만 사용하며, 과거 `dev` push처럼 다른 event는 별도 event cohort로 남겨 섞인 통계를 만들지
+않습니다.
 
 ### Agent workflow lane 뒤 분류별 표본
 

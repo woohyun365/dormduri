@@ -7,6 +7,7 @@ import {
   parseArgs,
   parseRunLog,
   resolveCollectorOutputPath,
+  runnerClass,
 } from './github-actions-performance-collector.mjs';
 
 const fixtureUrl = new URL('./fixtures/github-actions-performance-run.json', import.meta.url);
@@ -54,20 +55,9 @@ test('summarizes GitHub run wall, raw compute, billed rounding, queue, cache, te
     wastedComputeSeconds: 0,
   });
   assert.deepEqual(evidence.dependencyFingerprint, fixture.runHeadFingerprint);
-  assert.equal(
-    evidence.dependencyCompatibility.comparisonBaseSha,
-    fixture.measurementEpoch.baseSha,
-  );
-  assert.equal(evidence.dependencyCompatibility.comparisonEpochId, fixture.measurementEpoch.id);
-  assert.equal(evidence.dependencyCompatibility.state, 'compatible-active-epoch');
-  assert.deepEqual(evidence.measurementEpoch, {
-    baseSha: fixture.measurementEpoch.baseSha,
-    capturedAt: fixture.measurementEpoch.capturedAt,
-    id: fixture.measurementEpoch.id,
-    state: fixture.measurementEpoch.state,
-  });
   assert.equal(evidence.jobs[1].queueSeconds, 13);
   assert.equal(evidence.jobs[1].runnerSku, 'ubuntu-24.04');
+  assert.equal(evidence.jobs[1].runnerClass, 'linux-2-core');
   assert.equal(evidence.jobs[1].billingMultiplier, 1);
   assert.equal(evidence.jobs[1].steps[0].durationSeconds, 60);
   assert.deepEqual(evidence.cache, {
@@ -121,7 +111,7 @@ test('prices the one-core Linux runner independently from standard Linux', () =>
       ...fixture.pricing,
       runnerRatesUsdPerMinute: {
         ...fixture.pricing.runnerRatesUsdPerMinute,
-        'ubuntu-slim': 0.002,
+        'linux-slim': 0.002,
       },
     },
     jobs: fixture.jobs.map((job, index) =>
@@ -130,30 +120,64 @@ test('prices the one-core Linux runner independently from standard Linux', () =>
   });
 
   assert.equal(evidence.jobs[0].runnerSku, 'ubuntu-slim');
+  assert.equal(evidence.jobs[0].runnerClass, 'linux-slim');
   assert.equal(evidence.jobs[0].runnerRateUsdPerMinute, 0.002);
   assert.equal(evidence.jobs[0].estimatedGrossUsd, 0.002);
 });
 
-test('marks a run incompatible when its run-head fingerprint differs from the active epoch', () => {
+test('prices a new standard Ubuntu label by runner class without a policy edit', () => {
   const evidence = buildRunEvidence({
     ...fixture,
-    log: 'Cache not found for input keys:\n',
-    runHeadFingerprint: {
-      ...fixture.runHeadFingerprint,
-      fileSha256: {
-        ...fixture.runHeadFingerprint.fileSha256,
-        'pnpm-lock.yaml': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-      },
-    },
+    jobs: fixture.jobs.map((job) =>
+      job.labels.length > 0 ? { ...job, labels: ['ubuntu-26.04'] } : job,
+    ),
   });
 
-  assert.deepEqual(evidence.dependencyCompatibility.changedInputs, ['pnpm-lock.yaml']);
-  assert.equal(evidence.dependencyCompatibility.state, 'changed-inputs');
+  assert.equal(evidence.jobs[1].runnerSku, 'ubuntu-26.04');
+  assert.equal(evidence.jobs[1].runnerClass, 'linux-2-core');
+  assert.equal(evidence.jobs[1].runnerRateUsdPerMinute, 0.006);
+  assert.equal(evidence.estimatedGrossUsd, 0.018);
+});
+
+test('leaves unknown runner labels unpriced instead of guessing a class', () => {
+  assert.equal(runnerClass('ubuntu-latest'), 'linux-2-core');
+  for (const label of ['ubuntu-24.04-arm', 'windows-2025', 'macos-15', 'self-hosted', null]) {
+    assert.equal(runnerClass(label), null);
+  }
+  const evidence = buildRunEvidence({
+    ...fixture,
+    jobs: fixture.jobs.map((job, index) =>
+      index === 1 ? { ...job, labels: ['ubuntu-24.04-arm'] } : job,
+    ),
+  });
+
+  assert.equal(evidence.jobs[1].runnerRateUsdPerMinute, null);
+  assert.equal(evidence.estimatedGrossUsd, null);
+});
+
+test('records the run-head fingerprint and reads a pnpm cache miss against the PR lockfile change', () => {
+  const runHeadFingerprint = {
+    ...fixture.runHeadFingerprint,
+    fileSha256: {
+      ...fixture.runHeadFingerprint.fileSha256,
+      'pnpm-lock.yaml': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    },
+  };
+  const missWith = (changedPaths) =>
+    buildRunEvidence({
+      ...fixture,
+      changedPaths,
+      log: 'Cache not found for input keys:\n',
+      runHeadFingerprint,
+    });
+
+  const lockfileChange = missWith(['pnpm-lock.yaml', 'apps/web/package.json']);
+  assert.deepEqual(lockfileChange.dependencyFingerprint, runHeadFingerprint);
+  assert.equal(lockfileChange.cache.pnpmInterpretation, 'expected-dependency-key-change');
   assert.equal(
-    evidence.dependencyFingerprint.fileSha256['pnpm-lock.yaml'],
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    missWith(['apps/web/src/example.tsx']).cache.pnpmInterpretation,
+    'investigate-eviction-or-configuration',
   );
-  assert.equal(evidence.cache.pnpmInterpretation, 'expected-dependency-key-change');
 });
 
 test('separates expected change surface from the jobs the historical workflow actually ran', () => {
