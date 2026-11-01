@@ -10,16 +10,21 @@ Repository control-plane의 기대값과 실제 적용 상태는
 [Remote repository settings](./remote-repository-settings.md)가 소유합니다. 이 문서는 그 설정을 변경할 수 있는
 workstation/app 인증 경계를 소유하며, repository 설정 자체의 현재값을 중복 기록하지 않습니다.
 
+- 마지막 확인일: 2026-11-01([Current repository operator evidence](#current-repository-operator-evidence)). Owner UI로만 볼 수
+  있는 줄은 그 줄에 적은 날짜가 확인일입니다.
+- 다시 볼 때: gh scope나 Connector 설치 범위를 바꿀 때, billing token을 새로 만들 때와 그 만료일, 저장소 공개 상태를 바꾸기 전,
+  그리고 [날짜 snapshot 재확인](../../README.md#날짜-snapshot-재확인)의 월 1회 점검 때.
+
 ## 인증 계층
 
-| 계층                          | Owner와 용도                                        | 권한 경계                                                         | 저장·수명                                                       |
-| ----------------------------- | --------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------- |
-| Git credential                | HTTPS `fetch`·`push`                                | 선택한 GitHub account의 repository 접근                           | `gh auth setup-git`을 통한 OS credential store                  |
-| gh browser OAuth              | PR·Issue·Actions·API와 Git credential의 daily owner | 기본 `repo`, `read:org`, `gist`; workflow 파일 작업 시 `workflow` | OS credential store, logout/re-auth로 회수                      |
-| GitHub connector              | ChatGPT/Codex plugin의 PR·Issue·repository action   | GitHub App 설치 시 허용한 repository와 app action만               | provider OAuth/App installation                                 |
-| GitHub Actions `GITHUB_TOKEN` | 한 workflow run 내부 checkout·artifact·API          | workflow/job의 `permissions`에 명시된 범위                        | GitHub가 run별 발급·만료                                        |
-| Billing fine-grained PAT      | 개인 billing usage의 bounded read automation        | account permission `Plan: Read`만; repository access 없음         | Apple Passwords 보관, 2026-09-25 만료, 실행 shell에만 일시 주입 |
-| Repository admin credential   | ruleset·Actions policy·security setting 변경        | owner UI를 기본으로 사용; 자동화 시 selected-repository 최소 권한 | 일상 credential로 만들지 않음                                   |
+| 계층                          | Owner와 용도                                        | 권한 경계                                                         | 저장·수명                                                                                                                  |
+| ----------------------------- | --------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Git credential                | HTTPS `fetch`·`push`                                | 선택한 GitHub account의 repository 접근                           | `gh auth setup-git`을 통한 OS credential store                                                                             |
+| gh browser OAuth              | PR·Issue·Actions·API와 Git credential의 daily owner | 기본 `repo`, `read:org`, `gist`; workflow 파일 작업 시 `workflow` | OS credential store, logout/re-auth로 회수                                                                                 |
+| GitHub connector              | ChatGPT/Codex plugin의 PR·Issue·repository action   | GitHub App 설치 시 허용한 repository와 app action만               | provider OAuth/App installation                                                                                            |
+| GitHub Actions `GITHUB_TOKEN` | 한 workflow run 내부 checkout·artifact·API          | workflow/job의 `permissions`에 명시된 범위                        | GitHub가 run별 발급·만료                                                                                                   |
+| Billing fine-grained PAT      | 개인 billing usage의 bounded read automation        | account permission `Plan: Read`만; repository access 없음         | 쓸 때 새로 만들어 Apple Passwords 보관, 실행 shell에만 일시 주입. 마지막 token은 2026-09-25에 만료, 지금 유효한 token 없음 |
+| Repository admin credential   | ruleset·Actions policy·security setting 변경        | owner UI를 기본으로 사용; 자동화 시 selected-repository 최소 권한 | 일상 credential로 만들지 않음                                                                                              |
 
 Git commit의 author name/email은 commit metadata이며 GitHub 인증 계정과 동일한 개념이 아닙니다. GitHub는 verified email
 등을 통해 commit을 account와 연결하지만, fetch/push 권한은 Git credential이 결정합니다.
@@ -40,7 +45,7 @@ gh auth setup-git -h github.com
 
 기대 scope는 `repo`, `read:org`, `gist`, `workflow`입니다.
 
-- `repo`: private repository의 PR·Issue·Actions·contents 작업
+- `repo`: repository의 PR·Issue·Actions·contents 작업(public·private 모두)
 - `read:org`: organization membership과 repository discovery read
 - `gist`: GitHub CLI browser flow의 기본 최소 scope
 - `workflow`: workflow 파일을 다루고 Actions-oriented gh workflow를 사용할 때 명시적으로 추가
@@ -51,16 +56,17 @@ gh auth setup-git -h github.com
 
 ### Current repository operator evidence
 
-- checkedAt: 2026-08-27
+- checkedAt: 2026-11-01
 - GitHub account: `woohyun365`
 - gh storage/protocol: OS keyring / HTTPS
 - daily scope class: `gist`, `read:org`, `repo`, `workflow`
 - Git credential owner: `gh auth git-credential`
-- repository read: private `woohyun365/dormduri`, default branch `main`
+- repository read: public `woohyun365/dormduri`(release version부터 private으로 운영할 목표), default branch `main`
 - Actions read: verified
-- Connector installation: `Only select repositories`, this repository only
-- Connector permission: `Allow read actions`
-- Billing credential: separate `Plan: Read` fine-grained token, repository access 없음, 2026-09-25 expiry
+- Connector installation: `Only select repositories`, this repository only(Owner UI 2026-08-27)
+- Connector permission: `Allow read actions`(Owner UI 2026-08-27)
+- Billing credential: separate `Plan: Read` fine-grained token, repository access 없음. 마지막 token은 2026-09-25에 만료, 지금 유효한
+  token 없음
 - Repository administration: owner GitHub UI, no admin PAT
 
 이 snapshot은 token 자체나 credential 만료를 보증하지 않습니다. 새 작업은 아래 secret-free command로 current state를
@@ -172,8 +178,8 @@ GitHub connector는 local gh token을 사용하지 않습니다. ChatGPT/Codex�
 | ---------------------------- | -------------------------------------------------- | ------------------------------------------------------------ |
 | `github:github`              | connector 기반 PR·Issue triage                     | current branch와 local repository를 연결할 때 Git read       |
 | `github:yeet`                | local Git commit/push + connector PR 생성          | Git HTTPS write; connector 실패 시 authenticated gh fallback |
-| `github:gh-fix-ci`           | gh Actions checks·logs·rerun                       | private repo `repo`; rerun에는 Actions write capability      |
-| `github:gh-address-comments` | connector summary + `gh api graphql` review thread | private repo `repo`; unresolved/resolved thread read         |
+| `github:gh-fix-ci`           | gh Actions checks·logs·rerun                       | `repo` scope; rerun에는 Actions write capability             |
+| `github:gh-address-comments` | connector summary + `gh api graphql` review thread | `repo` scope; unresolved/resolved thread read                |
 | OMX orchestration            | local/team workflow                                | GitHub 기능을 호출하지 않으면 GitHub token 불필요            |
 
 ChatGPT/Codex app access는 GitHub의 source permission을 넘을 수 없습니다. Connector access 문제는 ChatGPT Apps와 GitHub
@@ -202,8 +208,12 @@ detector는 evidence persistence를 차단하기 위한 reject-only guard이며,
 ## Billing과 임시 권한
 
 Billing API는 daily gh와 분리한 account permission `Plan: Read` 전용 fine-grained token으로만 조회합니다. 이 token은
-repository access와 repository permission이 없고 Apple Passwords에 보관하며 2026-09-25에 만료됩니다. daily gh
-credential에는 billing/admin 권한을 추가하지 않습니다.
+repository access와 repository permission이 없고 Apple Passwords에 보관합니다. daily gh credential에는 billing/admin 권한을
+추가하지 않습니다.
+
+마지막 billing token은 2026-09-25에 만료됐고 지금 유효한 billing token은 없습니다. `pnpm github:account:evidence`를 쓸 때 새로
+만들고, 그 만료일을 이 문서와 policy fixture(`scripts/github/fixtures/account-evidence-policy.json`)의 `expiresOn`에 같은 PR로
+적습니다. Fixture의 만료일이 지난 날에는 수집기가 token을 읽기 전에 실패하고 evidence를 만들지 않습니다.
 
 사용 형태:
 
@@ -251,7 +261,7 @@ selected-repository credential을 설계합니다.
 | gh는 성공하지만 Git push가 실패             | remote URL, Git credential helper, repository write access·branch protection | helper 설정 문제로 확인된 경우만 setup-git 복구 후 `git ls-remote` | force push 또는 admin scope 추가            |
 | Connector에서 repository가 보이지 않음      | ChatGPT Settings → Plugins → GitHub, GitHub installation scope               | selected repository 재확인 후 index 지연 확인                      | All repositories로 무조건 확장              |
 | Connector read는 되지만 write action이 없음 | Permissions가 `Allow read actions`인지와 action catalog                      | supported connector action인지 확인하고 gh fallback contract 사용  | local token을 Connector에 전달              |
-| Actions log는 보이나 rerun이 실패           | gh account와 private repo scope, Actions permission                          | daily OAuth refresh 또는 owner authority 확인                      | source를 바꿔 새 run을 반복 생성            |
+| Actions log는 보이나 rerun이 실패           | gh account와 `repo` scope, Actions permission                                | daily OAuth refresh 또는 owner authority 확인                      | source를 바꿔 새 run을 반복 생성            |
 | Billing endpoint가 404/403                  | enhanced billing availability와 Plan-read token 상태·permission              | 전용 token 재발급 또는 Billing UI/CSV sanitized fallback           | daily repo token에 admin/billing scope 추가 |
 | multiple account가 필요                     | active gh account, Git remote owner, SSO                                     | `gh auth switch` 또는 account별 SSH host strategy                  | 한 host credential을 암묵적으로 공유        |
 
@@ -260,7 +270,7 @@ selected-repository credential을 설계합니다.
 1. Credential 의심·만료 시 `gh auth status`로 상태만 확인하고 token을 출력하지 않습니다.
 2. Daily OAuth의 교체가 필요한 것으로 확인됐을 때만 `gh auth logout` 후 browser login으로 교체합니다.
 3. Connector는 ChatGPT Settings → Plugins와 GitHub Installed Apps 양쪽에서 repository access를 회수할 수 있습니다.
-4. Billing fine-grained token은 목적 종료·2026-09-25 만료·권한 변경 시 GitHub Developer settings에서 revoke합니다.
+4. Billing fine-grained token은 목적 종료·policy fixture `expiresOn`의 만료·권한 변경 시 GitHub Developer settings에서 revoke합니다.
 5. 회수 뒤 `gh api user`, repository read, Git fetch, connector read가 기대 경계대로 성공/실패하는지 확인합니다.
 6. Durable evidence에는 checkedAt, account login, repository, permission class, result, blocker만 기록하고 credential material은
    기록하지 않습니다.

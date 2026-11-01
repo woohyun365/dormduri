@@ -10,6 +10,7 @@ import {
   parseAccountEvidencePolicy,
   requestBillingUsageWithRetry,
   resolveAccountEvidenceOutputPath,
+  runAccountEvidence,
   sanitizeBillingUsage,
 } from './account-evidence.mjs';
 
@@ -160,6 +161,52 @@ test('builds evidence from allowlisted account, repository, and resource fields'
   assert.equal(evidence.credential.environmentVariable, 'KNU_GITHUB_PLAN_READ_TOKEN');
   assert.deepEqual(evidence.resources.packages, policy.packages);
   assert.equal(JSON.stringify(evidence).includes('github_pat_'), false);
+});
+
+test('refuses to build evidence after the billing credential policy has expired', () => {
+  const input = {
+    billing: sanitizeBillingUsage(billingPayload, policy),
+    controls: {
+      actions: { allowedActions: 'selected', defaultWorkflowPermissions: 'read' },
+      repository: { defaultBranch: 'main', visibility: 'public' },
+      security: { dependabotSecurityUpdatesEnabled: false, vulnerabilityAlertsEnabled: true },
+    },
+    policy,
+    resources: { packages: policy.packages },
+  };
+  const expiresOn = policy.billingCredential.expiresOn;
+  const dayAfter = new Date(`${expiresOn}T00:00:00.000Z`);
+  dayAfter.setUTCDate(dayAfter.getUTCDate() + 1);
+
+  assert.throws(
+    () => buildAccountEvidence({ ...input, collectedAt: dayAfter.toISOString() }),
+    /credential-policy-expired/u,
+  );
+  assert.equal(
+    buildAccountEvidence({ ...input, collectedAt: `${expiresOn}T23:59:59.000Z` }).credential
+      .expiresOn,
+    expiresOn,
+  );
+  assert.throws(
+    () =>
+      parseAccountEvidencePolicy({
+        ...policy,
+        billingCredential: { ...policy.billingCredential, expiresOn: 'none' },
+      }),
+    /expiresOn must be YYYY-MM-DD/u,
+  );
+});
+
+test('stops an expired-policy run before reading the billing token or calling GitHub', () => {
+  const options = { month: 8, output: null, repository: policy.repository, year: 2026 };
+  const expiresAt = new Date(`${policy.billingCredential.expiresOn}T00:00:00.000Z`);
+  const dayAfter = new Date(expiresAt.getTime() + 24 * 60 * 60 * 1000);
+
+  assert.throws(
+    () => runAccountEvidence(options, { KNU_GITHUB_PLAN_READ_TOKEN: 'unused' }, dayAfter),
+    /credential-policy-expired/u,
+  );
+  assert.throws(() => runAccountEvidence(options, {}, expiresAt), /credential-missing/u);
 });
 
 test('keeps token arguments and outputs outside .artifacts/tools out of the CLI', () => {

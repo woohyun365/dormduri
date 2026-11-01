@@ -5,10 +5,14 @@
 PostgreSQL, API, BackOffice)의 planning budget은
 [Infrastructure target readiness](../../infra/runbooks/release/components/infrastructure-target/readiness.md)가 소유합니다.
 
+- 마지막 확인일: 2026-10-31(공식 단가). 실제 월 금액 칸은 행마다 청구서 확인일(첫 청구서 전에는 확인 예정일)을 적습니다.
+- 다시 볼 때: 월 1회 [청구서 확인](#청구서-확인), Budgets 알림, 공식 단가 변경 공지, resource 추가·삭제, 그리고
+  [날짜 snapshot 재확인](../README.md#날짜-snapshot-재확인)의 월 1회 점검 때.
+
 ## 기준
 
 - 금액은 USD이고 세금은 뺍니다. 단가는 공식 가격표 값이고 청구 금액이 아닙니다.
-- 공식 단가 확인일: 2026-10-31. 공식 가격 페이지와 AWS Price List API(같은 날 받은 서비스별 가격 파일)로 확인했습니다.
+- 공식 단가는 위 마지막 확인일에 공식 가격 페이지와 AWS Price List API(같은 날 받은 서비스별 가격 파일)로 확인했습니다.
 - 실제 월 금액은 AWS 청구서(Billing and Cost Management > Bills)가 원본입니다. 첫 청구서가 나오기 전에는 금액 대신 확인
   예정일을 둡니다.
 - 2026-10월 청구서는 resource를 만든 2026-10-27~29부터 월말까지의 일부 기간입니다. 첫 전체 달은 2026-11월 사용분입니다.

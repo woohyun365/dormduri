@@ -7,10 +7,15 @@
 [Dependency automation architecture](../../architecture/platform/dependency-automation.md), 일상 운영은
 [Dependency update operations](./dependency-updates.md)를 따른다.
 
-2026-08-24 현재 상태는 **selected-repository 설치·active extraction·controlled PR 검증 완료**다. 아래는 운영 기준(목표
-설정)이다. Repository config는 [base branch 설정 합치기](../../architecture/platform/dependency-automation.md#현재-구조)에 따라
+지금 상태: selected repository 하나에 설치되어 `dev` 대상 PR을 열고, security·patch·minor·Docker digest PR을 Renovate가
+스스로 merge한다. 아래는 운영 기준(목표 설정)이다. Repository config는 [base branch 설정 합치기](../../architecture/platform/dependency-automation.md#현재-구조)에 따라
 `dev` merge 또는 기본 branch 승격 뒤, Portal 값은 Owner가 바꾼 뒤 효력을 가지며, Portal과 저장소
 Settings의 목표와 마지막 확인 값은 [Remote repository settings](./remote-repository-settings.md)가 기록한다.
+
+- 마지막 확인일: 2026-11-01. App identity·permission·event는 `pnpm dependency:renovate:provider-preflight`로 아래 baseline과
+  drift가 없음을 확인했다. Portal 값과 설치 범위는 Owner 확인 값이다(Automated PRs ON은 2026-10-29, 나머지는 2026-08-24).
+- 다시 볼 때: permission·repository scope·Portal 설정을 바꿀 때, Renovate App manifest 변경 공지, 그리고
+  [날짜 snapshot 재확인](../../README.md#날짜-snapshot-재확인)의 월 1회 점검 때.
 
 - App identity: GitHub App `mend/renovate`
 - Repository scope: `woohyun365/dormduri` 하나

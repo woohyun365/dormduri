@@ -216,8 +216,19 @@ test('GitHub operator authentication stays layered, least-privilege, and secret-
   }
 
   assert.match(authentication, /Billing.*Plan: Read.*repository access 없음/su);
-  assert.match(authentication, /2026-09-25 만료/u);
-  assert.match(authentication, /checkedAt: 2026-08-27/u);
+  // The billing policy fixture owns the token expiry; every expiry date in the document must match it.
+  const billingPolicy = JSON.parse(read('scripts/github/fixtures/account-evidence-policy.json'));
+  const documentedExpiries = [...authentication.matchAll(/(\d{4}-\d{2}-\d{2})에 만료/gu)].map(
+    ([, date]) => date,
+  );
+  assert.ok(documentedExpiries.length > 0, 'billing token expiry is not documented');
+  for (const date of documentedExpiries) {
+    assert.equal(date, billingPolicy.billingCredential.expiresOn, 'billing token expiry drift');
+  }
+  // Dated snapshots keep a dated checkedAt line and link the shared re-check rule.
+  assert.match(authentication, /^- checkedAt: \d{4}-\d{2}-\d{2}$/mu);
+  assert.match(authentication, /\]\(\.\.\/\.\.\/README\.md#날짜-snapshot-재확인\)/u);
+  assert.match(read('docs/README.md'), /^## 날짜 snapshot 재확인$/mu);
   assert.match(authentication, /ghs_APPID_JWT/u);
   assert.match(authentication, /opaque credential/u);
   assert.match(authentication, /최소 520자/u);
