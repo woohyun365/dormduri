@@ -867,6 +867,44 @@ test('an unbound binding carries recovery null; a ladder step lifts only the cri
     );
 });
 
+// Implementation is the Parent's own work (D-OSS-35): the ladder keeps the same-role step 1 and loses the
+// executor step 2, and the policy names the retirement for a build task.
+test('executor retirement: recovery keeps the same-role step 1 and has no executor step 2', () => {
+  const step = policy.claudeRecoveryStep;
+  assert.equal(
+    step(
+      { profileId: 'complex-critical', role: 'knu_executor', kind: 'build' },
+      { profileId: 'complex-critical', role: 'knu_executor_xhigh', kind: 'build' },
+    ),
+    null,
+  );
+  for (const role of ['knu_explorer', 'knu_researcher'])
+    assert.equal(
+      step(
+        { profileId: 'bounded-standard', role, kind: 'read' },
+        { profileId: 'complex-critical', role, kind: 'read' },
+      ),
+      1,
+      role,
+    );
+  const retry = inputFor('bounded-standard', 'read');
+  retry.profileId = 'complex-critical';
+  retry.task.recovery = {
+    of: '00000000-0000-4000-8000-000000000001',
+    cause: 'result-error',
+    step: 1,
+    fromProfileId: 'bounded-standard',
+    fromRole: 'knu_explorer',
+  };
+  assert.equal(evaluateClaudeProfileEligibility(retry).eligible, true);
+  retry.task.recovery = { ...retry.task.recovery, step: 2, fromProfileId: 'complex-critical' };
+  assert.deepEqual(evaluateClaudeProfileEligibility(retry).reasons, ['invalid-input']);
+  assert.deepEqual(
+    evaluateClaudeProfileEligibility(inputFor('bounded-standard', 'build')).reasons,
+    ['implementation-retired'],
+  );
+});
+
 test('a step-1 recovery binding passes admission and observation; static exchange stays reviewer-only', () => {
   const { binding, result } = candidate(recoveryInput(STEP_ONE));
   assert.deepEqual(binding.recovery, STEP_ONE);

@@ -79,6 +79,46 @@ test('six project Claude agents declare bounded native tools and a fixed effort'
   );
 });
 
+// Implementation is the Parent's own work (D-OSS-35): every repository child role on both hosts is
+// read-only, so the single writer holds because no child has a write tool.
+test('executor retirement: both hosts keep only read-only repository child roles', () => {
+  const roles = (dir, extension) =>
+    readdirSync(resolve(root, dir))
+      .filter((file) => file.startsWith('knu_') && file.endsWith(extension))
+      .map((file) => file.slice(0, -extension.length))
+      .sort();
+  const claude = roles('.claude/agents', '.md');
+  assert.deepEqual(claude, [
+    'knu_explorer',
+    'knu_explorer_xhigh',
+    'knu_researcher',
+    'knu_reviewer',
+  ]);
+  for (const role of claude) {
+    const tools = /^tools: (.+)$/mu
+      .exec(roleSource(role))?.[1]
+      ?.split(',')
+      .map((item) => item.trim());
+    for (const tool of ['Edit', 'Write', 'Bash', 'NotebookEdit'])
+      assert.ok(tools && !tools.includes(tool), `${role}: ${tool}`);
+  }
+  const codex = roles('.codex/agents', '.toml');
+  assert.deepEqual(codex, [
+    'knu_explorer',
+    'knu_explorer_medium',
+    'knu_explorer_xhigh',
+    'knu_researcher',
+    'knu_researcher_medium',
+    'knu_researcher_xhigh',
+    'knu_reviewer',
+  ]);
+  for (const role of codex) {
+    const text = read(`.codex/agents/${role}.toml`);
+    assert.match(text, /^sandbox_mode = "read-only"$/mu, `${role}: sandbox_mode`);
+    assert.doesNotMatch(text, /workspace-write/u, `${role}: workspace-write`);
+  }
+});
+
 test('the xhigh explorer is a tracked role that differs from knu_explorer only in its frontmatter', () => {
   const path = '.claude/agents/knu_explorer_xhigh.md';
   assert.equal(isIgnored(path), false, `${path}: project role must be portable`);

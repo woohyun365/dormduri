@@ -258,6 +258,86 @@ test('prepare names spec problems before registration and keeps policy reasons c
     assert.throws(() => prepareClaudeNativeTask(spec, { root: r.root }), reason);
 });
 
+// The retired knu-delegate build template: an executor writing its own scope.
+function retiredBuildSpec(r, patch = {}) {
+  return {
+    sessionId: r.sessionId,
+    request: 'sample.txt 변경을 구현해줘.',
+    role: 'knu_executor',
+    profileId: 'bounded-standard',
+    selectionBasisRef: 'plan:helper-test/build',
+    expectedResolvedModel: 'claude-sonnet-5-5',
+    kind: 'build',
+    impactRisk: 'medium',
+    complexity: 'bounded',
+    uncertainty: 'resolved',
+    childValue: 'bounded-build',
+    owner: 'builder',
+    readScope: ['sample.txt'],
+    writeScope: ['sample.txt'],
+    acceptance: ['sample.txt updated'],
+    reviewDisposition: { required: true, reason: 'build requires independent QA' },
+    facts: facts([
+      'source-bound',
+      'bounded-scope',
+      'acceptance',
+      'oracle',
+      'independent-qa',
+      'regression',
+      'one-writer',
+    ]),
+    prompt: 'Update sample.txt only.',
+    ...patch,
+  };
+}
+
+// Implementation is the Parent's own work (D-OSS-35): prepare names the retirement instead of a generic gap.
+test('executor retirement: prepare refuses a build spec with its reason and still registers the extraction', (t) => {
+  const r = repo(t);
+  for (const spec of [
+    retiredBuildSpec(r),
+    retiredBuildSpec(r, { role: 'knu_explorer' }),
+    retiredBuildSpec(r, { kind: 'read', writeScope: [] }),
+    // The bound step-2 retry climbed from the executor to the xhigh executor.
+    retiredBuildSpec(r, {
+      role: 'knu_executor_xhigh',
+      profileId: 'complex-critical',
+      expectedResolvedModel: 'claude-opus-5-5',
+      recovery: { of: randomUUID(), cause: 'result-error' },
+    }),
+  ])
+    assert.throws(
+      () => prepareClaudeNativeTask(spec, { root: r.root }),
+      /implementation-retired: .*Parent/u,
+      `${spec.role}/${spec.kind}`,
+    );
+  const extraction = prepareClaudeNativeTask(
+    retiredBuildSpec(r, {
+      request: 'sample.txt 내용을 분석해줘.',
+      role: 'knu_explorer',
+      kind: 'extract',
+      impactRisk: 'low',
+      childValue: 'independent-extraction',
+      owner: 'explorer',
+      writeScope: [],
+      acceptance: ['oracle returned'],
+      reviewDisposition: { required: false, reason: 'bounded extraction checked by oracle' },
+      facts: facts([
+        'source-bound',
+        'fixed-input',
+        'single-step',
+        'output-schema',
+        'acceptance',
+        'independent-check',
+      ]),
+      prompt: 'Read sample.txt only.',
+    }),
+    { root: r.root },
+  );
+  assert.equal(extraction.invocation.subagent_type, 'knu_explorer');
+  assert.equal(extraction.invocation.model, 'sonnet');
+});
+
 test('review refuses a subject whose completion has not been observed', (t) => {
   const r = repo(t);
   const subject = prepareClaudeNativeTask(builderSpec(r), { root: r.root });

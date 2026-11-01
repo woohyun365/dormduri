@@ -2868,6 +2868,24 @@ function guarded(run) {
 }
 const denied = (run) => guarded(run).hookSpecificOutput?.permissionDecision === 'deny';
 
+// Implementation is the Parent's own work (D-OSS-35): no child writes, so the guard never holds the
+// main thread back, whatever a leftover lease file names; it still keeps subagents off native evidence.
+test('executor retirement: file guard allows main-thread edits whatever the lease file says', (t) => {
+  const f = setup(t);
+  handle(f);
+  const edit = fileEvent(f, 'Edit', join(f.root, 'sample.txt'));
+  assert.deepEqual(guarded(runGuard(f.root, edit)), {});
+  writeFileSync(
+    join(f.root, '.artifacts/tools/claude-native/writer.json'),
+    JSON.stringify({ taskId: f.registered.taskId, sessionId: f.event.session_id }),
+  );
+  assert.deepEqual(guarded(runGuard(f.root, edit)), {});
+  assert.deepEqual(guarded(runGuard(f.root, fileEvent(f, 'Write', join(f.root, 'new.md')))), {});
+  const child = { agent_id: 'child-1', agent_type: 'knu_explorer' };
+  const evidence = join(f.registered.evidenceDirectory, 'completion.json');
+  assert.ok(denied(runGuard(f.root, fileEvent(f, 'Write', evidence, child))));
+});
+
 test('file guard denies a main-thread write to a tracked file while this session holds the writer lease', (t) => {
   const f = writer(t);
   assert.deepEqual(handle(f), {});

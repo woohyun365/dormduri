@@ -321,6 +321,26 @@ test('explicit justified direct QA disposition is preserved; missing disposition
   );
 });
 
+// Regression for the executor retirement (D-RET-2): a Lead that implements directly (no child) owes
+// independent review exactly when its disposition says so, with no build-profile obligation on top.
+test('a Lead direct implementation needs independent review exactly when its disposition requires it', () => {
+  for (const intent of ['implement', 'debug'])
+    for (const required of [true, false]) {
+      const i = {
+        ...input(intent),
+        reviewDisposition: { required, reason: 'Lead judged the risk against qa.md.' },
+      };
+      const w = prepareCodexWorkflow(i);
+      assert.equal(w.delegation?.recommendedChildren?.length ?? 0, 0, `${intent}: no child`);
+      assert.equal(w.requiresIndependentReview, required, `${intent}/${required}`);
+      assert.equal(
+        validateCodexWorkflowResults(i, { results: [result(w)] }).valid,
+        !required,
+        `${intent}/${required}: completion without review`,
+      );
+    }
+});
+
 // Same positive semantic predicates as the existing cohort oracle, through the actual caller.
 function boundedInput() {
   const i = {

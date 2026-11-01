@@ -492,6 +492,52 @@ test('hook policy copy matches the allowlist owner and the installed role files'
   assert.deepEqual(policy.writerRoles, writers);
 });
 
+// Implementation is the Parent's own work (D-OSS-35): no child writes, so no hook guards the Parent's writes.
+test('executor retirement: Codex hooks register no Parent write guard and the policy names no writer role', async () => {
+  const config = JSON.parse(readFileSync(resolve(repoRoot, '.codex/hooks.json'), 'utf8'));
+  assert.deepEqual(
+    config.hooks.PreToolUse.map(({ matcher }) => matcher),
+    ['(spawn_agent|followup_task|send_message)$'],
+  );
+  assert.doesNotMatch(config.description, /write guard/iu);
+  const policy = JSON.parse(
+    readFileSync(resolve(repoRoot, '.codex/hooks/knu-hook-policy.json'), 'utf8'),
+  );
+  assert.equal(Object.hasOwn(policy, 'writerRoles'), false);
+  for (const role of [...policy.roster, ...Object.keys(policy.allowedRoleModels)])
+    assert.doesNotMatch(role, /^knu_executor/u, role);
+  // The spawn guard still denies a role outside the roster, and an apply_patch is no guarded tool.
+  const { decideToolUse } = await import('../../../../.codex/hooks/knu-subagent-hooks.mjs');
+  const spawn = decideToolUse(
+    {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'collaborationspawn_agent',
+      session_id: '01a10cfc-ad92-7063-894c-5da2be8c9650',
+      tool_input: {
+        task_name: 'lane_one',
+        agent_type: 'knu_executor',
+        model: BASELINE_CHILD_MODEL,
+        fork_turns: 'none',
+      },
+    },
+    policy,
+    null,
+  );
+  assert.deepEqual(spawn, {
+    action: 'deny',
+    tool: 'spawn_agent',
+    caller: 'root',
+    reason: 'role-not-in-roster',
+  });
+  const patch = decideToolUse(
+    { hook_event_name: 'PreToolUse', tool_name: 'apply_patch', tool_input: { command: '' } },
+    policy,
+    { writers: () => ['lane_one'] },
+    { classify: () => [] },
+  );
+  assert.deepEqual(patch, { action: 'ignore' });
+});
+
 test('project hooks register the spawn guard, the Parent write guard and the subagent recorder from the git root', () => {
   const config = JSON.parse(readFileSync(resolve(repoRoot, '.codex/hooks.json'), 'utf8'));
   assert.deepEqual(Object.keys(config.hooks).sort(), [

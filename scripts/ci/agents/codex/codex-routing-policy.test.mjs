@@ -344,6 +344,39 @@ test('keeps direct and missing-Pass-2 work child-free without claiming parent ef
   assert.equal('parentEffort' in missingPass2, false);
 });
 
+// Implementation is the Parent's own work (D-OSS-35): implementation, debugging and test never route to a child.
+test('executor retirement: implementation, debugging and test stay with the Lead', () => {
+  for (const taskKind of ['implementation', 'debugging', 'test']) {
+    const route = selectAgentRoute(routeInput({ taskKind, predicateIds: mediumPredicateIds() }));
+    assert.equal(route.spawn, false, taskKind);
+    assert.equal(route.role, null, taskKind);
+    assert.equal(route.effort, null, taskKind);
+    assert.equal(route.execution, 'single-sequential', taskKind);
+    assert.deepEqual(route.gaps, ['lead-task-kind'], taskKind);
+    assert.match(route.reason, /Lead/u, taskKind);
+    assert.equal(
+      selectAgentRoute({ pass1: pass1({ taskKind, executionShape: 'direct' }) }).execution,
+      'direct',
+    );
+    assert.equal(
+      selectAgentRoute({ pass1: pass1({ taskKind, executionShape: 'leader-sequential' }) })
+        .execution,
+      'single-sequential',
+    );
+  }
+  for (const [taskKind, role] of [
+    ['lookup', 'knu_explorer_medium'],
+    ['research', 'knu_researcher_medium'],
+    ['review', 'knu_reviewer'],
+  ]) {
+    const route = selectAgentRoute(
+      routeInput({ taskKind, impactRisk: 'low', predicateIds: mediumPredicateIds() }),
+    );
+    assert.equal(route.spawn, true, taskKind);
+    assert.equal(route.role, role, taskKind);
+  }
+});
+
 test('derives Medium only from complete positive boundedness evidence', () => {
   const result = selectAgentRoute(routeInput({ predicateIds: mediumPredicateIds() }));
 
