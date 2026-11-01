@@ -71,10 +71,11 @@ const runId =
       ? `production-like-${timestamp}`
       : `docker-smoke-${timestamp}`);
 const localLabelsComposeFile = 'apps/api/test/stress/docker/compose.local-labels.yml';
-// Label values for the API image this runner builds (compose.local-labels.yml). Its fixed-name project volumes stay
-// unlabeled: a run id label would change their Compose config hash every run (local-environments.md).
+// Label values for the API image this runner builds (compose.local-labels.yml). The image keeps the fixed API_IMAGE_TAG,
+// so its run-id label stays `local`: a per-run value would give every unchanged rebuild a new image ID and leave the
+// previous one untagged. The fixed-name project volumes stay unlabeled for the same reason (local-environments.md).
 process.env.LOCAL_RESOURCE_CREATED_BY = 'apps/api/test/stress/docker/run-dockerized-smoke.mjs';
-process.env.LOCAL_RESOURCE_RUN_ID = runId;
+process.env.LOCAL_RESOURCE_RUN_ID = 'local';
 const defaultReportName = authPasswordCapacityRun
   ? `api-auth-password-capacity-result-${timestamp}.md`
   : productionLikeRun

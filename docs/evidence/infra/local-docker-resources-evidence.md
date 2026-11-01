@@ -71,6 +71,7 @@ Engine 29.4.0, Compose v5.1.2, buildx v0.33.0, engine 2 CPU·4,485MiB)에서 했
 | Artifact builder에 buildkitd GC 상한을 주고 bootstrap 뒤 적용을 확인 | 채택 | 상한을 넘는 cache는 BuildKit이 지우고, 설정 없이 만든 builder는 build 전에 다시 만들라는 message로 실패합니다                                                                                                                                                                                                                                                                            |
 | Build 뒤 script가 `buildx prune` 실행                                | 기각 | 매번 cache를 버려 다음 build가 느려지고, 사람이 정하지 않은 삭제를 script가 합니다                                                                                                                                                                                                                                                                                                       |
 | 이름 있는 volume 모두에 실행마다 바뀌는 run id label                 | 기각 | Compose 5.1.2는 volume label을 volume 설정 hash에 넣습니다. 이름이 고정된 project(dockerized smoke의 `dormduri-api`·`dormduri-observability`)에서 label이 바뀌면 다음 실행이 `Recreate (data will be lost)?`를 묻습니다(stdin이 없으면 다시 만들지 않고 진행). 이 volume은 이름이 고정이라 쌓이지 않으므로 label은 실행마다 새 project를 만드는 full-stack volume에만 둡니다(Owner 결정) |
+| 고정 tag image에 실행마다 바뀌는 run id label                        | 기각 | Label만 달라도 image 설정이 달라져, 같은 source를 다시 build할 때마다 새 image ID가 생기고 이전 판이 tag 없이 남습니다(일회용 image로 확인. 같은 label이면 ID 그대로). Dockerized smoke API image는 고정 tag라 run id label을 `local`로 둡니다                                                                                                                                           |
 | 이름이 고정된 volume에 실행마다 같은 값의 label                      | 기각 | 같은 project를 label 없는 운영 후보 profile(`api-base`, `observability-base`)이나 compose 직접 실행이 쓰면 여전히 다시 만들지를 묻고, volume 전용 값과 overlay가 늘어납니다                                                                                                                                                                                                              |
 | 기본 builder 사용                                                    | 기각 | Artifact build는 OCI layout과 attestation을 내보내려고 `docker-container` driver builder를 따로 씁니다. 기본 builder의 GC는 사람 소유 daemon 설정입니다                                                                                                                                                                                                                                  |
 
@@ -110,7 +111,7 @@ Engine 29.4.0, Compose v5.1.2, buildx v0.33.0, engine 2 CPU·4,485MiB)에서 했
   실패해야 한다고 정한 경우입니다. 표준 bridge 격리를 주는 Linux Docker runner에서는 다시 실행하지 않았습니다.
 - 이름이 고정된 project(dockerized smoke, compose 직접 실행, Web observability rehearsal)의 volume에는 label을 두지 않고
   `com.docker.compose.project` label로 찾습니다. Compose가 volume label을 설정 hash에 넣는 동작은 Compose 5.1.2에서만
-  확인했습니다. Smoke의 API image label과 volume label 부재는 runner와 같은 compose 인자의 config render로만 확인했습니다.
+  확인했습니다. Smoke의 API image label(`run-id`는 `local`)과 volume label 부재는 runner와 같은 compose 인자의 config render로만 확인했습니다.
   Smoke 실행은 로컬 dev DB에 `prisma db push --accept-data-loss`를 하므로 이 측정에서 돌리지 않았습니다.
 - Digest로 고정한 기반 image는 의존성 갱신으로 digest가 바뀔 때마다 옛 판이 남습니다(측정 뒤 nginx image 4개, postgres image 3개).
   이 변경의 범위 밖입니다.

@@ -189,6 +189,11 @@ test('이름 있는 volume label은 실행마다 새 project를 만드는 full-s
     assert.match(volumeSection(path), /dormduri\.local\.run-id:/u, path);
     assert.ok(fullStackRunner.includes(`'${path}'`), `full-stack runner appends ${path}`);
   }
+  // The smoke API image keeps a fixed tag, so a per-run label value would leave an untagged image after every rebuild.
+  assert.match(
+    read('apps/api/test/stress/docker/run-dockerized-smoke.mjs'),
+    /^process\.env\.LOCAL_RESOURCE_RUN_ID = 'local';$/mu,
+  );
   const inventory = loadComposeInventory(repoRoot);
   const fullStackOnly = Object.entries(inventory.profiles)
     .filter(([, profile]) => profile.files.includes('infra/rehearsal/compose.postgres.yml'))
