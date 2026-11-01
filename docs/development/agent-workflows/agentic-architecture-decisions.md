@@ -490,10 +490,11 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 
 - **상태/결정일**: accepted, 2026-11-01(Owner). [DA-021](#da-021--writer-실행-중-parent의-추적-파일-쓰기를-hook으로-막는-guard)을
   대체하고, [DA-018](#task-model-effort-structure)의 build profile과 executor 역할, [DA-019](#recovery-ladder) 사다리의 build 단,
-  Claude adapter의 build kind·executor 역할·recovery 2단계·writer lease를 대체합니다. 읽기 위임·독립 리뷰·recovery 1단계·
+  Claude adapter의 build kind·executor 역할·recovery 2단계·writer lease와 [DA-011](#da-011--child-수는-독립성과-semantic-benefit으로-제한)의 Codex
+  write-capable child 하나를 대체합니다. 읽기 위임·독립 리뷰·recovery 1단계·
   [DA-020](#task-lifecycle)의 등록·수락·해제는 그대로입니다. Policy revision은 두 host 모두 `2026-11-01.1`입니다.
 - **문제/근거**: 구현 위임의 쓴 기록은 Claude executor task 8회(2026-09-28~10-05)와 Codex writer 등록 2건(2026-10-09·10-10)
-  뒤 0회였습니다(로컬 registry 기록). Writer child를 두려고 writer lease, writer 실행 중 Parent 쓰기 guard(Claude file guard의 lease
+  뒤 0회였습니다(로컬 registry 기록, 이슈 [#802](https://github.com/woohyun365/dormduri/issues/802)). Writer child를 두려고 writer lease, writer 실행 중 Parent 쓰기 guard(Claude file guard의 lease
   분기, Codex `apply_patch` hook), writer subject 리뷰 분기, Codex build profile의 필수 Astra QA를 유지해야 했습니다. Parent가 작성한
   diff는 이미 `/knu-review --parent-subject`와 Codex review dispatch로 독립 리뷰를 받고, Codex Lead 직접 구현의 리뷰 요구는
   `reviewDisposition.required`를 따릅니다(필수 Astra QA는 build profile child가 있는 workflow에서만 생겼습니다).
@@ -504,6 +505,8 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   (`requiresAstraReview`)를 지웁니다. (3) Writer가 없으므로 writer lease, Parent 쓰기 guard(Claude file guard의 lease 분기, Codex
   PreToolUse `^apply_patch$`와 정책 사본의 writer 역할 목록, 정책 사본 v4), writer subject 리뷰 분기를 지웁니다. Claude file guard는
   subagent의 native 증거 쓰기 거부만 남고, 읽기 child 실행 중 Parent 편집은 정산의 `unattributable-change`가 거부합니다.
+  (4) Codex child lane은 쓰기 범위를 갖지 않습니다. child 역할 family가 있는 kind의 lane이 `writeOwnership`·`workspace-edit`을 가지면
+  contract가 거부하고, dispatch도 쓰기 가능한 child contract를 거부합니다. Lead kind lane의 `writeOwnership`은 그대로입니다.
 - **Trigger / non-trigger**: 구현·디버깅·test의 위임 요청 / 읽기 위임(Claude `extract`·`read`, Codex `lookup`·`analysis`·
   `research`), 독립 리뷰, `writeOwner`·`writeOwnership` 필드(Parent lane과 plan 전용 lane), 세션 사이 checkout writer 점유.
 - **기각**: executor 유지(쓴 기록에 비해 writer 기간 lease·guard·리뷰 분기의 유지 비용이 큼), 구현 요청을 읽기 역할로 조용히
@@ -511,10 +514,11 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 - **구현 영향**: Claude `model-policy.mjs`(역할·profile·`validateTask`·사다리·`IMPLEMENTATION_RETIRED`), `native-session.mjs`(역할 목록,
   writer lease·file guard lease 분기·writer subject 분기 삭제), `native-task-helper.mjs`, 역할 파일 둘 삭제와 `knu-delegate` skill.
   Codex `model-profiles.mjs`(build profile·사다리), `routing-policy.mjs`(Lead 전용 kind), `child-task-contract.mjs`(구현 lane 기본
-  도구), `workflow-entry.mjs`(필수 Astra QA 삭제), hook과 `hooks.json`·정책 사본 v4, 역할 파일 셋 삭제와 `$knu-delegate`·`$knu-settle`.
+  도구, child lane 쓰기 거부), `orchestration-policy.mjs`(쓰기 가능 child contract 거부), `workflow-entry.mjs`(필수 Astra QA 삭제), hook과 `hooks.json`·정책 사본 v4, 역할 파일 셋 삭제와 `$knu-delegate`·`$knu-settle`.
 - **검증/한계**: 두 host 역할 목록·읽기 전용, Claude `build` 거부와 1단계 결속, file guard의 main thread 허용, Codex routing의
   `lead-task-kind`, hook 등록·정책의 부재를 고정하는 test와 Lead 직접 구현의 리뷰 요구 회귀 test. Codex 역할 파일의 `sandbox_mode`는
-  부모 설정을 override하지 않으므로 읽기 전용 역할도 실제 sandbox는 부모 설정을 따르며, 남는 보장은 운영 규칙과 정산 거부입니다.
+  부모 설정을 override하지 않으므로 읽기 전용 역할도 실제 sandbox는 부모 설정을 따릅니다. Codex는 contract·dispatch가 쓰기 범위를
+  가진 child lane을 거부하고 spawn guard가 등록과 다른 spawn을 막지만, child의 실제 쓰기를 막는 것은 운영 규칙과 정산 거부입니다.
   정적 회귀는 native 실행 증거가 아닙니다.
 - **재검토**: 구현 위임이 반복해서 필요해질 때(새 결정으로 writer 경로와 Parent 쓰기 구분을 함께 설계), hook 범위·trust 동작이
   바뀔 때입니다.

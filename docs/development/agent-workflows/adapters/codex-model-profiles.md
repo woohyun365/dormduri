@@ -108,7 +108,7 @@ Custom agent TOML의 model/effort는 해당 필드의 explicit spawn → agents 
 
 설정 변경 후 실제 dispatch 전 Parent가 수행할 확인([공통 원칙](../agent-execution-contract.md#configuration-changes)의 Codex 절차):
 
-1. 현재 branch/HEAD/working tree와 프로젝트 config·열 개 role 파일·hook 파일의 digest를 기록하고 예상 변경만 있는지 확인합니다.
+1. 현재 branch/HEAD/working tree와 프로젝트 config·일곱 개 role 파일·hook 파일의 digest를 기록하고 예상 변경만 있는지 확인합니다.
    이름·sandbox·instructions·기본값·model pin 부재·상한은 별도로 대조합니다.
 2. 실제 host의 fresh native role/schema, explicit model/effort/scoped fork 지원과 loaded 설정의 출처를 확인합니다.
    역할 설명에 model 고정 문구가 없는 것과 특정 TOML bytes가 실제 로드된 것은 같은 증거가 아닙니다.

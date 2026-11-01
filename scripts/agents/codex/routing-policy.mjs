@@ -20,6 +20,11 @@ const TASK_ROLES = new Map([
 // tests, and has the diff reviewed. TASK_ROLES is the one source: a classified kind without a role family there takes
 // the Lead route.
 const LEAD_TASK_KINDS = new Set(['implementation', 'debugging', 'test']);
+
+// A task kind with a child role family. Every such role is read-only, so a lane of this kind owns no writes.
+export function isChildTaskKind(taskKind) {
+  return TASK_ROLES.has(taskKind);
+}
 const EXECUTION_SHAPES = new Set(['direct', 'leader-sequential', 'bounded-child']);
 const IMPACT_RISKS = new Set(['low', 'medium', 'high']);
 const CONFIDENCE_LEVELS = new Set(['low', 'medium', 'high']);

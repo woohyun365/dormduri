@@ -142,7 +142,7 @@ Claude Parent 기본값은 **Opus 5.5 high**입니다. Framing·통합 추론 �
 저장소 작업의 지침 우선순위는 **현재 요청 > `AGENTS.md`·`CLAUDE.md` > 이 adapter > OMC·Home 권장**입니다.
 
 - OMC agent·skill은 선택적 보조입니다. 보조 조사와 저장소에 쓰지 않는 초안(제안)만 만들고, Parent가 검토해 채택합니다.
-- 위임한 저장소 쓰기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다. 정산은 `complete`(또는 `settle --judgment`)와
+- 위임한 저장소 읽기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다. 정산은 `complete`(또는 `settle --judgment`)와
   Parent 작성 변경의 `settlement:"parent-adjudication"` 판정을 포함합니다. Lead 직접 구현은 그대로 허용됩니다.
 - KNU hook은 KNU 역할·marker 호출에만 적용되어 OMC 사용을 막지 않습니다(hook 자체 오류의 남는 한계는 [운영 보장과 제한](./claude-native-registry.md#운영-보장과-제한)).
   이 규칙은 runtime 차단이 아니라 운영 규칙입니다.

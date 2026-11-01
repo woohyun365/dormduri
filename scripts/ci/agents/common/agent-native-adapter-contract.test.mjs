@@ -497,7 +497,7 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
       '회차가 상한에 이르면 **quality stop**입니다',
       '## OMC 공존과 skill routing',
       '**현재 요청 > `AGENTS.md`·`CLAUDE.md` > 이 adapter > OMC·Home 권장**',
-      '위임한 저장소 쓰기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다',
+      '위임한 저장소 읽기와 필수 독립 QA는 **등록·정산된 KNU 역할**만 충족합니다',
       '정산은 `complete`(또는 `settle --judgment`)와\n  Parent 작성 변경의 `settlement:"parent-adjudication"` 판정을 포함합니다',
       '이 규칙은 runtime 차단이 아니라 운영 규칙입니다',
       '| OMC 요청·skill',

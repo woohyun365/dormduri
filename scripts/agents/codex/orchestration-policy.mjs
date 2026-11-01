@@ -1138,10 +1138,9 @@ function assertDelegationRecommendation(delegation) {
   ) {
     throw new TypeError('delegation must preserve leader-only ownership.');
   }
-  let writeContractCount = 0;
   for (const contract of delegation.recommendedChildren) {
     requireIdentifier(contract.laneId, 'contract laneId');
-    if (assertChildWriteBoundary(contract)) writeContractCount += 1;
+    assertChildWriteBoundary(contract);
     const role = requireString(contract.routeRecommendation?.role, 'route role', 80);
     if (!INSTALLED_ROLES.has(role)) throw new TypeError(`Unsupported native role route: ${role}`);
     requireEnum(contract.routeRecommendation?.effort, EFFORTS, 'route effort');
@@ -1181,9 +1180,6 @@ function assertDelegationRecommendation(delegation) {
       throw new TypeError('child contract must preserve leader-only ownership.');
     }
   }
-  if (writeContractCount > 1) {
-    throw new TypeError('delegation can select at most one write-capable child lane.');
-  }
   assertUnique(
     delegation.recommendedChildren.map(({ laneId }) => laneId),
     'contract laneId',
@@ -1214,8 +1210,11 @@ function assertChildWriteBoundary(contract) {
   if (boundary.readOnly === hasWriteOwnership) {
     throw new TypeError('child read-only boundary is inconsistent with write ownership.');
   }
-
-  return hasWriteOwnership;
+  if (hasWriteOwnership) {
+    throw new TypeError(
+      'child contracts are read-only: every child role is read-only and implementation stays with the Lead.',
+    );
+  }
 }
 
 function assertSemanticRouteRecommendation(route) {

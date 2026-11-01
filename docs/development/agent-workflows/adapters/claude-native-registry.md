@@ -149,7 +149,7 @@ Spec의 `recovery`는 `{of: <1차 taskId>, cause}`입니다. Registry가 결속�
 
 - `result-error`와 `omission`은 사다리를 한 단계 올립니다.
 - `context-missing`은 같은 profile·역할로 다시 등록합니다(단계 0). Prompt에만 context를 보탤 수 있습니다.
-- 단계 1·2의 재시도만 `complex-critical`의 critical signal 요구를 면제받습니다. 다른 admission 검사는 그대로 적용됩니다.
+- 단계 1의 재시도만 `complex-critical`의 critical signal 요구를 면제받습니다. 다른 admission 검사는 그대로 적용됩니다.
 
 Registry는 workflow를 준비하기 전에 아래 순서로 판정합니다. 처음 걸린 사유 하나만 보고합니다. 판정 중에는 아무것도 쓰지 않습니다.
 
@@ -163,7 +163,7 @@ Registry는 workflow를 준비하기 전에 아래 순서로 판정합니다. �
 5. `recovery-not-ran`: 1차 task가 실행·관측되지 않았습니다. 1차 task에는 `attempt.json`과 `completion.json`이 있어야 합니다.
    저장된 관측이 유효해야 하고 현재 관측 오류가 없어야 합니다. 관측한 effort는 역할 effort와 같아야 합니다. 모델 능력표
    `CLAUDE_MODEL_CAPABILITIES`가 effort 미지원으로 둔 exact ID만 effort 대조에서 빠집니다. 1차 task 완료 뒤 working tree가
-   바뀌면(편집, commit, child 변경 되돌리기) 관측 오류가 생겨 이 사유가 됩니다. 1차 task 완료부터 재시도 등록까지 tree를 바꾸지 않습니다.
+   바뀌면(편집, commit) 관측 오류가 생겨 이 사유가 됩니다. 1차 task 완료부터 재시도 등록까지 tree를 바꾸지 않습니다.
 6. `recovery-accepted`: 1차 task에 `accepted.json`이 있습니다.
 7. `recovery-used`: 이 세션과 사실 묶음의 marker가 이미 있습니다. 같은 사실의 1차 task가 둘이어도 재시도 하나를 함께 씁니다.
    Superseded 1차 task는 `recovery-step` 다음에 바로 이 사유로 보고합니다. 재시도가 그 뒤 파일을 바꿔도 같습니다.

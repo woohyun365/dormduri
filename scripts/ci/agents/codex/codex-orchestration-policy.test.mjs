@@ -700,9 +700,10 @@ test('dispatch re-validates a caller-edited delegation before any spawn advice',
   });
   const [first, second] = base.recommendedChildren;
   const cases = [
+    // Every child role is read-only (D-OSS-35): one caller-edited write-capable child already fails.
     [
-      { ...base, recommendedChildren: [asWriter(first, 'a.ts'), asWriter(second, 'b.ts')] },
-      'delegation can select at most one write-capable child lane.',
+      { ...base, recommendedChildren: [asWriter(first, 'a.ts'), second] },
+      'child contracts are read-only: every child role is read-only and implementation stays with the Lead.',
     ],
     [
       {

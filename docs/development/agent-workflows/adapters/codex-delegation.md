@@ -171,7 +171,8 @@ proof가 아닙니다. 호출 시점의 역할 roster·(역할, model) 쌍은 [p
 - 일반 proactive fan-out: 최대 2 child
 - Pass 2 evidence에 연결된 high-value third lane: 최대 3 child
 - 명시적인 owner-directed fan-out: 최대 6 child
-- 선택 가능한 write-capable child: 최대 1개
+- write-capable child: 없음. child 역할 family가 있는 kind의 lane이 `writeOwnership`·`workspace-edit`을 가지면 contract가 거부하고,
+  dispatch도 쓰기 가능한 child contract를 거부합니다(쓰기 범위는 Lead kind lane만 가짐)
 - sibling write scope가 겹치면 해당 lane들은 independent가 아니므로 선택하지 않음
 
 각 `routeRecommendation`은 역할 변형·pin effort·계층·`profileId`뿐 아니라 validated Pass 2 assessment, evidence ID와 confidence를

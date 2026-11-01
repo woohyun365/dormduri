@@ -159,7 +159,8 @@ host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff�
 등록한 prompt나 read 범위가 `requirementSections` 추출·binding 행 추출·초안 절 추출을 가리키면 각각 `reviewRequirements`·`reviewBinding`·
 `reviewLifecycle`(경로, 기록·현재 digest)을 더하고, 추출이 prompt 기록의 digest와 다르거나 기록이 없으면
 `review-requirements-changed`·`review-binding-changed`·`review-lifecycle-changed`를 넣습니다(native subject reviewer는 review id를
-packet id에서 얻어 binding 행 추출을 같은 방식으로 대조하고, 바뀐 추출은 `settle --task --judgment`도 거부합니다). 그 reviewer는
+packet id에서 얻어 binding 행 추출을 같은 방식으로 대조하고, 바뀐 추출은 `settle --task --judgment`도 거부합니다. 다만 native
+subject는 읽기 전용이라 관측 변경 경로가 없어 기준 자동 선택과 binding 행 추출이 비고, `--criteria`를 줘도 binding 행 추출은 생기지 않습니다). 그 reviewer는
 `complete`로 PASS 정산되지 않으며, Parent가 reviewer의 `settle --task` 출력에서 `observationErrors`가
 비었는지(effort 판정 포함)와 모델·변경 경로, finding 재현으로 판정합니다. Settle은 prompt 첫 줄 `logHeader`의 snapshot을 의존 집합
 안 변경이 없으면 등록 snapshot과, 있거나 저장소 전체 판정이면 `finalSnapshot`과 대조해 다르면 `review-snapshot-mismatch`를 넣고,

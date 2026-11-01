@@ -1,6 +1,6 @@
 import { assertValidTaskEnvelope } from '../common/intake-policy.mjs';
 import { createHash } from 'node:crypto';
-import { normalizeModelRequest, selectAgentRoute } from './routing-policy.mjs';
+import { isChildTaskKind, normalizeModelRequest, selectAgentRoute } from './routing-policy.mjs';
 
 const HARD_CHILD_LIMIT = 6;
 const PROACTIVE_NORMAL_LIMIT = 2;
@@ -225,6 +225,15 @@ function normalizeLane(lane, envelope) {
   );
   if (allowedTools.includes('workspace-edit') && writeOwnership.length === 0) {
     throw new TypeError('workspace-edit requires explicit writeOwnership.');
+  }
+  // Every child role is read-only (D-OSS-35): only a Lead task kind, which never becomes a child, may own writes.
+  if (
+    isChildTaskKind(taskKind) &&
+    (writeOwnership.length > 0 || allowedTools.includes('workspace-edit'))
+  ) {
+    throw new TypeError(
+      'A child lane is read-only: only implementation, debugging and test lanes, which stay with the Lead, own writes.',
+    );
   }
 
   return {
@@ -592,20 +601,6 @@ function selectEligibleLanes(eligible, ownerDirectedChildLimit) {
         lane.id,
         `Deferred by the applied child limit of ${appliedLimit}.`,
         'lane-consolidation-required',
-      );
-      continue;
-    }
-
-    if (
-      lane.writeOwnership.length > 0 &&
-      selected.some(({ lane: selectedLane }) => selectedLane.writeOwnership.length > 0)
-    ) {
-      deferSelection(
-        deferredReasons,
-        gaps,
-        lane.id,
-        'Only one write-capable child lane may be selected.',
-        'write-child-limit-exceeded',
       );
       continue;
     }

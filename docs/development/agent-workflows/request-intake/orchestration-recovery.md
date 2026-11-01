@@ -17,7 +17,7 @@ descriptor를 추천합니다.
 - delegation 결과가 `bounded-lanes`이며 dispatch가 그 delegation을 다시 검증
 - 추천 child contract가 1개 이상, repository hard cap 6 이하
 - 각 contract가 validated Pass 2 assessment와 evidence ID를 보존
-- 선택된 write-capable child가 최대 1개
+- 추천 child contract가 모두 읽기 전용(쓰기 범위·`workspace-edit` 없음, 모든 child 역할이 읽기 전용)
 - 공급된 context delivery가 compatible·미적용·gap 없음이고 scoped(호환되는 reuse는 새 spawn이 아니라 이전 child의 후속)
 - 후보 lane은 profile의 역할·effort·cohort 도구·쓰기 경계와 scoped·실패 없는 context, 추천 당시 contract snapshot
   (`modelScopeDigest`)을 유지
@@ -57,7 +57,7 @@ Parent가 보고하는 사후 실행 대조는 두지 않습니다. 그 확인�
   ([hook guardrail과 완료 관측](../adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)). Recovery 재시도 child는 `--retry`와
   decision의 `retryRoute` model로 대조합니다([Recovery ceiling](#recovery-ceiling)).
 
-Project child 기본값은 `.codex/config.toml`의 Astra입니다. 열 역할 모두 model pin 없이 profile이 정한 명시적 task 모델을
+Project child 기본값은 `.codex/config.toml`의 Astra입니다. 일곱 역할 모두 model pin 없이 profile이 정한 명시적 task 모델을
 받고(`knu_reviewer`는 `review` profile의 Astra), effort는 각 역할 파일의 pin이 정합니다. 호출할 수 있는 (역할, model) 쌍은
 각 profile의 역할과 그 profile model입니다. Parent model 변경이나 OMX의 기본값 업데이트를 project 역할·설정의 실제 로드
 증거로 사용하지 않습니다. Runtime policy의 child 기본값은 허용 목록 owner의 `BASELINE_CHILD_MODEL`이고, `.codex/config.toml`

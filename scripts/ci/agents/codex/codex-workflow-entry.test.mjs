@@ -424,7 +424,6 @@ test('bounded actual caller preserves leaf model/effort/recovery policy and enfo
     w = prepareCodexWorkflow(i);
   assert.equal(w.lanes.length, 1);
   assert.equal(w.requiresIndependentReview, true);
-  assert.equal(Object.hasOwn(w, 'requiresAstraReview'), false);
   assert.equal(
     w.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation.recommendedModel,
     'gpt-6.1-sol',

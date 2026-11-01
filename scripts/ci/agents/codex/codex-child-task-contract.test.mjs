@@ -436,6 +436,33 @@ test('keeps ambiguous, dependent, low-benefit, and missing-Pass-2 work child-fre
   assert.match(missingPass2.gaps.join(' '), /pass2-semantic-evidence-required/u);
 });
 
+// Every child role is read-only (D-OSS-35): only a Lead task kind may own writes, so a child-kind lane that asks to
+// write fails closed instead of becoming a write-capable child on a read role.
+test('a child-kind lane that owns writes fails closed', () => {
+  const { envelope, contextPack } = legalFlow();
+  for (const overrides of [
+    { allowedTools: ['repository-read', 'workspace-edit'], writeOwnership: ['apps/api/src/legal'] },
+    { taskKind: 'lookup', writeOwnership: ['apps/api/src/legal'] },
+  ])
+    assert.throws(
+      () =>
+        recommendDelegation({
+          envelope,
+          contextPack,
+          laneCandidates: [repositoryLane(contextPack, overrides)],
+        }),
+      /child lane is read-only/u,
+      JSON.stringify(overrides),
+    );
+  // A Lead task kind keeps its write ownership because it never becomes a child.
+  const lead = recommendDelegation({
+    envelope,
+    contextPack,
+    laneCandidates: [implementationLane(contextPack, { writeOwnership: ['apps/api/src/legal'] })],
+  });
+  assert.deepEqual(lead.recommendedChildren, []);
+});
+
 test('rejects lexical risk substitution and keeps implementation lanes with the Lead', () => {
   const { envelope, contextPack } = legalFlow('Legal 구현을 수정해줘.');
   assert.throws(

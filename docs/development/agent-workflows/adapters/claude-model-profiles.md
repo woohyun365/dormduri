@@ -42,10 +42,11 @@ Effort 대조에서 빠지는 모델은 [model policy](../../../../scripts/agent
 
 공개하는 한계:
 
-- Intake가 보안·인증·migration·삭제 같은 keyword로 요청 risk를 `high`로 정하면 task impact를 낮출 수 없어 그 build는 xhigh가
-  됩니다. Codex는 keyword 하나로 effort를 올리지 않습니다. 이 차이는 Owner의 성능 우선 결정(2026-10-01)으로 받아들입니다.
-- 공식 권장은 xhigh를 측정된 향상이 있을 때 쓰는 것입니다. Reviewer와 high-risk build의 xhigh는 같은 결정으로 측정 전에
-  채택했고 high 대비 향상은 측정하지 않았습니다. 추출 역할 `knu_explorer_xhigh`의 xhigh는 Codex 추출 역할과 같은 형태로
+- Intake가 보안·인증·migration·삭제 같은 keyword로 요청 risk를 `high`로 정하면 task impact를 낮출 수 없어 그 읽기 task는
+  impact `high`를 받는 `complex-critical`(Opus)에만 결속됩니다. 역할 effort는 그대로(`knu_explorer`·`knu_researcher` high)입니다.
+  Codex는 keyword 하나로 effort를 올리지 않습니다. 이 차이는 Owner의 성능 우선 결정(2026-10-01)으로 받아들입니다.
+- 공식 권장은 xhigh를 측정된 향상이 있을 때 쓰는 것입니다. Reviewer의 xhigh는 같은 결정으로 측정 전에 채택했고 high 대비
+  향상은 측정하지 않았습니다. 추출 역할 `knu_explorer_xhigh`의 xhigh는 Codex 추출 역할과 같은 형태로
   둔 Owner 결정(2026-10-12)이고 역시 high 대비 향상은 측정하지 않았습니다.
 - 세션 effort가 high인 세션에서 `knu_explorer_xhigh`의 Haiku 5.5 child는 xhigh로 관측돼(CLI 2.1.306, 고정 cohort 8 task)
   역할 effort 적용과 세션 상속이 구별됐습니다. 그 추출의 1단계 재시도(`bounded-standard`·Sonnet xhigh)는 live 관측이 없어 첫

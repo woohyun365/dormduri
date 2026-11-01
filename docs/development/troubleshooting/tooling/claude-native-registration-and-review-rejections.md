@@ -355,7 +355,7 @@ invalid prepare spec: recovery-format: {of: <first taskId>, cause}
 5. `recovery-not-ran`
    - 원인: 첫 task의 실행 관측이 유효하지 않습니다. `attempt.json`이나 `completion.json`이 없거나, 저장된 관측이 유효하지
      않거나, 지금 관측에 오류가 있거나, 관측 effort가 역할 effort와 다릅니다. 모델 능력표가 effort 미지원으로 둔 exact ID만 effort
-     검사에서 제외됩니다. 괄호 안에 관측 오류가 붙습니다. 첫 task 완료 뒤 working tree를 바꾸면(편집, commit, child 변경 되돌리기) 관측 오류가 생겨 이
+     검사에서 제외됩니다. 괄호 안에 관측 오류가 붙습니다. 첫 task 완료 뒤 working tree를 바꾸면(편집, commit) 관측 오류가 생겨 이
      사유가 됩니다.
    - 다음 행동: 첫 task 완료부터 retry 등록까지 working tree를 바꾸지 않습니다. 첫 task를 먼저 정산합니다. 완료 알림 뒤 `settle --task <첫 taskId>`를 실행하고 `observationErrors`를 읽습니다.
      `effort-transcript-pending`이면 잠시 뒤 다시 정산합니다. 정산 뒤에도 오류가 남으면 첫 task는 복구 대상이 아닙니다. 위

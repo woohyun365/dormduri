@@ -273,6 +273,25 @@ test('ambient forced model conflict denied without scrubbing the normal environm
     }
   }
 });
+// The registry names the retirement for a build task or a former build role (DA-023) instead of a bare unknown
+// role, so the reason holds for an input that never went through the helper.
+test('register refuses a retired build task or role with the implementation-retired reason', (t) => {
+  for (const patch of [
+    { role: 'knu_executor' },
+    { role: 'knu_executor_xhigh' },
+    { kind: 'build' },
+  ]) {
+    const f = fixture(t);
+    Object.assign(f.input.nativeRequest.task, patch);
+    assert.throws(
+      () =>
+        registerClaudeNativeTask({ ...f.options, workflowInput: f.input, sessionId: randomUUID() }),
+      /implementation-retired: /u,
+      JSON.stringify(patch),
+    );
+  }
+});
+
 test('expired registration and task/lane ownership disagreement reject before writing task state', (t) => {
   const f = fixture(t);
   const base = { ...f.options, workflowInput: f.input, sessionId: randomUUID() };
