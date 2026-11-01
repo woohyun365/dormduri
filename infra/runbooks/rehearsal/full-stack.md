@@ -90,9 +90,20 @@ URL에 `prod` 또는 `production`이 포함되면 실행을 거부한다. 이 op
 ## 종료 확인
 
 정상 실행은 container와 disposable volume, 그 실행의 두 image를 자동 제거한다. 진단 목적으로 resource를
-유지하려면 `FULL_STACK_REHEARSAL_KEEP=1`을 사용할 수 있지만, 확인 뒤 동일 run id의 Compose project와 image를
-정리해야 한다. 이때 image 이름은 evidence `cleanup.images.kept`에 남는다. 같은 image로 다시 확인하려면 같은
-`FULL_STACK_REHEARSAL_RUN_ID`와 `FULL_STACK_REHEARSAL_SKIP_BUILD=1`로 실행한다. 그 실행이 keep-running이 아니면 끝날 때
-project와 image를 정리한다. 앞 실행이 keep-running이 아니어서 image가 없으면 build 없이 실패하고 다른 image를 지우지
-않는다. 남은 자원 확인은 [로컬 환경 runbook](./local-environments.md#로컬-docker-자원-label과-확인)을 따른다. 일반 완료
+유지하려면 `FULL_STACK_REHEARSAL_KEEP=1`을 사용한다. 이때 Compose project 둘, 실행기가 만든 외부 observability
+network, image 둘이 남고 image 이름은 evidence `cleanup.images.kept`에 남는다. 확인이 끝나면 project와 network를
+정리한다(`<run-id>`는 그 실행의 run id). API project의 `down`이 API network를 함께 지운다.
+
+```bash
+docker compose -p dormduri-full-stack-web-<run-id> down --volumes --remove-orphans
+docker compose -p dormduri-full-stack-api-<run-id> down --volumes --remove-orphans
+docker network rm dormduri-full-stack-observability-<run-id>
+```
+
+같은 image로 다시 확인하려면 image는 남긴 채 위 정리를 한 뒤 같은 `FULL_STACK_REHEARSAL_RUN_ID`와
+`FULL_STACK_REHEARSAL_SKIP_BUILD=1`로 실행한다. Project가 남아 있으면 PostgreSQL이 앞 실행의 volume과 password로 다시
+올라와 DB 단계가 실패한다. 재사용 실행이 keep-running이 아니면 끝날 때 project와 image를 정리한다. 다시 확인하지
+않으면 `cleanup.images.kept`의 두 image를 `docker image rm`으로 지운다. 앞 실행이 keep-running이 아니어서 image가
+없으면 SKIP_BUILD 실행은 build 없이 실패하고 다른 image를 지우지 않는다. 남은 자원 확인은
+[로컬 환경 runbook](./local-environments.md#로컬-docker-자원-label과-확인)을 따른다. 일반 완료
 evidence는 자동 cleanup 두 번이 모두 통과한 실행만 인정한다.

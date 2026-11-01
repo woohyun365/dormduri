@@ -122,7 +122,8 @@ scheduler를 만들지 않는다.
   아니면 정리 단계가 compose down 뒤 그 실행의 두 image(`dormduri-api:full-stack-<run id>`,
   `dormduri-web:full-stack-<run id>`)만 지우고 결과를 evidence `cleanup.images`에 남긴다. Keep-running이면 지우지 않고
   그 이름을 남긴다. `FULL_STACK_REHEARSAL_SKIP_BUILD=1`은 같은 `FULL_STACK_REHEARSAL_RUN_ID`의 keep-running 실행이
-  남긴 image만 재사용하고, 없으면 build 없이 실패한다.
+  남긴 image만 재사용하고, 없으면 build 없이 실패한다. 재사용 전 정리 순서는
+  [full-stack runbook 종료 확인](./full-stack.md#종료-확인)을 따른다.
 - Dockerized smoke: 그 runner만 붙이는 `apps/api/test/stress/docker/compose.local-labels.yml`이 API image에 label을
   둔다. 운영 후보 `infra/deploy/compose.api.yml`의 build 정의에는 label이 없다.
 - Ingress fixture: [build 명령](../../rehearsal/README.md#account-free-ingress-fixture)이 label을 붙인다.
