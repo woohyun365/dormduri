@@ -519,7 +519,8 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 - **검증/한계**: 두 host 역할 목록·읽기 전용, Claude `build` 거부와 1단계 결속, file guard의 main thread 허용, Codex routing의
   `lead-task-kind`, hook 등록·정책의 부재를 고정하는 test와 Lead 직접 구현의 리뷰 요구 회귀 test. Codex 역할 파일의 `sandbox_mode`는
   부모 설정을 override하지 않으므로 읽기 전용 역할도 실제 sandbox는 부모 설정을 따릅니다. Codex는 contract·dispatch가 쓰기 범위를
-  가진 child lane을 거부하고 spawn guard가 등록과 다른 spawn을 막지만, child의 실제 쓰기를 막는 것은 운영 규칙과 정산 거부입니다.
+  가진 child lane을 거부하고 spawn guard가 등록과 다른 spawn을 막지만, child의 실제 쓰기는 역할 지시와 운영 규칙만 막습니다.
+  `codex:accept`와 `$knu-settle`은 working tree 변경을 관측하지 않습니다(Claude 역할은 쓰기 도구가 없음).
   정적 회귀는 native 실행 증거가 아닙니다.
 - **재검토**: 구현 위임이 반복해서 필요해질 때(새 결정으로 writer 경로와 Parent 쓰기 구분을 함께 설계), hook 범위·trust 동작이
   바뀔 때입니다.
