@@ -85,6 +85,7 @@ Playwright는 desktop/mobile Chromium smoke를 제공하고, trace/screenshot/vi
 ## Runtime and test references
 
 - Next production config: `apps/web/next.config.ts`
+  - `agentRules: false`: `next dev`가 `apps/web/AGENTS.md`를 만들지 않습니다. 이 저장소의 agent 지침 원본은 root `AGENTS.md`입니다. 전에 생긴 파일은 다음 `next dev`가 Next managed block을 지우고, 그 block만 있던 파일은 파일째 지웁니다.
 - Runtime env parser: `apps/web/src/config/env.schema.ts`, `apps/web/src/config/env.ts`
 - BFF proxy/security helper: `apps/web/src/app/api/_bff/security.ts`, `apps/web/src/app/api/_bff/forward.ts`
 - Vitest config/setup: `apps/web/vitest.config.ts`, `apps/web/src/test-setup.ts`

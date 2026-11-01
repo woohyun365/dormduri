@@ -270,7 +270,7 @@ PostgreSQL 일반 trigger는 SELECT를 감사할 수 없으므로 retained paylo
 
 | 법령                     | 사유                                                                           |
 | ------------------------ | ------------------------------------------------------------------------------ |
-| 전자상거래법 제6조       | KNU Roommate는 금전 거래가 없으므로 적용 대상 아님                             |
+| 전자상거래법 제6조       | 돔두리는 금전 거래가 없으므로 적용 대상 아님                                   |
 | 통신비밀보호법 제15조의2 | 전기통신사업자 적용 여부는 별도 검토 대상. 현재 문서는 서비스 정책 기준만 다룸 |
 
 ## 연동 정책
@@ -319,3 +319,4 @@ PostgreSQL 일반 trigger는 SELECT를 감사할 수 없으므로 retained paylo
 | 2026-06-08 | support ticket과 notification inbox 보관 기준을 추가하고 신고/제재/이의 신청 연계 ticket은 #6 retention과 동기화한다고 명시했다                                                                                                                                                                                                                                                             | #79 / #220 / #196        |
 | 2026-06-09 | Retention core와 source owner domain archive handler의 책임 경계를 명시하고, retained payload transformation semantics를 retention root가 흡수하지 않는다는 기준을 추가했다                                                                                                                                                                                                                 | #230 / #229              |
 | 2026-06-12 | `ConversationThreadLifecycleEvent`는 retention workflow state가 아니라 read-only/archive 전이 trace이며, `THREAD_RETENTION`의 대기·재시도·manual review·성공 상태는 `ArchiveJob`/retained vault/review/access log 경계가 소유한다고 명시했다                                                                                                                                                | #228                     |
+| 2026-11-01 | 적용되지 않는 법령 표의 옛 제품 이름을 서비스 이름 돔두리로 바꿨다(규칙 변경 없음)                                                                                                                                                                                                                                                                                                          | #803                     |

@@ -2,7 +2,7 @@
 
 ## 문서 범위
 
-이 문서는 KNU Roommate production runtime이 provider나 instance 종류와 무관하게 지켜야 하는
+이 문서는 돔두리 production runtime이 provider나 instance 종류와 무관하게 지켜야 하는
 배포 안전 불변 조건을 소유한다. 실제 hosting target, instance, 월 비용과 container resource 값은
 [`infrastructure-target-release-readiness.md`](../../infra/runbooks/release/components/infrastructure-target/readiness.md),
 실제 검증 결과는
@@ -122,3 +122,4 @@ blocker로 승격한다.
 | 2026-08-06 | Production target 미확정 상태를 `PENDING_TARGET`로 다루고 CI와 CD의 책임을 분리했다.                                    | release responsibility    |
 | 2026-08-11 | 변동 가능한 topology·비용·resource·rehearsal evidence를 architecture와 release handoff로 분리했다.                      | documentation ownership   |
 | 2026-08-12 | Lightsail production의 Secrets Manager origin, OIDC release principal, mounted-file application read source를 확정했다. | secret delivery           |
+| 2026-11-01 | 문서 범위 문장의 옛 제품 이름을 서비스 이름 돔두리로 바꿨다(불변 조건·범위 서술 변경 없음)                              | service name (#803)       |
