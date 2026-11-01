@@ -10,6 +10,7 @@ describe('AuthPasswordPolicyService', () => {
     'abcdefghij',
     '1234567890',
     'knuroommate2026',
+    'dormduri123',
     'dormduri2026',
   ])('대표 common/service value %s를 exact lookup으로 거절한다', (password) => {
     expect(
