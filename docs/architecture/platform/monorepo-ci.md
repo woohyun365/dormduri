@@ -276,11 +276,13 @@ lane이 없는 PR은 Agent workflow gate가 critical path이고, 이런 PR 15개
 
 Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 표본과 산출 근거는 `docs/evidence/ci/`에 유지한다.
 
-비용 budget은 초기에는 advisory다. 표준 private-repository Linux 2-core list rate는 2026-08-26 공식 문서 기준
-`$0.006/min`이며, 포함 minutes 할인 전 gross estimate에만 사용한다. 표본 5개 전에는 p50, 10개 전에는 p95를 게시하지
-않는다. 실제 discount/net은 별도 Plan-Read credential을 child process에만 주입하는 `pnpm github:account:evidence`의
-allowlisted 결과와 owner Billing UI/CSV가 일치할 때만 비용 ledger에 반영한다. PR별 list-price estimate와 account-level
-discount/net은 서로 다른 책임이므로 합산하거나 대체하지 않는다.
+비용 budget은 초기에는 advisory다. 지금 저장소는 public이라 표준 GitHub-hosted runner 사용은 무료다. PR별 list-price
+estimate는 private 전환 뒤 비용을 미리 보는 값이고, 표준 Linux 2-core `$0.006/min`·1-core `$0.002/min`(2026-11-01 공식 문서
+기준)으로 포함 사용량 할인 전 gross estimate에만 사용한다. Private 전환 전 확인 항목은
+[Remote repository settings](../../development/github/remote-repository-settings.md#비공개-전환-전-확인)가 소유한다. 표본 5개
+전에는 p50, 10개 전에는 p95를 게시하지 않는다. 실제 discount/net은 별도 Plan-Read credential을 child process에만 주입하는
+`pnpm github:account:evidence`의 allowlisted 결과와 owner Billing UI/CSV가 일치할 때만 비용 ledger에 반영한다. PR별
+list-price estimate와 account-level discount/net은 서로 다른 책임이므로 합산하거나 대체하지 않는다.
 
 ## Verification과 revisit trigger
 
@@ -289,7 +291,8 @@ discount/net은 서로 다른 책임이므로 합산하거나 대체하지 않�
 - `pnpm ci:performance:resources`는 cache family와 artifact/Packages visibility를 별도 snapshot으로 수집한다.
 - `pnpm ci:performance:report`는 dependency fingerprint가 같은 자연 발생 PR만 cohort 통계로 집계한다.
 - `pnpm github:account:evidence`는 billing token을 daily gh와 분리하고 account usage·repository resource의 sanitized
-  snapshot만 `.artifacts/tools/github/`에 기록한다.
+  snapshot만 `.artifacts/tools/github/`에 기록한다. 지금 유효한 billing token이 없어 쓸 때 새로 만든다
+  ([GitHub authentication and operator access](../../development/github/authentication-and-operator-access.md#billing과-임시-권한)).
 - Concurrent contributor, stale-base failure, p95 budget 초과, cache 80% 이상 churn, test inventory drift 또는 default-branch
   검증 공백이 관측되면 분류·ruleset·job graph를 재검토한다.
 - Repository 분리는 독립 release/data/ownership boundary가 실제로 생겼을 때, Turborepo/remote cache는 native 개선 후에도
@@ -300,12 +303,16 @@ discount/net은 서로 다른 책임이므로 합산하거나 대체하지 않�
 Optional app job은 변경 분류에 따라 `skipped`될 수 있으므로 개별 API/Web/Infra job이 아니라 `CI summary` 하나를 required
 check로 사용한다.
 
-- `dev-integration-gate`: exact `dev`, PR 필수, conversation resolution, linear history, squash only, `CI summary`, force
-  push/deletion 차단.
+- `dev-integration-gate`: exact `dev`, PR 필수, conversation resolution, linear history, squash only, `CI summary`와 strict
+  up-to-date, force push/deletion 차단.
 - `main-release-gate`: default `main`, PR 필수, conversation resolution, merge commit only, `CI summary`, force push/deletion
   차단.
-- Strict up-to-date는 한 owner의 순차 integration과 Actions 비용을 고려해 기본 off다. Concurrent contributor 또는 stale-base
-  failure가 관측되면 재검토한다.
+- Strict up-to-date는 `dev`에서만 켠다. `dev`는 Renovate 자동 merge와 사람 PR로 자주 움직이고(Renovate 자동 merge 설정을 `main`에
+  올린 뒤 약 2.1일 동안 34번), PR CI가 검사한 base와 merge 시점의 `dev`가 달라지는 일이 잦다. Strict는 그런 PR의 merge를 막고 Update branch 뒤
+  `CI summary`를 다시 요구한다. 사람 PR의 추가 CI 수는 이전의 수동 확인 절차와 같다. 대안인 `dev` push CI는 merge 뒤에야 깨진
+  조합을 알고 `dev`가 움직일 때마다 전체 CI가 돌아 쓰지 않는다. 근거와 수치는
+  [`dev` up-to-date gate evidence](../../evidence/ci/dev-up-to-date-gate-evidence.md)가 소유한다. `main`은 `dev`→`main` 승격
+  PR만 받으므로 끈다.
 
 Check 이름이나 workflow/job 이름을 변경할 때 ruleset과 이 문서를 함께 갱신한다. Repository setting mutation은 tracked
 source merge로 완료됐다고 주장하지 않고 `remote-repository-settings.md`의 read-only evidence로 확인한다.

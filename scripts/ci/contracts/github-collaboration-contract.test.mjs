@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
@@ -167,7 +167,32 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
   assert.match(remoteSettings, /delete_branch_on_merge=true/u);
   assert.match(remoteSettings, /Rulesets.*classic Branches/su);
   assert.match(remoteSettings, /Remote branch inventory.*`main`, `dev`/su);
-  assert.match(remoteSettings, /Environments.*0/su);
+  // The Environments row lists "<count>: `<name>`(...)", and every listed environment must be the one a workflow uses
+  // (expected state: only environments with a caller).
+  const environmentsRow = remoteSettings.match(
+    /^\| Environments +\| (\d+): (.+?) +\| `[A-Z_]+` +\|$/mu,
+  );
+  assert.ok(environmentsRow, 'Environments row must record "<count>: <names>" and a status');
+  const documentedEnvironments = [...environmentsRow[2].matchAll(/`([\w-]+)`\(/gu)].map(
+    (match) => match[1],
+  );
+  assert.equal(
+    documentedEnvironments.length,
+    Number(environmentsRow[1]),
+    'Environments count must match the listed names',
+  );
+  const workflowEnvironments = new Set(
+    readdirSync(resolve(repoRoot, '.github/workflows'))
+      .filter((name) => /\.ya?ml$/u.test(name))
+      .flatMap((name) =>
+        [
+          ...read(`.github/workflows/${name}`).matchAll(
+            /^\s+environment:[ \t]*(?:([\w-]+)|\n\s+name:[ \t]*([\w-]+))[ \t]*$/gmu,
+          ),
+        ].map((match) => match[1] ?? match[2]),
+      ),
+  );
+  assert.deepEqual([...workflowEnvironments].sort(), [...documentedEnvironments].sort());
   assert.match(remoteSettings, /CI summary.*GitHub Actions/su);
   assert.match(remoteSettings, /enabled=false.*paused=false/su);
   assert.match(remoteSettings, /\| Dependabot security updates\s+\| disabled/u);
@@ -216,8 +241,19 @@ test('GitHub operator authentication stays layered, least-privilege, and secret-
   }
 
   assert.match(authentication, /Billing.*Plan: Read.*repository access 없음/su);
-  assert.match(authentication, /2026-09-25 만료/u);
-  assert.match(authentication, /checkedAt: 2026-08-27/u);
+  // The billing policy fixture owns the token expiry; every expiry date in the document must match it.
+  const billingPolicy = JSON.parse(read('scripts/github/fixtures/account-evidence-policy.json'));
+  const documentedExpiries = [...authentication.matchAll(/(\d{4}-\d{2}-\d{2})에 만료/gu)].map(
+    ([, date]) => date,
+  );
+  assert.ok(documentedExpiries.length > 0, 'billing token expiry is not documented');
+  for (const date of documentedExpiries) {
+    assert.equal(date, billingPolicy.billingCredential.expiresOn, 'billing token expiry drift');
+  }
+  // Dated snapshots keep a dated checkedAt line and link the shared re-check rule.
+  assert.match(authentication, /^- checkedAt: \d{4}-\d{2}-\d{2}$/mu);
+  assert.match(authentication, /\]\(\.\.\/\.\.\/README\.md#날짜-snapshot-재확인\)/u);
+  assert.match(read('docs/README.md'), /^## 날짜 snapshot 재확인$/mu);
   assert.match(authentication, /ghs_APPID_JWT/u);
   assert.match(authentication, /opaque credential/u);
   assert.match(authentication, /최소 520자/u);

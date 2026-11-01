@@ -4,41 +4,59 @@ GitHub repository setting은 tracked file과 별도의 control plane입니다. �
 확인 방법, dated actual state, blocker와 다음 owner를 기록합니다. Repository code 변경 완료를 remote enforcement 완료로
 간주하지 않습니다.
 
+- 마지막 확인일: 2026-11-01. 행에 날짜를 적은 행(Owner UI로만 볼 수 있는 값, 이번 조회로 다시 읽지 못한 값)은 그 날짜가
+  확인일입니다.
+- 다시 볼 때: ruleset·Actions·security 설정을 바꿀 때, 저장소를 private으로 바꾸기 전([비공개 전환 전 확인](#비공개-전환-전-확인)),
+  그리고 [날짜 snapshot 재확인](../../README.md#날짜-snapshot-재확인)의 월 1회 점검 때.
+
 ## 기대 상태
 
-| Setting                     | 권장 상태                                          | 근거와 적용 경계                                             |
-| --------------------------- | -------------------------------------------------- | ------------------------------------------------------------ |
-| `actions.enabled`           | enabled                                            | Pull request와 protected branch의 canonical CI 실행          |
-| `sha_pinning_required`      | enabled                                            | Mutable tag를 통한 공급망 변경 방지                          |
-| `allowed_actions`           | 실제 workflow가 사용하는 publisher/action으로 제한 | `actions/*`, `pnpm/action-setup` 검증 후 적용                |
-| Workflow token              | read-only, PR approval disabled                    | Job별 명시적 permission 외 기본 write 권한 차단              |
-| Private fork PR             | workflow·write token·secret 전달 disabled          | 외부 기여 input과 credential 경계 분리                       |
-| Merge method                | squash merge와 merge commit enabled                | Bounded PR은 dev squash, dev→main 승격은 ancestry 보존 merge |
-| `delete_branch_on_merge`    | enabled                                            | 병합된 bounded branch 자동 정리; `main`·`dev`는 ruleset 보호 |
-| `dev` ruleset               | active, PR + `CI summary`, linear, squash only     | Bounded change를 한 integration commit으로 유지              |
-| `main` ruleset              | active, PR + `CI summary`, merge only              | `dev` commit ancestry와 release integration point 보존       |
-| Force push                  | disabled                                           | reviewed history와 remote evidence 보존                      |
-| Branch deletion             | disabled                                           | integration/release branch 삭제 방지                         |
-| Protection owner            | active Rulesets only                               | classic Branches rule과 중복·layering drift 방지             |
-| Up-to-date requirement      | 기본 off                                           | fresh `dev` 순차 PR로 보완하고 중복 full CI 방지             |
-| Required reviewer           | 0                                                  | 1인 저장소에서 자기승인/bypass 의식을 만들지 않음            |
-| Vulnerability alerts        | enabled                                            | dependency 취약점 발견 owner                                 |
-| Dependabot security updates | disabled                                           | 보안 PR은 Renovate가 `dev`로 연다                            |
-| Allow auto-merge            | disabled                                           | Renovate 자체 merge만 사용                                   |
-| Mend Portal Automated PRs   | ON                                                 | Dashboard 승인 없이 non-major Renovate PR을 연다             |
-| Actions artifact retention  | 7일 기본, consumer별 더 짧게 검토                  | 필요한 실패/재사용 evidence만 effective allowance 안에 유지  |
-| Actions cache               | 10GB 이내, thrash 없이 유지                        | build 속도 surface; artifact/Packages와 별도 측정            |
-| Environment / secrets       | caller가 없으면 absent                             | 현재 CI-only 경계에서 speculative credential surface 금지    |
-| Paid code/secret security   | not enabled                                        | personal private repo 비용·owner 결정 전 비도입              |
+| Setting                     | 권장 상태                                                                                            | 근거와 적용 경계                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `actions.enabled`           | enabled                                                                                              | Pull request와 protected branch의 canonical CI 실행                    |
+| `sha_pinning_required`      | enabled                                                                                              | Mutable tag를 통한 공급망 변경 방지                                    |
+| `allowed_actions`           | 실제 workflow가 사용하는 publisher/action으로 제한                                                   | `actions/*`, `pnpm/action-setup` 검증 후 적용                          |
+| Workflow token              | read-only, PR approval disabled                                                                      | Job별 명시적 permission 외 기본 write 권한 차단                        |
+| Fork PR workflow            | public: 모든 외부 contributor의 실행에 승인 필요. private: workflow·write token·secret 전달 disabled | 외부 기여 input과 credential 경계 분리. Private 값은 전환 때 적용·확인 |
+| Merge method                | squash merge와 merge commit enabled                                                                  | Bounded PR은 dev squash, dev→main 승격은 ancestry 보존 merge           |
+| `delete_branch_on_merge`    | enabled                                                                                              | 병합된 bounded branch 자동 정리; `main`·`dev`는 ruleset 보호           |
+| `dev` ruleset               | active, PR + `CI summary`, linear, squash only                                                       | Bounded change를 한 integration commit으로 유지                        |
+| `main` ruleset              | active, PR + `CI summary`, merge only                                                                | `dev` commit ancestry와 release integration point 보존                 |
+| Force push                  | disabled                                                                                             | reviewed history와 remote evidence 보존                                |
+| Branch deletion             | disabled                                                                                             | integration/release branch 삭제 방지                                   |
+| Protection owner            | active Rulesets only                                                                                 | classic Branches rule과 중복·layering drift 방지                       |
+| Up-to-date requirement      | `dev` on, `main` off                                                                                 | `dev`는 PR CI가 검사한 base로만 merge, `main`은 승격 PR만 받음         |
+| Required reviewer           | 0                                                                                                    | 1인 저장소에서 자기승인/bypass 의식을 만들지 않음                      |
+| Vulnerability alerts        | enabled                                                                                              | dependency 취약점 발견 owner                                           |
+| Dependabot security updates | disabled                                                                                             | 보안 PR은 Renovate가 `dev`로 연다                                      |
+| Allow auto-merge            | disabled                                                                                             | Renovate 자체 merge만 사용                                             |
+| Mend Portal Automated PRs   | ON                                                                                                   | Dashboard 승인 없이 non-major Renovate PR을 연다                       |
+| Actions artifact retention  | 7일 기본, consumer별 더 짧게 검토                                                                    | 필요한 실패/재사용 evidence만 effective allowance 안에 유지            |
+| Actions cache               | 10GB 이내, thrash 없이 유지                                                                          | build 속도 surface; artifact/Packages와 별도 측정                      |
+| Environment / secrets       | caller가 있는 environment와 운영 환경 문서가 적은 secret만                                           | Speculative credential surface 금지                                    |
+| Code/secret security        | CodeQL default setup, secret scanning, push protection                                               | Public 저장소에서 무료. Private 전환 뒤 대체 수단은 전환 전에 정함     |
 
 Allowed-actions payload, merge-method 변경, security 기능 활성화는 외부 side effect입니다. 실제 적용 전에는 current workflow
 uses와 repository owner 승인을 다시 확인합니다.
 
-`Require branches to be up to date`는 기본 off로 두고 fresh `dev` 순차 PR 정책으로 보완합니다. 동시 contributor나 stale
-base integration failure가 실제로 발생하면 strict mode를 다시 검토합니다.
+`Require branches to be up to date before merging`(API `strict_required_status_checks_policy`)는 `dev-integration-gate`에서만
+켭니다. `dev`는 Renovate 자동 merge와 사람 PR로 하루에도 여러 번 움직여, PR CI가 검사한 base와 merge 시점의 `dev`가 달라질 수
+있습니다. 켜 두면 그런 PR은 Update branch로 최신 `dev`를 받고 `CI summary`를 다시 통과한 뒤에만 merge됩니다.
+`main-release-gate`는 `dev`→`main` 승격 PR만 받으므로 끕니다. 결정과 대안 비교는
+[Monorepo CI architecture](../../architecture/platform/monorepo-ci.md#branch-protection-적용)와
+[`dev` up-to-date gate evidence](../../evidence/ci/dev-up-to-date-gate-evidence.md)가 소유합니다. 저장소의 "Always suggest
+updating pull request branches"(`allow_update_branch`)는 꺼 둡니다. Base가 최신을 요구하는 PR에는 그래도 Update branch가
+보이고, `gh pr update-branch`도 됩니다.
 
 Required `CI summary`의 expected source는 GitHub Actions로 제한해 같은 이름의 외부 status가 merge gate를 대체하지 못하게
 합니다.
+
+## Code scanning 범위
+
+CodeQL은 default setup(weekly, `actions`·`javascript-typescript`)으로 둡니다. Default setup은 기본 branch `main`의 push와
+`main` 대상 PR, 곧 `dev`→`main` 승격 PR을 분석합니다. Ruleset만 걸린 `dev`를 대상으로 한 bounded PR은 분석하지 않습니다
+(2026-11-01 분석 기록: `main` push와 승격 PR뿐). 그래서 code scanning 경고는 승격 PR에서 처음 보입니다. 승격 PR에서 경고를
+보면 merge 전에 `dev` 대상 PR로 고치고 승격 PR을 다시 검사합니다. `.github/workflows`에 advanced setup workflow를 두지 않습니다.
 
 ## Rulesets와 classic Branches 책임
 
@@ -63,49 +81,53 @@ consumer가 확인된 경우에만 classic Branches 전환을 별도 migration�
 
 ## 현재 evidence
 
-- checkedAt: 2026-08-27
+- checkedAt: 2026-11-01
 - repository: `woohyun365/dormduri`
-- operator: local authenticated `gh` read-only inspection
+- operator: local authenticated `gh` read-only inspection(`VERIFIED_OWNER_UI` 행은 그 행의 날짜)
 
-| Setting                     | Actual                                                                               | Status              |
-| --------------------------- | ------------------------------------------------------------------------------------ | ------------------- |
-| Plan / visibility           | GitHub Pro / private                                                                 | `VERIFIED_REMOTE`   |
-| Default branch              | `main`                                                                               | `VERIFIED_REMOTE`   |
-| Repository features         | Issues on; Wiki, Projects, Discussions, template off                                 | `VERIFIED_REMOTE`   |
-| Merge methods               | merge commit + squash enabled, rebase off; PR title + PR body; auto-merge off        | `VERIFIED_REMOTE`   |
-| Delete branch on merge      | `delete_branch_on_merge=true`; merged bounded head 자동 정리                         | `VERIFIED_REMOTE`   |
-| Actions                     | selected; GitHub-owned true, verified creators false, `pnpm/action-setup@*` only     | `VERIFIED_REMOTE`   |
-| Full-SHA requirement        | `sha_pinning_required=true`                                                          | `VERIFIED_REMOTE`   |
-| `dev` ruleset               | `dev-integration-gate` active on exact `dev`; linear history, squash only, no bypass | `VERIFIED_REMOTE`   |
-| `main` ruleset              | `main-release-gate` active on default branch; no linear rule, merge only, no bypass  | `VERIFIED_REMOTE`   |
-| PR rule                     | both zero approvals and conversation resolution; target-specific merge method        | `VERIFIED_REMOTE`   |
-| Required status             | both require `CI summary`, GitHub Actions app `15368`, strict up-to-date off         | `VERIFIED_REMOTE`   |
-| Force push / deletion       | non-fast-forward and deletion blocked                                                | `VERIFIED_REMOTE`   |
-| Vulnerability alerts        | endpoint `204`                                                                       | `VERIFIED_REMOTE`   |
-| Dependabot malware alerts   | enabled                                                                              | `VERIFIED_OWNER_UI` |
-| Dependabot security updates | disabled; `enabled=false`, `paused=false`(2026-10-29)                                | `VERIFIED_REMOTE`   |
-| Mend Portal Automated PRs   | ON; owner Portal 확인, 승인 없이 non-major Renovate PR 생성 관측(2026-10-29)         | `VERIFIED_OWNER_UI` |
-| Workflow token              | `default_workflow_permissions=read`, PR approval off                                 | `VERIFIED_REMOTE`   |
-| Private fork PR             | workflow/write token disabled; fork workflow execution disabled                      | `VERIFIED_REMOTE`   |
-| Artifact/log retention      | owner UI 7 days                                                                      | `VERIFIED_OWNER_UI` |
-| Actions cache policy        | owner UI 7-day retention / 10GiB eviction; API 7,475,286,431 bytes, 29 entries       | `VERIFIED_REMOTE`   |
-| Actions artifacts           | 104 active, 8,178,655 bytes; observed retention 7 days (2026-08-27)                  | `VERIFIED_REMOTE`   |
-| Effective shared storage    | owner Billing UI와 Packages billing contract 기준 Pro shared storage 2GB             | `VERIFIED_OWNER_UI` |
-| GitHub Packages             | owner UI에서 package 0개 확인; 별도 Packages credential 없음                         | `VERIFIED_OWNER_UI` |
-| Installed GitHub Apps       | owner UI: ChatGPT Codex Connector selected repo only, Renovate                       | `VERIFIED_OWNER_UI` |
-| Classic branch protection   | `main`·`dev` 모두 없음; active Rulesets가 effective protection owner                 | `VERIFIED_REMOTE`   |
-| Remote branch inventory     | protected `main`, `dev`만 존재; 기존 merged head 23개 owner-approved cleanup 완료    | `VERIFIED_REMOTE`   |
-| Environments                | 0; unused legacy `copilot` environment 삭제                                          | `VERIFIED_REMOTE`   |
-| Webhooks / deploy keys      | 각각 0                                                                               | `VERIFIED_REMOTE`   |
-| Repository secrets/vars     | Actions·Dependabot·Codespaces·legacy environment 모두 0                              | `VERIFIED_REMOTE`   |
-| Pages                       | disabled                                                                             | `VERIFIED_REMOTE`   |
-| Code/Secret paid products   | Code Scanning disabled; personal private repo에서 별도 paid owner decision까지 보류  | `VERIFIED_REMOTE`   |
+| Setting                     | Actual                                                                                                                                                                                                                                      | Status                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| Visibility                  | public. Release version부터 private으로 운영할 목표([#710](https://github.com/woohyun365/dormduri/issues/710))                                                                                                                              | `VERIFIED_REMOTE`      |
+| Plan                        | GitHub Pro(2026-08-27). 2026-11-01에는 operator token의 `user` 응답에 plan이 없어 다시 읽지 못함                                                                                                                                            | `VERIFIED_REMOTE`      |
+| Default branch              | `main`                                                                                                                                                                                                                                      | `VERIFIED_REMOTE`      |
+| Repository features         | Issues on; Wiki, Projects, Discussions, template off                                                                                                                                                                                        | `VERIFIED_REMOTE`      |
+| Merge methods               | merge commit + squash enabled, rebase off; PR title + PR body; auto-merge off; `allow_update_branch=false`                                                                                                                                  | `VERIFIED_REMOTE`      |
+| Delete branch on merge      | `delete_branch_on_merge=true`; merged bounded head 자동 정리                                                                                                                                                                                | `VERIFIED_REMOTE`      |
+| Actions                     | selected; GitHub-owned true, verified creators false, `pnpm/action-setup@*` only                                                                                                                                                            | `VERIFIED_REMOTE`      |
+| Full-SHA requirement        | `sha_pinning_required=true`                                                                                                                                                                                                                 | `VERIFIED_REMOTE`      |
+| `dev` ruleset               | `dev-integration-gate` active on exact `dev`; linear history, squash only, no bypass                                                                                                                                                        | `VERIFIED_REMOTE`      |
+| `main` ruleset              | `main-release-gate` active on default branch; no linear rule, merge only, no bypass                                                                                                                                                         | `VERIFIED_REMOTE`      |
+| PR rule                     | both zero approvals and conversation resolution; target-specific merge method                                                                                                                                                               | `VERIFIED_REMOTE`      |
+| Required status             | both require `CI summary`, GitHub Actions app `15368`; strict up-to-date `dev` on·`main` off                                                                                                                                                | `VERIFIED_REMOTE`      |
+| Force push / deletion       | non-fast-forward and deletion blocked                                                                                                                                                                                                       | `VERIFIED_REMOTE`      |
+| Vulnerability alerts        | endpoint `204`                                                                                                                                                                                                                              | `VERIFIED_REMOTE`      |
+| Dependabot malware alerts   | enabled(2026-08-27)                                                                                                                                                                                                                         | `VERIFIED_OWNER_UI`    |
+| Dependabot security updates | disabled; `enabled=false`, `paused=false`                                                                                                                                                                                                   | `VERIFIED_REMOTE`      |
+| Mend Portal Automated PRs   | ON; owner Portal 확인, 승인 없이 non-major Renovate PR 생성 관측(2026-10-29)                                                                                                                                                                | `VERIFIED_OWNER_UI`    |
+| Workflow token              | `default_workflow_permissions=read`, PR approval off                                                                                                                                                                                        | `VERIFIED_REMOTE`      |
+| Fork PR workflow            | public approval policy `all_external_contributors`; private 전용 설정 endpoint는 public에서 `422`                                                                                                                                           | `VERIFIED_REMOTE`      |
+| Artifact/log retention      | 7 days(`maximum_allowed_days` 90)                                                                                                                                                                                                           | `VERIFIED_REMOTE`      |
+| Actions cache policy        | 7일 미접근 삭제 / 10GiB eviction; API 약 10.33GiB, 50 entries. 기대 상태(10GB 이내) 초과, 재검토 [#795](https://github.com/woohyun365/dormduri/issues/795)                                                                                  | `PENDING_OWNER_ACTION` |
+| Actions artifacts           | 328 active, 약 439MiB; retention 7 days                                                                                                                                                                                                     | `VERIFIED_REMOTE`      |
+| Effective shared storage    | owner Billing UI와 Packages billing contract 기준 Pro shared storage 2GB(2026-08-27)                                                                                                                                                        | `VERIFIED_OWNER_UI`    |
+| GitHub Packages             | owner UI에서 package 0개 확인(2026-08-27); 별도 Packages credential 없음                                                                                                                                                                    | `VERIFIED_OWNER_UI`    |
+| Installed GitHub Apps       | owner UI: ChatGPT Codex Connector selected repo only, Renovate(2026-08-27)                                                                                                                                                                  | `VERIFIED_OWNER_UI`    |
+| Classic branch protection   | `main`·`dev` 모두 없음; active Rulesets가 effective protection owner                                                                                                                                                                        | `VERIFIED_REMOTE`      |
+| Remote branch inventory     | protected `main`, `dev`; 그 밖은 열린 PR의 head branch뿐                                                                                                                                                                                    | `VERIFIED_REMOTE`      |
+| Environments                | 1: `production`(required reviewers 1명, deployment branch `main`만, admin bypass off). Caller는 `api-restore-drill-manual.yml`                                                                                                              | `VERIFIED_REMOTE`      |
+| Webhooks / deploy keys      | 각각 0                                                                                                                                                                                                                                      | `VERIFIED_REMOTE`      |
+| Repository secrets/vars     | Actions secret 1(publish role ARN), `production` environment secret 1(deploy role ARN), variables 0; Dependabot·Codespaces 0. 두 secret은 [운영 환경](../../deploy/production-environment.md)의 Web CD 입력이고 아직 caller workflow가 없음 | `VERIFIED_REMOTE`      |
+| Pages                       | disabled                                                                                                                                                                                                                                    | `VERIFIED_REMOTE`      |
+| Code/Secret security        | CodeQL default setup `configured`(weekly); secret scanning·push protection enabled; 열린 code scanning·secret scanning·Dependabot alert 0                                                                                                   | `VERIFIED_REMOTE`      |
 
 이 표는 snapshot입니다. 미래 작업은 표의 문장을 current truth로 가정하지 않고 아래 command로 다시 조회합니다.
 
-현재 cache는 29개 entry / 약 6.96GiB로 10GiB eviction 경계의 약 69.6%입니다. pnpm family는 15개 / 약 4.42GiB, Next
-family는 14개 / 약 2.54GiB이며 80%부터 key 폭증과 eviction thrash를 검토합니다. Active artifact는 104개 / 약 7.8MiB이고
-owner UI의 artifact/log retention은 7일입니다. Owner Billing UI와 Packages billing contract가 제시하는 Pro shared storage
+현재 cache는 50개 entry / 약 10.33GiB로 10GiB eviction 경계를 넘었고, GitHub가 마지막 접근이 오래된 entry부터 지우는
+중입니다. pnpm store family는 20개 / 약 6.40GiB, Next family는 15개 / 약 3.93GiB, Web `tsc` family는 15개 / 0.01GiB 미만입니다.
+80%부터 key 폭증과 eviction thrash를 검토하는
+[Monorepo CI architecture의 재검토 trigger](../../architecture/platform/monorepo-ci.md#verification과-revisit-trigger)를 넘었고,
+family별 key와 저장 범위는 [#795](https://github.com/woohyun365/dormduri/issues/795)가 다시 정합니다.
+Active artifact는 328개 / 약 439MiB이고 artifact/log retention은 7일입니다. Owner Billing UI와 Packages billing contract가 제시하는 Pro shared storage
 2GB를 effective account boundary로 사용합니다. Actions 문서의 Pro artifact 1GB 표기는 provider 문서 간 차이로 별도
 reference를 보존하되, account allowance를 1GB로 축소하지 않습니다. 어느 경우에도 artifact/Packages shared storage와 별도
 10GiB cache를 합산하지 않습니다. Packages는 owner UI에서 0개를 확인했으므로 이를 dated evidence로 사용하며, 단지 자동
@@ -117,10 +139,11 @@ reference를 보존하되, account allowance를 1GB로 축소하지 않습니다
 REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 
 gh api "repos/$REPO" \
-  --jq '{private,default_branch,allow_merge_commit,allow_squash_merge,allow_rebase_merge,delete_branch_on_merge}'
+  --jq '{visibility,default_branch,allow_merge_commit,allow_squash_merge,allow_rebase_merge,allow_update_branch,delete_branch_on_merge,security_and_analysis}'
 gh api "repos/$REPO/actions/permissions"
 gh api "repos/$REPO/actions/permissions/workflow"
-gh api "repos/$REPO/actions/permissions/fork-pr-workflows-private-repos"
+gh api "repos/$REPO/actions/permissions/artifact-and-log-retention"
+gh api "repos/$REPO/actions/permissions/fork-pr-contributor-approval"
 gh api "repos/$REPO/rulesets"
 for id in $(gh api "repos/$REPO/rulesets" --jq '.[].id'); do
   gh api "repos/$REPO/rulesets/$id" \
@@ -130,16 +153,64 @@ gh api "repos/$REPO/rules/branches/main"
 gh api "repos/$REPO/rules/branches/dev"
 gh api --include "repos/$REPO/vulnerability-alerts"
 gh api "repos/$REPO/automated-security-fixes"
+gh api "repos/$REPO/code-scanning/default-setup"
+gh api "repos/$REPO/code-scanning/analyses?per_page=100" --jq '[.[].ref] | group_by(.) | map({ref: .[0], count: length})'
 gh api "repos/$REPO/actions/cache/usage"
 gh api --paginate "repos/$REPO/actions/artifacts?per_page=100"
+gh api "repos/$REPO/actions/permissions/selected-actions"
+for kind in code-scanning dependabot secret-scanning; do
+  gh api "repos/$REPO/$kind/alerts?state=open&per_page=100" --jq length
+done
 gh api "repos/$REPO/environments"
+for env in $(gh api "repos/$REPO/environments" --jq '.environments[].name'); do
+  gh api "repos/$REPO/environments/$env" \
+    --jq '{name,can_admins_bypass,protection_rules:[.protection_rules[] | {type, reviewers: (.reviewers // [] | length)}],deployment_branch_policy}'
+  gh api "repos/$REPO/environments/$env/deployment-branch-policies" --jq '[.branch_policies[].name]'
+  gh api "repos/$REPO/environments/$env/secrets" --jq .total_count
+  gh api "repos/$REPO/environments/$env/variables" --jq .total_count
+done
+for path in actions/secrets actions/variables dependabot/secrets codespaces/secrets; do
+  gh api "repos/$REPO/$path" --jq .total_count
+done
 gh api "repos/$REPO/hooks"
 gh api "repos/$REPO/keys"
+gh api "repos/$REPO/pages"
+gh api "repos/$REPO/branches?per_page=100" --jq '.[] | {name, protected}'
+gh pr list --repo "$REPO" --state open --json number,headRefName
 ```
 
 - response header의 token, credential, 개인 식별 정보는 evidence에 복사하지 않습니다.
 - `403`은 기능 미구현으로 단정하지 않고 token/account-tier/endpoint authority를 구분합니다.
-- `404`는 endpoint 의미를 확인합니다. Vulnerability alerts endpoint에서는 disabled 상태를 의미할 수 있습니다.
+- `404`는 endpoint 의미를 확인합니다. Vulnerability alerts endpoint에서는 disabled 상태를, Pages endpoint에서는 Pages가 없음을
+  의미할 수 있습니다.
+- `fork-pr-contributor-approval`은 public 저장소의 fork PR 승인 정책입니다. Private 저장소의 fork PR 설정은
+  `repos/$REPO/actions/permissions/fork-pr-workflows-private-repos`가 읽고 public 저장소에서는 `422`를 돌려주므로 private 전환
+  뒤에 씁니다.
+- 출력에 계정·저장소 숫자 ID나 node ID가 섞이므로 evidence에는 설정 이름과 값만 옮깁니다.
+
+## 비공개 전환 전 확인
+
+저장소는 release까지 public이고 release version부터 private으로 운영할 목표입니다. 공개 상태를 바꾸는 일과 그 시점은 이 문서
+범위 밖입니다. 바꾸기 전에 아래를 다시 확인하고, 바꾼 뒤 위 확인 절차로 이 문서를 다시 씁니다. 개인 계정 GitHub Pro 기준이며
+근거는 2026-11-01에 확인한 GitHub 공식 문서입니다.
+
+| 항목                  | 지금(public)                                                                       | private 전환 뒤                                                                                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fork PR workflow      | 모든 외부 contributor의 실행에 승인 필요                                           | Private 전용 설정(workflow·write token·secret 전달 disabled)을 적용하고 `fork-pr-workflows-private-repos`로 확인                                              |
+| Actions 비용          | 표준 GitHub-hosted runner 무료                                                     | Pro 포함 사용량 $18/월에서 차감(Linux 2-core $0.006/분). 전체 PR CI 한 번은 과금 기준 약 28분이고 `dev` 최신화 재검사가 더해짐                                |
+| Actions storage       | 위 현재 evidence의 artifact·cache 값                                               | Artifact는 Packages와 공유하는 Pro allowance(공식 문서 1 GB, Owner Billing UI 2GB)에 들어가고 cache는 10GB                                                    |
+| Code/secret security  | CodeQL default setup, secret scanning, push protection 무료 사용                   | 개인 계정 private 저장소에서는 Code Security·Secret Protection을 쓸 수 없음. 대체 수단은 전환 전에 Owner가 정함                                               |
+| Environment 보호 규칙 | `production`의 required reviewers                                                  | Free·Pro·Team plan에서는 required reviewers·wait timer·admin bypass 설정을 public 저장소만 쓸 수 있음. 배포 승인 대체 수단을 정함                             |
+| Artifact attestation  | 아직 workflow가 만들지 않음(Web CD 입력). Public 저장소는 모든 plan에서 쓸 수 있음 | Free·Pro·Team plan에서는 public 저장소만 쓸 수 있고 private은 GitHub Enterprise Cloud가 필요함. Provenance 확인 수단을 정함                                   |
+| 공개 기간 기록        | Git 이력, Issue, PR, Actions log가 공개                                            | 이미 공개된 기록과 clone은 남고, 기존 public fork는 public인 채 분리됨. 공개 기간에 쓴 기록에는 계속 [식별자 규칙](../../deploy/README.md#식별자-규칙)을 적용 |
+
+근거: [Deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments),
+[GitHub security features](https://docs.github.com/en/code-security/getting-started/github-security-features),
+[Quickstart for securing your repository](https://docs.github.com/en/code-security/getting-started/quickstart-for-securing-your-repository),
+[GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions),
+[Actions runner pricing](https://docs.github.com/en/billing/reference/actions-runner-pricing),
+[REST API endpoints for GitHub Actions permissions](https://docs.github.com/en/rest/actions/permissions),
+[Setting repository visibility](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility).
 
 ## Future operator handoff
 
@@ -165,8 +236,8 @@ evidence link:
    `main`·`dev` retention이 함께 유지되는지 확인합니다.
 4. vulnerability alerts가 켜져 있고 Dependabot security updates와 Allow auto-merge가 꺼져 있는지 확인합니다. 보안 PR은
    Renovate가 `dev`로 엽니다. Mend Portal Automated PRs는 Owner가 Portal 화면에서 확인합니다.
-5. GitHub Pro ruleset 또는 branch protection으로 `CI summary`를 required check로 설정하고 strict up-to-date는 기본 off로
-   둡니다.
+5. GitHub Pro ruleset으로 `CI summary`를 required check로 설정하고, strict up-to-date는 `dev-integration-gate`에서만 켭니다
+   (`main-release-gate`는 끔).
 6. 실제값과 blocker를 이 문서에 갱신하되 secret이나 raw credential response는 기록하지 않습니다.
 
 완료 조건은 각 setting이 `VERIFIED_REMOTE`가 되거나, 적용할 수 없는 이유와 다음 owner가

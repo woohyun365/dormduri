@@ -71,6 +71,9 @@ export function parseAccountEvidencePolicy(input) {
   }
   assertString(input.billingCredential.environmentVariable, 'environmentVariable');
   assertString(input.billingCredential.expiresOn, 'expiresOn');
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(input.billingCredential.expiresOn)) {
+    throw new TypeError('billingCredential.expiresOn must be YYYY-MM-DD');
+  }
   assertObject(input.billing, 'billing');
   if (!Array.isArray(input.billing.allowedProducts) || input.billing.allowedProducts.length === 0) {
     throw new TypeError('billing.allowedProducts must be non-empty');
@@ -271,7 +274,21 @@ export function findCredentialLikeValue(value) {
   return null;
 }
 
+// The policy expiry is the single record of the current Plan-Read token. A run after that date means
+// a new token was created without updating the policy (or no valid token exists), so fail closed.
+export function assertBillingCredentialCurrent(policy, collectedAt) {
+  const collectedOn = new Date(collectedAt).toISOString().slice(0, 10);
+  if (collectedOn > policy.billingCredential.expiresOn) {
+    throw new AccountEvidenceError(
+      'credential-policy-expired',
+      `Billing credential policy expired on ${policy.billingCredential.expiresOn}.`,
+      'Create a new Plan-Read token, then record its expiry in the policy fixture and the authentication document in the same PR.',
+    );
+  }
+}
+
 export function buildAccountEvidence({ billing, collectedAt, controls, policy, resources }) {
+  assertBillingCredentialCurrent(policy, collectedAt);
   const evidence = {
     billing: structuredClone(billing),
     collectedAt,
@@ -385,6 +402,7 @@ function billingRequest(repository, year, month, token, environment) {
 export function runAccountEvidence(options, environment = process.env, now = new Date()) {
   const policy = parseAccountEvidencePolicy(JSON.parse(readFileSync(policyPath, 'utf8')));
   if (options.repository !== policy.repository) throw new Error('repository does not match policy');
+  assertBillingCredentialCurrent(policy, now.toISOString());
   const token = environment[policy.billingCredential.environmentVariable];
   if (!token) {
     const failure = classifyBillingApiFailure({ code: 'MISSING_ENV' });
