@@ -1,6 +1,6 @@
 # Branch and pull request strategy
 
-이 문서는 KNU Roommate에서 구현 변경을 시작하고 통합하는 Git branch 책임을 정의합니다. 분석·계획처럼 source를
+이 문서는 돔두리에서 구현 변경을 시작하고 통합하는 Git branch 책임을 정의합니다. 분석·계획처럼 source를
 수정하지 않는 요청에는 branch 생성을 강제하지 않지만, 구현 요청은 edit·stage 전에 이 경계를 확인합니다.
 
 ## Branch 책임
