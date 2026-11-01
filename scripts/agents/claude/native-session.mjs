@@ -24,6 +24,7 @@ import {
   IMPLEMENTATION_RETIRED,
   claudeModelSupportsEffort,
   claudeRecoveryStep,
+  isRetiredClaudeKind,
 } from './model-policy.mjs';
 import {
   CHILD_TRANSCRIPT_BYTE_LIMIT,
@@ -616,7 +617,7 @@ export function registerClaudeNativeTask({
   );
   const root = realpathSync(workflowInput?.root ?? process.cwd());
   const role = workflowInput?.nativeRequest?.task?.role;
-  check(workflowInput?.nativeRequest?.task?.kind !== 'build', IMPLEMENTATION_RETIRED);
+  check(!isRetiredClaudeKind(workflowInput?.nativeRequest?.task?.kind), IMPLEMENTATION_RETIRED);
   check(
     ['knu_explorer', 'knu_explorer_xhigh', 'knu_researcher', 'knu_reviewer'].includes(role),
     'unknown repository role',

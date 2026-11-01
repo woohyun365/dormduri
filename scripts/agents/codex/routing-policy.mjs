@@ -17,7 +17,8 @@ const TASK_ROLES = new Map([
   ['review', 'knu_reviewer'],
 ]);
 // Kinds Pass 1 still classifies but no child takes: every child role is read-only, so the Lead implements, debugs and
-// tests, and has the diff reviewed.
+// tests, and has the diff reviewed. TASK_ROLES is the one source: a classified kind without a role family there takes
+// the Lead route.
 const LEAD_TASK_KINDS = new Set(['implementation', 'debugging', 'test']);
 const EXECUTION_SHAPES = new Set(['direct', 'leader-sequential', 'bounded-child']);
 const IMPACT_RISKS = new Set(['low', 'medium', 'high']);
@@ -168,7 +169,7 @@ export function selectAgentRoute(input = {}) {
       independent ? [] : ['independent-lane-required'],
     );
   }
-  if (LEAD_TASK_KINDS.has(pass1.taskKind)) {
+  if (!TASK_ROLES.has(pass1.taskKind)) {
     return sequentialResult(
       'Implementation, debugging and test stay with the Lead: child roles are read-only, and the Lead has its diff reviewed.',
       ['lead-task-kind'],
