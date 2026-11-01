@@ -4,17 +4,21 @@ import { AuthPasswordPolicyService } from './auth-password-policy.service.js';
 describe('AuthPasswordPolicyService', () => {
   const policy = new AuthPasswordPolicyService();
 
-  it.each(['Password1!', 'PASSWORD1!', 'abcdefghij', '1234567890', 'knuroommate2026'])(
-    '대표 common/service value %s를 exact lookup으로 거절한다',
-    (password) => {
-      expect(
-        policy.evaluateNewPassword(password, {
-          email: 'student@kangwon.ac.kr',
-          nickname: '감자친구',
-        }),
-      ).toMatchObject({ ok: false, code: 'COMMON_VALUE', reason: 'common' });
-    },
-  );
+  it.each([
+    'Password1!',
+    'PASSWORD1!',
+    'abcdefghij',
+    '1234567890',
+    'knuroommate2026',
+    'dormduri2026',
+  ])('대표 common/service value %s를 exact lookup으로 거절한다', (password) => {
+    expect(
+      policy.evaluateNewPassword(password, {
+        email: 'student@kangwon.ac.kr',
+        nickname: '감자친구',
+      }),
+    ).toMatchObject({ ok: false, code: 'COMMON_VALUE', reason: 'common' });
+  });
 
   it.each([
     ['longstudent@kangwon.ac.kr', 'longstudent@kangwon.ac.kr', '감자친구'],

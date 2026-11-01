@@ -2,7 +2,7 @@
 
 ## 문서 범위
 
-이 문서는 KNU Roommate production runtime이 provider나 instance 종류와 무관하게 지켜야 하는
+이 문서는 돔두리 production runtime이 provider나 instance 종류와 무관하게 지켜야 하는
 배포 안전 불변 조건을 소유한다. 실제 hosting target, instance, 월 비용과 container resource 값은
 [`infrastructure-target-release-readiness.md`](../../infra/runbooks/release/components/infrastructure-target/readiness.md),
 실제 검증 결과는

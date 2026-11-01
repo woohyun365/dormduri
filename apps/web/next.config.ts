@@ -39,6 +39,9 @@ const sentryBuild = resolveSentryBuildConfig({
 });
 
 const nextConfig: NextConfig = {
+  // Agent instructions live in the repository root AGENTS.md, so keep `next dev` from generating apps/web/AGENTS.md.
+  // With false, the next `next dev` also removes the managed block (and a file that held only that block).
+  agentRules: false,
   allowedDevOrigins: ['127.0.0.1'],
   typedRoutes: true,
   output: 'standalone',
