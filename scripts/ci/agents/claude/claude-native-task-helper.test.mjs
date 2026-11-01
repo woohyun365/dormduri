@@ -55,18 +55,6 @@ const SENTINEL = 'BUILDER-REASONING-SENTINEL';
 function repo(t) {
   const f = fixture(t);
   writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
-  writeRole(
-    f.root,
-    'knu_executor',
-    'Read, Grep, Glob, Edit, Write, Bash',
-    'Implement bounded work.',
-  );
-  writeRole(
-    f.root,
-    'knu_executor_xhigh',
-    'Read, Grep, Glob, Edit, Write, Bash',
-    'Implement bounded work.',
-  );
   writeRole(f.root, 'knu_reviewer', 'Read, Grep, Glob', 'Review only.');
   execFileSync('git', ['add', '.'], { cwd: f.root });
   return { root: realpathSync(f.root), sessionId: randomUUID() };
@@ -103,34 +91,27 @@ function explorerSpec(r, patch = {}) {
     ...patch,
   };
 }
-function builderSpec(r) {
+// A read-only repository read whose response is reviewed; its owner is the builder a review names.
+function subjectSpec(r) {
   return {
     sessionId: r.sessionId,
-    request: 'sample.txt 변경을 구현해줘.',
-    role: 'knu_executor',
+    request: 'sample.txt 내용을 분석해줘.',
+    role: 'knu_explorer',
     profileId: 'bounded-standard',
-    selectionBasisRef: 'plan:helper-test/build',
+    selectionBasisRef: 'plan:helper-test/read',
     expectedResolvedModel: 'claude-sonnet-5-5',
-    kind: 'build',
+    kind: 'read',
     impactRisk: 'medium',
     complexity: 'bounded',
     uncertainty: 'resolved',
-    childValue: 'bounded-build',
+    childValue: 'independent-read',
     owner: 'builder',
     readScope: ['sample.txt'],
-    writeScope: ['sample.txt'],
-    acceptance: ['sample.txt updated'],
-    reviewDisposition: { required: true, reason: 'build requires independent QA' },
-    facts: facts([
-      'source-bound',
-      'bounded-scope',
-      'acceptance',
-      'oracle',
-      'independent-qa',
-      'regression',
-      'one-writer',
-    ]),
-    prompt: 'Update sample.txt only.',
+    writeScope: [],
+    acceptance: ['sample.txt analyzed'],
+    reviewDisposition: { required: true, reason: 'a repository read requires independent QA' },
+    facts: facts(['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa']),
+    prompt: 'Analyze sample.txt only.',
   };
 }
 function dispatch(r, prepared, toolUseId, response, effort) {
@@ -167,37 +148,11 @@ function dispatch(r, prepared, toolUseId, response, effort) {
     { root: r.root },
   );
 }
-function settledBuilder(t, before = () => {}) {
+function settledSubject(t, before = () => {}) {
   const r = repo(t);
   before(r);
-  const subject = prepareClaudeNativeTask(builderSpec(r), { root: r.root });
-  dispatch(r, subject, 'build-1');
-  writeFileSync(join(r.root, 'sample.txt'), 'updated');
-  handleClaudeNativeSessionEvent(
-    {
-      hook_event_name: 'PostToolUse',
-      session_id: r.sessionId,
-      cwd: r.root,
-      permission_mode: 'auto',
-      tool_name: 'Agent',
-      tool_use_id: 'build-1',
-      tool_input: subject.invocation,
-      transcript_path: writeChildTranscript(r.root, {
-        sessionId: r.sessionId,
-        agentId: 'build-agent',
-        prompt: subject.invocation.prompt,
-        model: 'claude-sonnet-5-5',
-        effort: 'high',
-      }),
-      tool_response: {
-        status: 'completed',
-        agentId: 'build-agent',
-        resolvedModel: 'claude-sonnet-5-5',
-        content: [{ type: 'text', text: `${SENTINEL}: I chose this approach because...` }],
-      },
-    },
-    { root: r.root },
-  );
+  const subject = prepareClaudeNativeTask(subjectSpec(r), { root: r.root });
+  dispatch(r, subject, 'read-1', `${SENTINEL}: I chose this approach because...`);
   return { ...r, subject };
 }
 function runnerEvidence(snapshotDigest, patch = {}) {
@@ -294,10 +249,14 @@ function retiredBuildSpec(r, patch = {}) {
 // Implementation is the Parent's own work (D-OSS-35): prepare names the retirement instead of a generic gap.
 test('executor retirement: prepare refuses a build spec with its reason and still registers the extraction', (t) => {
   const r = repo(t);
+  // Without the build kind the retired role is simply no repository role.
+  assert.throws(
+    () => prepareClaudeNativeTask(retiredBuildSpec(r, { kind: 'read' }), { root: r.root }),
+    /unknown-role/u,
+  );
   for (const spec of [
     retiredBuildSpec(r),
     retiredBuildSpec(r, { role: 'knu_explorer' }),
-    retiredBuildSpec(r, { kind: 'read', writeScope: [] }),
     // The bound step-2 retry climbed from the executor to the xhigh executor.
     retiredBuildSpec(r, {
       role: 'knu_executor_xhigh',
@@ -340,8 +299,8 @@ test('executor retirement: prepare refuses a build spec with its reason and stil
 
 test('review refuses a subject whose completion has not been observed', (t) => {
   const r = repo(t);
-  const subject = prepareClaudeNativeTask(builderSpec(r), { root: r.root });
-  dispatch(r, subject, 'build-1');
+  const subject = prepareClaudeNativeTask(subjectSpec(r), { root: r.root });
+  dispatch(r, subject, 'read-1');
   assert.throws(
     () => buildClaudeNativeReview({ subjectTaskId: subject.taskId }, { root: r.root }),
     /no-completion-observation/,
@@ -349,7 +308,7 @@ test('review refuses a subject whose completion has not been observed', (t) => {
 });
 
 test('review builds a same-host packet with no builder reasoning; commands come only from runner records', (t) => {
-  const r = settledBuilder(t);
+  const r = settledSubject(t);
   const status = buildClaudeNativeReview({ subjectTaskId: r.subject.taskId }, { root: r.root });
   assert.equal(status.settlement, 'native-subject');
   assert.match(status.snapshotDigest, /^sha256:[a-f0-9]{64}$/u);
@@ -425,7 +384,7 @@ test('review builds a same-host packet with no builder reasoning; commands come 
 });
 
 test('runner evidence has a fixed record format bound to the current round snapshot', (t) => {
-  const r = settledBuilder(t);
+  const r = settledSubject(t);
   const { snapshotDigest } = buildClaudeNativeReview(
     { subjectTaskId: r.subject.taskId },
     { root: r.root },
@@ -529,7 +488,7 @@ test('a read-only subject is reviewed from its bound response, its read scope an
   assert.equal(reviewed.valid, true, reviewed.errors.join('; '));
 });
 
-test('a changed response artifact is refused and a writer response never becomes review input', (t) => {
+test('a changed response artifact is refused', (t) => {
   const r = settledExplorer(t, 'sample.txt holds the value 42.');
   const review = reviewOf(r);
   const responsePath = responsePathOf(r.subject.taskId);
@@ -539,25 +498,10 @@ test('a changed response artifact is refused and a writer response never becomes
     /subject response artifact does not match the settled response/,
   );
   assert.throws(() => reviewOf(r), /subject response artifact does not match/);
-
-  const w = settledBuilder(t);
-  const writerReview = reviewOf(w);
-  const writerResponse = responsePathOf(w.subject.taskId);
-  assert.ok(!writerReview.packet.boundaries.allowedReadPaths.includes(writerResponse));
-  assert.ok(!existsSync(join(w.root, writerResponse)));
-  const spec = structuredClone(writerReview.reviewerSpec);
-  spec.readScope = [...spec.readScope, writerResponse];
-  const { packet } = spec.independentReview;
-  packet.boundaries.allowedReadPaths = [...spec.readScope];
-  packet.sources.contracts = [...spec.readScope];
-  assert.throws(
-    () => prepareClaudeNativeTask(spec, { root: w.root }),
-    /writer subject response is not review input/,
-  );
 });
 
 test('other native task evidence never enters a review read path', (t) => {
-  const w = settledBuilder(t);
+  const w = settledSubject(t);
   const evidenceOf = (id, file) => `.artifacts/tools/claude-native/${id}/${file}`;
   const record = (outputPath) => ({
     command: 'node --test scripts/ci/sample.test.mjs',
@@ -593,7 +537,7 @@ test('other native task evidence never enters a review read path', (t) => {
 });
 
 test('native task evidence stays out of review paths under another case, a symlink or a Parent subject', (t) => {
-  const w = settledBuilder(t);
+  const w = settledSubject(t);
   const record = (outputPath) => ({
     command: 'node --test scripts/ci/sample.test.mjs',
     exit: 0,
@@ -673,7 +617,7 @@ test('the response artifact comes from the digest-bound response, not a mirrored
 });
 
 test('a RED record passes only at its declared expected exit and the reviewer sees both exits', (t) => {
-  const r = settledBuilder(t);
+  const r = settledSubject(t);
   const green = {
     command: 'node --test scripts/ci/sample.test.mjs',
     exit: 0,
@@ -881,7 +825,7 @@ test('CLI prepare and review status use tracked commands only', (t) => {
   const r = repo(t);
   const specPath = join(r.root, '.artifacts-spec.json');
   writeFileSync(join(r.root, '.git/info/exclude'), '.artifacts/\n.artifacts-spec.json\n');
-  writeFileSync(specPath, JSON.stringify(builderSpec(r)));
+  writeFileSync(specPath, JSON.stringify(subjectSpec(r)));
   const run = (...args) =>
     spawnSync(process.execPath, [cliPath, ...args], { cwd: r.root, encoding: 'utf8' });
   const prepared = run('prepare', '--spec', specPath);
@@ -907,8 +851,8 @@ function judgment(prepared, criterion, extra = {}) {
 
 test('settle refuses before the completion notification and rejects unknown judgment fields', (t) => {
   const r = repo(t);
-  const subject = prepareClaudeNativeTask(builderSpec(r), { root: r.root });
-  dispatch(r, subject, 'build-1');
+  const subject = prepareClaudeNativeTask(subjectSpec(r), { root: r.root });
+  dispatch(r, subject, 'read-1');
   assert.throws(
     () =>
       settleClaudeNativeTask(
@@ -918,12 +862,12 @@ test('settle refuses before the completion notification and rejects unknown judg
       ),
     /no-completion-observation.*task-notification/su,
   );
-  const settled = settledBuilder(t);
+  const settled = settledSubject(t);
   assert.throws(
     () =>
       settleClaudeNativeTask(
         settled.subject.taskId,
-        { ...judgment(settled.subject, 'sample.txt updated'), results: [] },
+        { ...judgment(settled.subject, 'sample.txt analyzed'), results: [] },
         { root: settled.root },
       ),
     /unknown-field:results/,
@@ -939,8 +883,8 @@ test('settle refuses before the completion notification and rejects unknown judg
   );
 });
 
-test('executor → reviewer → complete runs with the tracked helper commands only', (t) => {
-  const r = settledBuilder(t);
+test('subject → reviewer → complete runs with the tracked helper commands only', (t) => {
+  const r = settledSubject(t);
   const { snapshotDigest } = buildClaudeNativeReview(
     { subjectTaskId: r.subject.taskId },
     { root: r.root },
@@ -977,16 +921,16 @@ test('executor → reviewer → complete runs with the tracked helper commands o
 
   const settled = settleClaudeNativeTask(
     r.subject.taskId,
-    judgment(r.subject, 'sample.txt updated', { reviewerTaskId: reviewer.taskId }),
+    judgment(r.subject, 'sample.txt analyzed', { reviewerTaskId: reviewer.taskId }),
     { root: r.root },
   );
   assert.equal(settled.valid, true, settled.errors.join('; '));
-  assert.deepEqual(settled.submitted.results[0].changedPaths, ['sample.txt']);
+  assert.deepEqual(settled.submitted.results[0].changedPaths, []);
   assert.equal(settled.dispatchAuthorized, false);
 });
 
 test('a helper-built review cannot add, drop or change runner records', (t) => {
-  const r = settledBuilder(t);
+  const r = settledSubject(t);
   const { snapshotDigest } = buildClaudeNativeReview(
     { subjectTaskId: r.subject.taskId },
     { root: r.root },
@@ -1034,10 +978,10 @@ test('a helper-built review cannot add, drop or change runner records', (t) => {
 });
 
 test('CLI settle reads a judgment file', (t) => {
-  const r = settledBuilder(t);
+  const r = settledSubject(t);
   const path = join(r.root, '.artifacts-judgment.json');
   writeFileSync(join(r.root, '.git/info/exclude'), '.artifacts/\n.artifacts-judgment.json\n');
-  writeFileSync(path, JSON.stringify(judgment(r.subject, 'sample.txt updated')));
+  writeFileSync(path, JSON.stringify(judgment(r.subject, 'sample.txt analyzed')));
   const run = spawnSync(
     process.execPath,
     [cliPath, 'settle', '--task', r.subject.taskId, '--judgment', path],
@@ -1051,27 +995,27 @@ test('CLI settle reads a judgment file', (t) => {
 
 test('settle without a judgment settles the observation and shows what the Lead judges', (t) => {
   const r = repo(t);
-  const subject = prepareClaudeNativeTask(builderSpec(r), { root: r.root });
-  dispatch(r, subject, 'build-1');
+  const subject = prepareClaudeNativeTask(subjectSpec(r), { root: r.root });
+  dispatch(r, subject, 'read-1');
   assert.throws(
     () => settleClaudeNativeTask(subject.taskId, undefined, { root: r.root }),
     /no-completion-observation.*task-notification/su,
   );
-  const settled = settledBuilder(t);
+  const settled = settledSubject(t);
   const status = settleClaudeNativeTask(settled.subject.taskId, undefined, { root: settled.root });
   const completion = JSON.parse(
     readFileSync(join(settled.subject.evidenceDirectory, 'completion.json')),
   );
   assert.equal(status.responseDigest, completion.responseDigest);
-  assert.deepEqual(status.changedPaths, ['sample.txt']);
-  assert.deepEqual(status.acceptance, ['sample.txt updated']);
+  assert.deepEqual(status.changedPaths, []);
+  assert.deepEqual(status.acceptance, ['sample.txt analyzed']);
   assert.match(status.response, /BUILDER-REASONING-SENTINEL/u);
   assert.equal(status.valid, undefined, 'status is not a completion decision');
   assert.equal(status.dispatchAuthorized, false);
 });
 
 test('settle status writes a judgment template once and keeps the Lead edits', (t) => {
-  const settled = settledBuilder(t);
+  const settled = settledSubject(t);
   const { taskId } = settled.subject;
   const status = settleClaudeNativeTask(taskId, undefined, { root: settled.root });
   assert.equal(status.judgmentTemplatePath, templateOf(settled.subject));
@@ -1081,7 +1025,7 @@ test('settle status writes a judgment template once and keeps the Lead edits', (
   // This builder needs independent QA, so the template also asks for the linked reviewer.
   assert.deepEqual(templateIn(status), {
     responseDigest: completion.responseDigest,
-    acceptance: [{ criterion: 'sample.txt updated', passed: null, evidenceRef: null }],
+    acceptance: [{ criterion: 'sample.txt analyzed', passed: null, evidenceRef: null }],
     checks: [],
     reviewerTaskId: null,
   });
@@ -1120,12 +1064,12 @@ test('an unfilled judgment is refused before complete; a filled template settles
 });
 
 test('a null reviewerTaskId is refused before complete', (t) => {
-  const settled = settledBuilder(t);
+  const settled = settledSubject(t);
   assert.throws(
     () =>
       settleClaudeNativeTask(
         settled.subject.taskId,
-        judgment(settled.subject, 'sample.txt updated', { reviewerTaskId: null }),
+        judgment(settled.subject, 'sample.txt analyzed', { reviewerTaskId: null }),
         { root: settled.root },
       ),
     /invalid settle judgment.*reviewer-task-id-unfilled/su,
@@ -1240,7 +1184,7 @@ test('no template is written before a background child is settled', (t) => {
 });
 
 test('CLI settle status names the judgment template file', (t) => {
-  const r = settledBuilder(t);
+  const r = settledSubject(t);
   const run = spawnSync(process.execPath, [cliPath, 'settle', '--task', r.subject.taskId], {
     cwd: r.root,
     encoding: 'utf8',
@@ -1252,7 +1196,7 @@ test('CLI settle status names the judgment template file', (t) => {
 });
 
 test('the reviewer prompt names every allowed finding severity', (t) => {
-  const r = settledBuilder(t);
+  const r = settledSubject(t);
   const { snapshotDigest } = buildClaudeNativeReview(
     { subjectTaskId: r.subject.taskId },
     { root: r.root },
@@ -1292,7 +1236,7 @@ test('a non-reviewer child learns that its delivered report is the only text the
 });
 
 test('a reviewer prompt gets no delivery rule because it already demands one JSON object', (t) => {
-  const r = settledBuilder(t);
+  const r = settledSubject(t);
   const { snapshotDigest } = buildClaudeNativeReview(
     { subjectTaskId: r.subject.taskId },
     { root: r.root },
@@ -1323,23 +1267,6 @@ test('prepare returns a short agent input that names the registered task', (t) =
   });
   assert.ok(prompt.endsWith(`\n\n${prepared.agentInput.prompt}`));
   assert.equal(prepared.dispatchAuthorized, false);
-});
-
-test('prepare accepts the xhigh executor for a high-risk Opus build', (t) => {
-  const r = repo(t);
-  const prepared = prepareClaudeNativeTask(
-    {
-      ...builderSpec(r),
-      role: 'knu_executor_xhigh',
-      profileId: 'complex-critical',
-      impactRisk: 'high',
-      complexity: 'complex',
-      expectedResolvedModel: 'claude-opus-5-5',
-    },
-    { root: r.root },
-  );
-  assert.equal(prepared.invocation.subagent_type, 'knu_executor_xhigh');
-  assert.equal(prepared.invocation.model, 'opus');
 });
 
 test('a Parent-judged reviewer whose effort differs fails settle although completion.json is valid', (t) => {
@@ -1460,7 +1387,7 @@ const NO_CONTEXT_LINE = '- Context inputs: none.';
 const NO_GRADE_LINE = '- No change-grade record: judge the change as a feature.';
 
 test('the native subject reviewer prompt keeps its fixed lines and gets no packet file', (t) => {
-  const r = settledBuilder(t);
+  const r = settledSubject(t);
   const review = reviewOf(r);
   const lines = review.reviewerPrompt.split('\n');
   assert.equal(lines[0], review.logHeader);
@@ -1483,6 +1410,7 @@ test('the native subject reviewer prompt keeps its fixed lines and gets no packe
     '- An empty findings list is a valid result; do not add findings to fill it.',
     NO_CONTEXT_LINE,
     NO_GRADE_LINE,
+    `- ${responsePathOf(r.subject.taskId)} is the read-only subject's response under review; its claims and self-assessment are not evidence. Check them against the other read paths.`,
     '- Final message: exactly one JSON object from the result template, status "complete", verdict PASS or FAIL.',
   ]);
   assert.deepEqual(review.resultTemplate.unjudgedBehaviors, []);
@@ -1702,7 +1630,7 @@ const oneCharChanged = (spec) => ({
 });
 function subjectReview(t, kind) {
   if (kind === 'native') {
-    const r = settledBuilder(t);
+    const r = settledSubject(t);
     return { r, review: reviewOf(r) };
   }
   const r = repo(t);
@@ -2319,14 +2247,6 @@ test('review output names the subject paths no path key matched', (t) => {
   assert.deepEqual(none.criteriaSelection.unmatchedPaths, ['tools/run.sh']);
 });
 
-test('a native subject review selects criteria from the observed changed paths', (t) => {
-  const r = settledBuilder(t, writeCatalog);
-  const review = reviewOf(r);
-  assert.deepEqual(review.criteriaSelection.documents, ['swe']);
-  assert.ok(review.packet.sources.owners.includes(`${CRITERIA_DIR}/swe.md`));
-  assert.deepEqual(criteriaRecordOf(r, review).paths, ['sample.txt']);
-});
-
 // Reviewer context inputs (review-context-inputs.mjs): beside the subject a review reads the product intent, the
 // decision record of each selected layer, the policy document of each judged policy domain, the binding rows tied
 // to the selected criteria and the draft's Lifecycle section; the two extracts are files under the review's own id.
@@ -2603,45 +2523,6 @@ test('a binding extract changed after the review, or a lost record, fails settle
   }
 });
 
-// u0: a native subject review gets its review id from its packet id, as registration does, so a changed binding
-// extract fails its settle observation and its judgment.
-test('a native subject review binds its binding extract and refuses a changed one at settle', (t) => {
-  const conventions = (r) => {
-    mkdirSync(join(r.root, 'docs/development/agent-workflows/domain'), { recursive: true });
-    writeFileSync(
-      join(r.root, BINDING_PATH),
-      `# binding\n\n| 키 | 값 |\n| --- | --- |\n| \`repo-structure.review-swe\` | \`*\`(root 파일) |\n${CONVENTIONS.replace('web-be-service-layer.md A1', 'swe.md S1')}`,
-    );
-    writeCriteriaItems(r, 'swe', 'S', 2);
-    execFileSync('git', ['add', '.'], { cwd: r.root });
-  };
-  for (const change of [false, true]) {
-    const r = settledBuilder(t, conventions);
-    const review = reviewOf(r);
-    const path = extractPathOf(review, '.binding.md');
-    assert.equal(review.bindingFile?.path, path, 'native review returns bindingFile');
-    assert.ok(review.packet.boundaries.allowedReadPaths.includes(path));
-    assert.ok(contextLine(review.reviewerPrompt).includes(path));
-    const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
-    dispatch(r, reviewer, 'review-1', passing(review));
-    if (change) writeFileSync(join(r.root, path), 'other\n');
-    const status = settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
-    assert.equal(
-      status.observationErrors.includes('review-binding-changed'),
-      change,
-      status.observationErrors.join(','),
-    );
-    const settle = () =>
-      settleClaudeNativeTask(
-        reviewer.taskId,
-        judgment(reviewer, 'terminal review result delivered for the frozen packet'),
-        { root: r.root },
-      );
-    if (change) assert.throws(settle, /review-binding-changed/u);
-    else assert.equal(settle().valid, true);
-  }
-});
-
 // RED 4: a review whose paths take no binding row (and no draft) has the prompt and records it had without the
 // binding sections, so the held-out copy runs are not touched.
 test('a review whose paths take no binding row keeps the prompt it has without binding sections', (t) => {
@@ -2670,7 +2551,7 @@ test('a review whose paths take no binding row keeps the prompt it has without b
 });
 
 test('every reviewer prompt asks to judge unstated behavior and to list same-type locations', (t) => {
-  const native = reviewOf(settledBuilder(t));
+  const native = reviewOf(settledSubject(t));
   const r = repo(t);
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
   const parent = parentReview(r, SMALL_PARENT_SUBJECT);
@@ -3065,7 +2946,7 @@ test('e3 splits the criteria items into contiguous member ranges with nothing mi
 });
 
 test('a native subject composition gives each member its own reviewer id and the same read paths', (t) => {
-  const r = settledBuilder(t);
+  const r = settledSubject(t);
   const { snapshotDigest } = buildClaudeNativeReview(
     { subjectTaskId: r.subject.taskId },
     { root: r.root },
@@ -3515,7 +3396,7 @@ test('a native subject review binds its runner outputs and never its response', 
 });
 
 test('an ignored input changed after the reviewer settled blocks builder completion', (t) => {
-  const r = settledBuilder(t);
+  const r = settledSubject(t);
   mkdirSync(join(r.root, RUNNER_LOG, '..'), { recursive: true });
   writeFileSync(join(r.root, RUNNER_LOG), 'runner output\n');
   const review = reviewOf(r);
@@ -3530,7 +3411,7 @@ test('an ignored input changed after the reviewer settled blocks builder complet
   writeFileSync(join(r.root, RUNNER_LOG), 'rerun\n');
   const settled = settleClaudeNativeTask(
     r.subject.taskId,
-    judgment(r.subject, 'sample.txt updated', { reviewerTaskId: reviewer.taskId }),
+    judgment(r.subject, 'sample.txt analyzed', { reviewerTaskId: reviewer.taskId }),
     { root: r.root },
   );
   assert.equal(settled.valid, false);

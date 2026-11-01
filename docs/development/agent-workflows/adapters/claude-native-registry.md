@@ -36,11 +36,10 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    주입은 fail-open입니다. Hook이 실행되지 않으면 child는 marker 한 줄만 받고 PostToolUse 관측이 없어 `complete`가
    `no-completion-observation`으로 거부합니다([완료 관측 누락](../../troubleshooting/tooling/claude-native-completion-observation-missing.md)).
    다른 hook이 같은 입력을 다시 바꾸면(마지막 hook이 이김) PostToolUse 입력이 invocation과 달라 검증되지 않고 완료도 같은 사유로 거부됩니다.
-   이때 writer task의 lease가 남으면 child 종료를 확인한 뒤 `pnpm claude:native release --task <taskId> --ended`로 해제합니다.
    관측 범위(Claude Code 2.1.285): background 호출에서 10,910자 invocation prompt가 그대로 주입됐습니다. Foreground 호출과
    linked reviewer invocation(12,000자 prompt와 review packet)의 주입은 관측하지 않았습니다. 주입이 적용되지 않은 task는 검증 실패로 끝나고
    같은 task는 다시 호출할 수 없습니다(`task already attempted`). Hook이 attempt를 먼저 기록하므로 hook 뒤에 호출이 거부된 task(auto
-   classifier 판정 누락 등)도 같습니다. Child 종료를 확인하고 필요하면 lease를 해제한 뒤 새로 `prepare`한 task를
+   classifier 판정 누락 등)도 같습니다. Child 종료를 확인한 뒤 새로 `prepare`한 task를
    전체 `invocation`으로 호출합니다.
 5. 정상 PreToolUse는 `allow`를 반환하지 않습니다(주입도 결정 없는 `updatedInput`). 기존 auto classifier·permission rules·다른 hook이 계속 판단합니다.
    KNU role 또는 KNU marker를 가진 호출만 적용하고, 기존 OMC/기타 역할의 모델 통제를 대신하지 않습니다.
@@ -82,12 +81,10 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    결속한 ignored 입력, child transcript가 보인 Read·Grep·Glob 대상) 안의 변경만 거부하고, 집합 밖 변경과 HEAD 변경은 결과
    `dependencyJudgment`와 `accepted.json`에 기록만 남깁니다. Hand-back(`SubagentHandback`)과 `WebSearch`·`WebFetch`는 저장소를
    읽지 않으므로 건너뜁니다. Transcript를 읽지 못하거나 경로 없는 검색, 저장소 root나 그 위 디렉터리 검색, 저장 이름과 대소문자가
-   다른 대상, 그 밖 도구가 보이면 저장소 전체로 판정합니다(`dependencyJudgment.reason`). 저장된 `completion.json`과 아래 recovery 결속은 저장소 전체 판정 그대로입니다. Write 범위 안의 Parent
-   수정은 구분할 수 없습니다. 그래서 이 세션의 writer
-   task가 실행되는 동안 file guard(PreToolUse `Edit|Write|NotebookEdit`)가 Parent의 tracked·비ignored 경로 쓰기를 deny합니다.
-   Bash·기타 도구 쓰기와 hook이 실행되지 않은 경우는 이 운영 규칙으로 막습니다
-   ([Parent 동시 쓰기](../../troubleshooting/tooling/claude-native-parent-concurrent-write.md)). 같은 guard는 subagent가 native
-   evidence(`.artifacts/tools/claude-native/**`)를 쓰는 것도 deny합니다. 완료 알림이 오면 편집 전에 먼저
+   다른 대상, 그 밖 도구가 보이면 저장소 전체로 판정합니다(`dependencyJudgment.reason`). 저장된 `completion.json`과 아래 recovery 결속은 저장소 전체 판정 그대로입니다.
+   File guard(PreToolUse `Edit|Write|NotebookEdit`)는 Parent 쓰기를 막지 않으므로 Parent 쓰기는 이 운영 규칙과 정산의
+   `unattributable-change` 거부로 다룹니다([Parent 동시 쓰기](../../troubleshooting/tooling/claude-native-parent-concurrent-write.md)).
+   같은 guard는 subagent가 native evidence(`.artifacts/tools/claude-native/**`)를 쓰는 것을 deny합니다. 완료 알림이 오면 편집 전에 먼저
    정산합니다. `--resume`한 세션의 완료 알림은 행 `sessionId`가 등록 세션이면 새 process `session_id`와 관계없이 대조합니다.
    Reviewer는 범위가 더 넓습니다. Helper가 ignored 리뷰 입력(ignored read path 아래와 `.plans/`·`.artifacts/`·`.local-docs/` 아래 ignored
    파일)을 manifest로 결속하므로 `review` 생성부터 그 reviewer 정산과 연결 builder 완료까지 그 ignored 경로를 바꾸면
@@ -97,7 +94,7 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
 ### 운영 보장과 제한
 
 - Auto의 목적은 일상 개발의 승인 병목 감소입니다. 읽기 전용은 reviewer/explorer의 역할 경계이지 전체 session의
-  강제 모드가 아닙니다. Executor의 명시된 구현과 검증도 같은 workflow에서 다룹니다.
+  강제 모드가 아닙니다. 구현은 Parent가 하며 child에 위임하지 않습니다.
 - 정적 entry의 `interactive-auto` eligibility와 실제 현재 session의 모델/권한 입증은 별개입니다. 전역
   `runtimeQualified:true`를 저장하거나 다른 session에 과거 PASS를 재사용하지 않습니다.
 - Hook이 정상 실행될 때 요청 모델을 검사합니다. 실행 파일 부재·crash·malformed·timeout 또는 경쟁 설정으로
@@ -128,12 +125,10 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
 | `knu_explorer`       | Read, Grep, Glob                      | `high`  | 한 repository 질문의 현재 source/owner/evidence 조사 |
 | `knu_explorer_xhigh` | Read, Grep, Glob                      | `xhigh` | `knu_explorer`와 같은 책임의 Haiku 추출·재시도       |
 | `knu_researcher`     | Read, Grep, Glob, WebSearch, WebFetch | `high`  | 이미 선택한 기술의 공식 근거 조사                    |
-| `knu_executor`       | Read, Grep, Glob, Edit, Write, Bash   | `high`  | 명시적으로 소유한 구현·가까운 검증                   |
-| `knu_executor_xhigh` | Read, Grep, Glob, Edit, Write, Bash   | `xhigh` | `knu_executor`와 같은 책임의 high-risk·상향 build    |
 | `knu_reviewer`       | Read, Grep, Glob                      | `xhigh` | builder reasoning을 받지 않는 독립 source 검토       |
 
-여섯 `.claude/agents/knu_*.md`는 effort를 고정하지만 영구 model pin은 없습니다([Model profiles](./claude-model-profiles.md)). 그렇다고 parent 자동 상속을 task별 승인된 모델 선택으로
-간주하지 않습니다. Lead가 bounded responsibility·source·acceptance·read/write scope·단일 writer를 정합니다.
+네 `.claude/agents/knu_*.md`는 effort를 고정하지만 영구 model pin은 없습니다([Model profiles](./claude-model-profiles.md)). 그렇다고 parent 자동 상속을 task별 승인된 모델 선택으로
+간주하지 않습니다. Lead가 bounded responsibility·source·acceptance·read scope를 정합니다.
 Child는 다른 child/외부 CLI로 재위임하지 않고 blocker를 Lead에 반환합니다. Reviewer의 테스트 제안은 실행 승인이 아니며
 write-producing 테스트는 별도 runner가 소유합니다.
 

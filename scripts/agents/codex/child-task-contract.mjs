@@ -178,9 +178,6 @@ export function createModelScopeDigest(contract) {
 function assessNormalizedLane(lane, allLanes) {
   const reasons = [];
   if (lane.dependencies.length > 0) reasons.push('lane-has-result-dependencies');
-  if (lane.taskKind === 'implementation' && lane.writeOwnership.length === 0) {
-    reasons.push('implementation-write-owner-missing');
-  }
 
   const conflictingLaneIds = allLanes
     .filter((peer) => peer.id !== lane.id && writeScopesOverlap(lane, peer))
@@ -222,7 +219,7 @@ function normalizeLane(lane, envelope) {
     'allowedEvidence',
   );
   const allowedTools = normalizeEnumArray(
-    lane.allowedTools ?? defaultTools(taskKind, writeOwnership.length > 0),
+    lane.allowedTools ?? defaultTools(taskKind),
     ALLOWED_TOOLS,
     'allowedTools',
   );
@@ -712,17 +709,10 @@ function normalizeBenefit(value) {
   return normalized;
 }
 
-function defaultTools(taskKind, hasWriteOwnership) {
-  if (taskKind === 'research') return ['official-web-read'];
-  if (hasWriteOwnership && ['implementation', 'debugging'].includes(taskKind)) {
-    return ['repository-read', 'workspace-edit'];
-  }
-  if (taskKind === 'test') {
-    return hasWriteOwnership
-      ? ['repository-read', 'test-runner', 'workspace-edit']
-      : ['repository-read', 'test-runner'];
-  }
-  return ['repository-read'];
+// Implementation, debugging and test stay with the Lead (routing never spawns them), so no default grants a write or
+// test tool.
+function defaultTools(taskKind) {
+  return taskKind === 'research' ? ['official-web-read'] : ['repository-read'];
 }
 
 function normalizeScopeArray(values, field, { allowHttps = true, allowEmpty = false } = {}) {

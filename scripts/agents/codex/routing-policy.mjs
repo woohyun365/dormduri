@@ -11,14 +11,14 @@ import { createHash } from 'node:crypto';
 const TASK_ROLES = new Map([
   ['lookup', 'knu_explorer'],
   ['analysis', 'knu_explorer'],
-  ['implementation', 'knu_executor'],
-  ['debugging', 'knu_executor'],
-  ['test', 'knu_executor'],
   ['research', 'knu_researcher'],
   ['verification', 'knu_reviewer'],
   ['architecture', 'knu_reviewer'],
   ['review', 'knu_reviewer'],
 ]);
+// Kinds Pass 1 still classifies but no child takes: every child role is read-only, so the Lead implements, debugs and
+// tests, and has the diff reviewed.
+const LEAD_TASK_KINDS = new Set(['implementation', 'debugging', 'test']);
 const EXECUTION_SHAPES = new Set(['direct', 'leader-sequential', 'bounded-child']);
 const IMPACT_RISKS = new Set(['low', 'medium', 'high']);
 const CONFIDENCE_LEVELS = new Set(['low', 'medium', 'high']);
@@ -168,6 +168,12 @@ export function selectAgentRoute(input = {}) {
       independent ? [] : ['independent-lane-required'],
     );
   }
+  if (LEAD_TASK_KINDS.has(pass1.taskKind)) {
+    return sequentialResult(
+      'Implementation, debugging and test stay with the Lead: child roles are read-only, and the Lead has its diff reviewed.',
+      ['lead-task-kind'],
+    );
+  }
   if (!childBenefit) {
     return deepFreeze({
       spawn: false,
@@ -235,16 +241,11 @@ function routeTier(assessment) {
   return assessment.mediumEligibility ? 'medium' : 'high';
 }
 
-// Astra assignment when no candidate profile is admitted. Reads treat high impact like XHigh; builds send high impact
-// and XHigh to deep-build, the rest to astra-fallback; review always uses the xhigh reviewer.
+// Astra assignment when no candidate profile is admitted. Reads treat high impact like XHigh and go to astra-fallback;
+// review always uses the xhigh reviewer.
 function assignRole({ taskKind, impactRisk, tier }) {
   const family = TASK_ROLES.get(taskKind);
   if (family === 'knu_reviewer') return { role: family, profileId: 'review' };
-  if (family === 'knu_executor') {
-    if (impactRisk === 'high') return { role: 'knu_executor_xhigh', profileId: 'deep-build' };
-    if (tier === 'xhigh') return { role: family, profileId: 'deep-build' };
-    return { role: variant(family, tier), profileId: 'astra-fallback' };
-  }
   return {
     role: variant(family, impactRisk === 'high' ? 'xhigh' : tier),
     profileId: 'astra-fallback',
@@ -287,8 +288,8 @@ export function recommendModel({ modelRequest, taskKind, impactRisk, assessment 
   const family = TASK_ROLES.get(taskKind);
   const role = profile.roles.find((candidate) => familyOf(candidate) === family);
   const tier = routeTier(assessment);
-  // Reads take high impact as XHigh; a build with high impact never reaches a candidate profile.
-  const admissionTier = family !== 'knu_executor' && impactRisk === 'high' ? 'xhigh' : tier;
+  // Reads take high impact as XHigh.
+  const admissionTier = impactRisk === 'high' ? 'xhigh' : tier;
   const cohortMatches =
     role !== undefined &&
     profile.taskKinds.includes(taskKind) &&
@@ -318,8 +319,8 @@ export function recommendModel({ modelRequest, taskKind, impactRisk, assessment 
 }
 
 // Routine default for a lane the Parent sent without a request. The Parent names which current Pass 2 facts verify
-// which key; the first candidate profile (table order: extract, standard-read, elevated-read, standard-build,
-// elevated-build) whose keys are all named and whose recommendation is a candidate becomes the request. Nothing
+// which key; the first candidate profile (table order: extract, standard-read, elevated-read) whose keys are all named
+// and whose recommendation is a candidate becomes the request. Nothing
 // admitted returns undefined, so the lane keeps the Astra assignment. An explicit request stays the Parent's choice.
 export function defaultModelRequest(input, verificationFacts) {
   assertRecord(input, 'routing input');
@@ -381,7 +382,7 @@ export function createSemanticEvidenceId(claim) {
 function validatePass1(pass1) {
   assertRecord(pass1, 'pass1');
   assertOnlyFields(pass1, PASS1_FIELDS, 'Pass 1');
-  if (!TASK_ROLES.has(pass1.taskKind)) {
+  if (!TASK_ROLES.has(pass1.taskKind) && !LEAD_TASK_KINDS.has(pass1.taskKind)) {
     throw new TypeError(`Unsupported task kind: ${pass1.taskKind}`);
   }
   assertEnum(pass1.executionShape, EXECUTION_SHAPES, 'execution shape');

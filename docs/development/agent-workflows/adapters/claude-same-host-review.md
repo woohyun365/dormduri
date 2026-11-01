@@ -11,8 +11,8 @@ RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 두며, 실�
 다른 exit(0 포함)는 known failure이고 기대·실제 exit는 packet `tests`와 결과 template에 함께 보입니다. Exit를 뒤집는 명령으로 기록하지 않습니다. `--runner-evidence`·
 `--basis`·`--reviewer-model`을 더하면 packet, reviewer prompt, 결과 template, reviewer용 prepare spec이 나옵니다. Runner 기록의
 `sourceDigest`가 이번 회차 digest가 아니거나 필드가 다르면 거부합니다. `--basis`가 안전한 참조 형식이 아니면 packet 파일을 쓰기 전에
-`unsafe-reference:selectionBasisRef`로 거부합니다. Native subject의 read path는 subject `readScope`·쓰기 범위·
-변경 경로와 runner 출력 경로이고, Parent subject의 read path도 subject `paths`와 runner 출력 경로를 함께 담습니다. Writer subject의 응답·추론은 packet과 prompt에 넣지 않습니다. Read-only subject는 응답이
+`unsafe-reference:selectionBasisRef`로 거부합니다. Native subject(읽기 전용)의 read path는 subject `readScope`와
+runner 출력 경로이고, Parent subject의 read path도 subject `paths`와 runner 출력 경로를 함께 담습니다. Native subject는 응답이
 산출물이므로 helper가 정산된 응답을 subject task 디렉터리의 `subject-response.txt`에 한 번 쓰고 read path 맨 앞에 두며, prompt는
 그 주장과 자기평가가 근거가 아니라고 적습니다. Parent가 응답을 옮겨 적는 parent-adjudication으로 우회하지 않습니다. Template의
 `commandsActuallyRun`은 runner 기록에서만 채우고, 정산 때 reviewer 결과가 prompt에 결속된 그 기록과 같아야 합니다. Reviewer spec은 유일한 reviewer 조합(`knu_reviewer`·`complex-critical`)과
@@ -94,8 +94,8 @@ Claude native reviewer는 공통 QA packet의 `same-host-independent-review` 방
 `independentReview`는 `subjectTaskId`, `reviewerId`, `builderIds`, `packet`을 포함합니다. Registry는 실제 subject task와
 관측 완료를 읽어 full request digest, binding, response, final snapshot에 packet을 연결합니다. Packet objective는 subject
 request summary와 같고, write owner는 builder에 포함되며, reviewer는 builder와 다른 read-only lane owner여야 합니다.
-Packet read scope는 reviewer task 범위 안에 있고 subject의 write ownership과 실제 변경 경로를 포함해야 합니다. Read-only
-subject면 응답 artifact를 포함하고 그 내용이 정산된 응답과 같아야 하며, writer subject면 응답 artifact를 포함할 수 없습니다.
+Packet read scope는 reviewer task 범위 안에 있고 subject의 write ownership과 실제 변경 경로를 포함해야 합니다(읽기 전용
+subject는 둘 다 비어 있습니다). 응답 artifact를 포함하고 그 내용이 정산된 응답과 같아야 합니다.
 그 밖의 native task 기록(task·completion·transcript)과 그 상위 경로는 대소문자를 바꾼 경로, symlink, `.artifacts` 아래에서 연결된
 디렉터리로도 read path가 될 수 없으며, helper는 runner 출력과 Parent subject 경로에서 먼저 거부합니다. `.artifacts` 밖
 디렉터리 안의 symlink는 검사하지 않고 working tree 변경으로 snapshot에 드러나며, hard link는 탐지 대상이 아닙니다.
@@ -214,7 +214,6 @@ Review snapshot은 tracked·비ignored 파일만 결속하므로 ignored 리뷰 
 회차 번호와 "같은 변경"의 판단은 Parent가 선언하며, 내용이 같은 새 builder task로 새 1회차 그룹을 만드는 경로는 runtime이 구별하지
 못합니다.
 
-Native writer는 repository당 하나의 active lease로 직렬화합니다. 확인된 완료/관측된 tool failure는 해당 task의
-lease만 해제합니다. 비동기는 완료 알림 뒤 complete가 회수합니다. 세션 종료·취소·권한 거부로 Post 이벤트가 없으면 실제 child 종료를 먼저 확인한 뒤
-`pnpm claude:native release --task <taskId> --ended`로 그 task만 해제합니다. Timeout/만료를 종료 증거로 추측하지
-않습니다. Release는 작업 완료가 아니며 다른 writer의 lease를 삭제하지 않습니다.
+세션 종료·취소·권한 거부로 Post 이벤트가 없으면 실제 child 종료를 먼저 확인한 뒤
+`pnpm claude:native release --task <taskId> --ended`로 그 task만 닫습니다. Timeout/만료를 종료 증거로 추측하지
+않습니다. Release는 작업 완료가 아닙니다.

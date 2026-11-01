@@ -23,13 +23,10 @@ const expectedPortablePaths = [
   '.codex/agents/knu_explorer.toml',
   '.codex/agents/knu_researcher.toml',
   '.codex/agents/knu_reviewer.toml',
-  '.codex/agents/knu_executor.toml',
   '.codex/agents/knu_explorer_medium.toml',
   '.codex/agents/knu_explorer_xhigh.toml',
   '.codex/agents/knu_researcher_medium.toml',
   '.codex/agents/knu_researcher_xhigh.toml',
-  '.codex/agents/knu_executor_medium.toml',
-  '.codex/agents/knu_executor_xhigh.toml',
   '.codex/hooks.json',
   '.codex/hooks/knu-subagent-hooks.mjs',
   '.codex/hooks/knu-hook-policy.json',
@@ -43,18 +40,6 @@ max_concurrent_threads_per_session = 6
 `;
 const readOnlyBoundary = /파일 수정, [^.]*하지 않습니다\./u;
 const baseRoles = [
-  {
-    file: 'knu_executor.toml',
-    name: 'knu_executor',
-    effort: 'high',
-    sandboxMode: 'workspace-write',
-    boundaries: [
-      /명시된 writeOwnership 안에서 구현합니다\./u,
-      /writeOwnership 밖 편집, [^.]*하지 않습니다\./u,
-      /범위·공유 파일·migration·파괴적 변경이 충돌하거나, ownership이 겹치거나, 권한이 없거나, 요청 경계가 크게 바뀌면 멈추고 Parent에게 돌려줍니다\./u,
-    ],
-    handoff: ['changed files', 'rollback note'],
-  },
   {
     file: 'knu_explorer.toml',
     name: 'knu_explorer',
@@ -206,7 +191,7 @@ test('portable project Codex configuration is present', () => {
   assert.deepEqual(
     missing,
     [],
-    'The reviewed project config, ten agent files and the subagent hook files must exist before the project Codex contract can pass',
+    'The reviewed project config, seven agent files and the subagent hook files must exist before the project Codex contract can pass',
   );
 });
 
@@ -473,23 +458,22 @@ test('hook policy copy matches the allowlist owner and the installed role files'
     'allowedRoleModels',
     'roster',
     'schema',
-    'writerRoles',
   ]);
-  assert.equal(policy.schema, 'knu-codex-hook-policy/v3');
+  assert.equal(policy.schema, 'knu-codex-hook-policy/v4');
   assert.deepEqual(policy.allowedModels, [...ALLOWED_CHILD_MODELS]);
   assert.deepEqual(policy.allowedRoleModels, ALLOWED_ROLE_MODELS);
   assert.deepEqual(policy.roster, Object.keys(ROLE_EFFORTS));
   assert.deepEqual([...policy.roster].sort(), expectedRoles.map(({ name }) => name).sort());
-  // The Parent write guard runs while a writer lane is open: the roles whose installed file can write the workspace.
-  const writers = Object.keys(ROLE_EFFORTS).filter(
-    (name) =>
+  // Every installed role file is read-only, so the policy names no writer role.
+  for (const name of policy.roster)
+    assert.equal(
       readQuotedField(
         readFileSync(resolve(repoRoot, '.codex/agents', `${name}.toml`), 'utf8'),
         'sandbox_mode',
-      ) === 'workspace-write',
-  );
-  assert.deepEqual(writers, ['knu_executor_medium', 'knu_executor', 'knu_executor_xhigh']);
-  assert.deepEqual(policy.writerRoles, writers);
+      ),
+      'read-only',
+      name,
+    );
 });
 
 // Implementation is the Parent's own work (D-OSS-35): no child writes, so no hook guards the Parent's writes.
@@ -538,7 +522,7 @@ test('executor retirement: Codex hooks register no Parent write guard and the po
   assert.deepEqual(patch, { action: 'ignore' });
 });
 
-test('project hooks register the spawn guard, the Parent write guard and the subagent recorder from the git root', () => {
+test('project hooks register the spawn guard and the subagent recorder from the git root', () => {
   const config = JSON.parse(readFileSync(resolve(repoRoot, '.codex/hooks.json'), 'utf8'));
   assert.deepEqual(Object.keys(config.hooks).sort(), [
     'PreToolUse',
@@ -546,7 +530,7 @@ test('project hooks register the spawn guard, the Parent write guard and the sub
     'SubagentStop',
   ]);
   const matchers = {
-    PreToolUse: ['(spawn_agent|followup_task|send_message)$', '^apply_patch$'],
+    PreToolUse: ['(spawn_agent|followup_task|send_message)$'],
     SubagentStart: [undefined],
     SubagentStop: [undefined],
   };
@@ -563,11 +547,6 @@ test('project hooks register the spawn guard, the Parent write guard and the sub
         event,
       );
   }
-  // Codex reports file edits as apply_patch (matcher aliases Edit and Write); shell writes stay outside the guard.
-  const patchMatcher = new RegExp(config.hooks.PreToolUse[1]?.matcher ?? '(?!)', 'u');
-  assert.match('apply_patch', patchMatcher);
-  for (const name of ['Bash', 'collaborationspawn_agent', 'apply_patch_v2', 'Edit'])
-    assert.doesNotMatch(name, patchMatcher);
   // Codex joins the V2 namespace to the tool name, so the guard matches the name suffix.
   const matcher = new RegExp(config.hooks.PreToolUse[0].matcher, 'u');
   for (const name of [

@@ -2,9 +2,8 @@
 // arguments its dispatch computed (`createDispatchRecommendation`, `createRetryDispatch`, `createReviewDispatch`); the
 // project hook allows the spawn only when its plain arguments equal that unused registration and seals it into the
 // allow record. After the child stops, acceptance runs the completion check and records the accepted stop; the hook
-// then denies follow-up and message calls to that child, and a lane's retry after its primary was accepted. A writer the
-// Parent gives up after its child ended is released instead, which closes the hook's Parent write guard and denies
-// resuming that child. Files live under `.artifacts/tools/codex-native/<Parent session>/`, which children can write: the
+// then denies follow-up and message calls to that child, and a lane's retry after its primary was accepted. A child the
+// Parent gives up after it ended is released instead, which denies resuming that child. Files live under `.artifacts/tools/codex-native/<Parent session>/`, which children can write: the
 // hook and the completion check require the fields a task name spells to spell it and read the seal from the protected
 // hook records, so an edited file refuses rather than accepts. The Parent compares the rest (`reviewOf`) through the
 // digest `codex:register` prints.

@@ -65,8 +65,8 @@ Project child 기본값은 `.codex/config.toml`의 Astra입니다. 열 역할 �
 검증합니다. 이 모델 선택은 parent의 session model/effort나 child의 기존 sandbox·count 경계를 바꾸지 않습니다.
 
 후보 자격은 routing의 Pass 2 계층·profile 판정이 정합니다([quality-gated model advice](../adapters/codex-model-profiles.md#quality-gated-model-advice)).
-읽기 profile(`standard-read`·`elevated-read`)은 repository/official read-only 도구만, `extract`는 고정된 repository-read만, 구현
-profile(`standard-build`·`elevated-build`)은 단일 write owner와 workspace-edit/test-runner를 요구합니다. Route의 역할·effort·
+읽기 profile(`standard-read`·`elevated-read`)은 repository/official read-only 도구만, `extract`는 고정된 repository-read만
+요구합니다. 구현 profile은 없고 구현·디버깅·test는 Lead가 합니다. Route의 역할·effort·
 `profileId`가 그 profile의 역할 변형과 effort에 맞지 않으면 `model-effort-eligibility-mismatch`입니다. `purpose`(pilot·routine)는
 descriptor의 `modelPurpose`로 남을 뿐 호출 허가가 아니며, 채택·철회는
 [Routine task-model operation](../adapters/codex.md#routine-task-model-operation)이 소유합니다. 이 helper는 project 설정/role
@@ -108,9 +108,9 @@ primary attempt
 - 세 번째 attempt, 같은 approach 반복, success 이후 retry, non-retryable failure 뒤 retry는 invalid입니다.
 - 재시도 route는 보고받지 않고 lane 계약에서 계산합니다. 결과 품질 실패(`verification-failed`·`unknown`)는 같은 역할로 사다리 한 단 위
   profile에서 한 번 실행합니다(`retryRoute.kind` `ladder`): Luna `extract` → 6.1 Sol `elevated-read`, 6.1 Sol 읽기
-  (`standard-read`·`elevated-read`) → Astra `astra-fallback`, 6.1 Sol 구현(`standard-build`·`elevated-build`) → Astra `deep-build`.
+  (`standard-read`·`elevated-read`) → Astra `astra-fallback`.
   근거·도구 실패(`tool-unavailable`·`official-source-unavailable`·`repository-evidence-missing`)와 위 단이 없는 Astra lane
-  (`deep-build`·`review`·`astra-fallback`)은 같은 contract에서 approach만 바꿉니다(`same-contract`). 사다리 데이터는
+  (`review`·`astra-fallback`)은 같은 contract에서 approach만 바꿉니다(`same-contract`). 사다리 데이터는
   `model-profiles.mjs`의 `RECOVERY_LADDER`가 소유하고 모든 단은 기존 (역할, model) 허용 쌍 안입니다.
 - 재시도는 lane당 한 번이며 재시도의 재시도·연쇄 상향은 없습니다. Luna lane의 6.1 Sol 재시도가 실패하면 Astra로 다시 오르지 않고
   terminal handoff입니다. 이 상한은 Claude 결속 재시도의 상한(세션·사실 묶음마다 한 번)과 같습니다.
@@ -135,7 +135,7 @@ primary attempt
   재시도 완료 대조(`lane-accepted`)를 모두 거절합니다. Dispatch token `retry`는 다른 lane의 재시도 task name과 겹치므로 쓰지 않습니다.
   `validateCodexWorkflowResults`도 synthesis처럼 모든 decision을 다시 계산하고, complete 결과에 대기·terminal decision이 함께 오면
   거절합니다.
-- `quota-exhausted`, `capacity-denied`, `missing-authority` 등 non-retryable failure는 즉시 handoff입니다. Pending/unknown writer가
+- `quota-exhausted`, `capacity-denied`, `missing-authority` 등 non-retryable failure는 즉시 handoff입니다. Pending/unknown child가
   남아 있으면 회수하기 전에 재시도를 시작하지 않습니다. Scope/권한 변경을 모델 교체로 우회하지 않습니다.
 - Terminal handoff 뒤 Parent가 현재 source로 새 ordinary contract(예: Astra)를 판정해 맡기는 것은 이 recovery의 attempt가 아니라
   새 위임입니다. 실패한 lane의 attempt 이력과 handoff는 그대로 남고, 새 contract의 결과가 그 실패를 성공으로 바꾸지 않습니다.
@@ -185,7 +185,7 @@ Completed lane은 Parent session의 SubagentStart·SubagentStop 기록이 그 di
 계약 역할·허용 목록 model·roster와 맞고, 그 task name의 PreToolUse allow 기록(bind)·계약 model(route profile)·역할 pin
 effort·등록 봉인과도 맞으며, 그 child 아래 descendant 기록과 읽지 못한 기록 줄이 없고, 그 child의 마지막 Stop을 가리키는 수락 기록
 (`acceptances`)이 있어야 ready에 들어갑니다. 기록이 없거나(hook 부재 포함) 맞지 않으면
-refused lane으로 blocking이며, 이미 실행된 writer 변경은 Parent가 되돌리거나 handoff합니다. 재시도한 lane은 그 재시도
+refused lane으로 blocking이며, 이미 실행된 child가 바꾼 경로는 Parent가 되돌리거나 handoff합니다. 재시도한 lane은 그 재시도
 child(`_retry` task path)를 decision의 `retryRoute` 역할·model로 같은 조건에 대조합니다. 경계는 [Codex adapter](../adapters/codex-native-registry.md#subagent-hook-guardrail과-완료-관측)가 소유합니다.
 
 `readyForLeaderDecision=true`도 자동 completion이나 final answer를 의미하지 않습니다. Leader가 repository의 실제

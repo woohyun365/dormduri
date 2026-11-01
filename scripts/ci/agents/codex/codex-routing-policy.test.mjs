@@ -29,8 +29,6 @@ test('optional model advice keeps the semantic tier and admits a candidate role 
   for (const [taskKind, model, cohort, profileId, role] of [
     ['lookup', 'gpt-6.1-sol', 'bounded-read-only', 'standard-read', 'knu_explorer'],
     ['research', 'gpt-6.1-sol', 'bounded-read-only', 'standard-read', 'knu_researcher'],
-    ['implementation', 'gpt-6.1-sol', 'bounded-implementation', 'standard-build', 'knu_executor'],
-    ['test', 'gpt-6.1-sol', 'bounded-implementation', 'standard-build', 'knu_executor'],
   ]) {
     const input = routeInput({ taskKind, impactRisk: 'low', predicateIds: mediumPredicateIds() });
     const legacy = selectAgentRoute(input);
@@ -56,7 +54,6 @@ test('model advice retains Astra for risk, QA, uncertainty and missing boundedne
     { taskKind: 'architecture' },
     { taskKind: 'review' },
     { taskKind: 'verification' },
-    { taskKind: 'debugging' },
     { impactRisk: 'high' },
     { predicateIds: ['M-01'] },
     ...[
@@ -115,7 +112,6 @@ test('model advice retains Astra for risk, QA, uncertainty and missing boundedne
 // candidate profile the route admits (routing table rows 1-5) or returns nothing, which keeps the Astra assignment.
 test('a lane without a model request gets the candidate its Pass 2 result admits and nothing otherwise', () => {
   const READ_KEYS = ['acceptance', 'independentCheck'];
-  const BUILD_KEYS = ['acceptance', 'regression', 'astraQa'];
   const EXTRACT_KEYS = [
     'acceptance',
     'fixedInput',
@@ -163,16 +159,6 @@ test('a lane without a model request gets the candidate its Pass 2 result admits
       'knu_explorer_xhigh',
     ],
     ['lookup', 'low', ['M-01'], READ_KEYS, 'elevated-read', 'gpt-6.1-sol', 'knu_explorer_xhigh'],
-    [
-      'implementation',
-      'low',
-      mediumPredicateIds(),
-      BUILD_KEYS,
-      'standard-build',
-      'gpt-6.1-sol',
-      'knu_executor',
-    ],
-    ['test', 'medium', ['M-01'], BUILD_KEYS, 'elevated-build', 'gpt-6.1-sol', 'knu_executor_xhigh'],
   ]) {
     const input = routeInput({ taskKind, impactRisk, predicateIds });
     const verificationFacts = facts(input, keys);
@@ -203,53 +189,44 @@ test('a lane without a model request gets the candidate its Pass 2 result admits
     ['missing key', (input) => [input, { acceptance: input.pass2Evidence.facts[0].factId }]],
     [
       'absent fact',
-      (input) => [
-        input,
-        { acceptance: 'fact-absent', regression: 'fact-absent', astraQa: 'fact-absent' },
-      ],
+      (input) => [input, { acceptance: 'fact-absent', independentCheck: 'fact-absent' }],
     ],
     [
       'gap',
-      (input) => (
-        input.pass2Evidence.gaps.push('unknown owner'),
-        [input, facts(input, BUILD_KEYS)]
-      ),
+      (input) => (input.pass2Evidence.gaps.push('unknown owner'), [input, facts(input, READ_KEYS)]),
     ],
     [
       'medium confidence',
-      (input) => ((input.pass2Evidence.confidence = 'medium'), [input, facts(input, BUILD_KEYS)]),
+      (input) => ((input.pass2Evidence.confidence = 'medium'), [input, facts(input, READ_KEYS)]),
     ],
     [
-      'high impact build',
-      (input) => ((input.pass1.impactRisk = 'high'), [input, facts(input, BUILD_KEYS)]),
-    ],
-    [
-      'debugging',
-      (input) => ((input.pass1.taskKind = 'debugging'), [input, facts(input, BUILD_KEYS)]),
+      'debugging stays with the Lead',
+      (input) => ((input.pass1.taskKind = 'debugging'), [input, facts(input, READ_KEYS)]),
     ],
     [
       'direct shape',
-      (input) => ((input.pass1.executionShape = 'direct'), [input, facts(input, BUILD_KEYS)]),
+      (input) => ((input.pass1.executionShape = 'direct'), [input, facts(input, READ_KEYS)]),
     ],
   ];
   for (const [label, make] of ineligible) {
     const [input, verificationFacts] = make(
       routeInput({
-        taskKind: 'implementation',
-        impactRisk: 'low',
+        taskKind: 'lookup',
+        impactRisk: 'medium',
         predicateIds: mediumPredicateIds(),
       }),
     );
     assert.equal(routingPolicy.defaultModelRequest(input, verificationFacts), undefined, label);
   }
-  for (const predicate of ['X-01', 'BE-01-concurrency-transaction', 'FE-05-browser-runtime']) {
+  // A domain signal keeps the Astra assignment; an XHigh read alone is the elevated-read candidate above.
+  for (const predicate of ['BE-01-concurrency-transaction', 'FE-05-browser-runtime']) {
     const input = routeInput({
-      taskKind: 'implementation',
-      impactRisk: 'low',
+      taskKind: 'lookup',
+      impactRisk: 'medium',
       predicateIds: [...mediumPredicateIds(), predicate],
     });
     assert.equal(
-      routingPolicy.defaultModelRequest(input, facts(input, BUILD_KEYS)),
+      routingPolicy.defaultModelRequest(input, facts(input, READ_KEYS)),
       undefined,
       predicate,
     );
@@ -273,16 +250,13 @@ test('a lane without a model request gets the candidate its Pass 2 result admits
 
 test('model request is strict and cannot create children for deterministic work', () => {
   for (const [model, cohort] of [
-    [UNLISTED_MODEL, 'bounded-implementation'],
     [UNLISTED_MODEL, 'bounded-read-only'],
     [UNLISTED_MODEL, 'bounded-extraction'],
   ]) {
     const keys =
-      cohort === 'bounded-implementation'
-        ? ['acceptance', 'regression', 'astraQa']
-        : cohort === 'bounded-read-only'
-          ? ['acceptance', 'independentCheck']
-          : ['acceptance', 'fixedInput', 'outputSchema', 'singleStep', 'independentCheck'];
+      cohort === 'bounded-read-only'
+        ? ['acceptance', 'independentCheck']
+        : ['acceptance', 'fixedInput', 'outputSchema', 'singleStep', 'independentCheck'];
     assert.throws(
       () =>
         normalizeModelRequest({
@@ -296,16 +270,16 @@ test('model request is strict and cannot create children for deterministic work'
   }
   const input = routeInput({ predicateIds: mediumPredicateIds() });
   const request = {
-    profileId: 'standard-build',
+    profileId: 'standard-read',
     purpose: 'pilot',
-    verificationFacts: modelVerification(input.pass2Evidence, 'bounded-implementation'),
+    verificationFacts: modelVerification(input.pass2Evidence),
   };
   for (const patch of [
     { model: 'unknown-model' },
     // Raw models are never request input, whether or not the allowlist holds them.
     ...[UNLISTED_MODEL, ...ALLOWED_CHILD_MODELS].map((model) => ({ model })),
     { profileId: 'unknown-profile' },
-    { cohort: 'bounded-implementation' },
+    { cohort: 'bounded-read-only' },
     { pilot: true },
     { purpose: 'adopt' },
     { verificationFacts: {} },
@@ -381,7 +355,7 @@ test('derives Medium only from complete positive boundedness evidence', () => {
   const result = selectAgentRoute(routeInput({ predicateIds: mediumPredicateIds() }));
 
   assert.equal(result.spawn, true);
-  assert.equal(result.role, 'knu_executor_medium');
+  assert.equal(result.role, 'knu_explorer_medium');
   assert.equal(result.tier, 'medium');
   assert.equal(result.effort, 'medium');
   assert.equal(result.assessment.mediumEligibility, true);
@@ -397,7 +371,7 @@ test('derives Medium only from complete positive boundedness evidence', () => {
 });
 
 test('selects XHigh from semantic concurrency evidence regardless of task label or impact risk', () => {
-  for (const taskKind of ['analysis', 'implementation', 'debugging', 'test', 'review']) {
+  for (const taskKind of ['lookup', 'analysis', 'research', 'verification', 'review']) {
     const result = selectAgentRoute(
       routeInput({
         taskKind,
@@ -425,9 +399,9 @@ test('selects XHigh from semantic concurrency evidence regardless of task label 
 test('covers migration, lifecycle, auth, persisted contract, CI control-plane, and privacy XHigh signals', () => {
   const cases = [
     ['analysis', 'BE-02-migration-backfill'],
-    ['implementation', 'BE-03-multi-lifecycle'],
-    ['debugging', 'BE-06-auth-session'],
-    ['test', 'BE-04-contract-persistence'],
+    ['lookup', 'BE-03-multi-lifecycle'],
+    ['research', 'BE-06-auth-session'],
+    ['architecture', 'BE-04-contract-persistence'],
     ['verification', 'INF-01-ci-control-plane'],
     ['review', 'SEC-02-sensitive-lifecycle'],
   ];
@@ -448,7 +422,7 @@ test('covers migration, lifecycle, auth, persisted contract, CI control-plane, a
 });
 
 test('the same Pass 1 request can resolve to Medium, High, or XHigh from current evidence', () => {
-  const common = { taskKind: 'debugging', impactRisk: 'medium' };
+  const common = { taskKind: 'analysis', impactRisk: 'medium' };
   const medium = selectAgentRoute(routeInput({ ...common, predicateIds: mediumPredicateIds() }));
   const high = selectAgentRoute(
     routeInput({ ...common, predicateIds: ['FE-08-performance-causal'] }),
@@ -458,8 +432,7 @@ test('the same Pass 1 request can resolve to Medium, High, or XHigh from current
   );
 
   assert.deepEqual([medium.tier, high.tier, xhigh.tier], ['medium', 'high', 'xhigh']);
-  // Debugging is a build: XHigh without high impact runs on the high executor (deep-build).
-  assert.deepEqual([medium.effort, high.effort, xhigh.effort], ['medium', 'high', 'high']);
+  assert.deepEqual([medium.effort, high.effort, xhigh.effort], ['medium', 'high', 'xhigh']);
   assert.deepEqual(
     [medium.impactRisk, high.impactRisk, xhigh.impactRisk],
     ['medium', 'medium', 'medium'],
@@ -536,9 +509,9 @@ test('maps semantic task kinds to project roles without treating the role as run
   const expected = {
     lookup: 'knu_explorer',
     analysis: 'knu_explorer',
-    implementation: 'knu_executor',
-    debugging: 'knu_executor',
-    test: 'knu_executor',
+    implementation: null,
+    debugging: null,
+    test: null,
     research: 'knu_researcher',
     verification: 'knu_reviewer',
     architecture: 'knu_reviewer',
@@ -550,7 +523,9 @@ test('maps semantic task kinds to project roles without treating the role as run
       routeInput({ taskKind, predicateIds: ['FE-05-browser-runtime'] }),
     );
     assert.equal(result.role, expected[taskKind], taskKind);
-    assert.equal(['medium', 'high', 'xhigh'].includes(result.effort), true);
+    // Implementation, debugging and test stay with the Lead, so they take no role and no effort.
+    if (expected[taskKind] === null) assert.equal(result.effort, null, taskKind);
+    else assert.equal(['medium', 'high', 'xhigh'].includes(result.effort), true);
   }
 });
 
@@ -562,11 +537,11 @@ test('keeps impact risk separate and rejects legacy critical/role-availability s
     routeInput({ impactRisk: 'high', predicateIds: mediumPredicateIds() }),
   );
 
-  // Impact never changes the semantic tier; it selects the variant (a high-impact build is the xhigh executor).
+  // Impact never changes the semantic tier; it selects the variant (a high-impact read is the xhigh explorer).
   assert.equal(lowRisk.tier, 'medium');
   assert.equal(highRisk.tier, 'medium');
-  assert.equal(lowRisk.role, 'knu_executor_medium');
-  assert.equal(highRisk.role, 'knu_executor_xhigh');
+  assert.equal(lowRisk.role, 'knu_explorer_medium');
+  assert.equal(highRisk.role, 'knu_explorer_xhigh');
   assert.notEqual(lowRisk.impactRisk, highRisk.impactRisk);
   const architecture = selectAgentRoute(
     routeInput({ taskKind: 'architecture', predicateIds: ['FE-05-browser-runtime'] }),
@@ -588,7 +563,7 @@ test('keeps impact risk separate and rejects legacy critical/role-availability s
 });
 
 function routeInput({
-  taskKind = 'implementation',
+  taskKind = 'analysis',
   impactRisk = 'medium',
   predicateIds,
   claims,
@@ -660,7 +635,7 @@ function routeInput({
 }
 
 function pass1({
-  taskKind = 'implementation',
+  taskKind = 'analysis',
   executionShape = 'bounded-child',
   impactRisk = 'medium',
 } = {}) {
@@ -694,11 +669,9 @@ test('routes carry no transitional runtime placeholder', () => {
   );
 });
 
-function modelVerification(evidence, cohort = 'bounded-read-only') {
+function modelVerification(evidence) {
   const id = evidence.facts[0].factId;
-  return cohort === 'bounded-read-only'
-    ? { acceptance: id, independentCheck: id }
-    : { acceptance: id, regression: id, astraQa: id };
+  return { acceptance: id, independentCheck: id };
 }
 
 test('Luna extraction requires low-impact finite semantic work and never replaces shell or QA', () => {
@@ -730,7 +703,7 @@ test('Luna extraction requires low-impact finite semantic work and never replace
   for (const patch of [
     { impactRisk: 'medium' },
     { impactRisk: 'high' },
-    ...['implementation', 'research', 'review', 'verification', 'architecture'].map((taskKind) => ({
+    ...['research', 'review', 'verification', 'architecture'].map((taskKind) => ({
       taskKind,
     })),
   ]) {
@@ -792,18 +765,7 @@ test('Pass 2 tier, task family and impact select the role variant, its pinned ef
     ['research', 'medium', HIGH_PREDICATES, 'high', 'knu_researcher', 'astra-fallback'],
     ['analysis', 'low', XHIGH_PREDICATES, 'xhigh', 'knu_explorer_xhigh', 'astra-fallback'],
     ['lookup', 'high', mediumPredicateIds(), 'medium', 'knu_explorer_xhigh', 'astra-fallback'],
-    [
-      'implementation',
-      'low',
-      mediumPredicateIds(),
-      'medium',
-      'knu_executor_medium',
-      'astra-fallback',
-    ],
-    ['debugging', 'medium', HIGH_PREDICATES, 'high', 'knu_executor', 'astra-fallback'],
-    ['test', 'medium', XHIGH_PREDICATES, 'xhigh', 'knu_executor', 'deep-build'],
-    ['implementation', 'high', mediumPredicateIds(), 'medium', 'knu_executor_xhigh', 'deep-build'],
-    ['implementation', 'high', XHIGH_PREDICATES, 'xhigh', 'knu_executor_xhigh', 'deep-build'],
+    ['analysis', 'high', XHIGH_PREDICATES, 'xhigh', 'knu_explorer_xhigh', 'astra-fallback'],
     ['review', 'low', mediumPredicateIds(), 'medium', 'knu_reviewer', 'review'],
     ['architecture', 'high', XHIGH_PREDICATES, 'xhigh', 'knu_reviewer', 'review'],
   ]) {
@@ -818,28 +780,14 @@ test('Pass 2 tier, task family and impact select the role variant, its pinned ef
 });
 
 test('6.1 Sol profiles admit pilot and routine requests on their own role variants', () => {
-  for (const [taskKind, profileId, predicateIds, role, cohort] of [
-    ['lookup', 'standard-read', mediumPredicateIds(), 'knu_explorer', 'bounded-read-only'],
-    [
-      'implementation',
-      'standard-build',
-      mediumPredicateIds(),
-      'knu_executor',
-      'bounded-implementation',
-    ],
-    ['research', 'elevated-read', HIGH_PREDICATES, 'knu_researcher_xhigh', 'bounded-read-only'],
-    ['analysis', 'elevated-read', XHIGH_PREDICATES, 'knu_explorer_xhigh', 'bounded-read-only'],
-    [
-      'implementation',
-      'elevated-build',
-      HIGH_PREDICATES,
-      'knu_executor_xhigh',
-      'bounded-implementation',
-    ],
+  for (const [taskKind, profileId, predicateIds, role] of [
+    ['lookup', 'standard-read', mediumPredicateIds(), 'knu_explorer'],
+    ['research', 'elevated-read', HIGH_PREDICATES, 'knu_researcher_xhigh'],
+    ['analysis', 'elevated-read', XHIGH_PREDICATES, 'knu_explorer_xhigh'],
   ]) {
     const label = `${profileId}/${taskKind}`;
     const input = routeInput({ taskKind, impactRisk: 'low', predicateIds });
-    const verificationFacts = modelVerification(input.pass2Evidence, cohort);
+    const verificationFacts = modelVerification(input.pass2Evidence);
     for (const purpose of ['pilot', 'routine']) {
       const route = selectAgentRoute({
         ...input,
@@ -858,8 +806,8 @@ test('6.1 Sol profiles admit pilot and routine requests on their own role varian
   }
 });
 
-test('elevated pilots keep the bounded quality conditions and exclude deep or high-impact builds', () => {
-  const pilot = (taskKind, impactRisk, predicateIds, profileId, cohort, mutate = () => {}) => {
+test('elevated pilots keep the bounded quality conditions', () => {
+  const pilot = (taskKind, impactRisk, predicateIds, profileId, mutate = () => {}) => {
     const input = routeInput({ taskKind, impactRisk, predicateIds });
     mutate(input);
     return selectAgentRoute({
@@ -867,26 +815,21 @@ test('elevated pilots keep the bounded quality conditions and exclude deep or hi
       modelRequest: {
         profileId,
         purpose: 'pilot',
-        verificationFacts: modelVerification(input.pass2Evidence, cohort),
+        verificationFacts: modelVerification(input.pass2Evidence),
       },
     });
   };
-  const read = 'bounded-read-only';
-  const build = 'bounded-implementation';
   assert.equal(
-    pilot('lookup', 'high', mediumPredicateIds(), 'elevated-read', read).modelRecommendation.status,
+    pilot('lookup', 'high', mediumPredicateIds(), 'elevated-read').modelRecommendation.status,
     'candidate',
   );
   for (const result of [
-    pilot('lookup', 'low', mediumPredicateIds(), 'elevated-read', read),
-    pilot('lookup', 'low', HIGH_PREDICATES, 'standard-read', read),
-    pilot('lookup', 'low', ['FE-08-performance-causal'], 'elevated-read', read),
-    pilot('lookup', 'low', HIGH_PREDICATES, 'elevated-read', read, (input) => {
+    pilot('lookup', 'low', mediumPredicateIds(), 'elevated-read'),
+    pilot('lookup', 'low', HIGH_PREDICATES, 'standard-read'),
+    pilot('lookup', 'low', ['FE-08-performance-causal'], 'elevated-read'),
+    pilot('lookup', 'low', HIGH_PREDICATES, 'elevated-read', (input) => {
       input.pass2Evidence.gaps = ['missing owner'];
     }),
-    pilot('implementation', 'low', XHIGH_PREDICATES, 'elevated-build', build),
-    pilot('implementation', 'high', HIGH_PREDICATES, 'elevated-build', build),
-    pilot('implementation', 'low', mediumPredicateIds(), 'elevated-build', build),
   ])
     assert.equal(result.modelRecommendation.status, 'baseline');
 });
@@ -914,7 +857,7 @@ test('Luna extraction stays routine on the xhigh explorer and model requests nee
   assert.equal(result.role, 'knu_explorer_xhigh');
   assert.equal(result.effort, 'xhigh');
   assert.equal(result.profileId, 'extract');
-  for (const profileId of ['deep-build', 'review', 'astra-fallback'])
+  for (const profileId of ['review', 'astra-fallback'])
     assert.throws(
       () => normalizeModelRequest({ profileId, purpose: 'pilot', verificationFacts: {} }),
       { name: 'TypeError', message: 'Model request needs a candidate profile.' },

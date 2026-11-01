@@ -86,21 +86,18 @@ Alias는 Agent 호출의 요청값이고 실제 모델은 Claude Code가 호출 
 | `knu_explorer_xhigh` | `bounded-extraction` | `haiku`  | xhigh     | `claude-haiku-5-5`(2.1.306)  | 고정 입력 추출       | 관측              |
 | `knu_explorer`       | `bounded-extraction` | `haiku`  | —(미지원) | `claude-haiku-4-5-20251001`  | 고정 입력 추출       | 대체됨(등록 거부) |
 | `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | 고정 입력 추출       | 관측              |
-| `knu_executor`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.284) | bounded 구현·검증    | 관측              |
 | `knu_researcher`     | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | 공식 근거 읽기       | 관측              |
 | `knu_reviewer`       | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)   | 독립 source review   | 관측              |
 | `knu_explorer`       | `bounded-standard`   | `sonnet` | high      | `claude-sonnet-5-5`(2.1.286) | repository 읽기 조사 | 관측              |
-| `knu_executor`       | `complex-critical`   | `opus`   | high      | `claude-opus-5-5`(2.1.286)   | 복잡한 구현          | 관측              |
-| `knu_executor_xhigh` | `complex-critical`   | `opus`   | xhigh     | `claude-opus-5-5`(2.1.286)   | 고위험 구현          | 관측              |
 
 Effort 열은 역할 파일의 설정값이고(모델 능력표가 effort 미지원으로 둔 ID는 적용하지 않음), 상태의 "관측"은 모델 ID 관측입니다. 실제 effort는 정산이 task마다 child transcript로
-대조합니다([Model profiles](./claude-model-profiles.md#역할-effort와-executor-단계)).
+대조합니다([Model profiles](./claude-model-profiles.md#역할-effort와-effort-변형)).
 
 ## Recovery
 
 공통 상한은 [Recovery ceiling](../orchestration.md#recovery-ceiling)이 소유하며, 이 절은 Claude의 재등록과 모델·effort 상향을 정합니다.
 
-위임한 작업이 실패하거나 acceptance를 채우지 못하면 먼저 그 task를 정산합니다. `release`한 task에는 결속할 수 없으므로 `release`는 관측 없이 끝난 child의 writer 회수에만 씁니다. 재시도는
+위임한 작업이 실패하거나 acceptance를 채우지 못하면 먼저 그 task를 정산합니다. `release`한 task에는 결속할 수 없으므로 `release`는 관측 없이 끝난 child를 닫을 때만 씁니다. 재시도는
 **한 번만** 허용하며 새 task로 다시 등록합니다. 재시도는 실패한 1차 task에 결속합니다. Spec의 `recovery`에
 `{of: <1차 taskId>, cause}`를 두고 1차 task와 같은 사실로 등록합니다. 1차 task는 실행·관측되어 있어야 합니다.
 조건을 맞추려고 task 사실을 바꾸지 않으며 맞지 않으면 Owner와 다음 행동을 정합니다
@@ -155,7 +152,7 @@ Claude Parent 기본값은 **Opus 5.5 high**입니다. Framing·통합 추론 �
 | OMC 요청·skill                          | 저장소 workflow owner                                                                                      |
 | --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `plan`, `ralplan`, `deep-interview`     | [Plan authoring](../plan-authoring/core.md). OMC 초안은 `.plans` 계획으로 채택하기 전 제안입니다.          |
-| `execute`, `autopilot`, `ralph`, `team` | [Branch와 PR 전략](../../github/branch-and-pr-strategy.md)과 Lead 직접 구현 또는 `knu_executor` 위임       |
+| `execute`, `autopilot`, `ralph`, `team` | [Branch와 PR 전략](../../github/branch-and-pr-strategy.md)과 Lead 직접 구현(구현 위임 경로는 없음)         |
 | `review`, `verify`, code reviewer       | [QA](../qa.md#independent-review-disposition)의 필수 독립 review는 `claude:native review`와 `knu_reviewer` |
 | `research`, document specialist         | 공식 근거가 acceptance에 필요하면 `knu_researcher`                                                         |
 | `wiki`, `remember`, notepad             | Local memory입니다. Source of truth가 아닙니다(`AGENTS.md` §1)                                             |

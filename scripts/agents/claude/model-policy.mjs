@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { validateCrossModelExchange, validateTaskEnvelope } from '../common/index.mjs';
 
-const POLICY_REVISION = '2026-10-19.1';
+const POLICY_REVISION = '2026-11-01.1';
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,159}$/u;
 const SAFE_REF = /^[a-zA-Z0-9][a-zA-Z0-9_./:-]{0,299}$/u;
@@ -24,12 +24,12 @@ const ROLE_TOOLS = deepFreeze({
   knu_explorer: ['Read', 'Grep', 'Glob'],
   knu_explorer_xhigh: ['Read', 'Grep', 'Glob'],
   knu_researcher: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
-  knu_executor: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
-  knu_executor_xhigh: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
   knu_reviewer: ['Read', 'Grep', 'Glob'],
 });
-// Both executor roles build; they differ only in the effort their role files fix.
-const EXECUTORS = deepFreeze(['knu_executor', 'knu_executor_xhigh']);
+// Implementation is the Parent's own work (D-OSS-35): every child role is read-only, and a task of the
+// retired build kind is refused with this reason instead of a generic gap.
+export const IMPLEMENTATION_RETIRED =
+  'implementation-retired: the build kind and its executor roles were retired; the Parent implements and has its diff reviewed with /knu-review --parent-subject';
 
 const PROFILES = deepFreeze([
   {
@@ -53,24 +53,24 @@ const PROFILES = deepFreeze([
   {
     id: 'bounded-standard',
     modelAlias: 'sonnet',
-    kinds: ['extract', 'read', 'build'],
+    kinds: ['extract', 'read'],
     impactRisks: ['low', 'medium'],
     complexities: ['bounded'],
-    roles: ['knu_explorer', 'knu_explorer_xhigh', 'knu_researcher', 'knu_executor'],
-    allowedTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', 'Edit', 'Write', 'Bash'],
+    roles: ['knu_explorer', 'knu_explorer_xhigh', 'knu_researcher'],
+    allowedTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
     requiredFacts: ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'],
-    readOnly: false,
+    readOnly: true,
   },
   {
     id: 'complex-critical',
     modelAlias: 'opus',
-    kinds: ['extract', 'read', 'build', 'review'],
+    kinds: ['extract', 'read', 'review'],
     impactRisks: ['low', 'medium', 'high'],
     complexities: ['bounded', 'complex'],
-    roles: ['knu_explorer', 'knu_researcher', 'knu_executor', 'knu_executor_xhigh', 'knu_reviewer'],
-    allowedTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', 'Edit', 'Write', 'Bash'],
+    roles: ['knu_explorer', 'knu_researcher', 'knu_reviewer'],
+    allowedTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
     requiredFacts: ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'],
-    readOnly: false,
+    readOnly: true,
   },
 ]);
 
@@ -212,6 +212,8 @@ export function listClaudeSubagentProfiles() {
 }
 
 export function evaluateClaudeProfileEligibility(input) {
+  if (input?.task?.kind === 'build')
+    return deepFreeze({ eligible: false, reasons: ['implementation-retired'] });
   const reasons = [];
   try {
     exact(input, INPUT_FIELDS);
@@ -461,7 +463,7 @@ export function assessClaudeStaticExchange({
 }
 
 function validateTask(task) {
-  require(['extract', 'read', 'build', 'review'].includes(task.kind));
+  require(['extract', 'read', 'review'].includes(task.kind));
   require(['low', 'medium', 'high'].includes(task.impactRisk));
   require(['bounded', 'complex'].includes(task.complexity));
   require(['resolved', 'uncertain'].includes(task.uncertainty));
@@ -492,15 +494,14 @@ function validateRecovery(recovery) {
   exact(recovery, RECOVERY_FIELDS);
   require(typeof recovery.of === 'string' && UUID.test(recovery.of));
   require(RECOVERY_CAUSES.includes(recovery.cause));
-  require([0, 1, 2].includes(recovery.step));
+  require([0, 1].includes(recovery.step));
   require((recovery.cause === 'context-missing') === (recovery.step === 0));
   require(PROFILE_BY_ID.has(recovery.fromProfileId));
   require(Object.hasOwn(ROLE_TOOLS, recovery.fromRole));
 }
 
 // The Owner ladder: 1 Haiku xhigh extraction to Sonnet xhigh, or Sonnet high to Opus high, in the
-// same role, 2 Opus high executor to the Opus xhigh executor (build only), 0 the same profile and
-// role. Any other move is no ladder step.
+// same role, 0 the same profile and role. Any other move is no ladder step.
 export function claudeRecoveryStep(from, to) {
   if (from.kind !== to.kind) return null;
   if (from.profileId === to.profileId && from.role === to.role) return 0;
@@ -516,17 +517,9 @@ export function claudeRecoveryStep(from, to) {
     from.profileId === 'bounded-standard' &&
     to.profileId === 'complex-critical' &&
     from.role === to.role &&
-    ['knu_explorer', 'knu_researcher', 'knu_executor'].includes(to.role)
+    ['knu_explorer', 'knu_researcher'].includes(to.role)
   )
     return 1;
-  if (
-    from.profileId === 'complex-critical' &&
-    to.profileId === 'complex-critical' &&
-    from.role === 'knu_executor' &&
-    to.role === 'knu_executor_xhigh' &&
-    to.kind === 'build'
-  )
-    return 2;
   return null;
 }
 
@@ -579,22 +572,11 @@ function eligibilityReasons(profile, task) {
   if (task.independent !== true) reasons.push('independence');
   if (!Array.isArray(task.knownGaps) || task.knownGaps.length > 0) reasons.push('known-gaps');
 
-  if (task.kind === 'build' && (!writing || !task.writeOwner || !EXECUTORS.includes(task.role))) {
-    reasons.push('write-owner');
-  }
-  // A high-risk build runs at xhigh; the xhigh executor is an Opus build role, also reachable by a
-  // Recovery escalation of a non-high-risk complex build. The xhigh explorer is the extraction role
-  // and reaches bounded-standard only as the bound one-step retry of an extraction.
-  const xhighBuild = profile.id === 'complex-critical' && task.kind === 'build';
+  // The xhigh explorer is the extraction role and reaches bounded-standard only as the bound one-step
+  // retry of an extraction.
   const xhighExtraction = profile.id === 'bounded-extraction' || ladderRetry(profile, task);
-  if (
-    (task.role === 'knu_executor_xhigh' && !xhighBuild) ||
-    (task.role === 'knu_explorer_xhigh' && !xhighExtraction) ||
-    (task.kind === 'build' && task.impactRisk === 'high' && task.role !== 'knu_executor_xhigh')
-  ) {
-    reasons.push('effort-tier');
-  }
-  if (task.kind !== 'build' && (writing || task.writeOwner !== null)) reasons.push('read-only');
+  if (task.role === 'knu_explorer_xhigh' && !xhighExtraction) reasons.push('effort-tier');
+  if (writing || task.writeOwner !== null) reasons.push('read-only');
   if (profile.readOnly && writing) reasons.push('profile-read-only');
   return reasons;
 }
@@ -625,12 +607,6 @@ function envelopeReasons(envelope, task) {
   ) {
     reasons.push('intake-not-child-ready');
   }
-  if (
-    task.kind === 'build' &&
-    (envelope.authorizedAction !== 'mutate' || !['implement', 'debug'].includes(envelope.intent))
-  ) {
-    reasons.push('mutation-not-authorized');
-  }
   if (task.kind === 'review' && !['review', 'implement', 'debug'].includes(envelope.intent)) {
     reasons.push('review-not-authorized');
   }
@@ -649,7 +625,6 @@ function rolesForKind(kind) {
     {
       extract: ['knu_explorer', 'knu_explorer_xhigh'],
       read: ['knu_explorer', 'knu_researcher'],
-      build: [...EXECUTORS],
       review: ['knu_reviewer'],
     }[kind] ?? []
   );
@@ -667,7 +642,6 @@ function requiredFactsFor(profile, kind) {
     ];
   }
   const required = [...profile.requiredFacts];
-  if (kind === 'build') required.push('regression', 'one-writer');
   if (kind === 'review') required.push('fresh-context');
   return required;
 }
