@@ -160,9 +160,38 @@ test('로컬 자원 label은 rehearsal·runner overlay에만 있고 운영 후�
     'infra/rehearsal/compose.api.runtime.yml',
     'infra/rehearsal/compose.postgres.yml',
     'infra/rehearsal/compose.web.yml',
-    'infra/rehearsal/compose.observability.yml',
     'apps/api/test/stress/docker/compose.local-labels.yml',
+    'scripts/infra/rehearsal/full-stack/compose.volume-labels.api.yml',
+    'scripts/infra/rehearsal/full-stack/compose.volume-labels.web.yml',
   ]) {
     assert.match(read(path), labelKeys, path);
   }
+});
+
+test('이름 있는 volume label은 실행마다 새 project를 만드는 full-stack overlay에만 있다', () => {
+  // Compose keeps volume labels in the volume config hash; a fixed-name project whose labels change between runs
+  // is asked to recreate (and lose) its volumes. See local-environments.md "로컬 Docker 자원 label과 확인".
+  const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
+  const volumeSection = (path) => read(path).split(/^volumes:$/mu)[1] ?? '';
+
+  for (const path of [
+    'infra/rehearsal/compose.api.runtime.yml',
+    'infra/rehearsal/compose.observability.yml',
+    'apps/api/test/stress/docker/compose.local-labels.yml',
+  ]) {
+    assert.doesNotMatch(volumeSection(path), /dormduri\.local\./u, path);
+  }
+  const fullStackRunner = read('scripts/infra/rehearsal/full-stack/index.mjs');
+  for (const path of [
+    'scripts/infra/rehearsal/full-stack/compose.volume-labels.api.yml',
+    'scripts/infra/rehearsal/full-stack/compose.volume-labels.web.yml',
+  ]) {
+    assert.match(volumeSection(path), /dormduri\.local\.run-id:/u, path);
+    assert.ok(fullStackRunner.includes(`'${path}'`), `full-stack runner appends ${path}`);
+  }
+  const inventory = loadComposeInventory(repoRoot);
+  const fullStackOnly = Object.entries(inventory.profiles)
+    .filter(([, profile]) => profile.files.includes('infra/rehearsal/compose.postgres.yml'))
+    .map(([name]) => name);
+  assert.deepEqual(fullStackOnly, ['full-stack-api-rehearsal']);
 });

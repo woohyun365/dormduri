@@ -7,6 +7,7 @@ import test from 'node:test';
 import {
   assertReusableImages,
   cleanupRehearsal,
+  keepRunImages,
   removeRunImages,
   runImageReferences,
 } from './cleanup.mjs';
@@ -223,6 +224,16 @@ test('skip-build reuse requires both images of a kept run', () => {
     () => assertReusableImages(runImages, { imageExists: (image) => image === runImages[0] }),
     /FULL_STACK_REHEARSAL_KEEP=1[\s\S]*missing dormduri-web:full-stack-r1/u,
   );
+});
+
+test('a failed skip-build reuse check keeps the kept image that is still there', () => {
+  const present = new Set([runImages[0]]);
+  assert.deepEqual(keepRunImages(runImages, { imageExists: (image) => present.has(image) }), {
+    kept: [runImages[0]],
+    removed: [],
+    absent: [runImages[1]],
+    failed: [],
+  });
 });
 
 test('legacy runtime file disables forwarding trust without changing its DB URLs', () => {

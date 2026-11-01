@@ -22,6 +22,13 @@ export function assertReusableImages(images, { imageExists }) {
   }
 }
 
+// A failed SKIP_BUILD reuse check must not remove the kept run's image that is still there.
+export function keepRunImages(images, { imageExists }) {
+  const result = { kept: [], removed: [], absent: [], failed: [] };
+  for (const image of images) (imageExists(image) ? result.kept : result.absent).push(image);
+  return result;
+}
+
 export function removeRunImages(images, { imageExists, removeImage }) {
   const result = { kept: [], removed: [], absent: [], failed: [] };
   for (const image of images) {

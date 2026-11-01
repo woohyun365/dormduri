@@ -110,15 +110,17 @@ scheduler를 만들지 않는다.
 
 ### 로컬 Docker 자원 label과 확인
 
-저장소 script가 Docker image store에 만드는 image와 이름 있는 volume에는 다음 label이 붙는다. Label은 남은 자원을
-골라 지우기 위한 표시이고 source 일치 근거가 아니다(위 "실행 전 결정 순서" 3번).
+저장소 script가 Docker image store에 만드는 image와, 실행마다 새로 만드는 project의 이름 있는 volume에는 다음
+label이 붙는다. Label은 남은 자원을 골라 지우기 위한 표시이고 source 일치 근거가 아니다(위 "실행 전 결정 순서" 3번).
 
-| Label                       | 값                                                                             |
-| --------------------------- | ------------------------------------------------------------------------------ |
-| `dormduri.local.created-by` | 만든 script의 저장소 상대 경로. Script 밖에서 compose를 직접 실행하면 `manual` |
-| `dormduri.local.run-id`     | 그 실행의 run ID. 없으면 `local`                                               |
+| Label                       | 값                                                                                                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dormduri.local.created-by` | 만든 script의 저장소 상대 경로. 값을 넘기지 않는 실행(compose 직접 실행, `pnpm web:observability:rehearsal`)은 `manual`이고, ingress fixture image는 그 Dockerfile 경로다 |
+| `dormduri.local.run-id`     | 그 실행의 run ID. 없으면 `local`                                                                                                                                          |
 
-- Full-stack rehearsal: rehearsal overlay의 API·Web build와 volume(`infra/rehearsal/compose.*.yml`). Keep-running이
+- Full-stack rehearsal: rehearsal overlay의 API·Web build(`infra/rehearsal/compose.*.yml`)와, 그 runner만 붙이는
+  `scripts/infra/rehearsal/full-stack/compose.volume-labels.*.yml`·full-stack profile만 쓰는
+  `infra/rehearsal/compose.postgres.yml`의 volume. Keep-running이
   아니면 정리 단계가 compose down 뒤 그 실행의 두 image(`dormduri-api:full-stack-<run id>`,
   `dormduri-web:full-stack-<run id>`)만 지우고 결과를 evidence `cleanup.images`에 남긴다. Keep-running이면 지우지 않고
   그 이름을 남긴다. `FULL_STACK_REHEARSAL_SKIP_BUILD=1`은 같은 `FULL_STACK_REHEARSAL_RUN_ID`의 keep-running 실행이
@@ -126,6 +128,10 @@ scheduler를 만들지 않는다.
   [full-stack runbook 종료 확인](./full-stack.md#종료-확인)을 따른다.
 - Dockerized smoke: 그 runner만 붙이는 `apps/api/test/stress/docker/compose.local-labels.yml`이 API image에 label을
   둔다. 운영 후보 `infra/deploy/compose.api.yml`의 build 정의에는 label이 없다.
+- 이름이 고정된 project(dockerized smoke의 `dormduri-api`·`dormduri-observability`, `pnpm infra:compose`로 직접 띄운
+  project, `pnpm web:observability:rehearsal`)의 volume에는 label을 두지 않는다. Compose는 volume label을 volume 설정
+  hash에 넣으므로, 실행마다 바뀌는 run ID label을 붙이면 다음 실행이 `Recreate (data will be lost)?`를 묻는다. 이
+  volume은 이름이 고정이라 쌓이지 않으며 `com.docker.compose.project` label로 찾는다.
 - Ingress fixture: [build 명령](../../rehearsal/README.md#account-free-ingress-fixture)이 label을 붙인다.
 - `pnpm infra:artifacts:build`는 OCI layout을 `.artifacts`에 쓰고 image store에 image를 남기지 않는다.
 
@@ -138,6 +144,7 @@ docker image ls -a --filter label=dormduri.local.created-by=scripts/infra/rehear
 docker image inspect --format '{{index .Config.Labels "dormduri.local.created-by"}} {{index .Config.Labels "dormduri.local.run-id"}}' <image>
 docker volume ls --filter label=dormduri.local.created-by \
   --format 'table {{.Name}}\t{{.Label "dormduri.local.created-by"}}\t{{.Label "dormduri.local.run-id"}}'
+docker volume ls --filter label=com.docker.compose.project=dormduri-api
 docker buildx du --builder dormduri-artifacts
 docker buildx du
 docker system df

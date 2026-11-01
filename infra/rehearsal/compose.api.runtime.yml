@@ -33,9 +33,3 @@ networks:
   observability:
     name: ${OBSERVABILITY_NETWORK:-dormduri-observability}
     external: true
-
-volumes:
-  api-secrets:
-    labels:
-      dormduri.local.created-by: ${LOCAL_RESOURCE_CREATED_BY:-manual}
-      dormduri.local.run-id: ${LOCAL_RESOURCE_RUN_ID:-local}

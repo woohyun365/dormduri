@@ -7,17 +7,3 @@ networks:
   observability:
     name: ${OBSERVABILITY_NETWORK:-dormduri-observability}
     external: true
-
-volumes:
-  prometheus-data:
-    labels: &local-resource-labels
-      dormduri.local.created-by: ${LOCAL_RESOURCE_CREATED_BY:-manual}
-      dormduri.local.run-id: ${LOCAL_RESOURCE_RUN_ID:-local}
-  loki-data:
-    labels: *local-resource-labels
-  alloy-data:
-    labels: *local-resource-labels
-  grafana-data:
-    labels: *local-resource-labels
-  alertmanager-data:
-    labels: *local-resource-labels

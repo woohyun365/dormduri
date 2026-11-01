@@ -103,7 +103,8 @@ docker network rm dormduri-full-stack-observability-<run-id>
 같은 image로 다시 확인하려면 image는 남긴 채 위 정리를 한 뒤 같은 `FULL_STACK_REHEARSAL_RUN_ID`와
 `FULL_STACK_REHEARSAL_SKIP_BUILD=1`로 실행한다. Project가 남아 있으면 PostgreSQL이 앞 실행의 volume과 password로 다시
 올라와 DB 단계가 실패한다. 재사용 실행이 keep-running이 아니면 끝날 때 project와 image를 정리한다. 다시 확인하지
-않으면 `cleanup.images.kept`의 두 image를 `docker image rm`으로 지운다. 앞 실행이 keep-running이 아니어서 image가
-없으면 SKIP_BUILD 실행은 build 없이 실패하고 다른 image를 지우지 않는다. 남은 자원 확인은
+않으면 `cleanup.images.kept`의 두 image를 `docker image rm`으로 지운다. 그 run id의 image가 하나라도 없으면(앞 실행이
+keep-running이 아니었을 때 등) SKIP_BUILD 실행은 build 없이 실패하고, 남은 image는 지우지 않고 `cleanup.images.kept`에
+남긴다. 남은 자원 확인은
 [로컬 환경 runbook](./local-environments.md#로컬-docker-자원-label과-확인)을 따른다. 일반 완료
 evidence는 자동 cleanup 두 번이 모두 통과한 실행만 인정한다.

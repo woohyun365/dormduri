@@ -19,7 +19,8 @@
 - private API env: `infra/deploy/.env.api` (없으면 local rehearsal용 값으로 자동 생성, 커밋 금지)
 - raw artifacts: `apps/api/test/stress/reports/.tmp-*` (실행 후 제거)
 - API image 로컬 label: runner가 모든 profile 뒤에 `compose.local-labels.yml`을 붙여 `dormduri.local.created-by`·
-  `dormduri.local.run-id`를 둔다. 남은 image 확인·정리는 `infra/runbooks/rehearsal/local-environments.md`를 따른다.
+  `dormduri.local.run-id`를 둔다. Project 이름이 고정이라 volume에는 label을 두지 않는다. 남은 image·volume 확인과
+  정리는 `infra/runbooks/rehearsal/local-environments.md`를 따른다.
 
 ## Smoke 실행
 

@@ -17,6 +17,7 @@ import {
 import {
   assertReusableImages,
   cleanupRehearsal,
+  keepRunImages,
   removeRunImages,
   runImageReferences,
 } from './cleanup.mjs';
@@ -92,6 +93,7 @@ let apiComposeArguments;
 let webComposeArguments;
 let createdNetworks = [];
 let runImages = [];
+let reuseCheckFailed = false;
 
 function recordScenario(name, status, detail) {
   evidence.scenarios.push({ name, status, detail });
@@ -221,15 +223,18 @@ function configureCompose() {
   };
 
   const apiProfile = databaseMode === 'local' ? 'full-stack-api-rehearsal' : 'api-rehearsal';
+  // The run-scoped projects label their named volumes; fixed-name profiles stay unlabeled (see the overlay header).
   apiComposeArguments = buildComposeArgs(inventory, apiProfile, [], {
     repoRoot,
     projectName: apiProject,
     envFile: false,
+    extraFiles: ['scripts/infra/rehearsal/full-stack/compose.volume-labels.api.yml'],
   });
   webComposeArguments = buildComposeArgs(inventory, 'full-stack-web-rehearsal', [], {
     repoRoot,
     projectName: webProject,
     envFile: false,
+    extraFiles: ['scripts/infra/rehearsal/full-stack/compose.volume-labels.web.yml'],
   });
   createdNetworks = ensureProfileNetworks(getComposeProfile(inventory, apiProfile), {
     repoRoot,
@@ -532,7 +537,13 @@ async function main() {
     const webConfig = JSON.parse(webComposeOutput('config', '--format', 'json'));
     runImages = runImageReferences({ apiConfig, webConfig, runId });
     if (skipBuild) {
-      assertReusableImages(runImages, { imageExists });
+      try {
+        assertReusableImages(runImages, { imageExists });
+      } catch (error) {
+        // Cleanup then keeps whichever image of the kept run is still there.
+        reuseCheckFailed = true;
+        throw error;
+      }
       recordScenario('skip-build-image-reuse', 'pass', 'reused images of the kept run');
     }
     const resourceBudget = verifyResourceBudget({
@@ -588,7 +599,10 @@ async function main() {
       countProjectResources,
       recordScenario,
       runImages,
-      removeImages: () => removeRunImages(runImages, { imageExists, removeImage }),
+      removeImages: () =>
+        reuseCheckFailed
+          ? keepRunImages(runImages, { imageExists })
+          : removeRunImages(runImages, { imageExists, removeImage }),
     });
     rmSync(temporaryDirectory, { recursive: true, force: true });
     writeRehearsalEvidence({
