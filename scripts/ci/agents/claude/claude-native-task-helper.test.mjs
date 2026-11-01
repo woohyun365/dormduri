@@ -249,14 +249,10 @@ function retiredBuildSpec(r, patch = {}) {
 // Implementation is the Parent's own work (D-OSS-35): prepare names the retirement instead of a generic gap.
 test('executor retirement: prepare refuses a build spec with its reason and still registers the extraction', (t) => {
   const r = repo(t);
-  // Without the build kind the retired role is simply no repository role.
-  assert.throws(
-    () => prepareClaudeNativeTask(retiredBuildSpec(r, { kind: 'read' }), { root: r.root }),
-    /unknown-role/u,
-  );
   for (const spec of [
     retiredBuildSpec(r),
     retiredBuildSpec(r, { role: 'knu_explorer' }),
+    retiredBuildSpec(r, { kind: 'read', writeScope: [] }),
     // The bound step-2 retry climbed from the executor to the xhigh executor.
     retiredBuildSpec(r, {
       role: 'knu_executor_xhigh',

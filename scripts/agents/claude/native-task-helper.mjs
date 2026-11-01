@@ -32,7 +32,7 @@ import {
 } from '../common/review-adjudication.mjs';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { prepareClaudeWorkflow } from './workflow-entry.mjs';
-import { IMPLEMENTATION_RETIRED, isRetiredClaudeKind } from './model-policy.mjs';
+import { IMPLEMENTATION_RETIRED, isRetiredClaudeTask } from './model-policy.mjs';
 import { CHILD_TRANSCRIPT_BYTE_LIMIT } from './native-session-evidence.mjs';
 import {
   registerClaudeNativeTask,
@@ -137,7 +137,7 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
   if (typeof spec.owner !== 'string' || !ID.test(spec.owner)) issues.push('owner-identifier');
   if (!textList(spec.acceptance) || !spec.acceptance.length) issues.push('acceptance-required');
   if (!Array.isArray(spec.facts) || !spec.facts.length) issues.push('facts-required');
-  if (isRetiredClaudeKind(spec.kind)) issues.push(IMPLEMENTATION_RETIRED);
+  if (isRetiredClaudeTask(spec)) issues.push(IMPLEMENTATION_RETIRED);
   else if (!KNU_ROLES.includes(spec.role)) issues.push('unknown-role');
   // Checked here because the delivery rule below would turn an empty prompt into a non-empty one.
   if (typeof spec.prompt !== 'string' || !spec.prompt.trim()) issues.push('prompt-required');

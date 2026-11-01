@@ -30,10 +30,17 @@ const ROLE_TOOLS = deepFreeze({
 // retired build kind is refused with this reason instead of a generic gap.
 export const IMPLEMENTATION_RETIRED =
   'implementation-retired: the build kind and its executor roles were retired; the Parent implements and has its diff reviewed with /knu-review --parent-subject';
+// The former build roles, named only so a task that still asks for one gets the retirement reason
+// rather than a bare unknown role.
+const RETIRED_BUILD_ROLES = new Set(['knu_executor', 'knu_executor_xhigh']);
 // The kind-role table (`rolesForKind`) is the one source: build is retired because no role takes it, so
-// the helper, the session and eligibility refuse it only while that table has no build row.
-export function isRetiredClaudeKind(kind) {
-  return kind === 'build' && rolesForKind(kind).length === 0;
+// the helper, the session and eligibility refuse a build task, or a task naming a former build role,
+// only while that table has no build row.
+export function isRetiredClaudeTask(task) {
+  return (
+    rolesForKind('build').length === 0 &&
+    (task?.kind === 'build' || RETIRED_BUILD_ROLES.has(task?.role))
+  );
 }
 
 const PROFILES = deepFreeze([
@@ -217,7 +224,7 @@ export function listClaudeSubagentProfiles() {
 }
 
 export function evaluateClaudeProfileEligibility(input) {
-  if (isRetiredClaudeKind(input?.task?.kind))
+  if (isRetiredClaudeTask(input?.task))
     return deepFreeze({ eligible: false, reasons: ['implementation-retired'] });
   const reasons = [];
   try {
