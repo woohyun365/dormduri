@@ -18,6 +18,9 @@ const generated = new Set([
   'test-results',
   'logs',
 ]);
+// Path-scoped .dockerignore rules inside the COPY roots; index.test.mjs checks every such rule.
+const contextExcluded =
+  /^(?:apps\/web\/playwright\/\.auth|apps\/api\/test\/stress\/(?:fixtures|reports)\/\.tmp-[^/]*)$/u;
 export function sourceManifest(root, fixtureRoot = resolve(root, fixturePath)) {
   const files = {};
   const file = (absolute, name) => {
@@ -25,14 +28,15 @@ export function sourceManifest(root, fixtureRoot = resolve(root, fixturePath)) {
   };
   const walk = (name) => {
     for (const entry of readdirSync(resolve(root, name), { withFileTypes: true })) {
+      const child = `${name}/${entry.name}`;
       if (
         generated.has(entry.name) ||
         entry.name.startsWith('.env') ||
         /(?:\.log|\.map|\.tsbuildinfo)$/u.test(entry.name) ||
-        entry.name === '.DS_Store'
+        entry.name === '.DS_Store' ||
+        contextExcluded.test(child)
       )
         continue;
-      const child = `${name}/${entry.name}`;
       if (entry.isDirectory()) walk(child);
       else if (entry.isFile()) file(resolve(root, child), child);
       else throw new Error(`Unsupported fixture source entry: ${child}`);

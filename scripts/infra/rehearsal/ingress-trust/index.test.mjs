@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { assertSourceManifest, sourceManifest } from './source-manifest.mjs';
 import test from 'node:test';
 import { expectedReset } from './client.mjs';
@@ -138,6 +138,87 @@ test('image attribution rejects missing/stale/manipulated source snapshots and i
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+function withSourceRoot(check) {
+  const root = mkdtempSync(resolve(tmpdir(), 'knu-ingress-source-'));
+  try {
+    for (const name of [
+      'package.json',
+      'pnpm-lock.yaml',
+      'pnpm-workspace.yaml',
+      'apps/api/src/example.ts',
+      'apps/web/src/example.ts',
+      'packages/shared/src/example.ts',
+      'scripts/infra/rehearsal/ingress-trust/client.mjs',
+    ]) {
+      mkdirSync(dirname(resolve(root, name)), { recursive: true });
+      writeFileSync(resolve(root, name), 'baseline');
+    }
+    check(root, sourceManifest(root));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+// Adds a file, or a directory holding one, at `path`; the image build context never receives either.
+function assertDropped(root, original, path, message) {
+  for (const target of [path, `${path}/child`]) {
+    mkdirSync(dirname(resolve(root, target)), { recursive: true });
+    writeFileSync(resolve(root, target), 'local');
+    assert.doesNotThrow(() => assertSourceManifest(original, sourceManifest(root)), message);
+    rmSync(resolve(root, path), { recursive: true, force: true });
+  }
+}
+
+test('image attribution drops local auth state and stress temp files but keeps their siblings', () => {
+  withSourceRoot((root, original) => {
+    for (const path of [
+      'apps/web/playwright/.auth',
+      'apps/api/test/stress/fixtures/.tmp-run',
+      'apps/api/test/stress/reports/.tmp-run',
+    ])
+      assertDropped(root, original, path, path);
+    for (const path of [
+      'apps/web/playwright/keep.spec.ts',
+      'apps/api/test/stress/fixtures/keep.json',
+      'apps/web/src/.auth',
+      'apps/api/src/.tmp-run',
+    ]) {
+      mkdirSync(dirname(resolve(root, path)), { recursive: true });
+      writeFileSync(resolve(root, path), 'source');
+      assert.throws(() => assertSourceManifest(original, sourceManifest(root)), /Stale/u, path);
+      rmSync(resolve(root, path), { force: true });
+    }
+  });
+});
+
+test('source manifest drops every .dockerignore exclusion under the fixture COPY roots', () => {
+  const lines = readFileSync(new URL('../../../../.dockerignore', import.meta.url), 'utf8')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#') && !line.startsWith('!'));
+  const checked = { anyDepth: 0, scoped: 0 };
+  withSourceRoot((root, original) => {
+    for (const line of lines) {
+      const pattern = line.replace(/\/$/u, '');
+      let path;
+      if (pattern.startsWith('**/')) {
+        path = `apps/web/src/${pattern.slice(3)}`;
+        checked.anyDepth++;
+      } else if (/^(?:apps\/(?:api|web)|packages)\//u.test(pattern)) {
+        path = pattern;
+        checked.scoped++;
+      } else continue;
+      assert.match(
+        path,
+        /^[\w.*/-]+$/u,
+        `Unsupported .dockerignore syntax for this check: ${line}`,
+      );
+      assert.doesNotMatch(path, /\*\*/u, `Nested ** in ${line}`);
+      assertDropped(root, original, path.replaceAll('*', 'x'), line);
+    }
+  });
+  assert.ok(checked.anyDepth > 0 && checked.scoped > 0, JSON.stringify(checked));
 });
 
 function cleanupDouble({ foreign = false, failDown = false, leftover = false } = {}) {
