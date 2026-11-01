@@ -18,7 +18,7 @@ overrides:
   # GHSA-6pq8-jhm2-2vcw. Its body parser calls only qs.parse, and the urlencoded and
   # JSON body tests in apps/api guard the raised line. Remove this selector when a
   # @nestjs/platform-node release depends on qs 6.16.1 or newer.
-  '@nestjs/platform-node>qs': 6.17.0
+  '@nestjs/platform-node>qs': 6.17.1
   # Vite (^0.27 || ^0.28) and Storybook (^0.18 ... ^0.28) still admit esbuild
   # lines below 0.28.1 (GHSA-gv7w-rqvm-qjhr), so one root floor keeps every build
   # parent on the patched line; the dependency-health contract checks it. Remove
