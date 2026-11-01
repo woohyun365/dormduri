@@ -9,7 +9,7 @@ permissions:
 jobs:
   api:
     name: API core gate
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     env:
       DATABASE_URL: postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public
@@ -96,7 +96,7 @@ jobs:
 
   api-integration:
     name: API integration shard (${{ matrix.label }})
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
