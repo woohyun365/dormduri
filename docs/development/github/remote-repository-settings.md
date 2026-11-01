@@ -46,7 +46,7 @@ uses와 repository owner 승인을 다시 확인합니다.
 [Monorepo CI architecture](../../architecture/platform/monorepo-ci.md#branch-protection-적용)와
 [`dev` up-to-date gate evidence](../../evidence/ci/dev-up-to-date-gate-evidence.md)가 소유합니다. 저장소의 "Always suggest
 updating pull request branches"(`allow_update_branch`)는 꺼 둡니다. Base가 최신을 요구하는 PR에는 그래도 Update branch가
-보입니다.
+보이고, `gh pr update-branch`도 됩니다.
 
 Required `CI summary`의 expected source는 GitHub Actions로 제한해 같은 이름의 외부 status가 merge gate를 대체하지 못하게
 합니다.
@@ -98,7 +98,7 @@ consumer가 확인된 경우에만 classic Branches 전환을 별도 migration�
 | `dev` ruleset               | `dev-integration-gate` active on exact `dev`; linear history, squash only, no bypass                                                                                                                                                        | `VERIFIED_REMOTE`      |
 | `main` ruleset              | `main-release-gate` active on default branch; no linear rule, merge only, no bypass                                                                                                                                                         | `VERIFIED_REMOTE`      |
 | PR rule                     | both zero approvals and conversation resolution; target-specific merge method                                                                                                                                                               | `VERIFIED_REMOTE`      |
-| Required status             | both require `CI summary`, GitHub Actions app `15368`; strict up-to-date `dev` off·`main` off(기대 `dev` on, Owner console 적용 대기)                                                                                                       | `PENDING_OWNER_ACTION` |
+| Required status             | both require `CI summary`, GitHub Actions app `15368`; strict up-to-date `dev` on·`main` off                                                                                                                                                | `VERIFIED_REMOTE`      |
 | Force push / deletion       | non-fast-forward and deletion blocked                                                                                                                                                                                                       | `VERIFIED_REMOTE`      |
 | Vulnerability alerts        | endpoint `204`                                                                                                                                                                                                                              | `VERIFIED_REMOTE`      |
 | Dependabot malware alerts   | enabled(2026-08-27)                                                                                                                                                                                                                         | `VERIFIED_OWNER_UI`    |

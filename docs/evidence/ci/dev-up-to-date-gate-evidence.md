@@ -78,8 +78,12 @@ Bot PR은 막히지 않습니다. Renovate의 `rebaseWhen=auto`는 자동 merge 
 
 ## 6. 적용과 첫 관측
 
-- 적용: Owner가 GitHub console에서 켭니다. 켠 뒤 read-only 조회로 확인합니다(적용 대기).
-- 첫 관측: 이 기록을 더한 PR이 strict 아래에서 merge되는 것(적용 대기).
+- 적용: Owner가 2026-11-01 GitHub console에서 켰습니다. 04:48Z read-only 조회(`repos/{owner}/{repo}/rulesets/{id}`,
+  `repos/{owner}/{repo}/rules/branches/{branch}`)에서 `dev-integration-gate`의 `strict_required_status_checks_policy`는 true,
+  `main-release-gate`는 false, 저장소 `allow_update_branch`는 false였습니다.
+- 첫 관측: 이 기록을 더한 PR [#798](https://github.com/woohyun365/dormduri/pull/798)은 CI를 통과한 뒤 strict를 켜자 그 사이 `dev`에
+  들어온 commit 하나(#790) 때문에 merge 상태가 `BEHIND`로 바뀌어 merge가 막혔습니다. `gh pr update-branch`는
+  `allow_update_branch`가 꺼져 있어도 `dev`를 PR branch에 merge했고, 그 뒤 `CI summary`를 다시 통과해야 merge됩니다.
 - 아직 관측하지 않은 것: strict 아래 첫 Renovate 자동 merge PR의 merge, 첫 자동 merge가 아닌 Renovate PR의 rebase 동작.
 
 ## 7. 한계와 재측정 조건
