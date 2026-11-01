@@ -15,7 +15,7 @@ permissions:
 jobs:
   web-core:
     name: Web static/build/browser gate
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 40
     env:
       NEXT_PUBLIC_APP_URL: https://ci.knu-roommate.invalid
@@ -141,7 +141,7 @@ jobs:
 
   web-unit:
     name: Web unit gate
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     env:
       NEXT_PUBLIC_APP_URL: https://ci.knu-roommate.invalid
