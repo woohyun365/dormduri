@@ -1,0 +1,25 @@
+# BuildKit daemon config for the `dormduri-artifacts` buildx builder that scripts/infra/artifacts/build.mjs creates.
+# The GC limits keep the local build cache at most 20GB and drop cache unused for 14 days, instead of the
+# BuildKit defaults (about 93GiB, 60 days). Field names: https://docs.docker.com/build/cache/garbage-collection/
+# build.mjs checks the applied policy with `docker buildx inspect` after bootstrap. After editing this file,
+# remove and recreate the builder (infra/runbooks/rehearsal/local-environments.md).
+[worker.oci]
+  gc = true
+
+# Build contexts, cache mounts and git checkouts.
+[[worker.oci.gcpolicy]]
+  filters = ["type==source.local", "type==exec.cachemount", "type==source.git.checkout"]
+  keepDuration = "48h"
+  maxUsedSpace = "512MB"
+
+# Cache records unused for 14 days.
+[[worker.oci.gcpolicy]]
+  keepDuration = "336h"
+  reservedSpace = "2GB"
+  maxUsedSpace = "20GB"
+
+# Upper bound for everything that remains.
+[[worker.oci.gcpolicy]]
+  all = true
+  reservedSpace = "2GB"
+  maxUsedSpace = "20GB"

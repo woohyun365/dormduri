@@ -1,5 +1,9 @@
 services:
   api:
+    build:
+      labels:
+        dormduri.local.created-by: ${LOCAL_RESOURCE_CREATED_BY:-manual}
+        dormduri.local.run-id: ${LOCAL_RESOURCE_RUN_ID:-local}
     networks:
       - api-internal
       - observability
@@ -27,5 +31,11 @@ networks:
   api-internal:
     driver: bridge
   observability:
-    name: ${OBSERVABILITY_NETWORK:-knu-roommate-observability}
+    name: ${OBSERVABILITY_NETWORK:-dormduri-observability}
     external: true
+
+volumes:
+  api-secrets:
+    labels:
+      dormduri.local.created-by: ${LOCAL_RESOURCE_CREATED_BY:-manual}
+      dormduri.local.run-id: ${LOCAL_RESOURCE_RUN_ID:-local}

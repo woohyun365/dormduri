@@ -84,18 +84,18 @@
 
 ## 8. Observability readout
 
-| Area                                               | Result            | Evidence |
-| -------------------------------------------------- | ----------------- | -------- |
-| Prometheus `api` target UP                         | pass / fail       |          |
-| Grafana `KNU API Overview` reviewed                | pass / fail       |          |
-| Grafana `KNU API Realtime/Auth/Retention` reviewed | pass / fail       |          |
-| HTTP 5xx budget                                    | pass / fail       |          |
-| HTTP latency budget                                | pass / fail       |          |
-| Prisma pool waiting                                | pass / fail       |          |
-| Realtime outbox lag                                | pass / fail / n/a |          |
-| Auth cleanup target saturation / failure           | pass / fail / n/a |          |
-| Retention backlog                                  | pass / fail / n/a |          |
-| Loki error query reviewed                          | pass / fail / n/a |          |
+| Area                                                  | Result            | Evidence |
+| ----------------------------------------------------- | ----------------- | -------- |
+| Prometheus `api` target UP                            | pass / fail       |          |
+| Grafana `돔두리 API Overview` reviewed                | pass / fail       |          |
+| Grafana `돔두리 API Realtime/Auth/Retention` reviewed | pass / fail       |          |
+| HTTP 5xx budget                                       | pass / fail       |          |
+| HTTP latency budget                                   | pass / fail       |          |
+| Prisma pool waiting                                   | pass / fail       |          |
+| Realtime outbox lag                                   | pass / fail / n/a |          |
+| Auth cleanup target saturation / failure              | pass / fail / n/a |          |
+| Retention backlog                                     | pass / fail / n/a |          |
+| Loki error query reviewed                             | pass / fail / n/a |          |
 
 ## 9. Decision
 

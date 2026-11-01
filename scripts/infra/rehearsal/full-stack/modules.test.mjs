@@ -4,7 +4,12 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { cleanupRehearsal } from './cleanup.mjs';
+import {
+  assertReusableImages,
+  cleanupRehearsal,
+  removeRunImages,
+  runImageReferences,
+} from './cleanup.mjs';
 import { verifyResourceBudget } from './resource-budget.mjs';
 import {
   createRuntimeSecrets,
@@ -122,6 +127,102 @@ test('cleanup repeats the same boundary and records idempotent completion', () =
   assert.equal(inspections, 2);
   assert.equal(evidence.cleanup.secondPass, true);
   assert.equal(scenarios[0]?.[0], 'cleanup-idempotency');
+});
+
+const runImages = ['dormduri-api:full-stack-r1', 'dormduri-web:full-stack-r1'];
+const composeConfigs = (apiImage, webImage) => ({
+  apiConfig: { services: { api: { image: apiImage } } },
+  webConfig: { services: { web: { image: webImage } } },
+});
+
+test('run image references come from the rendered configs and must carry this run tag', () => {
+  assert.deepEqual(runImageReferences({ ...composeConfigs(...runImages), runId: 'r1' }), runImages);
+  assert.throws(
+    () =>
+      runImageReferences({
+        ...composeConfigs('dormduri-api:full-stack-r1', 'dormduri-web:local-rehearsal'),
+        runId: 'r1',
+      }),
+    /not tagged for this run/u,
+  );
+  assert.throws(
+    () => runImageReferences({ apiConfig: {}, webConfig: {}, runId: 'r1' }),
+    /missing/u,
+  );
+});
+
+test('cleanup removes only the two run images after compose down and records each outcome', () => {
+  const evidence = { cleanup: {} };
+  const order = [];
+  const existing = new Set([runImages[0], 'nginx:base', 'dormduri-web:other-run']);
+  cleanupRehearsal({
+    evidence,
+    keepRunning: false,
+    apiComposeArguments: ['compose', '-p', 'api'],
+    webComposeArguments: ['compose', '-p', 'web'],
+    safeComposeDown: () => order.push('down'),
+    cleanupNetworks: () => {},
+    noProjectResourcesRemain: () => true,
+    countProjectResources: () => 0,
+    recordScenario: () => {},
+    runImages,
+    removeImages: () =>
+      removeRunImages(runImages, {
+        imageExists: (image) => existing.has(image),
+        removeImage: (image) => {
+          order.push(`rm ${image}`);
+          return existing.delete(image);
+        },
+      }),
+  });
+
+  assert.deepEqual(order, ['down', 'down', 'down', 'down', `rm ${runImages[0]}`]);
+  assert.deepEqual(evidence.cleanup.images, {
+    kept: [],
+    removed: [runImages[0]],
+    absent: [runImages[1]],
+    failed: [],
+  });
+  assert.deepEqual([...existing].sort(), ['dormduri-web:other-run', 'nginx:base']);
+});
+
+test('image removal failure is recorded without failing cleanup', () => {
+  assert.deepEqual(
+    removeRunImages(runImages, { imageExists: () => true, removeImage: () => false }),
+    { kept: [], removed: [], absent: [], failed: runImages },
+  );
+});
+
+test('keep-running leaves the run images and records their exact names', () => {
+  const evidence = { cleanup: {} };
+  let removals = 0;
+  cleanupRehearsal({
+    evidence,
+    keepRunning: true,
+    apiComposeArguments: ['compose', '-p', 'api'],
+    webComposeArguments: ['compose', '-p', 'web'],
+    safeComposeDown: () => assert.fail('keep-running must not run compose down'),
+    cleanupNetworks: () => {},
+    noProjectResourcesRemain: () => true,
+    countProjectResources: () => 0,
+    recordScenario: () => {},
+    runImages,
+    removeImages: () => {
+      removals += 1;
+      return { kept: [], removed: [], absent: [], failed: [] };
+    },
+  });
+
+  assert.equal(removals, 0);
+  assert.deepEqual(evidence.cleanup.images.kept, runImages);
+});
+
+test('skip-build reuse requires both images of a kept run', () => {
+  assert.doesNotThrow(() => assertReusableImages(runImages, { imageExists: () => true }));
+  assert.throws(
+    () => assertReusableImages(runImages, { imageExists: (image) => image === runImages[0] }),
+    /FULL_STACK_REHEARSAL_KEEP=1[\s\S]*missing dormduri-web:full-stack-r1/u,
+  );
 });
 
 test('legacy runtime file disables forwarding trust without changing its DB URLs', () => {

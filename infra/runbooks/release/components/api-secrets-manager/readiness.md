@@ -7,15 +7,15 @@
 
 ## Release 입력
 
-| 입력                            | 현재 값                                                       |
-| ------------------------------- | ------------------------------------------------------------- |
-| AWS account / region            | `PENDING_TARGET`                                              |
-| Secret prefix                   | `/knu-roommate/production/api` 후보, 실제 값 `PENDING_TARGET` |
-| KMS key                         | 초기 `aws/secretsmanager`, 실제 확인 `PENDING_TARGET`         |
-| GitHub protected environment    | `PENDING_TARGET`                                              |
-| GitHub OIDC provider / role ARN | `PENDING_TARGET`                                              |
-| Rotation / break-glass owner    | `PENDING_TARGET`                                              |
-| CloudTrail audit destination    | `PENDING_TARGET`                                              |
+| 입력                            | 현재 값                                                   |
+| ------------------------------- | --------------------------------------------------------- |
+| AWS account / region            | `PENDING_TARGET`                                          |
+| Secret prefix                   | `/dormduri/production/api` 후보, 실제 값 `PENDING_TARGET` |
+| KMS key                         | 초기 `aws/secretsmanager`, 실제 확인 `PENDING_TARGET`     |
+| GitHub protected environment    | `PENDING_TARGET`                                          |
+| GitHub OIDC provider / role ARN | `PENDING_TARGET`                                          |
+| Rotation / break-glass owner    | `PENDING_TARGET`                                          |
+| CloudTrail audit destination    | `PENDING_TARGET`                                          |
 
 ## 준비 절차
 

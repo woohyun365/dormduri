@@ -93,7 +93,7 @@ describe('Lightsail secret delivery contract', () => {
       .filter(Boolean);
     const violations = workflowFiles.filter((path) => {
       const content = readFileSync(join(repoRoot, path), 'utf8');
-      return /upload-artifact[\s\S]{0,500}(?:secret-bundle|\/var\/lib\/knu-roommate\/secrets)/u.test(
+      return /upload-artifact[\s\S]{0,500}(?:secret-bundle|\/var\/lib\/dormduri\/secrets)/u.test(
         content,
       );
     });
@@ -199,8 +199,8 @@ describe('Lightsail secret delivery contract', () => {
     const contract = readContract();
 
     expect(compose).toContain('${API_SECRET_HOST_CURRENT:-api-secrets}');
-    expect(compose).toContain('/run/secrets/knu-roommate-api:ro');
-    expect(dockerfile).toContain(`groupadd --system --gid ${contract.runtimeGid} knu`);
+    expect(compose).toContain('/run/secrets/dormduri-api:ro');
+    expect(dockerfile).toContain(`groupadd --system --gid ${contract.runtimeGid} dormduri`);
     expect(dockerfile).toContain(`useradd --system --uid ${contract.runtimeUid}`);
     expect(dockerfile).not.toContain('secret-mount.contract.json');
     expect(dockerfile).not.toContain('private-fixture-');

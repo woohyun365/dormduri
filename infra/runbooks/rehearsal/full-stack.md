@@ -36,7 +36,9 @@ orbctl start
 4. metrics 인증, Prometheus scrape, API stdout의 Alloy→Loki 수집을 검사한다.
 5. Alloy, Loki, Prometheus, Grafana를 하나씩 중단해도 제품 요청이 유지되는지 확인한다.
 6. 게시 port가 loopback 전용인지, API/Web filesystem에 실행 중 생성한 secret이 없는지 확인한다.
-7. Compose project를 `down --volumes --remove-orphans`로 두 번 정리한다.
+7. Compose project를 `down --volumes --remove-orphans`로 두 번 정리하고, 그 실행이 build한 두 image
+   (`dormduri-api:full-stack-<run-id>`, `dormduri-web:full-stack-<run-id>`)만 지운다. Image 삭제 결과는 evidence
+   `cleanup.images`에 남고, 삭제 실패는 실행 결과를 바꾸지 않는다.
 
 ## Resource budget
 
@@ -67,6 +69,7 @@ secret과 DB URL을 기록하지 않는다. 임시 password, HMAC key, metrics t
 - `observability-*-fail-open`: 관측 component 장애가 제품 요청에 영향을 주거나 복구되지 않았다.
 - `runtime-artifact-secret-scan`: 실행 중 생성한 secret이 container filesystem에 포함됐다.
 - `cleanup-idempotency`: 두 번째 cleanup 후에도 project container 또는 volume이 남았다.
+- `rehearsal-blocker`의 `FULL_STACK_REHEARSAL_SKIP_BUILD=1 reuses only …`: 재사용할 image가 없다(아래 종료 확인).
 
 실패해도 실행기는 가능한 범위에서 cleanup과 secret-free evidence 작성을 시도한다. 실패 원인은
 evidence의 `blocker`와 scenario result를 기준으로 수정하고 같은 명령을 다시 실행한다.
@@ -86,6 +89,10 @@ URL에 `prod` 또는 `production`이 포함되면 실행을 거부한다. 이 op
 
 ## 종료 확인
 
-정상 실행은 container와 disposable volume을 자동 제거한다. 진단 목적으로 resource를 유지하려면
-`FULL_STACK_REHEARSAL_KEEP=1`을 사용할 수 있지만, 확인 뒤 동일 run id의 Compose project를
-수동 정리해야 한다. 일반 완료 evidence는 자동 cleanup 두 번이 모두 통과한 실행만 인정한다.
+정상 실행은 container와 disposable volume, 그 실행의 두 image를 자동 제거한다. 진단 목적으로 resource를
+유지하려면 `FULL_STACK_REHEARSAL_KEEP=1`을 사용할 수 있지만, 확인 뒤 동일 run id의 Compose project와 image를
+정리해야 한다. 이때 image 이름은 evidence `cleanup.images.kept`에 남는다. 같은 image로 다시 확인하려면 같은
+`FULL_STACK_REHEARSAL_RUN_ID`와 `FULL_STACK_REHEARSAL_SKIP_BUILD=1`로 실행한다. 그 실행이 keep-running이 아니면 끝날 때
+project와 image를 정리한다. 앞 실행이 keep-running이 아니어서 image가 없으면 build 없이 실패하고 다른 image를 지우지
+않는다. 남은 자원 확인은 [로컬 환경 runbook](./local-environments.md#로컬-docker-자원-label과-확인)을 따른다. 일반 완료
+evidence는 자동 cleanup 두 번이 모두 통과한 실행만 인정한다.

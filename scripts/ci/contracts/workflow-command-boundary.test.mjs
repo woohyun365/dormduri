@@ -470,7 +470,7 @@ test('infrastructure CI separates static and container-backed validation', () =>
   assert.ok(!infraWorkflow.includes('secrets.'));
   assert.ok(infraWorkflow.includes('runner.temp'));
   assertIncludesAll(infraWorkflow, [
-    'KNU_ARTIFACTS_DIR=$RUNNER_TEMP/knu-roommate-artifacts',
+    'KNU_ARTIFACTS_DIR=$RUNNER_TEMP/dormduri-artifacts',
     '>> "$GITHUB_ENV"',
   ]);
   assert.ok(!infraWorkflow.includes('KNU_ARTIFACTS_DIR: ${{ runner.temp }}'));
@@ -625,7 +625,7 @@ test('Web CI reuses one production build and preserves bounded browser evidence'
   assertIncludesAll(playwrightConfig, [
     'usePrebuiltStandalone',
     'standaloneServerCommand',
-    'NEXT_PUBLIC_APP_URL=https://ci.knu-roommate.invalid',
+    'NEXT_PUBLIC_APP_URL=https://ci.dormduri.invalid',
   ]);
   assertIncludesAll(webWorkflow, [
     'run_storybook:',

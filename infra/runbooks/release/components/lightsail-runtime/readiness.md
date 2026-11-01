@@ -7,16 +7,16 @@ instance가 없으므로 `PENDING_TARGET`다.
 
 ## Release 입력
 
-| 입력                                  | 현재 값                             |
-| ------------------------------------- | ----------------------------------- |
-| Lightsail bundle / region / instance  | `PENDING_TARGET`                    |
-| Static IP / firewall                  | `PENDING_TARGET`                    |
-| Deploy user / SSH key / sudo boundary | `PENDING_TARGET`                    |
-| Secret release root                   | `/var/lib/knu-roommate/secrets/api` |
-| Container mount root                  | `/run/secrets/knu-roommate-api`     |
-| API runtime UID/GID                   | `10001:10001`                       |
-| Snapshot / disk headroom / retention  | `PENDING_TARGET`                    |
-| Current / previous release retention  | 최소 2개, 실제 값 `PENDING_TARGET`  |
+| 입력                                  | 현재 값                            |
+| ------------------------------------- | ---------------------------------- |
+| Lightsail bundle / region / instance  | `PENDING_TARGET`                   |
+| Static IP / firewall                  | `PENDING_TARGET`                   |
+| Deploy user / SSH key / sudo boundary | `PENDING_TARGET`                   |
+| Secret release root                   | `/var/lib/dormduri/secrets/api`    |
+| Container mount root                  | `/run/secrets/dormduri-api`        |
+| API runtime UID/GID                   | `10001:10001`                      |
+| Snapshot / disk headroom / retention  | `PENDING_TARGET`                   |
+| Current / previous release retention  | 최소 2개, 실제 값 `PENDING_TARGET` |
 
 ## 준비 절차
 

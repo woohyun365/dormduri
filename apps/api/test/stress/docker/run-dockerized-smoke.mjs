@@ -47,10 +47,10 @@ const authPasswordCapacityRun = process.env.STRESS_DOCKER_AUTH_PASSWORD_CAPACITY
 const authPasswordCapacityProfile = process.env.STRESS_AUTH_CAPACITY_PROFILE || 'h1';
 const localRehearsalRun = process.env.STRESS_DOCKER_LOCAL_REHEARSAL === 'true';
 const targetUrl = process.env.STRESS_TARGET_URL || 'http://127.0.0.1:8080';
-const dockerProjectName = process.env.STRESS_DOCKER_COMPOSE_PROJECT || 'knu-roommate-api';
+const dockerProjectName = process.env.STRESS_DOCKER_COMPOSE_PROJECT || 'dormduri-api';
 const observabilityProjectName =
-  process.env.STRESS_OBSERVABILITY_COMPOSE_PROJECT || 'knu-roommate-observability';
-const observabilityNetwork = process.env.OBSERVABILITY_NETWORK || 'knu-roommate-observability';
+  process.env.STRESS_OBSERVABILITY_COMPOSE_PROJECT || 'dormduri-observability';
+const observabilityNetwork = process.env.OBSERVABILITY_NETWORK || 'dormduri-observability';
 const postgresContainerName =
   process.env.STRESS_POSTGRES_CONTAINER_NAME || 'knu-roommate-postgres-dev';
 const localDatabaseUrl =
@@ -70,6 +70,10 @@ const runId =
     : productionLikeRun
       ? `production-like-${timestamp}`
       : `docker-smoke-${timestamp}`);
+const localLabelsComposeFile = 'apps/api/test/stress/docker/compose.local-labels.yml';
+// Label values for the API image and rehearsal volumes this runner creates (compose.local-labels.yml).
+process.env.LOCAL_RESOURCE_CREATED_BY = 'apps/api/test/stress/docker/run-dockerized-smoke.mjs';
+process.env.LOCAL_RESOURCE_RUN_ID = runId;
 const defaultReportName = authPasswordCapacityRun
   ? `api-auth-password-capacity-result-${timestamp}.md`
   : productionLikeRun
@@ -573,6 +577,7 @@ function buildApiComposeArgs(...extraArgs) {
     ...buildComposeArgs(composeInventory, profileName, extraArgs, {
       repoRoot,
       projectName: dockerProjectName,
+      extraFiles: [localLabelsComposeFile],
     }),
   ];
 }

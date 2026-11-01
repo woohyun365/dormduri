@@ -27,7 +27,7 @@ describe('web env schema', () => {
       parseWebServerEnv(
         {
           NODE_ENV: 'production',
-          WEB_APP_URL: 'https://knu-roommate.example.com',
+          WEB_APP_URL: 'https://dormduri.example.com',
         },
         'production',
       ),
@@ -39,7 +39,7 @@ describe('web env schema', () => {
       parseWebServerEnv(
         {
           NODE_ENV: 'production',
-          WEB_APP_URL: 'https://knu-roommate.example.com',
+          WEB_APP_URL: 'https://dormduri.example.com',
           API_URL: 'http://localhost:4000',
         },
         'production',

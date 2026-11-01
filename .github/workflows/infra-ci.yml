@@ -34,7 +34,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Initialize runner-owned artifact path
-        run: echo "KNU_ARTIFACTS_DIR=$RUNNER_TEMP/knu-roommate-artifacts" >> "$GITHUB_ENV"
+        run: echo "KNU_ARTIFACTS_DIR=$RUNNER_TEMP/dormduri-artifacts" >> "$GITHUB_ENV"
 
       - name: Capture secret-free infrastructure inventory
         run: |
@@ -50,8 +50,8 @@ jobs:
         with:
           name: infra-static-evidence
           path: |
-            ${{ runner.temp }}/knu-roommate-artifacts/infra/inspection.json
-            ${{ runner.temp }}/knu-roommate-artifacts/infra/observability-production.json
+            ${{ runner.temp }}/dormduri-artifacts/infra/inspection.json
+            ${{ runner.temp }}/dormduri-artifacts/infra/observability-production.json
           if-no-files-found: error
           retention-days: 7
 
@@ -77,7 +77,7 @@ jobs:
           node-version: '26'
 
       - name: Initialize runner-owned artifact path
-        run: echo "KNU_ARTIFACTS_DIR=$RUNNER_TEMP/knu-roommate-artifacts" >> "$GITHUB_ENV"
+        run: echo "KNU_ARTIFACTS_DIR=$RUNNER_TEMP/dormduri-artifacts" >> "$GITHUB_ENV"
 
       - name: Validate nginx and observability runtime configs
         run: pnpm infra:check:runtime
@@ -87,6 +87,6 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: infra-runtime-config-evidence
-          path: ${{ runner.temp }}/knu-roommate-artifacts/infra/runtime-configs.json
+          path: ${{ runner.temp }}/dormduri-artifacts/infra/runtime-configs.json
           if-no-files-found: error
           retention-days: 7

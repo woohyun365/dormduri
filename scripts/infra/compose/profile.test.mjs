@@ -51,7 +51,7 @@ test('stress profile은 base, runtime resource, stress policy 순서로 합성�
     'web-rehearsal',
   ]) {
     assert.deepEqual(resolveManagedNetworks(inventory.profiles[profileName]), [
-      'knu-roommate-observability',
+      'dormduri-observability',
     ]);
   }
   assert.deepEqual(
@@ -126,4 +126,43 @@ test('ingress-trust owns one project without legacy DB/resource/stress overlays'
     ],
   );
   assert.deepEqual(resolveManagedNetworks(inventory.profiles['ingress-trust']), []);
+});
+
+test('runner overlay는 profile file 뒤에 붙고 profile 이름과 project는 그대로다', () => {
+  const inventory = loadComposeInventory(repoRoot);
+  const args = buildComposeArgs(inventory, 'api-base', ['build', 'api'], {
+    repoRoot,
+    projectName: 'runner-project',
+    extraFiles: ['apps/api/test/stress/docker/compose.local-labels.yml'],
+  });
+
+  assert.deepEqual(args.slice(0, 3), ['compose', '-p', 'runner-project']);
+  assert.deepEqual(
+    args.filter((value, index) => args[index - 1] === '-f'),
+    ['infra/deploy/compose.api.yml', 'apps/api/test/stress/docker/compose.local-labels.yml'],
+  );
+  assert.deepEqual(args.slice(-2), ['build', 'api']);
+});
+
+test('로컬 자원 label은 rehearsal·runner overlay에만 있고 운영 후보 compose에는 없다', () => {
+  const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
+  const labelKeys = /dormduri\.local\.created-by:[\s\S]*dormduri\.local\.run-id:/u;
+
+  for (const path of [
+    'infra/deploy/compose.api.yml',
+    'infra/observability/compose.base.yml',
+    'infra/observability/compose.production.yml',
+    'infra/deploy/compose.ingress-trust.yml',
+  ]) {
+    assert.doesNotMatch(read(path), /dormduri\.local\./u, path);
+  }
+  for (const path of [
+    'infra/rehearsal/compose.api.runtime.yml',
+    'infra/rehearsal/compose.postgres.yml',
+    'infra/rehearsal/compose.web.yml',
+    'infra/rehearsal/compose.observability.yml',
+    'apps/api/test/stress/docker/compose.local-labels.yml',
+  ]) {
+    assert.match(read(path), labelKeys, path);
+  }
 });

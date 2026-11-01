@@ -30,12 +30,12 @@ receivers:
     slack_configs:
       - api_url: '__SLACK_ALERT_WEBHOOK_URL__'
         channel: '__SLACK_ALERT_CHANNEL__'
-        username: 'KNU Roommate Alerts'
+        username: '돔두리 Alerts'
         icon_emoji: ':rotating_light:'
         send_resolved: true
         title: '{{ template "knu.slack.title" . }}'
         text: '{{ template "knu.slack.text" . }}'
-        footer: 'KNU Roommate observability · __OBSERVABILITY_ENV__'
+        footer: '돔두리 observability · __OBSERVABILITY_ENV__'
 
 templates:
   - /etc/alertmanager/templates/*.tmpl

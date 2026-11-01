@@ -1,4 +1,4 @@
-// Local/staging Docker log pipeline for KNU Roommate API.
+// Local/staging Docker log pipeline for dormduri API.
 // Keep Loki labels low-cardinality: service/env/container/level only.
 // requestId, actorHash, threadId, email, raw path, and payload data remain JSON fields, not labels.
 

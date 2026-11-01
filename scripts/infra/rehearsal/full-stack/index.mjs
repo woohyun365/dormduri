@@ -14,7 +14,12 @@ import {
   getComposeProfile,
   loadComposeInventory,
 } from '../../compose/profile.mjs';
-import { cleanupRehearsal } from './cleanup.mjs';
+import {
+  assertReusableImages,
+  cleanupRehearsal,
+  removeRunImages,
+  runImageReferences,
+} from './cleanup.mjs';
 import { runDatabaseGates } from './database-gates.mjs';
 import { sanitizeFailure, writeRehearsalEvidence } from './evidence.mjs';
 import {
@@ -41,11 +46,11 @@ const localDatabaseAllowanceMiB = 512;
 const expectedProductContainerLimitMiB = 2976;
 const timestamp = new Date().toISOString().replace(/[:.]/gu, '-');
 const runId = process.env.FULL_STACK_REHEARSAL_RUN_ID ?? timestamp;
-const apiProject = `knu-full-stack-api-${runId}`.toLowerCase();
-const webProject = `knu-full-stack-web-${runId}`.toLowerCase();
-const observabilityNetwork = `knu-full-stack-observability-${runId}`.toLowerCase();
-const apiNetwork = `knu-full-stack-api-network-${runId}`.toLowerCase();
-const temporaryDirectory = mkdtempSync(resolve(tmpdir(), 'knu-roommate-full-stack-'));
+const apiProject = `dormduri-full-stack-api-${runId}`.toLowerCase();
+const webProject = `dormduri-full-stack-web-${runId}`.toLowerCase();
+const observabilityNetwork = `dormduri-full-stack-observability-${runId}`.toLowerCase();
+const apiNetwork = `dormduri-full-stack-api-network-${runId}`.toLowerCase();
+const temporaryDirectory = mkdtempSync(resolve(tmpdir(), 'dormduri-full-stack-'));
 const runtimeEnvPath = resolve(temporaryDirectory, 'api.runtime.env');
 const metricsTokenPath = resolve(temporaryDirectory, 'metrics-token');
 const evidenceDirectory = resolveArtifactPath(repoRoot, ['infra', 'full-stack-rehearsal']);
@@ -77,6 +82,7 @@ const evidence = {
     firstPass: false,
     secondPass: false,
     resourcesRemaining: null,
+    images: null,
   },
   blocker: null,
 };
@@ -85,6 +91,7 @@ let commandEnvironment;
 let apiComposeArguments;
 let webComposeArguments;
 let createdNetworks = [];
+let runImages = [];
 
 function recordScenario(name, status, detail) {
   evidence.scenarios.push({ name, status, detail });
@@ -209,6 +216,8 @@ function configureCompose() {
     WEB_REHEARSAL_RELEASE: `full-stack-${runId}`,
     WEB_IMAGE_TAG: `full-stack-${runId}`,
     WEB_REHEARSAL_API_URL: 'http://nginx',
+    LOCAL_RESOURCE_CREATED_BY: 'scripts/infra/rehearsal/full-stack/index.mjs',
+    LOCAL_RESOURCE_RUN_ID: runId,
   };
 
   const apiProfile = databaseMode === 'local' ? 'full-stack-api-rehearsal' : 'api-rehearsal';
@@ -442,6 +451,19 @@ function allContainerIds() {
   return [...new Set(ids)];
 }
 
+function imageExists(image) {
+  return (
+    spawnSync('docker', ['image', 'inspect', image], { cwd: repoRoot, stdio: 'ignore' }).status ===
+    0
+  );
+}
+
+function removeImage(image) {
+  return (
+    spawnSync('docker', ['image', 'rm', image], { cwd: repoRoot, stdio: 'ignore' }).status === 0
+  );
+}
+
 function safeComposeDown(arguments_, label) {
   const result = spawnSync('docker', [...arguments_, 'down', '--volumes', '--remove-orphans'], {
     cwd: repoRoot,
@@ -506,9 +528,16 @@ async function main() {
       'pass',
       'API/DB and Web/observability profiles render',
     );
+    const apiConfig = JSON.parse(apiComposeOutput('config', '--format', 'json'));
+    const webConfig = JSON.parse(webComposeOutput('config', '--format', 'json'));
+    runImages = runImageReferences({ apiConfig, webConfig, runId });
+    if (skipBuild) {
+      assertReusableImages(runImages, { imageExists });
+      recordScenario('skip-build-image-reuse', 'pass', 'reused images of the kept run');
+    }
     const resourceBudget = verifyResourceBudget({
-      apiConfig: JSON.parse(apiComposeOutput('config', '--format', 'json')),
-      webConfig: JSON.parse(webComposeOutput('config', '--format', 'json')),
+      apiConfig,
+      webConfig,
       databaseMode,
       productEnvelopeMiB,
       localDatabaseAllowanceMiB,
@@ -558,6 +587,8 @@ async function main() {
       noProjectResourcesRemain,
       countProjectResources,
       recordScenario,
+      runImages,
+      removeImages: () => removeRunImages(runImages, { imageExists, removeImage }),
     });
     rmSync(temporaryDirectory, { recursive: true, force: true });
     writeRehearsalEvidence({

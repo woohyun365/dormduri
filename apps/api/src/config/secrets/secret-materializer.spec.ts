@@ -34,11 +34,11 @@ describe('secret materializer', () => {
     const materialized = await materializeRequiredSecrets({
       source: 'aws-secrets-manager',
       env: { NODE_ENV: 'production' },
-      secretNamePrefix: '/knu-roommate/prod/api',
+      secretNamePrefix: '/dormduri/prod/api',
       reader,
     });
 
-    expect(materialized.DATABASE_URL).toBe('value-for:/knu-roommate/prod/api/DATABASE_URL');
+    expect(materialized.DATABASE_URL).toBe('value-for:/dormduri/prod/api/DATABASE_URL');
   });
 
   it('materializes mounted secrets by env key without AWS name mapping', async () => {

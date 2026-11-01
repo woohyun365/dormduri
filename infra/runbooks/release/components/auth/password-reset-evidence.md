@@ -51,7 +51,7 @@ Browser JSON에는 raw grant를 노출하지 않고 HttpOnly cookie만 reset aut
 EMAIL_PROVIDER=ses \
 SES_REGION=ap-northeast-2 \
 SES_FROM_EMAIL=no-reply@example.com \
-SES_CONFIGURATION_SET=knu-roommate-staging \
+SES_CONFIGURATION_SET=dormduri-staging \
 AUTH_SES_SMOKE_RECIPIENT=success@simulator.amazonses.com \
 pnpm --dir apps/api auth:ses:smoke -- --dry-run
 ```

@@ -1,4 +1,4 @@
-name: knu-roommate-observability
+name: dormduri-observability
 
 x-observability-logging: &observability-logging
   driver: json-file
@@ -154,7 +154,7 @@ services:
       ALERTMANAGER_RETENTION: ${ALERTMANAGER_RETENTION:-120h}
       SLACK_ALERTMANAGER_ENABLED: ${SLACK_ALERTMANAGER_ENABLED:-false}
       SLACK_ALERT_WEBHOOK_URL: '${SLACK_ALERT_WEBHOOK_URL:-}'
-      SLACK_ALERT_CHANNEL: '${SLACK_ALERT_CHANNEL:-#knu-roommate-alerts}'
+      SLACK_ALERT_CHANNEL: '${SLACK_ALERT_CHANNEL:-#dormduri-alerts}'
     volumes:
       - ./alertmanager:/etc/alertmanager:ro
       - alertmanager-data:/alertmanager
@@ -216,7 +216,7 @@ services:
 
 networks:
   observability:
-    name: ${OBSERVABILITY_NETWORK:-knu-roommate-observability}
+    name: ${OBSERVABILITY_NETWORK:-dormduri-observability}
 
 volumes:
   prometheus-data:

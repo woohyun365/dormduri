@@ -167,7 +167,7 @@ describe('envValidationSchema', () => {
       errorPaths(
         productionEnv({
           SECRET_SOURCE: 'aws-secrets-manager',
-          [SECRET_NAME_PREFIX_ENV]: '/knu-roommate/production/api',
+          [SECRET_NAME_PREFIX_ENV]: '/dormduri/production/api',
         }),
       ),
     ).toEqual([]);
@@ -182,7 +182,7 @@ describe('envValidationSchema', () => {
       errorPaths(
         productionEnv({
           SECRET_SOURCE: 'aws-secrets-manager',
-          [SECRET_NAME_PREFIX_ENV]: 'knu-roommate/production/api',
+          [SECRET_NAME_PREFIX_ENV]: 'dormduri/production/api',
         }),
       ),
     ).toContain(SECRET_NAME_PREFIX_ENV);
@@ -190,7 +190,7 @@ describe('envValidationSchema', () => {
       errorPaths(
         productionEnv({
           SECRET_SOURCE: 'aws-secrets-manager',
-          [SECRET_NAME_PREFIX_ENV]: '/knu-roommate/production/api',
+          [SECRET_NAME_PREFIX_ENV]: '/dormduri/production/api',
         }),
       ),
     ).toEqual([]);

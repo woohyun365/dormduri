@@ -49,7 +49,7 @@ export function isImmutableReference(reference) {
 // of a Dockerfile. The Renovate managers also read workflow `container: <image>` strings, `uses: docker://<image>` and
 // Dockerfile `COPY --from=<image>` or `RUN --mount=…from=<image>`; those forms are not extracted here, so pin external
 // images only in the forms above. Locally built images whose name or tag is a variable
-// (`knu-roommate-api:${API_IMAGE_TAG:?…}`, `${INGRESS_FIXTURE_IMAGE:?…}`) are not external pins.
+// (`dormduri-api:${API_IMAGE_TAG:?…}`, `${INGRESS_FIXTURE_IMAGE:?…}`) are not external pins.
 export function extractImageReferences(path, source) {
   return DOCKERFILE_NAME.test(basename(path))
     ? extractDockerfileReferences(source)

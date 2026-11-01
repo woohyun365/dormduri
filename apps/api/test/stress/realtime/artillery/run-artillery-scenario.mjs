@@ -169,7 +169,7 @@ async function issueRealtimeTicket({ actor, targetUrl }) {
     headers: {
       Accept: 'application/json',
       Authorization: `Bearer ${actor.accessToken}`,
-      'User-Agent': 'knu-roommate-artillery-realtime-stress-preflight',
+      'User-Agent': 'dormduri-artillery-realtime-stress-preflight',
     },
   });
 

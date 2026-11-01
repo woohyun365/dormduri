@@ -34,7 +34,7 @@ test('rejects secret-like material in artifact evidence', (context) => {
   assert.match(result.stderr, /evidence contains secret-like material/u);
 });
 
-function createFixture(context, { runtimeUser = 'knu', evidence = '{}' } = {}) {
+function createFixture(context, { runtimeUser = 'dormduri', evidence = '{}' } = {}) {
   const directory = mkdtempSync(resolve(reportRoot, 'artifact-verifier-test-'));
   context.after(() => rmSync(directory, { recursive: true, force: true }));
   const relativeDirectory = relative(repoRoot, directory);
@@ -45,7 +45,7 @@ function createFixture(context, { runtimeUser = 'knu', evidence = '{}' } = {}) {
     writeFileSync(resolve(repoRoot, provenance), '{}');
     return {
       name,
-      tag: `knu-roommate-${name}:${'a'.repeat(40)}`,
+      tag: `dormduri-${name}:${'a'.repeat(40)}`,
       digest: `sha256:${name === 'api' ? 'b' : 'c'}${'0'.repeat(63)}`,
       dockerfile: `infra/deploy/${name}/Dockerfile`,
       runtimeUser,

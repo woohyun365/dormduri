@@ -78,8 +78,8 @@ pnpm infra:env:check
 Lightsail production 기본값이다. `SECRET_SOURCE=aws-secrets-manager`는 EC2/ECS처럼 안전한 AWS
 credential-provider chain을 제공하는 runtime용 호환 adapter다.
 
-Host release root는 `/var/lib/knu-roommate/secrets/api`, container mount는
-`/run/secrets/knu-roommate-api`, API runtime UID/GID는 `10001:10001`이다. Candidate는 검증 후 설치하고
+Host release root는 `/var/lib/dormduri/secrets/api`, container mount는
+`/run/secrets/dormduri-api`, API runtime UID/GID는 `10001:10001`이다. Candidate는 검증 후 설치하고
 readiness 성공 뒤에만 `current` pointer를 atomic하게 전환한다. Secret bundle은 image, CI artifact,
 release evidence에 포함하지 않는다.
 

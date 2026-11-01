@@ -11,7 +11,7 @@ import {
 } from '../../infra/compose/profile.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../..');
-const project = process.env.WEB_REHEARSAL_PROJECT ?? 'knu-roommate-web-rehearsal';
+const project = process.env.WEB_REHEARSAL_PROJECT ?? 'dormduri-web-rehearsal';
 const webPort = Number(process.env.WEB_REHEARSAL_PORT ?? 3300);
 const grafanaPort = Number(process.env.GRAFANA_PORT ?? 3001);
 const lokiPort = Number(process.env.LOKI_PORT ?? 3100);
@@ -220,7 +220,7 @@ async function main() {
       `${process.env.GRAFANA_ADMIN_USER ?? 'admin'}:${process.env.GRAFANA_ADMIN_PASSWORD ?? 'change-me-local-only'}`,
     ).toString('base64');
     const dashboardResponse = await fetch(
-      `http://127.0.0.1:${grafanaPort}/api/dashboards/uid/knu-web-bff-reliability`,
+      `http://127.0.0.1:${grafanaPort}/api/dashboards/uid/dormduri-web-bff-reliability`,
       { headers: { Authorization: `Basic ${grafanaAuth}` } },
     );
     assert(dashboardResponse.ok, `Grafana dashboard lookup failed: ${dashboardResponse.status}`);
