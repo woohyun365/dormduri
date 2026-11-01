@@ -336,7 +336,7 @@ checkpoint fields
 ```
 
 - dependency가 있는 단계를 병렬로 위장하지 않습니다.
-- behavior가 보호되지 않은 cleanup/refactor는 regression test를 먼저 둡니다.
+- behavior가 보호되지 않은 cleanup/refactor는 지금 있는 그 behavior의 regression test를 먼저 둡니다.
 - Phase 0은 필요할 때 policy/contract/red guard/baseline을 고정합니다.
 - 웹 조사, metric 축적 대기, account 생성 대기는 implementation Phase로 만들지 않습니다.
 - 완료는 phase label이 아니라 observable outcome과 fresh verification으로 판정합니다.
