@@ -157,7 +157,6 @@ function composeCodexWorkflow({
       Object.keys(reviewDisposition).some((key) => !['required', 'reason'].includes(key)))
   )
     throw new TypeError('review disposition requires explicit required and reason');
-  // Semantic risk remains a Lead judgement, not an intent/keyword heuristic.
   const bindingComplete =
     lanes.length > 0 && (!children.length || lanes.length === children.length);
   const gaps = [
@@ -185,6 +184,7 @@ function composeCodexWorkflow({
     laneValidation,
     gaps,
     reviewDisposition: reviewDisposition ?? null,
+    // Semantic risk remains a Lead judgement, not an intent/keyword heuristic.
     requiresIndependentReview: reviewDisposition?.required === true,
     liveChecks: [
       'current-source-and-user-authority',
