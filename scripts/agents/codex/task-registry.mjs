@@ -263,7 +263,7 @@ export function acceptTask({
 // Releases a task the root spawned and never accepted, once, when the Parent states its child ended (`ended`) and the
 // session records do not show the child running: no start, follow-up or resume after its last stop. A spawn whose tool
 // failed after the allow has no child, so the statement is the only evidence. The hook then treats the task as closed:
-// the Parent write guard stops counting it and follow-up or message calls to it are denied.
+// follow-up or message calls to it are denied.
 export function releaseTask({ root, sessionId, taskName, ended, observation, now }) {
   const refused = (reason) => ({ released: false, reason });
   const found = readRegistration({ root, sessionId, taskName });
