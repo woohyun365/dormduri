@@ -159,6 +159,13 @@ Native의 numeric fork 지원 여부는 이 계약의 필수 확장 사유가 �
 - 역할 변형과 effort: 계층·impact가 family 안의 변형(`_medium`·기본·`_xhigh`)과 `profileId`를 고르고, `effort`는 그 역할
   파일이 pin한 값입니다. 배정 표는 [Codex routing](./codex.md#reasoning-effort-routing)이 소유합니다.
 
+Official research lane(`knu_researcher`, 쓰기 범위 없음)은 Claude adapter의
+[공식 근거 조사](./claude-code.md#routine-operation)와 같은 규칙을 Lead 운영 규칙으로 따릅니다. Handoff는 주장마다
+`{url, quote, checkedAt}`(원문 URL, 원문 그대로의 인용, 확인 날짜)입니다. Evidence로 옮길 주장의 `independentCheck`는 Lead가 그
+URL 원문(raw, WebFetch 요약이 아님)을 직접 받아 `scripts/agents/common/quote-check.mjs`로 한 대조이고, `found`가 아닌 주장은 evidence
+후보에서 뺍니다. Lane `impactRisk`는 요청 낱말 대신 기본 min(envelope 위험, medium)으로 적고, Lead가 `high`로 적어 상위 변형
+(`_xhigh`)을 고를 수 있습니다. Codex 수락(`codex:accept`)은 대조 출력을 검사하지 않으므로 이 대조는 Lead가 판정 기록에 남깁니다.
+
 Impact risk와 reasoning complexity는 서로 다른 결과입니다. Keyword, path, file count, LOC, task label은 semantic signal을
 대체할 수 없고, 동일 fact를 여러 composite category에 중복 반영하지 않습니다. 이 결과는 dispatch 명령이나 live role
 proof가 아닙니다. 호출 시점의 역할 roster·(역할, model) 쌍은 [project hook](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)이

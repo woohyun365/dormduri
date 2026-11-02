@@ -124,7 +124,8 @@
   입력 필드 사유는 `binding-lifetime-exceeds-30m`입니다.
 - 선택 근거(`selectionBasisRef`)와 fact `sourceRef`는 영문자·숫자로 시작하고 `#`·`//`·`.`·`..` 경로 조각을 쓸 수 없습니다.
   숨김 디렉터리 경로처럼 `.`으로 시작하는 참조는 `unsafe-reference:<field>`입니다.
-- Task의 `impactRisk`가 intake가 판정한 요청 risk보다 낮으면 `risk-downgrade`입니다.
+- Task의 `impactRisk`가 intake가 판정한 요청 risk보다 낮으면 `risk-downgrade`입니다. 쓰기 범위가 빈 `knu_researcher`는 요청 risk
+  대신 min(intake, medium)과 비교합니다. `knu_explorer`와 쓰기 범위가 있는 task는 intake risk 그대로입니다.
 - Task `readScope`가 빈 배열이면 model policy가 `invalid-input`으로 거부합니다.
 - Kind `build` spec은 `prepare`와 등록 모두 `implementation-retired`로 거부합니다. 구현 child 경로(build kind와 executor 역할)는
   철회됐습니다. Parent가 직접 구현하고 그 diff를 `/knu-review --parent-subject`로 리뷰받습니다.
@@ -141,8 +142,15 @@
   `invalid-role-effort`입니다. Model policy는 `knu_explorer_xhigh`를 `bounded-extraction`과 거기서 결속한
   1단계 재시도(`bounded-standard`)에서만 허용합니다. 어긋나면 `effort-tier`입니다. `bounded-extraction`은 `knu_explorer_xhigh`만
   받아 `knu_explorer`는 `role`이고, `knu_explorer_xhigh`는 kind `extract`만 받아 그 밖은 `kind-role`입니다.
-- 추출(kind `extract`)은 impact `low`·complexity `bounded`·uncertainty `resolved`일 때만 독립 QA 없이 등록됩니다. 어느 profile이든
-  그 밖의 추출과 다른 kind는 `reviewDisposition.required:true`나 연결된 review가 없으면 `independent QA required for this profile`입니다.
+- 추출(kind `extract`)은 impact `low`·complexity `bounded`·uncertainty `resolved`일 때만 독립 QA 없이 등록됩니다. 쓰기 범위가 빈
+  `knu_researcher`는 kind `read`·`extract` 모두 독립 QA 없이 등록되고, 정산이 Parent 인용 대조 출력(`quoteCheck`)을 요구합니다.
+  어느 profile이든 그 밖의 추출과 다른 kind는 `reviewDisposition.required:true`나 연결된 review가 없으면
+  `independent QA required for this profile`입니다.
+- Reviewer 없는 researcher 정산은 인용 대조 출력이 없으면 `researcher without a linked reviewer requires a quote-check output`,
+  출력의 task id·응답 digest가 다르면 `quote-check-task-mismatch`·`quote-check-response-mismatch`, 응답에 없는 주장을 대조했으면
+  `quote-check-claim-not-in-response:<url>`, 출력을 읽지 못하면 `quote-check-output-unreadable`·`quote-check-output-invalid`로
+  거부합니다. 판정 파일의 `quoteCheck`가 template 그대로 `null`이면 `quote-check-unfilled`입니다. `missing`·`raw-missing`·`no-quote`는
+  거부 사유가 아니라 evidence 후보 제외입니다.
 - Effort 판정은 `completion.json`에 고정하지 않고 `settle`·`complete`가 관측할 때마다 child transcript의 assistant 행 `effort`로
   합니다. Foreground 완료는 PostToolUse가 기록한 child transcript 위치를, background 완료는 정산한 transcript를 읽습니다.
   - `effort-transcript-pending`: transcript가 없거나 마지막 행이 미완성이거나 assistant 행이 아직 없습니다. Host가 transcript를
@@ -228,12 +236,16 @@
   scope·acceptance·QA disposition·facts만 담고, helper는 수명(기본 15분, 최대 30분)·도구 목록·ID를 채워 register합니다.
   출력의 `dispatchAuthorized:false`는 host 권한이 아니라는 뜻입니다. 만료되면 새로 prepare합니다.
 - 참조는 `plan:<Plan ID>/<절>`·`owner-request:<ID>`처럼 영문자로 시작하는 형식을 씁니다.
-- `risk-downgrade`는 요청 risk를 낮추지 말고 task `impactRisk`를 요청 risk 이상으로 올리거나 요청을 나눕니다.
+- `risk-downgrade`는 요청 risk를 낮추지 말고 task `impactRisk`를 요청 risk 이상으로 올리거나 요청을 나눕니다. 쓰기 범위가 빈
+  researcher는 min(intake, medium) 이상이면 됩니다.
 - `required-facts`·빈 `readScope`의 `invalid-input`은 원인 절의 kind별 필수 fact와 `readScope` 규칙대로 spec을 고칩니다.
 - `knu_explorer_xhigh`의 `effort-tier`는 Haiku 추출이면 `bounded-extraction`으로, Sonnet 추출·읽기면 `knu_explorer`로 다시
   prepare합니다. Effort 변형은 추출(`knu_explorer_xhigh`)에만 있습니다. `invalid-role-effort`는 역할 파일을 고치고 새 세션에서 관측한 뒤 위임합니다.
 - `implementation-retired`는 구현을 위임하지 말고 Parent가 직접 구현한 뒤 `/knu-review --parent-subject`로 리뷰받습니다.
 - `independent QA required for this profile`은 task 사실을 바꾸지 말고 `reviewDisposition.required:true`로 두고 review를 연결합니다.
+  공식 근거 조사라면 쓰기 범위가 빈 `knu_researcher`로 등록하고 인용 대조로 정산할 수 있습니다.
+- 인용 대조 거부는 `/knu-delegate`의 공식 근거 조사 절차대로 첫 `settle` 결과의 `quoteCheckResponsePath`를 `--response`로 다시
+  대조하고, 응답에 있는 주장만 선택합니다. 출력 파일을 손으로 고치지 않습니다.
 - `effort-transcript-pending`은 잠시 뒤 `settle --task`를 다시 실행합니다. 나머지 effort 사유(`effort-transcript-too-large` 포함)는
   그 결과를 쓰지 않고 새 task로 다시 위임합니다. `effort-transcript-too-large`는 task를 나눠 다시 위임하고 transcript를 손으로
   추출해 정산하지 않습니다. 수명이 지난 뒤의 `effort-unobserved`도 결과를 쓰지 않습니다. `effort-mismatch`는 역할 파일의 effort를 무시하는 설정이 있는지 먼저 확인합니다(`CLAUDE_CODE_EFFORT_LEVEL`

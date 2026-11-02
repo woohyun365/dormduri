@@ -4262,3 +4262,18 @@ test('release cancels a registration never dispatched and refuses one with a dis
   assert.equal(cancelled.status, 0, cancelled.stderr);
   assert.equal(JSON.parse(cancelled.stdout).dispatched, false);
 });
+
+test('a quote-check output outside the repository or inside native task evidence is refused', async (t) => {
+  const g = researchRan(t);
+  const inside = await quoteCheckFile(g, [selected(g, RESEARCH_CLAIMS[0])]);
+  const evidence = join(g.registered.evidenceDirectory, 'quote-check.json');
+  writeFileSync(evidence, readFileSync(join(g.root, inside)));
+  for (const path of ['../quote-check.json', evidence]) {
+    const errors = completeResearch(g, { quoteCheck: path }).errors;
+    assert.ok(
+      errors.some((error) => error.startsWith('quote-check-output-unreadable: ')),
+      `${path}: ${errors.join()}`,
+    );
+  }
+  assert.equal(completeResearch(g, { quoteCheck: inside }).valid, true);
+});

@@ -199,3 +199,24 @@ test('settlement keeps the output bound to its task, response and claims and spl
     'quote-check-output-invalid',
   ]);
 });
+
+test('inline markup inside a sentence is dropped and block tags keep words apart', async () => {
+  const { normalizeQuoteText } = await load();
+  assert.equal(
+    normalizeQuoteText('<p>Bundles start at <b>$5&nbsp;USD/month</b>.</p><p>Next</p>'),
+    'Bundles start at $5 USD/month. Next',
+  );
+  assert.equal(normalizeQuoteText('one<br>two<BR/>three'), 'one two three');
+  assert.equal(
+    normalizeQuoteText('a <a href="/x">link</a>, then <!-- note --> more'),
+    'a link, then more',
+  );
+  // An unclosed '<' keeps the rest, so a quote is never cut to a prefix the source has.
+  assert.equal(normalizeQuoteText('costs $5<later rise'), 'costs $5<later rise');
+  assert.equal(
+    normalizeQuoteText('<p>costs $5 per month</p>').includes(
+      normalizeQuoteText('costs $5<b later'),
+    ),
+    false,
+  );
+});

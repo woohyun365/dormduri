@@ -15,7 +15,10 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
 2. 결과의 `judgmentTemplatePath` 파일에서 acceptance마다 `passed`와 `evidenceRef`를, `checks`에 Parent가 직접 확인한 내용을
    채웁니다. `responseDigest`는 바꾸지 않습니다.
 3. 독립 QA가 필요한 builder(template에 `reviewerTaskId: null`)는 판정 전에 `/knu-review`의 native subject 경로로 reviewer를
-   정산하고 그 task id를 채웁니다.
+   정산하고 그 task id를 채웁니다. Reviewer 없는 researcher(template에 `quoteCheck: null`)는 첫 `settle` 결과의
+   `quoteCheckResponsePath`(정산된 응답)를 `--response`로 `/knu-delegate`의 인용 대조를 실행하고, 그 출력 경로를 `quoteCheck`에
+   채웁니다. 정산은 출력이 없거나 다른 task·응답을 가리키거나 응답에 없는 주장을 대조했으면 거부하고, 통과하면 결과의
+   `quoteCheck.candidates`(`found`)만 evidence 후보로, `excluded`는 사유와 함께 제외로 남깁니다.
 4. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native settle --task <taskId> --judgment <absolute-template-path>`로 판정합니다.
 
 ## Reviewer 종류

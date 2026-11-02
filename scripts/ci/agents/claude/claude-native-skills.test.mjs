@@ -284,13 +284,17 @@ test('CLAUDE.md points to the skills instead of low-level registration', () => {
   assert.match(entry, /\/knu-delegate/u);
 });
 
-// The recovery example is the second json block: fields merged onto the delegate template.
+// The recovery example is the json block with a recovery field: fields merged onto the delegate template.
 test('the delegate recovery example binds a retry to a ran, unaccepted first task', (t) => {
   const blocks = [...skill('knu-delegate').matchAll(/```json\n([\s\S]*?)\n```/gu)].map((m) => m[1]);
-  assert.equal(blocks.length, 2, 'knu-delegate needs the template and a recovery example');
+  assert.equal(
+    blocks.length,
+    3,
+    'knu-delegate needs the template, a researcher example and a recovery example',
+  );
   const sessionId = randomUUID();
   const template = JSON.parse(blocks[0].replaceAll('${CLAUDE_SESSION_ID}', sessionId));
-  const example = JSON.parse(blocks[1]);
+  const example = JSON.parse(blocks.find((block) => block.includes('"recovery"')));
   const helper = read('scripts/agents/claude/native-task-helper.mjs');
   const allowed = new Set([
     ...sourceArray(helper, 'SPEC_REQUIRED'),
