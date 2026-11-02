@@ -3,11 +3,13 @@
 ## 문서 범위
 
 이 문서는 돔두리 production runtime이 provider나 instance 종류와 무관하게 지켜야 하는
-배포 안전 불변 조건을 소유한다. 실제 hosting target, instance, 월 비용과 container resource 값은
+배포 안전 불변 조건을 소유한다. 지금 적용한 운영 환경(hosting target, instance)의 설명과 실제 청구 비용은
+[`docs/deploy/`](../deploy/README.md), release gate가 판정에 쓰는 target 입력(container resource 값, 이후 단계
+planning budget)은
 [`infrastructure-target-release-readiness.md`](../../infra/runbooks/release/components/infrastructure-target/readiness.md),
-실제 검증 결과는
-[`infrastructure-target-release-evidence.md`](../../infra/runbooks/release/components/infrastructure-target/evidence.md)가
-소유한다.
+실제 검증 결과의 형식과 기록 위치는
+[`infrastructure-target-release-evidence.md`](../../infra/runbooks/release/components/infrastructure-target/evidence.md)와
+[`production-release-evidence.md`](../../infra/runbooks/release/production-release-evidence.md)가 소유한다.
 
 관련 기준:
 
@@ -30,6 +32,8 @@
 4. **PRS-R4** 인증 메일은 local stub이나 log output이 아니라 승인된 production provider를 사용한다.
 5. **PRS-R5** Liveness, readiness와 metrics는 배포·복구·관측 목적에 맞게 분리한다.
 6. **PRS-R6** Migration, role grant, credential smoke, rollback과 backup/restore drill을 release gate에 포함한다.
+   단계 배포에서 rollback은 그 단계가 올리거나 바꾸는 구성요소에 적용하고, migration, role grant, credential smoke와
+   backup/restore drill은 DB를 들이는 단계부터 적용한다(`PRS-R54`).
 7. **PRS-R7** 관측 또는 부하 검증 실패와 후속 최적화 후보를 구분하고, release blocker는 evidence 없이 해제하지 않는다.
 8. **PRS-R8** 사용자 제품과 BackOffice는 배포, 권한, ingress, health와 rollback 경계를 독립적으로 소유한다.
 
@@ -66,6 +70,7 @@
 - **PRS-R29** Role grant script는 password, LOGIN role 또는 membership 생성이 아니라 **schema/table privilege baseline 적용을 소유한다**.
 - **PRS-R30** Migration, role grant 또는 credential smoke 실패는 rollout blocker다.
 - **PRS-R31** Backup/restore drill은 release 전에 실행하고 restored DB의 migration baseline, grant와 readiness를 검증한다.
+  단계 배포에는 DB를 들이는 단계부터 적용한다.
 - **PRS-R32** `.github/workflows/api-restore-drill-manual.yml`은 수동 dry-run-first 경계이며 RDS restore 자체를 자동 소유하지 않는다.
 
 ## Ingress·TLS·browser transport 경계
@@ -92,15 +97,20 @@
 
 - **PRS-R47** CI는 build, lint, typecheck, test, image와 Compose 정합성 검증을 소유하며 production deploy 권한을 갖지 않는다.
 - **PRS-R48** CD는 실제 provider, registry, network, canonical host와 approval owner가 결정된 뒤 target-specific하게 구성한다.
+  단계 배포의 CD는 그 단계가 올리거나 바꾸는 구성요소의 이 입력이 정해지면 그 단계 범위로 구성할 수 있다. DB change
+  ownership은 DB를 들이는 단계가 그 단계 CD 전에 정한다.
 - **PRS-R49** Release 준비는 `infra/runbooks/release/production-release-readiness.md`에서 시작한다.
 - **PRS-R50** 최종 `GO`, `NO_GO`, `GO_WITH_FOLLOW_UP` 판정은 `infra/runbooks/release/production-release-evidence.md`만 소유한다.
-- **PRS-R51** 실제 target이 없으면 실패로 바꾸지 않고 `PENDING_TARGET`로 유지한다.
+- **PRS-R51** 최종 판정 입력이 아직 다 모이지 않았으면(실제 target 입력이 없거나 단계 배포가 진행 중이면) 실패로 바꾸지 않고
+  `PENDING_TARGET`로 유지한다. 단계 배포는 최종 판정을 선언하지 않는다.
 - **PRS-R52** Rollback은 previous safe image와 traffic recovery를 우선하며 DB 영향은 자동 down migration이 아니라 backup/PITR restore escalation으로 판단한다.
 - **PRS-R53** Release/incident evidence에는 secret-free identifier와 bounded 결과만 남긴다.
 
 ## Release blocker와 follow-up
 
-**PRS-R54** 다음 항목은 release blocker다.
+**PRS-R54** 다음 항목은 release blocker다. 단계 배포(최종 판정 전에 일부 구성요소만 production에 올리거나 바꾸는
+rollout)에는 그 단계가 올리거나 바꾸는 구성요소의 항목을 적용하고, DB 항목(migration·role grant·credential smoke 실패,
+backup restore 미검증)은 DB를 들이는 단계부터 적용한다. 최종 release에는 모든 항목을 적용한다.
 
 - critical config 또는 secret 누락과 placeholder secret 사용
 - production stub mail sender 또는 provider config failure
@@ -123,3 +133,4 @@ blocker로 승격한다.
 | 2026-08-11 | 변동 가능한 topology·비용·resource·rehearsal evidence를 architecture와 release handoff로 분리했다.                      | documentation ownership   |
 | 2026-08-12 | Lightsail production의 Secrets Manager origin, OIDC release principal, mounted-file application read source를 확정했다. | secret delivery           |
 | 2026-11-01 | 문서 범위 문장의 옛 제품 이름을 서비스 이름 돔두리로 바꿨다(불변 조건·범위 서술 변경 없음)                              | service name (#803)       |
+| 2026-11-02 | 규칙 id(`PRS-R1`~`PRS-R55`)를 붙이고 단계 배포 적용 범위와 넓힌 `PENDING_TARGET`, `docs/deploy/` 소유 나눔을 반영했다.  | stage rollout (#699·#700) |

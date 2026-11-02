@@ -2,8 +2,9 @@
 
 ## 사용 방법
 
-[Infrastructure target readiness](./readiness.md)를 수행한 뒤 실제 target의
-secret-free 결과만 기록한다. 이 component 문서는 전체 release의 최종 결정을 선언하지 않는다.
+[Infrastructure target readiness](./readiness.md)를 수행한 뒤 실제 target의 secret-free 결과만 이 형식으로
+[실제 값의 기록 위치](../../production-release-evidence.md#실제-값의-기록-위치)에 남긴다. 이 문서의 YAML·표는
+template이며 실제 값을 채우지 않는다. 이 component 문서는 전체 release의 최종 결정을 선언하지 않는다.
 
 ```yaml
 schema_version: 1
@@ -22,16 +23,21 @@ evidence_id:
 
 ## Hosting topology and budget
 
-| Field                                                  | Evidence value |
-| ------------------------------------------------------ | -------------- |
-| User App provider / region / instance / CPU / memory   |                |
-| User App container placement and resource budget       |                |
-| BackOffice provider / region / instance / CPU / memory |                |
-| BackOffice container placement and resource budget     |                |
-| Private network / firewall identifiers                 |                |
-| Managed PostgreSQL 18 identifier and private path      |                |
-| Estimated monthly cost, calculation date and owner     |                |
-| Capacity rehearsal identifier                          |                |
+공개 저장소이므로 instance·network·DB identifier는 값을 적지 않고 Owner console 위치와 확인 여부만 적는다
+([식별자 규칙](../../../../../docs/deploy/README.md#식별자-규칙)).
+
+| Field                                                                                    | Evidence value |
+| ---------------------------------------------------------------------------------------- | -------------- |
+| User App provider / region / bundle / CPU / memory                                       |                |
+| User App instance: Owner console 위치와 확인 여부(값 없음)                               |                |
+| User App container placement and resource budget                                         |                |
+| BackOffice provider / region / bundle / CPU / memory                                     |                |
+| BackOffice instance: Owner console 위치와 확인 여부(값 없음)                             |                |
+| BackOffice container placement and resource budget                                       |                |
+| Private network / firewall: Owner console 위치와 확인 여부(값 없음)                      |                |
+| Managed PostgreSQL 18 instance and private path: Owner console 위치와 확인 여부(값 없음) |                |
+| Estimated monthly cost, calculation date and owner                                       |                |
+| Capacity rehearsal identifier                                                            |                |
 
 ## Registry, digest, and attestation
 
@@ -80,5 +86,7 @@ evidence_id:
 
 - [ ] Evidence contains identifiers and bounded results only.
 - [ ] DB connection strings, credentials, token, cookie, authorization header, HMAC material are absent.
+- [ ] Values the public identifier rule excludes (account ID, IP, instance·node ID) are written as "Owner console".
 - [ ] `operator`, `collected_at`, `risk_owner`, `rollback_owner` are filled.
-- [ ] Component result and evidence identifier are linked from the aggregate evidence.
+- [ ] Component result and evidence identifier are recorded in the release record location (`components` of the stage
+      deployment record for a stage deployment).

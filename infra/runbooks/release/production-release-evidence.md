@@ -5,7 +5,18 @@
 이 문서는 모든 component evidence를 모으고 production release의 최종 결정을 기록하는 유일한
 owner다. 준비 순서는 [production-release-readiness.md](./production-release-readiness.md)를 따른다.
 
-실제 target이 없으면 `PENDING_TARGET`를 유지한다. `PENDING_TARGET`는 실패가 아니다.
+실제 target 입력이 없거나 단계 배포가 진행 중이면 `PENDING_TARGET`를 유지한다. `PENDING_TARGET`는 실패가 아니다.
+
+## 실제 값의 기록 위치
+
+이 문서와 component evidence 문서의 YAML·표는 template이며 실제 값을 채우지 않는다. 실제 값은 이 형식으로 아래 위치에
+남긴다.
+
+- 단계 배포: [단계 배포 기록](#단계-배포-기록)의 위치
+- 최종 release 판정: 최종 release를 준비하는 작업이 이 문서의 형식과 아래 식별자 규칙으로 위치를 정한다.
+
+공개 저장소이므로 모든 기록은 [식별자 규칙](../../../docs/deploy/README.md#식별자-규칙)을 따른다. 기록하지 않는 값이
+필요한 자리에는 "Owner console"이라고 적는다.
 
 ## 상태 vocabulary
 
@@ -13,7 +24,10 @@ owner다. 준비 순서는 [production-release-readiness.md](./production-releas
 - Component result: `PENDING`, `PASS`, `FAIL`, `ACCEPTED_RISK`
 - Final decision: `PENDING_TARGET`, `GO`, `NO_GO`, `GO_WITH_FOLLOW_UP`
 
-`GO`, `NO_GO`, `GO_WITH_FOLLOW_UP`는 이 문서에서만 선언한다.
+`COLLECTING`은 단계 배포 기록이 하나 이상 있고 최종 판정 전인 aggregate state다. 단계 배포 사이에는 aggregate state
+`COLLECTING`과 final decision `PENDING_TARGET`를 유지한다.
+
+`GO`, `NO_GO`, `GO_WITH_FOLLOW_UP`는 이 문서에서만 선언한다. 단계 배포 기록은 이 값을 선언하지 않는다.
 
 ## Release metadata
 
@@ -60,12 +74,12 @@ redaction_confirmed: false
 
 ## Final decision rule
 
-| Decision            | Criteria                                                                                      |
-| ------------------- | --------------------------------------------------------------------------------------------- |
-| `GO`                | 모든 mandatory component가 `PASS`이고 blocker가 없으며 rollback evidence가 있다.              |
-| `GO_WITH_FOLLOW_UP` | release safety를 깨지 않는 항목만 `ACCEPTED_RISK`이고 owner·기한·rollback 조건이 있다.        |
-| `NO_GO`             | mandatory component가 `FAIL`이거나 secret 노출, target safety, rollback 조건이 닫히지 않았다. |
-| `PENDING_TARGET`    | 실제 provider/account/domain/registry 같은 release 입력이 아직 없다. 실패로 집계하지 않는다.  |
+| Decision            | Criteria                                                                                                       |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `GO`                | 모든 mandatory component가 `PASS`이고 blocker가 없으며 rollback evidence가 있다.                               |
+| `GO_WITH_FOLLOW_UP` | release safety를 깨지 않는 항목만 `ACCEPTED_RISK`이고 owner·기한·rollback 조건이 있다.                         |
+| `NO_GO`             | mandatory component가 `FAIL`이거나 secret 노출, target safety, rollback 조건이 닫히지 않았다.                  |
+| `PENDING_TARGET`    | 최종 판정 입력이 아직 다 모이지 않았다(실제 target 입력이 없거나 단계 배포가 진행 중). 실패로 집계하지 않는다. |
 
 ## Sign-off
 
@@ -79,6 +93,55 @@ rollback_owner:
 rollback_evidence_id:
 redaction_confirmed: false
 ```
+
+## 단계 배포 기록
+
+[단계 배포](./production-release-readiness.md#단계-배포)는 배포마다 아래 형식으로 그 단계의 결과를 남긴다. 단계 기록은
+최종 판정을 선언하지 않는다.
+
+- 위치: 그 배포의 배포 tag에 붙은 GitHub Release 본문과 그 배포 workflow run의 요약에 같은 내용을 남긴다. 멈추거나
+  되돌린 실행은 멈춘 조건과 되돌림 결과를 그 run 요약에 남긴다.
+- 식별자: [식별자 규칙](../../../docs/deploy/README.md#식별자-규칙)을 따른다. Account ID, IP, instance·node ID처럼
+  기록하지 않는 값이 필요한 자리에는 "Owner console"이라고 적는다.
+
+```yaml
+stage:
+release_id:
+release_commit_sha:
+images:
+attestation:
+components:
+smoke:
+rollback_check:
+previous_safe:
+aggregate_state: COLLECTING
+final_decision: PENDING_TARGET
+operator:
+collected_at:
+risk_owner:
+rollback_owner:
+redaction_confirmed: false
+```
+
+| 필드                           | 적는 값                                                                                                                                                     |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stage`                        | 단계 이름(예: `web`)                                                                                                                                        |
+| `release_id`                   | 배포 tag 이름                                                                                                                                               |
+| `release_commit_sha`           | 배포한 source commit SHA                                                                                                                                    |
+| `images`                       | image마다 registry host 없는 `<repository 이름>@sha256:<digest>`                                                                                            |
+| `attestation`                  | image마다 provenance 검증 결과와 그 검증을 한 workflow run URL                                                                                              |
+| `components`                   | 그 단계가 올리거나 바꾼 component마다 결과(`PASS`·`FAIL`·`ACCEPTED_RISK`)와 evidence identifier. 그 단계에 들지 않는 component와 항목은 `해당 없음(<이유>)` |
+| `smoke`                        | target smoke에서 확인한 경로와 결과                                                                                                                         |
+| `rollback_check`               | 그 단계 rollback 확인 결과와 그 실행의 workflow run URL                                                                                                     |
+| `previous_safe`                | 이 배포 직전의 안전한 image(`images`와 같은 형식). 첫 배포면 `없음(첫 배포)`                                                                                |
+| `aggregate_state`              | `COLLECTING`                                                                                                                                                |
+| `final_decision`               | `PENDING_TARGET`                                                                                                                                            |
+| `operator`                     | 배포를 승인·실행한 사람의 역할 또는 GitHub 계정 이름                                                                                                        |
+| `collected_at`                 | 기록 시각(UTC)                                                                                                                                              |
+| `risk_owner`, `rollback_owner` | 그 단계의 risk owner와 rollback owner                                                                                                                       |
+| `redaction_confirmed`          | 식별자 규칙과 아래 secret-free 규칙을 확인했으면 `true`                                                                                                     |
+
+`해당 없음(<이유>)`은 component result가 아니다. 최종 판정에는 그 component의 실제 결과가 필요하다.
 
 ## Secret-free 규칙
 
