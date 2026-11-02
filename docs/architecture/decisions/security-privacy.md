@@ -17,11 +17,11 @@
 - 판정: Ask
 - 상태: validated
 - 고른 선택지: Landing(`/`)에서만 Cloudflare Web Analytics를 JavaScript 코드 조각으로 불러온다(DNS·proxy 변경 없음, SPA 자동
-  추적 끔, build 때 token이 없으면 script 없음). 목적은 Landing 방문 수·유입 경로·기기 분포와 체감 성능 확인이다. 처리자는
+  추적 끔, build 때 token이 없으면 script 없음). 목적은 Landing 방문 수·유입 경로·기기 분포와 체감 성능 확인이다. 수탁자는
   Cloudflare, Inc.(처리방침 제4조 위탁 표와 국외 이전 표)이고, 항목은 처리방침 제2조 "방문 통계" 행(방문한 페이지·참조 주소,
-  접속 국가, 브라우저·기기·운영체제 종류, 화면 표시 성능 측정값. 접속 IP는 전송되지만 처리자가 저장하지 않음)과 같다. 보존은
+  접속 국가, 브라우저·기기·운영체제 종류, 화면 표시 성능 측정값. 접속 IP는 전송되지만 Cloudflare가 저장하지 않음)과 같다. 보존은
   [data-retention.md DR-R2](../../policies/data-retention.md)가, 국외 이전 근거(처리방침 공개)는
-  [legal-basis.md LB-R3](../../policies/legal-basis.md)가 소유한다. 거부는 브라우저 추적 방지·콘텐츠 차단 기능이다(처리방침 제8조).
+  [legal-basis.md LB-R3](../../policies/legal-basis.md)가 소유한다. 거부는 외부 스크립트를 막는 콘텐츠 차단 기능(광고·추적 차단 확장 프로그램 등)이다(처리방침 제8조).
   코드는 `apps/web/src/screens/landing/components/LandingVisitAnalytics.tsx`, token은 `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN`
   (build-public, optional)이다
 - 근거: 처리자 공식 문서는 cookie·브라우저 저장소를 쓰지 않고 fingerprint하지 않으며 beacon의 접속 IP를 저장하지 않는다고 적는다.

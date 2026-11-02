@@ -2,6 +2,7 @@ import { render } from '@testing-library/react';
 import type { ImgHTMLAttributes, ScriptHTMLAttributes } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LandingScreen } from '../LandingScreen';
+import { LandingVisitAnalytics } from '../components/LandingVisitAnalytics';
 
 type ImageSource = string | { src: string };
 const srcOf = (src: ImageSource) => (typeof src === 'string' ? src : src.src);
@@ -38,12 +39,57 @@ class NoopObserver {
 }
 
 const TOKEN_KEY = 'NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN';
+const TEST_TOKEN = '0123456789abcdef0123456789abcdef';
 
 function analyticsScripts(container: HTMLElement) {
   return container.querySelectorAll('script[src*="cloudflareinsights"]');
 }
 
-describe('Landing visit analytics', () => {
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
+describe('LandingVisitAnalytics', () => {
+  it('renders nothing without a token', () => {
+    vi.stubEnv(TOKEN_KEY, '');
+
+    const { container } = render(<LandingVisitAnalytics />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('loads the Cloudflare beacon with SPA tracking off when a token is set', () => {
+    vi.stubEnv(TOKEN_KEY, TEST_TOKEN);
+
+    const { container } = render(<LandingVisitAnalytics />);
+    const scripts = analyticsScripts(container);
+
+    expect(scripts).toHaveLength(1);
+    const script = scripts[0]!;
+    expect(script.getAttribute('src')).toBe('https://static.cloudflareinsights.com/beacon.min.js');
+    expect(script.getAttribute('data-strategy')).toBe('afterInteractive');
+    expect(script.hasAttribute('defer')).toBe(true);
+    expect(JSON.parse(script.getAttribute('data-cf-beacon') ?? '{}')).toEqual({
+      token: TEST_TOKEN,
+      spa: false,
+    });
+  });
+
+  it.each([
+    ['quote injection', 'abc","spa":true,"x":"'],
+    ['spaces only', '   '],
+    ['too long', 'a'.repeat(65)],
+  ])('ignores a malformed token (%s)', (_label, token) => {
+    vi.stubEnv(TOKEN_KEY, token);
+
+    const { container } = render(<LandingVisitAnalytics />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('Landing visit analytics placement', () => {
   beforeEach(() => {
     vi.stubGlobal('IntersectionObserver', NoopObserver);
     vi.stubGlobal('ResizeObserver', NoopObserver);
@@ -63,45 +109,11 @@ describe('Landing visit analytics', () => {
     );
   });
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.unstubAllGlobals();
-  });
-
-  it('renders no analytics script without a token', () => {
-    vi.stubEnv(TOKEN_KEY, '');
+  it('renders the beacon once on the Landing when a token is set', () => {
+    vi.stubEnv(TOKEN_KEY, TEST_TOKEN);
 
     const { container } = render(<LandingScreen />);
 
-    expect(analyticsScripts(container)).toHaveLength(0);
-  });
-
-  it('loads the Cloudflare beacon once with SPA tracking off when a token is set', () => {
-    vi.stubEnv(TOKEN_KEY, '0123456789abcdef0123456789abcdef');
-
-    const { container } = render(<LandingScreen />);
-    const scripts = analyticsScripts(container);
-
-    expect(scripts).toHaveLength(1);
-    const script = scripts[0]!;
-    expect(script.getAttribute('src')).toBe('https://static.cloudflareinsights.com/beacon.min.js');
-    expect(script.getAttribute('data-strategy')).toBe('afterInteractive');
-    expect(script.hasAttribute('defer')).toBe(true);
-    expect(JSON.parse(script.getAttribute('data-cf-beacon') ?? '{}')).toEqual({
-      token: '0123456789abcdef0123456789abcdef',
-      spa: false,
-    });
-  });
-
-  it.each([
-    ['quote injection', 'abc","spa":true,"x":"'],
-    ['spaces only', '   '],
-    ['too long', 'a'.repeat(65)],
-  ])('ignores a malformed token (%s)', (_label, token) => {
-    vi.stubEnv(TOKEN_KEY, token);
-
-    const { container } = render(<LandingScreen />);
-
-    expect(analyticsScripts(container)).toHaveLength(0);
+    expect(analyticsScripts(container)).toHaveLength(1);
   });
 });

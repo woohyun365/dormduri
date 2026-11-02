@@ -14,9 +14,9 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
   시즌 API를 부르지 않습니다.
 - 랜딩은 이용 권한을 판단하지 않습니다. 기능 허용·거부는 API와 도메인 정책이 판단합니다.
 - 방문 통계(Cloudflare Web Analytics)를 이 화면에서만 불러옵니다(`components/LandingVisitAnalytics.tsx`, build 때
-  `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN`이 없으면 아무것도 넣지 않음, SPA 자동 추적 끔). 목적·항목·보존·처리자는 결정 기록
-  [`sec.privacy.landing-visit-analytics`](../../../../../docs/architecture/decisions/security-privacy.md#secprivacylanding-visit-analytics)이
-  소유하고, 처리방침 고지(제2조·제4조·제8조)를 바꾸지 않고 수집 항목이나 범위를 넓히지 않습니다.
+  `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN`이 없으면 아무것도 넣지 않음, SPA 자동 추적 끔). 목적·항목·수탁자는 결정 기록
+  [`sec.privacy.landing-visit-analytics`](../../../../../docs/architecture/decisions/security-privacy.md#secprivacylanding-visit-analytics)이,
+  보존은 [data-retention.md DR-R2](../../../../../docs/policies/data-retention.md)가 소유하고, 처리방침 고지(제2조·제4조·제8조)를 바꾸지 않고 수집 항목이나 범위를 넓히지 않습니다.
 
 ## 페이지 순서
 
