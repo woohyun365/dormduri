@@ -175,20 +175,21 @@ test('CLI는 경고가 있어도 exit 0이고 입력 오류는 exit 2다', () =>
   mkdirSync(resolve(root, 'folder.md'));
   writeFileSync(resolve(root, 'empty.md'), '');
   writeFileSync(resolve(root, 'notes.txt'), '# Plan\n');
-  for (const argv of [
-    [],
-    ['--json'],
-    ['missing.md'],
-    ['folder.md'],
-    ['empty.md'],
-    ['notes.txt'],
-    ['--bogus', 'clean.md'],
-    ['clean.md', 'missing.md'],
+  for (const [argv, reason] of [
+    [[], /^usage: /u],
+    [['--json'], /^usage: /u],
+    [['missing.md'], /^no such file: missing\.md$/u],
+    [['folder.md'], /^not a file: folder\.md$/u],
+    [['empty.md'], /^empty file: empty\.md$/u],
+    [['notes.txt'], /^not a Markdown file: notes\.txt$/u],
+    [['--bogus', 'clean.md'], /^unknown option: --bogus$/u],
+    [['clean.md', 'missing.md'], /^no such file: missing\.md$/u],
   ]) {
     const result = capture(argv, root);
     assert.equal(result.code, 2, JSON.stringify(argv));
     assert.deepEqual(result.out, [], JSON.stringify(argv));
-    assert.ok(result.err.length, JSON.stringify(argv));
+    assert.equal(result.err.length, 1, JSON.stringify(argv));
+    assert.match(result.err[0], reason, JSON.stringify(argv));
   }
   const cli = (argv) =>
     spawnSync(process.execPath, [modulePath, ...argv], { cwd: root, encoding: 'utf8' });

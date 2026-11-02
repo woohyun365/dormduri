@@ -341,23 +341,34 @@ test('TOTAL 요약 줄·주석은 그대로 복사하고 malformed 행은 exit 2
   assert.equal(read(f.out, 'rows/r.tsv'), '# 분류 행\ndocs/a.md:4\tA\t행\r\n\nTOTAL 1\n');
   assert.equal(read(f.out, 'regression.tsv'), '# 절\ndocs/a.md\t3\tA\t행\n');
   assert.equal(read(f.out, 'notes/readme.txt'), '그대로 복사\n');
-  for (const spec of [
-    { 'rows/r.tsv': 'docs/a.md:3\tA\n' },
-    { 'rows/r.tsv': 'docs/a.md\tA\t줄 없음\n' },
-    { 'rows/r.tsv': 'docs/a.md:0\tA\t0번 줄\n' },
-    { 'overrides.tsv': 'docs/a.md:3\tA\t행\t넷째 칸\n' },
-    { 'additional/s.tsv': 'docs/a.md:3-x\tA\t행\n' },
-    { 'additional/s.tsv': 'docs/a.md:4-2\tA\t행\n' },
-    { 'regression.tsv': 'docs/a.md\tx\tA\t행\n' },
-    { 'contract-targets.tsv': 'docs/a.md:1,3\tB\tblocks\t목록\n' },
+  for (const [spec, where] of [
+    [{ 'rows/r.tsv': 'docs/a.md:3\tA\n' }, 'rows/r.tsv:1'],
+    [{ 'rows/r.tsv': 'docs/a.md\tA\t줄 없음\n' }, 'rows/r.tsv:1'],
+    [{ 'rows/r.tsv': 'docs/a.md:0\tA\t0번 줄\n' }, 'rows/r.tsv:1'],
+    [{ 'overrides.tsv': 'docs/a.md:3\tA\t행\t넷째 칸\n' }, 'overrides.tsv:1'],
+    [{ 'additional/s.tsv': 'docs/a.md:3-x\tA\t행\n' }, 'additional/s.tsv:1'],
+    [{ 'additional/s.tsv': 'docs/a.md:4-2\tA\t행\n' }, 'additional/s.tsv:1'],
+    [{ 'regression.tsv': 'docs/a.md\tx\tA\t행\n' }, 'regression.tsv:1'],
+    [{ 'contract-targets.tsv': 'docs/a.md:1,3\tB\tblocks\t목록\n' }, 'contract-targets.tsv:1'],
   ]) {
     const bad = fixture({ base, next, spec });
     const result = capture(
-      ['--spec', bad.specDirectory, '--from', bad.from, '--to', bad.to, '--out', bad.out],
+      [
+        '--spec',
+        bad.specDirectory,
+        '--from',
+        bad.from,
+        '--to',
+        bad.to,
+        '--out',
+        bad.out,
+        '--root',
+        bad.repo,
+      ],
       bad.root,
     );
     assert.equal(result.code, 2, JSON.stringify(spec));
-    assert.ok(result.err.length, JSON.stringify(spec));
+    assert.deepEqual(result.err, [`${where} malformed`], JSON.stringify(spec));
     assert.equal(existsSync(bad.out), false, JSON.stringify(spec));
   }
 });
@@ -518,57 +529,75 @@ test('CLI 입력 오류는 exit 2이고 --out을 만들지 않는다', () => {
       '--from': f.from,
       '--to': f.to,
       '--out': f.out,
+      '--root': f.repo,
       ...overrides,
     };
     return Object.entries(options).flatMap(([flag, value]) =>
       value === null ? [] : [flag, value],
     );
   };
-  const cases = [
-    args({ '--spec': null }),
-    args({ '--from': null }),
-    args({ '--out': null }),
-    [...args(), '--bogus', 'x'],
-    [...args(), '--to'],
-    args({ '--from': 'no-such-revision' }),
-    args({ '--from': '-p' }),
-    args({ '--to': 'no-such-revision' }),
-    args({ '--spec': resolve(f.root, 'missing-spec') }),
-  ];
-  for (const argv of cases) {
+  // Every case must fail for its own reason, not because an earlier check already failed.
+  const failsWith = (argv, reason, label = JSON.stringify(argv)) => {
     const result = capture(argv, f.root);
-    assert.equal(result.code, 2, JSON.stringify(argv));
-    assert.ok(result.err.length, JSON.stringify(argv));
+    assert.equal(result.code, 2, label);
+    assert.equal(result.err.length, 1, label);
+    assert.match(result.err[0], reason, label);
+  };
+  const usage = /^usage: plan-impact-remap /u;
+  for (const [argv, reason] of [
+    [args({ '--spec': null }), usage],
+    [args({ '--from': null }), usage],
+    [args({ '--out': null }), usage],
+    [[...args(), '--bogus', 'x'], usage],
+    [[...args({ '--to': null }), '--to'], usage],
+    [[...args(), '--to', f.to], usage],
+    [args({ '--from': 'no-such-revision' }), /^--from: unknown revision: no-such-revision$/u],
+    [args({ '--from': '-p' }), /^--from: not a revision: -p$/u],
+    [args({ '--to': 'no-such-revision' }), /^--to: unknown revision: no-such-revision$/u],
+    [args({ '--root': f.root }), /^--from: unknown revision: /u],
+    [args({ '--spec': resolve(f.root, 'missing-spec') }), /^spec .*missing-spec: ENOENT/u],
+  ]) {
+    failsWith(argv, reason);
     assert.equal(existsSync(f.out), false, JSON.stringify(argv));
   }
-  for (const spec of [
-    { 'impact.json': '{"classes": "A"}\n' },
-    { 'rows/r.tsv': 'docs/new.md:1\tA\tfrom에 없는 경로\n' },
-    { 'rows/r.tsv': 'docs/a.md:8\tA\t줄 수 밖\n' },
+  for (const [spec, reason] of [
+    [{ 'impact.json': '{"classes": "A"}\n' }, /impact\.json: classes must be an array/u],
+    [
+      { 'rows/r.tsv': 'docs/new.md:1\tA\tfrom에 없는 경로\n' },
+      /^path not in --from [0-9a-f]+: docs\/new\.md$/u,
+    ],
+    [
+      { 'rows/r.tsv': 'docs/a.md:8\tA\t줄 수 밖\n' },
+      /^rows\/r\.tsv:1: line 8 is past the end of docs\/a\.md in --from$/u,
+    ],
   ]) {
     writeTree(f.specDirectory, {
       'impact.json': IMPACT,
       'rows/r.tsv': 'docs/a.md:3\tA\t행\n',
       ...spec,
     });
-    const result = capture(args(), f.root);
-    assert.equal(result.code, 2, JSON.stringify(spec));
+    failsWith(args(), reason, JSON.stringify(spec));
     assert.equal(existsSync(f.out), false, JSON.stringify(spec));
   }
   writeTree(f.specDirectory, { 'impact.json': IMPACT, 'rows/r.tsv': 'docs/a.md:3\tA\t행\n' });
+  const notEmpty = /^--out must be a new or empty directory: /u;
   writeTree(f.out, { 'keep.txt': 'x\n' });
-  assert.equal(capture(args(), f.root).code, 2);
+  failsWith(args(), notEmpty);
   assert.deepEqual(readdirSync(f.out), ['keep.txt']);
   rmSync(f.out, { recursive: true });
   writeFileSync(f.out, 'file\n');
-  assert.equal(capture(args(), f.root).code, 2);
+  failsWith(args(), notEmpty);
   assert.equal(read(f.root, 'out'), 'file\n');
   rmSync(f.out);
+  // The same spec and revisions succeed, so each failure above came from the one input it changed.
+  assert.equal(capture(args(), f.root).code, 0);
+  rmSync(f.out, { recursive: true });
   const cli = spawnSync(process.execPath, [modulePath, ...args({ '--from': 'no-such-revision' })], {
     cwd: f.root,
     encoding: 'utf8',
   });
   assert.equal(cli.status, 2);
+  assert.match(cli.stderr, /--from: unknown revision: no-such-revision/u);
   assert.equal(existsSync(f.out), false);
 });
 
