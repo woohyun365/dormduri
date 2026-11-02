@@ -17,39 +17,69 @@ const maxBytes = 32 * 1024;
 
 const read = (name) => readFileSync(resolve(htmlDir, name), 'utf8');
 const styleOf = (html) =>
-  [...html.matchAll(/<style>([\s\S]*?)<\/style>/gu)].map((match) => match[1]);
+  [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/giu)].map((match) => match[1]);
 const linksOf = (html) =>
   [...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"/gu)].map((match) => match[1]);
 const visibleText = (html) =>
   html
-    .replace(/<style>[\s\S]*?<\/style>/gu, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/giu, ' ')
     .replace(/<[^>]*>/gu, ' ')
     .replace(/\s+/gu, ' ')
     .trim();
 
-// Everything that would make the browser fetch something besides the page: stylesheet, script, frame and media
-// tags, CSS imports and web fonts, fetching attributes and CSS url() that are not inline images, and any absolute or
+// Start tags with their attributes; a quoted value may hold `>`.
+const startTags = (html) =>
+  [...html.matchAll(/<([a-z][\w:-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/giu)].map((match) => ({
+    element: match[1].toLowerCase(),
+    attributes: [
+      ...match[2].matchAll(/([^\s"'=<>`/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/gu),
+    ].map((attr) => ({
+      name: attr[1].toLowerCase(),
+      value: (attr[2] ?? attr[3] ?? attr[4] ?? '').trim(),
+    })),
+  }));
+const fetchingAttributes = new Set([
+  'action',
+  'background',
+  'data',
+  'formaction',
+  'href',
+  'icon',
+  'manifest',
+  'ping',
+  'poster',
+  'src',
+  'srcset',
+  'xlink:href',
+]);
+const inline = (value) => value.startsWith('data:image/') || value.startsWith('#');
+
+// Everything that would make the browser fetch something besides the page, or run script: stylesheet, script, frame
+// and media tags, CSS imports and web fonts, any fetching attribute or CSS url() that is not an inline image (every
+// attribute of every tag, whatever its quotes), event handler attributes and javascript: values, and any absolute or
 // scheme-relative address. An <a href> is navigation, not a fetch, so it is judged by the link rule instead.
 function externalReferences(html) {
   const found = [];
   for (const tag of html.matchAll(
-    /<(link|script|iframe|object|embed|video|audio|source|track|base)\b/giu,
+    /<(link|script|iframe|frame|object|embed|video|audio|source|track|base|portal)\b/giu,
   )) {
     found.push(`<${tag[1].toLowerCase()}>`);
   }
   for (const rule of html.matchAll(/@(import|font-face)\b/giu))
     found.push(`@${rule[1].toLowerCase()}`);
-  for (const attr of html.matchAll(
-    /<(\w+)\b[^>]*?\s(src|srcset|poster|data|action|formaction|background|xlink:href|href)="([^"]*)"/giu,
-  )) {
-    const [, element, name, value] = attr;
-    if (name.toLowerCase() === 'href' && element.toLowerCase() === 'a') continue;
-    if (!value.startsWith('data:image/') && !value.startsWith('#'))
-      found.push(`${name}="${value.slice(0, 40)}"`);
+  for (const { element, attributes } of startTags(html)) {
+    for (const { name, value } of attributes) {
+      if (name.startsWith('on')) found.push(`${element} ${name}`);
+      else if (/^javascript:/iu.test(value)) found.push(`${name}="${value.slice(0, 40)}"`);
+      else if (name === 'href' && element === 'a') continue;
+      else if (fetchingAttributes.has(name) && !inline(value))
+        found.push(`${name}="${value.slice(0, 40)}"`);
+      else if (name === 'http-equiv' && value.toLowerCase() === 'refresh')
+        found.push('meta refresh');
+    }
   }
   for (const url of html.matchAll(/url\(\s*['"]?([^'")]*)/giu)) {
-    if (!url[1].startsWith('data:image/') && !url[1].startsWith('#'))
-      found.push(`url(${url[1].slice(0, 40)})`);
+    if (!inline(url[1])) found.push(`url(${url[1].slice(0, 40)})`);
   }
   for (const address of html.matchAll(/(?:https?:)?\/\/[\w.-]+\.[a-z]{2,}/giu))
     found.push(address[0]);
@@ -68,13 +98,19 @@ test('the external reference check finds each kind of fetch and passes a self-co
     '<div style="background: url(/bg.png)"></div>',
     '<iframe></iframe>',
     '<p>//cdn.example.com</p>',
+    '<img src="data:image/png;base64,AA==" srcset="/logo-2x.png 2x" alt="">',
+    "<img src='/x.png' alt=''>",
+    '<img src=/x.png alt="">',
+    '<body onload="go()"></body>',
+    '<a href="javascript:go()">x</a>',
+    '<meta http-equiv="refresh" content="0; url=/x">',
   ];
   for (const sample of fetching) {
     assert.notDeepEqual(externalReferences(sample), [], sample);
   }
   const selfContained =
     '<style>.a { background: url(data:image/png;base64,AA==) }</style>' +
-    '<img src="data:image/png;base64,AA==" alt=""><svg><use href="#m"></use></svg>' +
+    '<img src="data:image/png;base64,AA==" alt=""><svg aria-label="a > b"><use href="#m"></use></svg>' +
     '<a href="/">home</a><a href="">again</a>';
   assert.deepEqual(externalReferences(selfContained), []);
 });
@@ -87,13 +123,13 @@ for (const [name, expected] of Object.entries(pages)) {
     );
     const html = read(name);
     assert.match(html, /^<!doctype html>/iu);
-    assert.match(html, /<html lang="ko">/u);
+    assert.match(html, /<html\b[^>]*\blang="ko"/u);
     assert.match(html, /<meta charset="utf-8"/iu);
     assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1"/u);
     assert.match(html, /<meta name="robots" content="noindex"/u);
     assert.match(html, /<title>돔두리 — [^<]+<\/title>/u);
     assert.equal(styleOf(html).length, 1, 'one <style> block');
-    assert.equal([...html.matchAll(/<h1>/gu)].length, 1, 'one heading');
+    assert.equal([...html.matchAll(/<h1\b/giu)].length, 1, 'one heading');
     assert.match(html, /<img\b[^>]*\bsrc="data:image\/png;base64,[^"]+"[^>]*\balt=""/u);
     assert.match(html, /<svg\b[^>]*\brole="img"[^>]*\baria-label="돔두리"/u);
     assert.deepEqual(externalReferences(html), []);
