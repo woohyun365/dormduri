@@ -42,8 +42,10 @@ Effort 대조에서 빠지는 모델은 [model policy](../../../../scripts/agent
 
 공개하는 한계:
 
-- Intake가 보안·인증·migration·삭제 같은 keyword로 요청 risk를 `high`로 정하면 task impact를 낮출 수 없어 그 읽기 task는
-  impact `high`를 받는 `complex-critical`(Opus)에만 결속됩니다. 역할 effort는 그대로(`knu_explorer`·`knu_researcher` high)입니다.
+- Intake가 보안·인증·migration·삭제 같은 keyword로 요청 risk를 `high`로 정하면 task impact를 낮출 수 없어 `knu_explorer`의 읽기
+  task는 impact `high`를 받는 `complex-critical`(Opus)에만 결속됩니다. 역할 effort는 그대로(high)입니다. 쓰기 범위가 빈
+  `knu_researcher`는 요청 risk를 min(intake, medium)으로 낮춰 비교하므로 같은 요청도 `bounded-standard`에 `medium`으로 등록되고,
+  Lead가 `high`를 적어 `complex-critical`을 고를 수 있습니다([공식 근거 조사](./claude-code.md#routine-operation)).
   Codex는 keyword 하나로 effort를 올리지 않습니다. 이 차이는 Owner의 성능 우선 결정(2026-10-01)으로 받아들입니다.
 - 공식 권장은 xhigh를 측정된 향상이 있을 때 쓰는 것입니다. Reviewer의 xhigh는 같은 결정으로 측정 전에 채택했고 high 대비
   향상은 측정하지 않았습니다. 추출 역할 `knu_explorer_xhigh`의 xhigh는 Codex 추출 역할과 같은 형태로
@@ -66,7 +68,7 @@ Effort 대조에서 빠지는 모델은 [model policy](../../../../scripts/agent
 | 0    | 1차 task와 같음                                       | 1차 task와 같음                                      | 1차 task의 kind   |
 | 1    | `bounded-extraction`·`knu_explorer_xhigh`·Haiku xhigh | `bounded-standard`·`knu_explorer_xhigh`·Sonnet xhigh | `extract`         |
 | 1    | `bounded-standard`·`knu_explorer`·Sonnet high         | `complex-critical`·`knu_explorer`·Opus high          | `extract`, `read` |
-| 1    | `bounded-standard`·`knu_researcher`·Sonnet high       | `complex-critical`·`knu_researcher`·Opus high        | `read`            |
+| 1    | `bounded-standard`·`knu_researcher`·Sonnet high       | `complex-critical`·`knu_researcher`·Opus high        | `extract`, `read` |
 
 - `result-error`와 `omission`은 다음 단계 하나로 오릅니다. `context-missing`은 단계 0이며 prompt에만 context를 보탭니다.
 - Kind는 1차 task와 같아야 합니다. 표 밖의 이동은 단계가 아니며 `recovery-step`으로 거부됩니다.

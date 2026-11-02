@@ -41,6 +41,10 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    같은 task는 다시 호출할 수 없습니다(`task already attempted`). Hook이 attempt를 먼저 기록하므로 hook 뒤에 호출이 거부된 task(auto
    classifier 판정 누락 등)도 같습니다. Child 종료를 확인한 뒤 새로 `prepare`한 task를
    전체 `invocation`으로 호출합니다.
+   완료하지 않을 task는 `pnpm claude:native release`로 닫습니다. 호출한 task는 child 종료를 확인한 뒤 `--task <taskId> --ended`,
+   호출하지 않은 등록(`attempt.json` 없음)은 `--task <taskId> --not-dispatched`입니다. 후자는 `attempt.json`이 있으면 거부하고,
+   취소한 task의 호출은 PreToolUse가 `task released before dispatch`로 거부합니다. Hook 장애로 실행된 child도 `attempt.json`이
+   없으므로 실행되지 않았음을 먼저 확인합니다. 두 경우 모두 task는 invalid로 남고 완료로 쓸 수 없습니다.
 5. 정상 PreToolUse는 `allow`를 반환하지 않습니다(주입도 결정 없는 `updatedInput`). 기존 auto classifier·permission rules·다른 hook이 계속 판단합니다.
    KNU role 또는 KNU marker를 가진 호출만 적용하고, 기존 OMC/기타 역할의 모델 통제를 대신하지 않습니다.
    필수 KNU 작업을 OMC 역할로 바꿔 이 계약을 피하지 않습니다([OMC 공존](./claude-code.md#omc-공존과-skill-routing)).
@@ -54,7 +58,8 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    없이 허용하지 않습니다. OMC의 다른 child messaging은 이 registry가 소유하지 않습니다.
 7. `pnpm claude:native complete --task <taskId> --input <JSON file>`로 결과를 판정합니다. 입력은 공통 `results`,
    관측한 `responseDigest`, `acceptance` 배열의 criterion/passed/evidenceRef, 그리고 독립 QA가 필요한 builder의
-   `reviewerTaskId` 또는 reviewer task 자신의 `reviewResult`입니다. 별도 `review` 객체로 대체하지 않습니다.
+   `reviewerTaskId` 또는 reviewer task 자신의 `reviewResult`입니다. Reviewer를 연결하지 않은 researcher(쓰기 범위 없음)는
+   `reviewerTaskId` 대신 Parent 인용 대조 출력 경로 `quoteCheck`입니다. 별도 `review` 객체로 대체하지 않습니다.
    일상 경로는 완료 알림 뒤 `pnpm claude:native settle --task <taskId>`로 관측을 정산해 판단할 응답·`responseDigest`·
    변경 경로를 보고, `settle --task <taskId> --judgment <JSON file>`로 판정하는 두 단계입니다. Judgment에는 Lead가 판단한
    응답의 `responseDigest`, `acceptance`, `checks`(필요하면 `findings`·`gaps`·`reviewerTaskId`)만 둡니다. Helper는 lane ID·
@@ -63,13 +68,17 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    첫 단계는 task evidence 디렉터리에 `judgment-template.json`을 한 번 쓰고 `judgmentTemplatePath`로 알려 줍니다. Template에는
    `responseDigest`와 acceptance 기준이 채워져 있고, 독립 QA가 필요한 builder면 `reviewerTaskId: null`이 있습니다. Lead는 기준별
    `passed`·`evidenceRef`, `checks`와 필요하면 `reviewerTaskId`만 채워 그 파일을 `--judgment`로 넘깁니다. 다시 조회해도 편집한 파일은
-   덮어쓰지 않습니다. 채우지 않은 항목은 `acceptance-unfilled:<기준 또는 순번>`·`reviewer-task-id-unfilled`·`checks-required`로
-   complete 전에 거부됩니다. Template은 입력 보조이며 판정이 아닙니다. Native subject가 없는 reviewer에는 template이 없습니다
+   덮어쓰지 않습니다. Reviewer 없는 researcher의 template에는 `quoteCheck: null`이 있고, 첫 단계가 정산된 응답을
+   `response.json`에 한 번 써서 `quoteCheckResponsePath`로 알려 줍니다. 파일은 JSON 한 줄과 끝 줄바꿈이라 바이트 sha256은 `responseDigest`와 다르고, 대조 CLI가 그 JSON 값을 다시 직렬화해 `responseDigest`와 같은 값을 계산합니다. Lead는
+   [인용 대조](./claude-code.md#routine-operation) 출력 경로(저장소 안·native task evidence 밖)를 `quoteCheck`에 채웁니다. 채우지 않은 항목은
+   `acceptance-unfilled:<기준 또는 순번>`·`reviewer-task-id-unfilled`·`quote-check-unfilled`·`checks-required`로
+   complete 전에 거부됩니다. Complete는 대조 출력이 이 task id·응답 digest를 가리키고 대조한 주장이 모두 응답에 있을 때만 받고,
+   결과와 `accepted.json`에 evidence 후보(`found`)와 제외(사유)를 남깁니다. Template은 입력 보조이며 판정이 아닙니다. Native subject가 없는 reviewer에는 template이 없습니다
    (`judgmentTemplatePath: null`).
    강도: background 호출의 이 순서(알림 전 거부 → 관측 정산 → template → judgment 검증 → complete)는 helper를 쓸 때만
    결정적(deterministic-static)입니다. `complete`를 직접 호출해 우회해도 완료 관측이 없으면 `no-completion-observation`, 판정 입력이
-   부족하면 `semantic-acceptance-required`·`same-response-semantic-check-required`·`native required QA requires linked reviewerTaskId`로
-   거부됩니다. Foreground 호출은 PostToolUse가 바로 완료를 기록하므로 알림을 기다리지 않습니다.
+   부족하면 `semantic-acceptance-required`·`same-response-semantic-check-required`·`native required QA requires linked reviewerTaskId`·
+   `researcher without a linked reviewer requires a quote-check output`으로 거부됩니다. Foreground 호출은 PostToolUse가 바로 완료를 기록하므로 알림을 기다리지 않습니다.
    Result의 snapshot은 completion.json의 finalSnapshot을 사용합니다. 같은 응답에 대한 acceptance와 독립 QA를
    실제로 수행해야 하며 boolean·receipt·JSON만으로 수행 사실을 인증하지 않습니다. Parent는 finding과 변경 범위를
    독립 확인합니다. 오류·거부·취소·collector 누락이면 완료를 보고하지 않고 원인과 다음 행동을 남깁니다.

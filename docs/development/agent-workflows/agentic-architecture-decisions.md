@@ -525,6 +525,44 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 - **재검토**: 구현 위임이 반복해서 필요해질 때(새 결정으로 writer 경로와 Parent 쓰기 구분을 함께 설계), hook 범위·trust 동작이
   바뀔 때입니다.
 
+<a id="researcher-quote-check"></a>
+
+## DA-024 — 공식 근거 조사는 researcher가 짝 reviewer 없이 맡고 Parent 인용 대조로 정산한다
+
+- **상태/결정일**: accepted, 2026-10-31(Owner). [DA-023](#executor-retirement) 뒤 남은 읽기 역할의 QA 조건을 바꾸는 Claude adapter
+  결정입니다. 역할 파일·도구, intake 분류, explorer와 쓰기 task의 위험 비교, Codex 정책 code는 그대로입니다. Policy revision은 Claude
+  `2026-11-02.1`, Codex `2026-11-01.1`(바뀌지 않음)입니다.
+- **문제/근거**: 공식 문서 인용을 받는 `knu_researcher`는 kind `read`만 받았고, 어느 profile이든 짝 reviewer(Opus xhigh)를 붙여야 등록됐습니다.
+  Lead가 URL을 정한 `extract`는 `kind-role`로 거부됐고, 요청 문장에 `배포`·`production` 같은 낱말이 있으면 intake 위험 `high`가
+  `bounded-standard` 등록을 `risk-downgrade`로 막았습니다. 제품 lane에서 같은 원인의 거부가 네 번 관찰됐고(`kind-role` 셋, 역할 단위
+  리뷰 필수 하나), 한 번은 Parent가 공식 가격 페이지를 직접 확인해 위임을 건너뛰었습니다. 조사 결과는 인용이라 출처를 결정적으로
+  대조할 수 있는데, 리뷰 회차마다 Opus reviewer를 쓰는 비용이 그 확인보다 컸습니다(이슈 [#776](https://github.com/woohyun365/dormduri/issues/776)).
+- **결정**: (1) 쓰기 범위가 빈 `knu_researcher`는 kind `read`(자유 검색)·`extract`(Lead가 정한 URL, prompt에 적음)를 `bounded-standard`
+  (Sonnet high)에서 `reviewDisposition.required:false`로 등록할 수 있고, recovery 1단계(`complex-critical`, Opus high)도 두 kind를 받습니다.
+  결과는 주장마다 `{url, quote, checkedAt}`입니다. (2) 그 task의 정산은 Parent 인용 대조 출력(`scripts/agents/common/quote-check.mjs`)을
+  요구합니다. Parent가 evidence로 옮길 주장만 골라 그 URL 원문(raw, WebFetch 요약이 아님)을 받아 대조하고, 정산은 출력이 없거나 다른
+  task·응답을 가리키거나 응답에 없는 주장을 대조했으면 거부합니다. 그 밖에는 통과하고 `found`만 evidence 후보로, `missing`·`raw-missing`·
+  `no-quote`는 사유와 함께 제외로 결과와 `accepted.json`에 남깁니다. 인용이 질문의 답인지와 acceptance는 Parent 판단입니다. (3) 그 task의
+  `risk-downgrade` 비교는 intake 위험 대신 min(intake, medium)을 씁니다. Lead가 `high`를 적어 `complex-critical`을 고를 수 있습니다.
+  (4) 호출하지 않은 등록(`attempt.json` 없음)은 `release --not-dispatched`로 취소하고, 취소한 task의 호출은 PreToolUse가 거부합니다.
+  (5) Codex는 정책 code를 바꾸지 않고 [Codex delegation](./adapters/codex-delegation.md#role-and-effort)이 같은 규칙을 Lead 운영 규칙으로 둡니다.
+- **Trigger / non-trigger**: 쓰기 범위가 빈 researcher의 공식 근거 조사 / explorer 추출·읽기(QA 조건과 위험 비교 그대로), reviewer를 짝지은
+  researcher(`required:true`), 쓰기 범위가 있는 task, Codex 수락(`codex:accept`).
+- **기각**: researcher `read`만 인용 대조(`extract`가 계속 `kind-role`), 지정 URL `extract`만 reviewer 없이(`readScope` URL 항목과 정산 URL 대조),
+  대조 실패 주장이 있으면 정산 거부(실패 주장은 evidence 후보에서 빼는 것으로 충분), 정산이 출력 경로만 기록(대조가 실행되지 않아도 끝남),
+  researcher low 상한·읽기 전용 child 전체 medium 상한(explorer 결과는 인용 대조 대상이 아님), fact `sourceRef`에 URL 허용(입력 검증 완화).
+- **구현 영향**: Claude `model-policy.mjs`(`rolesForKind` `extract`, `envelopeReasons` 위험 상한, `validateBinding`이 역할·쓰기 범위를 넘김),
+  `native-session.mjs`(`prepare` QA 조건, 정산 gate·후보 기록, `release --not-dispatched`, 취소 task 호출 거부), `native-task-helper.mjs`
+  (판정 template `quoteCheck` 칸, `response.json`), 새 `quote-check.mjs`, routine 표 researcher 행 작업 이름, `/knu-delegate`·`/knu-settle`,
+  registry·profile·troubleshooting 문서, `codex-delegation.md`.
+- **검증/한계**: 정책·등록·정산·취소·CLI test와 독립 clone 양성 대조 열여섯, live 관측(CLI 2.1.316: researcher `extract` 1회의 대조 출력 없는 정산 거부와 대조 뒤 정산 통과, `배포`가 든 요청의 researcher `read` 1회의 `bounded-standard` medium 등록과 대조 뒤 정산 통과, 등록 취소와 취소 task 호출 거부, [evidence](../../evidence/agent-workflows/delegation-retirement-and-researcher-quote-check.md)). 대조는 출처만 보장하고 답의 적합성은
+  Parent 판단입니다. 정산은 대조 출력의 `found`를 다시 계산하지 않고(raw 파일 sha는 기록) evidence 후보만 남기며, 뒤에 쓰는 plan·PR evidence가
+  후보만 쓰는지는 그 산출물의 독립 리뷰가 봅니다. Medium 상한은 intake가 high로 보는 낱말 전체에 같게 걸립니다. 원문이 script로 그려지는
+  페이지는 raw에 본문이 없어 `missing`이 됩니다. 반대로 raw의 `<script>`·`<style>` 안 text와 숨김 요소도 원문으로 세므로 렌더되지 않는
+  text에만 있는 인용도 `found`가 될 수 있습니다. 태그 제거는 원문 쪽만 하므로 원문에 없는 `<…>` 조각이 든 인용은 `found`가 아닙니다. Codex는 수락이 대조 출력을 검사하지 않습니다. 정적 회귀는 native 실행 증거가 아닙니다.
+- **재검토**: researcher 역할의 도구·권한을 바꿀 때, 인용 대조 거짓 양성·누락이 관측될 때, researcher 조사 결과가 evidence에 잘못 옮겨진
+  사례가 나올 때, Codex 수락에 같은 gate가 필요해질 때입니다.
+
 ## Evidence inventory
 
 - [OpenAI Codex AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md.md)
@@ -569,3 +607,4 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 | DA-021 | Claude file guard, 공식 hook matcher·실패 동작, code mode 발화 관측 | writer 실행 중 Parent `apply_patch` / Bash·child 쓰기·writer 없음·Claude adapter | `apply_patch` group·writer 기간 deny·`codex:release`·`fork_turns` none                             | superseded by DA-023                                                                                        |
 | DA-022 | Claude 사전 고정 추출 cohort 8 task × 2 경로, 독립 QA               | 고정 입력 단일 추출 kind `extract` / `read`·구현·리뷰·Codex adapter              | routine 표 Haiku 행 `관측`·관측 버전 범위·skill 표·profile 문장·contract test, 정책·사다리 불변    | ID·alias 해석·effort·profile·사다리 변경, 추출 밖 확장, oracle 불일치·결속 재시도 관측, 시간·비용 비교 자료 |
 | DA-023 | 구현 위임 쓴 기록, writer 기간 guard·리뷰 분기 유지 비용            | 구현·디버깅·test 위임 요청 / 읽기 위임·독립 리뷰·`writeOwnership` 필드           | Claude `build` 거부·역할 넷, Codex `lead-task-kind`·역할 일곱, writer lease·Parent 쓰기 guard 삭제 | 구현 위임의 반복 필요, hook 범위·trust 변화                                                                 |
+| DA-024 | researcher 짝 리뷰 비용·`kind-role` 거부 관찰, 인용 대조 결정성     | 쓰기 범위 빈 researcher 조사 / explorer·`required:true`·쓰기 task·Codex 수락     | researcher `extract`·QA 생략·medium 상한, 정산 인용 대조 gate, `release --not-dispatched`          | researcher 도구 변경, 대조 거짓 양성·누락, evidence 오옮김, Codex 수락 gate 필요                            |

@@ -561,7 +561,7 @@ test('Claude entry documents actual host commands and keeps native/lifecycle evi
       '`knu_explorer_xhigh` `bounded-extraction` `haiku` xhigh `claude-haiku-5-5`(2.1.306) 고정 입력 추출 관측',
       '`knu_explorer` `bounded-extraction` `haiku` —(미지원) `claude-haiku-4-5-20251001` 고정 입력 추출 대체됨(등록 거부)',
       '`knu_explorer` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) 고정 입력 추출 관측',
-      '`knu_researcher` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) 공식 근거 읽기 관측',
+      '`knu_researcher` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) 공식 근거 조사(`read`·`extract`, 인용 대조) 관측',
       '`knu_reviewer` `complex-critical` `opus` xhigh `claude-opus-5-5`(2.1.286) 독립 source review 관측',
       '`knu_explorer` `bounded-standard` `sonnet` high `claude-sonnet-5-5`(2.1.286) repository 읽기 조사 관측',
     ],

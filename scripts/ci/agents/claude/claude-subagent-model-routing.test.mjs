@@ -883,3 +883,99 @@ test('a step-1 recovery binding passes admission and observation; static exchang
     'invalid-input',
   );
 });
+
+// OSS-RETIRE PR ② (D-RET-3·8): the researcher is the light official-source research role. It takes
+// read and extract on bounded-standard, and with no write scope its request-risk comparison is capped at
+// medium. Explorer and writing tasks keep the intake risk.
+const DEPLOY_REQUEST = '배포 대상 Node 공식 문서의 지원 기간 근거를 분석해줘.';
+const PRICE_REQUEST = 'AWS 공식 가격 페이지의 Lightsail 월 요금 근거를 조사해줘.';
+const KIND_FACTS = {
+  extract: [
+    'source-bound',
+    'fixed-input',
+    'single-step',
+    'output-schema',
+    'acceptance',
+    'independent-check',
+  ],
+  read: ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'],
+};
+function researchInput({
+  request = PRICE_REQUEST,
+  profileId = 'bounded-standard',
+  kind = 'extract',
+  role = 'knu_researcher',
+  impactRisk = 'low',
+  sourceRef = 'plan:executor-retirement/5.3',
+  recovery,
+} = {}) {
+  const input = inputFor('bounded-standard', 'read');
+  input.envelope = buildTaskEnvelope({ request });
+  input.profileId = profileId;
+  input.selectionBasisRef = 'plan:executor-retirement/5.3';
+  Object.assign(input.task, {
+    kind,
+    impactRisk,
+    role,
+    allowedTools: [...roles[role]],
+    readScope: ['docs/development/agent-workflows/qa.md'],
+    childValue: 'independent-research',
+    facts: KIND_FACTS[kind].map((key) => ({ key, sourceRef, confidence: 'high' })),
+  });
+  if (recovery !== undefined) input.task.recovery = recovery;
+  return input;
+}
+const reasonsOf = (patch) => evaluateClaudeProfileEligibility(researchInput(patch)).reasons;
+
+test('a researcher takes read and extract on bounded-standard and climbs ladder step 1 in both (D-RET-3)', () => {
+  // The D2.5b-PR1 shape: an official price lookup whose URL the Lead fixed in the prompt.
+  assert.deepEqual(reasonsOf({ kind: 'extract' }), []);
+  assert.deepEqual(reasonsOf({ kind: 'read' }), []);
+  for (const kind of ['extract', 'read']) {
+    const from = { profileId: 'bounded-standard', role: 'knu_researcher', kind };
+    const to = { profileId: 'complex-critical', role: 'knu_researcher', kind };
+    assert.equal(policy.claudeRecoveryStep(from, to), 1, kind);
+    const retry = {
+      of: '00000000-0000-4000-8000-000000000001',
+      cause: 'result-error',
+      step: 1,
+      fromProfileId: 'bounded-standard',
+      fromRole: 'knu_researcher',
+    };
+    assert.deepEqual(reasonsOf({ kind, profileId: 'complex-critical', recovery: retry }), [], kind);
+  }
+});
+
+test('the extraction roles, the fact reference rule and the explorer kinds stay as they were (D-RET-3)', () => {
+  // A fact sourceRef names the reference that fixed the URL; the URL itself is refused there.
+  assert.deepEqual(reasonsOf({ sourceRef: 'https://aws.amazon.com/lightsail/pricing/' }), [
+    'invalid-input',
+  ]);
+  assert.deepEqual(reasonsOf({ kind: 'extract', role: 'knu_explorer' }), []);
+  assert.deepEqual(
+    reasonsOf({ kind: 'extract', role: 'knu_explorer_xhigh', profileId: 'bounded-extraction' }),
+    [],
+  );
+  // The reviewer still takes only review.
+  assert.ok(reasonsOf({ kind: 'extract', role: 'knu_reviewer' }).includes('kind-role'));
+});
+
+test('research with no write scope compares the request risk capped at medium (D-RET-8)', () => {
+  const deploy = (patch) => reasonsOf({ request: DEPLOY_REQUEST, kind: 'read', ...patch });
+  assert.equal(buildTaskEnvelope({ request: DEPLOY_REQUEST }).risk, 'high');
+  assert.equal(buildTaskEnvelope({ request: DEPLOY_REQUEST }).intent, 'analyze');
+  assert.deepEqual(deploy({ impactRisk: 'medium' }), []);
+  assert.deepEqual(deploy({ impactRisk: 'low' }), ['risk-downgrade']);
+  assert.deepEqual(deploy({ impactRisk: 'high' }), ['impact-risk']);
+  assert.deepEqual(deploy({ impactRisk: 'high', profileId: 'complex-critical' }), []);
+  assert.deepEqual(deploy({ kind: 'extract', impactRisk: 'medium' }), []);
+  // The explorer keeps the intake risk.
+  assert.deepEqual(deploy({ role: 'knu_explorer', impactRisk: 'medium' }), ['risk-downgrade']);
+  // A binding made under the cap still validates, so admission keeps it a candidate.
+  const capped = candidate(
+    researchInput({ request: DEPLOY_REQUEST, kind: 'read', impactRisk: 'medium' }),
+  );
+  assert.equal(capped.binding.envelopeRisk, 'high');
+  assert.equal(capped.binding.impactRisk, 'medium');
+  assert.equal(capped.result.decision, 'candidate', JSON.stringify(capped.result));
+});

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { validateCrossModelExchange, validateTaskEnvelope } from '../common/index.mjs';
 
-const POLICY_REVISION = '2026-11-01.1';
+const POLICY_REVISION = '2026-11-02.1';
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,159}$/u;
 const SAFE_REF = /^[a-zA-Z0-9][a-zA-Z0-9_./:-]{0,299}$/u;
@@ -623,10 +623,17 @@ function envelopeReasons(envelope, task) {
     reasons.push('review-not-authorized');
   }
   const riskRank = { low: 0, medium: 1, high: 2 };
-  if (
-    !Object.hasOwn(riskRank, envelope.risk) ||
-    riskRank[task.impactRisk] < riskRank[envelope.risk]
-  ) {
+  // A researcher with no write scope answers with cited claims the Parent checks against the raw source,
+  // so the request's words raise the risk it is compared with to medium at most; the Lead may still state
+  // high and pick complex-critical. Explorer and writing tasks keep the intake risk (DA-024).
+  const citedResearch =
+    task.role === 'knu_researcher' &&
+    Array.isArray(task.writeScope) &&
+    task.writeScope.length === 0;
+  const requestRisk = citedResearch
+    ? Math.min(riskRank[envelope.risk], riskRank.medium)
+    : riskRank[envelope.risk];
+  if (!Object.hasOwn(riskRank, envelope.risk) || riskRank[task.impactRisk] < requestRisk) {
     reasons.push('risk-downgrade');
   }
   return reasons;
@@ -635,7 +642,7 @@ function envelopeReasons(envelope, task) {
 function rolesForKind(kind) {
   return (
     {
-      extract: ['knu_explorer', 'knu_explorer_xhigh'],
+      extract: ['knu_explorer', 'knu_explorer_xhigh', 'knu_researcher'],
       read: ['knu_explorer', 'knu_researcher'],
       review: ['knu_reviewer'],
     }[kind] ?? []
@@ -714,7 +721,12 @@ function validateBinding(binding) {
         risk: binding.envelopeRisk,
         recommendedPath: binding.envelopePath,
       },
-      { kind: binding.taskKind, impactRisk: binding.impactRisk },
+      {
+        kind: binding.taskKind,
+        impactRisk: binding.impactRisk,
+        role: binding.role,
+        writeScope: binding.writeScope,
+      },
     ).length === 0,
   );
   require(

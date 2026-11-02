@@ -3998,3 +3998,301 @@ test('builder completion judges the manifest of every delivered group member', (
     new RegExp(`^review-input-manifest-changed \\(${tampered.fail.qa.registered.taskId}\\)$`, 'u'),
   );
 });
+
+// OSS-RETIRE PR ② (D-RET-3·4·5): a researcher with no write scope takes read and extract on
+// bounded-standard without a paired reviewer, and its settlement needs the Parent's quote-check output
+// for the claims it moves into evidence. The URL the Lead fixed goes in the prompt; a fact's sourceRef
+// names the plan that chose it.
+const RESEARCH_PRICE_REQUEST = 'AWS 공식 가격 페이지의 Lightsail 월 요금 근거를 조사해줘.';
+const RESEARCH_PRICE_URL = 'https://aws.amazon.com/lightsail/pricing/';
+const RESEARCH_TOOLS = ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'];
+const RESEARCH_FACTS = {
+  extract: [
+    'source-bound',
+    'fixed-input',
+    'single-step',
+    'output-schema',
+    'acceptance',
+    'independent-check',
+  ],
+  read: ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'],
+};
+function research(t, { kind = 'extract', role = 'knu_researcher', required = false } = {}) {
+  const f = fixture(t);
+  writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
+  writeRole(f.root, 'knu_researcher', RESEARCH_TOOLS.join(', '), 'Official sources only.');
+  execFileSync('git', ['add', '.'], { cwd: f.root });
+  delete f.input.currentSnapshot;
+  f.input.request = RESEARCH_PRICE_REQUEST;
+  f.input.directAssignment.owner = 'researcher';
+  f.input.reviewDisposition = required
+    ? { required: true, reason: 'paired reviewer for this research' }
+    : { required: false, reason: 'cited claims settled by the Parent quote check' };
+  f.input.nativeRequest.profileId = 'bounded-standard';
+  Object.assign(f.input.nativeRequest.task, {
+    kind,
+    role,
+    allowedTools: role === 'knu_researcher' ? [...RESEARCH_TOOLS] : ['Read', 'Grep', 'Glob'],
+    childValue: 'independent-research',
+    facts: RESEARCH_FACTS[kind].map((key) => ({
+      key,
+      sourceRef: 'plan:executor-retirement/5.3',
+      confidence: 'high',
+    })),
+  });
+  f.options.prompt = `Read ${RESEARCH_PRICE_URL} only. Answer as JSON {"claims":[{"url","quote","checkedAt"}]}.`;
+  f.options.expectedResolvedModel = 'claude-sonnet-5-5';
+  return f;
+}
+function registerResearch(f, { sessionId = randomUUID(), ...extra } = {}) {
+  const registered = registerClaudeNativeTask({
+    ...f.options,
+    workflowInput: f.input,
+    sessionId,
+    ...extra,
+  });
+  return {
+    ...f,
+    registered,
+    event: {
+      hook_event_name: 'PreToolUse',
+      session_id: sessionId,
+      cwd: f.root,
+      permission_mode: 'auto',
+      tool_name: 'Agent',
+      tool_use_id: `research-${registered.taskId.slice(0, 8)}`,
+      tool_input: registered.invocation,
+    },
+  };
+}
+const RESEARCH_CLAIMS = [
+  {
+    url: RESEARCH_PRICE_URL,
+    quote: 'Linux/Unix bundles start at $5 USD/month.',
+    checkedAt: '2026-11-02',
+  },
+  {
+    url: RESEARCH_PRICE_URL,
+    quote: 'Windows bundles start at $9.50 USD/month.',
+    checkedAt: '2026-11-02',
+  },
+  {
+    url: 'https://aws.amazon.com/lightsail/faq/',
+    quote: 'Data transfer is included.',
+    checkedAt: '2026-11-02',
+  },
+  { url: RESEARCH_PRICE_URL, checkedAt: '2026-11-02' },
+];
+const RESEARCH_RAW =
+  '<html><body><h1>Lightsail pricing</h1><p>Linux/Unix bundles start at <b>$5&nbsp;USD/month</b>.</p></body></html>';
+// The researcher ran and delivered its claims in a fenced JSON block.
+function researchRan(t, options) {
+  const g = registerResearch(research(t, options));
+  assert.deepEqual(handle(g), {});
+  const text = `Findings:\n\n\`\`\`json\n${JSON.stringify({ claims: RESEARCH_CLAIMS })}\n\`\`\`\n`;
+  finish(g, { content: [{ type: 'text', text }] });
+  mkdirSync(join(g.root, '.artifacts/raw'), { recursive: true });
+  writeFileSync(join(g.root, '.artifacts/raw/pricing.html'), RESEARCH_RAW);
+  return g;
+}
+// The Parent's quote-check output for the selected claims, written where the judgment names it.
+async function quoteCheckFile(g, selection, edit = (output) => output) {
+  const { checkQuotes } = await import('../../../agents/common/quote-check.mjs');
+  const response = JSON.parse(
+    readFileSync(join(g.registered.evidenceDirectory, 'completion.json')),
+  ).response;
+  const output = edit(
+    checkQuotes({ taskId: g.registered.taskId, response, selection: structuredClone(selection) }),
+  );
+  const path = `.artifacts/quote-check/${randomUUID()}.json`;
+  mkdirSync(join(g.root, '.artifacts/quote-check'), { recursive: true });
+  writeFileSync(join(g.root, path), JSON.stringify(output));
+  return path;
+}
+const selected = (g, claim, raw = '.artifacts/raw/pricing.html') => ({
+  url: claim.url,
+  quote: claim.quote,
+  raw: join(g.root, raw),
+});
+const completeResearch = (g, extra) =>
+  completeClaudeNativeTask(
+    g.registered.taskId,
+    { ...semanticResult(g), ...extra },
+    { root: g.root },
+  );
+
+test('a researcher registers read and extract on bounded-standard without a paired reviewer (D-RET-3)', (t) => {
+  for (const kind of ['extract', 'read']) {
+    const g = registerResearch(research(t, { kind }));
+    assert.equal(g.registered.invocation.subagent_type, 'knu_researcher', kind);
+    assert.equal(g.registered.invocation.model, 'sonnet', kind);
+    assert.ok(g.registered.invocation.prompt.includes(RESEARCH_PRICE_URL), kind);
+  }
+});
+
+test('a researcher retry binds ladder step 1 to complex-critical for read and extract (D-RET-3)', (t) => {
+  for (const kind of ['extract', 'read']) {
+    const first = ranUnaccepted(registerResearch(research(t, { kind })));
+    const input = structuredClone(first.input);
+    input.nativeRequest.profileId = 'complex-critical';
+    const retry = registerClaudeNativeTask({
+      ...first.options,
+      expectedResolvedModel: 'claude-opus-5-5',
+      workflowInput: input,
+      sessionId: first.event.session_id,
+      recovery: { of: first.registered.taskId, cause: 'result-error' },
+    });
+    assert.equal(retry.invocation.model, 'opus', kind);
+  }
+});
+
+test('the explorer read review rule and a reviewer-paired researcher stay as they were (D-RET-3)', (t) => {
+  assert.throws(
+    () => registerResearch(research(t, { kind: 'read', role: 'knu_explorer' })),
+    /independent QA required for this profile/u,
+  );
+  const paired = registerResearch(research(t, { kind: 'read', required: true }));
+  assert.deepEqual(handle(paired), {});
+  finish(paired);
+  // Its settlement still asks for the linked reviewer and no quote-check output.
+  const checked = completeResearch(paired, {});
+  assert.deepEqual(checked.errors, [
+    'native required QA requires linked reviewerTaskId',
+    'independent QA exchange required',
+  ]);
+});
+
+test('a researcher without a reviewer settles only on a quote-check output for this task and response (D-RET-4)', async (t) => {
+  const g = researchRan(t);
+  const pick = [selected(g, RESEARCH_CLAIMS[0])];
+  const refused = (extra) => completeResearch(g, extra).errors;
+  assert.ok(
+    refused({}).includes('researcher without a linked reviewer requires a quote-check output'),
+  );
+  assert.ok(
+    refused({
+      quoteCheck: await quoteCheckFile(g, pick, (o) => ({ ...o, taskId: randomUUID() })),
+    }).includes('quote-check-task-mismatch'),
+  );
+  assert.ok(
+    refused({
+      quoteCheck: await quoteCheckFile(g, pick, (o) => ({
+        ...o,
+        responseDigest: `sha256:${'0'.repeat(64)}`,
+      })),
+    }).includes('quote-check-response-mismatch'),
+  );
+  for (const claim of [
+    { ...RESEARCH_CLAIMS[0], url: 'https://aws.amazon.com/other/' },
+    { ...RESEARCH_CLAIMS[0], quote: 'Linux/Unix bundles start at $3 USD/month.' },
+  ]) {
+    const errors = refused({ quoteCheck: await quoteCheckFile(g, [selected(g, claim)]) });
+    assert.ok(errors.includes(`quote-check-claim-not-in-response:${claim.url}`), errors.join());
+    // A hand-edited status cannot hide a claim the child never gave.
+    const hidden = refused({
+      quoteCheck: await quoteCheckFile(g, [selected(g, claim)], (o) => {
+        o.results[0].status = 'found';
+        return o;
+      }),
+    });
+    assert.ok(hidden.includes(`quote-check-claim-not-in-response:${claim.url}`), hidden.join());
+  }
+  const settled = completeResearch(g, { quoteCheck: await quoteCheckFile(g, pick) });
+  assert.equal(settled.valid, true, JSON.stringify(settled.errors));
+  assert.equal(Object.hasOwn(settled, 'reviewerTaskId'), false);
+});
+
+test('a researcher settles with failed quotes kept out of the evidence candidates (D-RET-4)', async (t) => {
+  const g = researchRan(t);
+  const path = await quoteCheckFile(g, [
+    selected(g, RESEARCH_CLAIMS[0]),
+    selected(g, RESEARCH_CLAIMS[1]),
+    selected(g, RESEARCH_CLAIMS[2], '.artifacts/raw/absent.html'),
+    selected(g, RESEARCH_CLAIMS[3]),
+  ]);
+  const output = JSON.parse(readFileSync(join(g.root, path)));
+  assert.equal(output.exit, 1);
+  const settled = completeResearch(g, { quoteCheck: path });
+  assert.equal(settled.valid, true, JSON.stringify(settled.errors));
+  assert.deepEqual(
+    settled.quoteCheck.candidates.map((item) => item.quote),
+    [RESEARCH_CLAIMS[0].quote],
+  );
+  assert.deepEqual(
+    settled.quoteCheck.excluded.map((item) => item.status),
+    ['missing', 'raw-missing', 'no-quote'],
+  );
+  assert.ok(settled.quoteCheck.excluded.every((item) => item.reason));
+  const accepted = JSON.parse(readFileSync(join(g.registered.evidenceDirectory, 'accepted.json')));
+  assert.deepEqual(accepted.quoteCheck, settled.quoteCheck);
+});
+
+test('release cancels a registration never dispatched and refuses one with a dispatch record (D-RET-5)', (t) => {
+  const f = setup(t);
+  assert.deepEqual(
+    releaseClaudeNativeTask(f.registered.taskId, { root: f.root, notDispatched: true }),
+    { taskId: f.registered.taskId, released: true, dispatched: false, completed: false },
+  );
+  // A cancelled registration is no longer dispatched.
+  assert.equal(handle(f).hookSpecificOutput.permissionDecision, 'deny');
+  const g = setup(t);
+  assert.deepEqual(handle(g), {});
+  assert.throws(
+    () => releaseClaudeNativeTask(g.registered.taskId, { root: g.root, notDispatched: true }),
+    /dispatch record/u,
+  );
+  // The CLI names both paths when neither is chosen, and cancels from the command line.
+  const usage = spawnSync(
+    process.execPath,
+    [hookScript, 'release', '--task', g.registered.taskId],
+    {
+      cwd: g.root,
+      encoding: 'utf8',
+    },
+  );
+  assert.equal(usage.status, 1);
+  assert.match(usage.stderr, /--ended/u);
+  assert.match(usage.stderr, /--not-dispatched/u);
+  const h = setup(t);
+  const cancelled = spawnSync(
+    process.execPath,
+    [hookScript, 'release', '--task', h.registered.taskId, '--not-dispatched'],
+    { cwd: h.root, encoding: 'utf8' },
+  );
+  assert.equal(cancelled.status, 0, cancelled.stderr);
+  assert.equal(JSON.parse(cancelled.stdout).dispatched, false);
+});
+
+test('a quote-check output outside the repository or inside native task evidence is refused', async (t) => {
+  const g = researchRan(t);
+  const inside = await quoteCheckFile(g, [selected(g, RESEARCH_CLAIMS[0])]);
+  const evidence = join(g.registered.evidenceDirectory, 'quote-check.json');
+  writeFileSync(evidence, readFileSync(join(g.root, inside)));
+  for (const path of ['../quote-check.json', evidence]) {
+    const errors = completeResearch(g, { quoteCheck: path }).errors;
+    assert.ok(
+      errors.some((error) => error.startsWith('quote-check-output-unreadable: ')),
+      `${path}: ${errors.join()}`,
+    );
+  }
+  assert.equal(completeResearch(g, { quoteCheck: inside }).valid, true);
+});
+
+test('a quote-check output is refused for a task that is not a researcher settled without a reviewer', async (t) => {
+  const g = researchRan(t);
+  const path = await quoteCheckFile(g, [selected(g, RESEARCH_CLAIMS[0])]);
+  const f = setup(t);
+  assert.deepEqual(handle(f), {});
+  finish(f);
+  const errors = completeClaudeNativeTask(
+    f.registered.taskId,
+    { ...semanticResult(f), quoteCheck: path },
+    { root: f.root },
+  ).errors;
+  assert.ok(
+    errors.includes(
+      'quote-check output is only for a researcher settled without a linked reviewer',
+    ),
+    errors.join(),
+  );
+});

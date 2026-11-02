@@ -284,13 +284,17 @@ test('CLAUDE.md points to the skills instead of low-level registration', () => {
   assert.match(entry, /\/knu-delegate/u);
 });
 
-// The recovery example is the second json block: fields merged onto the delegate template.
+// The recovery example is the json block with a recovery field: fields merged onto the delegate template.
 test('the delegate recovery example binds a retry to a ran, unaccepted first task', (t) => {
   const blocks = [...skill('knu-delegate').matchAll(/```json\n([\s\S]*?)\n```/gu)].map((m) => m[1]);
-  assert.equal(blocks.length, 2, 'knu-delegate needs the template and a recovery example');
+  assert.equal(
+    blocks.length,
+    3,
+    'knu-delegate needs the template, a researcher example and a recovery example',
+  );
   const sessionId = randomUUID();
   const template = JSON.parse(blocks[0].replaceAll('${CLAUDE_SESSION_ID}', sessionId));
-  const example = JSON.parse(blocks[1]);
+  const example = JSON.parse(blocks.find((block) => block.includes('"recovery"')));
   const helper = read('scripts/agents/claude/native-task-helper.mjs');
   const allowed = new Set([
     ...sourceArray(helper, 'SPEC_REQUIRED'),
@@ -493,7 +497,8 @@ test('the delegate skill routine table matches the adapter routine rows one to o
   // Skill work labels are short forms of the adapter work column; each maps to exactly one adapter row.
   const WORK = new Map([
     ['고정 입력 추출', '고정 입력 추출'],
-    ['공식 근거 조사', '공식 근거 읽기'],
+    // One researcher row: official-source research, read or extract, settled by the quote check (D-RET-8).
+    ['공식 근거 조사(`read`·`extract`, 인용 대조)', '공식 근거 조사(`read`·`extract`, 인용 대조)'],
     ['repository 읽기', 'repository 읽기 조사'],
   ]);
   const status = (value) => (value.startsWith('Q') ? 'Q' : value);
@@ -534,4 +539,49 @@ test('the delegate skill routine table matches the adapter routine rows one to o
     [...adapter.keys()].sort(),
     'skill copies every routine row once',
   );
+});
+
+// #776 Acceptance 4 (D-RET-7·8): the adapter routine, the delegate skill and the Codex delegation guide
+// carry one researcher rule: claims {url, quote, checkedAt}, the shared quote-check CLI for the claims that
+// move into evidence, and the request risk capped at medium for research with no write scope.
+test('the researcher rule is the same in the routine, the delegate skill and the Codex guide', () => {
+  const routine =
+    read('docs/development/agent-workflows/adapters/claude-code.md')
+      .split('## Routine operation')[1]
+      ?.split('## Recovery')[0] ?? '';
+  for (const [name, text] of [
+    ['claude-code.md routine', routine],
+    ['knu-delegate', skill('knu-delegate')],
+    ['codex-delegation.md', read('docs/development/agent-workflows/adapters/codex-delegation.md')],
+  ]) {
+    assert.ok(text.includes('scripts/agents/common/quote-check.mjs'), `${name}: quote-check CLI`);
+    assert.match(text, /\{url, quote, checkedAt\}/u, `${name}: claim fields`);
+    assert.match(text, /min\([^)\n]*, ?medium\)/u, `${name}: medium cap`);
+  }
+  assert.match(skill('knu-settle'), /`quoteCheck`/u);
+  // A fact sourceRef starts with a letter or digit, so the delegate skill names the plan reference form.
+  assert.ok(skill('knu-delegate').includes('plan:<Plan ID>/<절>'));
+  assert.match(skill('knu-delegate'), /release --task <taskId> --not-dispatched/u);
+});
+
+test('the delegate researcher example passes prepare with its URL only in the prompt (D-RET-3)', (t) => {
+  const blocks = [...skill('knu-delegate').matchAll(/```json\n([\s\S]*?)\n```/gu)].map((match) =>
+    JSON.parse(match[1].replaceAll('${CLAUDE_SESSION_ID}', randomUUID())),
+  );
+  const example = blocks.find((block) => block.role === 'knu_researcher');
+  assert.ok(example, 'knu-delegate needs a researcher example');
+  const spec = { ...blocks[0], ...example };
+  assert.equal(spec.reviewDisposition.required, false);
+  assert.match(spec.prompt, /https:\/\//u);
+  assert.match(spec.prompt, /\{url, quote, checkedAt\}/u);
+  for (const fact of spec.facts) assert.doesNotMatch(fact.sourceRef, /\/\//u, fact.key);
+  const f = fixture(t);
+  writeFileSync(
+    join(f.root, '.claude/agents/knu_researcher.md'),
+    `---\nname: knu_researcher\ntools: Read, Grep, Glob, WebSearch, WebFetch\neffort: ${ROLE_EFFORT.knu_researcher}\n---\nOfficial sources.\n`,
+  );
+  writeFileSync(join(f.root, 'package.json'), '{ "packageManager": "pnpm@0.0.0" }\n');
+  execFileSync('git', ['add', '.'], { cwd: f.root });
+  const prepared = prepareClaudeNativeTask(spec, { root: realpathSync(f.root) });
+  assert.equal(prepared.invocation.subagent_type, 'knu_researcher');
 });

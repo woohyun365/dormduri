@@ -18,6 +18,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { validateAdapterReview, validateCrossModelPacket } from '../common/index.mjs';
+import { quoteCheckSettlement } from '../common/quote-check.mjs';
 import { resultFindingIds, validateAdjudication } from '../common/review-adjudication.mjs';
 import { prepareClaudeWorkflow, validateClaudeWorkflowResults } from './workflow-entry.mjs';
 import {
@@ -788,8 +789,14 @@ export function registerClaudeNativeTask({
     binding.impactRisk === 'low' &&
     binding.complexity === 'bounded' &&
     binding.uncertainty === 'resolved';
+  // A researcher with no write scope answers with cited claims; its independent check is the Parent's
+  // quote check of the claims moved into evidence, which settlement requires (DA-024).
+  const citedResearch = role === 'knu_researcher' && binding.writeScope.length === 0;
   check(
-    boundedExtraction || input.reviewDisposition.required === true || Boolean(reviewBinding),
+    boundedExtraction ||
+      citedResearch ||
+      input.reviewDisposition.required === true ||
+      Boolean(reviewBinding),
     'independent QA required for this profile',
   );
   // A reviewer without a native subject names its packet file, and so its review, in the prompt.
@@ -1505,6 +1512,7 @@ export function handleClaudeNativeSessionEvent(event, { root = process.cwd() } =
         'input file drift',
       );
       check(!existsSync(join(dir, 'attempt.json')), 'task already attempted');
+      check(!existsSync(join(dir, 'observation-error.json')), 'task released before dispatch');
       const bound = record.input.nativeRequest.task.recovery;
       if (bound !== undefined) {
         let pointer = null;
@@ -1849,6 +1857,7 @@ export function completeClaudeNativeTask(
     reviewResult,
     responseDigest,
     acceptance = [],
+    quoteCheck,
   } = {},
   { root = process.cwd() } = {},
 ) {
@@ -1888,6 +1897,42 @@ export function completeClaudeNativeTask(
     reviewerTaskId === undefined
   )
     errors.push('native required QA requires linked reviewerTaskId');
+  // A researcher settled without a linked reviewer is checked by the Parent's quote-check output: it must
+  // name this task and this response, and every claim it checked must be in the child response. Claims it
+  // did not find stay out of the evidence candidates with their reason; they do not refuse the settlement.
+  const quotedResearch =
+    record.input.nativeRequest.task.role === 'knu_researcher' &&
+    !record.independentReview &&
+    record.input.reviewDisposition.required !== true &&
+    reviewerTaskId === undefined;
+  let quoteRecord = null;
+  if (quoteCheck !== undefined && !quotedResearch)
+    errors.push('quote-check output is only for a researcher settled without a linked reviewer');
+  if (quotedResearch && quoteCheck === undefined)
+    errors.push('researcher without a linked reviewer requires a quote-check output');
+  if (quotedResearch && quoteCheck !== undefined) {
+    let output;
+    try {
+      // Like a review adjudication, the output is a repository file outside native task evidence.
+      output = jsonFile(adjudicationFile(root, quoteCheck));
+    } catch (error) {
+      errors.push(`quote-check-output-unreadable: ${error.message}`);
+    }
+    if (output !== undefined) {
+      const gate = quoteCheckSettlement(output, {
+        taskId: record.taskId,
+        responseDigest: observation.responseDigest,
+        response: observation.response,
+      });
+      errors.push(...gate.errors);
+      quoteRecord = {
+        output: quoteCheck,
+        outputDigest: hash(output),
+        candidates: gate.candidates,
+        excluded: gate.excluded,
+      };
+    }
+  }
   if (record.independentReview) {
     if (reviewerTaskId !== undefined || review !== undefined)
       errors.push('reviewer task cannot consume another review');
@@ -2201,6 +2246,7 @@ export function completeClaudeNativeTask(
           taskId: record.taskId,
           responseDigest: observation.responseDigest,
           ...(dependencyRecord ? { dependencyJudgment: dependencyRecord } : {}),
+          ...(quoteRecord ? { quoteCheck: quoteRecord } : {}),
         }),
         { flag: 'wx', mode: 0o600 },
       );
@@ -2214,6 +2260,7 @@ export function completeClaudeNativeTask(
     observation,
     observedEfforts: currentState.observedEfforts,
     dependencyJudgment: dependencyRecord,
+    ...(quoteRecord ? { quoteCheck: quoteRecord } : {}),
     common,
     verificationClass: 'local-evidence-and-static-contract',
     dispatchAuthorized: false,
@@ -2265,10 +2312,27 @@ export function claudeNativeSnapshotDigest(snapshot) {
   return hash({ baseSHA, headSHA, dirtyDiffDigest, untrackedInputDigests });
 }
 
-export function releaseClaudeNativeTask(id, { root = process.cwd(), ended = false } = {}) {
-  check(ended === true, 'verify actual native task ended before release');
+const RELEASE_USAGE =
+  'release --task ID --ended (a dispatched task, after it actually ended) | release --task ID --not-dispatched (a registration never dispatched: no attempt.json; a child that ran while the hook failed has none either, so confirm no child ran)';
+// Release closes a task that will not complete. A dispatched task is released only after it actually ended;
+// a registration with no dispatch record (no attempt.json) is cancelled and can no longer be dispatched
+// (DA-024). Either way the task stays invalid and is never a completion.
+export function releaseClaudeNativeTask(
+  id,
+  { root = process.cwd(), ended = false, notDispatched = false } = {},
+) {
+  check(ended === true || notDispatched === true, 'verify actual native task ended before release');
+  check(!(ended === true && notDispatched === true), RELEASE_USAGE);
   root = realpathSync(root);
   const { dir } = loadTask(root, id);
+  if (notDispatched) {
+    check(
+      !existsSync(join(dir, 'attempt.json')),
+      'release --not-dispatched refused: this task has a dispatch record (attempt.json); after it actually ended use release --task ID --ended',
+    );
+    markInvalid(dir, 'released-before-dispatch');
+    return { taskId: id, released: true, dispatched: false, completed: false };
+  }
   markInvalid(dir, 'explicitly-released-after-end');
   return { taskId: id, released: true, completed: false };
 }
@@ -2374,10 +2438,13 @@ async function main(args) {
     options = {};
   if (action === 'release') {
     check(
-      args.length === 3 && args[0] === '--task' && args[2] === '--ended',
-      'release --task ID --ended requires actual task termination first',
+      args.length === 3 &&
+        args[0] === '--task' &&
+        ['--ended', '--not-dispatched'].includes(args[2]),
+      `${RELEASE_USAGE}; --ended requires actual task termination first`,
     );
-    process.stdout.write(JSON.stringify(releaseClaudeNativeTask(args[1], { ended: true })) + '\n');
+    const choice = args[2] === '--ended' ? { ended: true } : { notDispatched: true };
+    process.stdout.write(JSON.stringify(releaseClaudeNativeTask(args[1], choice)) + '\n');
     return;
   }
   for (let i = 0; i < args.length; i += 2) {

@@ -1353,7 +1353,15 @@ const JUDGMENT_FIELDS = [
   'gaps',
   'reviewerTaskId',
   'reviewAdjudication',
+  'quoteCheck',
 ];
+// A researcher with no write scope settled without a linked reviewer: its template carries the
+// quote-check slot that complete requires (DA-024).
+const quotedResearch = (record) =>
+  record.input.nativeRequest.task.role === 'knu_researcher' &&
+  record.input.nativeRequest.task.writeScope.length === 0 &&
+  !record.independentReview &&
+  record.input.reviewDisposition.required !== true;
 // complete's input from the settled observation plus the Lead's judgment. The Lead states the digest
 // of the response it judged and each acceptance result; lane ids, snapshot, observed changed paths
 // and a reviewer's delivered result come from the records, so none of them is retyped by hand.
@@ -1514,6 +1522,7 @@ function settlementStatus(taskId, root) {
   }
   const content = state.observation.response?.content;
   let judgmentTemplatePath = null;
+  let quoteCheckResponsePath = null;
   // A reviewer without a native subject is judged by the Parent from this settle observation.
   if (record.input.nativeRequest.task.role !== 'knu_reviewer' || record.independentReview) {
     judgmentTemplatePath = join(state.evidenceDirectory, 'judgment-template.json');
@@ -1529,7 +1538,20 @@ function settlementStatus(taskId, root) {
       ...(!record.independentReview && record.input.reviewDisposition.required === true
         ? { reviewerTaskId: null }
         : {}),
+      ...(quotedResearch(record) ? { quoteCheck: null } : {}),
     };
+    // The quote check reads the settled response as stored, so its digest is the responseDigest here.
+    if (quotedResearch(record)) {
+      quoteCheckResponsePath = join(state.evidenceDirectory, 'response.json');
+      const stored = `${JSON.stringify(state.observation.response ?? null)}\n`;
+      try {
+        writeFileSync(quoteCheckResponsePath, stored, { flag: 'wx', mode: 0o600 });
+      } catch (error) {
+        if (error.code !== 'EEXIST') throw error;
+        if (readFileSync(quoteCheckResponsePath, 'utf8') !== stored)
+          state.errors.push('quote-check-response-changed');
+      }
+    }
     try {
       writeFileSync(judgmentTemplatePath, `${JSON.stringify(template, null, 2)}\n`, {
         flag: 'wx',
@@ -1552,6 +1574,7 @@ function settlementStatus(taskId, root) {
     ...(reviewPacket ? { reviewPacket } : {}),
     ...reviewExtracts.statuses,
     judgmentTemplatePath,
+    ...(quoteCheckResponsePath ? { quoteCheckResponsePath } : {}),
     dispatchAuthorized: false,
   };
 }
@@ -1578,6 +1601,12 @@ export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() 
         issues.push(`acceptance-unfilled:${named ? item.criterion : index}`);
     });
   if (judgment.reviewerTaskId === null) issues.push('reviewer-task-id-unfilled');
+  if (judgment.quoteCheck === null) issues.push('quote-check-unfilled');
+  else if (
+    judgment.quoteCheck !== undefined &&
+    (typeof judgment.quoteCheck !== 'string' || !judgment.quoteCheck.trim())
+  )
+    issues.push('quote-check-path-required');
   if (!textList(judgment.checks) || !judgment.checks.length) issues.push('checks-required');
   for (const key of ['findings', 'gaps'])
     if (judgment[key] !== undefined && !Array.isArray(judgment[key]))
@@ -1633,6 +1662,7 @@ export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() 
     ...(judgment.reviewAdjudication === undefined
       ? {}
       : { reviewAdjudication: judgment.reviewAdjudication }),
+    ...(judgment.quoteCheck === undefined ? {} : { quoteCheck: judgment.quoteCheck }),
   };
   if (record.independentReview) {
     try {
