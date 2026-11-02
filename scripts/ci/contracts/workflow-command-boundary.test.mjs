@@ -483,6 +483,8 @@ test('API CI migrates its fresh public schema before generating TypedSQL artifac
   assertIncludesAll(apiWorkflow, [
     '--stage=schema',
     'pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma',
+    '--stage=schema-diff',
+    'pnpm --dir apps/api exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code',
     'pnpm api:prepare',
     '--stage=runtime-config-health-contract',
     '--stage=unit',
@@ -490,7 +492,10 @@ test('API CI migrates its fresh public schema before generating TypedSQL artifac
     '--stage=e2e-db',
     '--stage=stress-harness',
   ]);
-  assert.ok(apiWorkflow.indexOf('prisma migrate deploy') < apiWorkflow.indexOf('pnpm api:prepare'));
+  assert.ok(
+    apiWorkflow.indexOf('prisma migrate deploy') < apiWorkflow.indexOf('prisma migrate diff'),
+  );
+  assert.ok(apiWorkflow.indexOf('prisma migrate diff') < apiWorkflow.indexOf('pnpm api:prepare'));
 });
 
 test('API integration shards own isolated runners and PostgreSQL services', () => {
