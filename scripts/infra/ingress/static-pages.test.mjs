@@ -18,8 +18,6 @@ const maxBytes = 32 * 1024;
 const read = (name) => readFileSync(resolve(htmlDir, name), 'utf8');
 const styleOf = (html) =>
   [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/giu)].map((match) => match[1]);
-const linksOf = (html) =>
-  [...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"/gu)].map((match) => match[1]);
 const visibleText = (html) =>
   html
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/giu, ' ')
@@ -27,7 +25,7 @@ const visibleText = (html) =>
     .replace(/\s+/gu, ' ')
     .trim();
 
-// Start tags with their attributes; a quoted value may hold `>`.
+// Start tags with their attributes, whatever the quotes; a quoted value may hold `>`.
 const startTags = (html) =>
   [...html.matchAll(/<([a-z][\w:-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/giu)].map((match) => ({
     element: match[1].toLowerCase(),
@@ -35,84 +33,88 @@ const startTags = (html) =>
       ...match[2].matchAll(/([^\s"'=<>`/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/gu),
     ].map((attr) => ({
       name: attr[1].toLowerCase(),
-      value: (attr[2] ?? attr[3] ?? attr[4] ?? '').trim(),
+      value: attr[2] ?? attr[3] ?? attr[4] ?? '',
     })),
   }));
-const fetchingAttributes = new Set([
-  'action',
-  'background',
-  'data',
-  'formaction',
-  'href',
-  'icon',
-  'manifest',
-  'ping',
-  'poster',
-  'src',
-  'srcset',
-  'xlink:href',
-]);
-const inline = (value) => value.startsWith('data:image/') || value.startsWith('#');
+const linksOf = (html) =>
+  startTags(html)
+    .filter((tag) => tag.element === 'a')
+    .map((tag) => tag.attributes.find((attr) => attr.name === 'href')?.value);
 
-// Everything that would make the browser fetch something besides the page, or run script: stylesheet, script, frame
-// and media tags, CSS imports and web fonts, any fetching attribute or CSS url() that is not an inline image (every
-// attribute of every tag, whatever its quotes), event handler attributes and javascript: values, and any absolute or
-// scheme-relative address. An <a href> is navigation, not a fetch, so it is judged by the link rule instead.
-function externalReferences(html) {
+// The pages may use only what is listed here, and nothing listed asks the browser for anything: no script, no other
+// file, no at-rule, no fetching attribute or CSS function. The one image is an inline PNG in <img src>; an <a href> is navigation,
+// judged by the link rule. To use another element, attribute or CSS function, first check that it fetches nothing,
+// then add it here.
+const allowedElements = new Set([
+  ...['html', 'head', 'meta', 'title', 'style', 'body', 'main', 'div', 'h1', 'p', 'br', 'a', 'img'],
+  ...['svg', 'g', 'path', 'circle'],
+]);
+const allowedAttributes = new Set([
+  ...['lang', 'charset', 'name', 'content', 'class', 'href', 'src', 'alt', 'width', 'height'],
+  ...['role', 'aria-label', 'viewbox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap'],
+  ...['stroke-linejoin', 'transform', 'd', 'cx', 'cy', 'r'],
+]);
+const allowedCssFunctions = new Set([
+  ...['rgb', 'rgba', 'radial-gradient', 'linear-gradient', 'calc', 'min', 'max', 'clamp', 'var'],
+]);
+const inlinePng = /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/u;
+
+function disallowed(html) {
   const found = [];
-  for (const tag of html.matchAll(
-    /<(link|script|iframe|frame|object|embed|video|audio|source|track|base|portal)\b/giu,
-  )) {
-    found.push(`<${tag[1].toLowerCase()}>`);
-  }
-  for (const rule of html.matchAll(/@(import|font-face)\b/giu))
-    found.push(`@${rule[1].toLowerCase()}`);
   for (const { element, attributes } of startTags(html)) {
+    if (!allowedElements.has(element)) found.push(`<${element}>`);
     for (const { name, value } of attributes) {
-      if (name.startsWith('on')) found.push(`${element} ${name}`);
-      else if (/^javascript:/iu.test(value)) found.push(`${name}="${value.slice(0, 40)}"`);
-      else if (name === 'href' && element === 'a') continue;
-      else if (fetchingAttributes.has(name) && !inline(value))
-        found.push(`${name}="${value.slice(0, 40)}"`);
-      else if (name === 'http-equiv' && value.toLowerCase() === 'refresh')
-        found.push('meta refresh');
+      if (!allowedAttributes.has(name)) found.push(`${element} ${name}`);
+      else if (name === 'href' && element !== 'a') found.push(`${element} href`);
+      else if (name === 'src' && !(element === 'img' && inlinePng.test(value)))
+        found.push(`${element} src="${value.slice(0, 40)}"`);
     }
   }
-  for (const url of html.matchAll(/url\(\s*['"]?([^'")]*)/giu)) {
-    if (!inline(url[1])) found.push(`url(${url[1].slice(0, 40)})`);
+  for (const css of styleOf(html)) {
+    if (css.includes('\\')) found.push('CSS escape');
+    for (const rule of css.matchAll(/@[\w-]+/gu)) found.push(rule[0]);
+    for (const call of css.matchAll(/([\w-]+)\s*\(/gu)) {
+      if (!allowedCssFunctions.has(call[1].toLowerCase())) found.push(`${call[1]}()`);
+    }
   }
+  for (const url of html.matchAll(/url\s*\(/giu)) found.push(url[0]);
   for (const address of html.matchAll(/(?:https?:)?\/\/[\w.-]+\.[a-z]{2,}/giu))
     found.push(address[0]);
   return found;
 }
 
-test('the external reference check finds each kind of fetch and passes a self-contained page', () => {
+test('the allowlist check finds each kind of fetch or script and passes a self-contained page', () => {
   const fetching = [
     '<link rel="stylesheet" href="/x.css">',
     '<script src="/x.js"></script>',
     '<style>@import "x.css";</style>',
     '<style>@font-face { font-family: X; }</style>',
+    '<style>.a { background-image: image-set("/bg.png" 1x); }</style>',
+    '<style>.a { background: u\\72l(/bg.png); }</style>',
     '<img src="/logo.png" alt="">',
+    '<img src="#" alt="">',
+    '<img src="data:image/svg+xml;base64,AA==" alt="">',
     '<img src="https://cdn.example.com/a.png" alt="">',
-    '<svg><image href="/x.svg"></image></svg>',
-    '<div style="background: url(/bg.png)"></div>',
-    '<iframe></iframe>',
-    '<p>//cdn.example.com</p>',
-    '<img src="data:image/png;base64,AA==" srcset="/logo-2x.png 2x" alt="">',
+    '<img src="data:image/png;base64,AA==" srcset="data:image/png;base64,AA== 1x, /logo-2x.png 2x" alt="">',
     "<img src='/x.png' alt=''>",
     '<img src=/x.png alt="">',
+    '<a ping="#a /t" href="/">x</a>',
+    '<svg><use href="/sprite.svg#a"></use></svg>',
+    '<svg><g fill="url(/p.svg#g)"></g></svg>',
+    '<div style="background: red"></div>',
     '<body onload="go()"></body>',
-    '<a href="javascript:go()">x</a>',
     '<meta http-equiv="refresh" content="0; url=/x">',
+    '<iframe></iframe>',
+    '<p>//cdn.example.com</p>',
   ];
   for (const sample of fetching) {
-    assert.notDeepEqual(externalReferences(sample), [], sample);
+    assert.notDeepEqual(disallowed(sample), [], sample);
   }
   const selfContained =
-    '<style>.a { background: url(data:image/png;base64,AA==) }</style>' +
-    '<img src="data:image/png;base64,AA==" alt=""><svg aria-label="a > b"><use href="#m"></use></svg>' +
-    '<a href="/">home</a><a href="">again</a>';
-  assert.deepEqual(externalReferences(selfContained), []);
+    '<style>.a { background: radial-gradient(rgb(1 2 3 / 20%), transparent) }</style>' +
+    '<img src="data:image/png;base64,AA==" alt=""><svg role="img" aria-label="a > b"><g fill="none">' +
+    '<path d="M0 0 H1"/></g></svg><a href="/">home</a><a href="">again</a>';
+  assert.deepEqual(disallowed(selfContained), []);
 });
 
 for (const [name, expected] of Object.entries(pages)) {
@@ -132,7 +134,7 @@ for (const [name, expected] of Object.entries(pages)) {
     assert.equal([...html.matchAll(/<h1\b/giu)].length, 1, 'one heading');
     assert.match(html, /<img\b[^>]*\bsrc="data:image\/png;base64,[^"]+"[^>]*\balt=""/u);
     assert.match(html, /<svg\b[^>]*\brole="img"[^>]*\baria-label="돔두리"/u);
-    assert.deepEqual(externalReferences(html), []);
+    assert.deepEqual(disallowed(html), []);
   });
 
   test(`${name} links only where its screen needs to`, () => {

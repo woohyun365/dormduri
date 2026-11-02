@@ -56,7 +56,8 @@ infra/deploy/
 
 - Web이 내려가도 떠야 하므로 각 파일은 한 파일로 끝난다. CSS는 파일 안 `<style>` 하나이고 네 파일이 같은
   `<style>`을 쓴다. JavaScript, 외부 CSS·글꼴·그림, 외부 주소가 없고 그림은 `data:` URI뿐이다.
-  `scripts/infra/ingress/static-pages.test.mjs`가 이 형식과 화면별 링크를 검사한다.
+  `scripts/infra/ingress/static-pages.test.mjs`가 이 형식과 화면별 링크를 검사한다. 이 test는 쓸 수 있는 tag·속성·CSS
+  함수를 허용 목록으로 정하므로, 새 요소가 필요하면 그것이 아무것도 받아 오지 않는지 확인한 뒤 test 목록에 더한다.
 - 색과 로고는 Web 원본을 복사했다. Landing 어두운 palette(`apps/web/src/styles/tokens/tokens.generated.css`),
   곰 mark(`apps/web/src/screens/ui/brand/art/logo-mark.png`를 96px로 줄인 PNG), 손글씨 글자
   (`apps/web/src/screens/ui/brand/BrandLogo.tsx`의 SVG path)다. 로고나 palette를 바꾸면 이 네 파일도 함께 고친다.
