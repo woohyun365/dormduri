@@ -4,7 +4,7 @@ import { config as loadDotenv } from 'dotenv';
 import { defineConfig } from 'prisma/config';
 
 const DEFAULT_DATABASE_URL =
-  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
+  'postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public';
 const DEFAULT_DIRECT_URL = DEFAULT_DATABASE_URL;
 const LOCAL_DOTENV_PATH = fileURLToPath(new URL('.env', import.meta.url));
 

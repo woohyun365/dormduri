@@ -157,7 +157,12 @@ pnpm dev
 Web은 `http://localhost:3000`, API는 `http://localhost:4000`에서 열립니다.
 
 - API는 개발 환경에서 `docker-compose.dev.yml`의 로컬 DB에 맞춘 기본값으로 실행되므로, 따로 설정할 필요가 없습니다. 접속 정보를 바꿀 때만 `apps/api/.env`에 `DATABASE_URL`·`DIRECT_URL`을 적고, 보존(retention) 암호화 키가 필요한 흐름을 로컬에서 시험할 때만 해당 키를 추가로 설정합니다.
-- baseline migration의 index 이름을 Prisma schema와 맞추기 전(#714)에 만든 로컬 DB에서는 `prisma:migrate`가 baseline이 적용 뒤 바뀌었다며 reset이 필요하다고 알리고 멈춥니다(DB는 그대로). 로컬 데이터를 지워도 되면 `pnpm --dir apps/api exec prisma migrate reset` 뒤 `pnpm db:seed`로 다시 만듭니다. 데이터를 남기려고 그 DB를 잠시 더 쓴다면 migration은 `pnpm --dir apps/api exec prisma migrate deploy`로 적용할 수 있지만, deploy는 새 migration 디렉터리만 적용하고 그 뒤의 baseline 수정은 알리지 않고 건너뛰므로 되도록 빨리 reset으로 다시 만듭니다.
+- 로컬 DB 이름이 `dormduri`가 되기 전에 만든 dev DB는 새로 만듭니다. 그 DB가 5432에 떠 있으면 DB에 붙는 명령(`prisma:migrate`, TypedSQL을 만드는 `pnpm api:check`)이 새 사용자 인증 실패(`P1000`)로 멈춥니다. 옛 데이터는 옮기지 않습니다(암호 결속 값과 baseline index 이름이 바뀌어 새 코드와 맞지 않습니다).
+  1. 옛 dev DB를 멈춰 port 5432를 비웁니다: `docker stop knu-roommate-postgres-dev`(옛 이름). 되돌릴 때 쓰므로 지우지 않습니다.
+  2. 위 순서대로 `pnpm db:up` → `pnpm --dir apps/api prisma:migrate` → `pnpm db:seed`로 새 DB(`dormduri-postgres-dev`)를 띄우고 채웁니다.
+  3. `apps/api/.env`를 쓴다면 `DATABASE_URL`·`DIRECT_URL`의 사용자·암호·DB 이름을 위 기본값(`dormduri_dev`·`dormduri_dev_password`·`dormduri`)으로 고칩니다.
+  4. 옛 데이터가 필요하면 옛 container를 다시 띄워 직접 읽습니다. 남은 옛 이름 자원은 [로컬 환경 runbook](./infra/runbooks/rehearsal/local-environments.md#옛-이름-자원)에서 골라 지웁니다.
+- dev DB compose project 이름은 `dormduri-dev`로 고정이라 이 저장소의 checkout 여럿이 같은 DB를 씁니다. 한 번에 한 checkout에서만 띄웁니다. 다른 checkout으로 옮긴 뒤 `prisma:migrate`가 migration과 DB가 다르다고 알리면, 로컬 데이터를 지워도 될 때 `pnpm --dir apps/api exec prisma migrate reset` 뒤 `pnpm db:seed`로 맞춥니다.
 - `.env.example`은 개발용 입력 형식만 제공합니다. 운영 secret은 image나 Git에 넣지 않고 출시 runtime에서 주입하며, 불변 조건은 [운영 runtime 안전 정책](./docs/policies/production-runtime-safety.md)을 따릅니다.
 
 ### 검증

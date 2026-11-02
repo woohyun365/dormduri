@@ -111,13 +111,13 @@ settings_sql="$(mktemp)"
 trap 'rm -f "$settings_sql"' EXIT HUP INT TERM
 chmod 600 "$settings_sql"
 
-append_setting knu_roommate.auth_schema "$schema"
-append_setting knu_roommate.rrpd_schema "$schema"
-append_setting knu_roommate.app_runtime_role "$app_runtime_role"
-append_setting knu_roommate.retention_worker_role "$retention_worker_role"
-append_setting knu_roommate.retention_disclosure_role "$retention_disclosure_role"
-append_setting knu_roommate.app_readonly_role "$app_readonly_role"
-append_setting knu_roommate.migration_role "$migration_role"
+append_setting dormduri.auth_schema "$schema"
+append_setting dormduri.rrpd_schema "$schema"
+append_setting dormduri.app_runtime_role "$app_runtime_role"
+append_setting dormduri.retention_worker_role "$retention_worker_role"
+append_setting dormduri.retention_disclosure_role "$retention_disclosure_role"
+append_setting dormduri.app_readonly_role "$app_readonly_role"
+append_setting dormduri.migration_role "$migration_role"
 
 echo 'applying DB role grants using MIGRATION_DATABASE_URL'
 psql "$MIGRATION_DATABASE_URL" \

@@ -6,7 +6,7 @@ export type HomeE2eSeedMode = 'current-matching' | 'season-open' | 'post-match' 
 
 const localDatabaseUrl =
   process.env.HOME_E2E_DATABASE_URL ??
-  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
+  'postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public';
 const apiDir = resolve(process.cwd(), '../api');
 const accessTokenTtlSeconds = 60 * 15;
 const sessionTtlSeconds = 60 * 60 * 24;

@@ -510,7 +510,7 @@ test('API integration shards own isolated runners and PostgreSQL services', () =
     'pnpm --dir apps/api ci:test:integration:shard',
   ]);
   assert.equal(occurrences(apiWorkflow, 'services:'), 2);
-  assert.equal(occurrences(apiWorkflow, 'POSTGRES_DB: knu_roommate'), 2);
+  assert.equal(occurrences(apiWorkflow, 'POSTGRES_DB: dormduri'), 2);
 });
 
 test('app workflows publish comparable stage timing and cache evidence', () => {

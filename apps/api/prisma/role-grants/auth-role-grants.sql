@@ -1,11 +1,11 @@
 -- Auth operation role/privilege baseline.
 --
 -- Optional session settings before running:
---   SELECT set_config('knu_roommate.auth_schema', 'public', false);
---   SELECT set_config('knu_roommate.app_runtime_role', 'app_runtime', false);
---   SELECT set_config('knu_roommate.retention_worker_role', 'retention_worker', false);
---   SELECT set_config('knu_roommate.app_readonly_role', 'app_readonly', false);
---   SELECT set_config('knu_roommate.migration_role', 'migration_owner', false);
+--   SELECT set_config('dormduri.auth_schema', 'public', false);
+--   SELECT set_config('dormduri.app_runtime_role', 'app_runtime', false);
+--   SELECT set_config('dormduri.retention_worker_role', 'retention_worker', false);
+--   SELECT set_config('dormduri.app_readonly_role', 'app_readonly', false);
+--   SELECT set_config('dormduri.migration_role', 'migration_owner', false);
 --
 -- Application RBAC remains the canonical user/action authorization layer. These
 -- database roles are defense-in-depth boundaries for operational credentials:
@@ -17,11 +17,11 @@
 
 DO $$
 DECLARE
-  target_schema text := COALESCE(NULLIF(current_setting('knu_roommate.auth_schema', true), ''), 'public');
-  app_runtime_role text := COALESCE(NULLIF(current_setting('knu_roommate.app_runtime_role', true), ''), 'app_runtime');
-  retention_worker_role text := COALESCE(NULLIF(current_setting('knu_roommate.retention_worker_role', true), ''), 'retention_worker');
-  app_readonly_role text := COALESCE(NULLIF(current_setting('knu_roommate.app_readonly_role', true), ''), 'app_readonly');
-  migration_role text := COALESCE(NULLIF(current_setting('knu_roommate.migration_role', true), ''), 'migration_owner');
+  target_schema text := COALESCE(NULLIF(current_setting('dormduri.auth_schema', true), ''), 'public');
+  app_runtime_role text := COALESCE(NULLIF(current_setting('dormduri.app_runtime_role', true), ''), 'app_runtime');
+  retention_worker_role text := COALESCE(NULLIF(current_setting('dormduri.retention_worker_role', true), ''), 'retention_worker');
+  app_readonly_role text := COALESCE(NULLIF(current_setting('dormduri.app_readonly_role', true), ''), 'app_readonly');
+  migration_role text := COALESCE(NULLIF(current_setting('dormduri.migration_role', true), ''), 'migration_owner');
   auth_cleanup_tables text[] := ARRAY[
     'LoginAttempt',
     'VerificationCode',

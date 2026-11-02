@@ -4,8 +4,8 @@ import pg from 'pg';
 const { Client } = pg;
 
 const LOCAL_DATABASE_URL =
-  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
-const REFERENCE_SEED_LOCK_KEY = 'knu_roommate:reference-seed:v1';
+  'postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public';
+const REFERENCE_SEED_LOCK_KEY = 'dormduri:reference-seed:v1';
 
 function resolveReferenceSeedDatabaseUrl() {
   const configuredUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
@@ -23,7 +23,7 @@ function resolveReferenceSeedDatabaseUrl() {
 export async function runReferenceSeed(seedName, seedReferenceData) {
   const client = new Client({
     connectionString: resolveReferenceSeedDatabaseUrl(),
-    application_name: `knu-roommate-reference-seed:${seedName}`,
+    application_name: `dormduri-reference-seed:${seedName}`,
   });
 
   await client.connect();

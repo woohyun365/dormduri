@@ -124,7 +124,7 @@ export interface StressFixtureResetSummary {
 
 const DEFAULT_NOW = new Date('2026-06-15T00:00:00.000Z');
 const STRESS_SEASON_OVERRIDE_TTL_MS = 24 * 60 * 60 * 1000;
-const STRESS_FIXTURE_APPLICATION_NAME = 'knu-roommate-api-stress-fixture';
+const STRESS_FIXTURE_APPLICATION_NAME = 'dormduri-api-stress-fixture';
 const STRESS_FIXTURE_POOL_MAX = 2;
 export function createStressFixturePrismaClient(
   env: NodeJS.ProcessEnv = process.env,

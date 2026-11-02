@@ -192,7 +192,7 @@ function configureCompose() {
     NGINX_HTTP_PORT: String(evidence.ports.api),
     OBSERVABILITY_NETWORK: observabilityNetwork,
     REHEARSAL_API_NETWORK: apiNetwork,
-    REHEARSAL_POSTGRES_DB: 'knu_roommate_rehearsal',
+    REHEARSAL_POSTGRES_DB: 'dormduri_rehearsal',
     REHEARSAL_POSTGRES_PORT: String(evidence.ports.postgres),
     REHEARSAL_DB_MIGRATION_USER: 'rehearsal_migration',
     REHEARSAL_DB_MIGRATION_PASSWORD: secrets.migrationPassword,

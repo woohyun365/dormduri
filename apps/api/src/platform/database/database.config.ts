@@ -6,18 +6,17 @@ import {
 } from '../../config/environment/env.helpers.js';
 
 export const DEFAULT_DATABASE_URL =
-  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
+  'postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public';
 export const DEFAULT_DATABASE_ADAPTER_CONNECT_TIMEOUT_MS = 5_000;
 export const DEFAULT_DATABASE_ADAPTER_IDLE_TIMEOUT_MS = 300_000;
 export const DEFAULT_DATABASE_POOL_MAX = 10;
 export const DEFAULT_DATABASE_POOL_MIN = 0;
 export const DEFAULT_DATABASE_QUERY_TIMEOUT_MS = 0;
 export const DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 0;
-export const DEFAULT_DATABASE_APPLICATION_NAME = 'knu-roommate-api';
-export const DEFAULT_RETENTION_WORKER_DATABASE_APPLICATION_NAME =
-  'knu-roommate-api-retention-worker';
+export const DEFAULT_DATABASE_APPLICATION_NAME = 'dormduri-api';
+export const DEFAULT_RETENTION_WORKER_DATABASE_APPLICATION_NAME = 'dormduri-api-retention-worker';
 export const DEFAULT_RETENTION_DISCLOSURE_DATABASE_APPLICATION_NAME =
-  'knu-roommate-api-retention-disclosure';
+  'dormduri-api-retention-disclosure';
 export const DEFAULT_PRISMA_QUERY_LOG_EVENTS = false;
 
 function resolveSchema(databaseUrl: string) {
