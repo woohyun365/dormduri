@@ -330,7 +330,7 @@ function createPrismaClient(env: NodeJS.ProcessEnv): PrismaClient {
   const pool = new Pool({
     connectionString: stripPrismaConnectionOptions(connectionString),
     max: 4,
-    application_name: 'knu-roommate-auth-password-capacity-fixture',
+    application_name: 'dormduri-auth-password-capacity-fixture',
     options: buildPrismaSessionOptions(schema ?? null),
   });
   return new PrismaClient({

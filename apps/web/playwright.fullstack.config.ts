@@ -4,7 +4,7 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000';
 const apiBaseURL = process.env.API_URL ?? 'http://127.0.0.1:4000';
 const localDatabaseUrl =
   process.env.HOME_E2E_DATABASE_URL ??
-  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
+  'postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public';
 const authStatePath = 'playwright/.auth/main-home.json';
 
 function withLocalDatabase(command: string) {

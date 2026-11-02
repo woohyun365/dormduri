@@ -30,7 +30,7 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts
 - Home 상태 matrix는 테스트 전용 `AuthSession`을 DB에 직접 seed해 로그인 rate-limit과 분리하고, 실제 API/BFF/DB/Web render를 함께 확인한다.
 - seed mode 전환은 `apps/web/e2e/support/home-e2e-seed.ts`가 소유한다. spec 종료 시 `HOME_E2E_SEED_MODE=current-matching`으로 복원한다.
 - `/login` UI locator는 desktop help panel 문구와 label ambiguity가 생기지 않도록 `getByRole('textbox', { name: '이메일' })`처럼 role/name 기준으로 고정한다.
-- 기본 DB URL은 `postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public`이다.
+- 기본 DB URL은 `postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public`이다.
   다른 DB를 쓰려면 `HOME_E2E_DATABASE_URL`을 명시한다.
 - 기본 API/Web URL은 각각 `http://127.0.0.1:4000`, `http://127.0.0.1:3000`이다.
   필요하면 `API_URL`, `PLAYWRIGHT_BASE_URL`로 override한다.

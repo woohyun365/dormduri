@@ -28,19 +28,18 @@ describe('RRPD DB access control integration', () => {
       retentionDisclosureRole,
     ]);
 
-    await adminClient.query("SELECT set_config('knu_roommate.rrpd_schema', $1, false)", [
+    await adminClient.query("SELECT set_config('dormduri.rrpd_schema', $1, false)", [
       sandbox.schemaName,
     ]);
-    await adminClient.query("SELECT set_config('knu_roommate.app_runtime_role', $1, false)", [
+    await adminClient.query("SELECT set_config('dormduri.app_runtime_role', $1, false)", [
       appRuntimeRole,
     ]);
-    await adminClient.query("SELECT set_config('knu_roommate.retention_worker_role', $1, false)", [
+    await adminClient.query("SELECT set_config('dormduri.retention_worker_role', $1, false)", [
       retentionWorkerRole,
     ]);
-    await adminClient.query(
-      "SELECT set_config('knu_roommate.retention_disclosure_role', $1, false)",
-      [retentionDisclosureRole],
-    );
+    await adminClient.query("SELECT set_config('dormduri.retention_disclosure_role', $1, false)", [
+      retentionDisclosureRole,
+    ]);
 
     const sql = readFileSync(
       path.resolve(process.cwd(), 'prisma/role-grants/rrpd-role-grants.sql'),

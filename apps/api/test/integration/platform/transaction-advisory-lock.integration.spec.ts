@@ -62,7 +62,7 @@ function connectionConfig() {
   // Match the existing integration target convention; never log credentials.
   const url = new URL(
     process.env.DATABASE_URL ??
-      'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public',
+      'postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public',
   );
   // Own finite session settings rather than inheriting unbounded URL overrides.
   url.searchParams.delete('options');
@@ -74,7 +74,7 @@ function connectionConfig() {
     lock_timeout: 5_000,
     idle_in_transaction_session_timeout: TRANSACTION_MS,
     options: '-c default_transaction_read_only=on',
-    application_name: `knu_advisory_test_${RUN_ID}`,
+    application_name: `dormduri_advisory_test_${RUN_ID}`,
   };
 }
 
@@ -269,7 +269,7 @@ const rawControl: Acquire = async (tx, key) => {
 
 async function expectNoOwnedSessions() {
   const config = connectionConfig();
-  const audit = new Client({ ...config, application_name: 'knu_advisory_cleanup_audit' });
+  const audit = new Client({ ...config, application_name: 'dormduri_advisory_cleanup_audit' });
   try {
     await audit.connect();
     const { rows } = await audit.query<{ sessions: number; locks: number }>(

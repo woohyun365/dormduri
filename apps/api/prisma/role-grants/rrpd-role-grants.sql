@@ -1,10 +1,10 @@
 -- RRPD role/privilege baseline for local/dev and production-infra reuse.
 --
 -- Optional session settings before running:
---   SELECT set_config('knu_roommate.rrpd_schema', 'public', false);
---   SELECT set_config('knu_roommate.app_runtime_role', 'app_runtime', false);
---   SELECT set_config('knu_roommate.retention_worker_role', 'retention_worker', false);
---   SELECT set_config('knu_roommate.retention_disclosure_role', 'retention_disclosure', false);
+--   SELECT set_config('dormduri.rrpd_schema', 'public', false);
+--   SELECT set_config('dormduri.app_runtime_role', 'app_runtime', false);
+--   SELECT set_config('dormduri.retention_worker_role', 'retention_worker', false);
+--   SELECT set_config('dormduri.retention_disclosure_role', 'retention_disclosure', false);
 --
 -- The script intentionally starts with GRANT/REVOKE rather than RLS. It prevents
 -- user-facing runtime credentials from directly reading RRPD payload/identifier
@@ -12,10 +12,10 @@
 
 DO $$
 DECLARE
-  target_schema text := COALESCE(NULLIF(current_setting('knu_roommate.rrpd_schema', true), ''), 'public');
-  app_runtime_role text := COALESCE(NULLIF(current_setting('knu_roommate.app_runtime_role', true), ''), 'app_runtime');
-  retention_worker_role text := COALESCE(NULLIF(current_setting('knu_roommate.retention_worker_role', true), ''), 'retention_worker');
-  retention_disclosure_role text := COALESCE(NULLIF(current_setting('knu_roommate.retention_disclosure_role', true), ''), 'retention_disclosure');
+  target_schema text := COALESCE(NULLIF(current_setting('dormduri.rrpd_schema', true), ''), 'public');
+  app_runtime_role text := COALESCE(NULLIF(current_setting('dormduri.app_runtime_role', true), ''), 'app_runtime');
+  retention_worker_role text := COALESCE(NULLIF(current_setting('dormduri.retention_worker_role', true), ''), 'retention_worker');
+  retention_disclosure_role text := COALESCE(NULLIF(current_setting('dormduri.retention_disclosure_role', true), ''), 'retention_disclosure');
   table_name text;
   type_name text;
   rrpd_tables text[] := ARRAY[

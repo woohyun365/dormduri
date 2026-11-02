@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
+import { decryptJsonPayload, encryptJsonPayload } from '../../retention/crypto/retention-cipher.js';
 import {
   conversationMessageTombstoneText,
   createConversationRetainedBodyCipher,
   discloseRetainedConversationMessageBody,
+  parseRetainedConversationBodyPlaintext,
   retainAndTombstoneThreadMessagesTx,
   reviewRetainedConversationIdentityLinksTx,
   tombstoneConversationMessageTx,
@@ -232,6 +234,89 @@ describe('conversation retained body owner', () => {
         result: 'DISCLOSED',
         disclosedFields: ['payload'],
       },
+    });
+  });
+
+  it('aad 접두가 바뀌기 전에 저장한 retained body도 행에 저장된 aad로 복원·최소화한다', async () => {
+    // 지금 코드의 접두와 다른 aad로 저장된 행이다. 복호화가 접두로 aad를 다시 만들면 이 행을 풀지 못한다.
+    const legacyAad = 'legacy-service:chat-message-body:v1:message-1';
+    const plaintext = {
+      schemaVersion: 1,
+      messageId: 'message-1',
+      threadId: 'thread-1',
+      senderParticipantId: 'participant-1',
+      sentAt: '2026-05-14T00:00:00.000Z',
+      body: '접두 변경 전 원문',
+      bodyVersionAtRetention: 1,
+      retainedAt: '2026-05-14T00:00:00.000Z',
+      tombstoneReason: 'ACCOUNT_DELETION_RETENTION',
+      identityLinkReviewedAt: null,
+    } as const;
+    const legacyVaultObject = {
+      id: 'vault-object-1',
+      target: 'CHAT_MESSAGE_BODY',
+      sourceTable: 'ConversationMessage',
+      sourceId: 'message-1',
+      subjectRole: 'MESSAGE_SENDER',
+      subjectUserId: 'user-1',
+      subjectRetainedIdentityId: 'retained-identity-1',
+      encryptedPayload: encryptJsonPayload({ cipher, plaintext, aad: Buffer.from(legacyAad) }),
+      keyPurpose: 'CHAT_BODY',
+      keyVersion: 'test-v1',
+      aad: legacyAad,
+      metadata: null,
+      state: 'RETAINED',
+      disposedAt: null,
+    };
+
+    const disclosure = await discloseRetainedConversationMessageBody(
+      {
+        retainedVaultObject: { findUnique: vi.fn().mockResolvedValue(legacyVaultObject) },
+        retentionAccessLog: { create: vi.fn().mockResolvedValue({ id: 'log-1' }) },
+      } as never,
+      {
+        retainedVaultObjectId: 'vault-object-1',
+        accessedBy: 'ops-1',
+        accessReason: 'REPORT_REVIEW',
+        approvalReference: 'report-1',
+        purpose: '신고 검토',
+        now: new Date('2026-05-15T00:00:00.000Z'),
+      },
+      { bodyCipher: cipher },
+    );
+    expect(disclosure.body).toBe('접두 변경 전 원문');
+
+    const updates: Array<Record<string, unknown>> = [];
+    const result = await reviewRetainedConversationIdentityLinksTx(
+      {
+        conversationMessage: {
+          findMany: vi
+            .fn()
+            .mockResolvedValue([{ retainedVaultObject: { ...legacyVaultObject, holds: [] } }]),
+        },
+        retainedVaultObject: {
+          update: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+            updates.push(data);
+            return Promise.resolve({ id: 'vault-object-1' });
+          }),
+        },
+      } as never,
+      { threadId: 'thread-1', now: new Date('2028-05-14T00:00:00.000Z') },
+      { bodyCipher: cipher },
+    );
+    expect(result.minimizedCount).toBe(1);
+    // 최소화한 payload도 같은 행의 저장 aad로 다시 암호화해야 다음 복원이 풀린다.
+    expect(
+      decryptJsonPayload({
+        cipher,
+        payload: updates[0]?.encryptedPayload,
+        aad: Buffer.from(legacyAad),
+        errorPrefix: 'test',
+        parsePlaintext: parseRetainedConversationBodyPlaintext,
+      }),
+    ).toMatchObject({
+      body: '접두 변경 전 원문',
+      identityLinkReviewedAt: '2028-05-14T00:00:00.000Z',
     });
   });
 

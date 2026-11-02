@@ -170,6 +170,22 @@ image·volume과 label이 없는 자원은 그 작업의 owner가 정한다.
   `~/.orbstack/config/docker.json`을 고친 뒤 `orb restart docker`로 적용한다. Engine 재시작은 실행 중 container에
   영향을 주므로 사용자가 정한다.
 
+### 옛 이름 자원
+
+이름이 `dormduri`로 바뀌기 전에 만든 로컬 자원은 새 이름과 겹치지 않아 위 정리 단계가 지우지 않는다. 사용자가 아래에서
+골라 정확한 이름으로 지운다(전역 prune 금지). 옛 dev DB는 되돌릴 때 쓰므로 남겨 둔다. 지운다면 새 dev DB가 동작하고 이름
+변경을 되돌릴 일이 없을 때 사용자가 고른다.
+새 dev DB로 옮기는 순서는 [API README 3절](../../../apps/api/README.md#3-로컬-실행-순서)이다.
+
+- 옛 dev DB container `knu-roommate-postgres-dev`: `docker stop` 뒤 `docker rm`.
+- 옛 dev DB volume `<옛 폴더 이름>_knu-roommate-postgres-data`: compose project 이름이 checkout 폴더 이름이던 때라 폴더마다
+  하나씩일 수 있다. 옛 이름 확인은 `docker volume ls --filter name=knu-roommate-postgres-data`, 지우기는 `docker volume rm`.
+- 그 project network `<옛 폴더 이름>_default`: `docker network ls --filter label=com.docker.compose.project=<옛 폴더 이름>`로
+  찾아 `docker network rm`.
+- 옛 이름 image `knu-roommate-api:*`·`knu-roommate-web:*`·`knu-chat-ingress-fixture:*`: `docker image ls -a`로 찾아
+  `docker image rm`.
+- 옛 이름 builder `knu-roommate-artifacts`: `docker buildx rm knu-roommate-artifacts`(옛 이름, cache와 state volume을 함께 지움).
+
 ### 임시 PostgreSQL
 
 검증용 임시 DB는 익명 volume이 남지 않게 data 경로를 tmpfs로 두고 `--rm`으로 띄운다. Image는 dev compose와 같은 pin을

@@ -23,7 +23,7 @@ import {
   retainVaultPayloadTx,
 } from '../../retention/vault/retained-vault.service.js';
 
-const CHAT_BODY_AAD_PREFIX = 'knu-roommate:chat-message-body:v1';
+const CHAT_BODY_AAD_PREFIX = 'dormduri:chat-message-body:v1';
 const chatRealtimeOutbox = new ChatRealtimeOutboxService();
 
 export const conversationMessageTombstoneText = {

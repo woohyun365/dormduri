@@ -51,14 +51,13 @@ const dockerProjectName = process.env.STRESS_DOCKER_COMPOSE_PROJECT || 'dormduri
 const observabilityProjectName =
   process.env.STRESS_OBSERVABILITY_COMPOSE_PROJECT || 'dormduri-observability';
 const observabilityNetwork = process.env.OBSERVABILITY_NETWORK || 'dormduri-observability';
-const postgresContainerName =
-  process.env.STRESS_POSTGRES_CONTAINER_NAME || 'knu-roommate-postgres-dev';
+const postgresContainerName = process.env.STRESS_POSTGRES_CONTAINER_NAME || 'dormduri-postgres-dev';
 const localDatabaseUrl =
   process.env.STRESS_LOCAL_DATABASE_URL ||
-  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
+  'postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public';
 const containerDatabaseUrl =
   process.env.STRESS_CONTAINER_DATABASE_URL ||
-  'postgresql://knu_dev:knu_dev_password@host.docker.internal:5432/knu_roommate?schema=public';
+  'postgresql://dormduri_dev:dormduri_dev_password@host.docker.internal:5432/dormduri?schema=public';
 const metricsToken =
   process.env.STRESS_DOCKER_METRICS_TOKEN || readOrCreateMetricsToken(localEnvFile);
 const timestamp = new Date().toISOString().replace(/[:.]/gu, '-');
@@ -729,9 +728,9 @@ function capturePostgresSnapshot(name, env) {
       postgresContainerName,
       'psql',
       '-U',
-      'knu_dev',
+      'dormduri_dev',
       '-d',
-      'knu_roommate',
+      'dormduri',
       '-Atc',
       query,
     ],
@@ -748,9 +747,9 @@ function captureH9AuthSecurityEventSnapshot(env) {
       postgresContainerName,
       'psql',
       '-U',
-      'knu_dev',
+      'dormduri_dev',
       '-d',
-      'knu_roommate',
+      'dormduri',
       '-Atc',
       `select "type"::text, count(*)::text from "AuthSecurityEvent" where "type" in ('LOGIN_FAILURE', 'LOGIN_LOCKOUT') group by "type" order by "type"`,
     ],
@@ -802,9 +801,9 @@ function captureMarkerResidue(name, env) {
       postgresContainerName,
       'psql',
       '-U',
-      'knu_dev',
+      'dormduri_dev',
       '-d',
-      'knu_roommate',
+      'dormduri',
       '-Atc',
       query,
     ],

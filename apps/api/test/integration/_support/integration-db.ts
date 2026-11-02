@@ -7,7 +7,7 @@ import { PrismaClient } from '../../../src/generated/prisma/client.js';
 import { recordIntegrationMigrationInvocation } from './integration-migration-evidence.js';
 
 const DEFAULT_DATABASE_URL =
-  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
+  'postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public';
 
 /**
  * Integration specs run against a disposable PostgreSQL schema created from the
