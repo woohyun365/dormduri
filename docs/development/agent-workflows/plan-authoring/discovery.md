@@ -63,15 +63,20 @@
 
 ## 기록
 
-| 기록                   | 위치                                                                                      | 형식                                                                      |
-| ---------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| 결정                   | `docs/architecture/decisions/<layer>.md`                                                  | [Decision records](../../../architecture/decisions/README.md)             |
-| 프로젝트 intent        | `docs/product/intent.md`                                                                  | [Product documents의 intent 기록](../../../product/README.md#intent-기록) |
-| 질문·답 원문과 판정 표 | 작업 계획 증거의 `discovery/`(`.artifacts/plans/<umbrella>/<bounded>/<phase>/discovery/`) | 원문 그대로. 추적하지 않습니다                                            |
+| 기록                        | 위치                                                                                      | 형식                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| 결정                        | `docs/architecture/decisions/<layer>.md`                                                  | [Decision records](../../../architecture/decisions/README.md)              |
+| 프로젝트 intent             | `docs/product/intent.md`                                                                  | [Product documents의 intent 기록](../../../product/README.md#intent-기록)  |
+| 질문·답 원문과 판정 표      | 작업 계획 증거의 `discovery/`(`.artifacts/plans/<umbrella>/<bounded>/<phase>/discovery/`) | 원문 그대로. 추적하지 않습니다                                             |
+| 운영 환경·서버 비용         | `docs/deploy/`                                                                            | 식별자 없이 적습니다. 비용은 항목·월 금액·확인 주기                        |
+| 처음 참여자 onboarding      | `docs/development/onboarding.md`                                                          | owner 문서 링크만 둡니다                                                   |
+| 외부 bot·provider 설정 확인 | 작업 계획 증거의 `discovery/`                                                             | 읽는 branch·위치·효력 시점·되돌림 경로와 공식 문서 사본. 추적하지 않습니다 |
 
 - 추적 문서는 질문·답 원문 경로를 근거 링크로 쓰지 않습니다(`AGENTS.md` §5).
 - 제품 plan은 이 작업이 정한 결정(pack 결정 id·판정·상태·고른 선택지·Owner 확인 출처)을 Decision 절에 담습니다. PR이 그 결정을
   결정 기록으로 옮기고, 이미 기록에 있는 결정(Inspect → `known`)은 id로만 인용합니다([Core §5](./core.md#decision)).
+- `docs/`의 문서 종류 디렉터리는 README(용도·목록)를 둡니다. 파일이 하나뿐이면 [`docs/README.md`](../../../README.md)의
+  색인 줄로 README를 갈음합니다.
 
 ## 비가역 확인 gate
 

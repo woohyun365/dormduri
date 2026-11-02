@@ -67,10 +67,14 @@ script는 셸 pipe나 `rg`를 쓰지 않고, `git ls-files`와 Node regex만 사
 2. 중복을 제거하기 전에 출처(층, 경유 경로)를 key에 넣습니다.
 3. 경로 구분자가 없는 단일 이름 literal은 근거가 약한 행으로 따로 표시합니다.
 4. 모든 층에 같은 행 종류 집합을 적용하고, 층별 차이는 문서로 남깁니다.
-5. 새 파일을 추가하는 변경은 stage(또는 `git add -N`)한 뒤에 tracked 목록 기반 검증을 다시 실행합니다.
+5. 새 파일은 아직 없는 경로라 계약 대상 selector로 받지 않습니다. Readiness는 새 파일 목록을 Phase contract의 owned files에
+   두고, 구현 PR은 그 파일을 commit한 뒤(commit 전이면 저장소 밖 독립 clone에서 add한 뒤) 영향 목록을 다시 만들어 계약 대상에
+   더하고 tracked 목록 기반 검증을 다시 실행합니다.
 6. 경로 영향은 "누가 이 경로를 읽는가"와 "누가 이 경로를 실행·import하는가"를 모두 따라갑니다. 실행 경로는 직접 `node` 호출뿐
    아니라 `pnpm` script(재귀, `--dir` package 포함), package script, image build까지 펼칩니다. Lane package 파일(test·harness·
    config)이 import하거나 경로로 읽는 저장소 script도 따라갑니다.
+7. 옮기거나 새로 만드는 문서가 갖게 되는 값·규칙(월 비용·target 값, 같은 규칙의 gate 문장)은 그 값·규칙을 이미 적은 기존
+   owner 문장도 문장 pattern으로 찾아 분류합니다(원인 4).
 
 ### Script 사용
 
@@ -87,8 +91,15 @@ Spec 디렉터리 형식은 `scripts/agents/common/plan-impact.mjs`의 `readSpec
   대상으로만 들어옵니다.
 - `@exports:<class>[:<경로 prefix>]`: 그 class의 파일 단위 계약 대상(prefix가 있으면 그 아래만)의 `export` 이름을 담은
   블록을 표시합니다. 대상 모듈 자신은 제외합니다.
-- 추가 행(`additional/`)과 override는 줄 번호에 고정됩니다. 파일을 고친 뒤 다시 생성할 때 없는 줄은 실패하지만, 밀린 범위는
-  잡지 못하므로 범위가 같은 내용을 가리키는지 다시 확인합니다.
+- 줄 번호에 묶인 입력(분류 행 `rows/`, 추가 행 `additional/`, `overrides.tsv`, `contract-targets.tsv`의 줄 selector,
+  `regression.tsv`)은 파일을 고친 뒤
+  `node scripts/agents/common/plan-impact-remap.mjs --spec <dir> --from <spec 기준 revision> [--to <rev>] --out <새 dir>`로
+  옮기고 새 spec으로 다시 실행합니다. `--to`가 없으면 working tree와 비교합니다. 줄은 `git diff -U0` hunk로 옮기고, 바뀐
+  줄(공백만 바뀐 줄 포함)이나 지운 파일에 걸린 행은 뺍니다(`dropped`). 계약 줄 범위는 남은 줄의 처음~끝으로, regression은
+  남은 줄로 줄입니다(`narrowed`와 뺀 줄). 출력의 `dropped`·`narrowed` 행을 보고 뺀 행·줄을 다시 둡니다. 뺀 분류 행 가운데
+  scan에 걸린 줄은 다음 실행에서 미분류로 다시 나옵니다. 줄 번호가 없는 입력은 그대로 복사하고 지운 파일의 경로·heading
+  selector만 빼므로, 이름을 바꾼 경로·heading은 손으로 고칩니다. `moved`도 줄 위치만 옮긴 것이라 내용이 대응하는지는 보지
+  않습니다.
 
 출력 파일은 다음과 같습니다.
 
@@ -134,6 +145,9 @@ Spec 디렉터리 형식은 `scripts/agents/common/plan-impact.mjs`의 `readSpec
   기준 경계와 같습니다. Markdown·JSON·TOML은 parser가 아니라 첫 inventory의 같은 규칙과 비교했으므로 독립 근거가
   아닙니다. Fenced code 처리는 그 규칙에 없던 보완입니다.
 - 같은 snapshot에서 손으로 만든 첫 inventory를 재생성하면 줄 층·블록 층·회귀 목록 수치와 출력 파일이 Python 원본과 같습니다.
+- `node --test scripts/ci/agents/common/plan-impact-remap.test.mjs`: hunk 읽기(count 생략·0, 파일 앞·중간 삽입, 끝 삭제)와
+  다섯 입력의 `moved`·`kept`·`narrowed`·`dropped`, 저장소 diff 설정·glob 문자 경로, HEAD·index·working tree 불변, 옮긴
+  spec의 `plan:impact` 재실행을 확인합니다.
 
 ## 참고
 
