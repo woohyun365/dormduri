@@ -18,12 +18,14 @@ const ENFORCEMENT_STRENGTHS = new Set([
   'advisory-policy',
   'model-mediated',
   'native-runtime',
+  'human-judgment',
 ]);
 const EXECUTION_OWNERS = new Set([
   'deterministic-static',
   'advisory-policy',
   'model-mediated',
   'native-runtime',
+  'human-judgment',
 ]);
 const TOP_LEVEL_FIELDS = new Set([
   'schemaVersion',
