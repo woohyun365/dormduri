@@ -103,7 +103,7 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
 - 정산 전에 Parent는 evidence로 옮길 주장만 골라 그 URL 원문(raw, `curl` 등. WebFetch 요약이 아님)을 직접 받고,
   `node scripts/agents/common/quote-check.mjs --task <taskId> --response <response.json> --select <선택 JSON> --out <출력 JSON>`으로
   대조합니다. 선택 JSON은 `[{ "url", "quote", "raw": <원문 파일> }]`이고 `response.json`은 첫 `settle` 결과의
-  `quoteCheckResponsePath`입니다(`/knu-settle`).
+  `quoteCheckResponsePath`입니다(`/knu-settle`). 출력 파일은 저장소 안이면서 native task evidence(`.artifacts/tools/claude-native/`) 밖인 ignored 경로(예: `.artifacts/quote-check/<taskId>.json`)에 둡니다. 저장소 밖(scratchpad 포함)이나 task evidence 안 파일은 정산이 `quote-check-output-unreadable`로 거부합니다.
   `found`만 evidence 후보이고 나머지는 제외입니다. 인용이 질문의 답인지는 Parent가 판단해 판정에 남깁니다.
 
 ## 2. 등록과 호출

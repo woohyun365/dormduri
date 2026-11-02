@@ -220,3 +220,34 @@ test('inline markup inside a sentence is dropped and block tags keep words apart
     false,
   );
 });
+
+test('the CLI exits 2 for a response or selection it cannot read or a malformed selected claim', async (t) => {
+  await load();
+  const dir = workspace(t);
+  const responseFile = join(dir, 'response.json');
+  writeFileSync(responseFile, JSON.stringify(RESPONSE));
+  const run = (response, selection) => {
+    const selectFile = join(dir, 'select.json');
+    writeFileSync(selectFile, selection);
+    return spawnSync(
+      process.execPath,
+      [cli, '--task', 'task-1', '--response', response, '--select', selectFile],
+      { cwd: dir, encoding: 'utf8' },
+    );
+  };
+  for (const [name, response, selection] of [
+    ['missing response file', join(dir, 'absent.json'), '[]'],
+    ['response not JSON', join(dir, 'select.json'), 'not json'],
+    ['selection not JSON', responseFile, 'not json'],
+    ['selection not an array', responseFile, '{}'],
+    [
+      'selected claim without url',
+      responseFile,
+      JSON.stringify([{ quote: 'x', raw: 'raw-a.html' }]),
+    ],
+  ]) {
+    const result = run(response, selection);
+    assert.equal(result.status, 2, `${name}: ${result.stderr}`);
+    assert.equal(result.stdout, '', name);
+  }
+});

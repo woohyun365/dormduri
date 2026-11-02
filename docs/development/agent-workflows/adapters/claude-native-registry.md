@@ -69,8 +69,8 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    `responseDigest`와 acceptance 기준이 채워져 있고, 독립 QA가 필요한 builder면 `reviewerTaskId: null`이 있습니다. Lead는 기준별
    `passed`·`evidenceRef`, `checks`와 필요하면 `reviewerTaskId`만 채워 그 파일을 `--judgment`로 넘깁니다. 다시 조회해도 편집한 파일은
    덮어쓰지 않습니다. Reviewer 없는 researcher의 template에는 `quoteCheck: null`이 있고, 첫 단계가 정산된 응답을
-   `response.json`에 한 번 써서 `quoteCheckResponsePath`로 알려 줍니다(그 sha256이 `responseDigest`). Lead는
-   [인용 대조](./claude-code.md#routine-operation) 출력 경로를 `quoteCheck`에 채웁니다. 채우지 않은 항목은
+   `response.json`에 한 번 써서 `quoteCheckResponsePath`로 알려 줍니다. 파일은 JSON 한 줄과 끝 줄바꿈이라 바이트 sha256은 `responseDigest`와 다르고, 대조 CLI가 그 JSON 값을 다시 직렬화해 `responseDigest`와 같은 값을 계산합니다. Lead는
+   [인용 대조](./claude-code.md#routine-operation) 출력 경로(저장소 안·native task evidence 밖)를 `quoteCheck`에 채웁니다. 채우지 않은 항목은
    `acceptance-unfilled:<기준 또는 순번>`·`reviewer-task-id-unfilled`·`quote-check-unfilled`·`checks-required`로
    complete 전에 거부됩니다. Complete는 대조 출력이 이 task id·응답 digest를 가리키고 대조한 주장이 모두 응답에 있을 때만 받고,
    결과와 `accepted.json`에 evidence 후보(`found`)와 제외(사유)를 남깁니다. Template은 입력 보조이며 판정이 아닙니다. Native subject가 없는 reviewer에는 template이 없습니다

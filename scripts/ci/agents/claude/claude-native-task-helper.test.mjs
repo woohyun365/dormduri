@@ -3647,3 +3647,27 @@ test('a preflight stage call past its timeout fails registration closed with its
   assert.deepEqual(tasks(), before);
   assert.ok(prepareClaudeNativeTask(review.reviewerSpec, { root: r.root }).taskId);
 });
+
+test('a changed response file and a quote-check slot that is not a path are named before complete', (t) => {
+  const r = researchRepo(t);
+  const prepared = prepareClaudeNativeTask(researchSpec(r), { root: r.root });
+  dispatch(r, prepared, 'research-3', RESEARCH_TEXT);
+  const first = settleClaudeNativeTask(prepared.taskId, undefined, { root: r.root });
+  assert.deepEqual(first.observationErrors, []);
+  for (const quoteCheck of ['', 5])
+    assert.throws(
+      () =>
+        settleClaudeNativeTask(
+          prepared.taskId,
+          judgment(prepared, 'price quoted from the official page', { quoteCheck }),
+          { root: r.root },
+        ),
+      /quote-check-path-required/u,
+      String(quoteCheck),
+    );
+  // The stored response is written once; a different file is reported, not rewritten.
+  writeFileSync(first.quoteCheckResponsePath, '{"content":[]}\n');
+  const again = settleClaudeNativeTask(prepared.taskId, undefined, { root: r.root });
+  assert.ok(again.observationErrors.includes('quote-check-response-changed'));
+  assert.equal(readFileSync(first.quoteCheckResponsePath, 'utf8'), '{"content":[]}\n');
+});

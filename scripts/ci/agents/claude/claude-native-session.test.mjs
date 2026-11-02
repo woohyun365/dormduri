@@ -4277,3 +4277,22 @@ test('a quote-check output outside the repository or inside native task evidence
   }
   assert.equal(completeResearch(g, { quoteCheck: inside }).valid, true);
 });
+
+test('a quote-check output is refused for a task that is not a researcher settled without a reviewer', async (t) => {
+  const g = researchRan(t);
+  const path = await quoteCheckFile(g, [selected(g, RESEARCH_CLAIMS[0])]);
+  const f = setup(t);
+  assert.deepEqual(handle(f), {});
+  finish(f);
+  const errors = completeClaudeNativeTask(
+    f.registered.taskId,
+    { ...semanticResult(f), quoteCheck: path },
+    { root: f.root },
+  ).errors;
+  assert.ok(
+    errors.includes(
+      'quote-check output is only for a researcher settled without a linked reviewer',
+    ),
+    errors.join(),
+  );
+});

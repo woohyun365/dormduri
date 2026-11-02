@@ -97,7 +97,7 @@ Effort 열은 역할 파일의 설정값이고(모델 능력표가 effort 미지
 등록할 수 있습니다. Lead가 정한 URL은 prompt에 적고, fact `sourceRef`는 그 선택을 정한 plan(`plan:<Plan ID>/<절>`)을 가리킵니다.
 Child는 주장을 `{url, quote, checkedAt}` 목록으로 답합니다. Parent는 evidence로 옮길 주장만 골라 원문(raw, WebFetch 요약이 아님)을 직접 받은 뒤
 `node scripts/agents/common/quote-check.mjs --task <taskId> --response <정산이 만든 response.json> --select <선택 JSON> --out <출력>`으로
-대조하고, 그 출력 경로를 판정의 `quoteCheck`에 적습니다. 정산은 출력이 이 task와 이 응답을 가리키고 대조한 주장이 모두 응답에
+대조하고, 그 출력 경로를 판정의 `quoteCheck`에 적습니다. 출력 파일은 저장소 안이면서 native task evidence(`.artifacts/tools/claude-native/`) 밖인 ignored 경로(예: `.artifacts/quote-check/<taskId>.json`)에 둡니다. 저장소 밖(scratchpad 포함)이나 task evidence 안 파일은 정산이 `quote-check-output-unreadable`로 거부합니다. 정산은 출력이 이 task와 이 응답을 가리키고 대조한 주장이 모두 응답에
 있을 때만 받으며, `found`만 evidence 후보로 남기고 나머지는 사유와 함께 제외로 기록합니다. 인용이 질문의 답인지와 acceptance는
 Parent가 판단해 판정에 남깁니다. 이 researcher의 `impactRisk`는 요청 문장의
 intake 위험 대신 min(intake, medium) 이상이면 됩니다. `high`를 적고 `complex-critical`을 고르는 것은 Lead의 선택입니다. `knu_explorer`의
@@ -107,7 +107,7 @@ intake 위험 대신 min(intake, medium) 이상이면 됩니다. `high`를 적�
 
 공통 상한은 [Recovery ceiling](../orchestration.md#recovery-ceiling)이 소유하며, 이 절은 Claude의 재등록과 모델·effort 상향을 정합니다.
 
-위임한 작업이 실패하거나 acceptance를 채우지 못하면 먼저 그 task를 정산합니다. `release`한 task에는 결속할 수 없으므로 `release`는 관측 없이 끝난 child를 닫을 때만 씁니다. 재시도는
+위임한 작업이 실패하거나 acceptance를 채우지 못하면 먼저 그 task를 정산합니다. `release`한 task에는 결속할 수 없으므로 `release`는 관측 없이 끝난 child를 닫거나(`--ended`) 호출하지 않은 등록을 취소할 때(`--not-dispatched`)만 씁니다. 재시도는
 **한 번만** 허용하며 새 task로 다시 등록합니다. 재시도는 실패한 1차 task에 결속합니다. Spec의 `recovery`에
 `{of: <1차 taskId>, cause}`를 두고 1차 task와 같은 사실로 등록합니다. 1차 task는 실행·관측되어 있어야 합니다.
 조건을 맞추려고 task 사실을 바꾸지 않으며 맞지 않으면 Owner와 다음 행동을 정합니다

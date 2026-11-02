@@ -149,7 +149,8 @@
 - Reviewer 없는 researcher 정산은 인용 대조 출력이 없으면 `researcher without a linked reviewer requires a quote-check output`,
   출력의 task id·응답 digest가 다르면 `quote-check-task-mismatch`·`quote-check-response-mismatch`, 응답에 없는 주장을 대조했으면
   `quote-check-claim-not-in-response:<url>`, 출력을 읽지 못하면 `quote-check-output-unreadable`·`quote-check-output-invalid`로
-  거부합니다. 판정 파일의 `quoteCheck`가 template 그대로 `null`이면 `quote-check-unfilled`입니다. `missing`·`raw-missing`·`no-quote`는
+  거부합니다. 출력 파일이 저장소 밖(scratchpad 포함)이거나 native task evidence(`.artifacts/tools/claude-native/`) 안이어도
+  `quote-check-output-unreadable`입니다. 판정 파일의 `quoteCheck`가 template 그대로 `null`이면 `quote-check-unfilled`입니다. `missing`·`raw-missing`·`no-quote`는
   거부 사유가 아니라 evidence 후보 제외입니다.
 - Effort 판정은 `completion.json`에 고정하지 않고 `settle`·`complete`가 관측할 때마다 child transcript의 assistant 행 `effort`로
   합니다. Foreground 완료는 PostToolUse가 기록한 child transcript 위치를, background 완료는 정산한 transcript를 읽습니다.
