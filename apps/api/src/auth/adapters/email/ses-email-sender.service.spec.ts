@@ -19,7 +19,7 @@ const settings = {
     fromEmail: 'no-reply@example.com',
     fromName: 'KNU Roommate',
     replyToEmail: 'support@example.com',
-    configurationSet: 'knu-roommate-production',
+    configurationSet: 'dormduri-production',
   },
 } satisfies ConfigType<typeof emailConfig>;
 
@@ -38,7 +38,7 @@ describe('SesEmailSenderService', () => {
       FromEmailAddress: '"KNU Roommate" <no-reply@example.com>',
       Destination: { ToAddresses: ['student@kangwon.ac.kr'] },
       ReplyToAddresses: ['support@example.com'],
-      ConfigurationSetName: 'knu-roommate-production',
+      ConfigurationSetName: 'dormduri-production',
       Content: {
         Simple: {
           Subject: { Charset: 'UTF-8', Data: '[돔두리] 이메일 인증 코드' },
@@ -113,7 +113,7 @@ describe('SesEmailSenderService', () => {
 
     const [command] = send.mock.calls[0] ?? [];
     expect(command?.input).toMatchObject({
-      ConfigurationSetName: 'knu-roommate-production',
+      ConfigurationSetName: 'dormduri-production',
       EmailTags: [
         { Name: 'auth-mail-kind', Value: 'PASSWORD_RESET_VERIFICATION' },
         { Name: 'auth-outbox-id', Value: 'outbox-event-1' },

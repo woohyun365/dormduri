@@ -88,7 +88,7 @@ describe('deployment infra', () => {
     expect(compose).not.toContain('AUTH_THROTTLE_LIMIT');
     expect(override).toContain('observability:');
     expect(override).toContain('external: true');
-    expect(override).toContain('knu-roommate-observability');
+    expect(override).toContain('dormduri-observability');
     expect(override).not.toContain('AUTH_THROTTLE_LIMIT');
     expect(stress).toContain('AUTH_THROTTLE_LIMIT');
   });

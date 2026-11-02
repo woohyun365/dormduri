@@ -93,11 +93,11 @@ describe('auth verification persistence boundary', () => {
     expect(cooldownLookup).toContain('"requestIpKey" = $3');
     expect(backstopLookup).toContain('"subjectKey" = $1');
     expect(baseline).toContain(
-      'CREATE INDEX "VerificationCode_subjectKey_purpose_activatedAt_codeExpiresAt_idx"',
+      'CREATE INDEX "VerificationCode_subjectKey_purpose_activatedAt_codeExpires_idx"',
     );
     expect(baseline).toContain('CREATE INDEX "VerificationCode_active_lookup_idx"');
     expect(baseline).toContain(
-      'CREATE INDEX "VerificationCodeRequestLog_subjectKey_purpose_requestIpKey_cre_idx"',
+      'CREATE INDEX "VerificationCodeRequestLog_subjectKey_purpose_requestIpKey__idx"',
     );
     expect(baseline).toContain('CREATE INDEX "VerificationRequestLog_subject_purpose_created_idx"');
   });

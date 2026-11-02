@@ -46,7 +46,7 @@ docker compose --env-file .env.observability -f compose.base.yml up -d
 확인:
 
 - Prometheus: `http://127.0.0.1:9090/targets`에서 `api` job `UP`.
-- Grafana: `http://127.0.0.1:3001`에서 `KNU API Overview`, `KNU API Realtime/Auth/Retention` 확인.
+- Grafana: `http://127.0.0.1:3001`에서 `돔두리 API Overview`, `돔두리 API Realtime/Auth/Retention` 확인.
 - Loki: Dockerized API service가 있을 때 Grafana Explore에서 `{service="api"}` query 확인. API가 host process로 실행되면 Loki API log가 없을 수 있으므로 metrics 중심으로 판정한다.
 
 ## 3. Local smoke sequence

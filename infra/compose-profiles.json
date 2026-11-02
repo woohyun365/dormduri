@@ -3,56 +3,50 @@
   "profiles": {
     "api-base": {
       "classification": "production-candidate",
-      "project": "knu-roommate-api",
+      "project": "dormduri-api",
       "files": ["infra/deploy/compose.api.yml"]
     },
     "api-rehearsal": {
       "classification": "rehearsal-only",
-      "project": "knu-roommate-api",
+      "project": "dormduri-api",
       "files": ["infra/deploy/compose.api.yml", "infra/rehearsal/compose.api.runtime.yml"],
-      "managedNetworks": [
-        { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
-      ]
+      "managedNetworks": [{ "env": "OBSERVABILITY_NETWORK", "default": "dormduri-observability" }]
     },
     "api-stress": {
       "classification": "stress-only",
-      "project": "knu-roommate-api",
+      "project": "dormduri-api",
       "files": [
         "infra/deploy/compose.api.yml",
         "infra/rehearsal/compose.api.runtime.yml",
         "apps/api/test/stress/docker/compose.stress.yml"
       ],
-      "managedNetworks": [
-        { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
-      ]
+      "managedNetworks": [{ "env": "OBSERVABILITY_NETWORK", "default": "dormduri-observability" }]
     },
     "api-stress-standalone": {
       "classification": "stress-only",
-      "project": "knu-roommate-api",
+      "project": "dormduri-api",
       "files": ["infra/deploy/compose.api.yml", "apps/api/test/stress/docker/compose.stress.yml"]
     },
     "full-stack-api-rehearsal": {
       "classification": "rehearsal-only",
-      "project": "knu-roommate-full-stack-api",
+      "project": "dormduri-full-stack-api",
       "files": [
         "infra/deploy/compose.api.yml",
         "infra/rehearsal/compose.api.runtime.yml",
         "infra/rehearsal/compose.postgres.yml"
       ],
-      "managedNetworks": [
-        { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
-      ]
+      "managedNetworks": [{ "env": "OBSERVABILITY_NETWORK", "default": "dormduri-observability" }]
     },
     "observability-base": {
       "classification": "runtime-base",
-      "project": "knu-roommate-observability",
+      "project": "dormduri-observability",
       "envFile": "infra/observability/.env.observability",
       "validationEnvFile": "infra/observability/.env.observability.example",
       "files": ["infra/observability/compose.base.yml", "infra/observability/compose.resources.yml"]
     },
     "observability-production": {
       "classification": "production-candidate",
-      "project": "knu-roommate-observability",
+      "project": "dormduri-observability",
       "envFile": "infra/observability/.env.observability",
       "validationEnvFile": "infra/observability/.env.observability.example",
       "preflight": "observability-production",
@@ -64,7 +58,7 @@
     },
     "observability-rehearsal": {
       "classification": "rehearsal-only",
-      "project": "knu-roommate-observability",
+      "project": "dormduri-observability",
       "envFile": "infra/observability/.env.observability",
       "validationEnvFile": "infra/observability/.env.observability.example",
       "files": [
@@ -72,13 +66,11 @@
         "infra/observability/compose.resources.yml",
         "infra/rehearsal/compose.observability.yml"
       ],
-      "managedNetworks": [
-        { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
-      ]
+      "managedNetworks": [{ "env": "OBSERVABILITY_NETWORK", "default": "dormduri-observability" }]
     },
     "web-rehearsal": {
       "classification": "rehearsal-only",
-      "project": "knu-roommate-web-observability",
+      "project": "dormduri-web-observability",
       "envFile": "infra/observability/.env.observability",
       "validationEnvFile": "infra/observability/.env.observability.example",
       "files": [
@@ -88,13 +80,11 @@
         "infra/rehearsal/compose.web.yml",
         "infra/rehearsal/compose.web.fixture.yml"
       ],
-      "managedNetworks": [
-        { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
-      ]
+      "managedNetworks": [{ "env": "OBSERVABILITY_NETWORK", "default": "dormduri-observability" }]
     },
     "full-stack-web-rehearsal": {
       "classification": "rehearsal-only",
-      "project": "knu-roommate-full-stack-web",
+      "project": "dormduri-full-stack-web",
       "envFile": "infra/observability/.env.observability",
       "validationEnvFile": "infra/observability/.env.observability.example",
       "files": [
@@ -103,13 +93,11 @@
         "infra/rehearsal/compose.observability.yml",
         "infra/rehearsal/compose.web.yml"
       ],
-      "managedNetworks": [
-        { "env": "OBSERVABILITY_NETWORK", "default": "knu-roommate-observability" }
-      ]
+      "managedNetworks": [{ "env": "OBSERVABILITY_NETWORK", "default": "dormduri-observability" }]
     },
     "ingress-trust": {
       "classification": "production-candidate",
-      "project": "knu-roommate-ingress-trust",
+      "project": "dormduri-ingress-trust",
       "files": [
         "infra/deploy/compose.api.yml",
         "infra/rehearsal/compose.web.yml",

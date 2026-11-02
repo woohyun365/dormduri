@@ -123,10 +123,10 @@ curl -fsS http://127.0.0.1:9090/api/v1/rules \
 Grafana:
 
 - http://127.0.0.1:3001
-- folder: `KNU Roommate API`
+- folder: `돔두리 API`
 - dashboards:
-  - `KNU API Overview`
-  - `KNU API Realtime/Auth/Retention`
+  - `돔두리 API Overview`
+  - `돔두리 API Realtime/Auth/Retention`
 
 Loki query:
 

@@ -9,7 +9,7 @@ import {
 } from './paths.mjs';
 import { loadWorkspaceLayout } from './workspace-layout.mjs';
 
-const repoRoot = '/workspace/knu-roommate';
+const repoRoot = '/workspace/dormduri';
 
 test('repository tools default to the tool output area of the local artifact directory', () => {
   assert.equal(DEFAULT_ARTIFACTS_DIRECTORY, '.artifacts/tools');
@@ -21,10 +21,10 @@ test('repository tools default to the tool output area of the local artifact dir
 });
 
 test('CI can redirect generated evidence outside the checkout', () => {
-  const environment = { KNU_ARTIFACTS_DIR: '/runner/temp/knu-roommate-artifacts' };
+  const environment = { KNU_ARTIFACTS_DIR: '/runner/temp/dormduri-artifacts' };
   assert.equal(
     resolveArtifactPath(repoRoot, ['infra', 'inspection.json'], environment),
-    '/runner/temp/knu-roommate-artifacts/infra/inspection.json',
+    '/runner/temp/dormduri-artifacts/infra/inspection.json',
   );
 });
 
@@ -73,7 +73,7 @@ test('an override inside the checkout must stay under an ignored workspace root'
 });
 
 test('host runtime kinds keep their checkout location under an override', () => {
-  const environment = { KNU_ARTIFACTS_DIR: '/runner/temp/knu-roommate-artifacts' };
+  const environment = { KNU_ARTIFACTS_DIR: '/runner/temp/dormduri-artifacts' };
   for (const kind of ['claude-native', 'claude-review-packets', 'codex-native'])
     assert.equal(
       resolveArtifactPath(repoRoot, [kind, 'record.json'], environment),
@@ -82,6 +82,6 @@ test('host runtime kinds keep their checkout location under an override', () => 
     );
   assert.equal(
     resolveArtifactPath(repoRoot, ['stress', 'report.json'], environment),
-    '/runner/temp/knu-roommate-artifacts/stress/report.json',
+    '/runner/temp/dormduri-artifacts/stress/report.json',
   );
 });

@@ -82,7 +82,7 @@ orbctl start
 5. Health, readiness, metrics guard, Web→API BFF, API log→Loki, Prometheus target을 확인한다.
 6. Alloy/Loki/Prometheus/Grafana 중단 중 제품 요청의 fail-open과 recovery를 확인한다.
 7. Loopback port, running image의 generated-secret 부재, stress throttle 격리를 확인한다.
-8. 모든 container·volume·network를 두 번 정리해 cleanup idempotency를 확인한다.
+8. 모든 container·volume·network를 두 번 정리해 cleanup idempotency를 확인하고, 그 실행이 build한 API·Web image 둘을 지운다.
 
 Standalone Web rehearsal의 `web-upstream` fixture는 full-stack profile에 합성하지 않는다. Full-stack
 Web은 실제 nginx/API를 사용하며, evidence의 제품 container limit 합계에는 fixture나 PostgreSQL을
@@ -127,13 +127,18 @@ fixture에는 예를 들어 `fd45:448:247::/64`와 명시한 peer 주소를 추�
 ### Account-free ingress fixture
 
 ```bash
-docker build --label knu.fixture.kind=chat-ingress-trust \
-  --label knu.fixture.source="$(git rev-parse HEAD)" \
+docker build --label dormduri.fixture.kind=chat-ingress-trust \
+  --label dormduri.fixture.source="$(git rev-parse HEAD)" \
+  --label dormduri.local.created-by=scripts/infra/rehearsal/ingress-trust/Dockerfile \
+  --label dormduri.local.run-id=local \
   -f scripts/infra/rehearsal/ingress-trust/Dockerfile \
-  -t knu-chat-ingress-fixture:local .
-node scripts/infra/rehearsal/ingress-trust/index.mjs --image=knu-chat-ingress-fixture:local --mode=fixture-http
-node scripts/infra/rehearsal/ingress-trust/index.mjs --image=knu-chat-ingress-fixture:local --mode=production-https
+  -t dormduri-chat-ingress-fixture:local .
+node scripts/infra/rehearsal/ingress-trust/index.mjs --image=dormduri-chat-ingress-fixture:local --mode=fixture-http
+node scripts/infra/rehearsal/ingress-trust/index.mjs --image=dormduri-chat-ingress-fixture:local --mode=production-https
 ```
+
+같은 tag로 다시 build하면 이전 image는 이름 없이 남는다. `dormduri.local.*` label로 남은 image를 찾아 고른 것만
+지우는 방법은 [로컬 환경 runbook](../runbooks/rehearsal/local-environments.md#정리와-재개-handoff)을 따른다.
 
 두 모드 모두 disposable **로컬 fixture**다. HTTPS 모드도 테스트 전용 자체 서명 인증서만 사용하며
 클라이언트는 그 인증서와 hostname을 검증한다. 실제 인증서 발급, provider/DB 연결, host port publish,
@@ -172,7 +177,7 @@ egress='{"address":"172.31.254.2","sourceAddress":"172.31.254.1","port":18080,"n
 node scripts/infra/rehearsal/ingress-trust/egress.mjs --serve="$egress"
 # runner Linux: 같은 daemon/source-bound image에서 두 mode를 각각 실행한다.
 node scripts/infra/rehearsal/ingress-trust/index.mjs \
-  --image=knu-chat-ingress-fixture:local --mode=production-https --egress="$egress"
+  --image=dormduri-chat-ingress-fixture:local --mode=production-https --egress="$egress"
 ```
 
 Peer는 선언한 source, nonce, API/Web GET 경로만 허용하고 실제 수신 주소를 응답·로그에 기록한다.

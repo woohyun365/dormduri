@@ -30,7 +30,7 @@ describe('AwsSecretsManagerSecretReader', () => {
     const client = fakeClient({ SecretString: 'secret-value', $metadata: {} });
     const reader = new AwsSecretsManagerSecretReader({ client });
 
-    await expect(reader.readSecret('/knu-roommate/prod/api/DATABASE_URL')).resolves.toBe(
+    await expect(reader.readSecret('/dormduri/prod/api/DATABASE_URL')).resolves.toBe(
       'secret-value',
     );
   });

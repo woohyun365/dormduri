@@ -1,7 +1,7 @@
 import { runtimeSecretEnvKeys } from '../environment/env-key.registry.js';
 
 import { SECRET_NAME_PREFIX_ENV } from './secret-name-prefix.constants.js';
-export const DEFAULT_SECRET_NAME_ROOT = '/knu-roommate';
+export const DEFAULT_SECRET_NAME_ROOT = '/dormduri';
 
 export interface SecretNameRegistryOptions {
   readonly nodeEnv?: string;

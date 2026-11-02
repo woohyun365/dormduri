@@ -1,5 +1,5 @@
 groups:
-  - name: knu-roommate-web-bff-reliability
+  - name: dormduri-web-bff-reliability
     interval: 1m
     rules:
       - alert: WebBffFailureRateHigh

@@ -103,9 +103,93 @@ Fixture 내부의 native IPv6 요구는 유지한다. 별도 synthetic peer가 I
 
 ## 정리와 재개 handoff
 
-생성 전 자원 baseline을 남기고, 생성한 정확한 VM/project/container/network/volume/endpoint만 정리한다. 전역 prune,
-타 project down, 기존 VM 삭제나 사용자 소유 파일 변경은 하지 않는다. 보존이 필요하면 power 상태·경로·기한·cleanup
-owner를 승인 범위 안에서 기록한다. 명시되지 않은 무기한 보존이나 자동 삭제 scheduler를 만들지 않는다.
+생성 전 자원 baseline을 남기고, 생성한 정확한 VM/project/container/network/volume/image/endpoint와 그 작업이 쓴
+builder cache만 정리한다. 전역 prune, 타 project down, 기존 VM 삭제나 사용자 소유 파일 변경은 하지 않는다. 보존이
+필요하면 power 상태·경로·기한·cleanup owner를 승인 범위 안에서 기록한다. 명시되지 않은 무기한 보존이나 자동 삭제
+scheduler를 만들지 않는다.
+
+### 로컬 Docker 자원 label과 확인
+
+저장소 script가 Docker image store에 만드는 image와, 실행마다 새로 만드는 project의 이름 있는 volume에는 다음
+label이 붙는다. Label은 남은 자원을 골라 지우기 위한 표시이고 source 일치 근거가 아니다(위 "실행 전 결정 순서" 3번).
+
+| Label                       | 값                                                                                                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dormduri.local.created-by` | 만든 script의 저장소 상대 경로. 값을 넘기지 않는 실행(compose 직접 실행, `pnpm web:observability:rehearsal`)은 `manual`이고, ingress fixture image는 그 Dockerfile 경로다                         |
+| `dormduri.local.run-id`     | 실행마다 새 tag로 build하는 full-stack image와 그 실행의 volume은 run ID. 고정 tag image(dockerized smoke, `pnpm web:observability:rehearsal`, ingress fixture)와 값을 넘기지 않는 실행은 `local` |
+
+- Full-stack rehearsal: rehearsal overlay의 API·Web build(`infra/rehearsal/compose.*.yml`)와, 그 runner만 붙이는
+  `scripts/infra/rehearsal/full-stack/compose.volume-labels.*.yml`·full-stack profile만 쓰는
+  `infra/rehearsal/compose.postgres.yml`의 volume. Keep-running이
+  아니면 정리 단계가 compose down 뒤 그 실행의 두 image(`dormduri-api:full-stack-<run id>`,
+  `dormduri-web:full-stack-<run id>`)만 지우고 결과를 evidence `cleanup.images`에 남긴다. Keep-running이면 지우지 않고
+  그 이름을 남긴다. `FULL_STACK_REHEARSAL_SKIP_BUILD=1`은 같은 `FULL_STACK_REHEARSAL_RUN_ID`의 keep-running 실행이
+  남긴 image만 재사용하고, 없으면 build 없이 실패한다. 재사용 전 정리 순서는
+  [full-stack runbook 종료 확인](./full-stack.md#종료-확인)을 따른다.
+- Dockerized smoke: 그 runner만 붙이는 `apps/api/test/stress/docker/compose.local-labels.yml`이 API image에 label을
+  둔다. Image tag가 고정(`.env.api`의 `API_IMAGE_TAG`)이라 run ID label은 `local`이다. Label 값이 실행마다 바뀌면 같은
+  source를 다시 build해도 image ID가 새로 생기고 이전 판이 tag 없이 남는다. 운영 후보 `infra/deploy/compose.api.yml`의
+  build 정의에는 label이 없다.
+- 이름이 고정된 project(dockerized smoke의 `dormduri-api`·`dormduri-observability`, `pnpm infra:compose`로 직접 띄운
+  project, `pnpm web:observability:rehearsal`)의 volume에는 label을 두지 않는다. Compose는 volume label을 volume 설정
+  hash에 넣으므로, 실행마다 바뀌는 run ID label을 붙이면 다음 실행이 `Recreate (data will be lost)?`를 묻는다. 이
+  volume은 이름이 고정이라 쌓이지 않으며 `com.docker.compose.project` label로 찾는다.
+- Ingress fixture: [build 명령](../../rehearsal/README.md#account-free-ingress-fixture)이 label을 붙인다.
+- `pnpm infra:artifacts:build`는 OCI layout을 `.artifacts`에 쓰고 image store에 image를 남기지 않는다.
+
+남은 자원 확인(읽기 전용):
+
+```bash
+docker image ls -a --filter label=dormduri.local.created-by \
+  --format 'table {{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.Size}}\t{{.CreatedSince}}'
+docker image ls -a --filter label=dormduri.local.created-by=scripts/infra/rehearsal/full-stack/index.mjs
+docker image inspect --format '{{index .Config.Labels "dormduri.local.created-by"}} {{index .Config.Labels "dormduri.local.run-id"}}' <image>
+docker volume ls --filter label=dormduri.local.created-by \
+  --format 'table {{.Name}}\t{{.Label "dormduri.local.created-by"}}\t{{.Label "dormduri.local.run-id"}}'
+docker volume ls --filter label=com.docker.compose.project=dormduri-api
+docker buildx du --builder dormduri-artifacts
+docker buildx du
+docker system df
+```
+
+`-a`가 있어야 같은 tag로 다시 build해 이름이 없어진 이전 image(`<none>:<none>`)도 보인다. 지울 때는 목록에서 고른
+정확한 이름이나 ID만 `docker image rm <image>`·`docker volume rm <volume>`으로 지운다. 실행 중 container가 쓰는
+image·volume과 label이 없는 자원은 그 작업의 owner가 정한다.
+
+### Builder cache
+
+- `dormduri-artifacts` builder는 `pnpm infra:artifacts:build`가
+  [`buildkitd.toml`](../../../scripts/infra/artifacts/buildkitd.toml)로 만든다(cache 최대 20GB, 쓰이지 않은 cache 14일
+  보존). 만든 뒤 `docker buildx inspect`의 GC policy가 그 상한과 다르면 build 전에 실패한다.
+- 설정을 바꿨거나 그 확인이 실패하면 builder를 지우고 다시 만든다: `docker buildx rm dormduri-artifacts` 뒤
+  `pnpm infra:artifacts:build`. `buildx rm`은 그 builder의 cache와 state volume을 함께 지운다. Cache만 줄이려면
+  `docker buildx prune --builder dormduri-artifacts`처럼 그 builder를 지정한다.
+- 기본 builder(OrbStack `orbstack`·`default`)의 cache 상한은 사용자의 OrbStack·Docker 설정이다. 이 저장소는 바꾸지
+  않는다. 확인은 `docker buildx du`·`docker system df`·`docker buildx inspect <builder>`의 GC policy이고, 조절 위치는
+  Docker Engine `daemon.json`의 `builder.gc`(예: `defaultKeepStorage`)다. OrbStack은 `orb config docker` 또는
+  `~/.orbstack/config/docker.json`을 고친 뒤 `orb restart docker`로 적용한다. Engine 재시작은 실행 중 container에
+  영향을 주므로 사용자가 정한다.
+
+### 임시 PostgreSQL
+
+검증용 임시 DB는 익명 volume이 남지 않게 data 경로를 tmpfs로 두고 `--rm`으로 띄운다. Image는 dev compose와 같은 pin을
+읽어 쓴다.
+
+```bash
+image=$(docker compose -f docker-compose.dev.yml config --images)
+docker run --rm -d --name dormduri-tmp-<용도> \
+  --label dormduri.local.created-by=<작업> \
+  --tmpfs /var/lib/postgresql \
+  -p 127.0.0.1:<빈 port>:5432 \
+  -e POSTGRES_DB=<db> -e POSTGRES_USER=<user> -e POSTGRES_PASSWORD=<임시 값> \
+  "$image"
+# 끝나면
+docker stop dormduri-tmp-<용도>
+```
+
+Compose로 띄울 때는 `-p dormduri-tmp-<용도>`처럼 project 이름을 정하고 끝날 때 `down --volumes`로 그 project의
+volume까지 지운다. `-v` 없이 `docker run`으로 띄운 뒤 `--rm` 없이 container만 지우면 image의 data 경로에 익명
+volume이 남는다.
 
 다음 필드를 기존 artifact/handoff owner에 남긴다. 재사용할 정책은 이 문서에, 기기별 관측값과 임시 자원은
 `.artifacts/`에 둔다. CI 출력은 runner temp 아래에서 생성해 artifact로 전달한다.

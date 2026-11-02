@@ -115,6 +115,6 @@ describe('observability stack', () => {
     expect(runner).toContain("service: 'loki'");
     expect(runner).toContain("service: 'prometheus'");
     expect(runner).toContain("service: 'grafana'");
-    expect(runner).toContain('knu-web-bff-reliability');
+    expect(runner).toContain('dormduri-web-bff-reliability');
   });
 });

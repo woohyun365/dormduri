@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 40
     env:
-      NEXT_PUBLIC_APP_URL: https://ci.knu-roommate.invalid
+      NEXT_PUBLIC_APP_URL: https://ci.dormduri.invalid
       NEXT_PUBLIC_SENTRY_ENABLED: '0'
       NEXT_PUBLIC_SENTRY_PRIVACY_APPROVED: '0'
       NEXT_PUBLIC_SENTRY_RELEASE_EVIDENCE_APPROVED: '0'
@@ -144,7 +144,7 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     env:
-      NEXT_PUBLIC_APP_URL: https://ci.knu-roommate.invalid
+      NEXT_PUBLIC_APP_URL: https://ci.dormduri.invalid
       NEXT_PUBLIC_SENTRY_ENABLED: '0'
       NEXT_PUBLIC_SENTRY_PRIVACY_APPROVED: '0'
       NEXT_PUBLIC_SENTRY_RELEASE_EVIDENCE_APPROVED: '0'

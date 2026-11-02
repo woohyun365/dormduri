@@ -58,6 +58,9 @@ jobs:
       - name: Prepare CI database schema
         run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=schema -- pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma
 
+      - name: Check migrations match Prisma schema
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=schema-diff -- pnpm --dir apps/api exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+
       - name: Prepare API dependencies
         run: node scripts/ci/lanes/run-timed-command.mjs --scope=API --stage=prepare -- pnpm api:prepare
 

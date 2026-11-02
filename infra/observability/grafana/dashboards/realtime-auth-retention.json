@@ -648,7 +648,7 @@
   "refresh": "15s",
   "schemaVersion": 39,
   "style": "dark",
-  "tags": ["knu-roommate", "api", "observability"],
+  "tags": ["dormduri", "api", "observability"],
   "templating": {
     "list": []
   },
@@ -658,8 +658,8 @@
   },
   "timepicker": {},
   "timezone": "Asia/Seoul",
-  "title": "KNU API Realtime/Auth/Retention",
-  "uid": "knu-api-realtime-auth-retention",
+  "title": "돔두리 API Realtime/Auth/Retention",
+  "uid": "dormduri-api-realtime-auth-retention",
   "version": 1,
   "weekStart": ""
 }

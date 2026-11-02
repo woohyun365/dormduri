@@ -97,9 +97,9 @@ curl -H "Authorization: Bearer $(cat infra/observability/prometheus/secrets/api-
 
 1. http://127.0.0.1:3001 접속.
 2. `.env.observability`의 `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`로 로그인.
-3. `KNU Roommate API` folder에서 다음 dashboard를 확인한다.
-   - `KNU API Overview`
-   - `KNU API Realtime/Auth/Retention`
+3. `돔두리 API` folder에서 다음 dashboard를 확인한다.
+   - `돔두리 API Overview`
+   - `돔두리 API Realtime/Auth/Retention`
 
 ### Loki log query
 
@@ -125,8 +125,8 @@ API stress release gate는 `docs/runbooks/observability/api-stress-release-runbo
 Stress window 동안 우선 확인할 항목은 다음과 같다.
 
 - Prometheus `api` target이 `UP`인지 확인한다.
-- Grafana `KNU API Overview`에서 5xx rate, HTTP p95/p99 latency, in-flight request를 확인한다.
-- Grafana `KNU API Realtime/Auth/Retention`에서 realtime socket/rejection/outbox lag, auth cleanup target별 batch 포화, retention backlog를 확인한다.
+- Grafana `돔두리 API Overview`에서 5xx rate, HTTP p95/p99 latency, in-flight request를 확인한다.
+- Grafana `돔두리 API Realtime/Auth/Retention`에서 realtime socket/rejection/outbox lag, auth cleanup target별 batch 포화, retention backlog를 확인한다.
 - 같은 dashboard에서 login outcome, real/dummy password verify p95·in-flight, renewal outcome을 함께 확인한다.
 - Loki는 API가 Dockerized `api` service로 실행될 때 `{service="api", level="error"}`를 확인한다. Host process API는 Docker log source가 아니므로 Loki API log가 없을 수 있다.
 - 2GB instance에서는 observability stack을 같은 host에 상시 올리기보다 local/별도 ops host에서 rehearsal한다.
@@ -141,7 +141,7 @@ Loki label은 low-cardinality 값만 허용한다.
 
 requestId 같은 추적 필드는 JSON field로 남을 수 있지만 Loki label로 승격하지 않는다. Prometheus label도 API code의 metric label policy를 따른다.
 
-Web BFF는 `web_bff_request_completed` structured event를 같은 Docker stdout 경로로 전달한다. Grafana dashboard UID는 `knu-web-bff-reliability`이며 browser runtime error와 Web Vitals는 승인된 managed provider에서 조회한다. 설정·smoke·kill switch 절차는 `infra/runbooks/operations/observability/web-bff.md`를 따른다.
+Web BFF는 `web_bff_request_completed` structured event를 같은 Docker stdout 경로로 전달한다. Grafana dashboard UID는 `dormduri-web-bff-reliability`이며 browser runtime error와 Web Vitals는 승인된 managed provider에서 조회한다. 설정·smoke·kill switch 절차는 `infra/runbooks/operations/observability/web-bff.md`를 따른다.
 
 ### Web configuration rehearsal
 
@@ -157,7 +157,7 @@ Runner는 다음 configuration과 연결을 검증하고 종료 시 전용 conta
 - production Next standalone image build와 health
 - `bookmark.list` success/invalid-response/timeout structured event
 - `web` stdout → Alloy → Loki ingest
-- Grafana `knu-web-bff-reliability` dashboard provisioning
+- Grafana `dormduri-web-bff-reliability` dashboard provisioning
 - raw rehearsal email/token/query 비노출
 - Loki, Prometheus, Grafana 개별 중단 중 Web BFF 응답 fail-open과 recovery time
 
@@ -188,7 +188,7 @@ Slack delivery 활성화:
 ```env
 SLACK_ALERTMANAGER_ENABLED=true
 SLACK_ALERT_WEBHOOK_URL=<SLACK_INCOMING_WEBHOOK_URL>
-SLACK_ALERT_CHANNEL=#knu-roommate-alerts-test
+SLACK_ALERT_CHANNEL=#dormduri-alerts-test
 ```
 
 실제 webhook URL은 `infra/observability/.env.observability`에만 둔다. `infra/observability/.env.observability.example`, Alertmanager example, 문서, PR/이슈에는 secret 값을 남기지 않는다. 자세한 절차는 `infra/runbooks/operations/observability/slack-delivery.md`와 `infra/runbooks/incidents/observability-alert-delivery.md`를 따른다.

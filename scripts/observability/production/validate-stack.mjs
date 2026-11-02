@@ -23,11 +23,11 @@ try {
     envPath,
     [
       'OBSERVABILITY_ENV=production',
-      'OBSERVABILITY_NETWORK=knu-roommate-observability',
+      'OBSERVABILITY_NETWORK=dormduri-observability',
       'API_METRICS_TARGET=api:4000',
       'API_METRICS_SCHEME=http',
       `API_METRICS_BEARER_TOKEN_FILE=${tokenPath}`,
-      'GRAFANA_ADMIN_USER=knu-operator',
+      'GRAFANA_ADMIN_USER=dormduri-operator',
       'GRAFANA_ADMIN_PASSWORD=ci-validation-operator-secret',
       'PROMETHEUS_RETENTION=15d',
       'ALERTMANAGER_RETENTION=120h',

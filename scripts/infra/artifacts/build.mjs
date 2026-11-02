@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
+import { assertBuilderGcPolicy, expectedGcLimits } from './builder-gc.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const args = new Set(process.argv.slice(2));
@@ -13,7 +14,8 @@ const outputArg = process.argv.find((value) => value.startsWith('--output='));
 const outputDir = outputArg
   ? resolve(repoRoot, outputArg.slice('--output='.length))
   : resolveArtifactPath(repoRoot, ['build']);
-const builderName = 'knu-roommate-artifacts';
+const builderName = 'dormduri-artifacts';
+const buildkitdConfig = 'scripts/infra/artifacts/buildkitd.toml';
 
 const release = capture('git', ['rev-parse', 'HEAD']);
 const workingTreeDirty =
@@ -31,7 +33,7 @@ const images = [
 const manifestImages = [];
 
 for (const image of images) {
-  const tag = `knu-roommate-${image.name}:${release}`;
+  const tag = `dormduri-${image.name}:${release}`;
   const metadataPath = resolve(outputDir, `${image.name}.build-metadata.json`);
   const layoutPath = resolve(outputDir, `${image.name}.oci`);
   rmSync(layoutPath, { recursive: true, force: true });
@@ -145,9 +147,28 @@ function extractAttestations(layoutPath, imageName) {
 
 function ensureBuilder() {
   if (!commandSucceeds('docker', ['buildx', 'inspect', builderName])) {
-    run('docker', ['buildx', 'create', '--name', builderName, '--driver', 'docker-container']);
+    run('docker', [
+      'buildx',
+      'create',
+      '--name',
+      builderName,
+      '--driver',
+      'docker-container',
+      '--buildkitd-config',
+      buildkitdConfig,
+    ]);
   }
   run('docker', ['buildx', 'inspect', builderName, '--bootstrap']);
+  try {
+    assertBuilderGcPolicy(
+      capture('docker', ['buildx', 'inspect', builderName]),
+      expectedGcLimits(readFileSync(resolve(repoRoot, buildkitdConfig), 'utf8')),
+    );
+  } catch (error) {
+    fail(
+      `${error.message}\nThe builder was created without ${buildkitdConfig}, or its BuildKit version ignores those fields. Remove it with \`docker buildx rm ${builderName}\` and run this command again to recreate it.`,
+    );
+  }
 }
 
 function commandSucceeds(command, commandArgs) {

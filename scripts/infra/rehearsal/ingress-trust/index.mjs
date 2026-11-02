@@ -92,7 +92,7 @@ export function assertNoCollision(input, dockerSubnets, routeOutput) {
   }
 }
 export function assertResourceScope(resources, project) {
-  assert.match(project, /^knu-s1-[a-f0-9]{12}$/u);
+  assert.match(project, /^dormduri-s1-[a-f0-9]{12}$/u);
   for (const resource of resources)
     assert.equal(
       resource.Config?.Labels?.['com.docker.compose.project'] ??
@@ -243,11 +243,11 @@ export async function runIngressFixture({
 } = {}) {
   assert.match(
     image ?? '',
-    /^knu-chat-ingress-fixture:[a-zA-Z0-9_.-]+$/u,
+    /^dormduri-chat-ingress-fixture:[a-zA-Z0-9_.-]+$/u,
     'Use an explicit local fixture image, never a production service image',
   );
   const input = fixtureInput(mode),
-    project = `knu-s1-${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+    project = `dormduri-s1-${randomUUID().replaceAll('-', '').slice(0, 12)}`;
   if (egress !== undefined) validateEgress(egress, input.networks);
   const directory = resolveArtifactPath(root, ['infra', 'ingress-trust', project], environment);
   mkdirSync(directory, { recursive: true });
@@ -260,7 +260,7 @@ export async function runIngressFixture({
   );
   const docker = (args, settings) => run('docker', args, env, settings);
   const imageInfo = JSON.parse(await docker(['image', 'inspect', image]))[0];
-  assert.equal(imageInfo.Config.Labels?.['knu.fixture.kind'], 'chat-ingress-trust');
+  assert.equal(imageInfo.Config.Labels?.['dormduri.fixture.kind'], 'chat-ingress-trust');
   assert.match(imageInfo.Id, /^sha256:[a-f0-9]{64}$/u);
   const source = sourceManifest(root);
   const imageSource = await probeImageSource(project, imageInfo.Id, docker);
@@ -393,7 +393,7 @@ export async function runIngressFixture({
     assertResourceScope(containers, project);
     record('source-image', {
       id: imageInfo.Id,
-      source: imageInfo.Config.Labels['knu.fixture.source'],
+      source: imageInfo.Config.Labels['dormduri.fixture.source'],
       mode,
       syntheticCertificate: true,
     });

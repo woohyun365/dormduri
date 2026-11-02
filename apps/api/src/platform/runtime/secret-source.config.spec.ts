@@ -30,20 +30,20 @@ describe('secretSourceConfig', () => {
 
   it('reads an optional Secrets Manager name prefix without inventing a default', () => {
     expect(readSecretNamePrefix({})).toBeNull();
-    expect(readSecretNamePrefix({ [SECRET_NAME_PREFIX_ENV]: ' /knu-roommate/prod/api ' })).toBe(
-      '/knu-roommate/prod/api',
+    expect(readSecretNamePrefix({ [SECRET_NAME_PREFIX_ENV]: ' /dormduri/prod/api ' })).toBe(
+      '/dormduri/prod/api',
     );
   });
 
   it('exposes the selected source and prefix through the Nest config namespace', () => {
     process.env.SECRET_SOURCE = 'aws-secrets-manager';
-    process.env[SECRET_NAME_PREFIX_ENV] = '/knu-roommate/production/api';
+    process.env[SECRET_NAME_PREFIX_ENV] = '/dormduri/production/api';
 
     try {
       expect(secretSourceConfig()).toEqual({
         source: 'aws-secrets-manager',
         secretMountDirectory: null,
-        secretNamePrefix: '/knu-roommate/production/api',
+        secretNamePrefix: '/dormduri/production/api',
       });
     } finally {
       process.env = { ...previousEnvSnapshot };

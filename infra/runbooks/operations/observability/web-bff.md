@@ -67,7 +67,7 @@ BFF runner는 다음 순서로 fail-closed 검증한다.
 
 ## Grafana 조회
 
-- dashboard UID: `knu-web-bff-reliability`
+- dashboard UID: `dormduri-web-bff-reliability`
 
 ```logql
 {service="web"} | json | eventName="web_bff_request_completed" | outcome!="success"

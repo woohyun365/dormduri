@@ -191,13 +191,13 @@ describe('migration baseline coverage', () => {
       'CREATE INDEX "ConversationMessage_threadId_sentAt_id_idx" ON "ConversationMessage"("threadId", "sentAt", "id")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "ConversationThreadMember_participantId_memberState_updatedAt_idx" ON "ConversationThreadMember"("participantId", "memberState", "updatedAt")',
+      'CREATE INDEX "ConversationThreadMember_participantId_memberState_updatedA_idx" ON "ConversationThreadMember"("participantId", "memberState", "updatedAt")',
     );
     expect(sql).toContain(
       'CREATE INDEX "ConversationThreadMember_participantId_memberState_threadId_idx" ON "ConversationThreadMember"("participantId", "memberState", "threadId")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "ChatRealtimeOutboxEvent_publishedAt_availableAt_occurredAt_id_idx" ON "ChatRealtimeOutboxEvent"("publishedAt", "availableAt", "occurredAt", "id")',
+      'CREATE INDEX "ChatRealtimeOutboxEvent_publishedAt_availableAt_occurredAt__idx" ON "ChatRealtimeOutboxEvent"("publishedAt", "availableAt", "occurredAt", "id")',
     );
     expect(sql).toContain(
       'CREATE INDEX "ChatRealtimeEventRecipient_userId_cursor_idx" ON "ChatRealtimeEventRecipient"("userId", "cursor")',
@@ -246,7 +246,7 @@ describe('migration baseline coverage', () => {
       'CREATE UNIQUE INDEX "LegalDocumentVersion_kind_version_key" ON "LegalDocumentVersion"("kind", "version")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "LegalDocumentVersion_kind_publishedAt_effectiveAt_reti_idx" ON "LegalDocumentVersion"("kind", "publishedAt", "effectiveAt", "retiredAt")',
+      'CREATE INDEX "LegalDocumentVersion_kind_publishedAt_effectiveAt_retiredAt_idx" ON "LegalDocumentVersion"("kind", "publishedAt", "effectiveAt", "retiredAt")',
     );
     expect(sql).toContain(
       'CREATE INDEX "LegalDocumentVersion_kind_effectiveAt_id_idx" ON "LegalDocumentVersion"("kind", "effectiveAt", "id")',

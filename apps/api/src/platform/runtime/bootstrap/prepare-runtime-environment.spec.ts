@@ -19,18 +19,18 @@ describe('prepareRuntimeEnvironment', () => {
       parseRuntimeBootstrapEnvironment({
         NODE_ENV: 'test',
         SECRET_SOURCE: 'aws-secrets-manager',
-        SECRET_NAME_PREFIX: '/knu-roommate/test/api/',
+        SECRET_NAME_PREFIX: '/dormduri/test/api/',
       }),
     ).toEqual({
       nodeEnv: 'test',
       secretSource: 'aws-secrets-manager',
-      secretNamePrefix: '/knu-roommate/test/api',
+      secretNamePrefix: '/dormduri/test/api',
       secretMountDirectory: null,
     });
   });
 
   it('materializes a mounted production bundle before full config validation', async () => {
-    const mountDirectory = '/run/secrets/knu-roommate-api';
+    const mountDirectory = '/run/secrets/dormduri-api';
     const env: NodeJS.ProcessEnv = {
       NODE_ENV: 'production',
       SECRET_SOURCE: 'mounted-files',
@@ -90,7 +90,7 @@ describe('prepareRuntimeEnvironment', () => {
     const env: NodeJS.ProcessEnv = {
       NODE_ENV: 'production',
       SECRET_SOURCE: 'aws-secrets-manager',
-      SECRET_NAME_PREFIX: '/knu-roommate/production/api',
+      SECRET_NAME_PREFIX: '/dormduri/production/api',
       EMAIL_PROVIDER: 'ses',
       SES_REGION: 'ap-northeast-2',
       SES_FROM_EMAIL: 'no-reply@example.com',
@@ -117,7 +117,7 @@ describe('prepareRuntimeEnvironment', () => {
     expect(readRuntimeBootstrapReceipt()).toBe(receipt);
     expect(serializedReceipt).not.toContain('DATABASE_URL');
     expect(serializedReceipt).not.toContain('password');
-    expect(serializedReceipt).not.toContain('/knu-roommate/production/api');
+    expect(serializedReceipt).not.toContain('/dormduri/production/api');
   });
 
   it('keeps local env preparation compatible with validation defaults', async () => {
@@ -159,7 +159,7 @@ describe('prepareRuntimeEnvironment', () => {
     const env: NodeJS.ProcessEnv = {
       NODE_ENV: 'production',
       SECRET_SOURCE: 'mounted-files',
-      SECRET_MOUNT_DIRECTORY: '/run/secrets/knu-roommate-api',
+      SECRET_MOUNT_DIRECTORY: '/run/secrets/dormduri-api',
     };
     const reader: SecretReaderPort = {
       readSecret: () => Promise.resolve('partial-private-value'),
@@ -195,7 +195,7 @@ function productionAwsEnvironment(): NodeJS.ProcessEnv {
   return {
     NODE_ENV: 'production',
     SECRET_SOURCE: 'aws-secrets-manager',
-    SECRET_NAME_PREFIX: '/knu-roommate/production/api',
+    SECRET_NAME_PREFIX: '/dormduri/production/api',
     EMAIL_PROVIDER: 'ses',
     SES_REGION: 'ap-northeast-2',
     SES_FROM_EMAIL: 'no-reply@example.com',

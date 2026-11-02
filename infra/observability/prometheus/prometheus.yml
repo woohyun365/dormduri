@@ -3,7 +3,7 @@ global:
   evaluation_interval: 15s
   external_labels:
     service: api
-    observability_stack: knu-roommate
+    observability_stack: dormduri
 
 alerting:
   alertmanagers:

@@ -38,7 +38,7 @@ function setRealtimeTicketRequest(requestParams, context, events, done) {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
-      'User-Agent': 'knu-roommate-artillery-realtime-stress',
+      'User-Agent': 'dormduri-artillery-realtime-stress',
     };
     context.vars.ticketIssueStartedAt = Date.now();
     emitCounter(events, 'stress.realtime.ticket_request', 1);

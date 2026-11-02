@@ -470,7 +470,7 @@ test('infrastructure CI separates static and container-backed validation', () =>
   assert.ok(!infraWorkflow.includes('secrets.'));
   assert.ok(infraWorkflow.includes('runner.temp'));
   assertIncludesAll(infraWorkflow, [
-    'KNU_ARTIFACTS_DIR=$RUNNER_TEMP/knu-roommate-artifacts',
+    'KNU_ARTIFACTS_DIR=$RUNNER_TEMP/dormduri-artifacts',
     '>> "$GITHUB_ENV"',
   ]);
   assert.ok(!infraWorkflow.includes('KNU_ARTIFACTS_DIR: ${{ runner.temp }}'));
@@ -483,6 +483,8 @@ test('API CI migrates its fresh public schema before generating TypedSQL artifac
   assertIncludesAll(apiWorkflow, [
     '--stage=schema',
     'pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma',
+    '--stage=schema-diff',
+    'pnpm --dir apps/api exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code',
     'pnpm api:prepare',
     '--stage=runtime-config-health-contract',
     '--stage=unit',
@@ -490,7 +492,10 @@ test('API CI migrates its fresh public schema before generating TypedSQL artifac
     '--stage=e2e-db',
     '--stage=stress-harness',
   ]);
-  assert.ok(apiWorkflow.indexOf('prisma migrate deploy') < apiWorkflow.indexOf('pnpm api:prepare'));
+  assert.ok(
+    apiWorkflow.indexOf('prisma migrate deploy') < apiWorkflow.indexOf('prisma migrate diff'),
+  );
+  assert.ok(apiWorkflow.indexOf('prisma migrate diff') < apiWorkflow.indexOf('pnpm api:prepare'));
 });
 
 test('API integration shards own isolated runners and PostgreSQL services', () => {
@@ -625,7 +630,7 @@ test('Web CI reuses one production build and preserves bounded browser evidence'
   assertIncludesAll(playwrightConfig, [
     'usePrebuiltStandalone',
     'standaloneServerCommand',
-    'NEXT_PUBLIC_APP_URL=https://ci.knu-roommate.invalid',
+    'NEXT_PUBLIC_APP_URL=https://ci.dormduri.invalid',
   ]);
   assertIncludesAll(webWorkflow, [
     'run_storybook:',

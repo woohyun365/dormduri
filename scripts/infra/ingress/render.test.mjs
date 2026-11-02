@@ -340,7 +340,7 @@ test('Compose helper requires generated networks before the sole allowed fixture
   const generated = '/tmp/rendered/compose.networks.yml';
   const args = buildIngressComposeArgs(generated, ['config'], {
     repoRoot,
-    projectName: 'knu-fixture',
+    projectName: 'dormduri-fixture',
     fixture: true,
   });
   assert.deepEqual(

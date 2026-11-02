@@ -109,7 +109,7 @@ async function loginStressActor(
       Accept: 'application/json',
       'Content-Type': 'application/json',
       'X-Forwarded-For': resolveStressActorForwardedFor(input.actorIndex),
-      'User-Agent': 'knu-roommate-stress-token-helper',
+      'User-Agent': 'dormduri-stress-token-helper',
     },
     body: JSON.stringify({
       email: input.email,

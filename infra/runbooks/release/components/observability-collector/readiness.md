@@ -14,7 +14,7 @@
 
 다음 조건을 모두 충족할 때만 `KEEP_SOCKET` 후보로 둘 수 있다.
 
-- host가 KNU Roommate 전용 single-tenant workload만 실행한다.
+- host가 돔두리 전용 single-tenant workload만 실행한다.
 - host/operator 접근자가 제한되고 최소 권한·감사 경계가 있다.
 - Alloy image는 immutable digest로 고정하고 supply-chain 검증을 통과한다.
 - discovery allowlist가 Compose service `api|nginx|web`으로 제한된다.
