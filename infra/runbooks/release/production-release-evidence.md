@@ -27,7 +27,8 @@ owner다. 준비 순서는 [production-release-readiness.md](./production-releas
 `COLLECTING`은 단계 배포 기록이 하나 이상 있고 최종 판정 전인 aggregate state다. 단계 배포 사이에는 aggregate state
 `COLLECTING`과 final decision `PENDING_TARGET`를 유지한다.
 
-`GO`, `NO_GO`, `GO_WITH_FOLLOW_UP`는 이 문서에서만 선언한다. 단계 배포 기록은 이 값을 선언하지 않는다.
+`GO`, `NO_GO`, `GO_WITH_FOLLOW_UP`는 최종 release 판정에서 이 문서의 형식과 [Final decision rule](#final-decision-rule)로만
+선언한다. 단계 배포 기록과 component evidence는 이 값을 선언하지 않는다.
 
 ## Release metadata
 
@@ -99,10 +100,11 @@ redaction_confirmed: false
 [단계 배포](./production-release-readiness.md#단계-배포)는 배포마다 아래 형식으로 그 단계의 결과를 남긴다. 단계 기록은
 최종 판정을 선언하지 않는다.
 
-- 위치: 그 배포의 배포 tag에 붙은 GitHub Release 본문과 그 배포 workflow run의 요약에 같은 내용을 남긴다. 멈추거나
-  되돌린 실행은 멈춘 조건과 되돌림 결과를 그 run 요약에 남긴다.
-- 식별자: [식별자 규칙](../../../docs/deploy/README.md#식별자-규칙)을 따른다. Account ID, IP, instance·node ID처럼
-  기록하지 않는 값이 필요한 자리에는 "Owner console"이라고 적는다.
+- 위치: 그 배포의 배포 tag에 붙은 GitHub Release 본문과 그 배포 workflow run의 요약에 같은 내용을 남긴다. 배포 tag와
+  Release는 배포가 성공한 실행에만 만든다. 중단 조건에 걸려 멈추거나 되돌린 실행은 단계 기록으로 세지 않고 멈춘 조건과
+  되돌림 결과를 그 run 요약에 남긴다.
+- 식별자: [식별자 규칙](../../../docs/deploy/README.md#식별자-규칙)을 따른다. 그 규칙이 기록하지 않는 값이 필요한
+  자리에는 "Owner console"이라고 적는다.
 
 ```yaml
 stage:

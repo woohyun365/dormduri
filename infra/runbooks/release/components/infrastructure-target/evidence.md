@@ -86,7 +86,7 @@ evidence_id:
 
 - [ ] Evidence contains identifiers and bounded results only.
 - [ ] DB connection strings, credentials, token, cookie, authorization header, HMAC material are absent.
-- [ ] Values the public identifier rule excludes (account ID, IP, instance·node ID) are written as "Owner console".
+- [ ] Values the public identifier rule excludes are written as "Owner console".
 - [ ] `operator`, `collected_at`, `risk_owner`, `rollback_owner` are filled.
 - [ ] Component result and evidence identifier are recorded in the release record location (`components` of the stage
       deployment record for a stage deployment).

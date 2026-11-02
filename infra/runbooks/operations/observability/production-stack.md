@@ -4,8 +4,9 @@
 
 이 문서는 Prometheus, Loki, Alloy, Alertmanager, Grafana를 전용 single-tenant App VPS에서
 private stack으로 운영할 때의 runtime 경계를 소유한다. 실제 host, disk, backup, operator 결과는
-release evidence에서 채우며 이 문서의 local 검증 결과를 production 증거로 대체하지 않는다.
-Collector trust boundary의 준비와 실제 결과는 각각
+release evidence 형식으로
+[실제 값의 기록 위치](../../release/production-release-evidence.md#실제-값의-기록-위치)에 남기며 이 문서의 local 검증
+결과를 production 증거로 대체하지 않는다. Collector trust boundary의 준비와 결과 형식은 각각
 [`collector readiness`](../../release/components/observability-collector/readiness.md)와
 [`collector evidence`](../../release/components/observability-collector/evidence.md)가 소유한다. 장애·전환 절차는
 [`collector incident`](../../incidents/observability-collector.md)를 따른다.

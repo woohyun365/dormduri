@@ -2,7 +2,8 @@
 
 ## Component record
 
-이 문서는 collector의 실제 target 선택과 smoke 결과만 기록한다. 전체 release의 최종 판정은
+이 문서는 collector의 target 선택과 smoke 결과를 남기는 template이다. 실제 값은 이 문서에 채우지 않고 이 형식으로
+[실제 값의 기록 위치](../../production-release-evidence.md#실제-값의-기록-위치)에 남긴다. 전체 release의 최종 판정은
 [production-release-evidence.md](../../production-release-evidence.md)가 소유한다.
 
 ```yaml

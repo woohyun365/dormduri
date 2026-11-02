@@ -25,6 +25,14 @@ const stageRuleFiles = {
   environment: 'docs/deploy/production-environment.md',
 } as const;
 
+const recordLocationFiles = {
+  sentryEvidence: 'infra/runbooks/release/components/web-sentry/evidence.md',
+  collectorEvidence: releaseFiles.collectorEvidence,
+  observabilityStack: 'infra/runbooks/operations/observability/production-stack.md',
+  backofficeReadiness: releaseFiles.backofficeReadiness,
+  runbooksIndex: 'infra/runbooks/README.md',
+} as const;
+
 const stageRecordFields = [
   'stage',
   'release_id',
@@ -112,6 +120,14 @@ function headingAnchors(content: string): Set<string> {
     );
   }
   return anchors;
+}
+
+function policyRule(policy: string, id: string): string {
+  const start = policy.indexOf(`**${id}** `);
+  if (start === -1) return '';
+  const rest = policy.slice(start + id.length + 5);
+  const next = rest.search(/\*\*PRS-R\d+\*\*|^## /m);
+  return prose(next === -1 ? rest : rest.slice(0, next));
 }
 
 function markdownSection(content: string, heading: string): string {
@@ -288,17 +304,46 @@ describe('production release evidence information architecture', () => {
       'aggregate state는 `COLLECTING`',
       'final decision은 `PENDING_TARGET`',
     ]);
-    expect(prose(markdownSection(readiness, '## 중단 조건'))).toContain(
+    const stopConditions = prose(markdownSection(readiness, '## 중단 조건'));
+    expectContainsAll(stopConditions, [
+      '단계 배포에는 그 단계가 올리거나 바꾸는 구성요소에 위 중단 조건을 모두 적용한다',
       'DB backup/restore, migration, role grant는 DB를 들이는 단계부터 적용한다',
-    );
+      'aggregate state를 `BLOCKED`로 바꾸지 않고',
+      'final decision은 `PENDING_TARGET`로 둔다',
+    ]);
     expect(prose(targetReadiness)).toContain(
       'DB가 아직 없는 단계 배포는 이 순서를 `해당 없음(DB 없음)`으로 기록한다',
     );
     expect(markdownSection(targetReadiness, '## 중단 조건')).toContain('`해당 없음(DB 없음)`');
 
-    expect(prose(policy)).toMatch(/\*\*PRS-R54\*\* 다음 항목은 release blocker다\. 단계 배포/);
-    expect(prose(policy)).toMatch(/\*\*PRS-R48\*\* [^*]*단계 배포의 CD는/);
-    expect(prose(policy)).toMatch(/\*\*PRS-R51\*\* 최종 판정 입력이 아직 다 모이지 않았으면/);
+    const stageRules: Record<string, string[]> = {
+      'PRS-R6': [
+        '단계 배포에서 rollback은 그 단계가 올리거나 바꾸는 구성요소에 적용하고',
+        'backup/restore drill은 DB를 들이는 단계부터 적용한다',
+      ],
+      'PRS-R31': ['단계 배포에는 DB를 들이는 단계부터 적용한다'],
+      'PRS-R48': [
+        '단계 배포의 CD는 그 단계가 올리거나 바꾸는 구성요소의 이 입력이 정해지면',
+        'DB change ownership은 DB를 들이는 단계가 그 단계 CD 전에 정한다',
+      ],
+      'PRS-R51': [
+        '최종 판정 입력이 아직 다 모이지 않았으면',
+        '실패로 바꾸지 않고 `PENDING_TARGET`로 유지한다',
+        '단계 배포는 최종 판정을 선언하지 않는다',
+      ],
+      'PRS-R54': [
+        '다음 항목은 release blocker다. 단계 배포',
+        '그 단계가 올리거나 바꾸는 구성요소의 항목을 적용하고',
+        'DB를 들이는 단계부터 적용한다',
+        '최종 release에는 모든 항목을 적용한다',
+      ],
+    };
+    for (const [id, sentences] of Object.entries(stageRules)) {
+      const rule = policyRule(policy, id);
+      for (const sentence of sentences) {
+        expect(rule, `${id} must keep: ${sentence}`).toContain(sentence);
+      }
+    }
 
     expect(evidence).toMatch(
       /\| `PENDING_TARGET` +\| 최종 판정 입력이 아직 다 모이지 않았다\(실제 target 입력이 없거나 단계 배포가 진행 중\)\. 실패로 집계하지 않는다\./,
@@ -318,9 +363,14 @@ describe('production release evidence information architecture', () => {
     const stageRecord = markdownSection(evidence, '## 단계 배포 기록');
     expectContainsAll(prose(stageRecord), [
       '배포 tag에 붙은 GitHub Release 본문과 그 배포 workflow run의 요약',
+      '배포 tag와 Release는 배포가 성공한 실행에만 만든다',
+      '단계 기록으로 세지 않고 멈춘 조건과 되돌림 결과를 그 run 요약에 남긴다',
       '../../../docs/deploy/README.md#식별자-규칙',
       '최종 판정을 선언하지 않는다',
     ]);
+    expect(prose(evidence)).toContain(
+      '단계 배포 기록과 component evidence는 이 값을 선언하지 않는다',
+    );
     const template = /```yaml\n([\s\S]*?)```/.exec(stageRecord)?.[1];
     expect(template, 'stage record template is missing').toBeDefined();
     expect(template?.match(/^[a-z_]+(?=:)/gm)).toEqual(stageRecordFields);
@@ -350,10 +400,34 @@ describe('production release evidence information architecture', () => {
     expect(sentryReadiness).not.toContain('복사하거나 채운다');
   });
 
+  it('sends actual values to the record location instead of tracked evidence documents', () => {
+    const readiness = readRepoFile(stageRuleFiles.readiness);
+    expect(readiness).not.toContain('release별 결과');
+
+    for (const [name, path] of Object.entries(recordLocationFiles)) {
+      const content = prose(readRepoFile(path));
+      expect(content, `${name} must point at the record location`).toContain(
+        'production-release-evidence.md#실제-값의-기록-위치',
+      );
+      for (const filling of [
+        'release마다 채우는',
+        '결과만 기록한다',
+        'release evidence에서 채우며',
+        'release 문서에 기록한다',
+        'evidence.md)에만 기록한다',
+      ]) {
+        expect(content, `${name} must not fill values in place: ${filling}`).not.toContain(filling);
+      }
+    }
+  });
+
   it('keeps local links and heading fragments in the stage rule documents resolvable', () => {
     const broken: string[] = [];
 
-    for (const relativePath of Object.values(stageRuleFiles)) {
+    for (const relativePath of [
+      ...Object.values(stageRuleFiles),
+      ...Object.values(recordLocationFiles),
+    ]) {
       const sourcePath = join(repoRoot, relativePath);
       const content = readFileSync(sourcePath, 'utf8');
       for (const link of markdownLinks(content)) {
