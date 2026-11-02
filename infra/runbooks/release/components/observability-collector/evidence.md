@@ -64,4 +64,5 @@ evidence_id:
 - [ ] No token, credential, cookie, authorization header, raw request body, raw provider payload.
 - [ ] `operator`, `collected_at`, `risk_owner`, `rollback_owner` are filled.
 - [ ] Collector image is recorded by digest, not mutable tag alone.
-- [ ] Result is linked from aggregate evidence.
+- [ ] Result is recorded in the release record location (`components` of the stage deployment record for a stage
+      deployment).

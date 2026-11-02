@@ -76,8 +76,9 @@ Named volume 자체에는 portable quota가 없으므로 disk/inode 경고는 �
 - inode 사용률 warning 80%, critical 90%
 - retention 설정과 실제 일별 증가량으로 release 전 여유 기간 확인
 
-실제 alert route, volume identifier, backup/restore 또는 허용 손실 범위는 target release evidence에
-기록한다. Prometheus/Loki operational data는 제품 DB source of truth가 아니다.
+실제 alert route, volume, backup/restore 또는 허용 손실 범위는 target release evidence 형식으로
+[실제 값의 기록 위치](../../release/production-release-evidence.md#실제-값의-기록-위치)에 남긴다. Volume identifier 같은
+식별자는 [식별자 규칙](../../../../docs/deploy/README.md#식별자-규칙)을 따른다. Prometheus/Loki operational data는 제품 DB source of truth가 아니다.
 
 ## Alloy Docker socket 위험
 

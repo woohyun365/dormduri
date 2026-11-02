@@ -74,7 +74,8 @@ mount path 등 민감 정보가 포함될 수 있으므로 원문 전체를 issu
 - 직전 정상 collector mode와 immutable image digest로 돌아간다.
 - Socket mode로 돌아가야 한다면 readiness 문서의 모든 유지 조건을 다시 확인하고 risk owner 승인을 받는다.
 - 복구 뒤 synthetic request의 request ID가 Application stdout과 Loki에서 연결되는지 확인한다.
-- 실제 선택, rollback 결과, 남은 risk는 collector evidence와 aggregate evidence에 연결한다.
+- 실제 선택, rollback 결과, 남은 risk는 collector evidence 형식으로
+  [실제 값의 기록 위치](../release/production-release-evidence.md#실제-값의-기록-위치)에 남긴다.
 
 ## 종료 조건
 

@@ -31,6 +31,12 @@ const recordLocationFiles = {
   observabilityStack: 'infra/runbooks/operations/observability/production-stack.md',
   backofficeReadiness: releaseFiles.backofficeReadiness,
   runbooksIndex: 'infra/runbooks/README.md',
+  collectorReadiness: releaseFiles.collectorReadiness,
+  collectorIncident: releaseFiles.collectorTroubleshooting,
+  releaseRollback: 'infra/runbooks/incidents/release-rollback.md',
+  awsIndex: 'infra/aws/README.md',
+  docsRunbooksIndex: 'docs/runbooks/README.md',
+  webObservability: 'docs/architecture/frontend/web-observability.md',
 } as const;
 
 const stageRecordFields = [
@@ -314,6 +320,9 @@ describe('production release evidence information architecture', () => {
     expect(prose(targetReadiness)).toContain(
       'DB가 아직 없는 단계 배포는 이 순서를 `해당 없음(DB 없음)`으로 기록한다',
     );
+    expect(prose(readRepoFile(recordLocationFiles.releaseRollback))).toContain(
+      '단계 배포는 그 단계가 올리거나 바꾸는 구성요소의 입력이 확정되면 그 단계 범위로 계획한다(`PRS-R48`)',
+    );
     expect(markdownSection(targetReadiness, '## 중단 조건')).toContain('`해당 없음(DB 없음)`');
 
     const stageRules: Record<string, string[]> = {
@@ -415,6 +424,10 @@ describe('production release evidence information architecture', () => {
         'release evidence에서 채우며',
         'release 문서에 기록한다',
         'evidence.md)에만 기록한다',
+        'evidence.md`에만 기록한다',
+        'target release evidence에 기록한다',
+        'component evidence로 남기고',
+        'Result is linked from aggregate evidence',
       ]) {
         expect(content, `${name} must not fill values in place: ${filling}`).not.toContain(filling);
       }
