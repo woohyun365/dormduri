@@ -212,15 +212,25 @@ function withoutTags(text) {
   return out;
 }
 
-// Tag removal, then one entity-decoding pass (decoded text is never decoded again), straight quotes and folded
-// whitespace. The quote and the raw source go through the same steps.
-export function normalizeQuoteText(text) {
-  return withoutTags(text)
+// One entity-decoding pass (decoded text is never decoded again), straight quotes and folded whitespace.
+function foldText(text) {
+  return text
     .replace(ENTITY, decodeEntity)
     .replace(/[‘’‚‛′]/gu, "'")
     .replace(/[“”„‟″]/gu, '"')
     .replace(/\s+/gu, ' ')
     .trim();
+}
+
+// The raw source: tag removal, then folding.
+export function normalizeQuoteText(text) {
+  return foldText(withoutTags(text));
+}
+
+// A claim's quote is text copied from the page, not markup: it is folded but its tags are never removed, so a quote
+// with a '<…>' piece the page does not show is not found (DA-024).
+export function normalizeClaimQuote(text) {
+  return foldText(text);
 }
 
 function rawSource(path) {
@@ -273,11 +283,11 @@ export function checkQuotes({ taskId, response, selection }) {
       reason: raw?.reason ?? REASONS[status],
     });
     if (!claim) return result('not-in-response');
-    if (!quote || !normalizeQuoteText(quote)) return result('no-quote');
+    if (!quote || !normalizeClaimQuote(quote)) return result('no-quote');
     const raw = rawSource(selected.raw);
     if (raw.text === undefined) return result('raw-missing', raw);
     return result(
-      normalizeQuoteText(raw.text).includes(normalizeQuoteText(quote)) ? 'found' : 'missing',
+      normalizeQuoteText(raw.text).includes(normalizeClaimQuote(quote)) ? 'found' : 'missing',
       { sha: raw.sha },
     );
   });

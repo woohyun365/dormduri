@@ -31,7 +31,7 @@ Claude Code 2.1.316, Parent 모델 Claude Opus 5.5에서 했습니다.
 Lightsail 월 요금 근거를 조사해줘.`(위험 `low`)입니다.
 - Live: 새 Claude 세션에서 researcher `extract`(Lead가 정한 URL) 1회, `배포`가 든 요청의 researcher `read` 1회, 등록 취소 1회를 등록·호출·정산했습니다.
   인용 원문은 Parent가 `curl`로 받은 raw HTML이고 WebFetch 요약이 아닙니다.
-- 양성 대조: 독립 clone에서 정책·정산·대조 code를 하나씩 되돌리거나 넓혀 해당 test가 실패하는지 봤습니다(열다섯 변형).
+- 양성 대조: 독립 clone에서 정책·정산·대조 code를 하나씩 되돌리거나 넓혀 해당 test가 실패하는지 봤습니다(열여섯 변형).
 
 ```bash
 # 첫 변경의 규모
@@ -116,8 +116,8 @@ pnpm -s claude:native release --task <taskId> --not-dispatched
 | 호출하지 않은 등록의 `release --not-dispatched`                    | 취소(`dispatched:false`). 그 task 호출은 PreToolUse가 `task released before dispatch`로 거부, child 실행 없음                                        |
 | Dispatch 기록이 있는 task의 같은 명령                              | 거부(exit 1, `--ended` 경로 안내)                                                                                                                    |
 
-양성 대조 열다섯 변형은 모두 해당 test를 실패시켰습니다(정책 kind 표, QA 조건, 정산 gate 넷, 후보 거르기, 정규화, 위험 상한 둘, 취소 확인,
-researcher 밖 task의 대조 출력 거부, 응답 파일 바뀜 보고, 판정 칸 형식 검사, CLI 입력 오류 exit 2).
+양성 대조 열여섯 변형은 모두 해당 test를 실패시켰습니다(정책 kind 표, QA 조건, 정산 gate 넷, 후보 거르기, 정규화, 위험 상한 둘, 취소 확인,
+researcher 밖 task의 대조 출력 거부, 응답 파일 바뀜 보고, 판정 칸 형식 검사, CLI 입력 오류 exit 2, 인용 쪽 태그 보존).
 
 ## 7. 한계와 재측정 조건
 
@@ -126,7 +126,8 @@ researcher 밖 task의 대조 출력 거부, 응답 파일 바뀜 보고, 판정
 - 같은 질문을 짝 reviewer 경로로 돌린 비용 비교는 하지 않았습니다. 위 baseline의 reviewer 비용은 다른 작업의 인용 값입니다.
 - 대조는 출처만 보장하고 인용이 질문의 답인지는 Parent 판단입니다. 정산은 대조 출력의 `found`를 다시 계산하지 않고 raw 파일 sha를 기록합니다.
 - 원문을 script로 그리는 페이지는 raw에 본문이 없어 `missing`이 됩니다. 반대로 raw의 `<script>`·`<style>` 안 text와 숨김 요소도 원문으로
-  세므로 렌더되지 않는 text에만 있는 인용도 `found`가 될 수 있습니다. Codex는 같은 규칙을 Lead 운영 규칙으로만 둡니다.
+  세므로 렌더되지 않는 text에만 있는 인용도 `found`가 될 수 있습니다. 태그 제거는 원문 쪽만 하므로 원문에 없는 `<…>` 조각이 든 인용은
+  `found`가 아닙니다. Codex는 같은 규칙을 Lead 운영 규칙으로만 둡니다.
 - 구현 위임의 쓴 기록은 native registry 기록만 셉니다(registry 밖 host 자체 위임은 세지 않음).
 - 재측정 조건: researcher 역할의 도구·권한 변경, 인용 대조 거짓 양성·누락 관측, CLI의 alias 해석 변경, 구현 위임이 다시 필요해질 때.
 
@@ -135,4 +136,4 @@ researcher 밖 task의 대조 출력 거부, 응답 파일 바뀜 보고, 판정
 - "왜 구현 subagent를 없앴나?" → 1·4절의 쓴 기록과 유지 장치, 6절 첫 변경의 규모.
 - "리뷰어 없이 위임하면 품질은?" → 인용 대조가 보장하는 것(출처)과 보장하지 않는 것(답의 적합성), 7절 한계.
 - "위험 낱말을 무시하는가?" → 6절 정책 함수 표: researcher만 medium 상한, explorer는 그대로, high는 Lead 선택.
-- "검증은 어떻게 했나?" → RED 먼저, 양성 대조 열다섯 변형, live 관측(거부·통과·취소 각 1회).
+- "검증은 어떻게 했나?" → RED 먼저, 양성 대조 열여섯 변형, live 관측(거부·통과·취소 각 1회).

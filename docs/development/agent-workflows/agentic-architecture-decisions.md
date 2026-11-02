@@ -555,11 +555,11 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   `native-session.mjs`(`prepare` QA 조건, 정산 gate·후보 기록, `release --not-dispatched`, 취소 task 호출 거부), `native-task-helper.mjs`
   (판정 template `quoteCheck` 칸, `response.json`), 새 `quote-check.mjs`, routine 표 researcher 행 작업 이름, `/knu-delegate`·`/knu-settle`,
   registry·profile·troubleshooting 문서, `codex-delegation.md`.
-- **검증/한계**: 정책·등록·정산·취소·CLI test와 독립 clone 양성 대조 열다섯, live 관측(CLI 2.1.316: researcher `extract` 1회의 대조 출력 없는 정산 거부와 대조 뒤 정산 통과, `배포`가 든 요청의 researcher `read` 1회의 `bounded-standard` medium 등록과 대조 뒤 정산 통과, 등록 취소와 취소 task 호출 거부, [evidence](../../evidence/agent-workflows/delegation-retirement-and-researcher-quote-check.md)). 대조는 출처만 보장하고 답의 적합성은
+- **검증/한계**: 정책·등록·정산·취소·CLI test와 독립 clone 양성 대조 열여섯, live 관측(CLI 2.1.316: researcher `extract` 1회의 대조 출력 없는 정산 거부와 대조 뒤 정산 통과, `배포`가 든 요청의 researcher `read` 1회의 `bounded-standard` medium 등록과 대조 뒤 정산 통과, 등록 취소와 취소 task 호출 거부, [evidence](../../evidence/agent-workflows/delegation-retirement-and-researcher-quote-check.md)). 대조는 출처만 보장하고 답의 적합성은
   Parent 판단입니다. 정산은 대조 출력의 `found`를 다시 계산하지 않고(raw 파일 sha는 기록) evidence 후보만 남기며, 뒤에 쓰는 plan·PR evidence가
   후보만 쓰는지는 그 산출물의 독립 리뷰가 봅니다. Medium 상한은 intake가 high로 보는 낱말 전체에 같게 걸립니다. 원문이 script로 그려지는
   페이지는 raw에 본문이 없어 `missing`이 됩니다. 반대로 raw의 `<script>`·`<style>` 안 text와 숨김 요소도 원문으로 세므로 렌더되지 않는
-  text에만 있는 인용도 `found`가 될 수 있습니다. Codex는 수락이 대조 출력을 검사하지 않습니다. 정적 회귀는 native 실행 증거가 아닙니다.
+  text에만 있는 인용도 `found`가 될 수 있습니다. 태그 제거는 원문 쪽만 하므로 원문에 없는 `<…>` 조각이 든 인용은 `found`가 아닙니다. Codex는 수락이 대조 출력을 검사하지 않습니다. 정적 회귀는 native 실행 증거가 아닙니다.
 - **재검토**: researcher 역할의 도구·권한을 바꿀 때, 인용 대조 거짓 양성·누락이 관측될 때, researcher 조사 결과가 evidence에 잘못 옮겨진
   사례가 나올 때, Codex 수락에 같은 gate가 필요해질 때입니다.
 

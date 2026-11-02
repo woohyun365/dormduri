@@ -251,3 +251,45 @@ test('the CLI exits 2 for a response or selection it cannot read or a malformed 
     assert.equal(result.stdout, '', name);
   }
 });
+
+test('tags are removed from the raw source only, so a quote with markup the page does not show is missing', async (t) => {
+  const { checkQuotes } = await load();
+  const dir = workspace(t);
+  const raw = join(dir, 'raw-tags.html');
+  writeFileSync(raw, '<p>The plan costs $5 per month.</p><p>Use &lt;b&gt; for bold.</p>');
+  const url = 'https://example.com/tags';
+  const quotes = [
+    'costs $5 <a not in source> per month',
+    'costs $5 per month',
+    'Use <b> for bold.',
+    '<b>',
+    '<p>The plan',
+  ];
+  const response = {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify({
+          claims: quotes.map((quote) => ({ url, quote, checkedAt: '2026-11-02' })),
+        }),
+      },
+    ],
+  };
+  const output = checkQuotes({
+    taskId: 'task-tags',
+    response,
+    selection: quotes.map((quote) => ({ url, quote, raw })),
+  });
+  assert.deepEqual(
+    output.results.map((item) => [item.quote, item.status]),
+    [
+      ['costs $5 <a not in source> per month', 'missing'],
+      ['costs $5 per month', 'found'],
+      ['Use <b> for bold.', 'found'],
+      // The page shows '<b>' as text (&lt;b&gt;) but never shows its own <p> tag.
+      ['<b>', 'found'],
+      ['<p>The plan', 'missing'],
+    ],
+  );
+  assert.equal(output.exit, 1);
+});
