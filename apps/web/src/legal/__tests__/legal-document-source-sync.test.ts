@@ -1,8 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { LegalDocumentKind, type LegalDocumentResponse } from '@repo/shared/legal';
-import { landingCopy } from '@/screens/landing/model/landingCopy';
 
 import { LEGAL_FALLBACK_DOCUMENTS } from '../content/legal-fallback-documents';
 
@@ -104,17 +104,29 @@ function emailAddresses(sections: LegalSection[]): string[] {
   return [...new Set(text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/gu) ?? [])];
 }
 
+// The Landing feature is imported only through its public entry, so its footer copy is read as source
+// text (the same way legal-document-boundary.spec.ts reads Landing files).
+function landingFooterInquiryAddress(): string {
+  const source = readFileSync(
+    resolve(process.cwd(), 'src/screens/landing/model/landingCopy.ts'),
+    'utf8',
+  );
+  const address = /inquiryAddress: '([^']+)'/u.exec(source)?.[1];
+  if (address === undefined) throw new Error('Landing footer inquiryAddress not found');
+  return address;
+}
+
 describe('public legal contact and overseas transfer facts', () => {
   const terms = LEGAL_FALLBACK_DOCUMENTS[LegalDocumentKind.TERMS_OF_SERVICE];
   const privacy = LEGAL_FALLBACK_DOCUMENTS[LegalDocumentKind.PRIVACY_POLICY];
 
   it('uses the Landing footer inquiry address as the only contact in the inquiry articles', () => {
+    const inquiryAddress = landingFooterInquiryAddress();
+
     expect(emailAddresses(article(privacy, '제9조(개인정보 보호책임자 및 문의)'))).toEqual([
-      landingCopy.footer.inquiryAddress,
+      inquiryAddress,
     ]);
-    expect(emailAddresses(article(terms, '제12조(문의 및 분쟁 처리)'))).toEqual([
-      landingCopy.footer.inquiryAddress,
-    ]);
+    expect(emailAddresses(article(terms, '제12조(문의 및 분쟁 처리)'))).toEqual([inquiryAddress]);
   });
 
   it('discloses the five overseas transfer items for every recipient in article 4', () => {
