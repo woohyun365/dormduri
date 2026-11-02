@@ -81,7 +81,7 @@ pnpm db:seed
 pnpm --dir apps/api start:dev
 ```
 
-baseline migration의 index 이름을 Prisma schema와 맞추기 전(#714)에 만든 로컬 DB에서는 `prisma:migrate`가 `000000000000_initial_baseline`이 적용 뒤 바뀌었다며 reset이 필요하다고 알리고 exit 130으로 멈춘다(DB는 바뀌지 않음). 그 DB는 계속 쓸 수 있으므로 migration 적용은 `pnpm --dir apps/api exec prisma migrate deploy`로 하고, 로컬 데이터를 지워도 되면 `pnpm --dir apps/api exec prisma migrate reset` 뒤 `pnpm db:seed`로 다시 만든다.
+baseline migration의 index 이름을 Prisma schema와 맞추기 전(#714)에 만든 로컬 DB에서는 `prisma:migrate`가 `000000000000_initial_baseline`이 적용 뒤 바뀌었다며 reset이 필요하다고 알리고 exit 130으로 멈춘다(DB는 바뀌지 않음). 로컬 데이터를 지워도 되면 `pnpm --dir apps/api exec prisma migrate reset` 뒤 `pnpm db:seed`로 다시 만든다. 데이터를 남기려고 그 DB를 잠시 더 쓴다면 migration은 `pnpm --dir apps/api exec prisma migrate deploy`로 적용할 수 있다. 다만 deploy는 새 migration 디렉터리만 적용하고 그 뒤의 baseline 수정은 알리지 않고 건너뛰므로 되도록 빨리 reset으로 다시 만든다.
 
 웹까지 함께 띄우려면:
 

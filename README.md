@@ -157,7 +157,7 @@ pnpm dev
 Web은 `http://localhost:3000`, API는 `http://localhost:4000`에서 열립니다.
 
 - API는 개발 환경에서 `docker-compose.dev.yml`의 로컬 DB에 맞춘 기본값으로 실행되므로, 따로 설정할 필요가 없습니다. 접속 정보를 바꿀 때만 `apps/api/.env`에 `DATABASE_URL`·`DIRECT_URL`을 적고, 보존(retention) 암호화 키가 필요한 흐름을 로컬에서 시험할 때만 해당 키를 추가로 설정합니다.
-- baseline migration의 index 이름을 Prisma schema와 맞추기 전(#714)에 만든 로컬 DB에서는 `prisma:migrate`가 baseline이 적용 뒤 바뀌었다며 reset이 필요하다고 알리고 멈춥니다(DB는 그대로). 그 DB는 계속 쓸 수 있으니 migration은 `pnpm --dir apps/api exec prisma migrate deploy`로 적용하고, 로컬 데이터를 지워도 되면 `pnpm --dir apps/api exec prisma migrate reset` 뒤 `pnpm db:seed`로 다시 만듭니다.
+- baseline migration의 index 이름을 Prisma schema와 맞추기 전(#714)에 만든 로컬 DB에서는 `prisma:migrate`가 baseline이 적용 뒤 바뀌었다며 reset이 필요하다고 알리고 멈춥니다(DB는 그대로). 로컬 데이터를 지워도 되면 `pnpm --dir apps/api exec prisma migrate reset` 뒤 `pnpm db:seed`로 다시 만듭니다. 데이터를 남기려고 그 DB를 잠시 더 쓴다면 migration은 `pnpm --dir apps/api exec prisma migrate deploy`로 적용할 수 있지만, deploy는 새 migration 디렉터리만 적용하고 그 뒤의 baseline 수정은 알리지 않고 건너뛰므로 되도록 빨리 reset으로 다시 만듭니다.
 - `.env.example`은 개발용 입력 형식만 제공합니다. 운영 secret은 image나 Git에 넣지 않고 출시 runtime에서 주입하며, 불변 조건은 [운영 runtime 안전 정책](./docs/policies/production-runtime-safety.md)을 따릅니다.
 
 ### 검증

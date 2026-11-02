@@ -204,6 +204,7 @@ API summary 단계:
 
 - install
 - public schema migration
+- migration·Prisma schema 차이 검사
 - prepare
 - static
 - runtime config/health contract
