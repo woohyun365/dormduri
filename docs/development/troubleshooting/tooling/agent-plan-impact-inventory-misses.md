@@ -94,7 +94,8 @@ Spec 디렉터리 형식은 `scripts/agents/common/plan-impact.mjs`의 `readSpec
 - 줄 번호에 묶인 입력(분류 행 `rows/`, 추가 행 `additional/`, `overrides.tsv`, `contract-targets.tsv`의 줄 selector,
   `regression.tsv`)은 파일을 고친 뒤
   `node scripts/agents/common/plan-impact-remap.mjs --spec <dir> --from <spec 기준 revision> [--to <rev>] --out <새 dir>`로
-  옮기고 새 spec으로 다시 실행합니다. `--to`가 없으면 working tree와 비교합니다. 줄은 `git diff -U0` hunk로 옮기고, 바뀐
+  옮기고 새 spec으로 다시 실행합니다. `--to`가 없으면 working tree와 비교하며 저장소의 clean·process filter가 실행되므로, 외부
+  프로그램 없이 옮기려면 `--to`로 두 commit을 비교합니다. 줄은 `git diff -U0` hunk로 옮기고, 바뀐
   줄(공백만 바뀐 줄 포함)이나 지운 파일에 걸린 행은 뺍니다(`dropped`). 계약 줄 범위는 남은 줄의 처음~끝으로, regression은
   남은 줄로 줄입니다(`narrowed`와 뺀 줄). 출력의 `dropped`·`narrowed` 행을 보고 뺀 행·줄을 다시 둡니다. 뺀 분류 행 가운데
   scan에 걸린 줄은 다음 실행에서 미분류로 다시 나옵니다. 줄 번호가 없는 입력은 그대로 복사하고 지운 파일의 경로·heading
@@ -146,7 +147,7 @@ Spec 디렉터리 형식은 `scripts/agents/common/plan-impact.mjs`의 `readSpec
   아닙니다. Fenced code 처리는 그 규칙에 없던 보완입니다.
 - 같은 snapshot에서 손으로 만든 첫 inventory를 재생성하면 줄 층·블록 층·회귀 목록 수치와 출력 파일이 Python 원본과 같습니다.
 - `node --test scripts/ci/agents/common/plan-impact-remap.test.mjs`: hunk 읽기(count 생략·0, 파일 앞·중간 삽입, 끝 삭제)와
-  다섯 입력의 `moved`·`kept`·`narrowed`·`dropped`, 저장소 diff 설정·glob 문자 경로, HEAD·index·working tree 불변, 옮긴
+  다섯 입력의 `moved`·`kept`·`narrowed`·`dropped`, 저장소 diff 설정·hook 환경 변수·glob 문자 경로, HEAD·index·working tree 불변, 옮긴
   spec의 `plan:impact` 재실행을 확인합니다.
 
 ## 참고
