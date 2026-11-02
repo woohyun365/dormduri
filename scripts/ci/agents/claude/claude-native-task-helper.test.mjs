@@ -3441,3 +3441,209 @@ test('a read path in another case than its stored name is refused instead of bin
   );
   assert.deepEqual(packetFiles(r), []);
 });
+
+// OSS-RETIRE PR ② (D-RET-3·4·8): a researcher with no write scope settles without a paired reviewer. Its
+// judgment template holds a quote-check slot, and settle --judgment hands the output to complete.
+const RESEARCH_URL = 'https://aws.amazon.com/lightsail/pricing/';
+const RESEARCH_QUOTE = 'Linux/Unix bundles start at $5 USD/month.';
+const RESEARCH_TEXT = `Findings:\n\n\`\`\`json\n${JSON.stringify({
+  claims: [{ url: RESEARCH_URL, quote: RESEARCH_QUOTE, checkedAt: '2026-11-02' }],
+})}\n\`\`\`\n`;
+const quoteCheckCli = resolve(import.meta.dirname, '../../../agents/common/quote-check.mjs');
+function researchRepo(t) {
+  const r = repo(t);
+  writeRole(r.root, 'knu_researcher', 'Read, Grep, Glob, WebSearch, WebFetch', 'Official sources.');
+  execFileSync('git', ['add', '.'], { cwd: r.root });
+  return r;
+}
+function researchSpec(r, patch = {}) {
+  return {
+    sessionId: r.sessionId,
+    request: 'AWS 공식 가격 페이지의 Lightsail 월 요금 근거를 조사해줘.',
+    role: 'knu_researcher',
+    profileId: 'bounded-standard',
+    selectionBasisRef: 'plan:helper-test/research',
+    expectedResolvedModel: 'claude-sonnet-5-5',
+    kind: 'extract',
+    impactRisk: 'low',
+    complexity: 'bounded',
+    uncertainty: 'resolved',
+    childValue: 'independent-research',
+    owner: 'researcher',
+    readScope: ['sample.txt'],
+    writeScope: [],
+    acceptance: ['price quoted from the official page'],
+    reviewDisposition: {
+      required: false,
+      reason: 'cited claims settled by the Parent quote check',
+    },
+    facts: facts([
+      'source-bound',
+      'fixed-input',
+      'single-step',
+      'output-schema',
+      'acceptance',
+      'independent-check',
+    ]),
+    prompt: `Read ${RESEARCH_URL} only. Answer as JSON {"claims":[{"url","quote","checkedAt"}]}.`,
+    ...patch,
+  };
+}
+
+test('a researcher without a reviewer settles through the quote-check slot of its template (D-RET-4)', (t) => {
+  const r = researchRepo(t);
+  const prepared = prepareClaudeNativeTask(researchSpec(r), { root: r.root });
+  dispatch(r, prepared, 'research-1', RESEARCH_TEXT);
+  const status = settleClaudeNativeTask(prepared.taskId, undefined, { root: r.root });
+  const template = templateIn(status);
+  assert.equal(template.quoteCheck, null);
+  assert.equal(Object.hasOwn(template, 'reviewerTaskId'), false);
+  // The response file the check reads hashes to the settled response.
+  const response = readFileSync(status.quoteCheckResponsePath, 'utf8');
+  assert.equal(
+    `sha256:${createHash('sha256')
+      .update(JSON.stringify(JSON.parse(response)))
+      .digest('hex')}`,
+    status.responseDigest,
+  );
+  const criterion = 'price quoted from the official page';
+  assert.throws(
+    () =>
+      settleClaudeNativeTask(prepared.taskId, judgment(prepared, criterion, { quoteCheck: null }), {
+        root: r.root,
+      }),
+    /quote-check-unfilled/u,
+  );
+  const missing = settleClaudeNativeTask(prepared.taskId, judgment(prepared, criterion), {
+    root: r.root,
+  });
+  assert.ok(
+    missing.errors.includes('researcher without a linked reviewer requires a quote-check output'),
+    missing.errors.join('; '),
+  );
+  // The Parent fetched the raw page itself and checks the claim it moves into evidence.
+  mkdirSync(join(r.root, '.artifacts/research'), { recursive: true });
+  const raw = join(r.root, '.artifacts/research/pricing.html');
+  writeFileSync(raw, `<p>Linux/Unix bundles start at <b>$5&nbsp;USD/month</b>.</p>`);
+  const selection = join(r.root, '.artifacts/research/select.json');
+  writeFileSync(selection, JSON.stringify([{ url: RESEARCH_URL, quote: RESEARCH_QUOTE, raw }]));
+  const out = join(r.root, '.artifacts/research/quote-check.json');
+  const checked = spawnSync(
+    process.execPath,
+    [
+      quoteCheckCli,
+      '--task',
+      prepared.taskId,
+      '--response',
+      status.quoteCheckResponsePath,
+      '--select',
+      selection,
+      '--out',
+      out,
+    ],
+    { cwd: r.root, encoding: 'utf8' },
+  );
+  assert.equal(checked.status, 0, checked.stderr);
+  const settled = settleClaudeNativeTask(
+    prepared.taskId,
+    judgment(prepared, criterion, { quoteCheck: out }),
+    { root: r.root },
+  );
+  assert.equal(settled.valid, true, settled.errors.join('; '));
+  assert.deepEqual(
+    settled.quoteCheck.candidates.map((item) => [item.url, item.quote]),
+    [[RESEARCH_URL, RESEARCH_QUOTE]],
+  );
+  assert.deepEqual(settled.quoteCheck.excluded, []);
+});
+
+test('a reviewer-paired researcher and an explorer keep their templates (D-RET-3)', (t) => {
+  const r = researchRepo(t);
+  const paired = prepareClaudeNativeTask(
+    researchSpec(r, {
+      kind: 'read',
+      impactRisk: 'medium',
+      reviewDisposition: { required: true, reason: 'paired reviewer for this research' },
+      facts: facts(['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa']),
+    }),
+    { root: r.root },
+  );
+  dispatch(r, paired, 'research-2', RESEARCH_TEXT);
+  const template = templateIn(settleClaudeNativeTask(paired.taskId, undefined, { root: r.root }));
+  assert.equal(template.reviewerTaskId, null);
+  assert.equal(Object.hasOwn(template, 'quoteCheck'), false);
+  const explorer = settledExplorer(t, 'sample.txt holds the value 42.');
+  const plain = templateIn(
+    settleClaudeNativeTask(explorer.subject.taskId, undefined, { root: explorer.root }),
+  );
+  assert.deepEqual(Object.keys(plain).sort(), ['acceptance', 'checks', 'responseDigest']);
+});
+
+test('prepare registers a deploy-worded researcher read at bounded-standard medium (D-RET-8)', (t) => {
+  const r = researchRepo(t);
+  const deploy = (patch) =>
+    researchSpec(r, {
+      request: '배포 대상 Node 공식 문서의 지원 기간 근거를 분석해줘.',
+      kind: 'read',
+      impactRisk: 'medium',
+      facts: facts(['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa']),
+      ...patch,
+    });
+  const prepared = prepareClaudeNativeTask(deploy(), { root: r.root });
+  assert.equal(prepared.invocation.model, 'sonnet');
+  assert.equal(prepared.registerInput.workflowInput.nativeRequest.task.impactRisk, 'medium');
+  assert.throws(
+    () => prepareClaudeNativeTask(deploy({ impactRisk: 'low' }), { root: r.root }),
+    /risk-downgrade/u,
+  );
+  assert.throws(
+    () => prepareClaudeNativeTask(deploy({ impactRisk: 'high' }), { root: r.root }),
+    /impact-risk/u,
+  );
+  assert.throws(
+    () =>
+      prepareClaudeNativeTask(
+        deploy({
+          role: 'knu_explorer',
+          reviewDisposition: {
+            required: true,
+            reason: 'a repository read requires independent QA',
+          },
+        }),
+        { root: r.root },
+      ),
+    /risk-downgrade/u,
+  );
+});
+
+// D-RET-6 (Owner 2026-11-02 1.2): "a changed response artifact is refused" failed once when one preflight
+// `git ls-files --stage` call outlived its 5 s timeout in a saturated test run. That call fails closed:
+// registration names git-stage-unavailable and registers nothing, and the same spec registers once git
+// answers in time.
+test('a preflight stage call past its timeout fails registration closed with its name (D-RET-6)', (t) => {
+  const r = settledExplorer(t, 'sample.txt holds the value 42.');
+  const review = reviewOf(r);
+  const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  const bin = join(r.root, '.artifacts/slow-git');
+  const once = join(bin, 'slow-once');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(
+    join(bin, 'git'),
+    `#!/bin/sh\ncase " $* " in *" --stage "*) if [ -e '${once}' ]; then rm -f '${once}'; sleep 6; fi;; esac\nexec '${realGit}' "$@"\n`,
+    { mode: 0o755 },
+  );
+  const path = process.env.PATH;
+  process.env.PATH = `${bin}:${path}`;
+  t.after(() => {
+    process.env.PATH = path;
+  });
+  const tasks = () => readdirSync(join(r.root, '.artifacts/tools/claude-native')).sort();
+  const before = tasks();
+  writeFileSync(once, '');
+  assert.throws(
+    () => prepareClaudeNativeTask(review.reviewerSpec, { root: r.root }),
+    /git-stage-unavailable/u,
+  );
+  assert.deepEqual(tasks(), before);
+  assert.ok(prepareClaudeNativeTask(review.reviewerSpec, { root: r.root }).taskId);
+});
