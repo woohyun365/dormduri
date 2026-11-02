@@ -13,6 +13,10 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 - 시즌이 학기마다 열리는 기간이고 후보 보기·대화·매칭 신청이 시즌 중에만 열린다는 점을 설명합니다. 지금 시즌 상태는 보이지 않고
   시즌 API를 부르지 않습니다.
 - 랜딩은 이용 권한을 판단하지 않습니다. 기능 허용·거부는 API와 도메인 정책이 판단합니다.
+- 방문 통계(Cloudflare Web Analytics)를 이 화면에서만 불러옵니다(`components/LandingVisitAnalytics.tsx`, build 때
+  `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN`이 없으면 아무것도 넣지 않음, SPA 자동 추적 끔). 목적·항목·보존·처리자는 결정 기록
+  [`sec.privacy.landing-visit-analytics`](../../../../../docs/architecture/decisions/security-privacy.md#secprivacylanding-visit-analytics)이
+  소유하고, 처리방침 고지(제2조·제4조·제8조)를 바꾸지 않고 수집 항목이나 범위를 넓히지 않습니다.
 
 ## 페이지 순서
 
@@ -113,10 +117,11 @@ test가 글자로 고정하는 문구는 정책 고지뿐입니다. 그 밖 문�
 e2e는 랜드마크·링크 목적지·고지 문장으로 찾습니다. 섹션 순서와 DOM 구조도 고정하지 않습니다. 고지 밖 문구 하나를 바꿔도 test가
 깨지지 않아야 합니다.
 
-| 검사                                                       | 위치                                                                                |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 조합·고지 위치·링크·예시 표식                              | `__tests__/LandingScreen.test.tsx`, `model/landingPolicyCopy.test.ts`               |
-| 예시 답과 공유 schema                                      | `model/comparePairs.test.ts`                                                        |
-| Storybook 렌더·axe                                         | `pnpm --dir apps/web ci:storybook:build && pnpm --dir apps/web ci:storybook:visual` |
-| route·화면 import 경계                                     | `apps/web/src/app/__tests__/public-landing-route.test.ts`                           |
-| 실제 `/`: 첫 화면 고지·주 행동 크기·focus·가로 넘침·목적지 | `apps/web/e2e/landing.spec.ts`(`pnpm web:e2e`)                                      |
+| 검사                                                       | 위치                                                                                               |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 조합·고지 위치·링크·예시 표식                              | `__tests__/LandingScreen.test.tsx`, `model/landingPolicyCopy.test.ts`                              |
+| 예시 답과 공유 schema                                      | `model/comparePairs.test.ts`                                                                       |
+| 방문 통계 script: token 없음·있음(`spa:false`)·잘못된 형식 | `__tests__/LandingVisitAnalytics.test.tsx`(형식), `src/config/env.schema.test.ts`(공개 build 입력) |
+| Storybook 렌더·axe                                         | `pnpm --dir apps/web ci:storybook:build && pnpm --dir apps/web ci:storybook:visual`                |
+| route·화면 import 경계                                     | `apps/web/src/app/__tests__/public-landing-route.test.ts`                                          |
+| 실제 `/`: 첫 화면 고지·주 행동 크기·focus·가로 넘침·목적지 | `apps/web/e2e/landing.spec.ts`(`pnpm web:e2e`)                                                     |
