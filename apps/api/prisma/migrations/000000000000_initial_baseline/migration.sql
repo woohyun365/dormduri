@@ -760,7 +760,7 @@ CREATE TABLE "LegalDocumentVersion" (
 
 -- CreateTable
 CREATE TABLE "LegalAcceptanceRecord" (
-    "id" TEXT NOT NULL DEFAULT gen_random_uuid(),
+    "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "documentVersionId" TEXT NOT NULL,
     "kind" "LegalDocumentKind" NOT NULL,
@@ -1479,7 +1479,7 @@ CREATE INDEX "CollegeMaster_campusCode_sortOrder_idx" ON "CollegeMaster"("campus
 CREATE UNIQUE INDEX "CollegeMaster_campusCode_nameKo_key" ON "CollegeMaster"("campusCode", "nameKo");
 
 -- CreateIndex
-CREATE INDEX "Dormitory_campusCode_isActive_matchingSupported_genderPolicy_sortOrder_idx" ON "Dormitory"("campusCode", "isActive", "matchingSupported", "genderPolicy", "sortOrder");
+CREATE INDEX "Dormitory_campusCode_isActive_matchingSupported_genderPolic_idx" ON "Dormitory"("campusCode", "isActive", "matchingSupported", "genderPolicy", "sortOrder");
 
 -- CreateIndex
 CREATE INDEX "Season_campusCode_matchingStartDate_idx" ON "Season"("campusCode", "matchingStartDate");
@@ -1573,7 +1573,7 @@ CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_moderationCaseId_idx" ON "U
 CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_sanctionId_idx" ON "UserDisplayIdentityNicknameChangeEvent"("sanctionId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "UserAcademicIdentityChangeEvent_retainedVaultObjectI_key" ON "UserAcademicIdentityChangeEvent"("retainedVaultObjectId");
+CREATE UNIQUE INDEX "UserAcademicIdentityChangeEvent_retainedVaultObjectId_key" ON "UserAcademicIdentityChangeEvent"("retainedVaultObjectId");
 
 -- CreateIndex
 CREATE INDEX "UserAcademicIdentityChangeEvent_userId_changedAt_idx" ON "UserAcademicIdentityChangeEvent"("userId", "changedAt");
@@ -1582,13 +1582,13 @@ CREATE INDEX "UserAcademicIdentityChangeEvent_userId_changedAt_idx" ON "UserAcad
 CREATE INDEX "UserAcademicIdentityChangeEvent_source_changedAt_idx" ON "UserAcademicIdentityChangeEvent"("source", "changedAt");
 
 -- CreateIndex
-CREATE INDEX "UserAcademicIdentityChangeEvent_actorType_actorId_ch_idx" ON "UserAcademicIdentityChangeEvent"("actorType", "actorId", "changedAt");
+CREATE INDEX "UserAcademicIdentityChangeEvent_actorType_actorId_changedAt_idx" ON "UserAcademicIdentityChangeEvent"("actorType", "actorId", "changedAt");
 
 -- CreateIndex
-CREATE INDEX "UserAcademicIdentityChangeEvent_retainedIdentityId_c_idx" ON "UserAcademicIdentityChangeEvent"("retainedIdentityId", "changedAt");
+CREATE INDEX "UserAcademicIdentityChangeEvent_retainedIdentityId_changedA_idx" ON "UserAcademicIdentityChangeEvent"("retainedIdentityId", "changedAt");
 
 -- CreateIndex
-CREATE INDEX "UserAcademicIdentityChangeEvent_retainedVaultObjectI_idx" ON "UserAcademicIdentityChangeEvent"("retainedVaultObjectId");
+CREATE INDEX "UserAcademicIdentityChangeEvent_retainedVaultObjectId_idx" ON "UserAcademicIdentityChangeEvent"("retainedVaultObjectId");
 
 -- CreateIndex
 CREATE INDEX "UserAcademicIdentityChangeEvent_redactedAt_idx" ON "UserAcademicIdentityChangeEvent"("redactedAt");
@@ -1627,13 +1627,13 @@ CREATE INDEX "SeasonParticipant_seasonId_participantStatus_idx" ON "SeasonPartic
 CREATE UNIQUE INDEX "SeasonParticipant_seasonId_userId_key" ON "SeasonParticipant"("seasonId", "userId");
 
 -- CreateIndex
-CREATE INDEX "UserBookmark_viewerUserId_seasonId_deletedAt_expiredAt_b_idx" ON "UserBookmark"("viewerUserId", "seasonId", "deletedAt", "expiredAt", "bookmarkedAt", "id");
+CREATE INDEX "UserBookmark_viewerUserId_seasonId_deletedAt_expiredAt_book_idx" ON "UserBookmark"("viewerUserId", "seasonId", "deletedAt", "expiredAt", "bookmarkedAt", "id");
 
 -- CreateIndex
 CREATE INDEX "UserBookmark_targetUserId_seasonId_deletedAt_expiredAt_idx" ON "UserBookmark"("targetUserId", "seasonId", "deletedAt", "expiredAt");
 
 -- CreateIndex
-CREATE INDEX "UserBookmark_viewerUserId_targetUserId_seasonId_delet_idx" ON "UserBookmark"("viewerUserId", "targetUserId", "seasonId", "deletedAt", "expiredAt");
+CREATE INDEX "UserBookmark_viewerUserId_targetUserId_seasonId_deletedAt_e_idx" ON "UserBookmark"("viewerUserId", "targetUserId", "seasonId", "deletedAt", "expiredAt");
 
 -- CreateIndex
 CREATE INDEX "UserBookmark_targetParticipantId_deletedAt_expiredAt_idx" ON "UserBookmark"("targetParticipantId", "deletedAt", "expiredAt");
@@ -1725,7 +1725,7 @@ CREATE INDEX "SupportFaqPlacement_surface_sortOrder_articleId_idx" ON "SupportFa
 CREATE UNIQUE INDEX "LegalDocumentVersion_kind_version_key" ON "LegalDocumentVersion"("kind", "version");
 
 -- CreateIndex
-CREATE INDEX "LegalDocumentVersion_kind_publishedAt_effectiveAt_reti_idx" ON "LegalDocumentVersion"("kind", "publishedAt", "effectiveAt", "retiredAt");
+CREATE INDEX "LegalDocumentVersion_kind_publishedAt_effectiveAt_retiredAt_idx" ON "LegalDocumentVersion"("kind", "publishedAt", "effectiveAt", "retiredAt");
 
 -- CreateIndex
 CREATE INDEX "LegalDocumentVersion_kind_effectiveAt_id_idx" ON "LegalDocumentVersion"("kind", "effectiveAt", "id");
@@ -1902,7 +1902,7 @@ CREATE INDEX "CTLifecycleEvent_archive_job_occurred_id_idx" ON "ConversationThre
 CREATE INDEX "CTLifecycleEvent_createdAt_idx" ON "ConversationThreadLifecycleEvent"("createdAt");
 
 -- CreateIndex
-CREATE INDEX "ConversationThreadMember_participantId_memberState_updatedAt_idx" ON "ConversationThreadMember"("participantId", "memberState", "updatedAt");
+CREATE INDEX "ConversationThreadMember_participantId_memberState_updatedA_idx" ON "ConversationThreadMember"("participantId", "memberState", "updatedAt");
 CREATE INDEX "ConversationThreadMember_participantId_memberState_threadId_idx" ON "ConversationThreadMember"("participantId", "memberState", "threadId");
 
 -- CreateIndex
@@ -1933,13 +1933,13 @@ CREATE INDEX "ConversationMessage_bodyState_tombstonedAt_idx" ON "ConversationMe
 CREATE INDEX "ConversationMessage_retainedVaultObjectId_idx" ON "ConversationMessage"("retainedVaultObjectId");
 
 -- CreateIndex
-CREATE INDEX "ChatRealtimeOutboxEvent_publishedAt_availableAt_occurredAt_id_idx" ON "ChatRealtimeOutboxEvent"("publishedAt", "availableAt", "occurredAt", "id");
+CREATE INDEX "ChatRealtimeOutboxEvent_publishedAt_availableAt_occurredAt__idx" ON "ChatRealtimeOutboxEvent"("publishedAt", "availableAt", "occurredAt", "id");
 
 -- CreateIndex
 CREATE INDEX "ChatRealtimeOutboxEvent_threadId_occurredAt_id_idx" ON "ChatRealtimeOutboxEvent"("threadId", "occurredAt", "id");
 
 -- CreateIndex
-CREATE INDEX "ChatRealtimeOutboxEvent_aggregateType_aggregateId_occurredAt_id_idx" ON "ChatRealtimeOutboxEvent"("aggregateType", "aggregateId", "occurredAt", "id");
+CREATE INDEX "ChatRealtimeOutboxEvent_aggregateType_aggregateId_occurredA_idx" ON "ChatRealtimeOutboxEvent"("aggregateType", "aggregateId", "occurredAt", "id");
 
 -- CreateIndex
 CREATE INDEX "ChatRealtimeEventRecipient_userId_createdAt_eventId_idx" ON "ChatRealtimeEventRecipient"("userId", "createdAt", "eventId");
@@ -2092,7 +2092,7 @@ CREATE INDEX "LoginAttempt_lastFailedAt_idx" ON "LoginAttempt"("lastFailedAt");
 CREATE INDEX "LoginAttempt_lockedUntil_idx" ON "LoginAttempt"("lockedUntil");
 
 -- CreateIndex
-CREATE INDEX "VerificationCode_subjectKey_purpose_activatedAt_codeExpiresAt_idx" ON "VerificationCode"("subjectKey", "purpose", "activatedAt", "codeExpiresAt");
+CREATE INDEX "VerificationCode_subjectKey_purpose_activatedAt_codeExpires_idx" ON "VerificationCode"("subjectKey", "purpose", "activatedAt", "codeExpiresAt");
 
 -- CreateIndex
 CREATE INDEX "VerificationCode_active_lookup_idx" ON "VerificationCode"("subjectKey", "purpose", "deliveryStatus", "issuedAt");
@@ -2113,7 +2113,7 @@ CREATE INDEX "VerificationCode_grantExpiresAt_idx" ON "VerificationCode"("grantE
 CREATE INDEX "VerificationCode_consumedAt_idx" ON "VerificationCode"("consumedAt");
 
 -- CreateIndex
-CREATE INDEX "VerificationCodeRequestLog_subjectKey_purpose_requestIpKey_cre_idx" ON "VerificationCodeRequestLog"("subjectKey", "purpose", "requestIpKey", "createdAt");
+CREATE INDEX "VerificationCodeRequestLog_subjectKey_purpose_requestIpKey__idx" ON "VerificationCodeRequestLog"("subjectKey", "purpose", "requestIpKey", "createdAt");
 
 -- CreateIndex
 CREATE INDEX "VerificationRequestLog_subject_purpose_created_idx" ON "VerificationCodeRequestLog"("subjectKey", "purpose", "createdAt");
@@ -2231,7 +2231,7 @@ ALTER TABLE "UserDisplayIdentityNicknameChangeEvent" ADD CONSTRAINT "UserDisplay
 ALTER TABLE "UserAcademicIdentityChangeEvent" ADD CONSTRAINT "UserAcademicIdentityChangeEvent_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "UserAcademicIdentityChangeEvent" ADD CONSTRAINT "UserAcademicIdentityChangeEvent_retainedVaultObject_fkey" FOREIGN KEY ("retainedVaultObjectId") REFERENCES "RetainedVaultObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "UserAcademicIdentityChangeEvent" ADD CONSTRAINT "UserAcademicIdentityChangeEvent_retainedVaultObjectId_fkey" FOREIGN KEY ("retainedVaultObjectId") REFERENCES "RetainedVaultObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "UserAcademicIdentityChangeEvent" ADD CONSTRAINT "UserAcademicIdentityChangeEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
