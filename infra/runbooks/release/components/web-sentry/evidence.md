@@ -2,7 +2,7 @@
 
 ## 사용 방법
 
-이 문서는 실제 release마다 채우는 secret-free evidence template이다. 배포 준비와 실행 순서는 먼저 [web-sentry-managed-release-readiness.md](./readiness.md)를 따른다.
+이 문서는 release마다 쓰는 secret-free evidence template이다. 값은 이 문서에 채우지 않고 이 형식으로 [실제 값의 기록 위치](../../production-release-evidence.md#실제-값의-기록-위치)에 남긴다. 배포 준비와 실행 순서는 먼저 [web-sentry-managed-release-readiness.md](./readiness.md)를 따른다.
 
 완료된 component 결과는
 [production-release-evidence.md](../../production-release-evidence.md)에 연결한다. 이 문서는 전체

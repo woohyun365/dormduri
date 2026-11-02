@@ -19,7 +19,9 @@
 1. 이 문서에서 사용자 준비물을 확인한다.
 2. [web-sentry-managed-observability.md](../../../operations/observability/browser-sentry.md)에서 runtime owner와 설정 경계를 확인한다.
 3. [web-operational-observability.md](../../../operations/observability/web-bff.md)에서 Sentry와 BFF Loki/Grafana의 책임을 구분한다.
-4. [web-sentry-managed-release-evidence.md](./evidence.md)를 해당 release의 secret-free 기록으로 복사하거나 채운다.
+4. [web-sentry-managed-release-evidence.md](./evidence.md)의 형식으로 secret-free 결과를
+   [실제 값의 기록 위치](../../production-release-evidence.md#실제-값의-기록-위치)에 남긴다. 단계 배포는
+   [단계 배포 기록](../../production-release-evidence.md#단계-배포-기록)의 `components`에 남긴다.
 5. [Production release aggregate evidence](../../production-release-evidence.md)에 이 component
    evidence를 연결한다. 전체 release의 최종 판정은 aggregate evidence에서만 수행한다.
 

@@ -11,8 +11,10 @@
   [`production-runtime-topology.md`](../../../../../docs/architecture/platform/production-runtime-topology.md)
 
 이 문서는 미래 BackOffice 구현·배포 세션이 사용자 제품과 운영자 제품을 같은 host에 관성적으로
-합치지 않도록 경계를 전달한다. 실제 provider, instance identifier, network와 비용은 BackOffice
-release 시점에 다시 확인하고 target evidence에 기록한다.
+합치지 않도록 경계를 전달한다. 실제 provider, instance, network와 비용은 BackOffice
+release 시점에 다시 확인하고 target evidence 형식으로
+[실제 값의 기록 위치](../../production-release-evidence.md#실제-값의-기록-위치)에 남긴다. 식별자는
+[식별자 규칙](../../../../../docs/deploy/README.md#식별자-규칙)을 따른다.
 
 ## 목표 repository 구조
 
@@ -86,7 +88,8 @@ BackOffice container resource, host headroom, provider 가격과 전체 배포 �
 6. CI를 path-aware lane으로 나누고 migration lane은 단일 owner로 유지한다.
 7. BackOffice host의 private operator ingress와 RDS Security Group을 검증한다.
 8. Metric/log/alert fail-open과 사용자 App 장애 격리 rehearsal을 수행한다.
-9. 실제 월 예산, instance identifier, digest와 rollback evidence를 release 문서에 기록한다.
+9. 실제 월 예산, digest와 rollback evidence를 release evidence 형식으로 실제 값의 기록 위치에 남기고, 식별자는 식별자 규칙을
+   따른다.
 
 ## 중단 조건
 

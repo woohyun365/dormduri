@@ -3,8 +3,8 @@
 ## 책임과 현재 후보
 
 이 문서는 container stdout을 Loki로 전달하는 collector의 release trust boundary를 결정한다. 실제
-선택과 결과는 [observability-collector-release-evidence.md](./evidence.md)에
-기록한다. 현재 상태는 `PENDING_TARGET`다.
+선택과 결과는 [observability-collector-release-evidence.md](./evidence.md)의 형식으로
+[실제 값의 기록 위치](../../production-release-evidence.md#실제-값의-기록-위치)에 남긴다. 현재 상태는 `PENDING_TARGET`다.
 `PENDING_TARGET`는 실패가 아니다. 실제 host trust boundary가 아직 없다는 뜻이다.
 
 초기 전용 single-tenant VPS에서는 Alloy container와 Docker socket을 제한적으로 유지할 수 있다.

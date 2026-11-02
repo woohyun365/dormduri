@@ -15,6 +15,7 @@ API secret과 Lightsail host 준비 상태는 각각
 
 - `ses-setup-checklist.md`: region, verified identity, sandbox 해제, mail smoke 입력
 
-체크박스는 준비 항목이며 **실제 target evidence가 아니다**. 실제 provider, resource identifier,
-operator, 수집 시각과 결과는
-[`infra/runbooks/release/components/infrastructure-target/evidence.md`](../runbooks/release/components/infrastructure-target/evidence.md)에만 기록한다.
+체크박스는 준비 항목이며 **실제 target evidence가 아니다**. 실제 provider, operator, 수집 시각과 결과는
+[`infra/runbooks/release/components/infrastructure-target/evidence.md`](../runbooks/release/components/infrastructure-target/evidence.md)의
+형식으로 [실제 값의 기록 위치](../runbooks/release/production-release-evidence.md#실제-값의-기록-위치)에 남긴다. Resource
+identifier 같은 식별자는 [식별자 규칙](../../docs/deploy/README.md#식별자-규칙)을 따른다.

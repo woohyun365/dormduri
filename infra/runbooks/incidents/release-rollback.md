@@ -2,8 +2,8 @@
 
 이 문서는 API release 직후 장애에서 **app artifact rollback**과 **DB restore escalation**을 구분하는 provider-neutral 의사결정 기준이다. Production hosting과 rollout transport가 아직 결정되지 않았으므로 원격 실행 명령은 제공하지 않는다.
 
-실제 previous digest와 rehearsal 결과는 component evidence로 남기고
-`release/production-release-evidence.md`에 연결한다.
+실제 previous digest와 rehearsal 결과는 component evidence 형식으로
+[실제 값의 기록 위치](../release/production-release-evidence.md#실제-값의-기록-위치)에 남긴다.
 
 ## Incident metadata
 
@@ -85,4 +85,4 @@ DB schema/data 영향이 의심되면 자동 down migration을 기본 경로로 
 | Alert delivery    | firing/resolved 또는 manual smoke           |
 | DB metrics        | CPU, connections, memory, IOPS, queue       |
 
-현재 문서는 실제 rollback transport를 구현하지 않는다. Hosting target, artifact registry, approval, traffic switching, rollback SLO가 확정되면 `docs/deploy/production-environment.md`를 입력으로 별도 CD 계획을 작성한다.
+현재 문서는 실제 rollback transport를 구현하지 않는다. Hosting target, artifact registry, approval, traffic switching, rollback SLO가 확정되면 `docs/deploy/production-environment.md`를 입력으로 별도 CD 계획을 작성한다. 단계 배포는 그 단계가 올리거나 바꾸는 구성요소의 입력이 확정되면 그 단계 범위로 계획한다(`PRS-R48`).

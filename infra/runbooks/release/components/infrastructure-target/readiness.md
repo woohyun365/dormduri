@@ -3,8 +3,12 @@
 ## 책임
 
 이 문서는 실제 hosting target이 결정될 때 필요한 사용자 입력과 검증 순서를 소유한다. 실제 값과
-결과는 [infrastructure-target-release-evidence.md](./evidence.md)에 기록한다.
+결과는 [infrastructure-target-release-evidence.md](./evidence.md)의 형식으로
+[실제 값의 기록 위치](../../production-release-evidence.md#실제-값의-기록-위치)에 남긴다.
 현재 상태는 `PENDING_TARGET`이며 실패가 아니다.
+
+[단계 배포](../../production-release-readiness.md#단계-배포)는 이 문서의 검증 순서와 중단 조건을 그 단계가 올리거나
+바꾸는 구성요소에 적용하고, DB 항목은 DB를 들이는 단계부터 적용한다. 최종 release에는 모두 적용한다.
 
 ## 초기 권장 후보와 미결정 경계
 
@@ -118,10 +122,13 @@ Pricing Calculator와 실제 billing 조건으로 갱신하고 evidence에 계�
 2. Registry에 publish한 digest가 CI provenance와 일치하고 target이 digest로 pull하는지 확인한다.
 3. Private DB/network와 최소 ingress만 열고 관측 port는 public internet에 노출하지 않는다.
 4. TLS chain, 갱신 경로, trusted proxy, cookie, CORS, realtime origin을 실제 host에서 smoke한다.
-5. Migration, role grant, DB credential, backup/restore drill을 app rollout 전에 실행한다.
+5. Migration, role grant, DB credential, backup/restore drill을 app rollout 전에 실행한다. DB가 아직 없는 단계 배포는
+   이 순서를 `해당 없음(DB 없음)`으로 기록한다.
 6. API/Web/nginx/observability를 resource budget 안에서 구동하고 health, metrics guard, logs, alert를 확인한다.
 7. Previous safe digest와 rollback 절차를 target에서 rehearsal한다.
-8. 결과를 target evidence에 기록하고 aggregate evidence에 링크한다.
+8. 결과를 target evidence 형식으로
+   [실제 값의 기록 위치](../../production-release-evidence.md#실제-값의-기록-위치)에 남긴다. 단계 배포는
+   [단계 배포 기록](../../production-release-evidence.md#단계-배포-기록)의 `components`에 남긴다.
 
 BackOffice가 출시 범위이면
 [`backoffice-deployment-readiness.md`](../backoffice/readiness.md)를 추가로 완료하고 User
@@ -132,5 +139,7 @@ App과 독립적으로 rollout·rollback·장애 격리를 rehearsal한다.
 - provider/region/network owner 또는 월 예산이 정해지지 않았다면 `PENDING_TARGET`로 멈춘다.
 - mutable tag만 있고 digest/attestation 연결을 확인할 수 없으면 `FAIL`이다.
 - DB 또는 관측 port가 public internet에 직접 노출되면 `FAIL`이다.
-- TLS 갱신, backup/restore, rollback owner가 없으면 release 실행을 멈춘다.
+- TLS 갱신, backup/restore, rollback owner가 없으면 release 실행을 멈춘다. 단계 배포는 그 단계가 올리거나 바꾸는
+  구성요소의 TLS 갱신·rollback owner에 이 조건을 적용하고, backup/restore는 DB를 들이는 단계부터 적용한다. DB가 아직
+  없는 단계는 backup/restore를 `해당 없음(DB 없음)`으로 기록한다.
 - Secret 값을 evidence나 artifact에 복사해야만 검증할 수 있는 절차는 채택하지 않는다.
