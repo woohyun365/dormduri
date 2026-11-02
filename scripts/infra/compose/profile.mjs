@@ -26,7 +26,7 @@ export function buildComposeArgs(
   inventory,
   profileName,
   composeArgs = ['config'],
-  { repoRoot = defaultRepoRoot, envFile, projectName } = {},
+  { repoRoot = defaultRepoRoot, envFile, projectName, extraFiles = [] } = {},
 ) {
   const profile = getComposeProfile(inventory, profileName);
   const selectedEnvFile = envFile === false ? undefined : (envFile ?? profile.envFile);
@@ -37,7 +37,11 @@ export function buildComposeArgs(
     ...(selectedEnvFile
       ? ['--env-file', relative(repoRoot, resolve(repoRoot, selectedEnvFile))]
       : []),
-    ...profile.files.flatMap((file) => ['-f', relative(repoRoot, resolve(repoRoot, file))]),
+    // extraFiles: a runner's own overlay (for example local resource labels) after the profile files.
+    ...[...profile.files, ...extraFiles].flatMap((file) => [
+      '-f',
+      relative(repoRoot, resolve(repoRoot, file)),
+    ]),
     ...composeArgs,
   ];
 }

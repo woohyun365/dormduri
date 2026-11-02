@@ -5,5 +5,5 @@ services:
 
 networks:
   observability:
-    name: ${OBSERVABILITY_NETWORK:-knu-roommate-observability}
+    name: ${OBSERVABILITY_NETWORK:-dormduri-observability}
     external: true

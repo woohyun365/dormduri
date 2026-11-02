@@ -44,7 +44,7 @@ test('collision check covers Docker, abbreviated macOS IPv4 and Linux netmasks',
   assert.equal(overlaps('172.30.248.0/28', '172.30.248.2/32'), true);
 });
 test('cleanup refuses mismatched container/network labels and unsafe project names', () => {
-  const project = 'knu-s1-012345abcdef';
+  const project = 'dormduri-s1-012345abcdef';
   assert.doesNotThrow(() =>
     assertResourceScope(
       [
@@ -57,7 +57,7 @@ test('cleanup refuses mismatched container/network labels and unsafe project nam
   assert.throws(() =>
     assertResourceScope([{ Labels: { 'com.docker.compose.project': 'user-project' } }], project),
   );
-  assert.throws(() => assertResourceScope([], 'knu-roommate'));
+  assert.throws(() => assertResourceScope([], 'dormduri'));
 });
 test('harness contains exact-project cleanup on failure and never broad prune or production bootstrap', () => {
   const source = readFileSync(new URL('./index.mjs', import.meta.url), 'utf8');
@@ -247,7 +247,7 @@ test('source manifest mirrors every .dockerignore exclusion under the fixture CO
 });
 
 function cleanupDouble({ foreign = false, failDown = false, leftover = false } = {}) {
-  const project = 'knu-s1-012345abcdef';
+  const project = 'dormduri-s1-012345abcdef';
   const resources = { container: ['c'], network: ['n'], volume: ['v'] };
   const commands = [];
   const docker = async (args) => {
@@ -297,7 +297,7 @@ test('cleanup fails closed before foreign mutation and on command failure or lef
 });
 
 test('manifest probe owns create/start timeout and signal cleanup before the main lifecycle', async () => {
-  const project = 'knu-s1-012345abcdef',
+  const project = 'dormduri-s1-012345abcdef',
     image = `sha256:${'a'.repeat(64)}`,
     id = 'b'.repeat(64);
   for (const failure of [null, 'create', 'start', 'SIGINT', 'SIGTERM', 'cleanup-SIGTERM']) {
@@ -444,7 +444,7 @@ test('egress probes both real app containers and rejects INPUT-only, stale nonce
     nonce: 'a'.repeat(32),
   };
   const fixture = fixtureInput(),
-    project = 'knu-s1-012345abcdef';
+    project = 'dormduri-s1-012345abcdef';
   for (const fault of [null, 'local', 'nonce', 'nat']) {
     const calls = [],
       records = [];

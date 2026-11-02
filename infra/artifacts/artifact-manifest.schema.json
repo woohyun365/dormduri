@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://knu-roommate.invalid/schemas/local-artifact-manifest.schema.json",
-  "title": "KNU Roommate local release artifact manifest",
+  "$id": "https://dormduri.invalid/schemas/local-artifact-manifest.schema.json",
+  "title": "dormduri local release artifact manifest",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "release", "builtAt", "workingTreeDirty", "images"],

@@ -1,11 +1,11 @@
-name: knu-roommate-api
+name: dormduri-api
 
 services:
   api:
     build:
       context: ../..
       dockerfile: infra/deploy/api/Dockerfile
-    image: knu-roommate-api:${API_IMAGE_TAG:?API_IMAGE_TAG must identify the source commit}
+    image: dormduri-api:${API_IMAGE_TAG:?API_IMAGE_TAG must identify the source commit}
     env_file:
       - path: ${API_RUNTIME_ENV_FILE:?API_RUNTIME_ENV_FILE must reference a runtime env file}
         required: true
@@ -15,9 +15,9 @@ services:
       TZ: ${TZ:-Asia/Seoul}
       OBSERVABILITY_SERVICE_NAME: api
       LOG_PRETTY: 'false'
-      SECRET_MOUNT_DIRECTORY: ${SECRET_MOUNT_DIRECTORY:-/run/secrets/knu-roommate-api}
+      SECRET_MOUNT_DIRECTORY: ${SECRET_MOUNT_DIRECTORY:-/run/secrets/dormduri-api}
     volumes:
-      - ${API_SECRET_HOST_CURRENT:-api-secrets}:/run/secrets/knu-roommate-api:ro
+      - ${API_SECRET_HOST_CURRENT:-api-secrets}:/run/secrets/dormduri-api:ro
     expose:
       - '4000'
     restart: unless-stopped

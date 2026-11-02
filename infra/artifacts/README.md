@@ -3,6 +3,10 @@
 `pnpm infra:artifacts:build -- --allow-dirty`는 API와 Web image를 별도 BuildKit builder로
 OCI layout에 빌드하고 `.artifacts/tools/build/`에 다음 secret-free evidence를 남긴다.
 
+Builder는 `dormduri-artifacts`이고 처음 만들 때 `scripts/infra/artifacts/buildkitd.toml`의 GC 상한(cache 최대 20GB,
+14일 보존)을 쓴다. Bootstrap 뒤 `docker buildx inspect`의 GC policy가 그 상한과 다르면 build 전에 실패한다. 확인과
+다시 만들기는 [로컬 환경 runbook](../runbooks/rehearsal/local-environments.md#builder-cache)을 따른다.
+
 `KNU_ARTIFACTS_DIR` 또는 `--output`을 지정하면 기본 로컬 경로를 대체할 수 있다. 공통
 산출물 경계와 삭제 정책은 루트 `.artifacts/README.md`를 따른다.
 

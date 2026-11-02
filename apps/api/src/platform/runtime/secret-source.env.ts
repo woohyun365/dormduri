@@ -89,7 +89,6 @@ export const secretSourceEnvKeys = defineEnvKeys([
     category: 'secret',
     source: 'process-env',
     defaultPolicy: 'optional',
-    description:
-      'AWS Secrets Manager secret name prefix, for example /knu-roommate/production/api.',
+    description: 'AWS Secrets Manager secret name prefix, for example /dormduri/production/api.',
   },
 ] as const);

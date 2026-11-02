@@ -98,13 +98,13 @@
   "refresh": "30s",
   "schemaVersion": 39,
   "style": "dark",
-  "tags": ["knu-roommate", "web", "bff", "observability"],
+  "tags": ["dormduri", "web", "bff", "observability"],
   "templating": { "list": [] },
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "Asia/Seoul",
-  "title": "KNU Web BFF Reliability",
-  "uid": "knu-web-bff-reliability",
+  "title": "돔두리 Web BFF Reliability",
+  "uid": "dormduri-web-bff-reliability",
   "version": 1,
   "weekStart": ""
 }

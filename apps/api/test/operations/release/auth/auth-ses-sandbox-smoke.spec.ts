@@ -6,7 +6,7 @@ const settings = {
   fromEmail: 'no-reply@example.com',
   fromName: 'KNU Roommate',
   replyToEmail: null,
-  configurationSet: 'knu-roommate-staging',
+  configurationSet: 'dormduri-staging',
   recipient: 'success@simulator.amazonses.com',
 };
 

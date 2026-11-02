@@ -97,7 +97,7 @@ test('image pin checks reject unlisted, digest-less and inconsistent references'
       'compose.web.fixture.yml',
       [
         `    image: \${WEB_UPSTREAM_IMAGE:-node:24.19.0-alpine@${digest('e')}}`,
-        '    image: knu-roommate-web:${WEB_IMAGE_TAG:-local-rehearsal}',
+        '    image: dormduri-web:${WEB_IMAGE_TAG:-local-rehearsal}',
         '    image: ${INGRESS_FIXTURE_IMAGE:?build the fixture first}',
       ].join('\n'),
     ),

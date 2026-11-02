@@ -1,0 +1,9 @@
+# Local resource labels for the API image run-dockerized-smoke.mjs leaves in the Docker image store.
+# Only that runner appends this file after every profile, so the production-candidate `api-base` build stays unchanged.
+# Listing and cleanup: infra/runbooks/rehearsal/local-environments.md.
+services:
+  api:
+    build:
+      labels:
+        dormduri.local.created-by: ${LOCAL_RESOURCE_CREATED_BY:-manual}
+        dormduri.local.run-id: ${LOCAL_RESOURCE_RUN_ID:-local}

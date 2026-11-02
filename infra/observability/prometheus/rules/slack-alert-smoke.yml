@@ -1,5 +1,5 @@
 groups:
-  - name: knu-roommate-slack-alert-smoke
+  - name: dormduri-slack-alert-smoke
     rules:
       - alert: SlackAlertSmokeNonFiring
         expr: vector(0) == 1

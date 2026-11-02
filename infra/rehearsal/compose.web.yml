@@ -14,7 +14,10 @@ services:
         NEXT_PUBLIC_SENTRY_RELEASE_EVIDENCE_APPROVED: '0'
         NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT: local
         NEXT_PUBLIC_WEB_RELEASE: ${WEB_REHEARSAL_RELEASE:-local-rehearsal}
-    image: knu-roommate-web:${WEB_IMAGE_TAG:-local-rehearsal}
+      labels:
+        dormduri.local.created-by: ${LOCAL_RESOURCE_CREATED_BY:-manual}
+        dormduri.local.run-id: ${LOCAL_RESOURCE_RUN_ID:-local}
+    image: dormduri-web:${WEB_IMAGE_TAG:-local-rehearsal}
     environment:
       NODE_ENV: production
       HOSTNAME: 0.0.0.0

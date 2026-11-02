@@ -34,17 +34,17 @@ WORKDIR /app
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl tzdata \
   && rm -rf /var/lib/apt/lists/* \
-  && groupadd --system --gid 10001 knu \
-  && useradd --system --uid 10001 --gid knu --home-dir /app --shell /usr/sbin/nologin knu
-COPY --from=build --chown=knu:knu /workspace/runtime ./
-COPY --from=build --chown=knu:knu /workspace/apps/api/dist ./dist
-COPY --from=build --chown=knu:knu /workspace/apps/api/src/generated/prisma ./src/generated/prisma
-COPY --from=build --chown=knu:knu /workspace/apps/api/prisma ./prisma
-COPY --chown=knu:knu infra/deploy/api/entrypoint.sh ./entrypoint.sh
-COPY --chown=knu:knu infra/deploy/api/healthcheck.sh ./healthcheck.sh
-COPY --chown=knu:knu infra/deploy/api/env.manifest.json ./env.manifest.json
+  && groupadd --system --gid 10001 dormduri \
+  && useradd --system --uid 10001 --gid dormduri --home-dir /app --shell /usr/sbin/nologin dormduri
+COPY --from=build --chown=dormduri:dormduri /workspace/runtime ./
+COPY --from=build --chown=dormduri:dormduri /workspace/apps/api/dist ./dist
+COPY --from=build --chown=dormduri:dormduri /workspace/apps/api/src/generated/prisma ./src/generated/prisma
+COPY --from=build --chown=dormduri:dormduri /workspace/apps/api/prisma ./prisma
+COPY --chown=dormduri:dormduri infra/deploy/api/entrypoint.sh ./entrypoint.sh
+COPY --chown=dormduri:dormduri infra/deploy/api/healthcheck.sh ./healthcheck.sh
+COPY --chown=dormduri:dormduri infra/deploy/api/env.manifest.json ./env.manifest.json
 RUN chmod +x ./entrypoint.sh ./healthcheck.sh
-USER knu
+USER dormduri
 EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD ["./healthcheck.sh"]
 ENTRYPOINT ["./entrypoint.sh"]

@@ -29,8 +29,8 @@ describe('chat realtime origin policy', () => {
   it('allowlist origin과 정확히 일치하는 browser request만 허용한다', () => {
     expect(
       isChatRealtimeRequestOriginAllowed({
-        requestOrigin: 'https://knu-roommate.example.com',
-        allowedOrigins: ['https://knu-roommate.example.com'],
+        requestOrigin: 'https://dormduri.example.com',
+        allowedOrigins: ['https://dormduri.example.com'],
         host: 'api.example.com',
       }),
     ).toBe(true);
@@ -38,7 +38,7 @@ describe('chat realtime origin policy', () => {
     expect(
       isChatRealtimeRequestOriginAllowed({
         requestOrigin: 'https://evil.example.com',
-        allowedOrigins: ['https://knu-roommate.example.com'],
+        allowedOrigins: ['https://dormduri.example.com'],
         host: 'api.example.com',
       }),
     ).toBe(false);
@@ -48,7 +48,7 @@ describe('chat realtime origin policy', () => {
     expect(
       isChatRealtimeRequestOriginAllowed({
         requestOrigin: undefined,
-        allowedOrigins: ['https://knu-roommate.example.com'],
+        allowedOrigins: ['https://dormduri.example.com'],
         host: 'api.example.com',
       }),
     ).toBe(false);
@@ -57,9 +57,9 @@ describe('chat realtime origin policy', () => {
   it('allowlist가 없으면 same-origin reverse proxy 요청만 허용한다', () => {
     expect(
       isChatRealtimeRequestOriginAllowed({
-        requestOrigin: 'https://knu-roommate.example.com',
+        requestOrigin: 'https://dormduri.example.com',
         allowedOrigins: false,
-        forwardedHost: 'knu-roommate.example.com',
+        forwardedHost: 'dormduri.example.com',
         forwardedProto: 'https',
         host: 'internal-api:4000',
         proxyProfile,
@@ -71,7 +71,7 @@ describe('chat realtime origin policy', () => {
       isChatRealtimeRequestOriginAllowed({
         requestOrigin: 'https://evil.example.com',
         allowedOrigins: false,
-        forwardedHost: 'knu-roommate.example.com',
+        forwardedHost: 'dormduri.example.com',
         forwardedProto: 'https',
         host: 'internal-api:4000',
         proxyProfile,
@@ -83,9 +83,9 @@ describe('chat realtime origin policy', () => {
   it('trust proxy가 꺼져 있으면 forwarded host spoofing으로 same-origin fallback을 통과할 수 없다', () => {
     expect(
       isChatRealtimeRequestOriginAllowed({
-        requestOrigin: 'https://knu-roommate.example.com',
+        requestOrigin: 'https://dormduri.example.com',
         allowedOrigins: false,
-        forwardedHost: 'knu-roommate.example.com',
+        forwardedHost: 'dormduri.example.com',
         forwardedProto: 'https',
         host: 'internal-api:4000',
         proxyProfile: readChatRealtimeProxyProfile({}),
@@ -96,13 +96,13 @@ describe('chat realtime origin policy', () => {
 
   it('origin 허용 후 allowRequest pre-auth rate limit 초과 시 callback false를 반환한다', () => {
     const preAuthRateLimit = vi.fn(() => false);
-    const allowRequest = createChatRealtimeAllowRequest(['https://knu-roommate.example.com'], {
+    const allowRequest = createChatRealtimeAllowRequest(['https://dormduri.example.com'], {
       preAuthRateLimit,
     });
     const callback = vi.fn();
     const request = {
       headers: {
-        origin: 'https://knu-roommate.example.com',
+        origin: 'https://dormduri.example.com',
         host: 'api.example.com',
       },
       socket: {},
@@ -115,13 +115,13 @@ describe('chat realtime origin policy', () => {
   });
 
   it('Socket.IO allowRequest callback은 origin policy 결과를 반환한다', () => {
-    const allowRequest = createChatRealtimeAllowRequest(['https://knu-roommate.example.com']);
+    const allowRequest = createChatRealtimeAllowRequest(['https://dormduri.example.com']);
     const callback = vi.fn();
 
     allowRequest(
       {
         headers: {
-          origin: 'https://knu-roommate.example.com',
+          origin: 'https://dormduri.example.com',
           host: 'api.example.com',
         },
         socket: {},

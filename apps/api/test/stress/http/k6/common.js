@@ -244,7 +244,7 @@ export function buildParams(tags = {}, expectedStatuses = [200, 201, 202, 204, 3
   return {
     headers: {
       Accept: 'application/json',
-      'User-Agent': 'knu-roommate-k6-stress',
+      'User-Agent': 'dormduri-k6-stress',
     },
     responseCallback: http.expectedStatuses(...expectedStatuses),
     tags,

@@ -19,7 +19,7 @@ test('lint-staged formats the staged snapshot and restores an unstaged hunk', as
 
   try {
     git(cwd, ['init', '--quiet']);
-    git(cwd, ['config', 'user.name', 'KNU lint-staged fixture']);
+    git(cwd, ['config', 'user.name', 'dormduri lint-staged fixture']);
     git(cwd, ['config', 'user.email', 'lint-staged-fixture@example.invalid']);
 
     writeFileSync(
@@ -111,7 +111,7 @@ test('lint-staged CLI propagates task failure without staging unrelated files', 
 
   try {
     git(cwd, ['init', '--quiet']);
-    git(cwd, ['config', 'user.name', 'KNU lint-staged fixture']);
+    git(cwd, ['config', 'user.name', 'dormduri lint-staged fixture']);
     git(cwd, ['config', 'user.email', 'lint-staged-fixture@example.invalid']);
 
     writeFileSync(fixturePath, 'const fixture = "baseline";\n');

@@ -27,17 +27,17 @@ container에 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` 같은 장기 credenti
 기본 convention:
 
 ```txt
-/knu-roommate/<environment>/api/<ENV_KEY>
+/dormduri/<environment>/api/<ENV_KEY>
 ```
 
 Production 예시:
 
 ```txt
-SECRET_NAME_PREFIX=/knu-roommate/production/api
-/knu-roommate/production/api/DATABASE_URL
-/knu-roommate/production/api/VERIFICATION_CODE_HMAC_SECRET
-/knu-roommate/production/api/AUTH_PERSISTENCE_HMAC_SECRET
-/knu-roommate/production/api/AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64
+SECRET_NAME_PREFIX=/dormduri/production/api
+/dormduri/production/api/DATABASE_URL
+/dormduri/production/api/VERIFICATION_CODE_HMAC_SECRET
+/dormduri/production/api/AUTH_PERSISTENCE_HMAC_SECRET
+/dormduri/production/api/AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64
 ```
 
 owner-local env definition을 조합하는
@@ -62,7 +62,7 @@ GitHub OIDC release materializer role은 필요한 prefix에만 접근한다.
     {
       "Effect": "Allow",
       "Action": ["secretsmanager:GetSecretValue"],
-      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:/knu-roommate/production/api/*"
+      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:/dormduri/production/api/*"
     }
   ]
 }
@@ -76,7 +76,7 @@ Customer-managed CMK를 쓰면 같은 role에 해당 key의 `kms:Decrypt` permis
 
 ```bash
 export AWS_REGION=ap-northeast-2
-export SECRET_NAME_PREFIX=/knu-roommate/production/api
+export SECRET_NAME_PREFIX=/dormduri/production/api
 
 aws secretsmanager create-secret \
   --region "$AWS_REGION" \
@@ -98,7 +98,7 @@ Secret inventory dry-run은 값을 읽거나 출력하지 않고, 코드 registr
 ```bash
 SECRET_SOURCE=mounted-files \
 NODE_ENV=production \
-SECRET_MOUNT_DIRECTORY=/run/secrets/knu-roommate-api \
+SECRET_MOUNT_DIRECTORY=/run/secrets/dormduri-api \
 pnpm --dir apps/api secrets:inventory
 ```
 

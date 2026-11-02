@@ -1,0 +1,11 @@
+# Local resource labels for the named volumes of a full-stack API project.
+# Only the full-stack runner appends this file, because its project name carries the run id and every run creates new
+# volumes. Fixed-name projects (dockerized smoke, `pnpm infra:compose`) must not label their volumes: Compose keeps
+# volume labels in the volume config hash and asks to recreate the volume (data loss) when a later run's labels differ.
+# The PostgreSQL volume label is in infra/rehearsal/compose.postgres.yml, which only the full-stack profile uses.
+# Listing and cleanup: infra/runbooks/rehearsal/local-environments.md.
+volumes:
+  api-secrets:
+    labels:
+      dormduri.local.created-by: ${LOCAL_RESOURCE_CREATED_BY:-manual}
+      dormduri.local.run-id: ${LOCAL_RESOURCE_RUN_ID:-local}

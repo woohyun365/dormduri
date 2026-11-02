@@ -68,3 +68,6 @@ networks:
 
 volumes:
   rehearsal-postgres-data:
+    labels:
+      dormduri.local.created-by: ${LOCAL_RESOURCE_CREATED_BY:-manual}
+      dormduri.local.run-id: ${LOCAL_RESOURCE_RUN_ID:-local}
