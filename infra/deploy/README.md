@@ -26,6 +26,7 @@ infra/deploy/
 │   └── healthcheck.sh               # container health probe
 ├── web/Dockerfile                   # Next.js standalone image
 ├── nginx/                           # proxy, route, metrics allowlist, TLS example
+├── user/ingress/html/               # nginx가 Web 없이 내보내는 정적 안내 화면 넷
 └── scripts/
     ├── api-release-smoke.sh          # health/readiness/metrics smoke와 dry-run
     ├── materialize-api-secret-bundle.sh
@@ -40,6 +41,28 @@ infra/deploy/
 - stress-only throttle: `apps/api/test/stress/docker/compose.stress.yml`
 - observability topology: `infra/observability/`
 - migration과 role grant: `infra/db/`
+
+## 정적 안내 화면
+
+`user/ingress/html/`의 네 파일은 nginx가 Web을 거치지 않고 직접 내보내는 안내 화면이다. Web 단계 ingress
+설정이 경로와 상태에 맞춰 연결하며, 그 설정이 생기기 전에는 runtime에서 쓰이지 않는다.
+
+| 파일               | 화면         | 내보내는 때                              | 응답                       |
+| ------------------ | ------------ | ---------------------------------------- | -------------------------- |
+| `coming-soon.html` | 준비 중      | 뒤 단계에서 열 경로(가입·로그인 등)      | 503                        |
+| `maintenance.html` | 점검 중      | 점검 mode(모든 경로)                     | 503                        |
+| `unavailable.html` | 일시적 오류  | Web이 응답하지 못할 때, nginx 자체 오류  | 503(nginx 자체 오류는 500) |
+| `not-found.html`   | 찾을 수 없음 | 허용 목록에도 열 예정 경로에도 없는 주소 | 404                        |
+
+- Web이 내려가도 떠야 하므로 각 파일은 한 파일로 끝난다. CSS는 파일 안 `<style>` 하나이고 네 파일이 같은
+  `<style>`을 쓴다. JavaScript, 외부 CSS·글꼴·그림, 외부 주소가 없고 그림은 `data:` URI뿐이다.
+  `scripts/infra/ingress/static-pages.test.mjs`가 이 형식과 화면별 링크를 검사한다.
+- 색과 로고는 Web 원본을 복사했다. Landing 어두운 palette(`apps/web/src/styles/tokens/tokens.generated.css`),
+  곰 mark(`apps/web/src/screens/ui/brand/art/logo-mark.png`를 96px로 줄인 PNG), 손글씨 글자
+  (`apps/web/src/screens/ui/brand/BrandLogo.tsx`의 SVG path)다. 로고나 palette를 바꾸면 이 네 파일도 함께 고친다.
+- Storybook과 자동 시각 비교에 들어가지 않는다. 화면을 고치면 로컬 nginx가 실제로 내보낸 화면을 데스크톱과
+  360×640으로 찍어 사람이 확인한다.
+- Landing 단계에서 생기지 않는 응답(요청 과다, API 오류 형식 등)은 #820이 다룬다.
 
 ## 제공하지 않는 기능
 
