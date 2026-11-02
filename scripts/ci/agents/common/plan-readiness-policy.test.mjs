@@ -294,3 +294,34 @@ test('readiness policy is pure advisory and owns no execution or workspace mutat
     assert.doesNotMatch(source, forbidden);
   }
 });
+
+test('accepts a human-judgment claim owned by human judgment', () => {
+  const input = structuredClone(readFixture('implementation-ready'));
+  input.enforcementClaims.push({
+    claim: 'visual-quality-accepted',
+    claimedStrength: 'human-judgment',
+    executionOwner: 'human-judgment',
+  });
+
+  const report = assessPlanReadiness(input);
+
+  assert.equal(report.ready, true);
+  assert.deepEqual(report.blockingFindings, []);
+});
+
+test('rejects a deterministic-static claim owned by human judgment', () => {
+  const input = structuredClone(readFixture('implementation-ready'));
+  input.enforcementClaims.push({
+    claim: 'contrast-ratio-floor',
+    claimedStrength: 'deterministic-static',
+    executionOwner: 'human-judgment',
+  });
+
+  const report = assessPlanReadiness(input);
+
+  assert.equal(report.ready, false);
+  assert.deepEqual(
+    report.blockingFindings.map(({ code }) => code),
+    ['enforcement-strength-conflict'],
+  );
+});
