@@ -41,6 +41,20 @@
   승인 범위로 판단하며, 명시적으로 새 방향을 탐색할 때 기존 token/layout의 외형을 의무로 상속하지 않습니다.
 - content/state/action map과 reference aspect를 분리하고 제안·계획·승인된 구현의 권한을 명시합니다. 실제 화면 없이
   미적 성과를 추측하지 않으며 기능/a11y, reference fidelity, usability, Owner 선호의 acceptance를 나눕니다.
+- 시각 품질 claim(첫인상·구성·레이아웃·색·서체·여백·밀도)의 완료 조건은
+  [`human-judgment`](./core.md#7-implementation-readiness-promotion)입니다. 독립 비평은 보조 의견입니다. Agent 점수·침묵·기술
+  QA PASS가 그 판정을 대신하지 못한다는 규칙은 [판정 표](../visual-design/design-review-and-acceptance.md#두-종류의-acceptance)의
+  `owner visual preference` 행을 따릅니다. 지킬 것(정책 고지·접근성 수치·token 밖 값 lint·링크 목적지·성능 측정)과 화면
+  밖 동작(BFF·hook·판단 로직 순수 함수·shared contract·data 연결)은 `deterministic-static`이고 처음부터 결정 형식으로 적습니다.
+- 탐색: plan은 회차마다 기록(대안·비교 이미지·Owner 원문)의 경로를 두고, 회차를 시작할 때 "측정으로 정할 값"과 "Owner가 볼
+  값"을 나눕니다. 후보를 만들고 보여 주고 고르는 절차는
+  [Design task orchestration](../visual-design/design-task-orchestration.md)과
+  [Visual review and acceptance](../visual-design/design-review-and-acceptance.md)를 따릅니다. 결정적 test는 지킬 것만
+  고정하고, 시각 선택은 test·기준 이미지 없이 Owner 질문으로 둡니다.
+- 확정: 구현 contract는 방향을 확정한 뒤에 씁니다. 확정 뒤 그 contract를 바꾸는 개정은
+  [staging과 독립 리뷰](../session-continuity.md#계획-초안-staging과-promote)를 거칩니다. 확정 기록·확인 주체·확정 없이
+  넘어간 경우(override)는 [lifecycle state machine](../lifecycle-state-machine.md#확인-주체와-강도)의 `W-DESIGN`을, acceptance
+  두 종류는 [Visual review and acceptance](../visual-design/design-review-and-acceptance.md#두-종류의-acceptance)를 따릅니다.
 
 구현·리뷰 기준: [web-fe-design-system.md F1](../review-criteria/web-fe-design-system.md#f1-semantic-token만-사용), [web-fe-design-system.md F2](../review-criteria/web-fe-design-system.md#f2-부품-재사용과-승격), [web-fe-design-system.md F3](../review-criteria/web-fe-design-system.md#f3-사용자-문구-권한), [web-fe-component-architecture.md F1](../review-criteria/web-fe-component-architecture.md#f1-owner-구분과-공통화-기준), [web-fe-component-architecture.md F2](../review-criteria/web-fe-component-architecture.md#f2-합성-먼저와-작은-component-api), [web-fe-component-architecture.md F3](../review-criteria/web-fe-component-architecture.md#f3-같이-실행되지-않는-분기-분리), [web-fe-component-architecture.md F4](../review-criteria/web-fe-component-architecture.md#f4-기능-단위-배치와-공개-entry), [web-fe-component-architecture.md F5](../review-criteria/web-fe-component-architecture.md#f5-예시-렌더-표면의-우회-금지), [web-fe-component-architecture.md F6](../review-criteria/web-fe-component-architecture.md#f6-renderer-중립-경계)
 
@@ -71,6 +85,6 @@
 
 Plan은 target component tree, server/client/BFF boundary, UI state matrix, responsive/a11y behavior, contract mapper,
 test ownership, rollout risk와 핵심 journey·그 완료 조건을 명시합니다. 완료 조건은 그 journey가 닿는 기존 기준 항목이
-판정합니다.
+판정합니다. 시각 품질 claim의 test 이름·assertion과 component tree는 방향을 확정한 뒤에 씁니다.
 
 구현·리뷰 기준: [swe.md S6](../review-criteria/swe.md#s6-보호-test), [swe.md S12](../review-criteria/swe.md#s12-동작계약을-고정하는-test)

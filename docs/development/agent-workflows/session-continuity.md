@@ -50,7 +50,8 @@ current request
 ```
 
 checkpoint가 working tree나 최신 요청과 충돌하면 현재 판단 근거로 사용하지 않습니다. 다른 작업/세션의 파일을
-자동 수정·삭제하지 않으며, 현재 작업 소유권과 권한이 확인된 경우에만 해당 checkpoint를 갱신합니다.
+자동 수정·삭제하지 않으며, 현재 작업 소유권과 권한이 확인된 경우에만 해당 checkpoint를 갱신합니다. 외부 게시·비가역
+단계는 요약·checkpoint의 다음 행동만으로 실행하지 않고, 실행 직전에 plan 원문의 그 단계 조건을 다시 읽습니다.
 
 ### Codex child 재개 (조건부)
 
@@ -151,6 +152,9 @@ Checkpoint는 다음 경우에만 만듭니다.
 - 완료 상태는 changed files, verification, commit/stage state와 blocker를 가리켜야 합니다.
 - 현재 결정할 수 없는 provider/account/domain/instance 값은 tracked readiness/evidence handoff로 옮깁니다.
 - 실제 AC를 충족한 완료 plan만 `.plans/finished/YYYY/MM/<domain>/`으로 이동합니다. current priority 해제는 위 소유권/lifecycle 경계를 따릅니다.
+- `.plans` 문서 끝 `## 개정 이력` 절에 개정과 상태 정정마다 한 줄(날짜·바꾼 범위·근거 링크)을 둡니다. 마지막 개정은 이
+  절에서 찾습니다. Header·Status·결정 칸 형식은 [Plan authoring core](./plan-authoring/core.md#6-required-plan-structure)를
+  따릅니다.
 
 ### Lifecycle 디렉터리와 이동
 
@@ -167,7 +171,8 @@ Checkpoint는 다음 경우에만 만듭니다.
 
 - 완료 계획에 딸린 supporting은 `finished/YYYY/MM/<domain>/supporting/<plan>/`로 함께 옮깁니다. 독립 미완료 자식은 옮기지 않습니다.
 - 이동은 agent가 **제안**하고 사용자(Owner)가 확인한 뒤 수행합니다. 파일명과 Plan ID는 유지하고, 옮긴 문서의 상대 링크와
-  inbound 링크를 새 위치 기준으로 보정합니다. root에 중복 실행 계획이나 자동 redirect를 만들지 않습니다.
+  inbound 링크를 새 위치 기준으로 보정합니다. Ignored `.plans`·`.local-docs` 아래 inbound 링크는 `rg --no-ignore`로
+  찾습니다. root에 중복 실행 계획이나 자동 redirect를 만들지 않습니다.
 - 취소·대체 계획은 `Status: cancelled` 또는 `superseded`로 기록하고, 파일 상단에 결정일·종료 사유·후속 계획 링크(있을 때)·
   남은 미완료/NO-GO 경계를 적습니다. 과거 Authority·lease·next action을 현재 실행 승인으로 재사용하지 않습니다.
 - 추적하는 파일은 `supporting`·`pending`·`finished`·`cancelled`의 `README.md` 네 개뿐입니다. 이 README는 용도 요약과 이
@@ -193,7 +198,9 @@ Checkpoint는 다음 경우에만 만듭니다.
    나옵니다. 이 목록은 PASS가 아닙니다. 항목마다 의도한 local 파일인지 확인하고, 오타나 이동 누락이면 고칩니다.
    승격한 뒤에는 승격한 파일과 그 파일을 가리키는 계획에 저장소 root 기준(`--root .`)으로 다시 실행합니다. 이때
    `.plans` 밖 대상은 위반으로 판정되고, `.plans` 안 대상은 여전히 목록으로 나오므로 같은 방식으로 확인합니다.
-   근거 문서가 있으면 `citation-check.mjs`도 실행합니다.
+   근거 문서가 있으면 `citation-check.mjs`도 실행합니다. 바뀐 plan 파일(staged 파일, 리뷰 없는 갱신이면 고친 파일)에는
+   `node scripts/agents/common/plan-shape-check.mjs <plan md...>`를 실행해 경고 목록(header·Status 줄 길이, Status 하위
+   bullet, 표 행의 날짜 뒤 변경 표시)을 runner 기록에 남깁니다. 경고는 exit 0이고, 의도한 예외는 항목마다 이유를 적습니다.
 4. **리뷰**: staged 파일과 manifest의 원본을 파일 단위 read path로 주고 [독립 리뷰](./qa.md#리뷰-회차)를 받습니다.
    `plan-drafts/`는 정산 뒤 receipt를 쓰는 곳이므로 디렉터리 read path로 주지 않습니다. runner 로그에는 staged
    파일의 sha256을 남깁니다.
