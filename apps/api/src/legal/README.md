@@ -31,8 +31,10 @@ Legal 도메인의 server-side boundary map이다. 이 문서는 `apps/api/src/l
 
 ## Release handoff
 
-- Production 공개 전 개인정보/지원 문의 연락처, provider 위탁/국외이전 table, 법률/개인정보 검토 여부를 별도 GitHub issue로 확정한다.
-- 해당 값이 확정되기 전에는 seed에 거짓 provider/contact 확정값을 쓰지 않고, 운영 문의 경로처럼 일반화된 문구만 유지한다.
+- Web 단계 처리자(서버·이메일 발송·도메인, Landing 방문 통계, 문의 이메일)와 국외 이전, 개인정보 보호책임자, 문의 이메일은 seed와 Web fallback 본문에 있다.
+- 데이터베이스·파일 저장·관측 처리자는 아직 정하지 않았다. 정해지기 전에는 seed에 거짓 provider 확정값을 쓰지 않고, 정해지면 처리방침 제4조 표에 적는다. 법률·개인정보 전문가 검토 여부는 실제 사용자 공개 전에 GitHub issue로 정한다.
+- 문서 id·version·시행일 규칙은 [legal-basis.md LB-R6](../../../../docs/policies/legal-basis.md)이 소유한다.
+- seed와 Web fallback의 같음은 `apps/web/src/legal/__tests__/legal-document-source-sync.test.ts`가 지킨다. 이 test는 Web CI lane에서만 돌므로 seed를 바꾸면 같은 commit에서 fallback도 바꾼다.
 
 ## Where to change
 

@@ -68,6 +68,13 @@ export const WEB_ENV_KEYS = [
     scope: 'build-public',
     requirement: 'optional',
   },
+  // Landing visit analytics site token. Public in the Landing HTML; the Landing component checks
+  // its format (screens/landing/components/LandingVisitAnalytics.tsx).
+  {
+    key: 'NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN',
+    scope: 'build-public',
+    requirement: 'optional',
+  },
   { key: 'WEB_APP_URL', scope: 'runtime-server', requirement: 'target-required' },
   { key: 'API_URL', scope: 'runtime-server', requirement: 'target-required' },
   {

@@ -97,6 +97,28 @@ describe('legal document reference seed data', () => {
     expect(termsText).toContain('제12조(문의 및 분쟁 처리)');
     expect(privacyText).toContain('제1조(개인정보의 처리 목적)');
     expect(privacyText).toContain('제2조(처리하는 개인정보 항목 및 보유기간)');
+    expect(privacyText).toContain('제4조(개인정보 처리업무의 위탁 및 국외 이전)');
     expect(privacyText).toContain('제11조(개인정보 처리방침의 변경)');
+  });
+
+  it('개인정보 처리방침 seed는 국외 이전 표에 법정 공개 다섯 항목 열을 둔다', () => {
+    const privacySections = findRow(LegalDocumentKind.PRIVACY_POLICY).sections as Array<{
+      type: string;
+      caption?: string;
+      headers?: string[];
+      rows?: string[][];
+    }>;
+    const transferTable = privacySections.find(
+      (section) => section.type === 'table' && section.caption === '개인정보의 국외 이전',
+    );
+
+    expect(transferTable?.headers).toEqual([
+      '이전받는 자와 연락처',
+      '이전 국가·시기·방법',
+      '이전 항목',
+      '이용 목적과 보유·이용 기간',
+      '거부 방법·절차·효과',
+    ]);
+    expect(transferTable?.rows?.length).toBeGreaterThan(0);
   });
 });
