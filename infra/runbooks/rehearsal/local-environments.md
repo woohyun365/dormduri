@@ -173,7 +173,8 @@ image·volume과 label이 없는 자원은 그 작업의 owner가 정한다.
 ### 옛 이름 자원
 
 이름이 `dormduri`로 바뀌기 전에 만든 로컬 자원은 새 이름과 겹치지 않아 위 정리 단계가 지우지 않는다. 사용자가 아래에서
-골라 정확한 이름으로 지운다(전역 prune 금지). 옛 dev DB는 되돌릴 때 쓰므로 새 dev DB가 동작하는 것을 확인한 뒤 지운다.
+골라 정확한 이름으로 지운다(전역 prune 금지). 옛 dev DB는 되돌릴 때 쓰므로 남겨 둔다. 지운다면 새 dev DB가 동작하고 이름
+변경을 되돌릴 일이 없을 때 사용자가 고른다.
 새 dev DB로 옮기는 순서는 [API README 3절](../../../apps/api/README.md#3-로컬-실행-순서)이다.
 
 - 옛 dev DB container `knu-roommate-postgres-dev`: `docker stop` 뒤 `docker rm`.
