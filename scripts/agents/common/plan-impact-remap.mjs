@@ -24,13 +24,18 @@ import { expandLines, readSpec, toPosix } from './plan-impact.mjs';
 class InputError extends Error {}
 
 const HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/u;
-// Every setting that could change the hunks is pinned on the command line. diff.autoRefreshIndex=false keeps a
-// working-tree diff from rewriting the index stat cache, which --no-optional-locks alone does not prevent.
+// The diff settings that change the hunks (algorithm, indent heuristic, context, color, renames, relative paths,
+// external diff and textconv) are pinned on the command line. diff.autoRefreshIndex=false keeps a working-tree diff
+// from rewriting the index stat cache, which --no-optional-locks alone does not prevent, and core.fsmonitor=false keeps
+// it from running a configured fsmonitor hook. Clean and process filters stay on: they define the working-tree content
+// Git compares, and `--to` compares two commits without reading the working tree.
 const DIFF = [
   '--no-optional-locks',
   '--literal-pathspecs',
   '-c',
   'diff.autoRefreshIndex=false',
+  '-c',
+  'core.fsmonitor=false',
   'diff',
   '-U0',
   '--inter-hunk-context=0',
@@ -39,9 +44,14 @@ const DIFF = [
   '--no-renames',
   '--no-relative',
   '--diff-algorithm=myers',
+  '--indent-heuristic',
   '--no-ext-diff',
   '--no-textconv',
 ];
+// The repository is the root: Git variables of a calling hook (GIT_DIR, GIT_INDEX_FILE, GIT_WORK_TREE, ...) that
+// would point at another repository or index are not inherited.
+const gitEnvironment = () =>
+  Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_')));
 const USAGE =
   'usage: plan-impact-remap --spec <dir> --from <rev> [--to <rev>] --out <dir> [--root <repo>]';
 const ACTIONS = ['moved', 'kept', 'narrowed', 'dropped'];
@@ -99,6 +109,7 @@ function revisionFiles(root, from, to) {
   const git = (args) =>
     execFileSync('git', args, {
       cwd: root,
+      env: gitEnvironment(),
       encoding: 'utf8',
       maxBuffer: 1 << 28,
       stdio: ['ignore', 'pipe', 'pipe'],

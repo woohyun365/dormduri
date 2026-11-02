@@ -386,7 +386,7 @@ test('저장소 설정 color.ui=always·diff.interHunkContext·diff.algorithm·d
     config: {
       'color.ui': 'always',
       'diff.interHunkContext': '5',
-      'diff.algorithm': 'patience',
+      'diff.algorithm': 'histogram',
       'diff.relative': 'true',
       'diff.prefix.textconv': `"${process.execPath}" "${textconv}"`,
     },
@@ -394,14 +394,25 @@ test('저장소 설정 color.ui=always·diff.interHunkContext·diff.algorithm·d
       '.gitattributes': 'docs/*.md diff=prefix\ndocs/*.txt binary\n',
       'docs/a.md': text(lines),
       'docs/b.txt': text(numbered(3)),
+      'docs/alg.md': text(['}', 'b', 'c', 'a', '}', 'a', '}', 'a']),
     },
     next: {
       'docs/a.md': text(['L1', 'L2', 'L3 바뀜', 'L4', 'L5', 'L6 바뀜', 'L7', 'L8']),
       'docs/b.txt': text(['T', ...numbered(3)]),
+      // myers: 5 changed, 7 deleted, one line added after 8; histogram: 5 becomes two lines, 8 deleted.
+      'docs/alg.md': text(['}', 'b', 'c', 'a', 'c', 'a', 'a', '}']),
     },
     spec: {
-      'rows/r.tsv':
-        'docs/a.md:3\tA\t바뀜\ndocs/a.md:4\tA\t사이\ndocs/a.md:5\tA\t사이\ndocs/a.md:7\tA\t뒤\ndocs/b.txt:2\tA\tbinary\n',
+      'rows/r.tsv': [
+        'docs/a.md:3\tA\t바뀜',
+        'docs/a.md:4\tA\t사이',
+        'docs/a.md:5\tA\t사이',
+        'docs/a.md:7\tA\t뒤',
+        'docs/b.txt:2\tA\tbinary',
+        'docs/alg.md:6\tA\tmyers',
+        'docs/alg.md:8\tA\tmyers',
+        '',
+      ].join('\n'),
     },
   });
   assert.deepEqual(listed(remap(f)), [
@@ -410,7 +421,59 @@ test('저장소 설정 color.ui=always·diff.interHunkContext·diff.algorithm·d
     'rows/r.tsv\tdocs/a.md:5\tkept\tdocs/a.md:5',
     'rows/r.tsv\tdocs/a.md:7\tkept\tdocs/a.md:7',
     'rows/r.tsv\tdocs/b.txt:2\tmoved\tdocs/b.txt:3',
+    'rows/r.tsv\tdocs/alg.md:6\tkept\tdocs/alg.md:6',
+    'rows/r.tsv\tdocs/alg.md:8\tmoved\tdocs/alg.md:7',
   ]);
+});
+
+test('저장소 설정 diff.indentHeuristic·diff.external·core.fsmonitor와 ambient GIT_INDEX_FILE·GIT_DIR에도 hunk를 같게 읽고 그 프로그램을 실행하지 않는다', () => {
+  const tools = mkdtempSync(resolve(tmpdir(), 'plan-impact-remap-probe-'));
+  temporary.push(tools);
+  const marker = resolve(tools, 'called');
+  const probe = resolve(tools, 'probe.sh');
+  writeFileSync(probe, `#!/bin/sh\nprintf '%s\\n' "$0" >> '${marker}'\nexit 0\n`, { mode: 0o755 });
+  const f = fixture({
+    base: { 'docs/ind.md': text(['x', '', 'f:', '}', '}', '']), 'docs/same.md': text(['S']) },
+    // With the indent heuristic the block follows line 3; without it, line 4.
+    worktree: { 'docs/ind.md': text(['x', '', 'f:', '}', '    z', '}', '}', '}', '']) },
+    spec: { 'rows/r.tsv': 'docs/ind.md:4\tA\t블록 뒤\ndocs/same.md:1\tA\t그대로\n' },
+  });
+  // Set after the fixture commits, so only the remap's own git calls could run the probe.
+  for (const [key, value] of Object.entries({
+    'diff.indentHeuristic': 'false',
+    'diff.external': probe,
+    'core.fsmonitor': probe,
+  }))
+    git(f.repo, 'config', key, value);
+  // A stat-only change makes git consult the fsmonitor and the worktree file.
+  const old = new Date('2020-01-01T00:00:00Z');
+  utimesSync(resolve(f.repo, 'docs/same.md'), old, old);
+  const expected = [
+    'rows/r.tsv\tdocs/ind.md:4\tmoved\tdocs/ind.md:7',
+    'rows/r.tsv\tdocs/same.md:1\tkept\tdocs/same.md:1',
+  ];
+  assert.deepEqual(
+    listed(remap(f, { to: undefined, outDirectory: resolve(f.root, 'plain') })),
+    expected,
+  );
+  assert.equal(existsSync(marker), false);
+  // A hook environment that names another repository or index is not inherited: the repository is the root.
+  const other = fixture({ base: { 'docs/ind.md': text(['zzz']) }, spec: {} });
+  const ambient = { GIT_INDEX_FILE: process.env.GIT_INDEX_FILE, GIT_DIR: process.env.GIT_DIR };
+  try {
+    process.env.GIT_INDEX_FILE = resolve(other.repo, '.git/index');
+    process.env.GIT_DIR = resolve(other.repo, '.git');
+    assert.deepEqual(
+      listed(remap(f, { to: undefined, outDirectory: resolve(f.root, 'hook') })),
+      expected,
+    );
+  } finally {
+    for (const [name, value] of Object.entries(ambient)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+  assert.equal(existsSync(marker), false);
 });
 
 test('pathspec glob 문자가 든 경로도 그 파일 하나의 hunk만 읽는다', () => {
