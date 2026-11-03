@@ -13,7 +13,7 @@ function withFixture(run) {
     OBSERVABILITY_ENV: 'production',
     API_METRICS_TARGET: 'api:4000',
     API_METRICS_BEARER_TOKEN_FILE: tokenPath,
-    GRAFANA_ADMIN_USER: 'knu-operator',
+    GRAFANA_ADMIN_USER: 'dormduri-operator',
     GRAFANA_ADMIN_PASSWORD: 'operator-credential-for-test',
     PROMETHEUS_RETENTION: '15d',
     ALERTMANAGER_RETENTION: '120h',

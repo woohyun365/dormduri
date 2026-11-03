@@ -123,7 +123,7 @@ describe('ChatRealtimeRateLimiterService', () => {
       ),
     ).toBe(expected);
   });
-  it('ignores derived Express identity when chat forwarding is disabled', () => {
+  it('ignores the adapter-derived identity when chat forwarding is disabled', () => {
     const source = {
       ip: '203.0.113.10',
       peerAddress: '10.0.0.99',

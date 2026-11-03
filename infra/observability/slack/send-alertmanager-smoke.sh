@@ -17,7 +17,7 @@ curl -fsS -X POST "$ALERTMANAGER_URL/api/v2/alerts" \
       "env": "$OBS_ENV"
     },
     "annotations": {
-      "summary": "KNU Roommate Alertmanager Slack delivery smoke test",
+      "summary": "돔두리 Alertmanager Slack delivery smoke test",
       "runbook": "infra/runbooks/operations/observability/slack-delivery.md"
     },
     "startsAt": "$NOW"

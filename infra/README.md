@@ -6,15 +6,14 @@
 
 ## 디렉터리 책임
 
-| 디렉터리         | 책임                                                                      | 소유하지 않는 것                                                |
-| ---------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `deploy/`        | API/Web image, nginx, production-neutral runtime candidate, release smoke | provider host, registry, rollout 자동화, local resource fixture |
-| `rehearsal/`     | production candidate에만 합성하는 local resource·network·fixture overlay  | 실제 release evidence, production DB 성능                       |
-| `observability/` | Prometheus·Loki·Grafana·Alloy·Alertmanager configuration asset            | incident 절차, release 판정, managed Sentry 저장소              |
-| `db/`            | migration·role grant·credential smoke operator script                     | DB 생성, credential 발급, backup 승인                           |
-| `aws/`           | 미래 AWS target 입력과 setup checklist                                    | IaC, 실제 resource 상태, release 완료 증거                      |
-| `artifacts/`     | OCI build evidence schema                                                 | 생성된 artifact 자체                                            |
-| `runbooks/`      | release, operation, incident, rehearsal 실행 절차와 evidence handoff      | 제품 정책과 architecture 설명                                   |
+| 디렉터리         | 책임                                                                                                       | 소유하지 않는 것                                                                                              |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `deploy/`        | API/Web image, Web 단계 user host 묶음(ingress·compose·SSM document), API runtime candidate, release smoke | provider host, registry, rollout 자동화(Web 단계 CD는 `.github/workflows/web-cd.yml`), local resource fixture |
+| `rehearsal/`     | production candidate에만 합성하는 local resource·network·fixture overlay                                   | 실제 release evidence, production DB 성능                                                                     |
+| `observability/` | Prometheus·Loki·Grafana·Alloy·Alertmanager configuration asset                                             | incident 절차, release 판정, managed Sentry 저장소                                                            |
+| `db/`            | migration·role grant·credential smoke operator script                                                      | DB 생성, credential 발급, backup 승인                                                                         |
+| `aws/`           | AWS setup checklist, release-gated 입력, Web 단계 CD의 IAM·ECR 정책 template                               | IaC, 지금 적용한 구성의 설명(`docs/deploy/`), release 완료 증거                                               |
+| `runbooks/`      | release, operation, incident, rehearsal 실행 절차와 evidence handoff                                       | 제품 정책과 architecture 설명                                                                                 |
 
 `image-inventory.json`은 외부 image와 그 pin을 소유한 owner 파일 목록이다. Tag와 digest는 owner 파일(Dockerfile·Compose·
 workflow)이 갖고 Renovate가 갱신한다. `runtime-hardening.json`, `compose-profiles.json`은 각각 runtime hardening, Compose 합성
@@ -28,6 +27,7 @@ workflow)이 갖고 Renovate가 갱신한다. `runtime-hardening.json`, `compose
 - 관측 configuration: [`observability/README.md`](./observability/README.md)
 - DB operator script: [`db/README.md`](./db/README.md)
 - 실제 배포 준비: [`runbooks/release/production-release-readiness.md`](./runbooks/release/production-release-readiness.md)
+- 지금 적용한 운영 환경과 서버 비용: [`docs/deploy/README.md`](../docs/deploy/README.md)
 
 ## 불변 규칙
 

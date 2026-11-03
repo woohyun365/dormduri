@@ -18,7 +18,7 @@ describe('emailConfig', () => {
     process.env.SES_FROM_EMAIL = 'no-reply@example.com';
     process.env.SES_FROM_NAME = 'KNU Roommate';
     process.env.SES_REPLY_TO_EMAIL = 'support@example.com';
-    process.env.SES_CONFIGURATION_SET = 'knu-roommate-production';
+    process.env.SES_CONFIGURATION_SET = 'dormduri-production';
 
     try {
       expect(emailConfig()).toMatchObject({
@@ -28,7 +28,7 @@ describe('emailConfig', () => {
           fromEmail: 'no-reply@example.com',
           fromName: 'KNU Roommate',
           replyToEmail: 'support@example.com',
-          configurationSet: 'knu-roommate-production',
+          configurationSet: 'dormduri-production',
         },
       });
     } finally {

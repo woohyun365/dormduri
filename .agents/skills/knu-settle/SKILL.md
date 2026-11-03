@@ -14,13 +14,13 @@ description: 이 저장소에서 Codex Parent가 위임한 child나 reviewer가 
    hook 기록이 없거나 bind·등록 봉인·계약 model·역할 effort와 맞지 않는 completed와 self-PASS는 받지 않습니다.
    Reviewer 결과에 `unjudgedBehaviors`(판정하지 않은 동작) 줄이 있으면 줄마다 `out-of-scope`·`raised`·`follow-up` 처분과 이유를
    정산 보고에 적습니다(Codex에는 처분 기록 파일이 없습니다).
-3. 수락 전에 독립 QA를 받습니다. 구현 lane은 필수 Astra QA를 `$knu-review`로 받고, 그 밖의 lane은 QA trigger를 따릅니다.
+3. 수락 전에 QA trigger에 따라 독립 QA를 `$knu-review`로 받습니다.
    대조나 QA가 찾은 결함은 아직 수락·해제하지 않은 같은 child에 `followup_task`로 돌려줍니다.
 4. 대조와 QA를 통과해 완료로 받을 child와, 끝난 reviewer는 `pnpm -s codex:accept -- --task <task_name> --role <agent_type> --model <계약 model>`로
    수락하고, 출력의 `registrationDigest`가 등록 때의 `digest`와 같은지 확인합니다. 수락한 child에는 후속 작업을 주지 않으며
    보완은 새 dispatch입니다.
-5. 실패한 lane은 pending writer를 회수하고, child가 끝났는데 수락하지 않을 writer는
-   `pnpm -s codex:release -- --task <task_name> --ended`로 해제한 뒤(Parent 쓰기 guard가 닫힘) [Recovery ceiling](../../../docs/development/agent-workflows/request-intake/orchestration-recovery.md#recovery-ceiling)에
-   따라 재시도 한 번 또는 Parent 판단·handoff로 갑니다. Stop 기록 없이 끝난 writer는 해제가 `child-running`으로 거부되므로 새 Parent
+5. 실패한 lane은 pending child를 회수하고, child가 끝났는데 수락하지 않을 lane child는
+   `pnpm -s codex:release -- --task <task_name> --ended`로 해제한 뒤 [Recovery ceiling](../../../docs/development/agent-workflows/request-intake/orchestration-recovery.md#recovery-ceiling)에
+   따라 재시도 한 번 또는 Parent 판단·handoff로 갑니다. Stop 기록 없이 끝난 child는 해제가 `child-running`으로 거부되므로 새 Parent
    session에서 다시 시작합니다. 이 skill은 재시도 dispatch를 만들지 않습니다.
 6. 결과 회수·pending·cleanup은 [subagent lifecycle](../../../docs/development/agent-workflows/subagent-lifecycle.md)로 따로 판정합니다.

@@ -58,7 +58,7 @@ export function resolveDatabaseUrls({ databaseMode, ports, secrets, environment,
   }
 
   assert(databaseMode === 'local', `Unsupported database mode: ${databaseMode}`);
-  const database = 'knu_roommate_rehearsal';
+  const database = 'dormduri_rehearsal';
   const host = `127.0.0.1:${ports.postgres}`;
   const container = 'postgres:5432';
   return {

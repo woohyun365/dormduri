@@ -25,7 +25,7 @@ API application code는 Slack bot token이나 webhook secret을 직접 보유하
 ```env
 SLACK_ALERTMANAGER_ENABLED=true
 SLACK_ALERT_WEBHOOK_URL=<SLACK_INCOMING_WEBHOOK_URL>
-SLACK_ALERT_CHANNEL=#knu-roommate-alerts-test
+SLACK_ALERT_CHANNEL=#dormduri-alerts-test
 ```
 
 webhook이 없거나 disabled이면 Alertmanager는 no-op receiver로 기동한다. 이 상태에서도 Prometheus → Alertmanager route와 config validation은 가능하지만 Slack delivery evidence는 남길 수 없다.

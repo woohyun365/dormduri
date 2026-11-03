@@ -17,6 +17,7 @@ import {
 import type { ActiveMatchContext as MatchContext } from '../../matches/active/context/active-match-context.types.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { ApiExceptionFilter } from './api-exception.filter.js';
+import { createHttpAdapter } from './http-adapter.js';
 
 // Exposes the real decorator result, including participant mapping not passed to MatchesService.
 @Controller('domain-context-probe')
@@ -82,7 +83,7 @@ describe('real Auth -> ActiveMatch -> decorator HTTP binding', () => {
         AuthenticatedUserGuard,
       ],
     }).compile();
-    app = module.createNestApplication({ logger: false });
+    app = module.createNestApplication(createHttpAdapter(false), { logger: false });
     app.useGlobalGuards(module.get(AuthenticatedUserGuard));
     app.useGlobalFilters(
       new ApiExceptionFilter(

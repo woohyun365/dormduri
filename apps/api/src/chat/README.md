@@ -107,7 +107,7 @@ git diff --check
 ## Realtime forwarding trust
 
 Chat IP attribution starts from the transport peer: HTTP and Engine.IO use the request socket,
-while the gateway uses the cached Engine.IO connection address. Derived Express IP and X-Real-IP
+while the gateway uses the cached Engine.IO connection address. The adapter-derived `req.ip` and X-Real-IP
 are not fallbacks. A forwarded client IP is accepted only when chat forwarding is explicitly enabled,
 the peer matches configured literal HTTP proxy IP/CIDRs, and XFF contains exactly one valid IP.
 Invalid/missing/chain/duplicate headers fall back to the canonical peer; absent peers use `unknown`.

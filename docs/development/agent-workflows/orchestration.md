@@ -125,8 +125,8 @@ prompt label이나 다른 CLI로 미지원 기능·권한을 가장하지 않습
 근거이며 미래 Backoffice의 미적 방향을 자동 승인하지 않습니다.
 
 - 작은 padding 수정·승인된 token 적용은 Parent의 direct path입니다. 새 디자인 후보나 child를 자동 생성하지 않습니다.
-- 실제 대안 생성이 필요하면 [Design task orchestration](./visual-design/design-task-orchestration.md)의 task packet을 현재
-  host의 확인된 executor에, 독립 비평이 유용하면 확인된 reviewer에 맡깁니다. 공통 one-writer·QA 경계를 재사용하며
+- 실제 대안 생성이 필요하면 [Design task orchestration](./visual-design/design-task-orchestration.md)의 task packet으로
+  Lead가 직접 만들고(구현 child 경로는 없음), 독립 비평이 유용하면 확인된 reviewer에 맡깁니다. 공통 one-writer·QA 경계를 재사용하며
   선행 후보가 필요한 비평을 독립 병렬 작업으로 가장하지 않습니다. 새 designer role이나 별도 실행 engine은 없습니다.
 - 특정 skill이 명시되면 현재 설치·지침·권한을 확인합니다. 호출 이름만으로 제품 수정이나 root `DESIGN.md` 생성을
   승인받은 것으로 보지 않습니다. 이 저장소의 untracked `DESIGN.md`는 non-canonical이며 보호된 사용자 파일입니다.

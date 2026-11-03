@@ -19,6 +19,7 @@ Mend-hosted Renovate (base branch: dev)
 ├── github-actions manager (full commit SHA + version comment)
 ├── dockerfile + docker-compose managers (tag@sha256 digest)
 ├── nodenv manager (.node-version, node-image group with the Docker Node image)
+├── custom.regex manager (workflow build tool images: `<NAME>_IMAGE` env value, tag@sha256 digest)
 ├── security updates from GitHub vulnerability alerts
 ├── security·patch·minor·Docker digest: Renovate self-merge after CI summary
 └── major: Dependency Dashboard approval (a security fix opens at once), human review
@@ -28,14 +29,26 @@ GitHub Dependabot
 ```
 
 한 version-update surface에 두 updater를 동시에 활성화하지 않는다. `renovate.json`은 npm, `github-actions`,
-`dockerfile`, `docker-compose`, `nodenv` manager를 활성화하고 `dev`를 base branch로 사용한다. `.github/dependabot.yml`은
+`dockerfile`, `docker-compose`, `nodenv`, `custom.regex` manager를 활성화하고 `dev`를 base branch로 사용한다. `.github/dependabot.yml`은
 두지 않고 저장소 Settings의 Dependabot security updates는 끈다. Repository policy는 ecosystem마다 owner가 0개이거나
-2개인 상태를 모두 거부한다. `nodenv`(`.node-version`)는 대응하는 Dependabot ecosystem이 없어 Renovate가 유일한 owner다.
+2개인 상태를 모두 거부한다. `nodenv`(`.node-version`)는 대응하는 Dependabot ecosystem이 없어 Renovate가 유일한 owner다. `custom.regex`도 같다.
+이 manager는 workflow run script 안에서 쓰는 build 도구 image(workflow `env`의 `<NAME>_IMAGE: <repository>:<tag>@sha256:<digest>`)만
+갱신하고, 그 image는 다른 image처럼 `infra/image-inventory.json`에 owner 파일을 둔다(지금은 Web CD의 BuildKit·SBOM scanner).
 
-Renovate와 Dependabot은 기본 branch(`main`)의 설정을 읽는다. `useBaseBranchConfig: "merge"`는 `dev` base branch에
-`dev`의 `renovate.json`을 합쳐 적용하므로, 이 설정이 `main`에 올라간 뒤의 `dev` 설정 변경은 승격 없이 효력을 갖는다.
-`.github/dependabot.yml` 삭제와 manager 추가처럼 기본 branch 설정이 정하는 변경은 `dev` → `main` 승격 뒤에 효력을
-갖는다. 그래서 `nodenv` manager는 승격 전까지 Dashboard의 Detected Dependencies에 `.node-version`을 보이지 않는다.
+Renovate와 Dependabot은 기본 branch(`main`)의 설정을 읽는다. Renovate는 `useBaseBranchConfig: "merge"`로 `dev` base
+branch를 처리할 때 `main` 설정 위에 `dev`의 `renovate.json`을 합친다. 합치는 방식은 option마다 다르다.
+
+- `enabledManagers`처럼 dependency 처리에 쓰는 mergeable이 아닌 option은 `dev` 값이 `main` 값을 바꾼다. 그래서 manager
+  추가는 `dev` merge 뒤 Renovate 실행부터 효력을 갖고, `nodenv`의 `.node-version`도 그때부터 Dashboard Detected
+  Dependencies에 보인다.
+- `packageRules`처럼 mergeable인 배열은 `main` 규칙 뒤에 `dev` 규칙을 이어 붙이고, 같은 key는 뒤 규칙의 값이 이긴다. `dev`에서
+  더한 규칙과 `dev` 규칙이 다시 정하는 값은 바로 효력을 갖는다. `dev`에서 지운 규칙의 값은 그 key를 다시 정하는 `dev` 규칙이
+  없을 때만(예: `enabled: false`, 지운 group의 `groupName`) `main` 사본이 계속 적용되어 `dev` → `main` 승격 뒤에 효력을
+  갖는다. 지운 group 규칙의 `automerge: false`처럼 다른 `dev` 규칙(minor·patch `automerge: true`)이 다시 정하는 값은 `dev` merge
+  직후 바뀐다.
+- Base branch 목록(`baseBranchPatterns`)은 합친 뒤 기본 branch 값으로 되돌리고, Dependency Dashboard는 기본 branch 설정으로
+  만든다. 이런 repository 수준 설정은 승격 뒤에 효력을 갖는다.
+- `.github/dependabot.yml` 삭제처럼 Dependabot 설정은 기본 branch에서만 효력을 갖는다.
 
 ## pnpm catalog와 lockfile 결정
 
@@ -87,7 +100,7 @@ Repository가 직접 검증한 지원선은 다음과 같다. 행마다 검증 �
 | compiler          | TypeScript 6.0.3                                                        | TypeScript 7은 일반 major Dashboard 승인 줄로 보이고, ESLint ecosystem 호환이 확인되면 승인해 fresh migration으로 옮긴다                                                                                                                                                                                                           |
 | package manager   | pnpm 12(root `packageManager`)                                          | 11.24.0 대비 동일 cold lockfile workload median peak RSS 40.6% 감소와 frozen install 검증; `pnpm-package-manager` 승인 줄이 root와 CI 입력을 함께 옮긴다; pnpm 13 출시나 hosted Renovate의 pnpm 12 설치·lockfile 실패가 재검토 trigger                                                                                             |
 | container base OS | Debian 13 trixie(`node:<patch>-trixie-slim`)                            | API·Web·ingress fixture image build, API ready·SIGTERM, Web `GET /`, native load(sharp·Prisma adapter-pg·`@node-rs/argon2`)를 arm64 local smoke로 검증(amd64는 production 배포 전 release rehearsal에서 확인); 정규 보안 지원 2028-08-09, LTS 2030-06-30; Debian 14 release 뒤 Node 공식 slim 기본이 바뀌는 것이 전환 plan trigger |
-| CI runner         | GitHub-hosted `ubuntu-24.04`(product job), `ubuntu-slim`(orchestration) | 모든 PR CI가 검증; `ubuntu-26.04` GA(2026-09-17)는 Dashboard major 승인 줄로 둔다; GitHub의 24.04 deprecation 공지가 전환 plan trigger이고, 전환 때 `workflow-command-boundary` test의 runner 단언과 CI 비용 정책 단가를 함께 고친다                                                                                               |
+| CI runner         | GitHub 표준 `ubuntu-<YY.MM>`(product job), `ubuntu-slim`(orchestration) | 모든 PR CI가 검증; 현재 label은 workflow `runs-on`이 소유; 새 Ubuntu LTS label은 Dashboard major 승인 줄로 두고 쓰는 label의 deprecation 공지가 승인 기한 trigger다; runner 단언과 단가는 구조 검사라 label 전환 PR이 test를 고치지 않는다                                                                                         |
 
 Web framework가 소유하는 `eslint-config-next`는 lint-tooling group에서 분리한다. Formatter는 Prettier CLI가 소유하며
 ESLint 안에서 동일 formatting 책임을 중복 실행하는 `eslint-plugin-prettier`는 두지 않는다.
@@ -186,13 +199,16 @@ Credential 없이 실행하는 dry-run은 두 경계를 결합한다.
    - 두 번째 lockfile hash가 같아야 통과한다.
 
 Local platform은 branch 생성을 지원하지 않으므로 이 검증은 hosted App을 대체하지 않는다. Provider permission 없이
-config·package-manager correctness를 빠르게 회귀 검증하기 위한 보조 경계다.
+config·package-manager correctness를 빠르게 회귀 검증하기 위한 보조 경계다. Dry-run은 checkout의 `renovate.json` 하나만
+읽고 기본 branch 설정과 합치지 않는다. 그래서 `dev`에서 지웠지만 승격 전 `main`에 남은 규칙(예: `enabled: false`)이 hosted
+후보를 숨기는 기간은 dry-run이 통과해도 [현재 구조](#현재-구조)의 합치는 방식으로 판단한다.
 
 Renovate CLI는 `engines.node`를 `^24.11.0`으로만 선언하고, 그 밖의 Node에서는 "Unsupported node environment" error를
 남긴 뒤 non-zero로 끝난다. 그래서 Renovate가 Node 26을 선언할 때까지 local dry-run은 Node 24 runtime으로 실행한다(예:
 `fnm exec --using=24 pnpm dependency:renovate:dry-run`). Lockfile 작업은 PATH의 pnpm 12 native binary가 맡으므로 hosted
 Renovate와 같은 조합이다. Hosted Renovate는 Mend runtime의 Node로 실행되어 이 제약을 받지 않는다.
 
+- [Renovate useBaseBranchConfig](https://docs.renovatebot.com/configuration-options/#usebasebranchconfig)
 - [Renovate local platform](https://docs.renovatebot.com/modules/platform/local/)
 - [Renovate npm/pnpm manager](https://docs.renovatebot.com/modules/manager/npm/)
 
@@ -221,7 +237,9 @@ Hosted provider나 한 manager를 중단할 때 기본 branch 설정에 owner가
 - pnpm catalog 또는 lockfile update semantics가 변경된다.
 - Renovate가 root `packageManager`와 CI `pnpm/action-setup` `version` 입력을 한 `pnpm-package-manager` branch로 묶지
   못한다(다른 depType으로 추출되는 등).
-- `dev` → `main` 승격 뒤에도 Dashboard Detected Dependencies에 `.node-version`이 보이지 않는다.
+- Renovate가 `useBaseBranchConfig: "merge"`의 합치는 방식(`enabledManagers`는 `dev` 값으로 바꾸고, `packageRules`는 `main`
+  규칙 뒤에 이어 붙이고, `baseBranchPatterns`는 기본 branch 값으로 되돌림)을 바꾼다. [현재 구조](#현재-구조)의 효력 시점 서술을
+  다시 확인한다.
 - Renovate CLI가 `engines.node`에 Node 26을 선언한다. Local dry-run의 Node 24 실행 안내를 지운다.
 - Provider job이 반복적으로 timeout되거나 branch/lockfile이 비결정적으로 생성된다.
 - 현재 pnpm pin이 동일 cold workload에서 fix floor보다 10% 넘게 memory regression을 보이거나 hosted lockfile OOM signature가

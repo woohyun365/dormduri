@@ -1,0 +1,52 @@
+{
+  "schema": "lifecycle-artifact-map/v1",
+  "confirmedBy": { "status": "owner-confirmed", "date": "2026-10-17", "basis": "#1" },
+  "artifacts": [
+    {
+      "artifact": "prd-overview",
+      "mapping": "legacy",
+      "sources": ["README.md"],
+      "note": "소급하지 않는다"
+    },
+    {
+      "artifact": "policy:legal-basis",
+      "mapping": "doc",
+      "level": "cross-cutting",
+      "sources": ["docs/policies/legal-basis.md"]
+    },
+    {
+      "artifact": "policy:data-retention",
+      "mapping": "doc",
+      "level": "cross-cutting",
+      "sources": ["docs/policies/data-retention.md"]
+    },
+    {
+      "artifact": "policy:service-boundary",
+      "mapping": "doc",
+      "level": "cross-cutting-recommended",
+      "sources": ["docs/policies/service-boundary.md"]
+    },
+    {
+      "artifact": "policy:matching-lifecycle",
+      "mapping": "doc",
+      "level": "domain",
+      "sources": ["docs/policies/matching-lifecycle.md"]
+    },
+    {
+      "artifact": "l1",
+      "mapping": "composite",
+      "sources": ["docs/architecture/README.md", "docs/architecture/backend/data-ownership.md"],
+      "gaps": ["C4 diagram 없음: legacy"]
+    },
+    {
+      "artifact": "l2:docs/architecture/backend/session-transport-decision.md",
+      "mapping": "doc",
+      "sources": ["docs/architecture/backend/session-transport-decision.md"]
+    },
+    {
+      "artifact": "l2:docs/architecture/backend/schema-decision.md",
+      "mapping": "doc",
+      "sources": ["docs/architecture/backend/schema-decision.md"]
+    }
+  ]
+}

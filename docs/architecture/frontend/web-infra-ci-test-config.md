@@ -4,22 +4,15 @@
 
 이 문서는 `apps/web` 변경을 안전하게 진행하기 위한 Next.js, TypeScript, ESLint, Vitest, Playwright, BFF/env 기준의 source of truth다. 제품 기능의 UX/정책 판단이 아니라, Web 변경이 어떤 로컬/CI 게이트와 런타임 경계를 통과해야 하는지를 고정한다.
 
-## 현재 기준 스냅샷
+## Version owner 파일
 
-| 항목              | 기준                           |
-| ----------------- | ------------------------------ |
-| Node              | `>=26 <27`                     |
-| package manager   | pnpm 12(root `packageManager`) |
-| Next.js           | `16.2.9`                       |
-| React / React DOM | `19.2.7` / `19.2.7`            |
-| TypeScript        | `6.0.3`                        |
-| ESLint            | `9.39.4`                       |
-| Prettier          | `3.8.4`                        |
-| Vite / Vitest     | `8.0.16` / `4.1.9`             |
-| Playwright        | `1.61.0`                       |
-| Tailwind CSS      | `4.3.1`                        |
+Version 값은 이 문서에 복사하지 않는다. Renovate가 갱신하는 값은 owner 파일 하나가 갖는다([Bot이 갱신하는 값](../../development/ci/README.md#bot이-갱신하는-값)). 새 FE 작업은 아래 owner 파일과 `pnpm-lock.yaml`의 실제 설치 version을 먼저 확인한다.
 
-버전 기준은 `pnpm-workspace.yaml`의 `catalog`와 root `package.json`의 `packageManager`가 우선이다. 새 FE 작업은 문서의 숫자를 그대로 믿지 말고 실제 catalog와 lockfile을 먼저 확인한다.
+| 항목                                                                                              | Owner 파일                                                               |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Node                                                                                              | `.node-version`(local version), root `package.json` `engines`(지원 범위) |
+| package manager                                                                                   | root `package.json` `packageManager`                                     |
+| Next.js, React / React DOM, TypeScript, ESLint, Prettier, Vite / Vitest, Playwright, Tailwind CSS | `pnpm-workspace.yaml` `catalog`                                          |
 
 ## Source of truth 파일
 
@@ -29,6 +22,7 @@
 | Web app script/dependency                | `apps/web/package.json`                                                               |
 | package version catalog                  | `pnpm-workspace.yaml`                                                                 |
 | Next production config                   | `apps/web/next.config.ts`                                                             |
+| React Compiler option·적용 범위          | `apps/web/react-compiler.config.ts`                                                   |
 | Web TypeScript product/test/e2e boundary | `apps/web/tsconfig.json`, `apps/web/tsconfig.test.json`, `apps/web/tsconfig.e2e.json` |
 | Web ESLint config                        | `apps/web/eslint.config.mjs`, `packages/eslint-config/*`                              |
 | Vitest config/setup                      | `apps/web/vitest.config.ts`, `apps/web/src/test-setup.ts`                             |
@@ -77,7 +71,7 @@ pnpm --dir apps/web exec playwright install chromium
 
 Web CI는 DB service 없이 실행된다. `pnpm web:e2e`도 Web standalone artifact가 browser에서 정상 동작하는지 확인하는 smoke이며, 실제 로그인 사용자/API-backed journey를 보장하지 않는다.
 
-Landing E2E는 support API 부재가 전체 page failure가 아니라 FAQ fallback으로 수렴하는지 보기 위해 local invalid `API_URL`로 standalone server를 실행한다. 따라서 `pnpm web:e2e`는 공개 Landing의 degrade 경계와 browser runtime을 검증하지만, support API success path나 로그인 사용자 journey를 검증하지 않는다.
+Web-only smoke는 닿지 않는 local `API_URL`로 standalone server를 실행한다(`apps/web/playwright.config.ts`). Landing은 API를 부르지 않고 FAQ도 정적 문구라 API 없이 그대로 렌더링된다. 따라서 `pnpm web:e2e`는 공개 Landing·법적 고지·auth route shell과 browser runtime을 검증하지만, API success path나 로그인 사용자 journey를 검증하지 않는다.
 
 API 서버, DB, 실사용 auth fixture가 필요한 end-to-end journey는 별도 full-stack E2E로 다룬다. Web feature 계획에서 API-backed 흐름이 핵심 acceptance라면 `pnpm web:e2e` 통과만으로 완료 처리하지 말고 API test/e2e 또는 별도 full-stack gate를 명시한다.
 
@@ -85,18 +79,9 @@ API 서버, DB, 실사용 auth fixture가 필요한 end-to-end journey는 별도
 
 이 문서는 Web 개발/검증 기준을 고정하지만 production deploy 구현을 제공하지 않는다. `.github/workflows/ci.yml`이 PR/push 변경을 분류하고 `.github/workflows/web-ci.yml` reusable workflow를 호출한다. Web lane은 lint, typecheck, Vitest, build, prebuilt Playwright smoke를 실행하지만 environment 승인, deployment identity, artifact publish, rollout, rollback을 수행하지 않는다.
 
-현재 repo의 `infra/deploy`는 **BE API + nginx** production-like 배포 단위다. 해당 compose/nginx 설정은 `/api`, `/auth`, `/socket.io`, health, metrics 같은 API-owned path만 upstream으로 넘기며 Web/Next.js server나 CDN/static asset route를 포함하지 않는다.
+`apps/web/next.config.ts`의 `output: 'standalone'` artifact는 `infra/deploy/web/Dockerfile`이 Web runtime image로 묶는다. Image의 runtime 계약과 후보 검증은 [Runtime container candidates](../../../infra/deploy/README.md)가 소유한다. `.next/standalone`이 생성되고 Playwright smoke가 통과해도 Web이 production에 배포되었다는 뜻은 아니다.
 
-`apps/web/next.config.ts`의 `output: 'standalone'`은 future Web runtime image 후보를 검증하기 위한 artifact shape다. `.next/standalone`이 생성되고 Playwright smoke가 통과해도, Web Dockerfile/compose/nginx/CDN/TLS/domain/workflow/runbook이 구현되었다는 의미는 아니다.
-
-Future Web production deploy는 별도 계획에서 아래 책임을 결정한다.
-
-- `infra/deploy/web/Dockerfile`: `.next/standalone` 기반 runtime image와 static/public asset 복사 규칙.
-- Web compose 또는 API compose 확장 여부: API와 Web을 같은 host/nginx 뒤에 둘지, Web을 별도 host/CDN behind origin으로 둘지 결정.
-- nginx/CDN route: API path는 API upstream, Web route는 SSR/static upstream, immutable static asset은 cache header/CDN 정책으로 분리.
-- TLS/domain/redirect/HSTS/CSP/보안 header 소유 위치.
-- Web release smoke와 CD 경계: environment approval, short-lived deployment identity, image/artifact publish, smoke evidence 보존.
-- Web observability: PII-safe Web Vitals/RUM ingestion endpoint 또는 외부 analytics 경로와 API observability stack 연결 여부.
+지금 적용한 Web 단계 운영 환경(host, ingress, TLS, domain)은 [Production environment](../../deploy/production-environment.md)가 설명한다. Web 단계 배포 구성과 CD workflow(environment 승인, 단기 deployment identity, image publish, rollout·rollback, release smoke evidence)는 Web CD 작업이 소유하고, 이 문서에는 그 구현을 적지 않는다. Web observability(PII-safe Web Vitals/RUM 수집 경로, API 관측 stack 연결)는 API 단계의 관측 결정을 따른다.
 
 ## Runtime env와 BFF 보안 경계
 
@@ -122,7 +107,10 @@ Future Web production deploy는 별도 계획에서 아래 책임을 결정한�
 - `experimental.webVitalsAttribution`은 CLS/INP/LCP 원인 분석에 필요한 browser-side attribution collection을 켠다.
 - Web Vitals reporter는 metric 이름/값과 attribution key 목록만 남긴다. DOM selector, URL, element text 같은 attribution value는 전송하지 않는다.
 - 로컬 디버그 로그가 필요할 때만 `NEXT_PUBLIC_WEB_VITALS_DEBUG=1`을 설정한다. 기본값은 no-op이다.
-- React Compiler는 기본 활성화하지 않는다. 현재 기준은 typed route/build/E2E/Web Vitals gate로 나중에 측정 기반으로 켤 수 있는 준비 상태다.
+- React Compiler를 `infer` mode로 켠다. option 원본은 `apps/web/react-compiler.config.ts`이고 Next·Vitest·Storybook이 같은 값을 쓴다. 기존 memoization은 그대로 둔다. 결정과 측정은 [FE 결정 기록](../decisions/fe.md#ferenderreact-compiler)과 [React Compiler evidence](../../evidence/frontend/react-compiler-evidence.md)다.
+  - Next는 browser bundle에만 compiler를 적용한다. Vitest(`vitest.config.ts`)와 Storybook(`.storybook/main.ts`)은 `@vitejs/plugin-react`의 `reactCompilerPreset`을 `@rolldown/plugin-babel`로 등록하고, 같은 파일의 `sources` 범위로 Next가 compile하지 않는 파일(`'use client'`가 없는 App Router module, test·story·fixture 코드, `.storybook` 설정)을 뺀다. 이 범위는 module graph가 아닌 경로 근사라 `src/app` 밖에서 server component만 쓰는 파일(server page가 그리는 Landing section 등)은 test·story에서만 compile된다. 반대로 `'use client'` module이 `'use client'` 없는 `src/app` module을 import하면 그 파일은 Next만 compile하므로, 그런 module에는 `'use client'`를 둔다. Storybook은 framework SWC transform보다 앞에 plugin을 둔다. `react-compiler.config.ts`만 바뀐 변경도 CI Storybook lane을 실행한다.
+  - `panicThreshold: 'none'`이라 compiler가 처리하지 못하는 component·Hook은 build를 깨지 않고 compile 없이 남는다. compiler lint(`eslint-config-next`)는 이런 미지원 구문(`try … finally`, `try` 안의 optional chaining·`??` 등)을 보고하지 않는다. 상태가 자주 바뀌는 화면을 고칠 때는 그 파일이 compile되는지 evidence의 파일별 compile 결과 방법(compiler `logger` event)으로 확인한다.
+  - compile된 뒤 동작이 깨지면 먼저 코드를 Rules of React에 맞게 고친다. 그럴 수 없을 때만 그 component에 `"use no memo"`와 같은 줄 이유 주석, 그 동작을 지키는 test를 둔다.
 
 ## Gate 결과 해석
 

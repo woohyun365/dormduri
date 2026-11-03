@@ -1,23 +1,25 @@
+name: dormduri-dev
+
 services:
   postgres:
     image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
-    container_name: knu-roommate-postgres-dev
+    container_name: dormduri-postgres-dev
     restart: unless-stopped
     command: ['postgres', '-c', 'timezone=Asia/Seoul']
     environment:
-      POSTGRES_DB: knu_roommate
-      POSTGRES_USER: knu_dev
-      POSTGRES_PASSWORD: knu_dev_password
+      POSTGRES_DB: dormduri
+      POSTGRES_USER: dormduri_dev
+      POSTGRES_PASSWORD: dormduri_dev_password
       TZ: Asia/Seoul
     ports:
       - '127.0.0.1:5432:5432'
     volumes:
-      - knu-roommate-postgres-data:/var/lib/postgresql
+      - dormduri-postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U knu_dev -d knu_roommate']
+      test: ['CMD-SHELL', 'pg_isready -U dormduri_dev -d dormduri']
       interval: 10s
       timeout: 5s
       retries: 5
 
 volumes:
-  knu-roommate-postgres-data:
+  dormduri-postgres-data:

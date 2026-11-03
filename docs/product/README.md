@@ -7,7 +7,7 @@
 
 - 필수 문서는 개요 하나입니다. 기능 영역 문서는 그 영역을 구현할 때 씁니다. 같은 요구는 한 문서만 소유하고, 문서가 둘 이상이면
   이 README가 모두 색인합니다(색인 누락은 repository policy test가 잡습니다).
-- KNU의 PRD 개요는 `legacy`입니다. 목적과 대상 사용자는 저장소 root `README.md`와 [정책 README](../policies/README.md)의
+- 옛 PRD 개요는 `legacy`입니다. 목적과 대상 사용자는 저장소 root `README.md`와 [정책 README](../policies/README.md)의
   문서 구성 표에 있고 이 디렉터리로 소급해 옮기지 않습니다. 다음에 구현하는 제품 영역부터 기능 영역 문서를 씁니다.
 
 | 기능 영역 문서          | 영역           |

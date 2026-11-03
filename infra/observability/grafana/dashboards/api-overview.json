@@ -305,7 +305,7 @@
   "refresh": "15s",
   "schemaVersion": 39,
   "style": "dark",
-  "tags": ["knu-roommate", "api", "observability"],
+  "tags": ["dormduri", "api", "observability"],
   "templating": {
     "list": []
   },
@@ -315,8 +315,8 @@
   },
   "timepicker": {},
   "timezone": "Asia/Seoul",
-  "title": "KNU API Overview",
-  "uid": "knu-api-overview",
+  "title": "돔두리 API Overview",
+  "uid": "dormduri-api-overview",
   "version": 1,
   "weekStart": ""
 }

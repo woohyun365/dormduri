@@ -56,6 +56,13 @@ function exactNginxLocations(source: string): string[] {
     .sort();
 }
 
+// Paths of the location blocks that proxy to the API, in file order.
+function proxyNginxLocations(source: string): string[] {
+  return [...source.matchAll(/location ([^{]+)\{([^}]+)\}/gu)]
+    .filter((match) => match[2]?.includes('proxy_pass'))
+    .map((match) => match[1]?.trim() ?? '');
+}
+
 describe('deployment infra', () => {
   it('keeps BE deploy files in the expected infra/deploy locations', () => {
     const missingFiles = requiredFiles.filter(
@@ -88,7 +95,7 @@ describe('deployment infra', () => {
     expect(compose).not.toContain('AUTH_THROTTLE_LIMIT');
     expect(override).toContain('observability:');
     expect(override).toContain('external: true');
-    expect(override).toContain('knu-roommate-observability');
+    expect(override).toContain('dormduri-observability');
     expect(override).not.toContain('AUTH_THROTTLE_LIMIT');
     expect(stress).toContain('AUTH_THROTTLE_LIMIT');
   });
@@ -121,6 +128,9 @@ describe('deployment infra', () => {
     expect(dockerignore).toContain('.omx');
     expect(dockerignore).toContain('.env.*');
     expect(dockerignore).toContain('apps/api/test/stress/reports/.tmp-*');
+    // Local auth state and stress temp files stay out of the API and Web image build context.
+    expect(dockerignore).toMatch(/^apps\/web\/playwright\/\.auth$/mu);
+    expect(dockerignore).toMatch(/^apps\/api\/test\/stress\/fixtures\/\.tmp-\*$/mu);
     expect(dockerignore).toContain('infra/observability/prometheus/secrets/*.local');
   });
 
@@ -204,7 +214,11 @@ describe('deployment infra', () => {
     expect(apiConf).toContain('proxy_set_header Authorization $http_authorization');
     expect(apiConf).toContain('include /etc/nginx/snippets/internal-metrics-allowlist.conf');
     expect(allowlist).toContain('deny all');
-    expect(proxyCommon).toContain('X-Forwarded-For');
+    // The public edge overwrites caller forwarded identity with the socket peer and clears the alternate headers.
+    expect(proxyCommon).toMatch(/^proxy_set_header X-Forwarded-For \$remote_addr;$/mu);
+    expect(proxyCommon).not.toContain('proxy_add_x_forwarded_for');
+    expect(proxyCommon).toMatch(/^proxy_set_header Forwarded "";$/mu);
+    expect(proxyCommon).toMatch(/^proxy_set_header X-Real-IP "";$/mu);
     expect(proxyCommon).toContain('X-Request-Id');
     expect(healthcheck).toContain('/health/ready');
     expect(healthcheck).not.toContain('/health/auth');
@@ -214,6 +228,7 @@ describe('deployment infra', () => {
   it('keeps the TLS/domain example outside the active nginx conf.d mount', () => {
     const compose = readDeployFile('compose.api.yml');
     const tlsExample = readDeployFile('nginx/examples/api.tls.conf');
+    const apiConf = readDeployFile('nginx/conf.d/api.conf');
 
     expect(compose).toContain('./nginx/conf.d:/etc/nginx/conf.d:ro');
     expect(compose).not.toContain('./nginx/examples:/etc/nginx/conf.d');
@@ -227,5 +242,8 @@ describe('deployment infra', () => {
     expect(tlsExample).toContain('proxy_set_header Upgrade $http_upgrade');
     expect(tlsExample).toContain('location = /internal/metrics');
     expect(tlsExample).toContain('include /etc/nginx/snippets/internal-metrics-allowlist.conf');
+    // The TLS example proxies the same API locations as the active conf.d.
+    expect(proxyNginxLocations(tlsExample)).toEqual(proxyNginxLocations(apiConf));
+    expect(proxyNginxLocations(apiConf)).toContain('/auth/');
   });
 });

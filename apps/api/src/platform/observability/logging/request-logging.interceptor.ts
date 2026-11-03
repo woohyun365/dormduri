@@ -4,15 +4,19 @@ import {
   type ExecutionContext,
   type NestInterceptor,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import type { ServerResponse } from 'node:http';
 import type { Observable } from 'rxjs';
 import { AppLoggerService } from './app-logger.service.js';
 import { statusClassFromStatusCode } from './log-event.js';
-import { resolveRequestRouteTemplate, type RequestRouteShape } from './request-route.js';
+import { resolveExecutionRouteTemplate } from './request-route.js';
 
 @Injectable()
 export class RequestLoggingInterceptor implements NestInterceptor {
-  constructor(private readonly logger: AppLoggerService) {}
+  constructor(
+    private readonly logger: AppLoggerService,
+    private readonly reflector: Reflector,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (context.getType() !== 'http') {
@@ -20,8 +24,9 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     }
 
     const http = context.switchToHttp();
-    const request = http.getRequest<RequestRouteShape & { method: string }>();
+    const request = http.getRequest<{ method: string }>();
     const response = http.getResponse<Pick<ServerResponse, 'once' | 'statusCode'>>();
+    const route = resolveExecutionRouteTemplate(context, this.reflector);
     const startedAt = process.hrtime.bigint();
 
     response.once('finish', () => {
@@ -35,7 +40,7 @@ export class RequestLoggingInterceptor implements NestInterceptor {
             method: request.method,
             operation: 'http_request',
             outcome: statusCode >= 400 ? 'failure' : 'success',
-            route: resolveRequestRouteTemplate(request),
+            route,
             statusClass: statusClassFromStatusCode(statusCode),
             statusCode,
           },

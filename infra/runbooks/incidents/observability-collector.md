@@ -22,13 +22,16 @@ collector를 격리하고, socket 유지·host tail·logging driver·managed log
 pnpm infra:compose -- observability-production config
 pnpm infra:compose -- observability-production ps
 pnpm infra:compose -- observability-production logs alloy loki
-docker inspect knu-observability-alloy
-docker inspect knu-api knu-web knu-nginx
+docker inspect $(docker ps -q --filter label=com.docker.compose.project=dormduri-observability --filter label=com.docker.compose.service=alloy)
+docker inspect $(docker ps -q --filter label=com.docker.compose.project=dormduri-api)
 curl --fail --silent http://127.0.0.1:12345/-/ready
 curl --fail --silent http://127.0.0.1:3100/ready
 ```
 
-실제 container 이름과 loopback port는 rendered Compose 결과를 따른다. 명령 출력에 env, label,
+Compose file은 `container_name`을 정하지 않으므로 container 이름은 project 이름에서 나온다. 이름을 적지 말고 Compose가
+붙이는 project·service label로 찾는다. 이 조회는 profile의 env 보간(`API_IMAGE_TAG` 등)이 필요 없다. Web container는 그
+Web compose project 이름으로 같은 방식으로 찾는다.
+실제 loopback port는 rendered Compose 결과를 따른다. 명령 출력에 env, label,
 mount path 등 민감 정보가 포함될 수 있으므로 원문 전체를 issue/evidence에 첨부하지 않는다.
 
 ## 즉시 격리
@@ -71,7 +74,8 @@ mount path 등 민감 정보가 포함될 수 있으므로 원문 전체를 issu
 - 직전 정상 collector mode와 immutable image digest로 돌아간다.
 - Socket mode로 돌아가야 한다면 readiness 문서의 모든 유지 조건을 다시 확인하고 risk owner 승인을 받는다.
 - 복구 뒤 synthetic request의 request ID가 Application stdout과 Loki에서 연결되는지 확인한다.
-- 실제 선택, rollback 결과, 남은 risk는 collector evidence와 aggregate evidence에 연결한다.
+- 실제 선택, rollback 결과, 남은 risk는 collector evidence 형식으로
+  [실제 값의 기록 위치](../release/production-release-evidence.md#실제-값의-기록-위치)에 남긴다.
 
 ## 종료 조건
 

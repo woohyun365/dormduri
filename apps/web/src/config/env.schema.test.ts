@@ -18,6 +18,12 @@ describe('web env schema', () => {
     expect(WEB_BUILD_PUBLIC_ENV_KEYS).not.toContain('SENTRY_AUTH_TOKEN');
   });
 
+  it('Landing 방문 통계 token은 공개 build input이고 runtime·secret 입력이 아니다', () => {
+    expect(WEB_BUILD_PUBLIC_ENV_KEYS).toContain('NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN');
+    expect(WEB_RUNTIME_SERVER_ENV_KEYS).not.toContain('NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN');
+    expect(WEB_BUILD_SECRET_ENV_KEYS).not.toContain('NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN');
+  });
+
   it('dev/test에서는 local defaults를 허용한다', () => {
     expect(parseWebServerEnv({ NODE_ENV: 'test' }, 'test')).toEqual(webEnvDefaults);
   });
@@ -27,7 +33,7 @@ describe('web env schema', () => {
       parseWebServerEnv(
         {
           NODE_ENV: 'production',
-          WEB_APP_URL: 'https://knu-roommate.example.com',
+          WEB_APP_URL: 'https://dormduri.example.com',
         },
         'production',
       ),
@@ -39,7 +45,7 @@ describe('web env schema', () => {
       parseWebServerEnv(
         {
           NODE_ENV: 'production',
-          WEB_APP_URL: 'https://knu-roommate.example.com',
+          WEB_APP_URL: 'https://dormduri.example.com',
           API_URL: 'http://localhost:4000',
         },
         'production',

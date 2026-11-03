@@ -10,8 +10,25 @@
 - Final decision owner:
   [production-release-evidence.md](./production-release-evidence.md)
 
-`PENDING_TARGET`는 실패나 repository blocker가 아니다. Provider, account, domain, registry처럼
-실제 배포 시점에만 정할 수 있는 입력이 아직 없다는 뜻이다.
+`PENDING_TARGET`는 실패나 repository blocker가 아니다. 최종 판정에 필요한 입력이 아직 다 모이지 않았다는
+뜻이다. Provider, account, domain, registry처럼 실제 배포 시점에만 정할 수 있는 입력이 아직 없거나, 일부
+구성요소만 올린 [단계 배포](#단계-배포)가 진행 중인 경우다.
+
+## 단계 배포
+
+단계 배포는 최종 판정 전에 일부 구성요소만 production에 올리거나 바꾸는 rollout이다(예: Web 단계 → API 단계 →
+기능 단계). 적용 범위의 정책 원본은
+[Production runtime safety](../../../docs/policies/production-runtime-safety.md) `PRS-R54`다.
+
+- 이 문서와 component readiness의 중단 조건·검증 순서는 그 단계가 올리거나 바꾸는 구성요소에 적용한다. DB,
+  migration, role grant, DB credential, backup/restore 항목은 DB를 들이는 단계부터 적용한다. 최종 release에는 모든
+  항목을 적용한다.
+- 그 단계에 들지 않는 component와 항목은 단계 기록에 `해당 없음(<이유>)`으로 적는다(예: DB가 없는 단계의
+  backup/restore는 `해당 없음(DB 없음)`). `ACCEPTED_RISK`로 적지 않는다.
+- 단계 배포는 최종 판정을 선언하지 않는다. 단계 기록이 하나 이상 있고 최종 판정 전이면 aggregate state는 `COLLECTING`,
+  final decision은 `PENDING_TARGET`다.
+- 단계 기록의 형식, 위치와 식별자 범위는
+  [단계 배포 기록](./production-release-evidence.md#단계-배포-기록)을 따른다.
 
 ## 미래 배포 담당자와 Codex의 읽기 순서
 
@@ -24,9 +41,12 @@
    [Lightsail runtime readiness](./components/lightsail-runtime/readiness.md)에서 secret origin, release
    principal, mounted-file runtime을 닫는다.
 5. 아래 component owner의 readiness와 실행 runbook을 따른다.
-6. 각 component evidence를 실제 값으로 채운다. Secret 원문은 기록하지 않는다.
+6. 각 component 결과를 실제 값으로 기록한다. Component evidence 문서는 template이므로 값을 채우지 않고, 그 형식으로
+   [실제 값의 기록 위치](./production-release-evidence.md#실제-값의-기록-위치)에 남긴다. Secret 원문과 기록하지 않는
+   식별자는 적지 않는다.
 7. 모든 component 결과를
-   [production-release-evidence.md](./production-release-evidence.md)에 연결하고 한 번만 최종 판정한다.
+   [production-release-evidence.md](./production-release-evidence.md)의 형식으로 모으고 한 번만 최종 판정한다. 단계 배포는
+   그 단계의 결과를 단계 기록으로 쌓고 판정하지 않는다.
 
 ## 사용자에게 받아야 하는 입력
 
@@ -40,12 +60,12 @@
 | External providers | SES, Sentry, Slack account/project/channel과 최소 권한 owner                   |
 | Release control    | release operator, risk owner, rollback owner, previous safe digest             |
 
-값을 추측하거나 임의의 cloud resource를 만들지 않는다. 입력이 없으면 해당 component를
-`PENDING_TARGET`로 유지한다.
+값을 추측하거나 임의의 cloud resource를 만들지 않는다. 입력이 없거나 아직 어느 단계 배포에도 들지 않은
+component는 `PENDING_TARGET`로 유지한다.
 
 ## Mandatory component owners
 
-| Component                                     | Readiness / 실행 owner                                                                           | Actual evidence owner                                                                |
+| Component                                     | Readiness / 실행 owner                                                                           | Evidence owner                                                                       |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | Hosting·registry·ingress·observability backup | [Infrastructure target readiness](./components/infrastructure-target/readiness.md)               | [Infrastructure target evidence](./components/infrastructure-target/evidence.md)     |
 | API secret origin·OIDC release principal      | [API Secrets Manager readiness](./components/api-secrets-manager/readiness.md)                   | [API Secrets Manager evidence](./components/api-secrets-manager/evidence.md)         |
@@ -55,8 +75,8 @@
 | Web Sentry                                    | [Sentry readiness](./components/web-sentry/readiness.md)                                         | [Sentry evidence](./components/web-sentry/evidence.md)                               |
 | Database backup·restore                       | [Backup/restore drill](../operations/database/backup-restore.md)                                 | drill evidence identifier                                                            |
 | Prometheus·Loki·Grafana·Alertmanager          | [Observability operations](../operations/observability/production-stack.md)                      | target evidence와 dashboard/alert evidence identifier                                |
-| Password Reset                                | [Password Reset evidence](./components/auth/password-reset-evidence.md)                          | 같은 문서의 release별 결과                                                           |
-| Signup·credential lifecycle                   | [Credential lifecycle evidence](./components/auth/registration-credential-evidence.md)           | 같은 문서의 release별 결과                                                           |
+| Password Reset                                | [Password Reset evidence](./components/auth/password-reset-evidence.md)                          | 같은 문서의 결과 형식                                                                |
+| Signup·credential lifecycle                   | [Credential lifecycle evidence](./components/auth/registration-credential-evidence.md)           | 같은 문서의 결과 형식                                                                |
 | Stress·capacity                               | [API stress release runbook](../../../docs/runbooks/observability/api-stress-release-runbook.md) | secret-free stress artifact identifier                                               |
 | Slack alert delivery                          | [Slack delivery setup](../operations/observability/slack-delivery.md)                            | delivery smoke identifier                                                            |
 | Slack alert incident                          | [Slack alert troubleshooting](../incidents/observability-alert-delivery.md)                      | incident record identifier                                                           |
@@ -87,11 +107,21 @@ evidence로 복사하지 않는다.
 - migration, role grant, readiness, public metrics guard 또는 필수 component smoke가 실패했다.
 - collector가 신뢰 경계를 넘어 Docker socket을 사용하거나 관측 장애가 제품 요청을 막는다.
 
-단순히 실제 target 입력을 아직 받지 못한 경우에는 중단 실패가 아니라 `PENDING_TARGET`다.
+단계 배포에는 그 단계가 올리거나 바꾸는 구성요소에 위 중단 조건을 모두 적용한다. DB backup/restore, migration, role
+grant는 DB를 들이는 단계부터 적용한다. 최종 release에는 모두 적용한다. 단계 배포가 중단 조건에 걸리면 그 단계의 되돌림
+방법으로 되돌리고 멈춘 조건과 되돌림 결과를 그 실행의 run 요약에 남긴다. 이때 aggregate state를 `BLOCKED`로 바꾸지
+않고(앞선 단계 기록이 있으면 `COLLECTING`, 없으면 `PENDING_TARGET`) final decision은 `PENDING_TARGET`로 둔다.
+
+실제 target 입력을 아직 받지 못했거나 단계 배포가 진행 중이라 최종 판정 입력이 다 모이지 않은 경우에는 중단 실패가
+아니라 `PENDING_TARGET`다.
 
 ## Evidence 작성 원칙
 
-- 실제 값과 결과는 component evidence 및 aggregate evidence에만 기록한다.
+- 실제 값과 결과는 component·aggregate evidence 형식으로
+  [실제 값의 기록 위치](./production-release-evidence.md#실제-값의-기록-위치)에 남긴다. Tracked evidence 문서는
+  template이며 값을 채우지 않는다.
+- 공개 저장소이므로 [식별자 규칙](../../../docs/deploy/README.md#식별자-규칙)이 기록하지 않는 값은 적지 않고
+  "Owner console"이라고 적는다.
 - URL credential, token, cookie, authorization header, verification code, HMAC material을 남기지 않는다.
 - operator, UTC timestamp, commit SHA, immutable digest, risk owner, rollback owner를 기록한다.
 - component 문서는 전체 release의 `GO`를 선언하지 않는다.

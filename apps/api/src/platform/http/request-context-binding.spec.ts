@@ -25,6 +25,7 @@ import { ChatRealtimeRateLimiterService } from '../../chat/realtime/chat-realtim
 import { ChatRealtimeMetricsService } from '../../chat/realtime/chat-realtime.metrics.js';
 import chatRealtimeConfig from '../../chat/realtime/chat-realtime.config.js';
 import { ApiExceptionFilter } from './api-exception.filter.js';
+import { createHttpAdapter } from './http-adapter.js';
 
 const actor = {
   id: 'user-1',
@@ -40,6 +41,10 @@ const realIp = '203.0.113.20';
 const localIp = '127.0.0.1';
 
 // HTTP trust-proxy and chat realtime trust-proxy are independent existing policies.
+// HTTP trust is the adapter option from the env contract: two hops cover every forwarding
+// chain below (socket peer and one forwarding proxy), so the client is the leftmost entry.
+const TRUSTED_HTTP_PROXY_HOPS = 2;
+
 describe.each([
   { httpTrust: false, chatTrust: false },
   { httpTrust: false, chatTrust: true },
@@ -80,11 +85,10 @@ describe.each([
         Reflector,
       ],
     }).compile();
-    app = module.createNestApplication({ logger: false });
-    const server = app.getHttpAdapter().getInstance() as {
-      set(name: string, value: boolean): void;
-    };
-    server.set('trust proxy', httpTrust);
+    app = module.createNestApplication(
+      createHttpAdapter(httpTrust ? TRUSTED_HTTP_PROXY_HOPS : false),
+      { logger: false },
+    );
     app.useGlobalGuards(module.get(AuthenticatedUserGuard));
     app.useGlobalFilters(
       new ApiExceptionFilter(

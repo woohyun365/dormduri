@@ -1,5 +1,5 @@
 {
-  "schema": "knu-codex-hook-policy/v3",
+  "schema": "knu-codex-hook-policy/v4",
   "allowedModels": ["gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol"],
   "allowedRoleModels": {
     "knu_explorer_medium": ["gpt-6-astra"],
@@ -8,9 +8,6 @@
     "knu_researcher_medium": ["gpt-6-astra"],
     "knu_researcher": ["gpt-6-astra", "gpt-6.1-sol"],
     "knu_researcher_xhigh": ["gpt-6-astra", "gpt-6.1-sol"],
-    "knu_executor_medium": ["gpt-6-astra"],
-    "knu_executor": ["gpt-6-astra", "gpt-6.1-sol"],
-    "knu_executor_xhigh": ["gpt-6-astra", "gpt-6.1-sol"],
     "knu_reviewer": ["gpt-6-astra"]
   },
   "roster": [
@@ -20,10 +17,6 @@
     "knu_researcher_medium",
     "knu_researcher",
     "knu_researcher_xhigh",
-    "knu_executor_medium",
-    "knu_executor",
-    "knu_executor_xhigh",
     "knu_reviewer"
-  ],
-  "writerRoles": ["knu_executor_medium", "knu_executor", "knu_executor_xhigh"]
+  ]
 }

@@ -1,0 +1,140 @@
+{
+  "schema": "lifecycle-state-input/v1",
+  "grade": "feature",
+  "artifacts": {
+    "config": { "id": "config", "path": ".htc/config.json" },
+    "prdOverview": {
+      "id": "prd-overview",
+      "path": "docs/product/overview.md",
+      "header": {
+        "status": "owner-confirmed",
+        "confirmedOn": "2026-10-01",
+        "confirmationRef": "#10",
+        "basis": [],
+        "keys": ["상태", "확인일", "확인 근거"]
+      }
+    },
+    "policyDomains": [
+      {
+        "id": "policy:data-retention",
+        "path": "docs/policies/data-retention.md",
+        "header": {
+          "status": "owner-confirmed",
+          "confirmedOn": "2026-10-02",
+          "confirmationRef": "#11",
+          "basis": ["../product/overview.md"],
+          "keys": ["상태", "확인일", "확인 근거", "근거"]
+        }
+      },
+      {
+        "id": "policy:matching",
+        "path": "docs/policies/matching.md",
+        "header": {
+          "status": "owner-confirmed",
+          "confirmedOn": "2026-10-03",
+          "confirmationRef": "#12",
+          "basis": ["../product/overview.md"],
+          "keys": ["상태", "확인일", "확인 근거", "근거"]
+        }
+      }
+    ],
+    "crossCutting": [
+      {
+        "id": "policy:data-retention",
+        "path": "docs/policies/data-retention.md",
+        "header": {
+          "status": "owner-confirmed",
+          "confirmedOn": "2026-10-02",
+          "confirmationRef": "#11",
+          "basis": ["../product/overview.md"],
+          "keys": ["상태", "확인일", "확인 근거", "근거"]
+        }
+      }
+    ],
+    "l1": {
+      "id": "l1",
+      "path": "docs/architecture/README.md",
+      "header": {
+        "status": "owner-confirmed",
+        "confirmedOn": "2026-10-04",
+        "confirmationRef": "#13",
+        "basis": ["../product/overview.md", "../policies/data-retention.md"],
+        "keys": ["상태", "확인일", "확인 근거", "근거"]
+      }
+    },
+    "l2": [
+      {
+        "id": "l2:docs/architecture/decisions/be.md",
+        "path": "docs/architecture/decisions/be.md",
+        "header": {
+          "status": "owner-confirmed",
+          "confirmedOn": "2026-10-05",
+          "confirmationRef": "#14",
+          "basis": ["../README.md"],
+          "keys": ["상태", "확인일", "확인 근거", "근거"]
+        }
+      }
+    ],
+    "pathDomains": {
+      "id": "path-domains",
+      "path": "docs/policies/path-domains.json",
+      "table": {
+        "schema": "lifecycle-path-domains/v1",
+        "confirmedBy": { "status": "owner-confirmed", "date": "2026-10-04", "basis": "#13" },
+        "productRoots": ["apps/**"],
+        "entries": [{ "globs": ["apps/api/src/matching/**"], "domains": ["matching"] }],
+        "noDomain": [{ "globs": ["apps/web/public/**"], "reason": "정적 자산" }],
+        "irreversiblePaths": [
+          {
+            "glob": "apps/api/prisma/migrations/**",
+            "policy": "docs/policies/data-retention.md",
+            "reason": "DB migration"
+          }
+        ]
+      }
+    }
+  },
+  "plan": {
+    "domains": ["matching"],
+    "layers": ["be"],
+    "paths": ["apps/api/src/matching/**"],
+    "readinessPass": { "date": "2026-10-06" },
+    "implementationReady": true,
+    "decisions": [
+      {
+        "id": "be.matching.queue",
+        "irreversible": true,
+        "status": "validated",
+        "ownerConfirmation": { "date": "2026-10-06", "source": "#15" }
+      }
+    ],
+    "visualClaim": true,
+    "designConfirmation": {
+      "source": "#16",
+      "artifact": "apps/web/src/screens/matching",
+      "revision": "0123456789abcdef0123456789abcdef01234567"
+    }
+  },
+  "overrides": [],
+  "changedPaths": ["apps/api/src/matching/service.ts"],
+  "bugfixBasis": null,
+  "policyFindings": [
+    { "check": "W-SCOPE", "level": "pass", "reason": "판정 도메인 선언됨: matching" },
+    { "check": "W-POLICY", "level": "pass", "reason": "owner-confirmed 근거 있음: matching" },
+    { "check": "W-CITE", "level": "pass", "reason": "인용 또는 정책 영향 없음 줄 있음: matching" },
+    { "check": "W-IRREV", "level": "pass", "reason": "feature·정책 변경은 계산하지 않음" },
+    { "check": "L-CONFIRM", "level": "pass", "reason": "경로 표·대응 기록·정책 문서 변경 없음" }
+  ],
+  "areaFindings": [{ "check": "W-AREA", "level": "pass", "reason": "제품 경로 1개, 영역 be" }],
+  "review": {
+    "pass": true,
+    "settled": true,
+    "findings": [
+      { "check": "W-REVIEW", "level": "pass", "reason": "리뷰 PASS r1: PR head와 같음" },
+      { "check": "W-REVIEW", "level": "pass", "reason": "재채점 trigger 경로 변경 없음" },
+      { "check": "W-CAUSE", "level": "pass", "reason": "원인 PR 판정 밖(feature)" }
+    ]
+  },
+  "merged": true,
+  "evidenced": true
+}

@@ -100,7 +100,7 @@ describe('API deployment env artifact', () => {
         ...process.env,
         ...publicRuntimeEnv,
         SECRET_SOURCE: 'aws-secrets-manager',
-        SECRET_NAME_PREFIX: '/knu-roommate/production/api',
+        SECRET_NAME_PREFIX: '/dormduri/production/api',
         API_ENV_MANIFEST_PATH: manifestPath,
       },
     });

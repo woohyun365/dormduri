@@ -22,6 +22,7 @@ import { ChatRealtimePublisher } from './chat-realtime-publisher.js';
 import { ChatRealtimeRateLimiterService } from './chat-realtime-rate-limiter.service.js';
 import { ChatRealtimeMetricsService } from './chat-realtime.metrics.js';
 import { ChatRealtimeTicketService } from './chat-realtime-ticket.service.js';
+import { createHttpAdapter } from '../../platform/http/http-adapter.js';
 
 const origin = 'https://api.example';
 const actor = (token = 'synthetic') => ({
@@ -87,7 +88,7 @@ async function initialize(overrides: Record<string, string | undefined> = {}) {
       Reflector,
     ],
   }).compile();
-  app = module.createNestApplication({ logger: false });
+  app = module.createNestApplication(createHttpAdapter(false), { logger: false });
   const settings = module.get<ConfigType<typeof chatRealtimeConfig>>(chatRealtimeConfig.KEY);
   app.useWebSocketAdapter(new ChatRealtimeIoAdapter(app, settings));
   app.useGlobalGuards(module.get(AuthenticatedUserGuard));

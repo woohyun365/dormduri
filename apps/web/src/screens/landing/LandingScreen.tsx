@@ -1,5 +1,6 @@
 import type { BrandLogoTone } from '@/screens/ui/brand';
 import { LandingFrame, type LandingScheme } from './components/LandingFrame';
+import { LandingVisitAnalytics } from './components/LandingVisitAnalytics';
 import { BeforeSection } from './components/sections/BeforeSection';
 import { ClosingSection } from './components/sections/ClosingSection';
 import { FaqSection } from './components/sections/FaqSection';
@@ -41,6 +42,7 @@ export function LandingScreen({
         <ClosingSection />
       </main>
       <Footer logo={logo} />
+      <LandingVisitAnalytics />
     </LandingFrame>
   );
 }

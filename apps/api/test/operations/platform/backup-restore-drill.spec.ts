@@ -147,7 +147,6 @@ describe('backup and restore drill readiness boundary', () => {
     const dbReadme = readRepoFile('infra/db/README.md');
     const deployReadme = readRepoFile('infra/deploy/README.md');
     const policy = readRepoFile('docs/policies/production-runtime-safety.md');
-    const futureInputs = readRepoFile('docs/development/future-production-deployment-inputs.md');
 
     for (const doc of [dbReadme, policy]) {
       expect(doc).toMatch(/[Bb]ackup\/restore/);
@@ -159,7 +158,6 @@ describe('backup and restore drill readiness boundary', () => {
     expect(dbReadme).toContain('infra/runbooks/operations/database/backup-restore.md');
     expect(deployReadme).toContain('infra/db/README.md');
     expect(deployReadme).not.toContain('.github/workflows/api-restore-drill-manual.yml');
-    expect(futureInputs).toContain('backup/PITR 확인과 restore 승인 owner');
     expect(policy).toContain('api-restore-drill-manual.yml');
     expect(policy).toContain('backup restore 미검증');
   });

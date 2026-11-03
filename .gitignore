@@ -52,8 +52,6 @@ next-env.d.ts
 !.claude/agents/knu_explorer.md
 !.claude/agents/knu_explorer_xhigh.md
 !.claude/agents/knu_researcher.md
-!.claude/agents/knu_executor.md
-!.claude/agents/knu_executor_xhigh.md
 !.claude/agents/knu_reviewer.md
 !.claude/skills/
 .claude/skills/*

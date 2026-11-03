@@ -15,6 +15,12 @@ function formatMessageTime(value: string): string {
   }).format(new Date(value));
 }
 
+// Kept outside the component: React Compiler does not compile a component whose try block holds optional chaining or
+// `??` (value blocks), and this screen is the one it most needs to memoize (each keystroke re-renders the room).
+function createClientMessageId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `chat-${Date.now()}`;
+}
+
 function unavailableMessage(reason: string | null): string {
   switch (reason) {
     case 'THREAD_READ_ONLY':
@@ -64,15 +70,16 @@ export default function ChatRoomView({
       await chatApi.sendMessage({
         targetUserId: thread.counterpartUserId,
         body: body.trim(),
-        clientMessageId: globalThis.crypto?.randomUUID?.() ?? `chat-${Date.now()}`,
+        clientMessageId: createClientMessageId(),
       });
       setBody('');
       await onRefresh();
     } catch {
       setActionError('메시지를 보내지 못했어요. 잠시 후 다시 시도해주세요.');
-    } finally {
-      setSending(false);
     }
+    // After the try/catch instead of `finally`, which React Compiler does not support; the catch handles every error,
+    // so this always runs.
+    setSending(false);
   };
 
   const leave = async () => {
@@ -85,9 +92,8 @@ export default function ChatRoomView({
       onBack();
     } catch {
       setActionError('대화방을 나가지 못했어요. 잠시 후 다시 시도해주세요.');
-    } finally {
-      setLeaving(false);
     }
+    setLeaving(false);
   };
 
   const report = async (input: { reason: ReportReason; detail: string | null }) => {

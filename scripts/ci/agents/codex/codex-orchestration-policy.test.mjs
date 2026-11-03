@@ -700,9 +700,10 @@ test('dispatch re-validates a caller-edited delegation before any spawn advice',
   });
   const [first, second] = base.recommendedChildren;
   const cases = [
+    // Every child role is read-only (D-OSS-35): one caller-edited write-capable child already fails.
     [
-      { ...base, recommendedChildren: [asWriter(first, 'a.ts'), asWriter(second, 'b.ts')] },
-      'delegation can select at most one write-capable child lane.',
+      { ...base, recommendedChildren: [asWriter(first, 'a.ts'), second] },
+      'child contracts are read-only: every child role is read-only and implementation stays with the Lead.',
     ],
     [
       {
@@ -1500,30 +1501,6 @@ test('model context and cohort checks cannot be bypassed by refreshing the scope
   }
 });
 
-test('Sol implementation needs its exact write, regression and Astra QA evidence', () => {
-  const input = modelDispatchInput();
-  const contract = input.delegation.recommendedChildren[0];
-  const model = contract.routeRecommendation.modelRecommendation;
-  model.taskKind = 'implementation';
-  model.role = 'knu_executor';
-  model.request.profileId = 'standard-build';
-  model.profileBinding = createModelProfileBinding(getModelProfile('standard-build'));
-  const id = model.request.verificationFacts.acceptance;
-  model.request.verificationFacts = { acceptance: id, regression: id, astraQa: id };
-  model.recommendedModel = 'gpt-6.1-sol';
-  contract.routeRecommendation.role = 'knu_executor';
-  contract.routeRecommendation.profileId = 'standard-build';
-  contract.boundary.readOnly = false;
-  contract.boundary.writeOwnership = ['apps/web/src/legal/example.test.ts'];
-  contract.allowed.tools = ['repository-read', 'workspace-edit', 'test-runner'];
-  rebindModelScope(input);
-  assert.equal(createDispatchRecommendation(input).execution, 'native-bounded-dispatch');
-  const missingQa = structuredClone(input);
-  delete missingQa.delegation.recommendedChildren[0].routeRecommendation.modelRecommendation.request
-    .verificationFacts.astraQa;
-  assert.throws(() => createDispatchRecommendation(missingQa), TypeError);
-});
-
 function rebindModelScope(input) {
   const contract = input.delegation.recommendedChildren[0];
   contract.modelScopeDigest = createModelScopeDigest(contract);
@@ -1812,10 +1789,9 @@ test('lower model lanes share the ordinary concurrency limit', () => {
 });
 
 test('candidate dispatch revalidates cohort, context and write ownership after a scope rehash', () => {
-  for (const profileId of ['standard-read', 'extract', 'standard-build']) {
+  for (const profileId of ['standard-read', 'extract']) {
     const profile = getModelProfile(profileId);
-    // A build candidate cannot come from a read lane's evidence, so it is converted from the read contract below.
-    const input = modelDispatchInput('pilot', profile.readOnly ? profileId : 'standard-read');
+    const input = modelDispatchInput('pilot', profileId);
     const c = input.delegation.recommendedChildren[0];
     const model = c.routeRecommendation.modelRecommendation;
     model.request.profileId = profileId;
@@ -1825,13 +1801,6 @@ test('candidate dispatch revalidates cohort, context and write ownership after a
     model.request.verificationFacts = Object.fromEntries(
       profile.verificationKeys.map((k) => [k, fact]),
     );
-    if (!profile.readOnly) {
-      model.taskKind = 'implementation';
-      model.role = c.routeRecommendation.role = 'knu_executor';
-      c.routeRecommendation.profileId = profileId;
-      c.boundary.readOnly = false;
-      c.boundary.writeOwnership = ['apps/web/src/legal/example.test.ts'];
-    }
     c.allowed.tools = [...profile.allowedTools];
     rebindModelScope(input);
     const original = createDispatchRecommendation(input);
@@ -1863,14 +1832,12 @@ test('candidate dispatch revalidates cohort, context and write ownership after a
         d.allowed.tools.push('unapproved-tool');
       },
       (d) => {
-        d.boundary.writeOwnership = profile.readOnly ? ['outside.ts'] : [];
+        d.boundary.writeOwnership = ['outside.ts'];
       },
       (d) => {
-        if (profile.readOnly) {
-          d.boundary.readOnly = false;
-          d.boundary.writeOwnership = ['outside.ts'];
-          d.allowed.tools.push('workspace-edit');
-        } else d.allowed.tools = ['repository-read'];
+        d.boundary.readOnly = false;
+        d.boundary.writeOwnership = ['outside.ts'];
+        d.allowed.tools.push('workspace-edit');
       },
     ]) {
       const bad = structuredClone(input);
@@ -2136,8 +2103,8 @@ test('a result-quality failure retries once one rung up on its role and other fa
     ladder('knu_explorer_xhigh', 'elevated-read', 'gpt-6.1-sol'),
   );
   assert.deepEqual(
-    decide({ role: 'knu_executor_xhigh', profileId: 'elevated-build' }, 'unknown').retryRoute,
-    ladder('knu_executor_xhigh', 'deep-build', 'gpt-6-astra'),
+    decide({ role: 'knu_explorer_xhigh', profileId: 'elevated-read' }, 'unknown').retryRoute,
+    ladder('knu_explorer_xhigh', 'astra-fallback', 'gpt-6-astra'),
   );
   // Evidence and tool failures change the approach on the same contract.
   for (const failureCategory of [
@@ -2152,7 +2119,6 @@ test('a result-quality failure retries once one rung up on its role and other fa
     );
   // An Astra lane has no rung above it.
   for (const route of [
-    { role: 'knu_executor', profileId: 'deep-build' },
     { role: 'knu_reviewer', profileId: 'review' },
     { role: 'knu_explorer', profileId: 'astra-fallback' },
   ])
@@ -2200,10 +2166,10 @@ test('a result-quality failure retries once one rung up on its role and other fa
     () =>
       evaluateRecovery({
         laneId,
-        route: { role: 'knu_executor', profileId: 'standard-read' },
+        route: { role: 'knu_reviewer', profileId: 'standard-read' },
         attempts: [],
       }),
-    { name: 'TypeError', message: 'Role knu_executor is not in profile standard-read.' },
+    { name: 'TypeError', message: 'Role knu_reviewer is not in profile standard-read.' },
   );
 });
 

@@ -374,12 +374,6 @@
       "transition": "P4"
     },
     {
-      "file": ".codex/hooks/knu-subagent-hooks.mjs",
-      "text": "'Ignored paths (.artifacts/, .plans/) and paths outside the repository stay writable.',",
-      "category": "message",
-      "transition": "P4"
-    },
-    {
       "file": "scripts/agents/claude/native-session.mjs",
       "text": "if (!path.toLowerCase().startsWith('.artifacts/') || !statSync(target).isDirectory())",
       "category": "path-check",

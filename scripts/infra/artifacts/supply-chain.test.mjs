@@ -94,10 +94,10 @@ test('image pin checks reject unlisted, digest-less and inconsistent references'
   );
   assert.deepEqual(
     extractImageReferences(
-      'compose.web.fixture.yml',
+      'compose.yml',
       [
         `    image: \${WEB_UPSTREAM_IMAGE:-node:24.19.0-alpine@${digest('e')}}`,
-        '    image: knu-roommate-web:${WEB_IMAGE_TAG:-local-rehearsal}',
+        '    image: dormduri-web:${WEB_IMAGE_TAG:-local-rehearsal}',
         '    image: ${INGRESS_FIXTURE_IMAGE:?build the fixture first}',
       ].join('\n'),
     ),
@@ -188,34 +188,12 @@ test('active local, CI and rehearsal surfaces share one PostgreSQL tag and diges
   );
 });
 
-test('local artifact contract has a schema, builder and verifier', () => {
-  for (const path of [
-    '.artifacts/.gitignore',
-    '.artifacts/README.md',
-    'infra/artifacts/artifact-manifest.schema.json',
-    'infra/artifacts/README.md',
-    'scripts/infra/artifacts/build.mjs',
-    'scripts/infra/artifacts/verify-manifest.mjs',
-  ]) {
+// Image SBOM과 provenance는 Web CD가 registry와 GitHub attestation으로 남긴다(web-cd-contract.test.mjs). 저장소에는 local
+// 실행 증거 root만 남는다.
+test('the local artifact root keeps its ignore rules and default tool directory', () => {
+  for (const path of ['.artifacts/.gitignore', '.artifacts/README.md']) {
     assert.equal(existsSync(resolve(repoRoot, path)), true, path);
   }
-
-  const builder = readRepoFile('scripts/infra/artifacts/build.mjs');
   const artifactPaths = readRepoFile('scripts/artifacts/paths.mjs');
-  assert.match(builder, /--provenance=mode=max/u);
-  assert.match(builder, /--sbom=true/u);
-  assert.match(builder, /--output[\s\S]*type=oci/u);
-  assert.match(builder, /extractAttestations/u);
-  assert.match(builder, /workingTreeDirty/u);
-  assert.match(builder, /resolveArtifactPath\(repoRoot, \['build'\]\)/u);
-  assert.doesNotMatch(builder, /\.omx\//u);
-  assert.doesNotMatch(builder, /SENTRY_AUTH_TOKEN=|DATABASE_URL=/u);
-
-  const verifier = readRepoFile('scripts/infra/artifacts/verify-manifest.mjs');
-  assert.match(
-    verifier,
-    /resolveArtifactPath\(repoRoot, \['build', 'artifact-manifest\.json'\]\)/u,
-  );
-  assert.doesNotMatch(verifier, /\.omx\//u);
   assert.match(artifactPaths, /DEFAULT_ARTIFACTS_DIRECTORY = '\.artifacts\/tools'/u);
 });

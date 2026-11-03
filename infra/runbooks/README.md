@@ -7,7 +7,7 @@ secret-free evidence 경계만 기록한다.
 ## 읽기 순서
 
 1. Production release는 [`release/production-release-readiness.md`](./release/production-release-readiness.md)에서 시작한다.
-2. 실제 결과와 최종 판정은 [`release/production-release-evidence.md`](./release/production-release-evidence.md)에만 기록한다.
+2. 실제 결과와 최종 판정은 [`release/production-release-evidence.md`](./release/production-release-evidence.md)의 형식으로 그 문서의 [실제 값의 기록 위치](./release/production-release-evidence.md#실제-값의-기록-위치)에 남긴다.
 3. 일상 운영 절차는 [`operations/`](./operations/)에서 찾는다.
 4. 장애 대응은 [`incidents/`](./incidents/)의 alert/runbook 연결을 따른다.
 5. Local evidence는 [`rehearsal/`](./rehearsal/)에서 생성하며 실제 target evidence로 대체하지 않는다.
@@ -23,6 +23,7 @@ secret-free evidence 경계만 기록한다.
 
 ## 주요 진입점
 
+- Web 단계 배포·재배포·rollback·점검 mode: [`release/web-stage-deploy.md`](./release/web-stage-deploy.md)
 - DB backup·restore: [`operations/database/backup-restore.md`](./operations/database/backup-restore.md)
 - Production observability: [`operations/observability/production-stack.md`](./operations/observability/production-stack.md)
 - Slack delivery 설정: [`operations/observability/slack-delivery.md`](./operations/observability/slack-delivery.md)

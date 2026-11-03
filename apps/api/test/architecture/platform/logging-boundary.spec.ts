@@ -31,6 +31,22 @@ function productionTypeScriptFiles(root: string): string[] {
 }
 
 describe('API logging boundary', () => {
+  // request-route.ts builds log and metric route labels from controller and handler path metadata
+  // only. A global prefix, versioning or RouterModule path would change the registered route
+  // without changing those labels, so adding one must update resolveRouteTemplate first.
+  it('keeps registered routes equal to controller and handler path metadata', () => {
+    const offenders = productionTypeScriptFiles(apiSourceRoot)
+      .filter((path) =>
+        /\.(setGlobalPrefix|enableVersioning)\s*\(|\bRouterModule\.register\b/.test(
+          readFileSync(path, 'utf8'),
+        ),
+      )
+      .map(relativeApiPath)
+      .sort();
+
+    expect(offenders).toEqual([]);
+  });
+
   it('keeps runtime production code off direct console logging', () => {
     const offenders = productionTypeScriptFiles(apiSourceRoot)
       .filter((path) => /\bconsole\s*\./.test(readFileSync(path, 'utf8')))

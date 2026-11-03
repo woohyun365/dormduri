@@ -33,7 +33,7 @@ export function buildJobMetadata(job: ArchiveJobWorkItem): Record<string, unknow
 }
 
 export function buildVaultAad(target: string, sourceId: string) {
-  return `knu-roommate:retained-vault:${target}:v1:${sourceId}`;
+  return `dormduri:retained-vault:${target}:v1:${sourceId}`;
 }
 
 export function toVaultJson(value: unknown): Prisma.InputJsonValue {

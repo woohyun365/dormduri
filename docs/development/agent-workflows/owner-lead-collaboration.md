@@ -87,7 +87,7 @@ Role·effort·count·독립성·one-writer 판정은 기존 [Orchestration](./or
 | ---------------------- | ---------------------------------------------- | ------------------------------------------------------------------------ |
 | 저장소 사실/owner 탐색 | `knu_explorer`                                 | 근거 반환, 최종 설계 결정 아님                                           |
 | 외부 기술 근거         | `knu_researcher`                               | 출처·시점·gap, 최종 채택은 Lead/Owner                                    |
-| FE·BE·DevOps 구현      | Lead 또는 `knu_executor`                       | 지정한 파일/명령; 직군명이 배포 권한을 주지 않음                         |
+| FE·BE·DevOps 구현      | Lead(구현 child 경로 없음)                     | 지정한 파일/명령; 직군명이 배포 권한을 주지 않음                         |
 | QA·보안 검토           | `knu_reviewer`, 별도 권한 있는 test runner     | [QA](./qa.md) owner의 독립 검토/runner 분리                              |
 | Designer·UX·Data 분석  | Lead 또는 기존 역할의 목적에 맞는 bounded 작업 | 실제 입력·권한만 사용; 가상 조사/수치를 실제 사용자 증거로 포장하지 않음 |
 

@@ -13,6 +13,9 @@ omx_wiki/
 # Generated from the API config registry; preserve generator-owned serialization.
 infra/deploy/api/env.manifest.json
 
+# Generated SSM document; its bytes are the AWS document hash that Web CD compares.
+infra/deploy/user/ssm/dormduri-web-deploy.json
+
 # Next.js generated typing artifact; Next rewrites quote style during build.
 **/next-env.d.ts
 

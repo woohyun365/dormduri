@@ -1,14 +1,14 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { HttpAdapterHost } from '@nestjs/core';
-import type { Response } from 'express';
+import type { NodeResponse } from '@nestjs/platform-node';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HealthController } from './health.controller.js';
 import { HealthService } from './health.service.js';
 
 function createResponse() {
   const status = vi.fn().mockReturnThis();
-  return { response: { status } as unknown as Response, status };
+  return { response: { status } as unknown as NodeResponse, status };
 }
 
 describe('HealthController', () => {
@@ -28,7 +28,7 @@ describe('HealthController', () => {
           provide: HttpAdapterHost,
           useValue: {
             httpAdapter: {
-              status: (response: Response, status: number) => response.status(status),
+              status: (response: NodeResponse, status: number) => response.status(status),
             },
           },
         },

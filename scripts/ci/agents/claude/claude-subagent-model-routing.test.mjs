@@ -24,8 +24,6 @@ const roles = {
   knu_explorer: ['Read', 'Grep', 'Glob'],
   knu_explorer_xhigh: ['Read', 'Grep', 'Glob'],
   knu_researcher: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
-  knu_executor: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
-  knu_executor_xhigh: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
   knu_reviewer: ['Read', 'Grep', 'Glob'],
 };
 
@@ -53,37 +51,27 @@ function digestObject(value) {
     .digest('hex')}`;
 }
 
-function inputFor(profileId = 'bounded-standard', kind = 'build') {
+// A retired build task keeps its old shape so the policy can name the retirement.
+function inputFor(profileId = 'bounded-standard', kind = 'read') {
   const envelope = buildTaskEnvelope({
     request: 'scripts/agents/claude 계약을 구현해줘.',
   });
+  const role = kind === 'review' ? 'knu_reviewer' : 'knu_explorer';
   const task = {
     taskId: 'task-h3m-001',
     kind,
     impactRisk: 'medium',
     complexity: 'bounded',
     uncertainty: 'resolved',
-    role: kind === 'build' ? 'knu_executor' : kind === 'review' ? 'knu_reviewer' : 'knu_explorer',
-    allowedTools: [
-      ...roles[
-        kind === 'build' ? 'knu_executor' : kind === 'review' ? 'knu_reviewer' : 'knu_explorer'
-      ],
-    ],
+    role,
+    allowedTools: [...roles[role]],
     readScope: ['scripts/agents/claude'],
     writeScope: kind === 'build' ? ['scripts/agents/claude'] : [],
-    writeOwner: kind === 'build' ? 'executor-h3m' : null,
+    writeOwner: kind === 'build' ? 'builder-h3m' : null,
     childValue: 'independent-verification',
     independent: true,
     knownGaps: [],
-    facts: facts(
-      'source-bound',
-      'bounded-scope',
-      'acceptance',
-      'oracle',
-      'independent-qa',
-      'regression',
-      'one-writer',
-    ),
+    facts: facts('source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'),
   };
   if (profileId === 'bounded-extraction') {
     task.kind = 'extract';
@@ -100,9 +88,6 @@ function inputFor(profileId = 'bounded-standard', kind = 'build') {
       'acceptance',
       'independent-check',
     );
-  }
-  if (kind === 'read' && profileId === 'bounded-standard') {
-    task.facts = facts('source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa');
   }
   if (profileId === 'complex-critical') {
     task.kind = 'review';
@@ -210,7 +195,7 @@ test('finite Claude profiles are lead-selected task candidates, never role pins 
 });
 
 test('eligibility rejects low-model downgrade, role/tool mismatch and child-free work', () => {
-  const valid = inputFor('bounded-standard', 'build');
+  const valid = inputFor('bounded-standard', 'read');
   assert.equal(evaluateClaudeProfileEligibility(valid).eligible, true);
   for (const mutate of [
     (x) => {
@@ -226,7 +211,7 @@ test('eligibility rejects low-model downgrade, role/tool mismatch and child-free
       x.task.role = 'knu_reviewer';
     },
     (x) => {
-      x.task.writeOwner = null;
+      x.task.writeOwner = 'builder-h3m';
     },
     (x) => {
       x.task.childValue = 'none';
@@ -238,7 +223,7 @@ test('eligibility rejects low-model downgrade, role/tool mismatch and child-free
       x.task.knownGaps = ['missing oracle'];
     },
     (x) => {
-      x.task.facts = x.task.facts.filter(({ key }) => key !== 'regression');
+      x.task.facts = x.task.facts.filter(({ key }) => key !== 'oracle');
     },
     (x) => {
       x.task.facts[0].confidence = 'low';
@@ -261,18 +246,16 @@ test('eligibility rejects low-model downgrade, role/tool mismatch and child-free
   malformed.task.facts = [null];
   assert.doesNotThrow(() => evaluateClaudeProfileEligibility(malformed));
   assert.equal(evaluateClaudeProfileEligibility(malformed).eligible, false);
-  const understatedBuild = inputFor();
-  understatedBuild.task.allowedTools = understatedBuild.task.allowedTools.filter(
-    (tool) => tool !== 'Bash',
-  );
-  assert.equal(evaluateClaudeProfileEligibility(understatedBuild).eligible, false);
+  const understated = inputFor();
+  understated.task.allowedTools = understated.task.allowedTools.filter((tool) => tool !== 'Glob');
+  assert.equal(evaluateClaudeProfileEligibility(understated).eligible, false);
 });
 
 test('neutral intake authority and risk cannot be expanded or downgraded', () => {
-  const analysis = inputFor();
+  const analysis = inputFor('complex-critical');
   analysis.envelope = buildTaskEnvelope({ request: '현재 코드를 분석해줘.' });
   assert.equal(analysis.envelope.authorizedAction, 'produce-analysis');
-  assert.equal(evaluateClaudeProfileEligibility(analysis).eligible, false);
+  assert.deepEqual(evaluateClaudeProfileEligibility(analysis).reasons, ['review-not-authorized']);
   const risky = inputFor('bounded-extraction');
   risky.envelope = buildTaskEnvelope({ request: '보안 로그를 분석해줘.' });
   assert.equal(risky.envelope.risk, 'high');
@@ -283,13 +266,12 @@ test('neutral intake authority and risk cannot be expanded or downgraded', () =>
 });
 
 test('Opus baseline covers bounded complex/high-risk/uncertain tasks, not only review', () => {
-  const highRiskBuild = inputFor('bounded-standard', 'build');
-  highRiskBuild.profileId = 'complex-critical';
-  highRiskBuild.task.impactRisk = 'high';
-  highRiskBuild.task.complexity = 'complex';
-  highRiskBuild.task.role = 'knu_executor_xhigh';
-  assert.equal(evaluateClaudeProfileEligibility(highRiskBuild).eligible, true);
-  assert.equal(createClaudeSubagentBinding(highRiskBuild).requestedModelAlias, 'opus');
+  const highRiskRead = inputFor('bounded-standard', 'read');
+  highRiskRead.profileId = 'complex-critical';
+  highRiskRead.task.impactRisk = 'high';
+  highRiskRead.task.complexity = 'complex';
+  assert.equal(evaluateClaudeProfileEligibility(highRiskRead).eligible, true);
+  assert.equal(createClaudeSubagentBinding(highRiskRead).requestedModelAlias, 'opus');
 
   const uncertainRead = inputFor('bounded-standard', 'read');
   uncertainRead.profileId = 'complex-critical';
@@ -301,51 +283,6 @@ test('Opus baseline covers bounded complex/high-risk/uncertain tasks, not only r
   assert.equal(evaluateClaudeProfileEligibility(ordinaryRead).eligible, true);
   ordinaryRead.task.impactRisk = 'high';
   assert.equal(evaluateClaudeProfileEligibility(ordinaryRead).eligible, false);
-
-  const verifiedBuild = inputFor('bounded-standard', 'build');
-  assert.ok(verifiedBuild.task.allowedTools.includes('Bash'));
-  assert.equal(evaluateClaudeProfileEligibility(verifiedBuild).eligible, true);
-});
-
-// Effort comes from the role file, so the policy picks the effort tier through the executor role.
-function executorBuild(profileId, impactRisk, complexity, role) {
-  const input = inputFor('bounded-standard', 'build');
-  input.profileId = profileId;
-  Object.assign(input.task, { impactRisk, complexity, role, allowedTools: [...roles[role]] });
-  return evaluateClaudeProfileEligibility(input);
-}
-
-test('high-risk builds require the xhigh executor and the variant stays an Opus build role', () => {
-  const tier = (...args) => executorBuild(...args).reasons;
-  assert.deepEqual(tier('complex-critical', 'high', 'complex', 'knu_executor_xhigh'), []);
-  assert.deepEqual(tier('complex-critical', 'high', 'bounded', 'knu_executor_xhigh'), []);
-  assert.deepEqual(tier('complex-critical', 'high', 'complex', 'knu_executor'), ['effort-tier']);
-  // Recovery may escalate a non-high-risk complex build from Opus high to Opus xhigh.
-  assert.deepEqual(tier('complex-critical', 'medium', 'complex', 'knu_executor_xhigh'), []);
-  assert.deepEqual(tier('complex-critical', 'medium', 'complex', 'knu_executor'), []);
-  assert.ok(
-    tier('bounded-standard', 'medium', 'bounded', 'knu_executor_xhigh').includes('effort-tier'),
-  );
-  assert.deepEqual(tier('bounded-standard', 'medium', 'bounded', 'knu_executor'), []);
-
-  const read = inputFor('bounded-standard', 'read');
-  read.profileId = 'complex-critical';
-  read.task.uncertainty = 'uncertain';
-  Object.assign(read.task, {
-    role: 'knu_executor_xhigh',
-    allowedTools: [...roles.knu_executor_xhigh],
-  });
-  assert.ok(evaluateClaudeProfileEligibility(read).reasons.includes('effort-tier'));
-
-  const unowned = inputFor('bounded-standard', 'build');
-  unowned.profileId = 'complex-critical';
-  Object.assign(unowned.task, {
-    impactRisk: 'high',
-    role: 'knu_executor_xhigh',
-    writeScope: [],
-    writeOwner: null,
-  });
-  assert.ok(evaluateClaudeProfileEligibility(unowned).reasons.includes('write-owner'));
 });
 
 test('Sonnet bounded-standard admits the same fixed extraction as the Haiku profile', () => {
@@ -378,7 +315,7 @@ test('the capability table lists effortless exact IDs and holds any other ID to 
 });
 
 // The xhigh explorer is the only extraction role. Outside a bound retry from bounded-extraction it
-// is refused like the xhigh executor, and it never takes a repository read.
+// is refused, and it never takes a repository read.
 function explorerTask(profileId, role, kind = 'extract') {
   const input = inputFor('bounded-extraction');
   input.envelope = buildTaskEnvelope({ request: '현재 코드를 분석해줘.' });
@@ -568,11 +505,6 @@ test('task admission binds current task/source/config/scope/permission/QA and re
       x.current.envelopeDigest = `sha256:${'a'.repeat(64)}`;
     },
     (x) => {
-      x.current.writerInventory.active = [
-        { owner: 'other-writer', writeScope: ['scripts/agents'] },
-      ];
-    },
-    (x) => {
       x.current.writerInventory.status = 'unknown';
     },
     (x) => {
@@ -621,11 +553,6 @@ test('task admission binds current task/source/config/scope/permission/QA and re
   const denied = structuredClone(base);
   denied.runtime.permission = 'denied';
   assert.equal(assessClaudeSubagentAdmission(denied).reason, 'permission-denied');
-  const conflict = structuredClone(base);
-  conflict.current.writerInventory.active = [
-    { owner: 'other-writer', writeScope: ['scripts/agents/claude'] },
-  ];
-  assert.equal(assessClaudeSubagentAdmission(conflict).reason, 'writer-conflict');
 });
 
 test('a caller-rehashed binding cannot bypass task/profile eligibility', () => {
@@ -670,7 +597,7 @@ test('observation separates requested/resolved/observed and cannot grant live PA
   assert.equal(compatible.decision, 'compatible-static');
   assert.equal(compatible.liveQualified, false);
   for (const patch of [
-    { role: 'knu_explorer' },
+    { role: 'knu_researcher' },
     { observedModel: 'unknown' },
     { observedModel: null },
     { resolvedModel: 'claude-opus-substituted' },
@@ -833,7 +760,7 @@ test('qualification matrix leaves every native candidate and failure path not-ru
 
 // A registry-bound recovery travels in the task and the binding, so every recomputation agrees.
 function recoveryInput(recovery) {
-  const input = inputFor('bounded-standard', 'build');
+  const input = inputFor('bounded-standard', 'read');
   input.profileId = 'complex-critical';
   if (recovery !== undefined) input.task.recovery = recovery;
   return input;
@@ -843,7 +770,7 @@ const STEP_ONE = {
   cause: 'result-error',
   step: 1,
   fromProfileId: 'bounded-standard',
-  fromRole: 'knu_executor',
+  fromRole: 'knu_explorer',
 };
 
 test('an unbound binding carries recovery null; a ladder step lifts only the critical signal', () => {
@@ -851,20 +778,62 @@ test('an unbound binding carries recovery null; a ladder step lifts only the cri
   assert.deepEqual(evaluateClaudeProfileEligibility(recoveryInput()).reasons, ['critical-signal']);
   assert.equal(evaluateClaudeProfileEligibility(recoveryInput(STEP_ONE)).eligible, true);
   for (const recovery of [
-    { ...STEP_ONE, step: 2 },
-    { ...STEP_ONE, fromRole: 'knu_explorer' },
+    { ...STEP_ONE, fromRole: 'knu_researcher' },
     { ...STEP_ONE, fromProfileId: 'complex-critical' },
   ])
     assert.ok(
       evaluateClaudeProfileEligibility(recoveryInput(recovery)).reasons.includes('critical-signal'),
       JSON.stringify(recovery),
     );
-  for (const recovery of [{ ...STEP_ONE, cause: 'quota' }, { ...STEP_ONE, extra: true }, null])
+  for (const recovery of [
+    { ...STEP_ONE, step: 2 },
+    { ...STEP_ONE, cause: 'quota' },
+    { ...STEP_ONE, extra: true },
+    null,
+  ])
     assert.deepEqual(
       evaluateClaudeProfileEligibility(recoveryInput(recovery)).reasons,
       ['invalid-input'],
       JSON.stringify(recovery),
     );
+});
+
+// Implementation is the Parent's own work (D-OSS-35): the ladder keeps the same-role step 1 and loses the
+// executor step 2, and the policy names the retirement for a build task.
+test('executor retirement: recovery keeps the same-role step 1 and has no executor step 2', () => {
+  const step = policy.claudeRecoveryStep;
+  assert.equal(
+    step(
+      { profileId: 'complex-critical', role: 'knu_executor', kind: 'build' },
+      { profileId: 'complex-critical', role: 'knu_executor_xhigh', kind: 'build' },
+    ),
+    null,
+  );
+  for (const role of ['knu_explorer', 'knu_researcher'])
+    assert.equal(
+      step(
+        { profileId: 'bounded-standard', role, kind: 'read' },
+        { profileId: 'complex-critical', role, kind: 'read' },
+      ),
+      1,
+      role,
+    );
+  const retry = inputFor('bounded-standard', 'read');
+  retry.profileId = 'complex-critical';
+  retry.task.recovery = {
+    of: '00000000-0000-4000-8000-000000000001',
+    cause: 'result-error',
+    step: 1,
+    fromProfileId: 'bounded-standard',
+    fromRole: 'knu_explorer',
+  };
+  assert.equal(evaluateClaudeProfileEligibility(retry).eligible, true);
+  retry.task.recovery = { ...retry.task.recovery, step: 2, fromProfileId: 'complex-critical' };
+  assert.deepEqual(evaluateClaudeProfileEligibility(retry).reasons, ['invalid-input']);
+  assert.deepEqual(
+    evaluateClaudeProfileEligibility(inputFor('bounded-standard', 'build')).reasons,
+    ['implementation-retired'],
+  );
 });
 
 test('a step-1 recovery binding passes admission and observation; static exchange stays reviewer-only', () => {
@@ -913,4 +882,100 @@ test('a step-1 recovery binding passes admission and observation; static exchang
     }).reason,
     'invalid-input',
   );
+});
+
+// OSS-RETIRE PR ② (D-RET-3·8): the researcher is the light official-source research role. It takes
+// read and extract on bounded-standard, and with no write scope its request-risk comparison is capped at
+// medium. Explorer and writing tasks keep the intake risk.
+const DEPLOY_REQUEST = '배포 대상 Node 공식 문서의 지원 기간 근거를 분석해줘.';
+const PRICE_REQUEST = 'AWS 공식 가격 페이지의 Lightsail 월 요금 근거를 조사해줘.';
+const KIND_FACTS = {
+  extract: [
+    'source-bound',
+    'fixed-input',
+    'single-step',
+    'output-schema',
+    'acceptance',
+    'independent-check',
+  ],
+  read: ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'],
+};
+function researchInput({
+  request = PRICE_REQUEST,
+  profileId = 'bounded-standard',
+  kind = 'extract',
+  role = 'knu_researcher',
+  impactRisk = 'low',
+  sourceRef = 'plan:executor-retirement/5.3',
+  recovery,
+} = {}) {
+  const input = inputFor('bounded-standard', 'read');
+  input.envelope = buildTaskEnvelope({ request });
+  input.profileId = profileId;
+  input.selectionBasisRef = 'plan:executor-retirement/5.3';
+  Object.assign(input.task, {
+    kind,
+    impactRisk,
+    role,
+    allowedTools: [...roles[role]],
+    readScope: ['docs/development/agent-workflows/qa.md'],
+    childValue: 'independent-research',
+    facts: KIND_FACTS[kind].map((key) => ({ key, sourceRef, confidence: 'high' })),
+  });
+  if (recovery !== undefined) input.task.recovery = recovery;
+  return input;
+}
+const reasonsOf = (patch) => evaluateClaudeProfileEligibility(researchInput(patch)).reasons;
+
+test('a researcher takes read and extract on bounded-standard and climbs ladder step 1 in both (D-RET-3)', () => {
+  // The D2.5b-PR1 shape: an official price lookup whose URL the Lead fixed in the prompt.
+  assert.deepEqual(reasonsOf({ kind: 'extract' }), []);
+  assert.deepEqual(reasonsOf({ kind: 'read' }), []);
+  for (const kind of ['extract', 'read']) {
+    const from = { profileId: 'bounded-standard', role: 'knu_researcher', kind };
+    const to = { profileId: 'complex-critical', role: 'knu_researcher', kind };
+    assert.equal(policy.claudeRecoveryStep(from, to), 1, kind);
+    const retry = {
+      of: '00000000-0000-4000-8000-000000000001',
+      cause: 'result-error',
+      step: 1,
+      fromProfileId: 'bounded-standard',
+      fromRole: 'knu_researcher',
+    };
+    assert.deepEqual(reasonsOf({ kind, profileId: 'complex-critical', recovery: retry }), [], kind);
+  }
+});
+
+test('the extraction roles, the fact reference rule and the explorer kinds stay as they were (D-RET-3)', () => {
+  // A fact sourceRef names the reference that fixed the URL; the URL itself is refused there.
+  assert.deepEqual(reasonsOf({ sourceRef: 'https://aws.amazon.com/lightsail/pricing/' }), [
+    'invalid-input',
+  ]);
+  assert.deepEqual(reasonsOf({ kind: 'extract', role: 'knu_explorer' }), []);
+  assert.deepEqual(
+    reasonsOf({ kind: 'extract', role: 'knu_explorer_xhigh', profileId: 'bounded-extraction' }),
+    [],
+  );
+  // The reviewer still takes only review.
+  assert.ok(reasonsOf({ kind: 'extract', role: 'knu_reviewer' }).includes('kind-role'));
+});
+
+test('research with no write scope compares the request risk capped at medium (D-RET-8)', () => {
+  const deploy = (patch) => reasonsOf({ request: DEPLOY_REQUEST, kind: 'read', ...patch });
+  assert.equal(buildTaskEnvelope({ request: DEPLOY_REQUEST }).risk, 'high');
+  assert.equal(buildTaskEnvelope({ request: DEPLOY_REQUEST }).intent, 'analyze');
+  assert.deepEqual(deploy({ impactRisk: 'medium' }), []);
+  assert.deepEqual(deploy({ impactRisk: 'low' }), ['risk-downgrade']);
+  assert.deepEqual(deploy({ impactRisk: 'high' }), ['impact-risk']);
+  assert.deepEqual(deploy({ impactRisk: 'high', profileId: 'complex-critical' }), []);
+  assert.deepEqual(deploy({ kind: 'extract', impactRisk: 'medium' }), []);
+  // The explorer keeps the intake risk.
+  assert.deepEqual(deploy({ role: 'knu_explorer', impactRisk: 'medium' }), ['risk-downgrade']);
+  // A binding made under the cap still validates, so admission keeps it a candidate.
+  const capped = candidate(
+    researchInput({ request: DEPLOY_REQUEST, kind: 'read', impactRisk: 'medium' }),
+  );
+  assert.equal(capped.binding.envelopeRisk, 'high');
+  assert.equal(capped.binding.impactRisk, 'medium');
+  assert.equal(capped.result.decision, 'candidate', JSON.stringify(capped.result));
 });

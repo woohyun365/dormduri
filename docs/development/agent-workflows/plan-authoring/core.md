@@ -209,6 +209,17 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
 
 빈 heading을 채우기 위해 내용을 발명하지 않습니다. 적용되지 않는 항목은 이유와 함께 생략합니다.
 
+첫 화면과 결정 칸은 다음처럼 가볍게 유지합니다.
+
+- Header(첫 fence 밖 `## ` 줄 앞)에는 Plan ID·Document type·Status·Parent·선후행·owner·evidence 위치와 판정
+  (`Evidence: required | not-applicable`. 판정 절차 문서는 `AGENTS.md` §4가 가리키므로 경로를 적지 않습니다)·원천과
+  결정 근거·Owner 원문 링크·작성 기준·범위 요약만 둡니다. 필드에는 지금 값과 링크만 적습니다.
+- Status는 `- Status: <lifecycle 값> — <현재 상태>. 다음: <다음 실행 단위>` 한 줄입니다. 하위 bullet 없이 고쳐 쓰고,
+  현재 상태에는 지금 phase와(있으면) 그 readiness PASS 날짜를 둡니다.
+- 결정 칸에는 지금 유효한 규칙만 둡니다. 뒤 결정이 바꾸면 결정 칸을 고쳐 쓰고 근거 칸에 바꾼 결정 id만 적습니다. 날짜
+  주석을 달지 않고 결정 id와 ①② 번호는 바꾸지 않습니다.
+- 취소·대체 종료 필드는 [Lifecycle 디렉터리와 이동](../session-continuity.md#lifecycle-디렉터리와-이동)을 따릅니다.
+
 구현·리뷰 기준: [swe.md S1](../review-criteria/swe.md#s1-요구사항intentinvariant-부합)
 
 ### Structural change impact inventory
@@ -265,13 +276,16 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
    - `advisory-policy`: 문서 지침이며 runtime 강제가 아님
    - `model-mediated`: agent가 evidence를 바탕으로 판단
    - `native-runtime`: 현재 host/runtime/provider가 실행 시 강제 (Codex·OMX는 해당 adapter의 예)
+   - `human-judgment`: 뜻·확인 주체·기록은 [lifecycle state machine](../lifecycle-state-machine.md#확인-주체와-강도), plan에서
+     쓰는 claim은 [Frontend plan authoring](./frontend.md#visual-and-component-boundary)
 6. proposed 계획의 미실행 acceptance는 unchecked `required`로 유지합니다. Evidence가 없는 항목을 passed 또는 완료
    checkbox로 표현하지 않습니다.
 7. tracked source를 수정하는 단계는 complete Phase contract를 가지거나 같은 계획의 explicit shared owner table을
    참조해야 합니다.
 8. 구현 결과를 바꾸는 blocking OQ가 없고, 비차단 gap은 owner·필요 evidence·revisit trigger를 가집니다.
 9. 새로 작성하는 계획은 [Plan references](./references.md) 검사 위반이 0입니다. 이 문법 전부터 있던 계획은
-   `--report-only` 건수를 기록하고 고친 참조부터 문법을 따릅니다. Readiness reviewer가 검사 출력으로 확인합니다
+   `--report-only` 건수를 기록하고 고친 참조부터 문법을 따릅니다. Readiness reviewer([계획 리뷰 등급](../session-continuity.md#계획-초안-staging과-promote)
+   P3)가 검사 출력으로 확인합니다
    (`model-mediated`).
 10. Plan이 고정하는 비가역 결정(pack 규칙. Pack 밖 결정은 plan이 비가역 여부를 적습니다)마다 Owner 명시 확인(질문 도구 답
     또는 사용자 입력 원문)이 있고 상태가 `validated`입니다. `unknown`·`provisional`이면 승격하지 않습니다
@@ -279,6 +293,7 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
 
 계획이 커질 때 invariant는 durable owner에 once 기록하고 plan에서는 link합니다. 같은 결정·행렬을 여러 Phase에
 복사하지 않으며, current code와 drift가 발견되면 구현 전에 baseline과 영향받는 Phase만 갱신합니다.
+선행·순서·Owner 결정 방식처럼 여러 절이 쓰는 관계도 owner 절 하나에만 값을 적고 다른 절은 그 절을 가리킵니다.
 
 ### Normalized readiness evidence
 
@@ -311,6 +326,8 @@ authority가 생기지 않습니다.
 - 서로 독립적으로 review·검증·rollback 가능한 PR unit
 - direct `dev`·`main` mutation 금지와 existing working-tree 보호
 - provider·credential·production처럼 branch 밖에서 승인할 external gate
+- `dev` 대상 PR과 `main` 승격의 issue 연결·종료 규칙은 [GitHub collaboration guide](../../github/collaboration.md#pull-request)를
+  따릅니다.
 
 Plan 작성 자체는 implementation 권한이 아니므로 branch 생성을 강제하지 않습니다. 구현이 시작될 때 branch preflight를
 실행합니다. 여러 단계의 계획을 하나의 long-lived branch에 누적하지 않고 dependent unit은 선행 PR merge 후 fresh
@@ -336,10 +353,13 @@ checkpoint fields
 ```
 
 - dependency가 있는 단계를 병렬로 위장하지 않습니다.
-- behavior가 보호되지 않은 cleanup/refactor는 regression test를 먼저 둡니다.
+- behavior가 보호되지 않은 cleanup/refactor는 지금 있는 그 behavior의 regression test를 먼저 둡니다.
 - Phase 0은 필요할 때 policy/contract/red guard/baseline을 고정합니다.
 - 웹 조사, metric 축적 대기, account 생성 대기는 implementation Phase로 만들지 않습니다.
 - 완료는 phase label이 아니라 observable outcome과 fresh verification으로 판정합니다.
+- Phase의 구현 내용은 결정(무엇을, 왜)으로 적고 코드 본문은 알고리즘과 원천에서 고정한 문구에만 둡니다. 시각 품질 claim의
+  탐색 단계는 의도한 예외로, 방향을 확정하기 전에는 구현 결정 대신 회차 기록을 둡니다
+  ([Frontend plan authoring](./frontend.md#visual-and-component-boundary)).
 
 ## 10. Verification matrix
 
@@ -353,6 +373,10 @@ checkpoint fields
 | runtime or migration safe                 | fresh baseline + rehearsal/migration evidence       |
 | user journey works                        | component/Storybook/E2E as applicable               |
 | release ready                             | target-specific evidence, not local rehearsal alone |
+| visual quality accepted                   | `W-DESIGN` 확정 기록                                |
+
+시각 품질 확정 기록과 확인 주체는 [lifecycle state machine](../lifecycle-state-machine.md#확인-주체와-강도)의 `W-DESIGN`이
+소유하고, 판정 규칙은 [Frontend plan authoring](./frontend.md#visual-and-component-boundary)이 소유합니다.
 
 Targeted test를 먼저 실행하고 영향 범위에 따라 lint, typecheck, build, static analysis, E2E를 확장합니다.
 

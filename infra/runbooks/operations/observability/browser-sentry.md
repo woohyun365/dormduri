@@ -6,30 +6,28 @@ Sentry는 Web browser runtime error, unexpected Next.js server/edge exception, s
 
 ## Account-free 구현 검증
 
-외부 계정·DSN·token 없이 다음 명령을 실행한다.
-
-```bash
-pnpm web:sentry:rehearsal
-```
-
-이 검증은 다음을 확인한다.
+외부 계정·DSN·token 없이 Web CI가 Web lane PR마다 검증한다(unit gate의 `src/observability/sentry/__tests__` 등, static/build
+gate의 `pnpm web:sentry:verify-build`). 이 검증은 다음을 확인한다.
 
 - client/node/edge 설정 선택과 production evidence gate
 - privacy scrub, 같은 Error 중복 방지, provider rejection fail-open
 - performance 0/10%/100% sampling과 bounded route group
 - Sentry SDK 외부 feature import 금지
 - upload-disabled production build와 public source map 부재
-- Storybook 정적 산출물에 외부 Sentry intake 설정이 없는 상태
-- Docker Engine 2CPU/4GB envelope 정보와 local resource snapshot
+
+Storybook 정적 산출물에 외부 Sentry intake 설정이 없는지는 자동 검사가 없다. Web CI는 Storybook 소유 변경에서만 Storybook을
+build하고 그 산출물을 검사하지 않는다.
 
 이 결과는 managed intake나 source-map symbolication 성공을 의미하지 않는다.
 
-### 현재 local baseline
+### 도입 때 측정값(기록)
+
+Sentry를 도입할 때 잰 값이다. 그때 쓴 OrbStack Web Sentry rehearsal은 지웠고, 같은 값을 다시 재는 명령은 없다.
 
 - 기준 commit `95b976b6` client static JS: raw `2,229,123B`, gzip `634,355B`
 - Sentry 구현 working tree: raw `2,462,664B`, gzip `706,948B`
 - 변화: raw `+233,541B` (`+10.48%`), gzip `+72,593B` (`+11.44%`)
-- OrbStack 2CPU/4GB rehearsal: `30.14s`, focused 57 tests와 build·Storybook·standalone smoke 통과
+- 그때의 OrbStack 2CPU/4GB rehearsal: `30.14s`, focused 57 tests와 build·Storybook·standalone smoke 통과
 
 이 값은 전체 `.next/static` JS 합계이며 특정 route의 initial transfer 크기와 같지 않다. Managed performance sample은 초기 10%로 시작하고 quota 압박이나 INP regression이 확인되면 performance sample을 먼저 낮춘다.
 
@@ -47,7 +45,7 @@ pnpm web:sentry:rehearsal
 | `NEXT_PUBLIC_WEB_RELEASE`                      | `development` | immutable release ID              |
 | `NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT`    |       `local` | local/preview/production          |
 
-`NEXT_PUBLIC_SENTRY_LOCAL_RECORDING`과 `NEXT_PUBLIC_SENTRY_RECORDING_TRANSPORT_REJECT`는 test/rehearsal 전용이며 production에서 사용하지 않는다.
+`NEXT_PUBLIC_SENTRY_LOCAL_RECORDING`과 `NEXT_PUBLIC_SENTRY_RECORDING_TRANSPORT_REJECT`는 test 전용이며 production에서 사용하지 않는다.
 
 ## Build·CI secret 경계
 

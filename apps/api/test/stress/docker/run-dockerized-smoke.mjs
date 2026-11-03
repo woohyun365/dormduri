@@ -47,18 +47,17 @@ const authPasswordCapacityRun = process.env.STRESS_DOCKER_AUTH_PASSWORD_CAPACITY
 const authPasswordCapacityProfile = process.env.STRESS_AUTH_CAPACITY_PROFILE || 'h1';
 const localRehearsalRun = process.env.STRESS_DOCKER_LOCAL_REHEARSAL === 'true';
 const targetUrl = process.env.STRESS_TARGET_URL || 'http://127.0.0.1:8080';
-const dockerProjectName = process.env.STRESS_DOCKER_COMPOSE_PROJECT || 'knu-roommate-api';
+const dockerProjectName = process.env.STRESS_DOCKER_COMPOSE_PROJECT || 'dormduri-api';
 const observabilityProjectName =
-  process.env.STRESS_OBSERVABILITY_COMPOSE_PROJECT || 'knu-roommate-observability';
-const observabilityNetwork = process.env.OBSERVABILITY_NETWORK || 'knu-roommate-observability';
-const postgresContainerName =
-  process.env.STRESS_POSTGRES_CONTAINER_NAME || 'knu-roommate-postgres-dev';
+  process.env.STRESS_OBSERVABILITY_COMPOSE_PROJECT || 'dormduri-observability';
+const observabilityNetwork = process.env.OBSERVABILITY_NETWORK || 'dormduri-observability';
+const postgresContainerName = process.env.STRESS_POSTGRES_CONTAINER_NAME || 'dormduri-postgres-dev';
 const localDatabaseUrl =
   process.env.STRESS_LOCAL_DATABASE_URL ||
-  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
+  'postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public';
 const containerDatabaseUrl =
   process.env.STRESS_CONTAINER_DATABASE_URL ||
-  'postgresql://knu_dev:knu_dev_password@host.docker.internal:5432/knu_roommate?schema=public';
+  'postgresql://dormduri_dev:dormduri_dev_password@host.docker.internal:5432/dormduri?schema=public';
 const metricsToken =
   process.env.STRESS_DOCKER_METRICS_TOKEN || readOrCreateMetricsToken(localEnvFile);
 const timestamp = new Date().toISOString().replace(/[:.]/gu, '-');
@@ -70,6 +69,12 @@ const runId =
     : productionLikeRun
       ? `production-like-${timestamp}`
       : `docker-smoke-${timestamp}`);
+const localLabelsComposeFile = 'apps/api/test/stress/docker/compose.local-labels.yml';
+// Label values for the API image this runner builds (compose.local-labels.yml). The image keeps the fixed API_IMAGE_TAG,
+// so its run-id label stays `local`: a per-run value would give every unchanged rebuild a new image ID and leave the
+// previous one untagged. The fixed-name project volumes stay unlabeled for the same reason (local-environments.md).
+process.env.LOCAL_RESOURCE_CREATED_BY = 'apps/api/test/stress/docker/run-dockerized-smoke.mjs';
+process.env.LOCAL_RESOURCE_RUN_ID = 'local';
 const defaultReportName = authPasswordCapacityRun
   ? `api-auth-password-capacity-result-${timestamp}.md`
   : productionLikeRun
@@ -573,6 +578,7 @@ function buildApiComposeArgs(...extraArgs) {
     ...buildComposeArgs(composeInventory, profileName, extraArgs, {
       repoRoot,
       projectName: dockerProjectName,
+      extraFiles: [localLabelsComposeFile],
     }),
   ];
 }
@@ -722,9 +728,9 @@ function capturePostgresSnapshot(name, env) {
       postgresContainerName,
       'psql',
       '-U',
-      'knu_dev',
+      'dormduri_dev',
       '-d',
-      'knu_roommate',
+      'dormduri',
       '-Atc',
       query,
     ],
@@ -741,9 +747,9 @@ function captureH9AuthSecurityEventSnapshot(env) {
       postgresContainerName,
       'psql',
       '-U',
-      'knu_dev',
+      'dormduri_dev',
       '-d',
-      'knu_roommate',
+      'dormduri',
       '-Atc',
       `select "type"::text, count(*)::text from "AuthSecurityEvent" where "type" in ('LOGIN_FAILURE', 'LOGIN_LOCKOUT') group by "type" order by "type"`,
     ],
@@ -795,9 +801,9 @@ function captureMarkerResidue(name, env) {
       postgresContainerName,
       'psql',
       '-U',
-      'knu_dev',
+      'dormduri_dev',
       '-d',
-      'knu_roommate',
+      'dormduri',
       '-Atc',
       query,
     ],

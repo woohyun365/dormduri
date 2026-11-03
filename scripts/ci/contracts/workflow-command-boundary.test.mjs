@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
@@ -11,6 +11,40 @@ function read(path) {
 
 function readPackage(path) {
   return JSON.parse(read(path)).scripts;
+}
+
+// pnpm runs package scripts with sh, which expands an unquoted `**` like `*`, one directory level deep (#660). A recursive
+// glob reaches its tool only when it is quoted.
+function unquotedGlobstars(command) {
+  const offsets = [];
+  let quote = null;
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command[index];
+    if (quote) {
+      if (character === quote) quote = null;
+      else if (character === '\\' && quote === '"') index += 1;
+    } else if (character === '\\') {
+      index += 1;
+    } else if (character === "'" || character === '"') {
+      quote = character;
+    } else if (character === '*' && command[index + 1] === '*') {
+      offsets.push(index);
+      index += 1;
+    }
+  }
+  return offsets;
+}
+
+function workspacePackagePaths() {
+  return [
+    'package.json',
+    ...['apps', 'packages'].flatMap((directory) =>
+      readdirSync(resolve(repoRoot, directory), { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => `${directory}/${entry.name}/package.json`)
+        .filter((path) => existsSync(resolve(repoRoot, path))),
+    ),
+  ];
 }
 
 function scriptValue(scripts, key) {
@@ -78,6 +112,26 @@ const rootScripts = readPackage('package.json');
 const apiScripts = readPackage('apps/api/package.json');
 const webScripts = readPackage('apps/web/package.json');
 const sharedScripts = readPackage('packages/shared/package.json');
+
+test('package scripts quote ** globs so sh does not shorten them to one directory level', () => {
+  for (const command of ['eslint src/**/*.ts', 'prettier --write "src/**/*.ts" test/**/*.ts']) {
+    assert.notDeepEqual(unquotedGlobstars(command), [], command);
+  }
+  for (const command of [
+    'eslint "src/**/*.ts" "test/**/*.ts" vitest.config.ts',
+    "pnpm -r --parallel --filter './apps/**' dev",
+    'echo \\*\\* "a \\" **"',
+  ]) {
+    assert.deepEqual(unquotedGlobstars(command), [], command);
+  }
+
+  const violations = workspacePackagePaths().flatMap((path) =>
+    Object.entries(readPackage(path) ?? {})
+      .filter(([, command]) => unquotedGlobstars(command).length > 0)
+      .map(([name, command]) => `${path} ${name}: ${command}`),
+  );
+  assert.deepEqual(violations, []);
+});
 
 test('public package commands prepare themselves while CI capabilities stay preparation-free', () => {
   for (const [publicCommand, preparedCommand] of [
@@ -416,7 +470,7 @@ test('infrastructure CI separates static and container-backed validation', () =>
   assert.ok(!infraWorkflow.includes('secrets.'));
   assert.ok(infraWorkflow.includes('runner.temp'));
   assertIncludesAll(infraWorkflow, [
-    'KNU_ARTIFACTS_DIR=$RUNNER_TEMP/knu-roommate-artifacts',
+    'KNU_ARTIFACTS_DIR=$RUNNER_TEMP/dormduri-artifacts',
     '>> "$GITHUB_ENV"',
   ]);
   assert.ok(!infraWorkflow.includes('KNU_ARTIFACTS_DIR: ${{ runner.temp }}'));
@@ -429,6 +483,8 @@ test('API CI migrates its fresh public schema before generating TypedSQL artifac
   assertIncludesAll(apiWorkflow, [
     '--stage=schema',
     'pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma',
+    '--stage=schema-diff',
+    'pnpm --dir apps/api exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code',
     'pnpm api:prepare',
     '--stage=runtime-config-health-contract',
     '--stage=unit',
@@ -436,7 +492,10 @@ test('API CI migrates its fresh public schema before generating TypedSQL artifac
     '--stage=e2e-db',
     '--stage=stress-harness',
   ]);
-  assert.ok(apiWorkflow.indexOf('prisma migrate deploy') < apiWorkflow.indexOf('pnpm api:prepare'));
+  assert.ok(
+    apiWorkflow.indexOf('prisma migrate deploy') < apiWorkflow.indexOf('prisma migrate diff'),
+  );
+  assert.ok(apiWorkflow.indexOf('prisma migrate diff') < apiWorkflow.indexOf('pnpm api:prepare'));
 });
 
 test('API integration shards own isolated runners and PostgreSQL services', () => {
@@ -451,7 +510,7 @@ test('API integration shards own isolated runners and PostgreSQL services', () =
     'pnpm --dir apps/api ci:test:integration:shard',
   ]);
   assert.equal(occurrences(apiWorkflow, 'services:'), 2);
-  assert.equal(occurrences(apiWorkflow, 'POSTGRES_DB: knu_roommate'), 2);
+  assert.equal(occurrences(apiWorkflow, 'POSTGRES_DB: dormduri'), 2);
 });
 
 test('app workflows publish comparable stage timing and cache evidence', () => {
@@ -482,8 +541,6 @@ test('compiler cache stays small, architecture-aware, and owner-local', () => {
   const apiWorkflow = read('.github/workflows/api-ci.yml');
   const webWorkflow = read('.github/workflows/web-ci.yml');
 
-  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-slim'), 3);
-  assert.equal(occurrences(orchestrator, 'runs-on: ubuntu-24.04'), 3);
   assert.ok(!apiWorkflow.includes('API TypeScript build info'));
   assert.ok(!apiWorkflow.includes('apps/api/dist/.tsbuildinfo'));
   assertIncludesAll(webWorkflow, [
@@ -495,12 +552,64 @@ test('compiler cache stays small, architecture-aware, and owner-local', () => {
   ]);
 });
 
+// Renovate moves the standard Ubuntu label of every workflow in one update, so the contract is the runner structure: the
+// stateless orchestration jobs use the one-core runner and every other job shares one standard Ubuntu label.
+const ORCHESTRATION_JOBS = ['ci.yml classify', 'ci.yml lifecycle_gate', 'ci.yml ci-summary'];
+
+function workflowRunners() {
+  return readdirSync(resolve(repoRoot, '.github/workflows'))
+    .filter((fileName) => fileName.endsWith('.yml') || fileName.endsWith('.yaml'))
+    .flatMap((fileName) => {
+      const source = read(`.github/workflows/${fileName}`);
+      const jobs = source.slice(source.search(/^jobs:$/mu));
+      const runners = [];
+      let job = null;
+      for (const line of jobs.split('\n')) {
+        job = /^ {2}([A-Za-z0-9_-]+):\s*$/u.exec(line)?.[1] ?? job;
+        const label = /^ {4}runs-on:\s*(\S+)\s*$/u.exec(line)?.[1];
+        if (label) runners.push({ job: `${fileName} ${job}`, label });
+      }
+      assert.equal(
+        runners.length,
+        occurrences(source, 'runs-on:'),
+        `${fileName} has a runs-on outside a job`,
+      );
+      return runners;
+    });
+}
+
+test('orchestration jobs use the one-core runner and every other job shares one standard Ubuntu label', () => {
+  const runners = workflowRunners();
+  const orchestration = runners.filter(({ job }) => ORCHESTRATION_JOBS.includes(job));
+  const standard = runners.filter(({ job }) => !ORCHESTRATION_JOBS.includes(job));
+
+  assert.deepEqual(orchestration.map(({ job }) => job).sort(), [...ORCHESTRATION_JOBS].sort());
+  for (const { job, label } of orchestration) assert.equal(label, 'ubuntu-slim', job);
+  assert.ok(standard.length > 0);
+  for (const { job, label } of standard) {
+    assert.match(label, /^ubuntu-[0-9]{2}\.[0-9]{2}$/u, `${job} runs on ${label}`);
+  }
+  assert.equal(
+    new Set(standard.map(({ label }) => label)).size,
+    1,
+    `standard jobs use more than one Ubuntu label: ${standard.map(({ job, label }) => `${job}=${label}`).join(', ')}`,
+  );
+});
+
+// Only the Web CD workflow assumes AWS roles through OIDC (production-web-baseline D-WB4·D-WB5); every validation
+// workflow stays without deployment authority. web-cd-contract.test.mjs owns which jobs of web-cd.yml hold it.
+const DEPLOYMENT_WORKFLOWS = ['web-cd.yml'];
+
 test('current workflows validate changes without claiming production deployment authority', () => {
   const workflowDirectory = resolve(repoRoot, '.github/workflows');
   const workflowSource = readdirSync(workflowDirectory)
     .filter((fileName) => fileName.endsWith('.yml') || fileName.endsWith('.yaml'))
+    .filter((fileName) => !DEPLOYMENT_WORKFLOWS.includes(fileName))
     .map((fileName) => read(`.github/workflows/${fileName}`))
     .join('\n');
+  for (const fileName of DEPLOYMENT_WORKFLOWS) {
+    assert.ok(readdirSync(workflowDirectory).includes(fileName), `${fileName} is missing`);
+  }
 
   for (const unsupportedCapability of [
     'aws-actions/configure-aws-credentials',
@@ -529,7 +638,7 @@ test('Web CI reuses one production build and preserves bounded browser evidence'
   assertIncludesAll(playwrightConfig, [
     'usePrebuiltStandalone',
     'standaloneServerCommand',
-    'NEXT_PUBLIC_APP_URL=https://ci.knu-roommate.invalid',
+    'NEXT_PUBLIC_APP_URL=https://ci.dormduri.invalid',
   ]);
   assertIncludesAll(webWorkflow, [
     'run_storybook:',

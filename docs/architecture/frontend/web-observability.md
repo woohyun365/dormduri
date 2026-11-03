@@ -2,7 +2,7 @@
 
 ## 목적
 
-Web 운영 관측성은 Landing, Auth, Main에서 발생하는 예상하지 못한 오류와 실제 사용자 성능, BFF 신뢰성을 확인하기 위한 운영 데이터만 소유한다. 제품 기능 사용 분석, 사용자 funnel, Session Replay, DOM autocapture는 이 경계에 포함하지 않는다.
+Web 운영 관측성은 Landing, Auth, Main에서 발생하는 예상하지 못한 오류와 실제 사용자 성능, BFF 신뢰성을 확인하기 위한 운영 데이터만 소유한다. 제품 기능 사용 분석, 사용자 funnel, Session Replay, DOM autocapture는 이 경계에 포함하지 않는다. Landing 방문 통계(Cloudflare Web Analytics)도 이 경계 밖이며 목적·항목·수탁자는 결정 기록 [`sec.privacy.landing-visit-analytics`](../decisions/security-privacy.md#secprivacylanding-visit-analytics)이, 보존은 [data-retention.md DR-R2](../../policies/data-retention.md)가 소유한다.
 
 ## 책임 분리
 
@@ -71,4 +71,4 @@ Browser Sentry는 다음 항목이 모두 준비된 경우에만 활성화한다
 5. synthetic client/server exception과 performance intake
 6. kill switch와 provider 장애 fail-open smoke
 
-계정 evidence가 없으면 production capture와 source-map upload는 비활성화된다. Local/test는 외부 네트워크가 없는 recording transport로 privacy·dedupe·sampling을 검증한다. 미래 배포 세션은 `infra/runbooks/release/components/web-sentry/readiness.md`를 시작점으로 사용하고, 실제 managed 결과만 release evidence에 기록한다. BFF structured log는 production에서 기본 활성화하고 container stdout → Alloy → Loki 경로를 사용한다.
+계정 evidence가 없으면 production capture와 source-map upload는 비활성화된다. Local/test는 외부 네트워크가 없는 recording transport로 privacy·dedupe·sampling을 검증한다. 미래 배포 세션은 `infra/runbooks/release/components/web-sentry/readiness.md`를 시작점으로 사용하고, 실제 managed 결과는 release evidence 형식으로 [실제 값의 기록 위치](../../../infra/runbooks/release/production-release-evidence.md#실제-값의-기록-위치)에 남긴다. BFF structured log는 production에서 기본 활성화하고 container stdout → Alloy → Loki 경로를 사용한다.

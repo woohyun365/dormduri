@@ -73,7 +73,7 @@ describe('stress fixture DB materializer', () => {
 
     expect(() =>
       assertStressFixtureApplyAllowed({
-        STRESS_TARGET_URL: 'https://api.knu-roommate.example',
+        STRESS_TARGET_URL: 'https://api.dormduri.example',
         STRESS_ENV: 'production',
         STRESS_ALLOW_PRODUCTION: 'I_UNDERSTAND',
         STRESS_FIXTURE_APPLY: STRESS_FIXTURE_APPLY_VALUE,

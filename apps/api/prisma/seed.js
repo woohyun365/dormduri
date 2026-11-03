@@ -18,7 +18,7 @@ import pg from 'pg';
 const { Client } = pg;
 
 const DEFAULT_DATABASE_URL =
-  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
+  'postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public';
 const DATABASE_URL = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
 const DEFAULT_AUTH_FIXTURE_COLLEGE_CODE = 'CHUNCHEON_IT';
 const DEFAULT_AUTH_FIXTURE_BIRTH_YEAR = 2002;

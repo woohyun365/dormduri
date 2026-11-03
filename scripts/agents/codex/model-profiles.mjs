@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 export const BASELINE_CHILD_MODEL = 'gpt-6-astra';
 // Bump for eligibility changes outside this data, too. Old bindings never migrate implicitly.
-const POLICY_REVISION = '2026-10-09.1';
+const POLICY_REVISION = '2026-11-01.1';
 // Role files pin `model_reasoning_effort`, which outranks a spawn's effort; a test binds each `.codex/agents` file here.
 export const ROLE_EFFORTS = deepFreeze({
   knu_explorer_medium: 'medium',
@@ -12,9 +12,6 @@ export const ROLE_EFFORTS = deepFreeze({
   knu_researcher_medium: 'medium',
   knu_researcher: 'high',
   knu_researcher_xhigh: 'xhigh',
-  knu_executor_medium: 'medium',
-  knu_executor: 'high',
-  knu_executor_xhigh: 'xhigh',
   knu_reviewer: 'xhigh',
 });
 const READ = {
@@ -24,17 +21,10 @@ const READ = {
   allowedTools: ['repository-read', 'official-web-read'],
   requiredTools: [],
 };
-const BUILD = {
-  taskKinds: ['implementation', 'test'],
-  verificationKeys: ['acceptance', 'regression', 'astraQa'],
-  readOnly: false,
-  allowedTools: ['repository-read', 'workspace-edit', 'test-runner'],
-  requiredTools: ['workspace-edit', 'test-runner'],
-};
 // A profile names the model passed as spawn_agent.model; the chosen role names the effort. Candidate profiles are
 // model requests with a quality gate and one effort; assignment profiles carry the Astra roles of every effort.
-// 6.1 Sol is the routine bounded model (Owner adoption 2026-10-06); its quality rests on the oracle, Astra QA and the hook-observed
-// model and effort.
+// 6.1 Sol is the routine bounded model (Owner adoption 2026-10-06); its quality rests on the oracle, the independent check
+// and the hook-observed model and effort. Every role is read-only: implementation stays with the Lead.
 const PROFILES = deepFreeze({
   extract: {
     profileId: 'extract',
@@ -85,39 +75,6 @@ const PROFILES = deepFreeze({
     routineRoles: ['knu_explorer_xhigh', 'knu_researcher_xhigh'],
     impactRisks: ['low', 'medium', 'high'],
   },
-  'standard-build': {
-    profileId: 'standard-build',
-    policyRevision: POLICY_REVISION,
-    kind: 'candidate',
-    model: 'gpt-6.1-sol',
-    resolvedEffort: 'high',
-    cohort: 'bounded-implementation',
-    tiers: ['medium'],
-    ...BUILD,
-    roles: ['knu_executor'],
-    routineRoles: ['knu_executor'],
-    impactRisks: ['low', 'medium'],
-  },
-  'elevated-build': {
-    profileId: 'elevated-build',
-    policyRevision: POLICY_REVISION,
-    kind: 'candidate',
-    model: 'gpt-6.1-sol',
-    resolvedEffort: 'xhigh',
-    cohort: 'elevated-implementation',
-    tiers: ['high'],
-    ...BUILD,
-    roles: ['knu_executor_xhigh'],
-    routineRoles: ['knu_executor_xhigh'],
-    impactRisks: ['low', 'medium'],
-  },
-  'deep-build': {
-    profileId: 'deep-build',
-    policyRevision: POLICY_REVISION,
-    kind: 'assignment',
-    model: BASELINE_CHILD_MODEL,
-    roles: ['knu_executor', 'knu_executor_xhigh'],
-  },
   review: {
     profileId: 'review',
     policyRevision: POLICY_REVISION,
@@ -137,8 +94,6 @@ const PROFILES = deepFreeze({
       'knu_researcher_medium',
       'knu_researcher',
       'knu_researcher_xhigh',
-      'knu_executor_medium',
-      'knu_executor',
     ],
   },
 });
@@ -189,8 +144,6 @@ export const RECOVERY_LADDER = deepFreeze({
   extract: 'elevated-read',
   'standard-read': 'astra-fallback',
   'elevated-read': 'astra-fallback',
-  'standard-build': 'deep-build',
-  'elevated-build': 'deep-build',
 });
 
 // A rung admits a lane when the next profile takes the same role and, for a candidate, the role's pinned effort, the

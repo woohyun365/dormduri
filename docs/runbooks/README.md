@@ -9,4 +9,5 @@
 Infrastructure 배포, DB, 관측 stack, incident와 rollback 절차는 `infra/runbooks/`가 소유한다.
 Production release는 `infra/runbooks/release/production-release-readiness.md`에서 시작하고 실제
 component 결과의 집계와 최종 판정은
-`infra/runbooks/release/production-release-evidence.md`에만 기록한다.
+`infra/runbooks/release/production-release-evidence.md`의 형식으로
+[실제 값의 기록 위치](../../infra/runbooks/release/production-release-evidence.md#실제-값의-기록-위치)에 남긴다.

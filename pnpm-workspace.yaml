@@ -14,6 +14,11 @@ allowBuilds:
 # Keep only active parent-boundary exceptions. Remove a selector as soon as its
 # owner resolves an equal-or-newer safe version and the closest regression passes.
 overrides:
+  # @nestjs/platform-node 12.3.2 pins qs 6.16.0 exactly, below the 6.16.1 fix for
+  # GHSA-6pq8-jhm2-2vcw. Its body parser calls only qs.parse, and the urlencoded and
+  # JSON body tests in apps/api guard the raised line. Remove this selector when a
+  # @nestjs/platform-node release depends on qs 6.16.1 or newer.
+  '@nestjs/platform-node>qs': 6.17.1
   # Vite (^0.27 || ^0.28) and Storybook (^0.18 ... ^0.28) still admit esbuild
   # lines below 0.28.1 (GHSA-gv7w-rqvm-qjhr), so one root floor keeps every build
   # parent on the patched line; the dependency-health contract checks it. Remove
@@ -26,13 +31,13 @@ overrides:
   postcss: 8.5.32
 
 catalog:
-  '@types/node': 26.6.5
+  '@types/node': 26.6.6
   '@eslint/js': 9.39.5
   '@playwright/test': 1.64.1
-  '@sentry/nextjs': 10.76.2
+  '@sentry/nextjs': 10.78.0
   '@tailwindcss/postcss': 4.3.3
-  '@storybook/addon-docs': 10.6.4
-  '@storybook/nextjs-vite': 10.6.4
+  '@storybook/addon-docs': 10.6.5
+  '@storybook/nextjs-vite': 10.6.5
   '@typescript-eslint/eslint-plugin': 8.72.1
   '@typescript-eslint/parser': 8.72.1
   '@vitejs/plugin-react': 6.1.2
@@ -44,7 +49,7 @@ catalog:
   prettier: 3.9.10
   react: 19.3.1
   react-dom: 19.3.1
-  storybook: 10.6.4
+  storybook: 10.6.5
   tailwindcss: 4.3.3
   typescript: 6.0.3
   typescript-eslint: 8.72.1

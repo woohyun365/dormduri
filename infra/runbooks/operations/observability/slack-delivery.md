@@ -5,9 +5,9 @@
 ## 1. Slack 준비
 
 1. Slack workspace에서 alert channel을 만든다.
-   - 추천: `#knu-roommate-alerts-test`로 smoke를 먼저 검증한다.
-   - 운영 channel은 `#knu-roommate-alerts`처럼 분리한다.
-2. https://api.slack.com/apps 에서 `KNU Roommate Alerts` 앱을 만든다.
+   - 추천: `#dormduri-alerts-test`로 smoke를 먼저 검증한다.
+   - 운영 channel은 `#dormduri-alerts`처럼 분리한다.
+2. https://api.slack.com/apps 에서 `돔두리 Alerts` 앱을 만든다.
 3. `Incoming Webhooks`를 활성화한다.
 4. `Add New Webhook to Workspace`를 눌러 target channel을 선택한다.
 5. 생성된 webhook URL을 복사한다. 이 URL은 secret이다.
@@ -23,7 +23,7 @@ cp infra/observability/.env.observability.example infra/observability/.env.obser
 ```env
 SLACK_ALERTMANAGER_ENABLED=true
 SLACK_ALERT_WEBHOOK_URL=<SLACK_INCOMING_WEBHOOK_URL>
-SLACK_ALERT_CHANNEL=#knu-roommate-alerts-test
+SLACK_ALERT_CHANNEL=#dormduri-alerts-test
 ```
 
 `.env.observability`는 git에 커밋하지 않는다.

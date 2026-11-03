@@ -93,9 +93,7 @@ function commandIssues(command, flags) {
 
 // Required facts per kind, as the rejection document lists them.
 function documentedFacts() {
-  const rows = [
-    ...read(REJECTIONS).matchAll(/^\s*\|\s*`(extract|read|build|review)`\s*\|(.+)\|\s*$/gmu),
-  ];
+  const rows = [...read(REJECTIONS).matchAll(/^\s*\|\s*`(extract|read|review)`\s*\|(.+)\|\s*$/gmu)];
   return Object.fromEntries(
     rows.map(([, kind, cell]) => [kind, [...cell.matchAll(/`([^`]+)`/gu)].map((m) => m[1])]),
   );
@@ -103,18 +101,15 @@ function documentedFacts() {
 const KIND_PROBE = {
   extract: { profileId: 'bounded-extraction', role: 'knu_explorer_xhigh', request: '분석해줘' },
   read: { profileId: 'bounded-standard', role: 'knu_explorer', request: '분석해줘' },
-  build: { profileId: 'bounded-standard', role: 'knu_executor', request: '구현해줘' },
   review: { profileId: 'complex-critical', role: 'knu_reviewer', request: '리뷰해줘' },
 };
 const TOOLS = {
   knu_explorer: ['Read', 'Grep', 'Glob'],
   knu_explorer_xhigh: ['Read', 'Grep', 'Glob'],
-  knu_executor: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
   knu_reviewer: ['Read', 'Grep', 'Glob'],
 };
 function eligibility(kind, factKeys) {
   const probe = KIND_PROBE[kind];
-  const writing = kind === 'build';
   const envelope = buildTaskEnvelope({ request: `sample.txt 내용을 ${probe.request}.` });
   const issuedAt = new Date();
   return evaluateClaudeProfileEligibility({
@@ -131,8 +126,8 @@ function eligibility(kind, factKeys) {
       role: probe.role,
       allowedTools: [...TOOLS[probe.role]],
       readScope: ['sample.txt'],
-      writeScope: writing ? ['sample.txt'] : [],
-      writeOwner: writing ? 'builder' : null,
+      writeScope: [],
+      writeOwner: null,
       childValue: 'independent-verification',
       independent: true,
       knownGaps: [],
@@ -228,7 +223,7 @@ test('the delegate template passes prepare and the rejection document binds fact
   const rejections = read(REJECTIONS);
   assert.match(rejections, /`readScope`[^\n]*`invalid-input`/u);
   const documented = documentedFacts();
-  assert.deepEqual(Object.keys(documented).sort(), ['build', 'extract', 'read', 'review']);
+  assert.deepEqual(Object.keys(documented).sort(), ['extract', 'read', 'review']);
   for (const [kind, keys] of Object.entries(documented)) {
     assert.ok(keys.length > 0, kind);
     assert.deepEqual(eligibility(kind, keys).reasons, [], `${kind}: documented facts suffice`);
@@ -267,14 +262,19 @@ test('the review skill names real composition flags and dispatch-step tools', ()
     assert.ok(flags.has(flag), `${flag} is a review option`);
     assert.match(text, new RegExp(`${flag} `, 'u'), flag);
   }
-  const tools = [...text.matchAll(/`([a-z-]+\.mjs)`/gu)].map((m) => m[1]);
-  assert.deepEqual([...new Set(tools)].sort(), [
-    'citation-check.mjs',
-    'mutation-harness.mjs',
-    'plan-reference-check.mjs',
-    'red-reason-check.mjs',
-    'runner-log-check.mjs',
-  ]);
+  const tools = [...text.matchAll(/`([a-z-]+\.mjs)(?: [^`]*)?`/gu)].map((m) => m[1]);
+  assert.deepEqual(
+    [...new Set(tools)].sort(),
+    [
+      'citation-check.mjs',
+      'mutation-harness.mjs',
+      'plan-reference-check.mjs',
+      'plan-shape-check.mjs',
+      'red-reason-check.mjs',
+      'runner-log-check.mjs',
+    ],
+    'plan review grade: dispatch-step tools',
+  );
   for (const tool of tools)
     assert.ok(existsSync(resolve(root, 'scripts/agents/common', tool)), tool);
   const settle = skill('knu-settle');
@@ -289,13 +289,17 @@ test('CLAUDE.md points to the skills instead of low-level registration', () => {
   assert.match(entry, /\/knu-delegate/u);
 });
 
-// The recovery example is the second json block: fields merged onto the delegate template.
+// The recovery example is the json block with a recovery field: fields merged onto the delegate template.
 test('the delegate recovery example binds a retry to a ran, unaccepted first task', (t) => {
   const blocks = [...skill('knu-delegate').matchAll(/```json\n([\s\S]*?)\n```/gu)].map((m) => m[1]);
-  assert.equal(blocks.length, 2, 'knu-delegate needs the template and a recovery example');
+  assert.equal(
+    blocks.length,
+    3,
+    'knu-delegate needs the template, a researcher example and a recovery example',
+  );
   const sessionId = randomUUID();
   const template = JSON.parse(blocks[0].replaceAll('${CLAUDE_SESSION_ID}', sessionId));
-  const example = JSON.parse(blocks[1]);
+  const example = JSON.parse(blocks.find((block) => block.includes('"recovery"')));
   const helper = read('scripts/agents/claude/native-task-helper.mjs');
   const allowed = new Set([
     ...sourceArray(helper, 'SPEC_REQUIRED'),
@@ -394,6 +398,73 @@ test('settle, registry and qualification documents carry the E2 recovery and pil
 
 // G8: a Parent subject request carries requirements, never the change description, and the skill
 // names the input checks review and registration apply to it.
+// Several reviewers are for a change that meets the QA disposition trigger, and plan reviews are single at every grade
+// that gets a reviewer; the dispatch steps carry the grade check and the round rules carry the delta.
+function reviewSection(heading, next) {
+  const text = skill('knu-review');
+  const start = text.indexOf(heading);
+  assert.ok(start >= 0, heading);
+  return text.slice(start, next ? text.indexOf(next, start) : undefined);
+}
+function dispatchStep(number) {
+  const steps = reviewSection('## Dispatch 전 단계', '## 1회차 다중 reviewer').split(
+    /\n(?=\d+\. )/u,
+  );
+  return (steps.find((step) => step.startsWith(`${number}. `)) ?? '').replace(/\s+/gu, ' ');
+}
+
+test('knu-review keeps several reviewers to trigger changes and plan reviews single', () => {
+  const section = reviewSection('## 1회차 다중 reviewer', '## 공통');
+  const first = (section.split(/\n(?=- )/u)[1] ?? '').replace(/\s+/gu, ' ');
+  for (const phrase of [
+    'Independent review disposition',
+    'trigger를 충족한 구현 변경의 1회차에만',
+    '계획 리뷰(P2·P3)는 단일입니다',
+  ])
+    assert.ok(first.includes(phrase), `plan review grade: multi reviewer bullet ${phrase}`);
+  const flat = skill('knu-review').replace(/\s+/gu, ' ');
+  for (const old of ['Owner가 정한 변경의 1회차에만', '계획 readiness 리뷰는 단일입니다'])
+    assert.ok(!flat.includes(old), `plan review grade: old sentence ${old}`);
+});
+
+test('knu-review dispatch step 1 fixes every blocking finding and searches by sentence before the next round', () => {
+  const step = dispatchStep(1);
+  for (const phrase of [
+    'blocking 전부를 한 번에 고치고',
+    '문장 단위',
+    '`rg -U`',
+    '저장소 전체 tracked 경로',
+    '`rg --no-ignore`',
+    '결정적 검사를 통과시킨 뒤',
+  ])
+    assert.ok(step.includes(phrase), `plan review grade: step 1 ${phrase}`);
+});
+
+test('knu-review dispatch step 5 declares the plan grade and runs the revision check', () => {
+  const step = dispatchStep(5);
+  for (const phrase of [
+    '등급을 선언하고',
+    '`plan-shape-check.mjs --revision',
+    'P0는 리뷰 없음',
+    'P1은 reviewer 없음',
+    '`plan-reference-check.mjs`',
+    '`<plan>.scope.diff`',
+    '`paths`',
+  ])
+    assert.ok(step.includes(phrase), `plan review grade: step 5 ${phrase}`);
+});
+
+test('knu-review prompt limit bullet keeps single runner lines in the log', () => {
+  const section = reviewSection('## 공통');
+  const bullet = (
+    section.split(/\n(?=- )/u).find((item) => item.includes('12,000자')) ?? ''
+  ).replace(/\s+/gu, ' ');
+  assert.ok(
+    bullet.includes('runner 기록의 낱개 줄은 log에 두고 record에는 요약 조각만 둡니다'),
+    'plan review grade: prompt limit bullet runner record sentence',
+  );
+});
+
 test('knu-review asks for requirements in request and names the Parent subject input checks', () => {
   const text = skill('knu-review').replace(/\s+/gu, ' ');
   assert.ok(!text.includes('`request`는 검토할 변경의 설명'), 'request as change description');
@@ -498,11 +569,9 @@ test('the delegate skill routine table matches the adapter routine rows one to o
   // Skill work labels are short forms of the adapter work column; each maps to exactly one adapter row.
   const WORK = new Map([
     ['고정 입력 추출', '고정 입력 추출'],
-    ['공식 근거 조사', '공식 근거 읽기'],
-    ['bounded 구현', 'bounded 구현·검증'],
+    // One researcher row: official-source research, read or extract, settled by the quote check (D-RET-8).
+    ['공식 근거 조사(`read`·`extract`, 인용 대조)', '공식 근거 조사(`read`·`extract`, 인용 대조)'],
     ['repository 읽기', 'repository 읽기 조사'],
-    ['복잡한 구현', '복잡한 구현'],
-    ['impact `high` 구현', '고위험 구현'],
   ]);
   const status = (value) => (value.startsWith('Q') ? 'Q' : value);
   const alias = { '`haiku`': 'Haiku', '`sonnet`': 'Sonnet', '`opus`': 'Opus' };
@@ -542,4 +611,49 @@ test('the delegate skill routine table matches the adapter routine rows one to o
     [...adapter.keys()].sort(),
     'skill copies every routine row once',
   );
+});
+
+// #776 Acceptance 4 (D-RET-7·8): the adapter routine, the delegate skill and the Codex delegation guide
+// carry one researcher rule: claims {url, quote, checkedAt}, the shared quote-check CLI for the claims that
+// move into evidence, and the request risk capped at medium for research with no write scope.
+test('the researcher rule is the same in the routine, the delegate skill and the Codex guide', () => {
+  const routine =
+    read('docs/development/agent-workflows/adapters/claude-code.md')
+      .split('## Routine operation')[1]
+      ?.split('## Recovery')[0] ?? '';
+  for (const [name, text] of [
+    ['claude-code.md routine', routine],
+    ['knu-delegate', skill('knu-delegate')],
+    ['codex-delegation.md', read('docs/development/agent-workflows/adapters/codex-delegation.md')],
+  ]) {
+    assert.ok(text.includes('scripts/agents/common/quote-check.mjs'), `${name}: quote-check CLI`);
+    assert.match(text, /\{url, quote, checkedAt\}/u, `${name}: claim fields`);
+    assert.match(text, /min\([^)\n]*, ?medium\)/u, `${name}: medium cap`);
+  }
+  assert.match(skill('knu-settle'), /`quoteCheck`/u);
+  // A fact sourceRef starts with a letter or digit, so the delegate skill names the plan reference form.
+  assert.ok(skill('knu-delegate').includes('plan:<Plan ID>/<절>'));
+  assert.match(skill('knu-delegate'), /release --task <taskId> --not-dispatched/u);
+});
+
+test('the delegate researcher example passes prepare with its URL only in the prompt (D-RET-3)', (t) => {
+  const blocks = [...skill('knu-delegate').matchAll(/```json\n([\s\S]*?)\n```/gu)].map((match) =>
+    JSON.parse(match[1].replaceAll('${CLAUDE_SESSION_ID}', randomUUID())),
+  );
+  const example = blocks.find((block) => block.role === 'knu_researcher');
+  assert.ok(example, 'knu-delegate needs a researcher example');
+  const spec = { ...blocks[0], ...example };
+  assert.equal(spec.reviewDisposition.required, false);
+  assert.match(spec.prompt, /https:\/\//u);
+  assert.match(spec.prompt, /\{url, quote, checkedAt\}/u);
+  for (const fact of spec.facts) assert.doesNotMatch(fact.sourceRef, /\/\//u, fact.key);
+  const f = fixture(t);
+  writeFileSync(
+    join(f.root, '.claude/agents/knu_researcher.md'),
+    `---\nname: knu_researcher\ntools: Read, Grep, Glob, WebSearch, WebFetch\neffort: ${ROLE_EFFORT.knu_researcher}\n---\nOfficial sources.\n`,
+  );
+  writeFileSync(join(f.root, 'package.json'), '{ "packageManager": "pnpm@0.0.0" }\n');
+  execFileSync('git', ['add', '.'], { cwd: f.root });
+  const prepared = prepareClaudeNativeTask(spec, { root: realpathSync(f.root) });
+  assert.equal(prepared.invocation.subagent_type, 'knu_researcher');
 });

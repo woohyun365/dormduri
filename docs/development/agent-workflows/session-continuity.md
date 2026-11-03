@@ -50,7 +50,8 @@ current request
 ```
 
 checkpoint가 working tree나 최신 요청과 충돌하면 현재 판단 근거로 사용하지 않습니다. 다른 작업/세션의 파일을
-자동 수정·삭제하지 않으며, 현재 작업 소유권과 권한이 확인된 경우에만 해당 checkpoint를 갱신합니다.
+자동 수정·삭제하지 않으며, 현재 작업 소유권과 권한이 확인된 경우에만 해당 checkpoint를 갱신합니다. 외부 게시·비가역
+단계는 요약·checkpoint의 다음 행동만으로 실행하지 않고, 실행 직전에 plan 원문의 그 단계 조건을 다시 읽습니다.
 
 ### Codex child 재개 (조건부)
 
@@ -151,6 +152,9 @@ Checkpoint는 다음 경우에만 만듭니다.
 - 완료 상태는 changed files, verification, commit/stage state와 blocker를 가리켜야 합니다.
 - 현재 결정할 수 없는 provider/account/domain/instance 값은 tracked readiness/evidence handoff로 옮깁니다.
 - 실제 AC를 충족한 완료 plan만 `.plans/finished/YYYY/MM/<domain>/`으로 이동합니다. current priority 해제는 위 소유권/lifecycle 경계를 따릅니다.
+- `.plans` 문서 끝 `## 개정 이력` 절에 개정과 상태 정정마다 한 줄(날짜·바꾼 범위·근거 링크)을 둡니다. 마지막 개정은 이
+  절에서 찾습니다. Header·Status·결정 칸 형식은 [Plan authoring core](./plan-authoring/core.md#6-required-plan-structure)를
+  따릅니다.
 
 ### Lifecycle 디렉터리와 이동
 
@@ -167,7 +171,8 @@ Checkpoint는 다음 경우에만 만듭니다.
 
 - 완료 계획에 딸린 supporting은 `finished/YYYY/MM/<domain>/supporting/<plan>/`로 함께 옮깁니다. 독립 미완료 자식은 옮기지 않습니다.
 - 이동은 agent가 **제안**하고 사용자(Owner)가 확인한 뒤 수행합니다. 파일명과 Plan ID는 유지하고, 옮긴 문서의 상대 링크와
-  inbound 링크를 새 위치 기준으로 보정합니다. root에 중복 실행 계획이나 자동 redirect를 만들지 않습니다.
+  inbound 링크를 새 위치 기준으로 보정합니다. Ignored `.plans`·`.local-docs` 아래 inbound 링크는 `rg --no-ignore`로
+  찾습니다. root에 중복 실행 계획이나 자동 redirect를 만들지 않습니다.
 - 취소·대체 계획은 `Status: cancelled` 또는 `superseded`로 기록하고, 파일 상단에 결정일·종료 사유·후속 계획 링크(있을 때)·
   남은 미완료/NO-GO 경계를 적습니다. 과거 Authority·lease·next action을 현재 실행 승인으로 재사용하지 않습니다.
 - 추적하는 파일은 `supporting`·`pending`·`finished`·`cancelled`의 `README.md` 네 개뿐입니다. 이 README는 용도 요약과 이
@@ -175,10 +180,45 @@ Checkpoint는 다음 경우에만 만듭니다.
 
 ### 계획 초안 staging과 promote
 
-새 계획을 만들거나 여러 계획 문서의 내용을 함께 고칠 때는 `.plans`를 직접 고치지 않습니다. 초안을 staging에서 완성하고
-독립 리뷰를 받은 뒤 승격합니다. 리뷰가 필요 없는 다음 갱신은 직접 고치고, 고친 뒤 아래 3의 검사만 실행합니다: 문서 하나의
-상태 정정, 여러 문서에 걸친 링크·anchor만의 기계적 수정, Owner가 확인한 lifecycle 이동과 그에 따른 링크 보정.
-경로는 모두 저장소 root 기준(`.plans/x-plan.md`)으로 적습니다.
+계획 개정(새 계획 포함)은 아래 등급마다 리뷰 방식이 다릅니다. P0 밖의 개정은 `.plans`를 직접 고치지 않고 초안을
+staging에서 완성해 승격합니다. 경로는 모두 저장소 root 기준(`.plans/x-plan.md`)으로 적습니다.
+
+- **P0 기계적**: 문서 하나의 상태 정정(Status 줄, 표의 상태 칸, 목록 항목의 `[ ]`→`[x]` 체크와 그 줄 끝에 더한 날짜·PR·증거),
+  링크·anchor만의 수정, Owner가 확인한 lifecycle 이동과 그에 따른 링크 보정, 개정 이력 줄, 시각 탐색 회차 기록(회차 기록·비교
+  이미지·Owner 원문 경로를 더하고 contract는 그대로). 리뷰 없이 아래 P0 경로로 고칩니다.
+- **P1 추가 기록**: intake 판정 bullet, 원천·근거 링크 추가, 결정 칸 근거 갱신(결정 값 그대로), 다른 readiness가 넘긴 영향을
+  받는 계획에 적는 bullet, 처리 시점이 기존 착수·readiness인 등록부 행, 범위만 정한 새 draft. 아래 1~3과 5를 거치고
+  reviewer 없이 승격합니다.
+- **P2 계약 변경**: phase contract·owned·acceptance·RED·순서·선행·결정 행 변경, Owner 답 반영. 아래 1~5를 거치고 4의 리뷰는
+  단일 reviewer 1회차에 바뀐 절만 줍니다.
+- **P3 구현 착수 readiness**: 구현 PR 직전 readiness contract와 그 readiness가 쓰는 phase contract 작성. 아래 1~5를 거치고 4의
+  리뷰는 단일 reviewer가 readiness 대상 전체를 읽습니다.
+
+등급은 개정마다 Parent가 선언합니다. `node scripts/agents/common/plan-shape-check.mjs --revision <고치기 전 사본|-> <고친 판>
+--declared <P0|P1|P2|P3>`가 바뀐 줄로 최소 등급(P0~P2)을 내고, 선언이 그보다 낮으면 `grade-below-minimum`으로 exit 1입니다.
+Parent는 최소 등급보다 올리기만 합니다. 검사가 가르지 못하는 다음 개정은 Parent가 올려 선언합니다: 처리 시점이 기존 착수·
+readiness가 아니거나 순서·범위를 바꾸는 등록부 행, Owner 답을 계획 문장으로 옮기는 개정, 다른 계획의 범위를 바꾸는 새 draft의
+그 계획 몫, phase contract·acceptance·RED를 담은 새 계획(검사는 새 문서를 P1로 냄)은 P2이고, readiness contract 작성은
+P3입니다. 검사는 고치기 전 판과 고친 판의 줄을 비교해 바뀐 줄마다 등급을 매기고 가장 높은 값을 냅니다. 한 hunk에서 지운 줄과
+더한 줄은 앞에서부터 짝짓고, 남는 줄은 지운 줄·고친 줄입니다. 줄의 절은 그 줄에서 위로 가장 가까운 heading(지운 줄은 고치기 전
+판에서 찾고, fence 안 `#` 줄은 heading이 아님)입니다. 표 본문 행은 머리 행·정렬 줄 아래에서 칸 수가 머리 행과 같은 행이고, 칸은
+`\|`로 escape하지 않은 `|`로 나눕니다.
+
+- P0: header의 Status 줄을 고친 줄(더하거나 지운 Status 줄은 아님), `## 개정 이력` 절의 줄, 표 본문 행에서 머리가 `상태`인
+  열 칸만 바뀐 행, link target만 바뀐 줄, 목록 항목의 `[ ]`를 `[x]`로 바꾸고 줄 끝에만 글자를 더한 줄, heading에 `탐색 회차`가
+  들고 아래 P2 keyword는 없는 절에 지운 줄 없이 더한 줄
+- P1: 표 본문 행에서 머리가 `근거`로 시작하는 열 칸만 바뀐 행, 더한 Markdown 링크를 빼면(그 옆 구분 공백 하나를 함께 빼도 됨) 고치기
+  전 줄과 같은 줄(연속 공백은 하나로 봄), 지운 줄 없이 더한 줄 가운데 P0·P2가 아닌 줄, 새 문서(`-`)
+- P2: 지운 줄 없이 더한 줄 가운데 절 heading에 `contract`·`Owned`·`owned`·`RED`·`Acceptance`·`결정`·`Phase`·`순서`·`선행`·
+  `멈춤`·`범위`·`규칙`·`목표`·`Open Questions` 가운데 하나가 든 줄과 header의 `Parent`·`선행`·`선후행` 줄, 고치기 전·뒤에
+  그대로인 줄 가운데 fence를 열거나 닫아 heading 여부가 바뀐 줄, 그 밖에 지우거나 고친 줄
+
+**P0 경로**: `.plans`는 Git이 추적하지 않아 고치기 전 판을 나중에 얻을 수 없습니다. 그래서 고치기 전 사본과 고친 판을 그 작업의
+evidence 위치에 먼저 만들고 `--revision <사본> <고친 판> --declared P0`이 exit 0일 때만 고친 판을 `.plans`에 쓴 뒤 3의 검사를
+합니다. 3의 기준 둘은 쓰기 전에 남깁니다. 하나는 그때의 `.plans` 전체 사본이고, 하나는 고치거나 옮길 파일과 그 파일을 가리키는
+계획에 실행한 `--root .` 결과입니다. view는 그 사본에 고친 판을 덮고 옮기는 문서의 원본을 지운 것입니다. 3의 검사가 실패하면
+`.plans`를 쓰기 전 상태로 되돌리고 다시 시작합니다. exit 1이면 `.plans`는 그대로 두고 그 사본을 원본으로 삼아 올린 등급의
+staging을 시작합니다.
 
 1. **Staging**: `.artifacts/plans/<umbrella>/<bounded>/<phase|YYYY-MM-DD>/` 아래에 둡니다. 주제가 여럿이면 `<topic>/`을
    한 단 더 둡니다. 그 아래 `plan-drafts/.plans/`에 `.plans`와 같은 상대 경로로 초안을 둡니다. 기존 문서는 원본을
@@ -186,21 +226,29 @@ Checkpoint는 다음 경우에만 만듭니다.
 2. **원본 manifest**: `plan-drafts/SOURCE-MANIFEST.tsv`의 첫 줄은 `sha256	source	destination` header입니다. 그 아래에
    고치거나 옮기는 원본마다 복사 시점의 sha256, 원본 경로, 승격 경로를 한 줄씩 적습니다. 새 문서는 줄이 없습니다.
    옮기는 문서는 source와 destination이 다르고, 이동은 리뷰 PASS와 별개로 위 이동 규칙의 Owner 확인을 받습니다.
-3. **검사**: 승격 view를 만듭니다. 현재 `.plans` 전체 사본에 staged 파일을 덮고, 옮기는 문서의 원본을 지운 것입니다.
-   같은 staging 디렉터리 아래(예: `review/promote-view/`)에 두고, view의 모든 계획 파일에
-   `plan-reference-check.mjs --root <view>`를 실행합니다. 다른 계획에서 들어오는 링크도 함께 검사하기 위해서입니다.
-   view는 ignored 위치라, view 안에서 없는 대상은 위반이 아니라 `unavailable-target`·`unavailable-link` 목록으로
-   나옵니다. 이 목록은 PASS가 아닙니다. 항목마다 의도한 local 파일인지 확인하고, 오타나 이동 누락이면 고칩니다.
-   승격한 뒤에는 승격한 파일과 그 파일을 가리키는 계획에 저장소 root 기준(`--root .`)으로 다시 실행합니다. 이때
-   `.plans` 밖 대상은 위반으로 판정되고, `.plans` 안 대상은 여전히 목록으로 나오므로 같은 방식으로 확인합니다.
-   근거 문서가 있으면 `citation-check.mjs`도 실행합니다.
-4. **리뷰**: staged 파일과 manifest의 원본을 파일 단위 read path로 주고 [독립 리뷰](./qa.md#리뷰-회차)를 받습니다.
-   `plan-drafts/`는 정산 뒤 receipt를 쓰는 곳이므로 디렉터리 read path로 주지 않습니다. runner 로그에는 staged
-   파일의 sha256을 남깁니다.
-5. **Promote**: PASS한 reviewer를 정산한 뒤 합니다. 먼저 세 가지를 확인하고, 하나라도 어긋나면 멈추고 다시 staging합니다.
+3. **검사**: staged 파일마다 manifest의 원본(새 문서는 `-`)과 함께 `plan-shape-check.mjs --revision`을 선언 등급으로
+   실행해 exit 0을 확인합니다. 승격 view를 만듭니다. 현재 `.plans` 전체 사본에 staged 파일을 덮고, 옮기는 문서의 원본을 지운
+   것입니다. 같은 staging 디렉터리 아래(예: `review/promote-view/`)에 두고, view의 모든 계획 파일에
+   `plan-reference-check.mjs --root <view>`를 실행합니다. 다른 계획에서 들어오는 링크도 함께 검사하기 위해서입니다. 같은 검사를
+   view를 만든 `.plans` 사본(기준)에도 실행해, 기준에 없던 위반이 0이면 통과입니다. 기존 위반 때문에 둘 다 exit 1인 것은
+   실패가 아닙니다. view는 ignored 위치라, view 안에서 없는 대상은 위반이 아니라 `unavailable-target`·`unavailable-link`
+   목록으로 나옵니다. 이 목록은 PASS가 아닙니다. 기준에 없던 항목마다 의도한 local 파일인지 확인하고, 오타나 이동 누락이면
+   고칩니다. 승격한 뒤에는 승격한 파일과 그 파일을 가리키는 계획에 저장소 root 기준(`--root .`)으로 다시 실행하고, 승격 전 같은
+   파일 묶음의 `--root .` 실행을 기준으로 같은 방식으로 판정합니다. 이때 `.plans` 밖 대상은 위반으로 판정되고, `.plans` 안
+   대상은 여전히 목록으로 나오므로 같은 방식으로 확인합니다. 근거 문서가 있으면 `citation-check.mjs`도 실행합니다. 바뀐 plan
+   파일(staged 파일, P0면 고친 판)에는 `node scripts/agents/common/plan-shape-check.mjs <plan md...>`를 실행해 경고 목록
+   (header·Status 줄 길이, Status 하위 bullet, 표 행의 날짜 뒤 변경 표시)을 runner 기록에 남깁니다. 경고는 exit 0이고, 의도한
+   예외는 항목마다 이유를 적습니다.
+4. **리뷰**: P2·P3만 [독립 리뷰](./qa.md#리뷰-회차)를 받습니다. P3는 staged 파일과 manifest의 원본을 파일 단위 read path로
+   줍니다. P2의 1회차는 단일 reviewer에게 바뀐 절(Parent가 만든 `<plan>.scope.diff`: 원본과 staged 파일의 바뀐 절과 그 앞뒤)과
+   그 절이 인용한 결정 행만 주고 계획 파일 전체는 read path에 넣지 않습니다. 2회차부터는 리뷰 회차의 범위를 따릅니다.
+   `plan-drafts/`는 정산 뒤 receipt를 쓰는 곳이므로 디렉터리 read path로 주지 않습니다. runner 로그에는 staged 파일의
+   sha256을 남깁니다.
+5. **Promote**: P2·P3는 PASS한 reviewer를 정산한 뒤, P1은 3의 검사를 통과한 뒤 합니다. 먼저 세 가지를 확인하고, 하나라도
+   어긋나면 멈추고 다시 staging합니다.
    - 원본 sha256이 manifest와 같은가
    - 새 문서와 이동 destination 경로가 아직 비어 있는가(덮어쓰지 않습니다)
-   - staged sha256이 리뷰한 값과 같은가
+   - staged sha256이 리뷰한 값(P1은 3의 검사를 실행한 값)과 같은가
 
    확인이 끝나면 복사하고, 옮긴 원본을 지우고, 들어오는 링크를 3의 root 기준 검사로 확인합니다. 그리고
    `plan-drafts/promote-receipt.json`을 남깁니다. 필드는 다음과 같습니다.
@@ -208,6 +256,7 @@ Checkpoint는 다음 경우에만 만듭니다.
    - `promotedAt`: ISO 8601 시각
    - `staging`·`sourceManifest`: root 기준 경로
    - `sourceShaCheck`: `all-match`
+   - `grade`: 선언한 등급, `minimumGrade`: 3의 `--revision`이 낸 최소 등급 가운데 가장 높은 값
    - `copied[]`: `path`(승격 경로), `sha256`(복사 뒤 값), `existed`(복사 전에 있었는지. 기존 문서를 고친 경우만 true)
    - `removedMovedOriginals`: 지운 원본 경로 목록
    - `dryRun`: 시험 실행은 `true`로 `promote-receipt.dry-run.json`에 따로 남깁니다.

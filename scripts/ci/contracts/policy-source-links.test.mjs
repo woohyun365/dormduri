@@ -10,13 +10,7 @@ const landingPolicyCopyPath = resolve(
   'apps/web/src/screens/landing/model/landingPolicyCopy.ts',
 );
 
-const requiredDocDirectories = [
-  'architecture',
-  'development',
-  'policies',
-  'references',
-  'runbooks',
-];
+const requiredDocDirectories = ['architecture', 'development', 'policies', 'runbooks'];
 const retiredDocPaths = [
   '00_archive',
   '01_codex-review',

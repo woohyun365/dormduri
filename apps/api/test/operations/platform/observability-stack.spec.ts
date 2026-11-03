@@ -16,7 +16,6 @@ const requiredFiles = [
   'compose.production.yml',
   'production-operations.json',
   '.env.observability.example',
-  'fixtures/web-upstream.mjs',
   'prometheus/prometheus.yml',
   'prometheus/render-prometheus-config.sh',
   'alertmanager/render-alertmanager-config.sh',
@@ -35,11 +34,9 @@ describe('observability stack', () => {
   it('keeps the private repo-native stack and file-provisioned dashboards', () => {
     expect(requiredFiles.filter((path) => !existsSync(join(observabilityRoot, path)))).toEqual([]);
     expect(
-      [
-        'infra/rehearsal/compose.observability.yml',
-        'infra/rehearsal/compose.web.yml',
-        'infra/rehearsal/compose.web.fixture.yml',
-      ].filter((path) => !existsSync(join(repoRoot, path))),
+      ['infra/rehearsal/compose.observability.yml', 'infra/rehearsal/compose.web.yml'].filter(
+        (path) => !existsSync(join(repoRoot, path)),
+      ),
     ).toEqual([]);
     const compose = readInfraFile('compose.base.yml');
     expect(compose).toContain('127.0.0.1:${PROMETHEUS_PORT:-9090}:9090');
@@ -93,28 +90,12 @@ describe('observability stack', () => {
 
   it('keeps the Web local rehearsal on a production standalone image and private ports', () => {
     const compose = readFileSync(join(repoRoot, 'infra/rehearsal/compose.web.yml'), 'utf8');
-    const fixtureCompose = readFileSync(
-      join(repoRoot, 'infra/rehearsal/compose.web.fixture.yml'),
-      'utf8',
-    );
     const dockerfile = readFileSync(join(repoRoot, 'infra/deploy/web/Dockerfile'), 'utf8');
-    const runner = readFileSync(
-      join(repoRoot, 'scripts/observability/rehearsal/web-bff.mjs'),
-      'utf8',
-    );
 
     expect(compose).toContain('dockerfile: infra/deploy/web/Dockerfile');
     expect(compose).toContain('127.0.0.1:${WEB_REHEARSAL_PORT:-3300}:3000');
     expect(compose).toContain("WEB_BFF_OPERATIONAL_LOGGING_ENABLED: '1'");
-    expect(compose).not.toContain('web-upstream:');
-    expect(fixtureCompose).toContain('web-upstream:');
-    expect(fixtureCompose).toContain('http://web-upstream:4100');
     expect(dockerfile).toContain('.next/standalone');
     expect(dockerfile).toContain('apps/web/server.js');
-    expect(runner).toContain("context === 'orbstack'");
-    expect(runner).toContain("service: 'loki'");
-    expect(runner).toContain("service: 'prometheus'");
-    expect(runner).toContain("service: 'grafana'");
-    expect(runner).toContain('knu-web-bff-reliability');
   });
 });

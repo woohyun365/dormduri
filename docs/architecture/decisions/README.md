@@ -62,6 +62,10 @@
 
 ## 색인
 
-| Layer 파일              | Pack layer                                                                  | 하위 layer 절                             |
-| ----------------------- | --------------------------------------------------------------------------- | ----------------------------------------- |
-| [FE 결정 기록](./fe.md) | [Domain/SWE/Web/FE](../../development/agent-workflows/domain/swe-web/fe.md) | `component-architecture`, `design-system` |
+| Layer 파일                                                  | Pack layer                                                                                                  | 하위 layer 절                                                   |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [FE 결정 기록](./fe.md)                                     | [Domain/SWE/Web/FE](../../development/agent-workflows/domain/swe-web/fe.md)                                 | `component-architecture`, `rendering-boundary`, `design-system` |
+| [BE 결정 기록](./be.md)                                     | [Domain/SWE/Web/BE](../../development/agent-workflows/domain/swe-web/be.md)                                 | `application-architecture`                                      |
+| [Infra 결정 기록](./infra.md)                               | [Domain/SWE/Web/infra](../../development/agent-workflows/domain/swe-web/infra.md)                           | `topology-runtime-config`, `ci-cd`                              |
+| [Security and privacy 결정 기록](./security-privacy.md)     | [Domain/SWE/Web/security-privacy](../../development/agent-workflows/domain/swe-web/security-privacy.md)     | `data-privacy-secret`                                           |
+| [Operations and release 결정 기록](./operations-release.md) | [Domain/SWE/Web/operations-release](../../development/agent-workflows/domain/swe-web/operations-release.md) | `release-gate`                                                  |

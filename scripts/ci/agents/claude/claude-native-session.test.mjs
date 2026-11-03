@@ -28,6 +28,7 @@ import {
   completeClaudeNativeTask,
   observeClaudeNativeTask,
   releaseClaudeNativeTask,
+  writeClaudeNativeSubjectResponse,
   claudeNativeSnapshotDigest,
   claudeReviewInputs,
   REVIEW_INPUTS_LINE,
@@ -272,6 +273,19 @@ test('ambient forced model conflict denied without scrubbing the normal environm
     }
   }
 });
+// The registry names the retirement for a build task (DA-023) instead of a generic gap, so the reason holds for an
+// input that never went through the helper. The former role names go through the same isRetiredClaudeTask(), which
+// RED 2 covers at prepare.
+test('register refuses a build task with the implementation-retired reason', (t) => {
+  const f = fixture(t);
+  f.input.nativeRequest.task.kind = 'build';
+  assert.throws(
+    () =>
+      registerClaudeNativeTask({ ...f.options, workflowInput: f.input, sessionId: randomUUID() }),
+    /implementation-retired: /u,
+  );
+});
+
 test('expired registration and task/lane ownership disagreement reject before writing task state', (t) => {
   const f = fixture(t);
   const base = { ...f.options, workflowInput: f.input, sessionId: randomUUID() };
@@ -328,39 +342,23 @@ test('registration rejects artifact ancestor symlink before writing outside repo
   );
   assert.deepEqual(readdirSync(outside), []);
 });
-function writer(t) {
+// A read-only repository read that requires independent review; its owner is the builder a review names.
+function subjectTask(t) {
   const f = fixture(t);
   writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
-  writeRole(
-    f.root,
-    'knu_executor',
-    'Read, Grep, Glob, Edit, Write, Bash',
-    'Implement bounded work.',
-  );
   writeRole(f.root, 'knu_reviewer', 'Read, Grep, Glob', 'Review only.');
   execFileSync('git', ['add', '.'], { cwd: f.root });
   delete f.input.currentSnapshot;
-  f.input.request = 'sample.txt 변경을 구현해줘.';
-  f.input.directAssignment.writeOwnership = ['sample.txt'];
   f.input.directAssignment.owner = 'builder';
   f.input.reviewDisposition.required = true;
   f.input.nativeRequest.profileId = 'bounded-standard';
   Object.assign(f.input.nativeRequest.task, {
-    kind: 'build',
+    kind: 'read',
     impactRisk: 'medium',
-    role: 'knu_executor',
-    allowedTools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
-    writeScope: ['sample.txt'],
-    writeOwner: 'builder',
-    facts: [
-      'source-bound',
-      'bounded-scope',
-      'acceptance',
-      'oracle',
-      'independent-qa',
-      'regression',
-      'one-writer',
-    ].map((key) => ({ key, sourceRef: 'fixture', confidence: 'high' })),
+    role: 'knu_explorer',
+    facts: ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'].map(
+      (key) => ({ key, sourceRef: 'fixture', confidence: 'high' }),
+    ),
   });
   f.options.expectedResolvedModel = 'claude-sonnet-5-5';
   const sessionId = randomUUID();
@@ -374,7 +372,7 @@ function writer(t) {
       cwd: f.root,
       permission_mode: 'auto',
       tool_name: 'Agent',
-      tool_use_id: 'write-1',
+      tool_use_id: 'read-1',
       tool_input: registered.invocation,
     },
   };
@@ -383,6 +381,12 @@ function writer(t) {
 // The helper names a native review packet review-<reviewId>; the registry finds the reviewer's
 // prompt record by that id.
 const REVIEW_PACKET_ID = 'review-natrev00-0000beef';
+// A settled read-only subject's response is review input: review writes it once beside the task record.
+function subjectResponse(subject) {
+  return existsSync(join(subject.registered.evidenceDirectory, 'completion.json'))
+    ? [writeClaudeNativeSubjectResponse(subject.registered.taskId, { root: subject.root })]
+    : [];
+}
 function reviewPacket(subject, snapshot) {
   const { basePacket } = JSON.parse(
     readFileSync(join(import.meta.dirname, '../common/fixtures/cross-model-handoff-cases.json')),
@@ -401,7 +405,7 @@ function reviewPacket(subject, snapshot) {
     },
     boundaries: {
       ...basePacket.boundaries,
-      allowedReadPaths: ['sample.txt'],
+      allowedReadPaths: [...subjectResponse(subject), 'sample.txt'],
       permittedOutputPaths: ['.artifacts/tools/claude-native'],
     },
     lifecycle: {
@@ -479,7 +483,7 @@ function reviewer(t, subject, packet, options = {}) {
     uncertainty: 'resolved',
     role: 'knu_reviewer',
     allowedTools: ['Read', 'Grep', 'Glob'],
-    readScope: options.readScope ?? ['sample.txt'],
+    readScope: options.readScope ?? packet.boundaries.allowedReadPaths,
     writeScope: [],
     writeOwner: null,
     childValue: 'independent-review',
@@ -531,9 +535,8 @@ function reviewer(t, subject, packet, options = {}) {
 }
 
 test('terminal native reviewer receipt completes its subject without recursive QA', (t) => {
-  const subject = writer(t);
+  const subject = subjectTask(t);
   handle(subject);
-  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
   finish(subject);
   const subjectObservation = JSON.parse(
     readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
@@ -551,7 +554,6 @@ test('terminal native reviewer receipt completes its subject without recursive Q
     true,
   );
   const subjectSemantic = semanticResult(subject);
-  subjectSemantic.results[0].changedPaths = ['sample.txt'];
   subjectSemantic.reviewerTaskId = qa.registered.taskId;
   assert.equal(
     completeClaudeNativeTask(subject.registered.taskId, subjectSemantic, { root: subject.root })
@@ -601,13 +603,12 @@ test('a native reviewer registers only with the prompt its review recorded', (t)
 });
 
 test('terminal reviewer rejects self, stale packet, missing observation and raw review override', (t) => {
-  const missing = writer(t);
+  const missing = subjectTask(t);
   const missingPacket = reviewPacket(missing, missing.registered.workflow.currentSnapshot);
   assert.throws(() => reviewer(t, missing, missingPacket), /completion\.json|observation/);
 
-  const subject = writer(t);
+  const subject = subjectTask(t);
   handle(subject);
-  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
   finish(subject);
   const observation = JSON.parse(
     readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
@@ -636,7 +637,6 @@ test('terminal reviewer rejects self, stale packet, missing observation and raw 
   const qa = reviewer(t, subject, packet);
   const result = reviewResult(packet, 'unknown');
   const subjectSemantic = semanticResult(subject);
-  subjectSemantic.results[0].changedPaths = ['sample.txt'];
   subjectSemantic.reviewerTaskId = qa.registered.taskId;
   assert.equal(
     completeClaudeNativeTask(subject.registered.taskId, subjectSemantic, { root: subject.root })
@@ -680,9 +680,8 @@ test('terminal reviewer rejects self, stale packet, missing observation and raw 
 });
 
 test('terminal reviewer records complete FAIL but rejects partial BLOCKED and cannot pass builder', (t) => {
-  const subject = writer(t);
+  const subject = subjectTask(t);
   handle(subject);
-  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
   finish(subject);
   const observation = JSON.parse(
     readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
@@ -701,7 +700,6 @@ test('terminal reviewer records complete FAIL but rejects partial BLOCKED and ca
     true,
   );
   const subjectSemantic = semanticResult(subject);
-  subjectSemantic.results[0].changedPaths = ['sample.txt'];
   subjectSemantic.reviewerTaskId = failedQa.registered.taskId;
   assert.equal(
     completeClaudeNativeTask(subject.registered.taskId, subjectSemantic, { root: subject.root })
@@ -728,9 +726,8 @@ test('terminal reviewer records complete FAIL but rejects partial BLOCKED and ca
   );
 });
 test('read-only reviewer cites runner-owned checks as runner commands; unexecuted checks block PASS', (t) => {
-  const subject = writer(t);
+  const subject = subjectTask(t);
   handle(subject);
-  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
   finish(subject);
   const observation = JSON.parse(
     readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
@@ -770,9 +767,8 @@ test('read-only reviewer cites runner-owned checks as runner commands; unexecute
   assert.equal(reviewed(runnerEvidence).valid, true);
 });
 test('a reviewer FAIL receipt cannot be bypassed by linking another reviewer of the same subject', (t) => {
-  const subject = writer(t);
+  const subject = subjectTask(t);
   handle(subject);
-  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
   finish(subject);
   const observation = JSON.parse(
     readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
@@ -794,7 +790,6 @@ test('a reviewer FAIL receipt cannot be bypassed by linking another reviewer of 
   completeReview('FAIL');
   const passing = completeReview('PASS');
   const subjectSemantic = semanticResult(subject);
-  subjectSemantic.results[0].changedPaths = ['sample.txt'];
   subjectSemantic.reviewerTaskId = passing.registered.taskId;
   const shopped = completeClaudeNativeTask(subject.registered.taskId, subjectSemantic, {
     root: subject.root,
@@ -803,9 +798,8 @@ test('a reviewer FAIL receipt cannot be bypassed by linking another reviewer of 
   assert.ok(shopped.errors.some((error) => /FAIL review receipt/.test(error)));
 });
 test('a delivered non-PASS or unsettled review of the subject blocks linking another reviewer', (t) => {
-  const subject = writer(t);
+  const subject = subjectTask(t);
   handle(subject);
-  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
   finish(subject);
   const observation = JSON.parse(
     readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
@@ -826,7 +820,6 @@ test('a delivered non-PASS or unsettled review of the subject blocks linking ano
   };
   const builderLinkedTo = (qa) => {
     const semantic = semanticResult(subject);
-    semantic.results[0].changedPaths = ['sample.txt'];
     semantic.reviewerTaskId = qa.registered.taskId;
     return completeClaudeNativeTask(subject.registered.taskId, semantic, { root: subject.root });
   };
@@ -859,9 +852,8 @@ test('a delivered non-PASS or unsettled review of the subject blocks linking ano
   assert.ok(foreign.errors.some((error) => /unreadable native task/.test(error)));
 });
 test('a task copied from another checkout blocks a linked builder only when it may be its review', (t) => {
-  const subject = writer(t);
+  const subject = subjectTask(t);
   handle(subject);
-  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
   finish(subject);
   const observation = JSON.parse(
     readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
@@ -880,7 +872,6 @@ test('a task copied from another checkout blocks a linked builder only when it m
   const base = join(realpathSync(subject.root), '.artifacts/tools/claude-native');
   const linkBuilder = () => {
     const builder = semanticResult(subject);
-    builder.results[0].changedPaths = ['sample.txt'];
     builder.reviewerTaskId = qa.registered.taskId;
     return completeClaudeNativeTask(subject.registered.taskId, builder, { root: subject.root });
   };
@@ -936,9 +927,8 @@ test('a task copied from another checkout blocks a linked builder only when it m
   );
 });
 function reviewedSubject(t) {
-  const subject = writer(t);
+  const subject = subjectTask(t);
   handle(subject);
-  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
   finish(subject);
   const observation = JSON.parse(
     readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
@@ -946,7 +936,6 @@ function reviewedSubject(t) {
   const packet = reviewPacket(subject, observation.finalSnapshot);
   const builderLinkedTo = (qa) => {
     const semantic = semanticResult(subject);
-    semantic.results[0].changedPaths = ['sample.txt'];
     semantic.reviewerTaskId = qa.registered.taskId;
     return completeClaudeNativeTask(subject.registered.taskId, semantic, { root: subject.root });
   };
@@ -1385,9 +1374,8 @@ test('a parent transcript above the cap is a gap, not a pass', (t) => {
 });
 
 test('reviewer completion requires a delivered JSON object, not a falsy JSON value', (t) => {
-  const subject = writer(t);
+  const subject = subjectTask(t);
   handle(subject);
-  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
   finish(subject);
   const observation = JSON.parse(
     readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
@@ -1402,9 +1390,8 @@ test('reviewer completion requires a delivered JSON object, not a falsy JSON val
   assert.ok(completion.errors.some((error) => /JSON object/.test(error)));
 });
 test('reviewer registration rejects the reviewer as runner and unbound packet scope', (t) => {
-  const subject = writer(t);
+  const subject = subjectTask(t);
   handle(subject);
-  writeFileSync(join(subject.root, 'sample.txt'), 'allowed output');
   finish(subject);
   const observation = JSON.parse(
     readFileSync(join(subject.registered.evidenceDirectory, 'completion.json')),
@@ -1420,45 +1407,18 @@ test('reviewer registration rejects the reviewer as runner and unbound packet sc
   writerMismatch.authority.writeOwner = 'someone-else';
   assert.throws(() => reviewer(t, subject, writerMismatch), /writer\/builders mismatch/);
   const wider = structuredClone(packet);
-  wider.boundaries.allowedReadPaths = ['sample.txt', 'other.txt'];
-  assert.throws(() => reviewer(t, subject, wider), /exceeds reviewer task scope/);
-  const uncovered = structuredClone(packet);
-  uncovered.boundaries.allowedReadPaths = ['other.txt'];
+  wider.boundaries.allowedReadPaths = [...packet.boundaries.allowedReadPaths, 'other.txt'];
   assert.throws(
-    () => reviewer(t, subject, uncovered, { readScope: ['other.txt'] }),
-    /does not cover subject changes/,
+    () => reviewer(t, subject, wider, { readScope: packet.boundaries.allowedReadPaths }),
+    /exceeds reviewer task scope/,
   );
+  const unbound = structuredClone(packet);
+  unbound.boundaries.allowedReadPaths = ['sample.txt'];
+  assert.throws(() => reviewer(t, subject, unbound), /needs its response artifact/);
   const qa = reviewer(t, subject, packet);
   assert.throws(
     () => reviewer(t, qa, reviewPacket(qa, observation.finalSnapshot)),
     /reviewer-of-reviewer/,
-  );
-});
-test('one native writer at a time, allowed writes observed, independent QA cannot be omitted', (t) => {
-  const f = writer(t);
-  const other = registerClaudeNativeTask({
-    ...f.options,
-    workflowInput: f.input,
-    sessionId: f.event.session_id,
-  });
-  assert.deepEqual(handle(f), {});
-  assert.equal(
-    handle(f, { ...f.event, tool_use_id: 'write-2', tool_input: other.invocation })
-      .hookSpecificOutput.permissionDecision,
-    'deny',
-  );
-  writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
-  finish(f);
-  const r = semanticResult(f);
-  r.results[0].changedPaths = ['sample.txt'];
-  const checked = completeClaudeNativeTask(f.registered.taskId, r, { root: f.root });
-  assert.equal(checked.observation.valid, true);
-  assert.ok(checked.errors.includes('independent QA exchange required'));
-  f.input.reviewDisposition.required = false;
-  assert.throws(
-    () =>
-      registerClaudeNativeTask({ ...f.options, workflowInput: f.input, sessionId: randomUUID() }),
-    /independent QA/,
   );
 });
 test('actual hook CLI returns no allow on good and deny on missing model', (t) => {
@@ -1483,34 +1443,6 @@ test('actual hook CLI returns no allow on good and deny on missing model', (t) =
   assert.equal(JSON.parse(bad.stdout).hookSpecificOutput.permissionDecision, 'deny');
 });
 
-test('writer replay cannot strand a lease and tool failure releases only its writer', (t) => {
-  const f = writer(t);
-  handle(f);
-  finish(f);
-  assert.equal(handle(f).hookSpecificOutput.permissionDecision, 'deny');
-  const other = registerClaudeNativeTask({
-    ...f.options,
-    workflowInput: f.input,
-    sessionId: f.event.session_id,
-  });
-  const event = { ...f.event, tool_use_id: 'write-next', tool_input: other.invocation };
-  assert.deepEqual(handle(f, event), {});
-  handle(f, { ...event, hook_event_name: 'PostToolUseFailure', error: 'synthetic failure' });
-  const third = registerClaudeNativeTask({
-    ...f.options,
-    workflowInput: f.input,
-    sessionId: f.event.session_id,
-  });
-  assert.deepEqual(
-    handle(f, { ...event, tool_use_id: 'write-third', tool_input: third.invocation }),
-    {},
-  );
-  assert.throws(() => releaseClaudeNativeTask(third.taskId, { root: f.root }), /ended/);
-  assert.equal(
-    releaseClaudeNativeTask(third.taskId, { root: f.root, ended: true }).completed,
-    false,
-  );
-});
 test('duplicate completion invalidates the result instead of silently preserving an earlier PASS', (t) => {
   const f = setup(t);
   handle(f);
@@ -1519,51 +1451,6 @@ test('duplicate completion invalidates the result instead of silently preserving
   assert.equal(completeClaudeNativeTask(f.registered.taskId, input, { root: f.root }).valid, true);
   finish(f);
   assert.equal(completeClaudeNativeTask(f.registered.taskId, input, { root: f.root }).valid, false);
-});
-
-test('ordinary executor new files are fingerprinted without staging, then common QA remains required', (t) => {
-  const f = writer(t);
-  f.input.directAssignment.writeOwnership = ['new.txt'];
-  f.input.nativeRequest.task.writeScope = ['new.txt'];
-  const r = registerClaudeNativeTask({
-    ...f.options,
-    workflowInput: f.input,
-    sessionId: f.event.session_id,
-  });
-  f.registered = r;
-  f.event.tool_input = r.invocation;
-  assert.deepEqual(handle(f), {});
-  writeFileSync(join(f.root, 'new.txt'), 'new output');
-  finish(f);
-  const input = semanticResult(f);
-  input.results[0].changedPaths = ['new.txt'];
-  const checked = completeClaudeNativeTask(r.taskId, input, { root: f.root });
-  assert.equal(checked.observation.valid, true, JSON.stringify(checked.errors));
-  // Against HEAD the fixture's staged role files are new too; new.txt is fingerprinted among them.
-  assert.ok(
-    checked.observation.finalSnapshot.untrackedInputDigests.some(({ path }) => path === 'new.txt'),
-  );
-  assert.deepEqual(checked.errors, [
-    'native required QA requires linked reviewerTaskId',
-    'independent QA exchange required',
-  ]);
-});
-
-test('foreign completion and async child do not release a live writer lease', (t) => {
-  const f = writer(t);
-  handle(f);
-  const next = registerClaudeNativeTask({
-    ...f.options,
-    workflowInput: f.input,
-    sessionId: f.event.session_id,
-  });
-  handle(f, { ...f.event, hook_event_name: 'PostToolUseFailure', tool_use_id: 'foreign-tool' });
-  const event = { ...f.event, tool_use_id: 'write-next', tool_input: next.invocation };
-  assert.equal(handle(f, event).hookSpecificOutput.permissionDecision, 'deny');
-  finish(f, { status: 'async_launched' });
-  assert.equal(handle(f, event).hookSpecificOutput.permissionDecision, 'deny');
-  releaseClaudeNativeTask(f.registered.taskId, { root: f.root, ended: true });
-  assert.deepEqual(handle(f, event), {});
 });
 
 for (const stopFirst of [false, true])
@@ -1776,10 +1663,9 @@ test('registration names the concrete policy reason instead of only the generic 
   }
 });
 
-// Registration-to-settlement changes outside the child's write scope cannot be told apart from a
-// Parent edit. A writer's are refused as unattributable. A read-only task depends only on the files
-// it was given or seen reading, so a change elsewhere (another session's edit or commit) is recorded
-// in its dependency judgment instead; the stored completion stays repository-wide.
+// Registration-to-settlement changes cannot be told apart from a Parent edit. A read-only task depends
+// only on the files it was given or seen reading, so a change elsewhere (another session's edit or
+// commit) is recorded in its dependency judgment instead; the stored completion stays repository-wide.
 function readOnlyWithOtherFile(t) {
   const f = fixture(t);
   writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
@@ -1877,43 +1763,6 @@ for (const [kind, path, change] of [
     assert.deepEqual(checked.dependencyJudgment.outside, [path]);
     assert.equal(checked.dependencyJudgment.headChanged, false);
   });
-
-test('a writer changing only its write scope has no unattributable change at either point', (t) => {
-  const f = writer(t);
-  handle(f);
-  writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
-  finish(f);
-  const observed = JSON.parse(
-    readFileSync(join(f.registered.evidenceDirectory, 'completion.json')),
-  );
-  assert.deepEqual(observed.errors, []);
-  assert.deepEqual(observed.changedPaths, ['sample.txt']);
-  const input = semanticResult(f);
-  input.results[0].changedPaths = ['sample.txt'];
-  const checked = completeClaudeNativeTask(f.registered.taskId, input, { root: f.root });
-  assert.ok(
-    !checked.errors.some((e) => e.startsWith('unattributable-change')),
-    checked.errors.join(),
-  );
-  assert.ok(!checked.errors.includes('reported-change-path-mismatch'), checked.errors.join());
-});
-
-test('a writer still refuses a change outside its write scope as unattributable', (t) => {
-  const f = writer(t);
-  handle(f);
-  writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
-  writeFileSync(join(f.root, 'outside-new.txt'), 'another session');
-  finish(f);
-  const input = semanticResult(f);
-  input.results[0].changedPaths = ['sample.txt'];
-  const checked = completeClaudeNativeTask(f.registered.taskId, input, { root: f.root });
-  assert.equal(checked.valid, false);
-  assert.ok(
-    checked.errors.includes('unattributable-change:outside-new.txt'),
-    checked.errors.join(),
-  );
-  assert.equal(checked.dependencyJudgment.basis, 'repository');
-});
 
 // After the child stopped, settle --judgment and complete both judge drift over the dependencies.
 const explorerJudgment = (f) => ({
@@ -2739,29 +2588,6 @@ for (const [name, edit] of [
     assert.equal(out.hookSpecificOutput.updatedInput, undefined);
   });
 
-test('a writer lease held by another task refuses the short input like the full invocation', (t) => {
-  const reasons = ['full', 'short'].map((mode) => {
-    const f = writer(t);
-    const other = registerClaudeNativeTask({
-      ...f.options,
-      workflowInput: f.input,
-      sessionId: f.event.session_id,
-    });
-    handle(f, { ...f.event, tool_input: other.invocation, tool_use_id: 'other' });
-    return denial(
-      handle(f, {
-        ...f.event,
-        tool_input:
-          mode === 'short' ? shortInput(f.registered.invocation) : f.registered.invocation,
-      }),
-    );
-  });
-  // The lease path differs per fixture root, so only the reason itself is compared.
-  const [full, short] = reasons.map((r) => r?.replace(/'[^']*'/u, '<writer lease>'));
-  assert.match(full ?? '', /EEXIST: file already exists, open <writer lease>/u, `full: ${full}`);
-  assert.equal(short, full);
-});
-
 // Without the injection, or when another hook rewrote the input afterwards, PostToolUse sees an input
 // other than the registered invocation. Completion is refused whatever the reported reason is.
 for (const [name, reported, input] of [
@@ -2792,25 +2618,6 @@ for (const [name, reported, input] of [
     assert.deepEqual(status.observation.errors, ['no-completion-observation']);
     assert.equal(status.valid, false);
   });
-
-test('a writer lease left by a rewritten input is freed only by an explicit release', (t) => {
-  const f = writer(t);
-  handle(f, { ...f.event, tool_input: shortInput(f.registered.invocation) });
-  handle(f, {
-    ...f.event,
-    hook_event_name: 'PostToolUseFailure',
-    tool_input: shortInput(f.registered.invocation),
-  });
-  const next = registerClaudeNativeTask({
-    ...f.options,
-    workflowInput: f.input,
-    sessionId: f.event.session_id,
-  });
-  const nextEvent = { ...f.event, tool_input: next.invocation, tool_use_id: 'next' };
-  assert.equal(handle(f, nextEvent).hookSpecificOutput?.permissionDecision, 'deny');
-  releaseClaudeNativeTask(f.registered.taskId, { root: f.root, ended: true });
-  assert.deepEqual(handle(f, nextEvent), {});
-});
 
 test('a failed call started from the short input is recorded as a failed observation', (t) => {
   const f = setup(t);
@@ -2868,33 +2675,22 @@ function guarded(run) {
 }
 const denied = (run) => guarded(run).hookSpecificOutput?.permissionDecision === 'deny';
 
-test('file guard denies a main-thread write to a tracked file while this session holds the writer lease', (t) => {
-  const f = writer(t);
-  assert.deepEqual(handle(f), {});
-  const out = guarded(runGuard(f.root, fileEvent(f, 'Write', join(f.root, 'sample.txt'))));
-  assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
-  assert.match(
-    out.hookSpecificOutput.permissionDecisionReason,
-    new RegExp(f.registered.taskId, 'u'),
-  );
-  assert.match(out.hookSpecificOutput.permissionDecisionReason, /release --task/u);
-});
-
-test('file guard denies new non-ignored files and NotebookEdit, not ignored paths', (t) => {
-  const f = writer(t);
+// Implementation is the Parent's own work (D-OSS-35): no child writes, so the guard never holds the
+// main thread back, whatever a leftover lease file names; it still keeps subagents off native evidence.
+test('executor retirement: file guard allows main-thread edits whatever the lease file says', (t) => {
+  const f = setup(t);
   handle(f);
-  assert.ok(denied(runGuard(f.root, fileEvent(f, 'Write', join(f.root, 'new-file.md')))));
-  assert.ok(denied(runGuard(f.root, fileEvent(f, 'NotebookEdit', 'sample.txt'))));
-  assert.deepEqual(
-    guarded(runGuard(f.root, fileEvent(f, 'Write', join(f.root, '.artifacts/x')))),
-    {},
+  const edit = fileEvent(f, 'Edit', join(f.root, 'sample.txt'));
+  assert.deepEqual(guarded(runGuard(f.root, edit)), {});
+  writeFileSync(
+    join(f.root, '.artifacts/tools/claude-native/writer.json'),
+    JSON.stringify({ taskId: f.registered.taskId, sessionId: f.event.session_id }),
   );
-  // A relative path resolves against the event cwd, and missing directories resolve upwards.
-  mkdirSync(join(f.root, 'sub'));
-  const nested = fileEvent(f, 'Write', 'a/b/c.md', { cwd: join(f.root, 'sub') });
-  assert.ok(denied(runGuard(f.root, nested)));
-  const ignoredNested = fileEvent(f, 'Write', '../.artifacts/a/b.md', { cwd: join(f.root, 'sub') });
-  assert.deepEqual(guarded(runGuard(f.root, ignoredNested)), {});
+  assert.deepEqual(guarded(runGuard(f.root, edit)), {});
+  assert.deepEqual(guarded(runGuard(f.root, fileEvent(f, 'Write', join(f.root, 'new.md')))), {});
+  const child = { agent_id: 'child-1', agent_type: 'knu_explorer' };
+  const evidence = join(f.registered.evidenceDirectory, 'completion.json');
+  assert.ok(denied(runGuard(f.root, fileEvent(f, 'Write', evidence, child))));
 });
 
 test('file guard denies a subagent write to native evidence under any case', (t) => {
@@ -2919,23 +2715,24 @@ test('file guard payload errors are non-blocking exit 1 with a guard message', (
 
 test('file guard internal errors are non-blocking exit 1 and never deny', (t) => {
   const f = setup(t);
-  const lease = join(f.root, '.artifacts/tools/claude-native/writer.json');
-  writeFileSync(lease, '{');
-  const damaged = runGuard(f.root, fileEvent(f, 'Write', join(f.root, 'sample.txt')));
-  assert.equal(damaged.status, 1);
-  assert.match(damaged.stderr, /KNU file guard failed/u);
-  assert.doesNotMatch(damaged.stdout, /deny/u);
-  const bare = mkdtempSync(join(tmpdir(), 'file-guard-no-git-'));
-  t.after(() => rmSync(bare, { recursive: true, force: true }));
-  mkdirSync(join(bare, '.artifacts/tools/claude-native'), { recursive: true });
-  writeFileSync(
-    join(bare, '.artifacts/tools/claude-native/writer.json'),
-    JSON.stringify({ taskId: 'task-x', sessionId: f.event.session_id }),
-  );
-  const noGit = runGuard(bare, fileEvent({ ...f, root: bare }, 'Write', join(bare, 'a.txt')));
-  assert.equal(noGit.status, 1);
-  assert.match(noGit.stderr, /KNU file guard failed/u);
-  assert.doesNotMatch(noGit.stdout, /deny/u);
+  // A project directory that cannot be resolved makes the guard fail, never deny.
+  const missing = join(tmpdir(), `file-guard-missing-${randomUUID()}`);
+  const child = { agent_id: 'child-1', agent_type: 'knu_explorer' };
+  const evidence = join(f.registered.evidenceDirectory, 'completion.json');
+  for (const event of [
+    fileEvent(f, 'Write', join(f.root, 'sample.txt')),
+    fileEvent(f, 'Write', evidence, child),
+  ]) {
+    const failed = spawnSync(process.execPath, [hookScript, '--hook', '--file-guard'], {
+      cwd: f.root,
+      env: { ...process.env, CLAUDE_PROJECT_DIR: missing },
+      input: JSON.stringify(event),
+      encoding: 'utf8',
+    });
+    assert.equal(failed.status, 1);
+    assert.match(failed.stderr, /KNU file guard failed/u);
+    assert.doesNotMatch(failed.stdout, /deny/u);
+  }
 });
 
 test('file guard leaves ordinary work alone', (t) => {
@@ -2951,7 +2748,7 @@ test('file guard leaves ordinary work alone', (t) => {
     guarded(runGuard(reader.root, fileEvent(reader, 'Write', join(reader.root, 'sample.txt')))),
     {},
   );
-  const f = writer(t);
+  const f = subjectTask(t);
   handle(f);
   const outside = join(tmpdir(), `file-guard-outside-${randomUUID()}.txt`);
   const evidence = `.artifacts/tools/claude-native/${f.registered.taskId}/judgment-template.json`;
@@ -2959,7 +2756,7 @@ test('file guard leaves ordinary work alone', (t) => {
     fileEvent(f, 'Write', join(f.root, 'sample.txt'), { session_id: randomUUID() }),
     fileEvent(f, 'Write', join(f.root, 'sample.txt'), {
       agent_id: 'child-1',
-      agent_type: 'knu_executor',
+      agent_type: 'knu_explorer',
     }),
     fileEvent(f, 'Write', join(f.root, evidence)),
     fileEvent(f, 'Write', outside),
@@ -3016,9 +2813,8 @@ test('foreground effort matches, mismatches or stays unobserved at observation t
     ['xhigh', ['effort-mismatch']],
     [undefined, ['effort-unobserved']],
   ]) {
-    const f = writer(t);
+    const f = subjectTask(t);
     handle(f);
-    writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
     finish(f, {}, { effort });
     const completion = JSON.parse(
       readFileSync(join(f.registered.evidenceDirectory, 'completion.json')),
@@ -3031,9 +2827,8 @@ test('foreground effort matches, mismatches or stays unobserved at observation t
 });
 
 test('a foreground transcript written after PostToolUse is pending, then judged', (t) => {
-  const f = writer(t);
+  const f = subjectTask(t);
   handle(f);
-  writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
   finish(f, {}, { write: false });
   assert.ok(existsSync(join(f.registered.evidenceDirectory, 'completion.json')));
   assert.deepEqual(effortErrors(f), ['effort-transcript-pending']);
@@ -3058,7 +2853,7 @@ test('a foreground transcript written after PostToolUse is pending, then judged'
       'post-completion-file-drift',
     ),
   );
-  writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
+  writeFileSync(join(f.root, 'sample.txt'), 'oracle');
   writeChildTranscript(f.root, {
     sessionId: f.event.session_id,
     agentId: agentIdOf(f),
@@ -3077,9 +2872,8 @@ test('a foreground transcript written after PostToolUse is pending, then judged'
 });
 
 test('a foreground transcript that never appears is unobserved once the task lifetime ends', (t) => {
-  const f = writer(t);
+  const f = subjectTask(t);
   handle(f);
-  writeFileSync(join(f.root, 'sample.txt'), 'allowed output');
   finish(f, {}, { write: false });
   t.mock.timers.enable({ apis: ['Date'], now: Date.now() + 10 * 60 * 1000 });
   assert.deepEqual(effortErrors(f), ['effort-unobserved']);
@@ -3095,7 +2889,7 @@ test('an expired Haiku task without a transcript is unobserved as well', (t) => 
 });
 
 test('foreground child identity is checked before its transcript is trusted', (t) => {
-  const bad = writer(t);
+  const bad = subjectTask(t);
   handle(bad);
   finish(bad, { agentId: '../x' });
   const completion = JSON.parse(
@@ -3104,9 +2898,8 @@ test('foreground child identity is checked before its transcript is trusted', (t
   assert.equal(completion.valid, false);
   assert.ok(completion.errors.includes('invalid-child-identity'), completion.errors.join());
 
-  const foreign = writer(t);
+  const foreign = subjectTask(t);
   handle(foreign);
-  writeFileSync(join(foreign.root, 'sample.txt'), 'allowed output');
   finish(foreign);
   const rows = readFileSync(childPathOf(foreign), 'utf8').replaceAll(
     `"agentId":"${agentIdOf(foreign)}"`,
@@ -3208,70 +3001,15 @@ test('extract QA exemption keeps the low, bounded, resolved range on Sonnet and 
   }
 });
 
-test('the xhigh executor registers for a high-risk Opus build and binds xhigh', (t) => {
-  const f = writer(t);
-  writeRole(
-    f.root,
-    'knu_executor_xhigh',
-    'Read, Grep, Glob, Edit, Write, Bash',
-    'Implement bounded work.',
-  );
-  execFileSync('git', ['add', '.'], { cwd: f.root });
-  const input = structuredClone(f.input);
-  input.nativeRequest.profileId = 'complex-critical';
-  Object.assign(input.nativeRequest.task, {
-    impactRisk: 'high',
-    complexity: 'complex',
-    role: 'knu_executor_xhigh',
-  });
-  const registered = registerClaudeNativeTask({
-    ...f.options,
-    expectedResolvedModel: 'claude-opus-5-5',
-    workflowInput: input,
-    sessionId: randomUUID(),
-  });
-  assert.equal(registered.invocation.subagent_type, 'knu_executor_xhigh');
-  assert.equal(registered.invocation.model, 'opus');
-  const { record } = JSON.parse(readFileSync(join(registered.evidenceDirectory, 'task.json')));
-  assert.equal(record.expectedEffort, 'xhigh');
-});
-
 // Recovery: one retry, bound to a first task that ran, was observed and was not accepted, climbs one
 // ladder step without changing the task facts. Every other bound retry is refused before any write.
 const LADDER_MODEL = {
   'bounded-standard': 'claude-sonnet-5-5',
   'complex-critical': 'claude-opus-5-5',
 };
-function ladder(t, kind = 'extract') {
+function ladder(t) {
   const f = fixture(t);
   writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
-  if (kind === 'build') {
-    for (const role of ['knu_executor', 'knu_executor_xhigh'])
-      writeRole(f.root, role, 'Read, Grep, Glob, Edit, Write, Bash', 'Implement bounded work.');
-    writeRole(f.root, 'knu_reviewer', 'Read, Grep, Glob', 'Review only.');
-    execFileSync('git', ['add', '.'], { cwd: f.root });
-    delete f.input.currentSnapshot;
-    f.input.request = 'sample.txt 변경을 구현해줘.';
-    f.input.directAssignment.writeOwnership = ['sample.txt'];
-    f.input.directAssignment.owner = 'builder';
-    f.input.reviewDisposition.required = true;
-    Object.assign(f.input.nativeRequest.task, {
-      kind: 'build',
-      impactRisk: 'medium',
-      allowedTools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
-      writeScope: ['sample.txt'],
-      writeOwner: 'builder',
-      facts: [
-        'source-bound',
-        'bounded-scope',
-        'acceptance',
-        'oracle',
-        'independent-qa',
-        'regression',
-        'one-writer',
-      ].map((key) => ({ key, sourceRef: 'fixture', confidence: 'high' })),
-    });
-  }
   return { ...f, sessionId: randomUUID() };
 }
 function registerAs(f, { profileId, role, recovery, sessionId = f.sessionId, patch = {}, model }) {
@@ -3345,33 +3083,6 @@ test('a bound retry climbs ladder step 1 and passes register, PreToolUse and com
   const late = completeClaudeNativeTask(a.registered.taskId, semanticResult(a), { root: f.root });
   assert.equal(late.valid, false);
   assert.ok(late.errors.includes('observation-error'), JSON.stringify(late.errors));
-});
-
-test('a bound retry climbs ladder step 2 to the xhigh executor for a complex build', (t) => {
-  const f = ladder(t, 'build');
-  const complex = { complexity: 'complex' };
-  const a = registerAs(f, { profileId: 'complex-critical', role: 'knu_executor', patch: complex });
-  assert.deepEqual(handle(a), {});
-  writeFileSync(join(f.root, 'sample.txt'), 'first attempt');
-  finish(a);
-  const b = registerAs(f, {
-    profileId: 'complex-critical',
-    role: 'knu_executor_xhigh',
-    patch: complex,
-    recovery: { of: a.registered.taskId, cause: 'omission' },
-  });
-  assert.equal(taskInputOf(b).recovery.step, 2);
-  assert.equal(recordOf(b).expectedEffort, 'xhigh');
-  assert.deepEqual(handle(b), {});
-  finish(b);
-  // A build still needs its independent QA; recovery adds no other completion error.
-  const done = completeClaudeNativeTask(b.registered.taskId, semanticResult(b), { root: f.root });
-  assert.equal(done.observation.valid, true);
-  assert.ok(done.errors.includes('independent QA exchange required'));
-  assert.deepEqual(
-    done.errors.filter((error) => !/QA/u.test(error)),
-    [],
-  );
 });
 
 test('step 0 re-registers the same profile and role for missing context', (t) => {
@@ -3662,65 +3373,17 @@ test('a duplicate first task whose facts differ only in key order still shares t
   assert.equal(markerFiles(f).length, 1);
 });
 
-test('a superseded first task reports used even after its writer retry changed files', (t) => {
-  const f = ladder(t, 'build');
-  const a = ranUnaccepted(registerAs(f, { profileId: 'bounded-standard', role: 'knu_executor' }));
-  const b = registerAs(f, {
-    profileId: 'complex-critical',
-    role: 'knu_executor',
-    recovery: { of: a.registered.taskId, cause: 'result-error' },
-  });
-  assert.deepEqual(handle(b), {});
-  writeFileSync(join(f.root, 'sample.txt'), 'retry output');
-  finish(b);
-  assert.throws(
-    () =>
-      registerAs(f, {
-        profileId: 'complex-critical',
-        role: 'knu_executor',
-        recovery: { of: a.registered.taskId, cause: 'result-error' },
-      }),
-    /recovery-used/u,
-  );
-});
-
-test('a bounded build retry climbs ladder step 1 and completes without the critical signal', (t) => {
-  const f = ladder(t, 'build');
-  const a = registerAs(f, { profileId: 'bounded-standard', role: 'knu_executor' });
-  assert.deepEqual(handle(a), {});
-  writeFileSync(join(f.root, 'sample.txt'), 'first attempt');
-  finish(a);
-  const b = registerAs(f, {
-    profileId: 'complex-critical',
-    role: 'knu_executor',
-    recovery: { of: a.registered.taskId, cause: 'result-error' },
-  });
-  assert.equal(taskInputOf(b).recovery.step, 1);
-  assert.equal(b.registered.invocation.model, 'opus');
-  assert.deepEqual(handle(b), {});
-  finish(b);
-  // A build still needs its independent QA; recovery adds no other completion error.
-  const done = completeClaudeNativeTask(b.registered.taskId, semanticResult(b), { root: f.root });
-  assert.equal(done.observation.valid, true);
-  assert.ok(done.errors.includes('independent QA exchange required'));
-  assert.deepEqual(
-    done.errors.filter((error) => !/QA/u.test(error)),
-    [],
-  );
-});
-
 test('a working-tree change after the first task completes forfeits its bound retry', (t) => {
-  const f = ladder(t, 'build');
-  const a = registerAs(f, { profileId: 'bounded-standard', role: 'knu_executor' });
+  const f = ladder(t);
+  const a = registerAs(f, { profileId: 'bounded-standard', role: 'knu_explorer' });
   assert.deepEqual(handle(a), {});
-  writeFileSync(join(f.root, 'sample.txt'), 'first attempt');
   finish(a);
-  writeFileSync(join(f.root, 'sample.txt'), 'reverted by the Parent');
+  writeFileSync(join(f.root, 'sample.txt'), 'edited by the Parent');
   assert.throws(
     () =>
       registerAs(f, {
         profileId: 'complex-critical',
-        role: 'knu_executor',
+        role: 'knu_explorer',
         recovery: { of: a.registered.taskId, cause: 'result-error' },
       }),
     /recovery-not-ran: .*post-completion/u,
@@ -3848,7 +3511,6 @@ function writeGroupAdjudication(subject, members, options = {}) {
 }
 function linkGroup(subject, linked, reviewAdjudication) {
   const semantic = semanticResult(subject);
-  semantic.results[0].changedPaths = ['sample.txt'];
   semantic.reviewerTaskId = linked.qa.registered.taskId;
   if (reviewAdjudication !== undefined) semantic.reviewAdjudication = reviewAdjudication;
   return completeClaudeNativeTask(subject.registered.taskId, semantic, { root: subject.root });
@@ -4301,7 +3963,7 @@ function groupWithInputs(t, change) {
   const root = realpathSync(subject.root);
   mkdirSync(join(root, MEMBER_INPUT, '..'), { recursive: true });
   writeFileSync(join(root, MEMBER_INPUT), 'rev 1\n');
-  const readScope = ['sample.txt', MEMBER_INPUT];
+  const readScope = [...packet.boundaries.allowedReadPaths, MEMBER_INPUT];
   const files = claudeReviewInputs(root, readScope);
   assert.deepEqual(Object.keys(files), [MEMBER_INPUT]);
   const bytes = Buffer.from(`${JSON.stringify({ files })}\n`);
@@ -4334,5 +3996,305 @@ test('builder completion judges the manifest of every delivered group member', (
   rejectedWith(
     tampered.outcome,
     new RegExp(`^review-input-manifest-changed \\(${tampered.fail.qa.registered.taskId}\\)$`, 'u'),
+  );
+});
+
+// OSS-RETIRE PR ② (D-RET-3·4·5): a researcher with no write scope takes read and extract on
+// bounded-standard without a paired reviewer, and its settlement needs the Parent's quote-check output
+// for the claims it moves into evidence. The URL the Lead fixed goes in the prompt; a fact's sourceRef
+// names the plan that chose it.
+const RESEARCH_PRICE_REQUEST = 'AWS 공식 가격 페이지의 Lightsail 월 요금 근거를 조사해줘.';
+const RESEARCH_PRICE_URL = 'https://aws.amazon.com/lightsail/pricing/';
+const RESEARCH_PROMPT = `Read ${RESEARCH_PRICE_URL} only. Answer as JSON {"claims":[{"url","quote","checkedAt"}]}.`;
+const RESEARCH_TOOLS = ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'];
+const RESEARCH_FACTS = {
+  extract: [
+    'source-bound',
+    'fixed-input',
+    'single-step',
+    'output-schema',
+    'acceptance',
+    'independent-check',
+  ],
+  read: ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'],
+};
+function research(t, { kind = 'extract', role = 'knu_researcher', required = false } = {}) {
+  const f = fixture(t);
+  writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
+  writeRole(f.root, 'knu_researcher', RESEARCH_TOOLS.join(', '), 'Official sources only.');
+  execFileSync('git', ['add', '.'], { cwd: f.root });
+  delete f.input.currentSnapshot;
+  f.input.request = RESEARCH_PRICE_REQUEST;
+  f.input.directAssignment.owner = 'researcher';
+  f.input.reviewDisposition = required
+    ? { required: true, reason: 'paired reviewer for this research' }
+    : { required: false, reason: 'cited claims settled by the Parent quote check' };
+  f.input.nativeRequest.profileId = 'bounded-standard';
+  Object.assign(f.input.nativeRequest.task, {
+    kind,
+    role,
+    allowedTools: role === 'knu_researcher' ? [...RESEARCH_TOOLS] : ['Read', 'Grep', 'Glob'],
+    childValue: 'independent-research',
+    facts: RESEARCH_FACTS[kind].map((key) => ({
+      key,
+      sourceRef: 'plan:executor-retirement/5.3',
+      confidence: 'high',
+    })),
+  });
+  f.options.prompt = RESEARCH_PROMPT;
+  f.options.expectedResolvedModel = 'claude-sonnet-5-5';
+  return f;
+}
+function registerResearch(f, { sessionId = randomUUID(), ...extra } = {}) {
+  const registered = registerClaudeNativeTask({
+    ...f.options,
+    workflowInput: f.input,
+    sessionId,
+    ...extra,
+  });
+  return {
+    ...f,
+    registered,
+    event: {
+      hook_event_name: 'PreToolUse',
+      session_id: sessionId,
+      cwd: f.root,
+      permission_mode: 'auto',
+      tool_name: 'Agent',
+      tool_use_id: `research-${registered.taskId.slice(0, 8)}`,
+      tool_input: registered.invocation,
+    },
+  };
+}
+const RESEARCH_CLAIMS = [
+  {
+    url: RESEARCH_PRICE_URL,
+    quote: 'Linux/Unix bundles start at $5 USD/month.',
+    checkedAt: '2026-11-02',
+  },
+  {
+    url: RESEARCH_PRICE_URL,
+    quote: 'Windows bundles start at $9.50 USD/month.',
+    checkedAt: '2026-11-02',
+  },
+  {
+    url: 'https://aws.amazon.com/lightsail/faq/',
+    quote: 'Data transfer is included.',
+    checkedAt: '2026-11-02',
+  },
+  { url: RESEARCH_PRICE_URL, checkedAt: '2026-11-02' },
+];
+const RESEARCH_RAW =
+  '<html><body><h1>Lightsail pricing</h1><p>Linux/Unix bundles start at <b>$5&nbsp;USD/month</b>.</p></body></html>';
+// The researcher ran and delivered its claims in a fenced JSON block.
+function researchRan(t, options) {
+  const g = registerResearch(research(t, options));
+  assert.deepEqual(handle(g), {});
+  const text = `Findings:\n\n\`\`\`json\n${JSON.stringify({ claims: RESEARCH_CLAIMS })}\n\`\`\`\n`;
+  finish(g, { content: [{ type: 'text', text }] });
+  mkdirSync(join(g.root, '.artifacts/raw'), { recursive: true });
+  writeFileSync(join(g.root, '.artifacts/raw/pricing.html'), RESEARCH_RAW);
+  return g;
+}
+// The Parent's quote-check output for the selected claims, written where the judgment names it.
+async function quoteCheckFile(g, selection, edit = (output) => output) {
+  const { checkQuotes } = await import('../../../agents/common/quote-check.mjs');
+  const response = JSON.parse(
+    readFileSync(join(g.registered.evidenceDirectory, 'completion.json')),
+  ).response;
+  const output = edit(
+    checkQuotes({ taskId: g.registered.taskId, response, selection: structuredClone(selection) }),
+  );
+  const path = `.artifacts/quote-check/${randomUUID()}.json`;
+  mkdirSync(join(g.root, '.artifacts/quote-check'), { recursive: true });
+  writeFileSync(join(g.root, path), JSON.stringify(output));
+  return path;
+}
+const selected = (g, claim, raw = '.artifacts/raw/pricing.html') => ({
+  url: claim.url,
+  quote: claim.quote,
+  raw: join(g.root, raw),
+});
+const completeResearch = (g, extra) =>
+  completeClaudeNativeTask(
+    g.registered.taskId,
+    { ...semanticResult(g), ...extra },
+    { root: g.root },
+  );
+
+test('a researcher registers read and extract on bounded-standard without a paired reviewer (D-RET-3)', (t) => {
+  for (const kind of ['extract', 'read']) {
+    const g = registerResearch(research(t, { kind }));
+    assert.equal(g.registered.invocation.subagent_type, 'knu_researcher', kind);
+    assert.equal(g.registered.invocation.model, 'sonnet', kind);
+    // The registered prompt starts with the Lead's prompt line, which names the URL the Lead chose.
+    assert.equal(g.registered.invocation.prompt.split('\n')[0], RESEARCH_PROMPT, kind);
+  }
+});
+
+test('a researcher retry binds ladder step 1 to complex-critical for read and extract (D-RET-3)', (t) => {
+  for (const kind of ['extract', 'read']) {
+    const first = ranUnaccepted(registerResearch(research(t, { kind })));
+    const input = structuredClone(first.input);
+    input.nativeRequest.profileId = 'complex-critical';
+    const retry = registerClaudeNativeTask({
+      ...first.options,
+      expectedResolvedModel: 'claude-opus-5-5',
+      workflowInput: input,
+      sessionId: first.event.session_id,
+      recovery: { of: first.registered.taskId, cause: 'result-error' },
+    });
+    assert.equal(retry.invocation.model, 'opus', kind);
+  }
+});
+
+test('the explorer read review rule and a reviewer-paired researcher stay as they were (D-RET-3)', (t) => {
+  assert.throws(
+    () => registerResearch(research(t, { kind: 'read', role: 'knu_explorer' })),
+    /independent QA required for this profile/u,
+  );
+  const paired = registerResearch(research(t, { kind: 'read', required: true }));
+  assert.deepEqual(handle(paired), {});
+  finish(paired);
+  // Its settlement still asks for the linked reviewer and no quote-check output.
+  const checked = completeResearch(paired, {});
+  assert.deepEqual(checked.errors, [
+    'native required QA requires linked reviewerTaskId',
+    'independent QA exchange required',
+  ]);
+});
+
+test('a researcher without a reviewer settles only on a quote-check output for this task and response (D-RET-4)', async (t) => {
+  const g = researchRan(t);
+  const pick = [selected(g, RESEARCH_CLAIMS[0])];
+  const refused = (extra) => completeResearch(g, extra).errors;
+  assert.ok(
+    refused({}).includes('researcher without a linked reviewer requires a quote-check output'),
+  );
+  assert.ok(
+    refused({
+      quoteCheck: await quoteCheckFile(g, pick, (o) => ({ ...o, taskId: randomUUID() })),
+    }).includes('quote-check-task-mismatch'),
+  );
+  assert.ok(
+    refused({
+      quoteCheck: await quoteCheckFile(g, pick, (o) => ({
+        ...o,
+        responseDigest: `sha256:${'0'.repeat(64)}`,
+      })),
+    }).includes('quote-check-response-mismatch'),
+  );
+  for (const claim of [
+    { ...RESEARCH_CLAIMS[0], url: 'https://aws.amazon.com/other/' },
+    { ...RESEARCH_CLAIMS[0], quote: 'Linux/Unix bundles start at $3 USD/month.' },
+  ]) {
+    const errors = refused({ quoteCheck: await quoteCheckFile(g, [selected(g, claim)]) });
+    assert.ok(errors.includes(`quote-check-claim-not-in-response:${claim.url}`), errors.join());
+    // A hand-edited status cannot hide a claim the child never gave.
+    const hidden = refused({
+      quoteCheck: await quoteCheckFile(g, [selected(g, claim)], (o) => {
+        o.results[0].status = 'found';
+        return o;
+      }),
+    });
+    assert.ok(hidden.includes(`quote-check-claim-not-in-response:${claim.url}`), hidden.join());
+  }
+  const settled = completeResearch(g, { quoteCheck: await quoteCheckFile(g, pick) });
+  assert.equal(settled.valid, true, JSON.stringify(settled.errors));
+  assert.equal(Object.hasOwn(settled, 'reviewerTaskId'), false);
+});
+
+test('a researcher settles with failed quotes kept out of the evidence candidates (D-RET-4)', async (t) => {
+  const g = researchRan(t);
+  const path = await quoteCheckFile(g, [
+    selected(g, RESEARCH_CLAIMS[0]),
+    selected(g, RESEARCH_CLAIMS[1]),
+    selected(g, RESEARCH_CLAIMS[2], '.artifacts/raw/absent.html'),
+    selected(g, RESEARCH_CLAIMS[3]),
+  ]);
+  const output = JSON.parse(readFileSync(join(g.root, path)));
+  assert.equal(output.exit, 1);
+  const settled = completeResearch(g, { quoteCheck: path });
+  assert.equal(settled.valid, true, JSON.stringify(settled.errors));
+  assert.deepEqual(
+    settled.quoteCheck.candidates.map((item) => item.quote),
+    [RESEARCH_CLAIMS[0].quote],
+  );
+  assert.deepEqual(
+    settled.quoteCheck.excluded.map((item) => item.status),
+    ['missing', 'raw-missing', 'no-quote'],
+  );
+  assert.ok(settled.quoteCheck.excluded.every((item) => item.reason));
+  const accepted = JSON.parse(readFileSync(join(g.registered.evidenceDirectory, 'accepted.json')));
+  assert.deepEqual(accepted.quoteCheck, settled.quoteCheck);
+});
+
+test('release cancels a registration never dispatched and refuses one with a dispatch record (D-RET-5)', (t) => {
+  const f = setup(t);
+  assert.deepEqual(
+    releaseClaudeNativeTask(f.registered.taskId, { root: f.root, notDispatched: true }),
+    { taskId: f.registered.taskId, released: true, dispatched: false, completed: false },
+  );
+  // A cancelled registration is no longer dispatched.
+  assert.equal(handle(f).hookSpecificOutput.permissionDecision, 'deny');
+  const g = setup(t);
+  assert.deepEqual(handle(g), {});
+  assert.throws(
+    () => releaseClaudeNativeTask(g.registered.taskId, { root: g.root, notDispatched: true }),
+    /dispatch record/u,
+  );
+  // The CLI names both paths when neither is chosen, and cancels from the command line.
+  const usage = spawnSync(
+    process.execPath,
+    [hookScript, 'release', '--task', g.registered.taskId],
+    {
+      cwd: g.root,
+      encoding: 'utf8',
+    },
+  );
+  assert.equal(usage.status, 1);
+  assert.match(usage.stderr, /--ended/u);
+  assert.match(usage.stderr, /--not-dispatched/u);
+  const h = setup(t);
+  const cancelled = spawnSync(
+    process.execPath,
+    [hookScript, 'release', '--task', h.registered.taskId, '--not-dispatched'],
+    { cwd: h.root, encoding: 'utf8' },
+  );
+  assert.equal(cancelled.status, 0, cancelled.stderr);
+  assert.equal(JSON.parse(cancelled.stdout).dispatched, false);
+});
+
+test('a quote-check output outside the repository or inside native task evidence is refused', async (t) => {
+  const g = researchRan(t);
+  const inside = await quoteCheckFile(g, [selected(g, RESEARCH_CLAIMS[0])]);
+  const evidence = join(g.registered.evidenceDirectory, 'quote-check.json');
+  writeFileSync(evidence, readFileSync(join(g.root, inside)));
+  for (const path of ['../quote-check.json', evidence]) {
+    const errors = completeResearch(g, { quoteCheck: path }).errors;
+    assert.ok(
+      errors.some((error) => error.startsWith('quote-check-output-unreadable: ')),
+      `${path}: ${errors.join()}`,
+    );
+  }
+  assert.equal(completeResearch(g, { quoteCheck: inside }).valid, true);
+});
+
+test('a quote-check output is refused for a task that is not a researcher settled without a reviewer', async (t) => {
+  const g = researchRan(t);
+  const path = await quoteCheckFile(g, [selected(g, RESEARCH_CLAIMS[0])]);
+  const f = setup(t);
+  assert.deepEqual(handle(f), {});
+  finish(f);
+  const errors = completeClaudeNativeTask(
+    f.registered.taskId,
+    { ...semanticResult(f), quoteCheck: path },
+    { root: f.root },
+  ).errors;
+  assert.ok(
+    errors.includes(
+      'quote-check output is only for a researcher settled without a linked reviewer',
+    ),
+    errors.join(),
   );
 });

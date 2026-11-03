@@ -4,13 +4,10 @@
     ".codex/agents/knu_explorer.toml",
     ".codex/agents/knu_researcher.toml",
     ".codex/agents/knu_reviewer.toml",
-    ".codex/agents/knu_executor.toml",
     ".codex/agents/knu_explorer_medium.toml",
     ".codex/agents/knu_explorer_xhigh.toml",
     ".codex/agents/knu_researcher_medium.toml",
     ".codex/agents/knu_researcher_xhigh.toml",
-    ".codex/agents/knu_executor_medium.toml",
-    ".codex/agents/knu_executor_xhigh.toml",
     ".codex/hooks.json",
     ".codex/hooks/knu-subagent-hooks.mjs",
     ".codex/hooks/knu-hook-policy.json"

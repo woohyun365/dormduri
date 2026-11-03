@@ -27,9 +27,16 @@ Rules:
 
 Release handoff:
 
-- Production legal copy still needs release decisions for the dedicated privacy/support contact,
-  production provider/entrustment table, and legal/privacy expert review evidence. Track those as
-  GitHub issues rather than inline TODO copy so public text does not expose internal uncertainty.
+- The fallback bodies name the Web-stage processors (server, email sending and domain; Landing visit
+  analytics; inquiry email), the overseas transfer table, the privacy officer and the inquiry email.
+  Database, file storage and observability processors are not chosen yet; add them to privacy
+  article 4 when they are. Whether a legal/privacy expert reviews the copy before the real user
+  release is tracked as a GitHub issue rather than inline TODO copy.
+- Document id, version and effective-date rules belong to
+  [legal-basis.md LB-R6](../../../../docs/policies/legal-basis.md).
+- `__tests__/legal-document-source-sync.test.ts` keeps the fallback equal to the API seed and the
+  inquiry email equal to the Landing footer address. It runs only in the Web CI lane, so change the
+  seed and the fallback in the same commit.
 
 Verification surface:
 

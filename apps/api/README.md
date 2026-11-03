@@ -29,9 +29,9 @@
 
 ```env
 # 앱 런타임이 사용하는 URL. 운영에서는 pooled / pooler URL 권장.
-DATABASE_URL="postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public"
+DATABASE_URL="postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public"
 # Prisma CLI가 사용하는 direct URL. 운영에서는 세션 유지 가능한 direct URL 권장.
-DIRECT_URL="postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public"
+DIRECT_URL="postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public"
 PORT=4000
 VERIFICATION_CODE_HMAC_SECRET="<generate-with-openssl-rand-base64-32>"
 AUTH_PERSISTENCE_HMAC_SECRET="<generate-with-openssl-rand-base64-32>"
@@ -80,6 +80,15 @@ pnpm --dir apps/api prisma:migrate
 pnpm db:seed
 pnpm --dir apps/api start:dev
 ```
+
+로컬 DB 이름이 `dormduri`가 되기 전에 만든 dev DB는 새로 만든다. 그 DB가 5432에 떠 있으면 `pnpm db:up`은 port를 이미 쓰고 있어 새 DB를 띄우지 못하고(`port is already allocated`), DB에 붙는 명령(`prisma:migrate`, `prisma generate --sql`을 부르는 `prisma:generate`·`pnpm api:check`)은 옛 DB에 붙어 새 사용자 인증 실패(`P1000`)로 멈춘다. 옛 데이터는 옮기지 않는다(보존 암호 결속 값과 baseline index 이름이 바뀌어 새 코드와 맞지 않는다).
+
+1. 옛 dev DB를 멈춰 port 5432를 비운다: `docker stop knu-roommate-postgres-dev`(옛 이름). 되돌릴 때 쓰므로 지우지 않는다.
+2. 위 순서의 `pnpm db:up` → `pnpm --dir apps/api prisma:migrate` → `pnpm db:seed`로 새 DB(`dormduri-postgres-dev`, volume `dormduri-dev_dormduri-postgres-data`)를 띄우고 채운다. 빈 DB라 `prisma:migrate`는 새 migration 이름을 묻지 않는다.
+3. `apps/api/.env`가 있으면 Prisma CLI가 그 값을 먼저 쓰므로(2절) `DATABASE_URL`·`DIRECT_URL`을 2절 예시 값으로 고친다. Dockerized stress smoke가 만든 `infra/deploy/.env.api`가 있으면 smoke가 그 파일을 다시 만들지 않고 쓰므로 그 안 `DATABASE_URL`·`DIRECT_URL`·`*_DATABASE_URL`의 사용자·암호·DB 이름도 고친다.
+4. 옛 데이터가 필요하면 새 DB를 멈춘 뒤(`docker stop dormduri-postgres-dev`, 두 DB가 같은 port를 쓴다) 옛 container를 다시 띄워 직접 읽는다. 남은 옛 이름 자원은 [로컬 환경 runbook](../../infra/runbooks/rehearsal/local-environments.md#옛-이름-자원)에서 골라 지운다.
+
+`docker-compose.dev.yml`은 compose project 이름을 `dormduri-dev`로 고정하므로 이 저장소의 checkout 여럿이 같은 dev DB를 쓴다. 한 번에 한 checkout에서만 띄운다. 다른 checkout으로 옮긴 뒤 `prisma:migrate`가 적용된 migration이 바뀌었거나 DB와 다르다고 알리고 멈추면(DB는 바뀌지 않음), 로컬 데이터를 지워도 될 때 `pnpm --dir apps/api exec prisma migrate reset` 뒤 `pnpm db:seed`로 맞춘다.
 
 웹까지 함께 띄우려면:
 
@@ -234,8 +243,8 @@ pnpm --dir apps/api exec eslint \
 예시:
 
 ```bash
-docker exec knu-roommate-postgres-dev \
-  psql -U knu_dev -d knu_roommate \
+docker exec dormduri-postgres-dev \
+  psql -U dormduri_dev -d dormduri \
   -c 'SELECT email, nickname, campus, gender FROM "User" ORDER BY email;'
 ```
 

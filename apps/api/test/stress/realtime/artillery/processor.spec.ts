@@ -89,7 +89,7 @@ describe('Artillery realtime processor', () => {
     );
 
     expect(requestParams.headers?.Authorization).toBe('Bearer access-token-1');
-    expect(requestParams.headers?.['User-Agent']).toBe('knu-roommate-artillery-realtime-stress');
+    expect(requestParams.headers?.['User-Agent']).toBe('dormduri-artillery-realtime-stress');
     expect(processor.buildSafeRealtimeLog({ accessToken: 'secret', ticket: 'ticket-1' })).toEqual({
       accessToken: '[REDACTED_STRESS_SECRET]',
       ticket: '[REDACTED_STRESS_SECRET]',

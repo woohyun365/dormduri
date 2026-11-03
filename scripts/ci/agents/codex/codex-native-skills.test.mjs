@@ -221,6 +221,19 @@ test('knu-review saves the context inputs and both extracts and reads every inpu
   }
 });
 
+test('knu-review step 4 points the plan review grade and the second-round delta at their rule documents', () => {
+  const steps = read(skillPath('knu-review')).split(/\n(?=\d+\. )/u);
+  const step4 = (steps.find((step) => step.startsWith('4. ')) ?? '').replace(/\s+/gu, ' ');
+  for (const phrase of [
+    'session-continuity.md#계획-초안-staging과-promote',
+    'qa.md#리뷰-회차',
+    '계획 리뷰 등급',
+    '2회차부터 delta',
+    '전 범위',
+  ])
+    assert.ok(step4.includes(phrase), `plan review grade: Codex step 4 ${phrase}`);
+});
+
 test('skills link the single source documents, and every link resolves', () => {
   for (const name of SKILLS) {
     const path = skillPath(name);

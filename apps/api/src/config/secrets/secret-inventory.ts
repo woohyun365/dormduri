@@ -56,7 +56,7 @@ export function buildSecretInventory(options: SecretInventoryOptions = {}): Secr
 
 export function formatSecretInventoryReport(report: SecretInventoryReport): string {
   const lines = [
-    'KNU Roommate API secret inventory dry-run',
+    'dormduri API secret inventory dry-run',
     `source=${report.source}`,
     `nodeEnv=${report.nodeEnv}`,
     `secretNamePrefix=${report.secretNamePrefix ?? '(not set)'}`,

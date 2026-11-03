@@ -5,7 +5,7 @@
     {
       "name": "api",
       "ownerPath": "infra/deploy/compose.api.yml",
-      "nonRootOrDropPrivileges": "Dockerfile runtime user knu and all Linux capabilities dropped",
+      "nonRootOrDropPrivileges": "Dockerfile runtime user dormduri and all Linux capabilities dropped",
       "readOnlyRootFilesystem": true,
       "writablePaths": ["tmpfs:/tmp"],
       "exception": null

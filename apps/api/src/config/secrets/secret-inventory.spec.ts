@@ -26,18 +26,18 @@ describe('secret inventory dry-run', () => {
       env: {
         NODE_ENV: 'production',
         SECRET_SOURCE: 'aws-secrets-manager',
-        [SECRET_NAME_PREFIX_ENV]: '/knu-roommate/prod/api',
+        [SECRET_NAME_PREFIX_ENV]: '/dormduri/prod/api',
         DATABASE_URL: 'should-not-appear',
       },
     });
 
     expect(report.source).toBe('aws-secrets-manager');
-    expect(report.secretNamePrefix).toBe('/knu-roommate/prod/api');
+    expect(report.secretNamePrefix).toBe('/dormduri/prod/api');
     expect(report.items.find((item) => item.envKey === 'DATABASE_URL')).toEqual({
       envKey: 'DATABASE_URL',
       owner: 'platform-database',
       category: 'database',
-      secretName: '/knu-roommate/prod/api/DATABASE_URL',
+      secretName: '/dormduri/prod/api/DATABASE_URL',
     });
     expect(formatSecretInventoryReport(report)).not.toContain('should-not-appear');
   });

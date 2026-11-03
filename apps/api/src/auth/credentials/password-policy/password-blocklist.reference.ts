@@ -12,6 +12,8 @@ export const AUTH_PASSWORD_COMMON_VALUE_REFERENCE = [
 ] as const;
 
 export const AUTH_PASSWORD_SERVICE_VALUE_REFERENCE = [
+  'dormduri123',
+  'dormduri2026',
   'kangwon2026',
   'kangwonroom',
   'knuroommate',

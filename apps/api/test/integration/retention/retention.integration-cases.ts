@@ -513,7 +513,7 @@ export function registerRetentionCases(
                 previousNickname: '유저가',
                 nextNickname: '유저가-변경',
               },
-              aad: 'knu-roommate:test:nickname-disposal-test',
+              aad: 'dormduri:test:nickname-disposal-test',
               retainedAt: deletedAt,
               retentionCaseId: retentionCase.id,
               holdReason: 'ACCOUNT_DELETION',

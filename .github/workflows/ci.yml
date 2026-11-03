@@ -68,7 +68,7 @@ jobs:
     name: Shared contract gate
     needs: classify
     if: ${{ needs.classify.outputs.shared == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -122,7 +122,7 @@ jobs:
     name: Repository policy gate
     needs: classify
     if: ${{ needs.classify.outputs.repo_policy == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -160,7 +160,7 @@ jobs:
     name: Agent workflow gate
     needs: classify
     if: ${{ needs.classify.outputs.agent_workflow == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - name: Checkout

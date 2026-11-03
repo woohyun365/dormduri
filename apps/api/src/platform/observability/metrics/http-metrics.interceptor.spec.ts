@@ -1,23 +1,42 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { CallHandler, ExecutionContext } from '@nestjs/common';
+import { SetMetadata, type CallHandler, type ExecutionContext } from '@nestjs/common';
+import { PATH_METADATA } from '@nestjs/common/constants.js';
+import { Reflector } from '@nestjs/core';
 import { EventEmitter } from 'node:events';
-import type { Request, Response } from 'express';
+import type { ServerResponse } from 'node:http';
 import { of } from 'rxjs';
 import { HttpMetricsInterceptor } from './http-metrics.interceptor.js';
 import type { HttpMetricsService } from './http-metrics.service.js';
 
-function makeExecutionContext(request: Request, response: Response): ExecutionContext {
+type ProbeResponse = Pick<ServerResponse, 'once' | 'statusCode'> & EventEmitter;
+
+class RouteProbeController {}
+
+// The interceptor reads the route template from the handler's Nest path metadata.
+function makeExecutionContext(
+  request: object,
+  response: ProbeResponse,
+  routePath: string,
+): ExecutionContext {
+  const handler = () => undefined;
+  SetMetadata(PATH_METADATA, routePath)(handler);
   return {
+    getClass: () => RouteProbeController,
+    getHandler: () => handler,
     getType: () => 'http',
     switchToHttp: () => ({
       getRequest: () => request,
       getResponse: () => response,
     }),
-  } as ExecutionContext;
+  } as unknown as ExecutionContext;
+}
+
+function makeInterceptor(metrics: HttpMetricsService) {
+  return new HttpMetricsInterceptor(metrics, new Reflector());
 }
 
 function makeResponse(statusCode = 200) {
-  const response = Object.assign(new EventEmitter(), { statusCode }) as unknown as Response;
+  const response = Object.assign(new EventEmitter(), { statusCode }) as unknown as ProbeResponse;
 
   return {
     emit: (event: string) => response.emit(event),
@@ -39,15 +58,12 @@ describe('HttpMetricsInterceptor', () => {
         recordRequest,
         startRequest,
       } as unknown as HttpMetricsService;
-      const interceptor = new HttpMetricsInterceptor(metrics);
+      const interceptor = makeInterceptor(metrics);
       const { emit, response } = makeResponse(404);
-      const request = {
-        method: 'GET',
-        route: { path: '/profiles/:id' },
-      } as unknown as Request;
+      const request = { method: 'GET' };
 
       interceptor
-        .intercept(makeExecutionContext(request, response), {
+        .intercept(makeExecutionContext(request, response, '/profiles/:id'), {
           handle: () => of('ok'),
         } as CallHandler)
         .subscribe();
@@ -76,16 +92,13 @@ describe('HttpMetricsInterceptor', () => {
         throw new Error('metrics unavailable');
       }),
     } as unknown as HttpMetricsService;
-    const interceptor = new HttpMetricsInterceptor(metrics);
+    const interceptor = makeInterceptor(metrics);
     const { emit, response } = makeResponse(500);
-    const request = {
-      method: 'POST',
-      route: { path: '/reports' },
-    } as unknown as Request;
+    const request = { method: 'POST' };
 
     expect(() => {
       interceptor
-        .intercept(makeExecutionContext(request, response), {
+        .intercept(makeExecutionContext(request, response, '/reports'), {
           handle: () => of('ok'),
         } as CallHandler)
         .subscribe();
@@ -101,15 +114,15 @@ describe('HttpMetricsInterceptor', () => {
         if (recordingFails) throw new Error('metrics unavailable');
       });
       const startRequest = vi.fn(() => finishInFlight);
-      const interceptor = new HttpMetricsInterceptor({
+      const interceptor = makeInterceptor({
         startRequest,
         recordRequest,
       } as unknown as HttpMetricsService);
       const { emit, response } = makeResponse();
-      const request = { method: 'GET', route: { path: '/test' } } as unknown as Request;
+      const request = { method: 'GET' };
 
       interceptor
-        .intercept(makeExecutionContext(request, response), {
+        .intercept(makeExecutionContext(request, response, '/test'), {
           handle: () => of('ok'),
         } as CallHandler)
         .subscribe();

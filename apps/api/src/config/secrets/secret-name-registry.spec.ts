@@ -19,25 +19,25 @@ describe('secret name registry', () => {
 
   it('builds the default production convention from NODE_ENV and env key', () => {
     expect(secretNameForEnvKey('DATABASE_URL', { nodeEnv: 'production' })).toBe(
-      '/knu-roommate/production/api/DATABASE_URL',
+      '/dormduri/production/api/DATABASE_URL',
     );
   });
 
   it('normalizes explicit prefixes and maps all secret env keys', () => {
-    expect(normalizeSecretNamePrefix('/knu-roommate/prod/api/')).toBe('/knu-roommate/prod/api');
+    expect(normalizeSecretNamePrefix('/dormduri/prod/api/')).toBe('/dormduri/prod/api');
 
-    const mappings = listSecretNameMappings({ prefix: '/knu-roommate/prod/api/' });
+    const mappings = listSecretNameMappings({ prefix: '/dormduri/prod/api/' });
     expect(mappings).toHaveLength(runtimeSecretEnvKeys.length);
     expect(mappings.find((mapping) => mapping.envKey === 'DATABASE_URL')).toEqual({
       envKey: 'DATABASE_URL',
-      secretName: '/knu-roommate/prod/api/DATABASE_URL',
+      secretName: '/dormduri/prod/api/DATABASE_URL',
     });
   });
 
   it('rejects non-secret env keys and invalid prefixes', () => {
     expect(() => secretNameForEnvKey('PORT')).toThrow(/not registered/);
-    expect(() => normalizeSecretNamePrefix('knu-roommate/prod/api')).toThrow(/must start/);
-    expect(() => normalizeSecretNamePrefix('/knu-roommate//prod')).toThrow(/empty path/);
+    expect(() => normalizeSecretNamePrefix('dormduri/prod/api')).toThrow(/must start/);
+    expect(() => normalizeSecretNamePrefix('/dormduri//prod')).toThrow(/empty path/);
   });
 
   it('rejects unsupported NODE_ENV path segments', () => {

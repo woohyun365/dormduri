@@ -18,9 +18,12 @@
 | Vulnerability alerts            | Dependabot(alert 전용)                              | 없음   |
 | pnpm package-manager            | Mend-hosted Renovate(Dashboard 승인 줄, 사람 merge) | `dev`  |
 | `.node-version`(nodenv)         | Mend-hosted Renovate                                | `dev`  |
+| Workflow build 도구 image       | Mend-hosted Renovate                                | `dev`  |
 
-두 bot은 기본 branch(`main`)의 설정을 읽는다. 이 owner map은 `.github/dependabot.yml` 삭제와 Renovate manager 추가가
-`dev` → `main` 승격으로 기본 branch에 올라간 뒤 효력을 갖는다. `nodenv` manager 추가로 생긴 `.node-version` 행도 같다.
+두 bot은 기본 branch(`main`)의 설정을 읽는다. Dependabot 쪽(`.github/dependabot.yml` 삭제)은 `dev` → `main` 승격으로
+기본 branch에 올라간 뒤 효력을 갖는다. Renovate 쪽은 [base branch 설정 합치기](../../architecture/platform/dependency-automation.md#현재-구조)를
+따른다. manager 추가(`.node-version` 행)는 `dev` merge 뒤에 효력을 갖는다. `dev`에서 지운 `packageRules` 값은 다른 `dev` 규칙이
+다시 정하지 않으면 승격 뒤에 효력을 갖는다.
 
 ## Routine Renovate flow
 
@@ -152,6 +155,7 @@ Renovate [SECURITY] PR은 direct dependency만 고치므로 transitive alert는 
   `mitigation`·`revisit`에 둔다.
 - 열린 alert가 없는 분류는 `staleClassifications`로 출력되고 실패가 아니다. Alert는 기본 branch 기준이므로, 승격 뒤 기본
   branch에서 닫힘을 확인한 다음 retained override·예외의 근거가 아닌 항목을 지운다.
+- 월 1회 점검 때 [날짜 snapshot 재확인](../../README.md#날짜-snapshot-재확인) 대상 문서의 마지막 확인일도 본다.
 
 ## 남은 Dependabot PR
 
@@ -208,7 +212,7 @@ Prettier처럼 repository 전체의 텍스트를 다시 쓰는 formatter는 일�
 2. Markdown처럼 rendered meaning이 바뀔 수 있는 입력 결함은 formatter migration 전에 별도 PR로 교정합니다.
 3. formatter write는 allowlist 밖 파일, generated code, migration, local artifact를 변경하면 실패시킵니다.
 4. TypeScript/TSX 변경은 AST parse/printer parity, typecheck, owner test와 production build로 semantic no-op을 검증합니다.
-5. dependency fingerprint가 바뀌면 이전 CI cohort를 닫고 새 measurement epoch를 엽니다.
+5. CI 성능 표본은 run head dependency fingerprint로 나뉘므로 formatter migration 전후 run을 같은 cohort로 비교하지 않습니다.
 
 Formatter migration은 ESLint rule 재설계나 unrelated dependency update의 운반 수단이 아닙니다. 호환성 교정, 버전 입력,
-결과 포맷 diff, CI measurement epoch를 각각 독립적으로 설명할 수 있어야 합니다.
+결과 포맷 diff, CI fingerprint cohort를 각각 독립적으로 설명할 수 있어야 합니다.

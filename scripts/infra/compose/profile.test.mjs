@@ -48,10 +48,10 @@ test('stress profile은 base, runtime resource, stress policy 순서로 합성�
     'api-stress',
     'full-stack-api-rehearsal',
     'observability-rehearsal',
-    'web-rehearsal',
+    'full-stack-web-rehearsal',
   ]) {
     assert.deepEqual(resolveManagedNetworks(inventory.profiles[profileName]), [
-      'knu-roommate-observability',
+      'dormduri-observability',
     ]);
   }
   assert.deepEqual(
@@ -80,19 +80,14 @@ test('full-stack rehearsal profile은 production base와 resource budget, dispos
   );
 });
 
-test('Web standalone과 full-stack profile은 fixture 책임을 분리한다', () => {
+test('full-stack Web profile은 Web을 제품 resource budget과 함께 합성한다', () => {
   const inventory = loadComposeInventory(repoRoot);
-  const standaloneArgs = buildComposeArgs(inventory, 'web-rehearsal', ['config'], { repoRoot });
   const fullStackArgs = buildComposeArgs(inventory, 'full-stack-web-rehearsal', ['config'], {
     repoRoot,
   });
-  const standaloneFiles = standaloneArgs.filter(
-    (value, index) => standaloneArgs[index - 1] === '-f',
-  );
   const fullStackFiles = fullStackArgs.filter((value, index) => fullStackArgs[index - 1] === '-f');
 
-  assert.ok(standaloneFiles.includes('infra/rehearsal/compose.web.fixture.yml'));
-  assert.equal(fullStackFiles.includes('infra/rehearsal/compose.web.fixture.yml'), false);
+  assert.ok(fullStackFiles.includes('infra/rehearsal/compose.web.yml'));
   assert.ok(fullStackFiles.includes('infra/observability/compose.resources.yml'));
 });
 
@@ -114,16 +109,102 @@ test('production render source에는 stress 전용 key가 없고 resource budget
   assert.match(stress, /AUTH_THROTTLE_LIMIT/u);
 });
 
-test('ingress-trust owns one project without legacy DB/resource/stress overlays', () => {
+test('Web 단계 rehearsal은 운영 host compose를 그대로 쓰고 local 덮어쓰기만 더한다', () => {
   const inventory = loadComposeInventory(repoRoot);
-  const args = buildComposeArgs(inventory, 'ingress-trust', ['config'], { repoRoot });
+  const production = inventory.profiles['user-host'];
+  const rehearsal = inventory.profiles['user-host-rehearsal'];
+  assert.equal(production.classification, 'production-candidate');
+  assert.deepEqual(production.files, ['infra/deploy/user/compose.yml']);
+  // The deploy document runs the host compose under this project name.
+  assert.equal(production.project, 'dormduri-web');
+  assert.equal(rehearsal.classification, 'rehearsal-only');
+  assert.deepEqual(rehearsal.files, [
+    'infra/deploy/user/compose.yml',
+    'infra/rehearsal/compose.user-host.yml',
+  ]);
+  assert.notEqual(rehearsal.project, production.project);
+  // compose.web.yml stays the Web service of the full-stack rehearsal.
+  for (const profile of [production, rehearsal]) {
+    assert.ok(!profile.files.includes('infra/rehearsal/compose.web.yml'));
+  }
+  assert.deepEqual(resolveManagedNetworks(rehearsal), []);
+});
+
+test('runner overlay는 profile file 뒤에 붙고 profile 이름과 project는 그대로다', () => {
+  const inventory = loadComposeInventory(repoRoot);
+  const args = buildComposeArgs(inventory, 'api-base', ['build', 'api'], {
+    repoRoot,
+    projectName: 'runner-project',
+    extraFiles: ['apps/api/test/stress/docker/compose.local-labels.yml'],
+  });
+
+  assert.deepEqual(args.slice(0, 3), ['compose', '-p', 'runner-project']);
   assert.deepEqual(
     args.filter((value, index) => args[index - 1] === '-f'),
-    [
-      'infra/deploy/compose.api.yml',
-      'infra/rehearsal/compose.web.yml',
-      'infra/deploy/compose.ingress-trust.yml',
-    ],
+    ['infra/deploy/compose.api.yml', 'apps/api/test/stress/docker/compose.local-labels.yml'],
   );
-  assert.deepEqual(resolveManagedNetworks(inventory.profiles['ingress-trust']), []);
+  assert.deepEqual(args.slice(-2), ['build', 'api']);
+});
+
+test('로컬 자원 label은 rehearsal·runner overlay에만 있고 운영 후보 compose에는 없다', () => {
+  const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
+  const labelKeys = /dormduri\.local\.created-by:[\s\S]*dormduri\.local\.run-id:/u;
+
+  for (const path of [
+    'infra/deploy/compose.api.yml',
+    'infra/observability/compose.base.yml',
+    'infra/observability/compose.production.yml',
+    'infra/deploy/user/compose.yml',
+  ]) {
+    assert.doesNotMatch(read(path), /dormduri\.local\./u, path);
+  }
+  for (const path of [
+    'infra/rehearsal/compose.api.runtime.yml',
+    'infra/rehearsal/compose.postgres.yml',
+    'infra/rehearsal/compose.web.yml',
+    'infra/rehearsal/compose.user-host.yml',
+    'apps/api/test/stress/docker/compose.local-labels.yml',
+    'scripts/infra/rehearsal/full-stack/compose.volume-labels.api.yml',
+    'scripts/infra/rehearsal/full-stack/compose.volume-labels.web.yml',
+  ]) {
+    assert.match(read(path), labelKeys, path);
+  }
+});
+
+test('이름 있는 volume label은 실행마다 새 project를 만드는 full-stack overlay에만 있다', () => {
+  // Compose keeps volume labels in the volume config hash; a fixed-name project whose labels change between runs
+  // is asked to recreate (and lose) its volumes. See local-environments.md "로컬 Docker 자원 label과 확인".
+  const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
+  const volumeSection = (path) => read(path).split(/^volumes:$/mu)[1] ?? '';
+
+  for (const path of [
+    'infra/rehearsal/compose.api.runtime.yml',
+    'infra/rehearsal/compose.observability.yml',
+    'apps/api/test/stress/docker/compose.local-labels.yml',
+  ]) {
+    assert.doesNotMatch(volumeSection(path), /dormduri\.local\./u, path);
+  }
+  const fullStackRunner = read('scripts/infra/rehearsal/full-stack/index.mjs');
+  for (const path of [
+    'scripts/infra/rehearsal/full-stack/compose.volume-labels.api.yml',
+    'scripts/infra/rehearsal/full-stack/compose.volume-labels.web.yml',
+  ]) {
+    assert.match(volumeSection(path), /dormduri\.local\.run-id:/u, path);
+    assert.ok(fullStackRunner.includes(`'${path}'`), `full-stack runner appends ${path}`);
+  }
+  // The smoke API image keeps a fixed tag, so a per-run label value would leave an untagged image after every rebuild.
+  assert.match(
+    read('apps/api/test/stress/docker/run-dockerized-smoke.mjs'),
+    /^process\.env\.LOCAL_RESOURCE_RUN_ID = 'local';$/mu,
+  );
+  const inventory = loadComposeInventory(repoRoot);
+  const fullStackOnly = Object.entries(inventory.profiles)
+    .filter(([, profile]) => profile.files.includes('infra/rehearsal/compose.postgres.yml'))
+    .map(([name]) => name);
+  assert.deepEqual(fullStackOnly, ['full-stack-api-rehearsal']);
+  // compose.web.yml carries local Web assumptions (local image, loopback publish), so only the full-stack Web profile uses it.
+  const webRehearsalOnly = Object.entries(inventory.profiles)
+    .filter(([, profile]) => profile.files.includes('infra/rehearsal/compose.web.yml'))
+    .map(([name]) => name);
+  assert.deepEqual(webRehearsalOnly, ['full-stack-web-rehearsal']);
 });

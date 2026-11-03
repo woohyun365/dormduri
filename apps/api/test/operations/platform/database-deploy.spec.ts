@@ -65,8 +65,8 @@ describe('production database deploy boundary', () => {
     expect(script).toContain('auth-role-grants.sql');
     expect(script).toContain('rrpd-role-grants.sql');
     expect(script.indexOf('-f "$rrpd_sql"')).toBeLessThan(script.indexOf('-f "$auth_sql"'));
-    expect(script).toContain('knu_roommate.auth_schema');
-    expect(script).toContain('knu_roommate.rrpd_schema');
+    expect(script).toContain('dormduri.auth_schema');
+    expect(script).toContain('dormduri.rrpd_schema');
     expect(script).toContain('DB_APP_RUNTIME_ROLE');
     expect(script).toContain('DB_RETENTION_WORKER_ROLE');
     expect(script).toContain('DB_RETENTION_DISCLOSURE_ROLE');

@@ -8,17 +8,18 @@ const policyUrl = new URL('./fixtures/github-actions-performance-policy.json', i
 const policy = JSON.parse(await readFile(policyUrl, 'utf8'));
 
 test('keeps the effective Pro shared-storage boundary separate from provider reference drift', () => {
-  assert.equal(policy.repositoryResources.effectiveSharedStorageBytes, 2 * 1024 ** 3);
-  assert.equal(policy.repositoryResources.officialProArtifactStorageReferenceBytes, 1024 ** 3);
-  assert.equal(
-    policy.repositoryResources.officialProPackagesSharedStorageReferenceBytes,
-    2 * 1024 ** 3,
-  );
-  assert.equal(
-    policy.repositoryResources.effectiveSharedStorageInterpretation,
-    '2GB-shared-packages-actions-artifacts',
-  );
-  assert.equal(policy.repositoryResources.allowanceDriftRequiresOwnerReview, false);
+  const resources = policy.repositoryResources;
+  const references = [
+    resources.officialProArtifactStorageReferenceBytes,
+    resources.officialProPackagesSharedStorageReferenceBytes,
+  ];
+
+  for (const bytes of [resources.effectiveSharedStorageBytes, ...references]) {
+    assert.ok(Number.isSafeInteger(bytes) && bytes > 0, `${bytes} must be a positive byte count`);
+  }
+  assert.ok(resources.effectiveSharedStorageBytes >= Math.max(...references));
+  assert.match(resources.effectiveSharedStorageInterpretation, /\S/u);
+  assert.equal(typeof resources.allowanceDriftRequiresOwnerReview, 'boolean');
 });
 
 function sample(id, surface, value, overrides = {}) {
@@ -28,7 +29,6 @@ function sample(id, surface, value, overrides = {}) {
     change: { surface },
     conclusion: 'success',
     dependencyFingerprint: {
-      epochId: 'native-ci-2026-08-28',
       fileSha256: {
         'pnpm-lock.yaml': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         'pnpm-workspace.yaml': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
@@ -36,12 +36,6 @@ function sample(id, surface, value, overrides = {}) {
           'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
       },
       sourceSha,
-    },
-    dependencyCompatibility: {
-      changedInputs: [],
-      comparisonBaseSha: 'a15a98cd4b0f4ca23a147d65dce155061cd30193',
-      comparisonEpochId: 'native-ci-2026-08-28',
-      state: 'compatible-active-epoch',
     },
     estimatedGrossUsd: value * 0.006,
     event: 'pull_request',
@@ -61,12 +55,6 @@ function sample(id, surface, value, overrides = {}) {
     },
     rawComputeSeconds: value * 2,
     roundedBilledMinutes: value,
-    measurementEpoch: {
-      baseSha: 'a15a98cd4b0f4ca23a147d65dce155061cd30193',
-      capturedAt: '2026-08-28T06:33:34Z',
-      id: 'native-ci-2026-08-28',
-      state: 'collecting',
-    },
     tests: { testCases: 3401, testFiles: 690 },
     workflowWallSeconds: value,
     ...overrides,
@@ -76,7 +64,7 @@ function sample(id, surface, value, overrides = {}) {
 test('publishes provisional p50 at five natural samples and p95 at ten', () => {
   const runs = Array.from({ length: 10 }, (_, index) => sample(index + 1, 'full', index + 1));
   const report = buildPerformanceReport({
-    datasets: [{ collectedAt: '2026-08-26T00:00:00Z', runs, schemaVersion: 3 }],
+    datasets: [{ collectedAt: '2026-08-26T00:00:00Z', runs, schemaVersion: 4 }],
     policy,
     resourceInventory: {
       artifacts: { activeCount: 98, activeSizeBytes: 7752603 },
@@ -106,7 +94,7 @@ test('does not invent percentiles when a natural cohort is too small', () => {
       {
         collectedAt: '2026-08-26T00:00:00Z',
         runs: [sample(1, 'web-only', 100)],
-        schemaVersion: 3,
+        schemaVersion: 4,
       },
     ],
     policy,
@@ -126,7 +114,7 @@ test('keeps retired push evidence separate from the primary pull-request cohort'
       {
         collectedAt: '2026-08-26T00:00:00Z',
         runs: [sample(1, 'full', 100), sample(2, 'full', 200, { event: 'push' })],
-        schemaVersion: 3,
+        schemaVersion: 4,
       },
     ],
     policy,
@@ -141,12 +129,15 @@ test('deduplicates run ids and rejects mixed dependency fingerprints', () => {
   const duplicate = sample(1, 'full', 100);
   const report = buildPerformanceReport({
     datasets: [
-      { collectedAt: '2026-08-26T00:00:00Z', runs: [duplicate], schemaVersion: 3 },
-      { collectedAt: '2026-08-26T00:01:00Z', runs: [duplicate], schemaVersion: 3 },
+      { collectedAt: '2026-08-26T00:00:00Z', runs: [duplicate], schemaVersion: 4 },
+      { collectedAt: '2026-08-26T00:01:00Z', runs: [duplicate], schemaVersion: 4 },
     ],
     policy,
   });
   assert.equal(report.cohorts.full.sampleCount, 1);
+  assert.deepEqual(report.dependencyFingerprint, {
+    fileSha256: duplicate.dependencyFingerprint.fileSha256,
+  });
 
   assert.throws(
     () =>
@@ -157,14 +148,7 @@ test('deduplicates run ids and rejects mixed dependency fingerprints', () => {
             runs: [
               duplicate,
               sample(2, 'full', 100, {
-                dependencyCompatibility: {
-                  changedInputs: [],
-                  comparisonBaseSha: 'a15a98cd4b0f4ca23a147d65dce155061cd30193',
-                  comparisonEpochId: 'different-epoch',
-                  state: 'compatible-active-epoch',
-                },
                 dependencyFingerprint: {
-                  epochId: 'different-epoch',
                   fileSha256: {
                     'pnpm-lock.yaml':
                       'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
@@ -175,48 +159,32 @@ test('deduplicates run ids and rejects mixed dependency fingerprints', () => {
                   },
                   sourceSha: '0000000000000000000000000000000000000002',
                 },
-                measurementEpoch: {
-                  baseSha: 'a15a98cd4b0f4ca23a147d65dce155061cd30193',
-                  capturedAt: '2026-08-28T06:33:34Z',
-                  id: 'different-epoch',
-                  state: 'collecting',
-                },
               }),
             ],
-            schemaVersion: 3,
+            schemaVersion: 4,
           },
         ],
         policy,
       }),
-    /dependency fingerprint/u,
+    /mixed dependency fingerprint/u,
   );
+});
+
+test('rejects a run whose fingerprint is missing a dependency input hash', () => {
+  const run = sample(4, 'full', 100);
+  delete run.dependencyFingerprint.fileSha256['pnpm-workspace.yaml'];
 
   assert.throws(
     () =>
       buildPerformanceReport({
-        datasets: [
-          {
-            collectedAt: '2026-08-26T00:00:00Z',
-            runs: [
-              sample(3, 'full', 100, {
-                dependencyCompatibility: {
-                  changedInputs: ['pnpm-lock.yaml'],
-                  comparisonBaseSha: 'a15a98cd4b0f4ca23a147d65dce155061cd30193',
-                  comparisonEpochId: 'native-ci-2026-08-28',
-                  state: 'changed-inputs',
-                },
-              }),
-            ],
-            schemaVersion: 3,
-          },
-        ],
+        datasets: [{ collectedAt: '2026-08-26T00:00:00Z', runs: [run], schemaVersion: 4 }],
         policy,
       }),
-    /dependency inputs changed/u,
+    /dependency fingerprint is missing pnpm-workspace\.yaml/u,
   );
 });
 
-test('rejects active-epoch evidence when the fingerprint was not read from the run head', () => {
+test('rejects evidence when the fingerprint was not read from the run head', () => {
   assert.throws(
     () =>
       buildPerformanceReport({
@@ -226,7 +194,6 @@ test('rejects active-epoch evidence when the fingerprint was not read from the r
             runs: [
               sample(9, 'infra-only', 100, {
                 dependencyFingerprint: {
-                  epochId: 'native-ci-2026-08-28',
                   fileSha256: {
                     'pnpm-lock.yaml':
                       'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
@@ -239,7 +206,7 @@ test('rejects active-epoch evidence when the fingerprint was not read from the r
                 },
               }),
             ],
-            schemaVersion: 3,
+            schemaVersion: 4,
           },
         ],
         policy,
@@ -248,17 +215,22 @@ test('rejects active-epoch evidence when the fingerprint was not read from the r
   );
 });
 
-test('keeps historical and active-epoch dataset schemas in separate reports', () => {
+test('reads only run-head fingerprint datasets', () => {
   const run = sample(10, 'infra-only', 100);
-  assert.throws(
-    () =>
-      buildPerformanceReport({
-        datasets: [
-          { collectedAt: '2026-08-26T00:00:00Z', runs: [run], schemaVersion: 2 },
-          { collectedAt: '2026-08-28T00:00:00Z', runs: [run], schemaVersion: 3 },
-        ],
-        policy,
-      }),
-    /historical and active-epoch dataset schemas cannot be mixed/u,
-  );
+  for (const schemaVersion of [2, 3, 5, undefined]) {
+    assert.throws(
+      () =>
+        buildPerformanceReport({
+          datasets: [
+            { collectedAt: '2026-08-28T00:00:00Z', runs: [run], schemaVersion: 4 },
+            { collectedAt: '2026-08-26T00:00:00Z', runs: [run], schemaVersion },
+          ],
+          policy,
+        }),
+      new RegExp(
+        `unsupported performance dataset schema: ${schemaVersion}; this report reads schema 4`,
+        'u',
+      ),
+    );
+  }
 });

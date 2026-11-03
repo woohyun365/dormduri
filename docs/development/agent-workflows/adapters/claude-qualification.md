@@ -20,11 +20,11 @@ Live pilot 세션은 [owner tmux](../../troubleshooting/tooling/claude-live-sess
 `claude --permission-mode auto --model opus --effort high`로 시작합니다. 세션 안에서는 `/effort`를 쓰지 않습니다.
 `/effort <level>`은 현재 세션뿐 아니라 Home 설정의 다음 세션 기본값도 바꿉니다(CLI 2.1.286 관측). Pilot 시작 전과 끝난 뒤
 Home 설정의 `effortLevel`을 기록합니다. 값이 바뀌었으면 시작 전 값으로 되돌리고, 바뀐 값과 복원 사실을 pilot 기록에 보고합니다.
-역할 effort가 세션 effort(`high`)와 같은 역할은 관측한 effort로 상속과 구별할 수 없습니다. `knu_explorer`·`knu_researcher`·
-`knu_executor`가 여기에 속합니다. 이 세션에서 역할 effort 적용을 상속과 구별해 보이는 관측은 `xhigh` 역할뿐입니다.
+역할 effort가 세션 effort(`high`)와 같은 역할은 관측한 effort로 상속과 구별할 수 없습니다. `knu_explorer`·`knu_researcher`가
+여기에 속합니다. 이 세션에서 역할 effort 적용을 상속과 구별해 보이는 관측은 `xhigh` 역할뿐입니다.
 
-Disposable fixture에서 readonly 도구 부재·자발적 거부·host denial을 구별하고, executor의 허용 write/test·실패 보고·
-독립 QA·취소/결과 회수도 따로 관측합니다. 실제 지원 없는 mode는 scoped NO-GO로 두며 prompt/advisory로 몰래 낮추거나
+Disposable fixture에서 readonly 도구 부재·자발적 거부·host denial을 구별하고, child의 실패 보고·독립 QA·취소/결과 회수도
+따로 관측합니다. 실제 지원 없는 mode는 scoped NO-GO로 두며 prompt/advisory로 몰래 낮추거나
 다른 모델로 fallback하지 않습니다. Source/config/host drift가 있으면 관련 qualification을 다시 수행합니다.
 Home/managed 정책을 바꾸거나 bypass로 성공시키지 않습니다. 실행 중인 Claude 세션에서 새 auto 세션을 띄워 재현할 때는
 환경 상속을 피하는 [owner tmux 절차](../../troubleshooting/tooling/claude-live-session-from-claude-session.md)를 사용합니다.

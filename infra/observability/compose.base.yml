@@ -1,4 +1,4 @@
-name: knu-roommate-observability
+name: dormduri-observability
 
 x-observability-logging: &observability-logging
   driver: json-file
@@ -88,7 +88,7 @@ services:
       - alertmanager
 
   alloy:
-    image: grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18
+    image: grafana/alloy:v1.21.3@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
     restart: unless-stopped
     init: true
     user: '0:473'
@@ -126,7 +126,7 @@ services:
       - observability
 
   alertmanager:
-    image: prom/alertmanager:v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a
+    image: prom/alertmanager:v0.34.2@sha256:39d8bb3966c694a124428a3a88fbcffd40bd069129ecd47c059f8a3f17c55f3b
     restart: unless-stopped
     init: true
     read_only: true
@@ -154,7 +154,7 @@ services:
       ALERTMANAGER_RETENTION: ${ALERTMANAGER_RETENTION:-120h}
       SLACK_ALERTMANAGER_ENABLED: ${SLACK_ALERTMANAGER_ENABLED:-false}
       SLACK_ALERT_WEBHOOK_URL: '${SLACK_ALERT_WEBHOOK_URL:-}'
-      SLACK_ALERT_CHANNEL: '${SLACK_ALERT_CHANNEL:-#knu-roommate-alerts}'
+      SLACK_ALERT_CHANNEL: '${SLACK_ALERT_CHANNEL:-#dormduri-alerts}'
     volumes:
       - ./alertmanager:/etc/alertmanager:ro
       - alertmanager-data:/alertmanager
@@ -170,7 +170,7 @@ services:
       start_period: 10s
 
   grafana:
-    image: grafana/grafana:13.2.4@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f
+    image: grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205
     restart: unless-stopped
     init: true
     read_only: true
@@ -216,7 +216,7 @@ services:
 
 networks:
   observability:
-    name: ${OBSERVABILITY_NETWORK:-knu-roommate-observability}
+    name: ${OBSERVABILITY_NETWORK:-dormduri-observability}
 
 volumes:
   prometheus-data:

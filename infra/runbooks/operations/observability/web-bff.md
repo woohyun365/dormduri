@@ -18,56 +18,32 @@ Web 운영 관측은 두 개의 독립 owner로 운영한다.
 | `NEXT_PUBLIC_WEB_RELEASE`                   | immutable release identifier |     commit SHA/image tag |
 | `NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT` | bounded environment          | local/preview/production |
 
-현재 repository에는 실제 Web production hosting compose가 없다. 실제 배포 환경에서는 compose service label을 `web`으로 고정하거나 Alloy의 동등한 label mapping을 먼저 구성한다.
+Web 단계 host compose(`infra/deploy/user/compose.yml`)의 Web service 이름은 `web`이다. 관측 stack을 붙일 때 Alloy가 이 이름을 `service` label로 받는지 먼저 확인한다(지금 Web 단계에는 관측 stack이 없다).
 
 ## Release 전 확인
 
-1. Sentry release readiness 입력이 준비되고 managed release evidence와 local rehearsal이 통과한다.
+1. Sentry release readiness 입력이 준비되고 managed release evidence와 Web CI의 account-free Sentry 검사가 통과한다.
 2. BFF synthetic timeout이 `outcome=timeout`과 requestId correlation으로 Loki에서 조회된다.
 3. email, token, cookie, body, raw URL/query가 Sentry와 Loki 검색 결과에 없다.
 4. Sentry runtime/performance kill switch를 각각 끈 뒤 사용자 navigation과 API flow가 정상이다.
 5. Loki가 중단되어도 BFF 사용자 응답이 유지된다.
 
-## OrbStack Web local constrained rehearsal
+## Local 확인
 
-### 범위
-
-- Docker context: `orbstack`
-- Docker Engine: 2 CPU / 4096MiB 또는 full-stack 공용 설정 4608MiB(±256MiB)
-- Web: production Next standalone image
-- Upstream: success/invalid-response/timeout만 제공하는 local fixture
-- 관측: Web stdout → Alloy → Loki → Grafana
-
-Upstream fixture는 API contract나 RDS/API 성능을 대표하지 않는다. Managed Sentry intake, source-map upload, TLS/domain도 이 rehearsal의 범위가 아니다.
-
-### 실행
-
-```bash
-pnpm web:sentry:rehearsal
-pnpm web:observability:rehearsal
-```
-
-첫 명령은 account-free SDK/privacy/build contract를 검증하고, 두 번째 명령은 BFF log ingest와 Loki 장애 fail-open을 검증한다.
-
-BFF runner는 다음 순서로 fail-closed 검증한다.
-
-1. OrbStack context와 2CPU/4096MiB 또는 4608MiB local rehearsal envelope 확인
-2. compose config 검증과 production Web image build
-3. Web/Loki/Grafana readiness 확인
-4. BFF success, malformed upstream response, 8초 timeout 발생
-5. Loki에서 `success`, `invalid_response`, `timeout`, requestId 확인
-6. synthetic email/token이 log에 없는지 확인
-7. Grafana dashboard UID 확인
-8. Loki 중단 중 BFF success 응답 유지
-9. container resource snapshot 출력
-10. 전용 container/network/volume cleanup
-
-실패 상태를 유지하려면 `WEB_REHEARSAL_KEEP=1`, evidence 파일을 남기려면
-`WEB_REHEARSAL_EVIDENCE_PATH=.artifacts/tools/observability/web-rehearsal.json`을 사용한다.
+- Sentry SDK·privacy·sampling·upload-disabled build의 account-free 검사는 Web CI가 Web lane PR마다 돈다(unit gate의 Sentry·
+  operational·Web Vitals test, static/build gate의 `pnpm web:sentry:verify-build`). Storybook 산출물의 Sentry 설정은 자동 검사가
+  없다([Sentry runbook](./browser-sentry.md#account-free-구현-검증)).
+- 관측 component(Alloy·Loki·Prometheus·Grafana) 장애 중 API `/health`와 Web root 응답 유지는 full-stack rehearsal
+  (`pnpm infra:rehearsal:full-stack`)이 확인한다.
+- BFF log ingest(Web stdout → Alloy → Loki), Loki 검색 결과의 개인정보 부재, Loki 장애 중 BFF 경로 응답 유지는 지금 자동 검사가
+  없다. Web 단계 ingress는 `/api`를 열지 않는다. API 단계가 BFF를 열 때 full-stack rehearsal에 이 확인을 더한다. 그 전에는 위
+  'Release 전 확인' 2번, 3번의 Loki 부분, 5번을 증거 없는 항목으로 둔다.
+- Grafana dashboard `dormduri-web-bff-reliability`는 file과 provisioning 설정의 단언(API `observability-stack.spec.ts`)만 있다. 실제
+  Grafana에서 그 UID를 조회하는 검사는 없다(full-stack은 Grafana `/api/health`만 본다).
 
 ## Grafana 조회
 
-- dashboard UID: `knu-web-bff-reliability`
+- dashboard UID: `dormduri-web-bff-reliability`
 
 ```logql
 {service="web"} | json | eventName="web_bff_request_completed" | outcome!="success"

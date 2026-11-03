@@ -17,9 +17,9 @@
 
 ```bash
 python3 -c 'import time; print(f"host={time.time():.6f}")'
-docker exec knu-roommate-postgres-dev date +%s.%N
-docker exec knu-roommate-postgres-dev \
-  psql -U knu_dev -d knu_roommate -Atc \
+docker exec dormduri-postgres-dev date +%s.%N
+docker exec dormduri-postgres-dev \
+  psql -U dormduri_dev -d dormduri -Atc \
   "select extract(epoch from clock_timestamp());"
 ```
 

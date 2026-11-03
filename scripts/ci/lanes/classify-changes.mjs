@@ -37,8 +37,8 @@ export function isIntendedFanOut(rawPath) {
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
 // Web sources that the Storybook story check renders (token sources and the new screen layer, plus the
-// globals.css entry that imports the generated token CSS and the PostCSS config that runs Tailwind for the
-// Storybook build) and that check's own config and specs.
+// globals.css entry that imports the generated token CSS, the PostCSS config that runs Tailwind and the React
+// Compiler config that .storybook/main.ts imports for the Storybook build) and that check's own config and specs.
 const STORYBOOK_CHECK_PREFIXES = [
   'apps/web/src/styles/',
   'apps/web/src/screens/',
@@ -48,7 +48,27 @@ const STORYBOOK_CHECK_PATHS = new Set([
   'apps/web/playwright.storybook.config.ts',
   'apps/web/src/app/globals.css',
   'apps/web/postcss.config.mjs',
+  'apps/web/react-compiler.config.ts',
 ]);
+
+// Web route files, app-root metadata files and public files decide which paths the Web stage ingress sends to Web and
+// which it answers with the coming-soon page (scripts/infra/user-host/web-routes.mjs), so they also select the infra lane
+// that checks the ingress against the Web routes.
+const WEB_ROUTE_FILE = /^apps\/web\/src\/app\/(?:.+\/)?(?:page|route)\.(?:tsx?|jsx?|mdx?)$/u;
+const WEB_APP_METADATA_FILE =
+  /^apps\/web\/src\/app\/(?:robots|sitemap|manifest|favicon|icon\d*|apple-icon\d*|opengraph-image\d*|twitter-image\d*)\.[^/]+$/u;
+
+const WEB_ENV_COMPOSE_FILES = new Set([
+  'infra/deploy/user/compose.yml',
+  'infra/rehearsal/compose.web.yml',
+]);
+const WEB_PUBLIC_FILE = /^apps\/web\/public\/(?!\.gitkeep$).+/u;
+
+export function isUserHostIngressInput(path) {
+  return (
+    WEB_ROUTE_FILE.test(path) || WEB_APP_METADATA_FILE.test(path) || WEB_PUBLIC_FILE.test(path)
+  );
+}
 
 function isStorybookInput(path) {
   return (
@@ -70,7 +90,6 @@ const LANE_SCRIPT_PATHS = new Map([
   ['scripts/ci/lanes/run-timed-command.mjs', ['web', 'api', 'storybook']],
   ['scripts/infra/compose/profile.mjs', ['api']],
   ['scripts/observability/production/environment.mjs', ['api']],
-  ['scripts/observability/rehearsal/web-bff.mjs', ['api']],
   ['scripts/observability/sentry/check-build.mjs', ['web']],
 ]);
 
@@ -243,6 +262,7 @@ export function classifyChanges(paths) {
     if (path.startsWith('apps/web/')) {
       result.web = true;
       result.storybook ||= isStorybookInput(path);
+      result.infra ||= isUserHostIngressInput(path);
       matched = true;
     }
 
@@ -280,7 +300,9 @@ export function classifyChanges(paths) {
       ) {
         result.api = true;
       }
-      if (path.startsWith('infra/deploy/web/')) {
+      // The Web env projection test (apps/web/src/config/env.deployment.test.ts) reads these compose files, so a change
+      // to them alone must still run the web lane.
+      if (path.startsWith('infra/deploy/web/') || WEB_ENV_COMPOSE_FILES.has(path)) {
         result.web = true;
       }
       matched = true;
@@ -321,6 +343,14 @@ export function classifyChanges(paths) {
     }
 
     if (path === '.github/workflows/infra-ci.yml') {
+      result.infra = true;
+      result.repoPolicy = true;
+      matched = true;
+    }
+
+    // Web CD and the daily TLS check run only from main or a schedule. A change to them is checked by the infra lane
+    // (user-host scripts they call) and the repo-policy lane (workflow trust and web-cd contract tests).
+    if (path === '.github/workflows/web-cd.yml' || path === '.github/workflows/web-tls-check.yml') {
       result.infra = true;
       result.repoPolicy = true;
       matched = true;

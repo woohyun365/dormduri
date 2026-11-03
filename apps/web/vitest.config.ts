@@ -1,12 +1,16 @@
 import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react';
+import babel from '@rolldown/plugin-babel';
+import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import path from 'path';
+import { reactCompilerViteOptions } from './react-compiler.config';
 
 const commonTestExcludes = ['e2e/**', 'tests/e2e/**', 'node_modules/**', '.next/**', 'coverage/**'];
 const domTypeScriptTests = ['src/**/*.dom.test.ts', 'src/**/*.dom.spec.ts'];
 
 export default defineConfig({
-  plugins: [react()],
+  // Tests run the code React Compiler produces in the Next.js browser build, with the same options and file scope
+  // (react-compiler.config.ts).
+  plugins: [react(), babel({ presets: [reactCompilerPreset(reactCompilerViteOptions)] })],
   test: {
     globals: true,
     clearMocks: true,

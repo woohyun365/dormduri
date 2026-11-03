@@ -11,8 +11,12 @@
 - `github/`: account/repository control-plane을 mutate하지 않고 sanitized owner evidence만 수집하는 capability
 - `infra/check/`: 정적·container-backed 인프라 검증 진입점과 bounded validator
 - `infra/compose/`: Compose profile inventory 해석과 안전한 명령 조합
-- `infra/artifacts/`: OCI build evidence 생성과 manifest 검증
+- `infra/artifacts/`: image inventory와 공급망 고정값 검사
 - `infra/rehearsal/`: 배포 토폴로지를 로컬에서 검증하는 orchestration
+- `infra/user-host/`: Web 단계 user host 묶음(compose 계약, ingress 설정과 정적 화면, SSM document 생성)의 검사와 Web CD가 부르는
+  script(image secret scan, SendCommand, 외부 smoke, 단계 기록, 공개 기록 scanner, 인증서 확인). Web CD는 `pnpm install` 없이 이
+  script를 직접 부르므로 Node 기본 module만 쓴다
+- `infra/aws/`: AWS 정책 template(`infra/aws/`)의 조건 contract test
 - `observability/production/`: production 후보 관측 설정 검증
 - `observability/rehearsal/`: account-free 로컬 수집·장애 격리 rehearsal
 - `observability/sentry/`: Sentry build artifact 검증

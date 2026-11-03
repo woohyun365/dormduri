@@ -1,0 +1,58 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SendOnlyToTaggedNode",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ssm:ap-northeast-2:<ACCOUNT_ID>:managed-instance/*",
+      "Condition": {
+        "StringEquals": {
+          "ssm:resourceTag/dormduri-deploy-target": "user-app"
+        }
+      }
+    },
+    {
+      "Sid": "SendOnlyDeployDocument",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ssm:ap-northeast-2:<ACCOUNT_ID>:document/dormduri-web-deploy"
+    },
+    {
+      "Sid": "ReadDeployDocumentHash",
+      "Effect": "Allow",
+      "Action": "ssm:DescribeDocument",
+      "Resource": "arn:aws:ssm:ap-northeast-2:<ACCOUNT_ID>:document/dormduri-web-deploy"
+    },
+    {
+      "Sid": "ReadCommandLevelStatus",
+      "Effect": "Allow",
+      "Action": "ssm:ListCommands",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadImageDigests",
+      "Effect": "Allow",
+      "Action": "ecr:DescribeImages",
+      "Resource": [
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/web",
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/ingress"
+      ]
+    },
+    {
+      "Sid": "LogInToVerifyProvenance",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadManifestsToVerifyProvenance",
+      "Effect": "Allow",
+      "Action": "ecr:BatchGetImage",
+      "Resource": [
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/web",
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/ingress"
+      ]
+    }
+  ]
+}

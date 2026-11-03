@@ -36,7 +36,9 @@ orbctl start
 4. metrics 인증, Prometheus scrape, API stdout의 Alloy→Loki 수집을 검사한다.
 5. Alloy, Loki, Prometheus, Grafana를 하나씩 중단해도 제품 요청이 유지되는지 확인한다.
 6. 게시 port가 loopback 전용인지, API/Web filesystem에 실행 중 생성한 secret이 없는지 확인한다.
-7. Compose project를 `down --volumes --remove-orphans`로 두 번 정리한다.
+7. Compose project를 `down --volumes --remove-orphans`로 두 번 정리하고, 그 실행이 build한 두 image
+   (`dormduri-api:full-stack-<run-id>`, `dormduri-web:full-stack-<run-id>`)만 지운다. Image 삭제 결과는 evidence
+   `cleanup.images`에 남고, 삭제 실패는 실행 결과를 바꾸지 않는다.
 
 ## Resource budget
 
@@ -47,8 +49,7 @@ orbctl start
 | Docker engine target       |    4608MiB | 제품 4096MiB + local DB 512MiB                                                                        |
 
 제품 limit 합계와 local DB limit을 제외한 나머지는 OS/Docker/filesystem cache와 순간적인 process
-증가를 위한 engine headroom이다. Standalone Web용 `web-upstream` fixture는 full-stack profile에서
-제외하고 실제 nginx/API 연결을 사용한다. 미래 BackOffice는 별도 2GiB host가 목표이므로 이
+증가를 위한 engine headroom이다. Full-stack Web은 실제 nginx/API 연결을 사용한다. 미래 BackOffice는 별도 2GiB host가 목표이므로 이
 4GiB User App rehearsal에 합성하지 않는다.
 
 결과는 `.artifacts/tools/infra/full-stack-rehearsal/<run-id>.{json,md}`에 저장한다. evidence에는
@@ -59,7 +60,6 @@ secret과 DB URL을 기록하지 않는다. 임시 password, HMAC key, metrics t
 
 - `engine-resource-envelope`: 로컬 Docker resource envelope가 기준과 다르다.
 - `product-resource-budget`: 제품 limit 또는 RDS-like local DB allowance가 기준과 다르다.
-- `full-stack-fixture-exclusion`: standalone Web upstream fixture가 full-stack에 섞였다.
 - `fresh-migration-deploy`: fresh PostgreSQL 18에서 migration baseline을 적용하지 못했다.
 - `database-credential-boundary`: DB role/grant 또는 credential 분리가 맞지 않는다.
 - `web-api-bridge`: Web BFF가 nginx를 통해 API에 도달하지 못했다.
@@ -67,6 +67,7 @@ secret과 DB URL을 기록하지 않는다. 임시 password, HMAC key, metrics t
 - `observability-*-fail-open`: 관측 component 장애가 제품 요청에 영향을 주거나 복구되지 않았다.
 - `runtime-artifact-secret-scan`: 실행 중 생성한 secret이 container filesystem에 포함됐다.
 - `cleanup-idempotency`: 두 번째 cleanup 후에도 project container 또는 volume이 남았다.
+- `rehearsal-blocker`의 `FULL_STACK_REHEARSAL_SKIP_BUILD=1 reuses only …`: 재사용할 image가 없다(아래 종료 확인).
 
 실패해도 실행기는 가능한 범위에서 cleanup과 secret-free evidence 작성을 시도한다. 실패 원인은
 evidence의 `blocker`와 scenario result를 기준으로 수정하고 같은 명령을 다시 실행한다.
@@ -86,6 +87,22 @@ URL에 `prod` 또는 `production`이 포함되면 실행을 거부한다. 이 op
 
 ## 종료 확인
 
-정상 실행은 container와 disposable volume을 자동 제거한다. 진단 목적으로 resource를 유지하려면
-`FULL_STACK_REHEARSAL_KEEP=1`을 사용할 수 있지만, 확인 뒤 동일 run id의 Compose project를
-수동 정리해야 한다. 일반 완료 evidence는 자동 cleanup 두 번이 모두 통과한 실행만 인정한다.
+정상 실행은 container와 disposable volume, 그 실행의 두 image를 자동 제거한다. 진단 목적으로 resource를
+유지하려면 `FULL_STACK_REHEARSAL_KEEP=1`을 사용한다. 이때 Compose project 둘, 실행기가 만든 외부 observability
+network, image 둘이 남고 image 이름은 evidence `cleanup.images.kept`에 남는다. 확인이 끝나면 project와 network를
+정리한다(`<run-id>`는 그 실행의 run id). API project의 `down`이 API network를 함께 지운다.
+
+```bash
+docker compose -p dormduri-full-stack-web-<run-id> down --volumes --remove-orphans
+docker compose -p dormduri-full-stack-api-<run-id> down --volumes --remove-orphans
+docker network rm dormduri-full-stack-observability-<run-id>
+```
+
+같은 image로 다시 확인하려면 image는 남긴 채 위 정리를 한 뒤 같은 `FULL_STACK_REHEARSAL_RUN_ID`와
+`FULL_STACK_REHEARSAL_SKIP_BUILD=1`로 실행한다. Project가 남아 있으면 PostgreSQL이 앞 실행의 volume과 password로 다시
+올라와 DB 단계가 실패한다. 재사용 실행이 keep-running이 아니면 끝날 때 project와 image를 정리한다. 다시 확인하지
+않으면 `cleanup.images.kept`의 두 image를 `docker image rm`으로 지운다. 그 run id의 image가 하나라도 없으면(앞 실행이
+keep-running이 아니었을 때 등) SKIP_BUILD 실행은 build 없이 실패하고, 남은 image는 지우지 않고 `cleanup.images.kept`에
+남긴다. 남은 자원 확인은
+[로컬 환경 runbook](./local-environments.md#로컬-docker-자원-label과-확인)을 따른다. 일반 완료
+evidence는 자동 cleanup 두 번이 모두 통과한 실행만 인정한다.

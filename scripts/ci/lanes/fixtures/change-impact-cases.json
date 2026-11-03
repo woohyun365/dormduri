@@ -1,13 +1,39 @@
 [
   {
     "name": "web-only",
-    "paths": ["apps/web/src/app/page.tsx"],
+    "paths": ["apps/web/src/auth/api/client.ts"],
     "expected": {
       "web": true,
       "api": false,
       "shared": false,
       "storybook": false,
       "infra": false,
+      "repoPolicy": false,
+      "agentWorkflow": false
+    }
+  },
+  {
+    "name": "web-route-selects-ingress-check",
+    "paths": ["apps/web/src/app/login/page.tsx"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": false,
+      "agentWorkflow": false
+    }
+  },
+  {
+    "name": "web-public-file-selects-ingress-check",
+    "paths": ["apps/web/public/og/card.png"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
       "repoPolicy": false,
       "agentWorkflow": false
     }
@@ -273,6 +299,32 @@
     }
   },
   {
+    "name": "user-host-compose-selects-web-env-test",
+    "paths": ["infra/deploy/user/compose.yml"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "web-rehearsal-compose-selects-web-env-test",
+    "paths": ["infra/rehearsal/compose.web.yml"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
     "name": "infra-workflow",
     "paths": [".github/workflows/infra-ci.yml"],
     "expected": {
@@ -474,19 +526,6 @@
   {
     "name": "api-production-environment",
     "paths": ["scripts/observability/production/environment.mjs"],
-    "expected": {
-      "web": false,
-      "api": true,
-      "shared": false,
-      "storybook": false,
-      "infra": true,
-      "repoPolicy": true,
-      "agentWorkflow": true
-    }
-  },
-  {
-    "name": "api-read-rehearsal-runner",
-    "paths": ["scripts/observability/rehearsal/web-bff.mjs"],
     "expected": {
       "web": false,
       "api": true,

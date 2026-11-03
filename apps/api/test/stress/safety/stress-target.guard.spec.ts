@@ -18,9 +18,9 @@ describe('stress target guard', () => {
 
   it('allows staging targets only when host is explicitly allowlisted', () => {
     const target = assertStressTargetAllowed({
-      targetUrl: 'https://staging-api.knu-roommate.internal',
+      targetUrl: 'https://staging-api.dormduri.internal',
       stressEnv: 'staging',
-      allowedHosts: 'staging-api.knu-roommate.internal',
+      allowedHosts: 'staging-api.dormduri.internal',
     });
 
     expect(target.stressEnv).toBe('staging');
@@ -29,7 +29,7 @@ describe('stress target guard', () => {
 
   it('rejects production-like public hosts without explicit override', () => {
     const result = evaluateStressTarget({
-      targetUrl: 'https://api.knu-roommate.example',
+      targetUrl: 'https://api.dormduri.example',
       stressEnv: 'staging',
     });
 
@@ -50,7 +50,7 @@ describe('stress target guard', () => {
 
   it('allows approved production override and surfaces a warning', () => {
     const target = assertStressTargetAllowed({
-      targetUrl: 'https://api.knu-roommate.example',
+      targetUrl: 'https://api.dormduri.example',
       stressEnv: 'production',
       allowProduction: STRESS_PRODUCTION_OVERRIDE_VALUE,
     });

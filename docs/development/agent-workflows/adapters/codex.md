@@ -1,6 +1,6 @@
 # Codex and OMX execution adapter
 
-이 문서는 공통 [orchestration](../orchestration.md)·[execution](../agent-execution-contract.md)·[QA](../qa.md)를 소비하는 Codex/OMX 전용 모델·effort·dispatch·복구 owner입니다. 다른 host에 자동 적용하지 않습니다. 기존 finite cohort(routing 후보 자격)와 필수 Astra QA는 유지합니다. Lane별 model admission grant는 2026-10-07 삭제됐습니다.
+이 문서는 공통 [orchestration](../orchestration.md)·[execution](../agent-execution-contract.md)·[QA](../qa.md)를 소비하는 Codex/OMX 전용 모델·effort·dispatch·복구 owner입니다. 다른 host에 자동 적용하지 않습니다. 기존 finite cohort(routing 후보 자격)는 유지합니다. Lane별 model admission grant는 2026-10-07, 구현 child 경로(executor)와 그 필수 Astra QA는 2026-11-01 삭제됐습니다([DA-023](../agentic-architecture-decisions.md#executor-retirement)).
 
 Child 완료·추가 배정·capacity 오류·turn 종료 시 Parent가 [subagent lifecycle](../subagent-lifecycle.md)에 따라 결과 회수, explicit-close/verified-no-close/unknown과 slot 증거를 구별합니다. Child 상한은 6(root 제외, V2가 표시하는 slot 7은 root 포함)이며 close 미지원만으로 release 또는 실패를 단정하지 않습니다. V2 runtime-managed에서는 같은 lane 후속에 `followup_task`를 우선하되(수락·해제 전 child만, 수락·해제한 child는 hook이 deny하고 보완은 새 dispatch) 최초 독립 QA는 fresh scoped context를 유지합니다. `/agents`는 선택적인 operator evidence이지 필수 기반이 아닙니다.
 
@@ -15,10 +15,10 @@ Codex 실행 접점은 여섯 층입니다. 각 층은 다른 층의 보장을 �
 - 이 문서: 위임·리뷰·완료 판정의 routine 규칙입니다. 세부는 아래 reference를 필요할 때 읽습니다.
 - Skills: `.agents/skills`의 Parent 반복 절차이며 권한을 부여하지 않습니다([호출 규칙](#routine-task-model-operation)).
 - 역할: `.codex/agents/knu_*.toml`이 역할별 effort pin·지시를 정합니다. Model은 profile이 정하며 역할 파일에 두지 않습니다.
-- Hooks: project hook(`.codex/hooks.json`)이 호출 시점 guardrail(writer 실행 중 Parent의 tracked·비ignored 경로 `apply_patch` deny 포함)과 child 완료 기록을
-  맡습니다. Hook 부재·실패에서는 호출이 막히지 않습니다. Spawn의 남는 보장은 완료 판정 거부이고 Parent 쓰기는 운영 규칙만 남습니다(완료 판정은 Parent 쓰기를 탐지하지 않음, [Native registry](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
+- Hooks: project hook(`.codex/hooks.json`)이 호출 시점 guardrail(spawn guard)과 child 완료 기록을 맡습니다. Hook 부재·실패에서는
+  호출이 막히지 않고 남는 보장은 완료 판정 거부입니다([Native registry](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
 - Sandbox·approval: 사용자·세션이 정하고 child가 물려받습니다. 저장소는 project 기본값·실행 규칙(`.codex/rules`)을 두지 않고 역할 파일의
-  `sandbox_mode`는 이를 override하지 않는 writer 표시입니다([permission mechanism](./codex-native-registry.md#codexomx-permission-mechanism)).
+  `sandbox_mode`는 이를 override하지 않는 역할 경계 표시입니다([permission mechanism](./codex-native-registry.md#codexomx-permission-mechanism)).
 
 ## Reference 문서
 
@@ -48,7 +48,7 @@ pnpm codex:preflight -- --fresh
 
 `codex/workflow-entry.mjs`의 `prepareCodexWorkflow`는 공통 intake/context/readset → 기존 Codex delegation/dispatch 추천 → 공통 bounded lane 검증을 연결합니다. CLI는 현재 요청의 deterministic 진단이며 provider·native agent·OMX를 실행하지 않습니다. API 입력은 정해진 key만 받고 그 밖 key는 `Unsupported workflow input: <key>` TypeError입니다(삭제된 runtime evidence·admission 입력이 조용히 무시되지 않게). 명시한 plan 외에 local memory를 탐색하지 않습니다.
 
-API의 `directAssignment` 또는 선택된 child별 `assignments`, `currentSnapshot`, `adapterIdentity`는 Parent가 현재 source와 비교해 제공합니다. Missing binding은 gap이며 자동 권한이 아닙니다. `validateCodexWorkflowResults`는 원래 입력에서 계약을 다시 계산하고 common fan-in과 독립 QA exchange를 검사합니다. `reviewDisposition: { required, reason }`에 공통 QA trigger를 검토한 Lead 판단을 명시합니다. 오탈자 등 저위험 direct 작업의 `not-needed` 의미를 보존하고, disposition 누락은 gap입니다. Bounded-build의 필수 Astra QA는 면제하지 않습니다. QA가 필요하면 현재 task/owner/snapshot뿐 아니라 lane acceptance와 read/write scope에 대응하는 완료 PASS를 요구합니다. 제출된 coverage·관측 모델은 Lead가 실제 증거와 다시 대조해야 합니다. 결과 `valid`는 정적 정합성뿐입니다. 실제 호출·model/permission·finding 재현·Astra QA·종료 입증은 계속 Parent와 host의 책임입니다.
+API의 `directAssignment` 또는 선택된 child별 `assignments`, `currentSnapshot`, `adapterIdentity`는 Parent가 현재 source와 비교해 제공합니다. Missing binding은 gap이며 자동 권한이 아닙니다. `validateCodexWorkflowResults`는 원래 입력에서 계약을 다시 계산하고 common fan-in과 독립 QA exchange를 검사합니다. `reviewDisposition: { required, reason }`에 공통 QA trigger를 검토한 Lead 판단을 명시합니다. 오탈자 등 저위험 direct 작업의 `not-needed` 의미를 보존하고, disposition 누락은 gap입니다. QA가 필요하면 현재 task/owner/snapshot뿐 아니라 lane acceptance와 read/write scope에 대응하는 완료 PASS를 요구합니다. 제출된 coverage·관측 모델은 Lead가 실제 증거와 다시 대조해야 합니다. 결과 `valid`는 정적 정합성뿐입니다. 실제 호출·model/permission·finding 재현·Astra QA·종료 입증은 계속 Parent와 host의 책임입니다.
 
 `codex:preflight`는 Codex Git/OMX snapshot 명령이며 request CLI의 alias가 아닙니다. 기본 계획 탐색은 `.plans`, 명시적 legacy `.omx/plans` 읽기만 과도기 호환입니다. `planDiscovery.complete/issues` 및 선택된 `planBinding`으로 불완전한 inventory와 잘못된 상태를 드러냅니다. Legacy reader 제거 조건은 필요한 callers와 owner-local 계획 migration 완료입니다. 파일을 자동 생성·이동하거나 runtime `.omx/context`를 옮기지 않습니다.
 
@@ -71,8 +71,8 @@ Pass 1·2, child 계층과 역할 effort 배정 표, 재시도, dispatch descrip
 연속 non-PASS 회차와 finding의 Parent 처분은 [리뷰 회차](../qa.md#리뷰-회차)를 따릅니다.
 
 Owner가 **Parent Astra high**를 선택하는 운영 형태에서도 작은 작업은 직접 처리합니다. 분리 가능한 깊은 미해결 문제만
-기존 semantic evidence와 active schema 확인을 거쳐 **Astra XHigh 배정**(읽기는 `_xhigh` 역할 xhigh, 구현은
-`deep-build`)으로 보냅니다. 전체 문제 정의·범위·cross-owner
+기존 semantic evidence와 active schema 확인을 거쳐 **Astra XHigh 배정**(`_xhigh` 읽기 역할 xhigh)으로
+보냅니다. 전체 문제 정의·범위·cross-owner
 통합이 어려우면 Parent xhigh를 권고하며, 높은 child effort가 Parent의 통합 판단을 대신하지는 않습니다.
 
 - 적용은 관련 구현·검증·운영 handoff가 완료된 뒤 실제 host의 session control에서 선택합니다. 이 지침 추가, 설정 파일 값,
@@ -113,8 +113,8 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    작은 deterministic 작업·단일 chain은 child0입니다. 분리 가능한 미해결 질문 하나에 primary owner를 배정하고
    [불필요한 중복과 독립 QA](../orchestration.md#primary-작업과-증거-재사용)를 구별합니다.
 2. **Task→profile**: current Pass 2 사실에서 complete boundedness·빈 gap과 실제 oracle/검증 계획을 확인하고, 계층·impact가
-   [후보 표](./codex-model-profiles.md#quality-gated-model-advice)의 한 행에 맞는지 봅니다. Medium 읽기는 `standard-read`, High·XHigh·impact high 읽기는 `elevated-read`, Medium 구현은
-   `standard-build`, High(non-deep)·low·medium impact 구현은 `elevated-build`, 고정 입력의 low-impact 단일 추출은 `extract`입니다.
+   [후보 표](./codex-model-profiles.md#quality-gated-model-advice)의 한 행에 맞는지 봅니다. Medium 읽기는 `standard-read`, High·XHigh·impact high 읽기는 `elevated-read`, 고정 입력의
+   low-impact 단일 추출은 `extract`입니다. 구현·디버깅·test는 위임하지 않고 Parent가 직접 합니다(routing gap `lead-task-kind`).
    Risk/owner/의미상 복잡도가 다르거나 미채택 role이면 [Astra 배정](#reasoning-effort-routing)입니다.
    `modelRequest`를 생략한 lane은 `codex:delegate`가 Parent가 태그한 검증 fact로 맞는 행의 요청(`purpose=routine`)을
    채우고(`defaultModelRequest()`), 맞는 행이 없으면 생략해 Astra 배정으로 둡니다.
@@ -130,7 +130,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    `spawnArguments`(lane id와 token으로 만든 `task_name` 포함)를 실제 도구에 그대로 전달하되 완료 packet도 함께 전달합니다.
    출력의 `digest`는 수락 때 대조합니다. 등록이 없거나 인자가 다르면 hook이 spawn을
    deny합니다([등록·수락](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
-   Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보도 일반 동시 한도(child cap 6·host 한도)와 단일 writer를 따르고, writer 실행 중 Parent는 tracked·비ignored 경로를 쓰지 않습니다.
+   Role 설명·파일 bytes·과거 PASS만으로 loaded/effective를 주장하지 않습니다. 후보도 일반 동시 한도(child cap 6·host 한도)를 따릅니다.
    지원/권한 불명은 Astra/direct 또는 handoff이지 generic role·새 root·서버로 우회할 이유가 아닙니다.
 6. **결과·독립 QA**: 반환 child/task/source와 실제 oracle/회귀·독립 결과를 대조하고 `codex:completion`과
    [criterion별 QA](../qa.md#portable-qa-packet)로 확인합니다. Parent/default/최종 QA는 Astra이며 reviewer는 계층과 무관하게 `knu_reviewer`(effort pin xhigh)입니다.
@@ -138,7 +138,7 @@ cohort 품질 근거·독립 QA를 마칠 때까지 Q(routine으로 쓰지 않�
    `registrationDigest`가 등록 때의 `digest`와 같은지 확인하며, 수락한 child는 후속 작업을 주지 않습니다. Reviewer는 `codex:delegate -- review`(`createReviewDispatch()`)로 만든 dispatch를 등록·spawn·수락하며 결과의 `dispatchId`는 그 round의 `reviewId`입니다.
    `prepareLeaderSynthesis()`에 Parent session의 hook 기록·수락 기록과 그 dispatch의 token을 넘겨 failed/blocked/conflicting evidence를 보존하고,
    hook 기록이 없거나 bind·등록 봉인·계약 model·역할 effort·수락 기록과 맞지 않는 completed와 self-PASS를 수용하지 않습니다([완료 관측](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
-7. **실패·기록·cleanup**: 실패한 candidate는 writer 회수(끝난 writer는 `codex:release -- --task <task_name> --ended`) 뒤 재시도 한 번 또는 Parent 판단·handoff로 돌아갑니다. 재시도는
+7. **실패·기록·cleanup**: 실패한 candidate는 child 회수(끝나고 수락하지 않을 child는 `codex:release -- --task <task_name> --ended`) 뒤 재시도 한 번 또는 Parent 판단·handoff로 돌아갑니다. 재시도는
    결과 품질 실패일 때만 같은 역할의 한 단 위 model로 오릅니다([Recovery ceiling](../request-intake/orchestration-recovery.md#recovery-ceiling)). Usage가 없으면 null로 남기고
    [실패 원인·조치 기록](../request-intake/orchestration-recovery.md#bounded-model-run-evidence)에서 controlled fault와 실제 miss를 구분합니다.
    실제 결과 회수·pending·지원되는 cleanup·release는 [lifecycle](../subagent-lifecycle.md)로 따로 판정합니다.

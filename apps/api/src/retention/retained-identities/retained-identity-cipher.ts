@@ -12,7 +12,7 @@ import type {
 const RETAINED_IDENTIFIER_KEY_ENV = 'RETENTION_IDENTITY_ENCRYPTION_KEY_BASE64';
 const RETAINED_IDENTIFIER_KEY_VERSION_ENV = 'RETENTION_IDENTITY_KEY_VERSION';
 const DEFAULT_RETAINED_IDENTIFIER_KEY_VERSION = 'local-v1';
-const RETAINED_IDENTIFIER_AAD = Buffer.from('knu-roommate:retained-identity:v1');
+const RETAINED_IDENTIFIER_AAD = Buffer.from('dormduri:retained-identity:v1');
 
 export function createRetainedIdentityCipher(input: {
   key: string | Buffer;

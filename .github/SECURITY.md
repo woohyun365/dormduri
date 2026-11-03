@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-KNU Roommate has not published a production release yet. No released version currently receives a guaranteed security-support
+dormduri has not published a production release yet. No released version currently receives a guaranteed security-support
 window, but reports affecting the current repository or a test deployment are reviewed.
 
 ## Reporting a vulnerability

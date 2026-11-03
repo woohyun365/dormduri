@@ -6,7 +6,7 @@
       "path": "docs/development/README.md",
       "owner": "general development workflow owner",
       "kind": "explanation",
-      "rationale": "개발 index가 workflow·GitHub·CI·비용·troubleshooting owner로 이미 연결한다. 최소 탐색 entry를 보존하고 전체 문서를 startup 필수로 만들지 않는다."
+      "rationale": "개발 index가 onboarding·workflow·GitHub·CI·troubleshooting owner로 이미 연결한다. 최소 탐색 entry를 보존하고 전체 문서를 startup 필수로 만들지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/README.md",
@@ -591,24 +591,6 @@
       "rationale": "경로 family별 CI 표면·lane·owner와 새 경로 추가 절차를 소유한다. 분류기 동작과의 일치는 classify-changes.test.mjs가 행마다 검사한다."
     },
     {
-      "path": "docs/development/cost/README.md",
-      "owner": "development domain owner",
-      "kind": "domain",
-      "rationale": "비용 기록 entry와 gross/personal/project/future 비용의 분리를 유지한다. agent runtime 선택이 비용 집계 의미를 바꾸지 않는다."
-    },
-    {
-      "path": "docs/development/cost/owner-monthly-costs.md",
-      "owner": "development domain owner",
-      "kind": "domain",
-      "rationale": "owner 월별 비용 ledger와 attribution을 보존한다. 현재 비용 관측을 다른 host 도입 승인이나 future provider 가격으로 대체하지 않는다."
-    },
-    {
-      "path": "docs/development/future-production-deployment-inputs.md",
-      "owner": "development domain owner",
-      "kind": "domain",
-      "rationale": "미확정 production deployment input의 release-owner handoff를 보존한다. agent가 환경 값·credential·target을 추정하지 않는다."
-    },
-    {
       "path": "docs/development/github/README.md",
       "owner": "development domain owner",
       "kind": "domain",
@@ -661,6 +643,12 @@
       "owner": "development domain owner",
       "kind": "domain",
       "rationale": "Renovate provider readiness와 실제 operator evidence 경계를 보존한다. static readiness를 provider 활성화로 보고하지 않는다."
+    },
+    {
+      "path": "docs/development/onboarding.md",
+      "owner": "general development workflow owner",
+      "kind": "explanation",
+      "rationale": "처음 참여하는 개발자의 입구로 저장소 구조·로컬 실행·검사 명령·문서 위치·협업 규칙 owner 문서를 링크만 한다. 그 내용을 복제하지 않고 agent startup 필수 문서로 만들지 않는다."
     },
     {
       "path": "docs/development/troubleshooting/README.md",

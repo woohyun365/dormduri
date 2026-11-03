@@ -31,23 +31,3 @@ test('Alloy only collects approved product services and records the socket risk'
   assert.deepEqual(operations.alloyDockerSocket.serviceAllowlist, ['api', 'nginx', 'web']);
   assert.equal(operations.alloyDockerSocket.readOnlyMountIsNotAuthorizationBoundary, true);
 });
-
-test('failure rehearsal covers product fail-open and recovery for all query surfaces', () => {
-  const runner = read('scripts/observability/rehearsal/web-bff.mjs');
-  for (const service of ['loki', 'prometheus', 'grafana']) {
-    assert.ok(runner.includes(`service: '${service}'`));
-  }
-  assert.match(runner, /observabilityFailOpen/u);
-  assert.match(runner, /recoveryMilliseconds/u);
-});
-
-test('account-free Web rehearsal uses a synthetic credential only for artifact isolation proof', () => {
-  const rehearsal = read('scripts/observability/rehearsal/web-sentry.mjs');
-
-  assert.match(rehearsal, /const buildEnv = \{ SENTRY_AUTH_TOKEN:/u);
-  assert.match(rehearsal, /SENTRY_ARTIFACT_SECRET_SENTINEL: buildEnv\.SENTRY_AUTH_TOKEN/u);
-  assert.match(rehearsal, /ci:build'\], \{ env: buildEnv \}/u);
-  assert.match(rehearsal, /check-build\.mjs'\], \{ env: verificationEnv \}/u);
-  assert.match(rehearsal, /SENTRY_SOURCE_MAP_UPLOAD_ENABLED: '0'/u);
-  assert.match(rehearsal, /SENTRY_RELEASE_EVIDENCE_APPROVED: '0'/u);
-});

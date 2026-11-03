@@ -36,25 +36,24 @@ leader-only final decision, response, integration, verification
 선택형 `modelRequest`는 기존 lane 또는 `selectAgentRoute()` 입력에서 같은 strict schema를 사용합니다.
 
 ```text
-profileId: extract | standard-read | elevated-read | standard-build | elevated-build
+profileId: extract | standard-read | elevated-read
 purpose: pilot | routine
 verificationFacts:
   standard-read, elevated-read: acceptance / independentCheck
-  standard-build, elevated-build: acceptance / regression / astraQa
   extract: acceptance / fixedInput / outputSchema / singleStep / independentCheck
 ```
 
-Assignment profile(`deep-build`·`review`·`astra-fallback`)은 routing이 정하는 Astra 배정이라 `modelRequest`로 요청할 수 없습니다.
+Assignment profile(`review`·`astra-fallback`)은 routing이 정하는 Astra 배정이라 `modelRequest`로 요청할 수 없습니다.
 
-각 verification 값은 current Pass 2의 high-confidence `factId`입니다. Acceptance와 실행 가능한 검사/독립 확인,
-구현 lane의 regression 및 Astra QA 계획을 실제 source에 근거해 작성합니다. Policy가 자연어 사실의 진실이나 앞으로
+각 verification 값은 current Pass 2의 high-confidence `factId`입니다. Acceptance와 실행 가능한 검사/독립 확인을
+실제 source에 근거해 작성합니다. Policy가 자연어 사실의 진실이나 앞으로
 실행할 QA 성공을 인증하지는 않으므로 Parent가 원문 근거와 최종 결과를 확인합니다. 임의의 다른 fact를 연결해서는 안 됩니다.
 
 [채택 범위와 cold-start 순서](./codex.md#routine-task-model-operation)를 확인한 일반 Parent는 매 bounded delegation에서 task/위험/검증 방법을 판정하고 적합한 `modelRequest`를 채웁니다.
 `codex:delegate`는 spec에서 `modelRequest`를 생략한 lane에 Parent가 태그한 검증 fact와 Pass 2 결과로 맞는 profile을
 `purpose=routine`으로 채우고(`defaultModelRequest()`), 맞는 profile이 없으면 생략합니다. `false`는 Astra를 고정합니다.
 사용자에게 모델명을 매번 다시 선택하게 하지 않습니다. 단, cohort 채택과 이번 task의 실제 작업 권한은 별개입니다.
-GPT-6.1 Sol은 `standard-build`·`elevated-build`의 구현/test 또는 `standard-read`·`elevated-read`의 lookup/analysis/research
+GPT-6.1 Sol은 `standard-read`·`elevated-read`의 lookup/analysis/research
 후보이며 routine과 pilot 모두 받습니다. GPT-6 Luna는 `extract`의 low-impact
 lookup/analysis 고정 입력·단일 semantic extraction만 후보입니다. Luna에는 무제한 조사·공식 웹 탐색·쓰기 권한을 부여하지 않습니다. 단순 grep/list/format이면 child 없이 도구를 씁니다.
 
@@ -105,7 +104,7 @@ Runtime 지원 관측 필드와 effort 필드는 없습니다. Effort는 역할 
 - `initial-review`는 fresh scoped context만 허용합니다. 이전 builder를 reviewer로 바꾸거나 full history를 주입하지
   않습니다. `review-delta`는 scoped 또는 검증된 같은 reviewer 재사용이며 최초 독립 리뷰라고 다시 부르지 않습니다.
   [QA 리뷰 회차](../qa.md#리뷰-회차)의 2회차부터는 회차마다 `createReviewDispatch()`로 새 reviewer task(`review_<token>_<round>`)를
-  scoped로 열고, 바뀐 부분만이 아니라 전 범위와 직전 회차 결과를 함께 줍니다. 같은 reviewer `reuse`는 이 계약이 받지만 회차에는
+  scoped로 열고, 그 절의 2회차 범위(delta와 전 범위로 돌아가는 조건)와 직전 회차 결과를 함께 줍니다. 같은 reviewer `reuse`는 이 계약이 받지만 회차에는
   쓰지 않습니다. 회차마다 reviewer를 수락하고 수락한 child의 재개는 hook이 막기 때문입니다([등록·수락](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
 - `reuse`는 같은 outcome·lane·role·scope와 **이번 snapshot에 대한 재확인**이 필요합니다. 새 snapshot 자체는 delta에서
   정상적이지만 stale 확인값을 재사용하지 않습니다. 불일치하면 scoped 재구성을 추천하고 `compatible=false`로 둡니다.
@@ -152,12 +151,20 @@ Native의 numeric fork 지원 여부는 이 계약의 필수 확장 사유가 �
 
 - Pass 1: TaskEnvelope의 intent·authority·impact risk와 candidate task shape를 보존합니다.
 - Pass 2: current ContextPack source에 연결된 stable fact와 semantic predicate claim을 검증합니다.
-- 역할 family: lookup/analysis는 `knu_explorer`, official research는 `knu_researcher`, implementation/debug/test는
-  `knu_executor`, review/verification/architecture evidence lane은 `knu_reviewer`입니다.
+- 역할 family: lookup/analysis는 `knu_explorer`, official research는 `knu_researcher`, review/verification/architecture
+  evidence lane은 `knu_reviewer`입니다. Implementation/debug/test는 child에 위임하지 않고 Lead가 하며, 그 `bounded-child`
+  요청은 spawn 없이 `lead-task-kind` gap으로 끝납니다.
 - 계층(`tier`): complete positive boundedness evidence는 Medium, mandatory/deep-composite evidence는 XHigh, 나머지 substantial
   evidence는 High입니다. Low/Max/Ultra는 repository child route가 아닙니다.
 - 역할 변형과 effort: 계층·impact가 family 안의 변형(`_medium`·기본·`_xhigh`)과 `profileId`를 고르고, `effort`는 그 역할
   파일이 pin한 값입니다. 배정 표는 [Codex routing](./codex.md#reasoning-effort-routing)이 소유합니다.
+
+Official research lane(`knu_researcher`, 쓰기 범위 없음)은 Claude adapter의
+[공식 근거 조사](./claude-code.md#routine-operation)와 같은 규칙을 Lead 운영 규칙으로 따릅니다. Handoff는 주장마다
+`{url, quote, checkedAt}`(원문 URL, 원문 그대로의 인용, 확인 날짜)입니다. Evidence로 옮길 주장의 `independentCheck`는 Lead가 그
+URL 원문(raw, WebFetch 요약이 아님)을 직접 받아 `scripts/agents/common/quote-check.mjs`로 한 대조이고, `found`가 아닌 주장은 evidence
+후보에서 뺍니다. Lane `impactRisk`는 요청 낱말 대신 기본 min(envelope 위험, medium)으로 적고, Lead가 `high`로 적어 상위 변형
+(`_xhigh`)을 고를 수 있습니다. Codex 수락(`codex:accept`)은 대조 출력을 검사하지 않으므로 이 대조는 Lead가 판정 기록에 남깁니다.
 
 Impact risk와 reasoning complexity는 서로 다른 결과입니다. Keyword, path, file count, LOC, task label은 semantic signal을
 대체할 수 없고, 동일 fact를 여러 composite category에 중복 반영하지 않습니다. 이 결과는 dispatch 명령이나 live role
@@ -171,7 +178,8 @@ proof가 아닙니다. 호출 시점의 역할 roster·(역할, model) 쌍은 [p
 - 일반 proactive fan-out: 최대 2 child
 - Pass 2 evidence에 연결된 high-value third lane: 최대 3 child
 - 명시적인 owner-directed fan-out: 최대 6 child
-- 선택 가능한 write-capable child: 최대 1개
+- write-capable child: 없음. child 역할 family가 있는 kind의 lane이 `writeOwnership`·`workspace-edit`을 가지면 contract가 거부하고,
+  dispatch도 쓰기 가능한 child contract를 거부합니다(쓰기 범위는 Lead kind lane만 가짐)
 - sibling write scope가 겹치면 해당 lane들은 independent가 아니므로 선택하지 않음
 
 각 `routeRecommendation`은 역할 변형·pin effort·계층·`profileId`뿐 아니라 validated Pass 2 assessment, evidence ID와 confidence를

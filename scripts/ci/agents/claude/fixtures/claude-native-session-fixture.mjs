@@ -7,8 +7,6 @@ export const ROLE_EFFORT = {
   knu_explorer: 'high',
   knu_explorer_xhigh: 'xhigh',
   knu_researcher: 'high',
-  knu_executor: 'high',
-  knu_executor_xhigh: 'xhigh',
   knu_reviewer: 'xhigh',
 };
 export function writeRole(root, role, tools, body = 'Bounded fixture role.') {

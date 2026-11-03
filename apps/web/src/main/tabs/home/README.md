@@ -182,8 +182,8 @@ Prisma `Season`의 unique key가 `(campusCode, academicYear, semester)`이므로
 
 ```bash
 HOME_E2E_SEED_MODE=future-preview \
-DATABASE_URL='postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public' \
-DIRECT_URL='postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public' \
+DATABASE_URL='postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public' \
+DIRECT_URL='postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public' \
 pnpm --dir apps/api prisma:seed:run
 ```
 

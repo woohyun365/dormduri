@@ -28,6 +28,7 @@ import {
 import { ApiExceptionFilter } from './api-exception.filter.js';
 import { parseRequestBody } from './zod-request.js';
 import { ZodRequestPipe } from './zod-request.pipe.js';
+import { createHttpAdapter } from './http-adapter.js';
 
 const actor = {
   id: 'user-1',
@@ -106,7 +107,7 @@ async function createApp() {
       Reflector,
     ],
   }).compile();
-  const app = module.createNestApplication({ logger: false });
+  const app = module.createNestApplication(createHttpAdapter(false), { logger: false });
   try {
     app.useGlobalGuards(module.get(AuthenticatedUserGuard));
     app.useGlobalFilters(
@@ -412,15 +413,29 @@ describe('existing HTTP behavior', () => {
     expect(support.getFaq).not.toHaveBeenCalled();
   });
 
-  it('getFaq rejects overlength IDs', async () => {
-    const response = await request(url).get(`/api/support/faq/${'a'.repeat(129)}`);
-    expect(response.status).toBe(400);
-    expect(response.body).toMatchObject({
-      code: 'INVALID_SUPPORT_FAQ_ID',
-      fieldErrors: { articleId: ['최대 허용 기준을 초과했습니다.'] },
-    });
-    expect(support.getFaq).not.toHaveBeenCalled();
+  // The adapter's default 100-character parameter limit would answer 414 here; the
+  // HTTP_MAX_PARAM_LENGTH option keeps every accepted parameter on the Zod binding.
+  it('getFaq routes a 101-character ID to the binding instead of a 414', async () => {
+    support.getFaq.mockResolvedValueOnce({ id: 'faq' });
+    const response = await request(url).get(`/api/support/faq/${'a'.repeat(101)}`);
+    expect(response.status).toBe(200);
+    expect(support.getFaq).toHaveBeenCalledExactlyOnceWith('a'.repeat(101));
   });
+
+  it.each([129, 8_000])(
+    'getFaq rejects a %i-character ID with the 400 envelope',
+    async (length) => {
+      const response = await request(url).get(`/api/support/faq/${'a'.repeat(length)}`);
+      expect(response.status).toBe(400);
+      expect(errorBody(response)).toMatchObject({
+        code: 'INVALID_SUPPORT_FAQ_ID',
+        fieldErrors: { articleId: ['최대 허용 기준을 초과했습니다.'] },
+        statusCode: 400,
+        success: false,
+      });
+      expect(support.getFaq).not.toHaveBeenCalled();
+    },
+  );
 
   it('appendOwnMessage valid path/body preserve parsed service inputs', async () => {
     const response = await request(url)

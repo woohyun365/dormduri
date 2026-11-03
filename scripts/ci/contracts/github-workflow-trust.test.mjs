@@ -49,6 +49,60 @@ function usesLiteralRepositoryTemporaryPath(source) {
   return /\/tmp\/knu-[^\s'"`]+/u.test(source);
 }
 
+// Write scopes are allowed only in these jobs (production-web-baseline D-WB5): OIDC for the AWS roles, provenance
+// attestation after approval, and the deploy tag and Release. Every other job and workflow stays read-only.
+export const DESIGNATED_WRITE_SCOPES = Object.freeze({
+  'web-cd.yml': {
+    build: ['id-token'],
+    deploy: ['id-token', 'attestations'],
+    tag: ['id-token'],
+    record: ['contents'],
+  },
+});
+
+// Every `<scope>: write` line with the job whose permissions block holds it ('' outside a job permissions block).
+export function writeScopeLines(source) {
+  const found = [];
+  let inJobs = false;
+  let job = '';
+  let inPermissions = false;
+  for (const line of source.split('\n')) {
+    if (/^jobs:\s*$/u.test(line)) inJobs = true;
+    else if (/^\S/u.test(line)) inJobs = false;
+    const jobName = inJobs ? /^ {2}([A-Za-z0-9_-]+):\s*$/u.exec(line)?.[1] : undefined;
+    if (jobName) {
+      job = jobName;
+      inPermissions = false;
+      continue;
+    }
+    if (inJobs && /^ {4}permissions:\s*$/u.test(line)) {
+      inPermissions = true;
+      continue;
+    }
+    if (inPermissions && !/^ {6}\S/u.test(line)) inPermissions = false;
+    // A one-line value: `permissions: write-all` grants every scope, and a flow mapping `{ contents: write }` grants
+    // its write entries. A job-level line belongs to that job; any other line is outside a designated job.
+    const inline = /^( *)permissions:\s*(\S.*?)\s*$/u.exec(line);
+    if (inline) {
+      const owner = inJobs && inline[1].length === 4 ? job : '';
+      if (/^['"]?write-all['"]?$/u.test(inline[2])) found.push({ job: owner, scope: 'write-all' });
+      for (const entry of inline[2].matchAll(/([a-z-]+)\s*:\s*write\b/gu))
+        found.push({ job: owner, scope: entry[1] });
+      continue;
+    }
+    const write = /^\s+([a-z-]+):\s+write\s*$/u.exec(line);
+    if (write) found.push({ job: inPermissions ? job : '', scope: write[1] });
+  }
+  return found;
+}
+
+export function undesignatedWriteScopes(fileName, source) {
+  const allowed = DESIGNATED_WRITE_SCOPES[fileName] ?? {};
+  return writeScopeLines(source).filter(
+    ({ job, scope }) => !job || !(allowed[job] ?? []).includes(scope),
+  );
+}
+
 function jobLevelFieldCount(source, field) {
   return [...source.matchAll(new RegExp(`^ {4}${field}:`, 'gmu'))].length;
 }
@@ -67,7 +121,7 @@ test('workflows retain explicit read-only permissions and bounded job timeouts',
   for (const fileName of workflowFiles) {
     const source = readWorkflow(fileName);
     assert.match(source, /^permissions:\n\s+contents:\s+read\s*$/mu, fileName);
-    assert.doesNotMatch(source, /^\s+[a-z-]+:\s+write\s*$/gmu, fileName);
+    assert.deepEqual(undesignatedWriteScopes(fileName, source), [], fileName);
     assert.equal(
       jobLevelFieldCount(source, 'runs-on'),
       jobLevelFieldCount(source, 'timeout-minutes'),
@@ -115,5 +169,58 @@ test('checkout steps disable persisted credentials when workflows do not push', 
 test('workflow-generated temporary output uses the runner-owned temporary directory', () => {
   for (const fileName of workflowFiles) {
     assert.equal(usesLiteralRepositoryTemporaryPath(readWorkflow(fileName)), false, fileName);
+  }
+});
+
+test('a write scope outside the designated web-cd jobs is rejected', () => {
+  const workflow = (jobs) => `name: x\npermissions:\n  contents: read\njobs:\n${jobs}`;
+  const job = (name, scopes) =>
+    `  ${name}:\n    runs-on: ubuntu-26.04\n    permissions:\n${scopes
+      .map((scope) => `      ${scope}\n`)
+      .join('')}    steps:\n      - run: true\n`;
+  const designated = workflow(
+    [
+      job('build', ['contents: read', 'id-token: write']),
+      job('deploy', ['contents: read', 'id-token: write', 'attestations: write']),
+      job('tag', ['contents: read', 'id-token: write']),
+      job('record', ['contents: write']),
+    ].join(''),
+  );
+  assert.deepEqual(undesignatedWriteScopes('web-cd.yml', designated), []);
+  for (const [fileName, source, expected] of [
+    ['ci.yml', designated, 5],
+    ['web-cd.yml', workflow(job('build', ['contents: write'])), 1],
+    ['web-cd.yml', workflow(job('smoke', ['id-token: write'])), 1],
+    ['web-cd.yml', workflow(job('record', ['contents: write', 'packages: write'])), 1],
+    [
+      'web-cd.yml',
+      `name: x\npermissions:\n  contents: write\njobs:\n${job('build', ['id-token: write'])}`,
+      1,
+    ],
+    [
+      'ci.yml',
+      workflow(
+        '  build:\n    runs-on: ubuntu-26.04\n    permissions: write-all\n    steps:\n      - run: true\n',
+      ),
+      1,
+    ],
+    [
+      'ci.yml',
+      workflow(
+        '  build:\n    runs-on: ubuntu-26.04\n    permissions: { contents: write, id-token: write }\n    steps:\n      - run: true\n',
+      ),
+      2,
+    ],
+    [
+      'web-cd.yml',
+      `name: x\npermissions: write-all\njobs:\n${job('build', ['id-token: write'])}`,
+      1,
+    ],
+  ]) {
+    assert.equal(
+      undesignatedWriteScopes(fileName, source).length,
+      expected,
+      `${fileName}\n${source}`,
+    );
   }
 });

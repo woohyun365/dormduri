@@ -10,7 +10,6 @@ import {
   validateAdapterReview,
 } from '../common/adapter-contract.mjs';
 import { recommendDelegation } from './child-task-contract.mjs';
-import { BASELINE_CHILD_MODEL, getModelProfile } from './model-profiles.mjs';
 import {
   createDispatchRecommendation,
   laneCompletionExpectation,
@@ -158,14 +157,6 @@ function composeCodexWorkflow({
       Object.keys(reviewDisposition).some((key) => !['required', 'reason'].includes(key)))
   )
     throw new TypeError('review disposition requires explicit required and reason');
-  // Semantic risk remains a Lead judgement, not an intent/keyword heuristic.
-  // Known profile obligations cannot be waived by a not-needed disposition.
-  const mandatoryProfileReview = children.some((child) => {
-    const profileId = child.routeRecommendation.modelRecommendation?.profileBinding.profileId;
-    return (
-      profileId !== undefined && getModelProfile(profileId).verificationKeys.includes('astraQa')
-    );
-  });
   const bindingComplete =
     lanes.length > 0 && (!children.length || lanes.length === children.length);
   const gaps = [
@@ -193,8 +184,8 @@ function composeCodexWorkflow({
     laneValidation,
     gaps,
     reviewDisposition: reviewDisposition ?? null,
-    requiresIndependentReview: mandatoryProfileReview || reviewDisposition?.required === true,
-    requiresAstraReview: mandatoryProfileReview,
+    // Semantic risk remains a Lead judgement, not an intent/keyword heuristic.
+    requiresIndependentReview: reviewDisposition?.required === true,
     liveChecks: [
       'current-source-and-user-authority',
       'host-role-model-permission-and-lifecycle',
@@ -303,13 +294,6 @@ export function validateCodexWorkflowResults(
       errors.push('QA read scope must cover current assigned scope');
     if (review.result?.status !== 'complete' || review.result?.verdict !== 'PASS')
       errors.push('QA exchange does not report complete PASS');
-    if (
-      workflow.requiresAstraReview &&
-      review.result?.identity?.observedModel !== BASELINE_CHILD_MODEL
-    )
-      errors.push(
-        'A build profile requires reported Astra QA; host observation still needs verification',
-      );
     if (hookObservation !== undefined)
       errors.push(
         ...reviewerErrors({

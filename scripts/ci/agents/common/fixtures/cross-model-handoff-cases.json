@@ -7,7 +7,7 @@
     "nonScope": ["Provider selection", "Live provider qualification", "Product code changes"],
     "authority": {
       "integrationOwner": "parent",
-      "writeOwner": "executor-h3",
+      "writeOwner": "builder-h3",
       "runnerOwner": "runner-h3",
       "parentClarificationOwner": "parent",
       "reviewerMode": "read-only"

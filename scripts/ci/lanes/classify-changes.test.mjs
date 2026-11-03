@@ -206,6 +206,7 @@ test('token, new screen and Storybook check paths select the storybook lane', ()
     'apps/web/playwright.storybook.config.ts',
     'apps/web/e2e/storybook/stories.storybook.ts',
     'apps/web/postcss.config.mjs',
+    'apps/web/react-compiler.config.ts',
   ]) {
     assert.deepEqual(
       classifyChanges([path]),

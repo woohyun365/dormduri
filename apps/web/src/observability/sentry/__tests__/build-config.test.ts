@@ -19,7 +19,7 @@ describe('Sentry build config', () => {
     const config = resolveSentryBuildConfig({
       SENTRY_SOURCE_MAP_UPLOAD_ENABLED: '1',
       SENTRY_RELEASE_EVIDENCE_APPROVED: '1',
-      SENTRY_ORG: 'knu-roommate',
+      SENTRY_ORG: 'dormduri',
       SENTRY_PROJECT: 'web',
       SENTRY_AUTH_TOKEN: 'secret-token',
       SENTRY_RELEASE: 'sha-1',
@@ -37,7 +37,7 @@ describe('Sentry build config', () => {
     const config = resolveSentryBuildConfig({
       SENTRY_SOURCE_MAP_UPLOAD_ENABLED: '1',
       SENTRY_RELEASE_EVIDENCE_APPROVED: '1',
-      SENTRY_ORG: 'knu-roommate',
+      SENTRY_ORG: 'dormduri',
       SENTRY_PROJECT: 'web',
       SENTRY_AUTH_TOKEN: 'secret-token',
       SENTRY_RELEASE: 'server-sha',

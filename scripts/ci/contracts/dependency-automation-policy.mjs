@@ -7,8 +7,33 @@ export const VERSION_UPDATE_ECOSYSTEMS = {
 };
 
 // Renovate managers with no Dependabot ecosystem. Renovate is their only possible owner, so the single-owner check
-// does not cover them; nodenv keeps .node-version on the Node line of the node-image group.
-export const RENOVATE_ONLY_MANAGERS = ['nodenv'];
+// does not cover them; nodenv keeps .node-version on the Node line of the node-image group. custom.regex updates only the
+// workflow build tool images pinned as `<NAME>_IMAGE` env values (validateWorkflowImageManager).
+export const RENOVATE_ONLY_MANAGERS = ['nodenv', 'custom.regex'];
+
+// The one custom manager: a regex manager limited to workflow files that captures a docker tag and digest, so a build
+// tool image used inside a run script has the same owner and pin rule as every other image.
+function validateWorkflowImageManager(managers) {
+  if (!Array.isArray(managers) || managers.length !== 1) {
+    throw new TypeError('customManagers must hold exactly the workflow image regex manager');
+  }
+  const [manager] = managers;
+  const patterns = manager.managerFilePatterns ?? [];
+  const strings = manager.matchStrings ?? [];
+  if (
+    manager.customType !== 'regex' ||
+    manager.datasourceTemplate !== 'docker' ||
+    patterns.length !== 1 ||
+    !patterns[0].startsWith('/^\\.github/workflows/') ||
+    strings.length !== 1 ||
+    !strings[0].includes('_IMAGE: ') ||
+    !strings[0].includes('(?<currentDigest>sha256:[a-f0-9]{64})')
+  ) {
+    throw new TypeError(
+      'the custom manager must be a docker regex manager over workflow files that captures <NAME>_IMAGE tag and digest',
+    );
+  }
+}
 
 function extractDependabotBlocks(config, ecosystem) {
   if (typeof config !== 'string') return [];
@@ -241,9 +266,10 @@ export function validateHostedRenovateConfig(config) {
     ])
   ) {
     throw new TypeError(
-      'enabledManagers must contain exactly npm, github-actions, dockerfile, docker-compose, and nodenv',
+      'enabledManagers must contain exactly npm, github-actions, dockerfile, docker-compose, nodenv, and custom.regex',
     );
   }
+  validateWorkflowImageManager(config.customManagers);
   if (!sameMembers(config.baseBranchPatterns, ['dev'])) {
     throw new TypeError('baseBranchPatterns must contain only dev');
   }
@@ -392,37 +418,4 @@ export function assertSingleVersionUpdateOwner(ownersByEcosystem) {
       );
     }
   }
-}
-
-export function parseDependencyAutomationEvidence(input) {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    throw new TypeError('dependency automation evidence must be an object');
-  }
-  if (input.schemaVersion !== 1) throw new TypeError('schemaVersion must equal 1');
-  if (!Number.isInteger(input.directDependencyCount) || input.directDependencyCount <= 0) {
-    throw new TypeError('directDependencyCount must be a positive integer');
-  }
-  if (!Array.isArray(input.runs) || input.runs.length < 2) {
-    throw new TypeError('runs must contain automatic and manual evidence');
-  }
-
-  input.runs.forEach((run, index) => {
-    if (!Number.isInteger(run.runId) || run.runId <= 0) {
-      throw new TypeError(`runs[${index}].runId must be a positive integer`);
-    }
-    if (!Number.isInteger(run.jobId) || run.jobId <= 0) {
-      throw new TypeError(`runs[${index}].jobId must be a positive integer`);
-    }
-    if (run.terminalOutcome !== 'cancelled') {
-      throw new TypeError(`runs[${index}].terminalOutcome must equal cancelled`);
-    }
-    if (typeof run.durationSeconds !== 'number' || run.durationSeconds <= 0) {
-      throw new TypeError(`runs[${index}].durationSeconds must be positive`);
-    }
-    if (!Number.isInteger(run.completedPullRequests) || run.completedPullRequests < 0) {
-      throw new TypeError(`runs[${index}].completedPullRequests must be non-negative`);
-    }
-  });
-
-  return structuredClone(input);
 }

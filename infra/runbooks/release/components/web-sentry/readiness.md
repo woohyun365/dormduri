@@ -9,7 +9,7 @@
 ## 현재 repository 상태
 
 - account-free Sentry SDK·privacy·sampling·release contract 구현은 완료되어 있다.
-- `pnpm web:sentry:rehearsal`은 외부 Sentry account 없이 실행할 수 있다.
+- Account-free 검사는 외부 Sentry account 없이 Web CI가 PR마다 돈다(unit gate와 `pnpm web:sentry:verify-build`).
 - Production capture와 source-map upload는 managed evidence가 없으면 no-op이다.
 - 실제 managed intake, source-map symbolication, provider-side privacy 설정은 아직 검증하지 않았다.
 - 현재 component 상태는 실패가 아니라 배포 대상이 정해지지 않은 `PENDING_TARGET`다.
@@ -19,7 +19,9 @@
 1. 이 문서에서 사용자 준비물을 확인한다.
 2. [web-sentry-managed-observability.md](../../../operations/observability/browser-sentry.md)에서 runtime owner와 설정 경계를 확인한다.
 3. [web-operational-observability.md](../../../operations/observability/web-bff.md)에서 Sentry와 BFF Loki/Grafana의 책임을 구분한다.
-4. [web-sentry-managed-release-evidence.md](./evidence.md)를 해당 release의 secret-free 기록으로 복사하거나 채운다.
+4. [web-sentry-managed-release-evidence.md](./evidence.md)의 형식으로 secret-free 결과를
+   [실제 값의 기록 위치](../../production-release-evidence.md#실제-값의-기록-위치)에 남긴다. 단계 배포는
+   [단계 배포 기록](../../production-release-evidence.md#단계-배포-기록)의 `components`에 남긴다.
 5. [Production release aggregate evidence](../../production-release-evidence.md)에 이 component
    evidence를 연결한다. 전체 release의 최종 판정은 aggregate evidence에서만 수행한다.
 
@@ -69,14 +71,10 @@
 
 ### 1. Account-free baseline 재확인
 
-```bash
-pnpm web:sentry:rehearsal
-pnpm web:observability:rehearsal
-```
-
-- 첫 명령은 SDK, privacy, sampling, upload-disabled build, Storybook, standalone을 검증한다.
-- 두 번째 명령은 BFF stdout → Alloy → Loki → Grafana와 Loki 장애 fail-open을 검증한다.
-- 두 결과는 managed Sentry intake 성공을 의미하지 않는다.
+- 배포할 commit의 Web CI 결과에서 unit gate(SDK, privacy, sampling)와 static/build gate(upload-disabled build의
+  `pnpm web:sentry:verify-build`)가 통과했는지 본다. Storybook 산출물의 Sentry 설정은 자동 검사가 없다.
+- BFF stdout → Alloy → Loki 경로는 [Web 운영 관측 runbook의 Local 확인](../../../operations/observability/web-bff.md#local-확인)을 따른다.
+- 이 결과는 managed Sentry intake 성공을 의미하지 않는다.
 
 ### 2. Account-side privacy 설정
 

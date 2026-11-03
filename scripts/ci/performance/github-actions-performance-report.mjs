@@ -5,9 +5,12 @@ import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
-import { dependencyInputPaths } from './ci-performance-epoch.mjs';
+import { dependencyInputPaths } from './dependency-fingerprint.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../..');
+// Collector datasets before schema 4 grouped samples by a hand-maintained measurement epoch. Read those with the report of
+// the commit that collected them.
+const DATASET_SCHEMA_VERSION = 4;
 const expectedSurfaces = ['full', 'api-only', 'web-only', 'infra-only', 'docs-config-tooling-only'];
 
 function round(value, places = 6) {
@@ -38,42 +41,25 @@ function summarizeMetric(values, sampleCount) {
   };
 }
 
-function stableFingerprint(fingerprint) {
-  if (!fingerprint) throw new Error('dependency fingerprint is required');
-  if (fingerprint.epochId) {
-    return JSON.stringify({
-      epochId: fingerprint.epochId,
-      fileSha256: Object.fromEntries(Object.entries(fingerprint.fileSha256 ?? {}).sort()),
-    });
-  }
-  return JSON.stringify({
-    devHeadSha: fingerprint.devHeadSha,
-    fileSha256: Object.fromEntries(Object.entries(fingerprint.fileSha256 ?? {}).sort()),
-  });
+// The cohort key is the run head dependency input hashes; the run head SHA itself differs per sample.
+function cohortFileSha256(fingerprint) {
+  return Object.fromEntries(
+    dependencyInputPaths.map((path) => [path, fingerprint.fileSha256[path]]),
+  );
 }
 
-function validateActiveEpochRun(run) {
+function validateRunFingerprint(run) {
   const fingerprint = run.dependencyFingerprint;
-  const epoch = run.measurementEpoch;
-  if (!fingerprint?.epochId || !fingerprint?.sourceSha || !epoch?.id) {
-    throw new Error(`run ${run.id} is missing active measurement epoch evidence`);
+  if (!fingerprint?.sourceSha) {
+    throw new Error(`run ${run.id} is missing its run-head dependency fingerprint`);
   }
   for (const path of dependencyInputPaths) {
     if (!/^[a-f0-9]{64}$/u.test(fingerprint.fileSha256?.[path] ?? '')) {
-      throw new Error(`run ${run.id} active fingerprint is missing ${path}`);
+      throw new Error(`run ${run.id} dependency fingerprint is missing ${path}`);
     }
   }
   if (fingerprint.sourceSha !== run.identity?.headSha) {
     throw new Error(`run ${run.id} run-head fingerprint does not match the workflow head SHA`);
-  }
-  if (
-    fingerprint.epochId !== epoch.id ||
-    run.dependencyCompatibility?.comparisonEpochId !== epoch.id
-  ) {
-    throw new Error(`run ${run.id} measurement epoch identity is inconsistent`);
-  }
-  if (!['compatible-active-epoch', 'changed-inputs'].includes(run.dependencyCompatibility?.state)) {
-    throw new Error(`run ${run.id} active measurement compatibility is unavailable`);
   }
 }
 
@@ -187,27 +173,20 @@ function summarizeCohort(surface, cohortRuns, policy) {
 
 export function buildPerformanceReport({ datasets, policy, resourceInventory = null }) {
   const byId = new Map();
-  const schemaVersions = new Set();
   for (const dataset of datasets) {
-    if (![2, 3].includes(dataset.schemaVersion)) {
-      throw new Error(`unsupported performance dataset schema: ${dataset.schemaVersion}`);
+    if (dataset.schemaVersion !== DATASET_SCHEMA_VERSION) {
+      throw new Error(
+        `unsupported performance dataset schema: ${dataset.schemaVersion}; this report reads schema ${DATASET_SCHEMA_VERSION} run-head fingerprint datasets only`,
+      );
     }
-    schemaVersions.add(dataset.schemaVersion);
     for (const run of dataset.runs ?? []) byId.set(run.id, run);
-  }
-  if (schemaVersions.size > 1) {
-    throw new Error('historical and active-epoch dataset schemas cannot be mixed');
   }
 
   const runs = [...byId.values()];
-  if (schemaVersions.has(3)) runs.forEach(validateActiveEpochRun);
-  const incompatible = runs.filter(
-    (run) => run.dependencyCompatibility?.state === 'changed-inputs',
+  runs.forEach(validateRunFingerprint);
+  const fingerprints = new Set(
+    runs.map((run) => JSON.stringify(cohortFileSha256(run.dependencyFingerprint))),
   );
-  if (incompatible.length > 0) {
-    throw new Error(`dependency inputs changed in run(s): ${incompatible.map((run) => run.id)}`);
-  }
-  const fingerprints = new Set(runs.map((run) => stableFingerprint(run.dependencyFingerprint)));
   if (fingerprints.size > 1)
     throw new Error('mixed dependency fingerprint datasets are not comparable');
 
@@ -259,8 +238,9 @@ export function buildPerformanceReport({ datasets, policy, resourceInventory = n
 
   return {
     cohorts,
-    dependencyFingerprint: runs[0]?.dependencyFingerprint ?? null,
-    measurementEpoch: runs[0]?.measurementEpoch ?? null,
+    dependencyFingerprint: runs[0]
+      ? { fileSha256: cohortFileSha256(runs[0].dependencyFingerprint) }
+      : null,
     eventCohorts,
     gaps,
     generatedAt: new Date().toISOString(),
@@ -277,7 +257,7 @@ export function buildPerformanceReport({ datasets, policy, resourceInventory = n
     policyReviewedAt: policy.reviewedAt,
     resources: summarizeResources(resourceInventory, policy),
     runCount: runs.length,
-    schemaVersion: 1,
+    schemaVersion: 2,
     stages,
     successfulFirstAttemptRunCount: successfulRuns.length,
     successfulPullRequestRunCount: primaryRuns.length,

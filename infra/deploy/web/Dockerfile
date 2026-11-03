@@ -29,6 +29,8 @@ ARG NEXT_PUBLIC_SENTRY_PRIVACY_APPROVED=0
 ARG NEXT_PUBLIC_SENTRY_RELEASE_EVIDENCE_APPROVED=0
 ARG NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT=local
 ARG NEXT_PUBLIC_WEB_RELEASE=local-rehearsal
+# Landing 방문 통계 site token(공개 HTML에 들어가는 값). 비어 있으면 Landing이 script를 넣지 않는다.
+ARG NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN
 ARG SENTRY_SOURCE_MAP_UPLOAD_ENABLED=0
 ARG SENTRY_RELEASE_EVIDENCE_APPROVED=0
 ARG SENTRY_ORG
@@ -45,6 +47,7 @@ ENV NEXT_PUBLIC_SENTRY_PRIVACY_APPROVED=${NEXT_PUBLIC_SENTRY_PRIVACY_APPROVED}
 ENV NEXT_PUBLIC_SENTRY_RELEASE_EVIDENCE_APPROVED=${NEXT_PUBLIC_SENTRY_RELEASE_EVIDENCE_APPROVED}
 ENV NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT=${NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT}
 ENV NEXT_PUBLIC_WEB_RELEASE=${NEXT_PUBLIC_WEB_RELEASE}
+ENV NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN=${NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN}
 ENV SENTRY_SOURCE_MAP_UPLOAD_ENABLED=${SENTRY_SOURCE_MAP_UPLOAD_ENABLED}
 ENV SENTRY_RELEASE_EVIDENCE_APPROVED=${SENTRY_RELEASE_EVIDENCE_APPROVED}
 ENV SENTRY_ORG=${SENTRY_ORG}
@@ -67,10 +70,10 @@ ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 ENV TZ=Asia/Seoul
 WORKDIR /app
-RUN groupadd --system knu \
-  && useradd --system --gid knu --home-dir /app --shell /usr/sbin/nologin knu
-COPY --from=build --chown=knu:knu /workspace/apps/web/.next/standalone ./
-USER knu
+RUN groupadd --system dormduri \
+  && useradd --system --gid dormduri --home-dir /app --shell /usr/sbin/nologin dormduri
+COPY --from=build --chown=dormduri:dormduri /workspace/apps/web/.next/standalone ./
+USER dormduri
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:3000/').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))"]

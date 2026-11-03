@@ -29,8 +29,8 @@ const POLICY = {
   roster: Object.keys(ROLE_EFFORTS),
   allowedRoleModels: {
     ...Object.fromEntries(Object.keys(ROLE_EFFORTS).map((role) => [role, [ASTRA]])),
-    knu_executor: [ASTRA, SOL],
-    knu_executor_medium: [ASTRA, SOL],
+    knu_explorer: [ASTRA, SOL],
+    knu_explorer_medium: [ASTRA, SOL],
   },
   roleEfforts: ROLE_EFFORTS,
 };
@@ -46,7 +46,7 @@ function laneRegistration({
   taskName = 'lane_one_disp1',
   laneId = 'lane-one',
   retry = false,
-  agentType = 'knu_executor',
+  agentType = 'knu_explorer',
   model = SOL,
   effort = ROLE_EFFORTS[agentType],
 } = {}) {
@@ -99,14 +99,14 @@ function spawnCall(input = {}, { child = false } = {}) {
     tool_use_id: 'call_1',
     tool_input: {
       task_name: 'lane_one_disp1',
-      agent_type: 'knu_executor',
+      agent_type: 'knu_explorer',
       model: SOL,
       reasoning_effort: 'high',
       fork_turns: 'none',
       message: 'secret task text',
       ...input,
     },
-    ...(child ? { agent_id: CHILD, agent_type: 'knu_executor' } : {}),
+    ...(child ? { agent_id: CHILD, agent_type: 'knu_explorer' } : {}),
   };
 }
 
@@ -178,7 +178,7 @@ test('guard denies a spawn without a matching unused registration with its own r
     );
   // Every plain spawn argument must equal the registered one.
   for (const input of [
-    { agent_type: 'knu_executor_medium', reasoning_effort: 'medium' },
+    { agent_type: 'knu_explorer_medium', reasoning_effort: 'medium' },
     { model: ASTRA },
     { reasoning_effort: 'xhigh' },
   ])
@@ -522,7 +522,7 @@ test('completion refuses an allow record without a registration seal or with a s
       observation,
       laneId: 'lane-one',
       dispatchToken: 'disp1',
-      expectedRole: 'knu_executor',
+      expectedRole: 'knu_explorer',
       expectedModel,
     });
   assert.equal(
@@ -543,7 +543,7 @@ test('completion refuses an allow record without a registration seal or with a s
   };
   for (const [changes, spawn] of [
     [{ kind: 'review' }, {}],
-    [{}, { agent_type: 'knu_explorer' }],
+    [{}, { agent_type: 'knu_researcher' }],
     [{}, { model: ASTRA }],
     [{}, { reasoning_effort: 'xhigh' }],
   ])
@@ -588,7 +588,7 @@ test('an acceptance binds the accepted stop, so a resumed child no longer comple
       observation,
       laneId: 'lane-one',
       dispatchToken: 'disp1',
-      expectedRole: 'knu_executor',
+      expectedRole: 'knu_explorer',
       expectedModel,
       retry,
       acceptances,
@@ -671,7 +671,7 @@ function laneDispatch({ retry = false, model = retry ? ASTRA : SOL } = {}) {
     ...(retry ? { retryOf: 'primary' } : {}),
     spawnArguments: {
       task_name: `lane_one_disp1${retry ? '_retry' : ''}`,
-      agent_type: 'knu_executor',
+      agent_type: 'knu_explorer',
       model,
       reasoning_effort: 'high',
       fork_turns: 'none',
@@ -780,7 +780,7 @@ test('acceptance writes a record for a completed task once and refuses a retry a
       root,
       sessionId: SESSION,
       taskName,
-      expectedRole: 'knu_executor',
+      expectedRole: 'knu_explorer',
       expectedModel,
       observation: given,
       now: '2026-10-09T00:00:00Z',
@@ -858,7 +858,7 @@ test('acceptance names the last stop of a child that took a follow-up before it 
     root,
     sessionId: SESSION,
     taskName: 'lane_one_disp1',
-    expectedRole: 'knu_executor',
+    expectedRole: 'knu_explorer',
     expectedModel: SOL,
     observation,
   });
@@ -869,7 +869,7 @@ test('acceptance names the last stop of a child that took a follow-up before it 
       observation,
       laneId: 'lane-one',
       dispatchToken: 'disp1',
-      expectedRole: 'knu_executor',
+      expectedRole: 'knu_explorer',
       expectedModel: SOL,
       acceptances: [verdict.acceptance],
     }).accepted,
@@ -897,7 +897,7 @@ test('a reviewer child is accepted on the review role and model of its registrat
       observation,
     });
   assert.equal(accept('knu_reviewer', SOL).reason, 'registration-mismatch');
-  assert.equal(accept('knu_executor', ASTRA).reason, 'registration-mismatch');
+  assert.equal(accept('knu_explorer', ASTRA).reason, 'registration-mismatch');
   const accepted = accept('knu_reviewer', ASTRA);
   assert.equal(accepted.accepted, true, JSON.stringify(accepted));
   assert.equal(accepted.acceptance.kind, 'review');
@@ -954,7 +954,7 @@ test('the registry command registers a dispatch file and accepts a task against 
     join(hookDirectory, `${SESSION}.jsonl`),
     observation.records.map((record) => JSON.stringify(record)).join('\n') + '\n',
   );
-  const args = ['accept', '--task', 'lane_one_disp1', '--role', 'knu_executor', '--model'];
+  const args = ['accept', '--task', 'lane_one_disp1', '--role', 'knu_explorer', '--model'];
   const refused = runRegistryCommand([...args, ASTRA], { root, env });
   assert.equal(refused.exitCode, 1);
   assert.equal(JSON.parse(refused.stdout).reason, 'model-mismatch');
@@ -980,7 +980,7 @@ const followupRecord = (target = 'lane_one_disp1') => ({
   input: { target, messageBytes: 5 },
 });
 
-test('a release records an ended writer once, so the Parent write guard closes without an acceptance', async (t) => {
+test('a release records an ended child once without an acceptance', async (t) => {
   const { registerDispatch, releaseTask, readRelease, acceptTask } = await registry();
   assert.equal(typeof releaseTask, 'function', 'task-registry must export releaseTask');
   assert.equal(typeof readRelease, 'function', 'task-registry must export readRelease');
@@ -1081,7 +1081,7 @@ test('a release records an ended writer once, so the Parent write guard closes w
     root,
     sessionId: SESSION,
     taskName: 'lane_one_disp3',
-    expectedRole: 'knu_executor',
+    expectedRole: 'knu_explorer',
     expectedModel: SOL,
     observation: third,
   });
@@ -1130,7 +1130,7 @@ test('the registry command releases an ended task against the session hook recor
     ['release'],
     ['release', '--ended'],
     ['release', '--task', 'lane_one_disp1', '--ended', 'yes'],
-    ['release', '--task', 'lane_one_disp1', '--role', 'knu_executor'],
+    ['release', '--task', 'lane_one_disp1', '--role', 'knu_explorer'],
   ])
     assert.throws(() => runRegistryCommand(bad, { root, env }), TypeError, JSON.stringify(bad));
 });

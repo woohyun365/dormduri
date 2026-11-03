@@ -32,6 +32,7 @@ import {
 } from '../common/review-adjudication.mjs';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { prepareClaudeWorkflow } from './workflow-entry.mjs';
+import { IMPLEMENTATION_RETIRED, isRetiredClaudeTask } from './model-policy.mjs';
 import { CHILD_TRANSCRIPT_BYTE_LIMIT } from './native-session-evidence.mjs';
 import {
   registerClaudeNativeTask,
@@ -60,14 +61,7 @@ const PROMPT_LIMIT = 12000;
 // what the Parent actually receives. The stored response is capped at 1 MB, far above a normal report.
 const DELIVERY_RULE =
   'Your delivered report (the SubagentHandback message when that tool is available, otherwise your final reply) is the only text the Parent receives. Put the complete result in it without summarizing; it may be long (the record limit is 1 MB).';
-const KNU_ROLES = [
-  'knu_explorer',
-  'knu_explorer_xhigh',
-  'knu_researcher',
-  'knu_executor',
-  'knu_executor_xhigh',
-  'knu_reviewer',
-];
+const KNU_ROLES = ['knu_explorer', 'knu_explorer_xhigh', 'knu_researcher', 'knu_reviewer'];
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/u;
 const SPEC_REQUIRED = [
   'sessionId',
@@ -143,7 +137,8 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
   if (typeof spec.owner !== 'string' || !ID.test(spec.owner)) issues.push('owner-identifier');
   if (!textList(spec.acceptance) || !spec.acceptance.length) issues.push('acceptance-required');
   if (!Array.isArray(spec.facts) || !spec.facts.length) issues.push('facts-required');
-  if (!KNU_ROLES.includes(spec.role)) issues.push('unknown-role');
+  if (isRetiredClaudeTask(spec)) issues.push(IMPLEMENTATION_RETIRED);
+  else if (!KNU_ROLES.includes(spec.role)) issues.push('unknown-role');
   // Checked here because the delivery rule below would turn an empty prompt into a non-empty one.
   if (typeof spec.prompt !== 'string' || !spec.prompt.trim()) issues.push('prompt-required');
   for (const key of ['readScope', 'writeScope'])
@@ -605,7 +600,6 @@ function subjectOf({ subjectTaskId, parentSubject }, root) {
       objective: record.requestSummary,
       owner: record.input.directAssignment.owner,
       acceptance: record.input.directAssignment.acceptance,
-      readOnly: record.input.directAssignment.writeOwnership.length === 0,
       readPaths: [
         ...new Set([
           ...record.input.nativeRequest.task.readScope,
@@ -1124,9 +1118,7 @@ export function buildClaudeNativeReview(
   if (subject.settlement === 'native-subject') {
     // The reviewer can check a read-only subject's claims against its read scope; the response
     // itself is read from a file bound to the settled response.
-    subject.responsePath = subject.readOnly
-      ? writeClaudeNativeSubjectResponse(subject.taskId, { root })
-      : undefined;
+    subject.responsePath = writeClaudeNativeSubjectResponse(subject.taskId, { root });
   }
   // Both settlements read the raw runner outputs, so no reviewer depends on a runner's summary.
   const sharedPaths = [
@@ -1361,7 +1353,15 @@ const JUDGMENT_FIELDS = [
   'gaps',
   'reviewerTaskId',
   'reviewAdjudication',
+  'quoteCheck',
 ];
+// A researcher with no write scope settled without a linked reviewer: its template carries the
+// quote-check slot that complete requires (DA-024).
+const quotedResearch = (record) =>
+  record.input.nativeRequest.task.role === 'knu_researcher' &&
+  record.input.nativeRequest.task.writeScope.length === 0 &&
+  !record.independentReview &&
+  record.input.reviewDisposition.required !== true;
 // complete's input from the settled observation plus the Lead's judgment. The Lead states the digest
 // of the response it judged and each acceptance result; lane ids, snapshot, observed changed paths
 // and a reviewer's delivered result come from the records, so none of them is retyped by hand.
@@ -1522,6 +1522,7 @@ function settlementStatus(taskId, root) {
   }
   const content = state.observation.response?.content;
   let judgmentTemplatePath = null;
+  let quoteCheckResponsePath = null;
   // A reviewer without a native subject is judged by the Parent from this settle observation.
   if (record.input.nativeRequest.task.role !== 'knu_reviewer' || record.independentReview) {
     judgmentTemplatePath = join(state.evidenceDirectory, 'judgment-template.json');
@@ -1537,7 +1538,20 @@ function settlementStatus(taskId, root) {
       ...(!record.independentReview && record.input.reviewDisposition.required === true
         ? { reviewerTaskId: null }
         : {}),
+      ...(quotedResearch(record) ? { quoteCheck: null } : {}),
     };
+    // The quote check reads the settled response as stored, so its digest is the responseDigest here.
+    if (quotedResearch(record)) {
+      quoteCheckResponsePath = join(state.evidenceDirectory, 'response.json');
+      const stored = `${JSON.stringify(state.observation.response ?? null)}\n`;
+      try {
+        writeFileSync(quoteCheckResponsePath, stored, { flag: 'wx', mode: 0o600 });
+      } catch (error) {
+        if (error.code !== 'EEXIST') throw error;
+        if (readFileSync(quoteCheckResponsePath, 'utf8') !== stored)
+          state.errors.push('quote-check-response-changed');
+      }
+    }
     try {
       writeFileSync(judgmentTemplatePath, `${JSON.stringify(template, null, 2)}\n`, {
         flag: 'wx',
@@ -1560,6 +1574,7 @@ function settlementStatus(taskId, root) {
     ...(reviewPacket ? { reviewPacket } : {}),
     ...reviewExtracts.statuses,
     judgmentTemplatePath,
+    ...(quoteCheckResponsePath ? { quoteCheckResponsePath } : {}),
     dispatchAuthorized: false,
   };
 }
@@ -1586,6 +1601,12 @@ export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() 
         issues.push(`acceptance-unfilled:${named ? item.criterion : index}`);
     });
   if (judgment.reviewerTaskId === null) issues.push('reviewer-task-id-unfilled');
+  if (judgment.quoteCheck === null) issues.push('quote-check-unfilled');
+  else if (
+    judgment.quoteCheck !== undefined &&
+    (typeof judgment.quoteCheck !== 'string' || !judgment.quoteCheck.trim())
+  )
+    issues.push('quote-check-path-required');
   if (!textList(judgment.checks) || !judgment.checks.length) issues.push('checks-required');
   for (const key of ['findings', 'gaps'])
     if (judgment[key] !== undefined && !Array.isArray(judgment[key]))
@@ -1641,6 +1662,7 @@ export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() 
     ...(judgment.reviewAdjudication === undefined
       ? {}
       : { reviewAdjudication: judgment.reviewAdjudication }),
+    ...(judgment.quoteCheck === undefined ? {} : { quoteCheck: judgment.quoteCheck }),
   };
   if (record.independentReview) {
     try {

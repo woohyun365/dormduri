@@ -1,20 +1,21 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
-import {
-  buildDependencyFingerprint,
-  compareDependencyFingerprint,
-  parseMeasurementEpoch,
-} from './ci-performance-epoch.mjs';
+import { buildDependencyFingerprint } from './dependency-fingerprint.mjs';
 import { classifyChanges } from '../lanes/classify-changes.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../..');
 const ansiPattern = /\u001b\[[0-9;]*m/gu;
+// Every workflow restores the pnpm store with `cache-dependency-path: pnpm-lock.yaml`, so the cache key follows the run head
+// lockfile. CI saves caches only on pull requests and on default-branch pushes, and a pull request restores only its own
+// caches and the default branch's, so a miss is expected when the run head lockfile differs from the default-branch
+// lockfile the run could restore. The collector does not see a pull request's own earlier caches.
 
 function secondsBetween(start, end) {
   const startMs = Date.parse(start ?? '');
@@ -29,6 +30,13 @@ function unique(values) {
 
 function roundCurrency(value) {
   return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+// Pricing is keyed by runner class, not by label, so a new Ubuntu label keeps its rate without editing the policy.
+export function runnerClass(label) {
+  if (label === 'ubuntu-slim') return 'linux-slim';
+  if (/^ubuntu-(?:[0-9]{2}\.[0-9]{2}|latest)$/u.test(label ?? '')) return 'linux-2-core';
+  return null;
 }
 
 function jobLane(job) {
@@ -104,10 +112,10 @@ export function buildRunEvidence({
   artifacts,
   changedPaths = [],
   log,
-  measurementEpoch = null,
   pricing = null,
   pullRequest = null,
   runHeadFingerprint = null,
+  pnpmCacheScope = null,
 }) {
   const completedJobs = jobs.filter(
     (job) => job.started_at && job.completed_at && job.conclusion !== 'skipped',
@@ -119,8 +127,9 @@ export function buildRunEvidence({
     const runnerSku =
       runnerLabels.find((label) => /^(?:ubuntu|windows|macos)-/u.test(label)) ?? null;
     const billingMultiplier = runnerSku?.startsWith('ubuntu-') ? 1 : null;
+    const jobRunnerClass = runnerClass(runnerSku);
     const runnerRateUsdPerMinute =
-      wallSeconds === 0 ? 0 : (pricing?.runnerRatesUsdPerMinute?.[runnerSku] ?? null);
+      wallSeconds === 0 ? 0 : (pricing?.runnerRatesUsdPerMinute?.[jobRunnerClass] ?? null);
     const estimatedGrossUsd =
       runnerRateUsdPerMinute === null
         ? null
@@ -140,6 +149,7 @@ export function buildRunEvidence({
             ? null
             : roundedJobMinutes * billingMultiplier,
       roundedJobMinutes,
+      runnerClass: jobRunnerClass,
       runnerRateUsdPerMinute,
       runnerLabels,
       runnerSku,
@@ -180,18 +190,7 @@ export function buildRunEvidence({
   const wastedJobs = completedJobs.filter((job) =>
     ['action_required', 'cancelled', 'failure', 'stale', 'timed_out'].includes(job.conclusion),
   );
-  const dependencyComparison =
-    measurementEpoch && runHeadFingerprint
-      ? compareDependencyFingerprint(measurementEpoch, runHeadFingerprint)
-      : {
-          changedInputs: [],
-          comparisonBaseSha: null,
-          comparisonEpochId: null,
-          state: 'unavailable',
-        };
-  const changedDependencyInputs = dependencyComparison.changedInputs.filter(
-    (path) => path !== 'measurement-epoch',
-  );
+  const runHeadLockfileSha256 = runHeadFingerprint?.fileSha256?.['pnpm-lock.yaml'] ?? null;
   const webSourceChanged = changedPaths.some((path) => path.startsWith('apps/web/'));
   const cacheEvidence = {
     ...parsedLog.cache,
@@ -203,14 +202,17 @@ export function buildRunEvidence({
           : webSourceChanged
             ? 'expected-source-key-change'
             : 'investigate-eviction-or-configuration',
+    pnpmCacheScope,
     pnpmInterpretation:
       parsedLog.cache.missCount === 0
         ? parsedLog.cache.hitKeys.length > 0
           ? 'hit-observed'
           : 'not-observed'
-        : changedDependencyInputs.length > 0
-          ? 'expected-dependency-key-change'
-          : 'investigate-eviction-or-configuration',
+        : !pnpmCacheScope?.lockfileSha256 || !runHeadLockfileSha256
+          ? 'not-determined'
+          : runHeadLockfileSha256 !== pnpmCacheScope.lockfileSha256
+            ? 'expected-dependency-key-change'
+            : 'investigate-eviction-or-configuration',
   };
   const estimatedGrossUsd = jobEvidence.every((job) => job.estimatedGrossUsd !== null)
     ? roundCurrency(jobEvidence.reduce((total, job) => total + job.estimatedGrossUsd, 0))
@@ -245,7 +247,6 @@ export function buildRunEvidence({
     },
     conclusion: run.conclusion,
     createdAt: run.created_at,
-    dependencyCompatibility: dependencyComparison,
     dependencyFingerprint: runHeadFingerprint,
     estimatedGrossUsd,
     event: run.event,
@@ -260,14 +261,6 @@ export function buildRunEvidence({
       sourcePullRequestHeadSha: pullRequest?.head?.sha ?? null,
     },
     jobs: jobEvidence,
-    measurementEpoch: measurementEpoch
-      ? {
-          baseSha: measurementEpoch.baseSha,
-          capturedAt: measurementEpoch.capturedAt,
-          id: measurementEpoch.id,
-          state: measurementEpoch.state,
-        }
-      : null,
     outcome: {
       cancelledJobCount: cancelledJobs.length,
       failedJobCount: failedJobs.length,
@@ -326,6 +319,28 @@ function ghLines(args) {
   return output ? output.split('\n').filter(Boolean) : [];
 }
 
+// The default-branch commit that was current when the run started holds the lockfile of the caches the run could restore.
+function collectPnpmCacheScope(repository, run) {
+  const { default_branch: ref } = ghJson(['api', `repos/${repository}`]);
+  const until = encodeURIComponent(run.run_started_at ?? run.created_at);
+  const [commit] = ghJson([
+    'api',
+    `repos/${repository}/commits?sha=${encodeURIComponent(ref)}&until=${until}&per_page=1`,
+  ]);
+  if (!commit?.sha) return null;
+  const lockfile = ghText([
+    'api',
+    '-H',
+    'Accept: application/vnd.github.raw+json',
+    `repos/${repository}/contents/pnpm-lock.yaml?ref=${commit.sha}`,
+  ]);
+  return {
+    lockfileSha256: createHash('sha256').update(lockfile).digest('hex'),
+    ref,
+    sha: commit.sha,
+  };
+}
+
 function collectRunContext(repository, run) {
   const pulls = ghJson(['api', `repos/${repository}/commits/${run.head_sha}/pulls`]);
   const pullRequest = pulls.find((pull) => pull.head?.sha === run.head_sha) ?? pulls[0] ?? null;
@@ -354,7 +369,7 @@ function collectRunContext(repository, run) {
   };
 }
 
-export function collectGithubActionsRun(repository, runId, { measurementEpoch, pricing } = {}) {
+export function collectGithubActionsRun(repository, runId, { pricing } = {}) {
   const run = ghJson(['api', `repos/${repository}/actions/runs/${runId}`]);
   if (run.status !== 'completed' || !run.conclusion) {
     throw new Error(`run ${runId} is not completed`);
@@ -370,7 +385,6 @@ export function collectGithubActionsRun(repository, runId, { measurementEpoch, p
   const log = ghText(['run', 'view', String(runId), '--repo', repository, '--log']);
   const context = collectRunContext(repository, run);
   const runHeadFingerprint = buildDependencyFingerprint({
-    epoch: measurementEpoch,
     readText: (path) =>
       ghText([
         'api',
@@ -385,7 +399,7 @@ export function collectGithubActionsRun(repository, runId, { measurementEpoch, p
     changedPaths: context.changedPaths,
     jobs,
     log,
-    measurementEpoch,
+    pnpmCacheScope: collectPnpmCacheScope(repository, run),
     pricing,
     pullRequest: context.pullRequest,
     run,
@@ -434,14 +448,6 @@ export function resolveCollectorOutputPath(output, now = new Date()) {
 function main(argv) {
   const options = parseArgs(argv);
   const outputPath = resolveCollectorOutputPath(options.output);
-  const measurementEpoch = parseMeasurementEpoch(
-    JSON.parse(
-      readFileSync(
-        resolve(repoRoot, 'scripts/ci/performance/fixtures/ci-performance-active-epoch.json'),
-        'utf8',
-      ),
-    ),
-  );
   const policy = JSON.parse(
     readFileSync(
       resolve(repoRoot, 'scripts/ci/performance/fixtures/github-actions-performance-policy.json'),
@@ -453,11 +459,10 @@ function main(argv) {
     repository: options.repository,
     runs: options.runIds.map((runId) =>
       collectGithubActionsRun(options.repository, runId, {
-        measurementEpoch,
         pricing: { ...policy.pricing, reviewedAt: policy.reviewedAt },
       }),
     ),
-    schemaVersion: 3,
+    schemaVersion: 4,
   };
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`);

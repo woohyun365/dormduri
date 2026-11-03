@@ -2,9 +2,14 @@
 
 ## 책임
 
-KNU Roommate의 pull request와 default `main` push 검증은 `.github/workflows/ci.yml`이 진입점이다. `dev`는 active ruleset이 PR-only integration과 green `CI summary`를 요구하므로 merge 직후 같은 graph를 다시 실행하지 않는다. Workflow는 변경 경로를 분류하고 필요한 reusable app workflow만 호출한다. Pull request에서는 분류와 무관하게 `Lifecycle gate`도 실행하고, 항상 존재하는 `CI summary` job에서 선택된 lane과 `Lifecycle gate`의 성공 여부를 fail-closed로 판정한다.
+돔두리의 pull request와 default `main` push 검증은 `.github/workflows/ci.yml`이 진입점이다. `dev`는 active ruleset이 PR-only integration과 green `CI summary`를 요구하므로 merge 직후 같은 graph를 다시 실행하지 않는다. Workflow는 변경 경로를 분류하고 필요한 reusable app workflow만 호출한다. Pull request에서는 분류와 무관하게 `Lifecycle gate`도 실행하고, 항상 존재하는 `CI summary` job에서 선택된 lane과 `Lifecycle gate`의 성공 여부를 fail-closed로 판정한다.
 
-현재 workflow는 CI만 제공한다. Image publish, production environment approval, deployment identity, rollout, traffic switch, rollback은 포함하지 않는다. Production CD 구현 전 입력은 `docs/development/future-production-deployment-inputs.md`가 소유한다.
+이 문서의 CI workflow는 production deploy 권한을 갖지 않는다(`PRS-R47`). Web 단계 CD는 별도 workflow
+`.github/workflows/web-cd.yml`이 `main` push(Web 배포 입력 경로)와 `main`의 dispatch에서만 실행하고, image publish,
+`production` environment 승인, OIDC deployment identity, SSM 배포, rollback을 소유한다. CI graph(`ci.yml`)는 CD를 호출하지 않고
+CD는 CI 결과를 다시 판정하지 않는다. `main`에 들어온 commit은 이미 `dev` PR의 `CI summary`를 통과했다. CD 절차는
+[Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md), 지금 운영 구성은
+`docs/deploy/production-environment.md`가 소유한다. API 단계 CD 입력은 같은 문서의 "이후 단계에서 정할 입력"이다.
 
 ## Decision과 drivers
 
@@ -139,7 +144,7 @@ Next 16은 Turbopack을 기본 bundler로 사용하고 repository에 Babel fallb
 flag를 별도로 강제하지 않고 current Next default/config compatibility를 lockfile upgrade 때 재검증한다.
 
 Classify, Lifecycle gate, CI summary는 product compile을 수행하지 않으므로 official `ubuntu-slim` 1-core x64 runner를 사용한다.
-Repository policy는 slim에서 docs/config feedback budget을 넘겨 standard `ubuntu-24.04`로 복구했다. Shared/API/Web/Infra도
+Repository policy는 slim에서 docs/config feedback budget을 넘겨 standard x64 runner로 복구했다. Shared/API/Web/Infra도
 standard x64에 남는다. Product arm64는 Prisma, SWC, Argon2, Playwright, Docker와 cache architecture parity를 증명하기
 전에는 사용하지 않는다. Larger runner는 personal repository의 current owner surface가 아니며 cost-neutral evidence도 없어
 사용하지 않는다.
@@ -150,11 +155,11 @@ Web unit tests는 전용 Web unit CI job의 한 Vitest process 안에서 두 pro
 
 - Node-safe `.ts` tests: Node environment, DOM setup 없음
 - `.tsx` tests와 명시적 `.dom.test.ts`: jsdom environment, `src/test-setup.ts` 적용
-- Current inventory: Node 107 files / 621 cases, jsdom 114 files / 611 cases; total 221 files / 1,232 cases
 - Pool: repeated local correctness/timing을 통과한 `threads`; 고정 `maxWorkers`는 사용하지 않음
 
-DOM 의존 TypeScript test는 suffix로 owner를 드러내며, `scripts/ci/product/web-vitest-project-ownership.test.mjs`가 exact-once
-inventory, Node project의 Testing Library exclusion, jsdom-only setup을 고정한다. Node/jsdom project를 각각 별도 GitHub
+DOM 의존 TypeScript test는 suffix로 owner를 드러내며, `scripts/ci/product/web-vitest-project-ownership.test.mjs`가 test 파일마다
+project 하나(두 project 모두 비어 있지 않음), Node project의 Testing Library exclusion, jsdom-only setup을 고정한다. 파일·case 수는
+고정하지 않는다. Node/jsdom project를 각각 별도 GitHub
 job이나 artifact로 나누지 않는다. Unit cohort 전체만 static/build/browser core와 병렬화한다.
 
 Hosted Web-only evidence는 동일 221 files / 1,232 cases에서 Web unit 181s와 one-time rerun 184s를 기록했다. 이전 full-PR
@@ -194,17 +199,17 @@ reuse는 후속 DAG 최적화 대상이다. Timing과 cost 수치는
 
 `scripts/ci/lanes/run-timed-command.mjs`는 install, prepare, static, unit, DB suite, build, browser 단계를 실행하면서 `GITHUB_STEP_SUMMARY`에 시간과 성공 여부를 남긴다. 실패한 command의 exit code를 그대로 반환하므로 timing 수집이 gate 의미를 바꾸지 않는다.
 
-Historical pre-optimization evidence와 active post-change measurement epoch는 같은 fixture가 소유하지 않는다.
-`ci-performance-baseline.json`은 비교 denominator를 immutable하게 보존하고, `ci-performance-active-epoch.json`은 current
-dependency/image input을 소유한다. Actions collector는 current checkout이 아니라 각 workflow run head commit의 input을
-읽어 fingerprint를 생성한다. Image input은 `infra/image-inventory.json`과 그 inventory가 가리키는 owner 파일의 image
-reference이므로 tag나 digest만 바뀐 image update도 fingerprint를 바꾼다. Report는 epoch, exact input hash, event, change
-surface가 다른 표본을 하나의 cohort로 합치지 않는다.
+개선 전 비교 denominator는 [Monorepo CI baseline](../../evidence/ci/monorepo-ci-baseline.md)의 기준값 표와 Git 이력이
+보존하고 fixture로 두지 않는다. Actions collector는 current checkout이 아니라 각 workflow run head commit의 dependency
+input을 읽어 fingerprint를 생성한다. Image input은 `infra/image-inventory.json`과 그 inventory가 가리키는 owner 파일의 image
+reference이므로 tag나 digest만 바뀐 image update도 fingerprint를 바꾼다. Report는 이 fingerprint로 표본을 묶고, exact input
+hash, event, change surface가 다른 표본을 하나의 cohort로 합치지 않는다. 손으로 회전하는 측정 구간 fixture는 두지 않는다.
 
 API summary 단계:
 
 - install
 - public schema migration
+- migration·Prisma schema 차이 검사
 - prepare
 - static
 - runtime config/health contract
@@ -276,11 +281,13 @@ lane이 없는 PR은 Agent workflow gate가 critical path이고, 이런 PR 15개
 
 Runner minutes도 함께 본다. Job split으로 wall time이 줄어도 total runner minutes가 증가하면 자동 채택하지 않는다. 표본과 산출 근거는 `docs/evidence/ci/`에 유지한다.
 
-비용 budget은 초기에는 advisory다. 표준 private-repository Linux 2-core list rate는 2026-08-26 공식 문서 기준
-`$0.006/min`이며, 포함 minutes 할인 전 gross estimate에만 사용한다. 표본 5개 전에는 p50, 10개 전에는 p95를 게시하지
-않는다. 실제 discount/net은 별도 Plan-Read credential을 child process에만 주입하는 `pnpm github:account:evidence`의
-allowlisted 결과와 owner Billing UI/CSV가 일치할 때만 비용 ledger에 반영한다. PR별 list-price estimate와 account-level
-discount/net은 서로 다른 책임이므로 합산하거나 대체하지 않는다.
+비용 budget은 초기에는 advisory다. 지금 저장소는 public이라 표준 GitHub-hosted runner 사용은 무료다. PR별 list-price
+estimate는 private 전환 뒤 비용을 미리 보는 값이고, 표준 Linux 2-core `$0.006/min`·1-core `$0.002/min`(2026-11-01 공식 문서
+기준)으로 포함 사용량 할인 전 gross estimate에만 사용한다. Private 전환 전 확인 항목은
+[Remote repository settings](../../development/github/remote-repository-settings.md#비공개-전환-전-확인)가 소유한다. 표본 5개
+전에는 p50, 10개 전에는 p95를 게시하지 않는다. 실제 discount/net은 별도 Plan-Read credential을 child process에만 주입하는
+`pnpm github:account:evidence`의 allowlisted 결과와 owner Billing UI/CSV가 일치할 때만 비용 ledger에 반영한다. PR별
+list-price estimate와 account-level discount/net은 서로 다른 책임이므로 합산하거나 대체하지 않는다.
 
 ## Verification과 revisit trigger
 
@@ -289,7 +296,8 @@ discount/net은 서로 다른 책임이므로 합산하거나 대체하지 않�
 - `pnpm ci:performance:resources`는 cache family와 artifact/Packages visibility를 별도 snapshot으로 수집한다.
 - `pnpm ci:performance:report`는 dependency fingerprint가 같은 자연 발생 PR만 cohort 통계로 집계한다.
 - `pnpm github:account:evidence`는 billing token을 daily gh와 분리하고 account usage·repository resource의 sanitized
-  snapshot만 `.artifacts/tools/github/`에 기록한다.
+  snapshot만 `.artifacts/tools/github/`에 기록한다. 지금 유효한 billing token이 없어 쓸 때 새로 만든다
+  ([GitHub authentication and operator access](../../development/github/authentication-and-operator-access.md#billing과-임시-권한)).
 - Concurrent contributor, stale-base failure, p95 budget 초과, cache 80% 이상 churn, test inventory drift 또는 default-branch
   검증 공백이 관측되면 분류·ruleset·job graph를 재검토한다.
 - Repository 분리는 독립 release/data/ownership boundary가 실제로 생겼을 때, Turborepo/remote cache는 native 개선 후에도
@@ -300,12 +308,16 @@ discount/net은 서로 다른 책임이므로 합산하거나 대체하지 않�
 Optional app job은 변경 분류에 따라 `skipped`될 수 있으므로 개별 API/Web/Infra job이 아니라 `CI summary` 하나를 required
 check로 사용한다.
 
-- `dev-integration-gate`: exact `dev`, PR 필수, conversation resolution, linear history, squash only, `CI summary`, force
-  push/deletion 차단.
+- `dev-integration-gate`: exact `dev`, PR 필수, conversation resolution, linear history, squash only, `CI summary`와 strict
+  up-to-date, force push/deletion 차단.
 - `main-release-gate`: default `main`, PR 필수, conversation resolution, merge commit only, `CI summary`, force push/deletion
   차단.
-- Strict up-to-date는 한 owner의 순차 integration과 Actions 비용을 고려해 기본 off다. Concurrent contributor 또는 stale-base
-  failure가 관측되면 재검토한다.
+- Strict up-to-date는 `dev`에서만 켠다. `dev`는 Renovate 자동 merge와 사람 PR로 자주 움직이고(Renovate 자동 merge 설정을 `main`에
+  올린 뒤 약 2.1일 동안 34번), PR CI가 검사한 base와 merge 시점의 `dev`가 달라지는 일이 잦다. Strict는 그런 PR의 merge를 막고 Update branch 뒤
+  `CI summary`를 다시 요구한다. 사람 PR의 추가 CI 수는 이전의 수동 확인 절차와 같다. 대안인 `dev` push CI는 merge 뒤에야 깨진
+  조합을 알고 `dev`가 움직일 때마다 전체 CI가 돌아 쓰지 않는다. 근거와 수치는
+  [`dev` up-to-date gate evidence](../../evidence/ci/dev-up-to-date-gate-evidence.md)가 소유한다. `main`은 `dev`→`main` 승격
+  PR만 받으므로 끈다.
 
 Check 이름이나 workflow/job 이름을 변경할 때 ruleset과 이 문서를 함께 갱신한다. Repository setting mutation은 tracked
 source merge로 완료됐다고 주장하지 않고 `remote-repository-settings.md`의 read-only evidence로 확인한다.

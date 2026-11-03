@@ -13,7 +13,7 @@ for (const script of shellScripts) {
 }
 
 const sentinel = 'infra-ci-secret-sentinel';
-const migrationUrl = `postgresql://infra_ci:${sentinel}@db.invalid:5432/knu_roommate`;
+const migrationUrl = `postgresql://infra_ci:${sentinel}@db.invalid:5432/dormduri`;
 const dryRuns = [
   {
     path: 'infra/db/migrate-deploy.sh',

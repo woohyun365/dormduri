@@ -22,6 +22,14 @@ direct dependency를 한 process에서 반복 계산했고, group은 PR 조합�
 - pnpm lockfile command 시작 후 `exec completed` 없이 `kernel-out-of-memory`: queue timeout이 아니라
   [Mend Renovate pnpm lockfile OOM](./renovate-pnpm11-hosted-oom.md) 경계를 따른다.
 
+## 관측 기록
+
+2026-08-18·19 `dev` 대상 root npm Dependabot version update job 두 번이 모두 약 55분(3,317초·3,307초) 뒤
+`The operation was canceled.`로 취소됐고 완료한 PR은 0개였다. 첫 번째는 기본 branch 설정 변경이, 두 번째는 관리자의
+"Check for updates"가 시작했다. 두 번째 job은 dependency 53개를 확인하고 `pnpm update --lockfile-only`를 50번 실행했으며
+PR 제출은 6번이었다. 당시 direct dependency는 82개였다. 원본 기록 JSON
+(`scripts/ci/contracts/fixtures/dependency-automation-baseline.json`)은 그 파일을 지운 commit의 부모에 있다.
+
 ## 현재 해결 구조
 
 - npm/pnpm, GitHub Actions, Docker, Docker Compose version update는 Renovate가 소유한다.
