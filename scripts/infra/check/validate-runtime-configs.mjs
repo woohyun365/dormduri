@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { loadImageInventory, resolveImageReference } from '../artifacts/image-inventory.mjs';
 import { renderMarkdownTable, runIngressSmoke } from '../user-host/ingress-smoke.mjs';
-import { runDocumentGuardChecks } from '../user-host/ssm-document-runtime.mjs';
+import { runDeployPathChecks, runDocumentGuardChecks } from '../user-host/ssm-document-runtime.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const outputArg = process.argv.find((argument) => argument.startsWith('--output='));
@@ -103,15 +103,20 @@ async function validateUserHostIngress() {
   });
 }
 
-// Web 단계 SSM document: 허용 밖 입력 거부와 host lock(겹친 실행은 75)이 Docker·AWS에 닿기 전에 끝나는지.
+// Web 단계 SSM document: 허용 밖 입력 거부와 host lock(겹친 실행은 75)이 Docker·AWS에 닿기 전에 끝나는지, 그리고
+// 가짜 docker·aws·curl 위에서 배포·자동 복귀·첫 배포 점검 mode·rollback 대조가 exit code와 host 상태로 맞는지.
 function validateUserHostDocument() {
   const image = requiredImage('web-build-node');
-  const { problems } = runDocumentGuardChecks({ repoRoot, image });
+  const problems = [
+    ...runDocumentGuardChecks({ repoRoot, image }).problems,
+    ...runDeployPathChecks({ repoRoot, image }).problems,
+  ];
   if (problems.length) {
     console.error(problems.join('\n'));
     fail('user-host-document runtime validation failed');
   }
   checks.push({ name: 'user-host-document-guards', image });
+  checks.push({ name: 'user-host-document-deploy-paths', image });
 }
 
 function validatePrometheus() {

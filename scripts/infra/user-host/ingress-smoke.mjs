@@ -48,7 +48,8 @@ const STUB_TITLE = 'stub web';
 const LABEL = 'dormduri.local.created-by=user-host-ingress-smoke';
 
 const page = (title, status, retryAfter) => ({ status, title, retryAfter, staticPage: true });
-const web = () => ({ status: 200, web: true });
+// sameAs: Web이 그 경로와 같은 page를 내야 한다(stub Web은 받은 URI를 X-Stub-Uri로 돌려준다).
+const web = (sameAs) => ({ status: 200, web: true, ...(sameAs ? { sameAs } : {}) });
 
 // 경로별 기대값. mode: serving(Web 응답), web-down(Web 무응답), maintenance(점검 flag).
 export const INGRESS_SMOKE_CASES = Object.freeze([
@@ -60,6 +61,12 @@ export const INGRESS_SMOKE_CASES = Object.freeze([
     '/sitemap.xml',
     '/icon.png',
   ].map((path) => ({ mode: 'serving', path, expect: web(), stubOnly: true })),
+  // nginx는 부호화된 slash·dot segment를 풀어 `/`로 판정한다. Web도 `/`를 받아 Landing을 내야 한다.
+  ...['/notices/..%2F', '/notices/%2e%2e/', '/signup/..%2F'].map((path) => ({
+    mode: 'serving',
+    path,
+    expect: web('/'),
+  })),
   ...[
     '/login',
     '/signup',
@@ -163,6 +170,13 @@ export function checkResponse(testCase, response) {
   if (expect.web && Object.values(PAGE_TITLES).includes(response.title)) {
     problems.push('allowed path returned a static page');
   }
+  if (
+    expect.sameAs &&
+    headers['x-stub-uri'] !== undefined &&
+    headers['x-stub-uri'] !== expect.sameAs
+  ) {
+    problems.push(`Web received ${headers['x-stub-uri']} instead of ${expect.sameAs}`);
+  }
   if (expect.staticPage) {
     if (response.title !== expect.title)
       problems.push(`title ${response.title} != ${expect.title}`);
@@ -230,7 +244,7 @@ function prepareHostDirectories() {
   writeSelfSignedCertificate(directories.tls);
   writeFileSync(
     join(directories.stub, 'stub.conf'),
-    `server {\n  listen 3000;\n  location / {\n    add_header X-Powered-By stub-web;\n    default_type text/html;\n    return 200 '<!doctype html><title>${STUB_TITLE}</title>';\n  }\n}\n`,
+    `server {\n  listen 3000;\n  location / {\n    add_header X-Powered-By stub-web;\n    add_header X-Stub-Uri $request_uri;\n    default_type text/html;\n    return 200 '<!doctype html><title>${STUB_TITLE}</title>';\n  }\n}\n`,
   );
   // The ingress runs as uid 101 inside the container, so the bind-mounted test files must be world-readable.
   for (const directory of [
@@ -516,9 +530,17 @@ export async function runIngressSmoke({
           xRobotsTag: response.headers?.['x-robots-tag'] ?? null,
           cacheControl: response.headers?.['cache-control'] ?? null,
           location: response.headers?.location ?? null,
+          ...(testCase.expect.sameAs ? { sameAs: testCase.expect.sameAs } : {}),
           pass: problems.length === 0,
           problems,
         });
+      }
+      for (const row of rows.filter((item) => item.mode === mode && item.sameAs)) {
+        const reference = rows.find((item) => item.mode === mode && item.path === row.sameAs);
+        if (reference && reference.title !== row.title) {
+          row.pass = false;
+          row.problems.push(`title ${row.title} != ${row.sameAs} title ${reference.title}`);
+        }
       }
     }
   } finally {

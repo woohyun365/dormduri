@@ -97,7 +97,9 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
   compose 구조 계약(`scripts/infra/user-host/compose-contract.mjs`. Web publish 없음, read-only
   root, capability 모두 제거, memory Web 320MiB·ingress 96MiB, log 회전), ingress 설정 test, document 생성본 일치.
 - `pnpm infra:check:runtime`: ingress image build와 `nginx -t`, stub Web 뒤에서 경로마다 status·title·header를 실제로
-  요청하는 smoke, document의 입력 거부와 host lock을 일회용 container에서 실행.
+  요청하는 smoke, 일회용 container에서 document 실행(입력 거부와 host lock, 그리고 가짜 `docker`·`aws`·`curl` 위에서 배포
+  성공·기동 실패와 smoke 실패의 자동 복귀·rollback 입력 대조·첫 배포 실패의 점검 mode를 exit code와 host 상태 파일로 판정).
+  같은 document 실행은 `node scripts/infra/user-host/ssm-document-runtime.mjs`로 따로 돌릴 수 있다.
 - 실제 Web image로 같은 smoke를 돌릴 때: `node scripts/infra/user-host/ingress-smoke.mjs --web-image=<local image>`.
 
 ## 정적 안내 화면

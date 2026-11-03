@@ -113,7 +113,8 @@ test('the allow list sends only the opened pages, Next.js assets and the Web met
   assert.equal(proxied.length, expected.exact.length + expected.prefix.length);
   // proxy_pass appears only through the shared snippet, so no other location reaches Web.
   assert.doesNotMatch(conf, /proxy_pass/u);
-  assert.match(proxyWeb, /^proxy_pass \$web_upstream;$/mu);
+  // Web gets the normalized path nginx matched, so encoded slashes or dot segments cannot reach an unopened page.
+  assert.match(proxyWeb, /^proxy_pass \$web_upstream\$uri\$is_args\$args;$/mu);
 });
 
 test('every Web route the stage does not open is a coming-soon path, and nothing else is', () => {
