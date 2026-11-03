@@ -135,6 +135,10 @@ label이 붙는다. Label은 남은 자원을 골라 지우기 위한 표시이�
   hash에 넣으므로, 실행마다 바뀌는 run ID label을 붙이면 다음 실행이 `Recreate (data will be lost)?`를 묻는다. 이
   volume은 이름이 고정이라 쌓이지 않으며 `com.docker.compose.project` label로 찾는다.
 - Ingress fixture: [build 명령](../../rehearsal/README.md#account-free-ingress-fixture)이 label을 붙인다.
+- User host rehearsal(`user-host-rehearsal` profile): overlay `infra/rehearsal/compose.user-host.yml`의 Web·ingress build에
+  label을 둔다. Image tag가 고정(`dormduri-web:user-host-rehearsal`, `dormduri-ingress:user-host-rehearsal`)이라 run ID는
+  `local`이다. `pnpm infra:check:runtime`의 ingress smoke는 만든 container·network·image에
+  `dormduri.local.created-by=user-host-ingress-smoke`를 붙이고 끝날 때 지운다.
 - `pnpm infra:artifacts:build`는 OCI layout을 `.artifacts`에 쓰고 image store에 image를 남기지 않는다.
 
 남은 자원 확인(읽기 전용):

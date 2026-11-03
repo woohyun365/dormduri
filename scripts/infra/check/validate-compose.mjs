@@ -4,12 +4,25 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { buildComposeArgs, loadComposeInventory } from '../compose/profile.mjs';
 import { buildIngressComposeArgs, writeIngressConfig } from '../ingress/render.mjs';
+import { checkUserHostCompose } from '../user-host/compose-contract.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const inventory = loadComposeInventory(repoRoot);
 const failures = [];
+// The Web stage host compose takes registry digest references that the deploy document sets; validation uses
+// well-formed placeholders and a local test directory for the rehearsal overlay.
+const userHostEnvironment = {
+  WEB_IMAGE: `dormduri/web@sha256:${'0'.repeat(64)}`,
+  INGRESS_IMAGE: `dormduri/ingress@sha256:${'0'.repeat(64)}`,
+  WEB_RELEASE: 'web-000000000000',
+  USER_HOST_REHEARSAL_ROOT: resolveArtifactPath(repoRoot, [
+    'infra',
+    'user-host-rehearsal-validation',
+  ]),
+};
 const ingress = writeIngressConfig(
   {
     mode: 'fixture-http',
@@ -52,6 +65,7 @@ for (const profileName of Object.keys(inventory.profiles)) {
       env: {
         ...process.env,
         ...(profileName === 'ingress-trust' ? ingress.composeEnvironment : {}),
+        ...(profileName.startsWith('user-host') ? userHostEnvironment : {}),
         API_IMAGE_TAG: process.env.API_IMAGE_TAG ?? 'validation-commit',
         API_RUNTIME_ENV_FILE: '../rehearsal/fixtures/empty.runtime-env',
         REHEARSAL_API_NETWORK: 'dormduri-validation-api',
@@ -117,6 +131,17 @@ for (const [profileName, expectation] of Object.entries({
     failures.push(`${profileName}: unexpected resource budget projection`);
   }
 }
+
+const userHost = spawnSync(
+  'docker',
+  buildComposeArgs(inventory, 'user-host', ['config', '--format', 'json'], { repoRoot }),
+  { cwd: repoRoot, encoding: 'utf8', env: { ...process.env, ...userHostEnvironment } },
+);
+if (userHost.status === 0) {
+  for (const problem of checkUserHostCompose(JSON.parse(userHost.stdout))) {
+    failures.push(`user-host: ${problem}`);
+  }
+} else failures.push(`user-host render: ${userHost.stderr}`);
 
 const ingressEnvironment = {
   ...process.env,

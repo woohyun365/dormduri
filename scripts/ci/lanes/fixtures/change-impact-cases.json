@@ -1,13 +1,26 @@
 [
   {
     "name": "web-only",
-    "paths": ["apps/web/src/app/page.tsx"],
+    "paths": ["apps/web/src/auth/api/client.ts"],
     "expected": {
       "web": true,
       "api": false,
       "shared": false,
       "storybook": false,
       "infra": false,
+      "repoPolicy": false,
+      "agentWorkflow": false
+    }
+  },
+  {
+    "name": "web-route-selects-ingress-check",
+    "paths": ["apps/web/src/app/login/page.tsx"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
       "repoPolicy": false,
       "agentWorkflow": false
     }

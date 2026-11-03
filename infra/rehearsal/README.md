@@ -1,7 +1,9 @@
 # Local rehearsal Compose profiles
 
-이 디렉터리는 local/constrained rehearsal 설정을 소유한다. 예외는 `compose.web.yml` 하나다. 이 파일은 rehearsal profile과
-production-candidate profile `ingress-trust`에 함께 합성된다([`compose.web.yml`의 두 역할](#composewebyml의-두-역할)).
+이 디렉터리는 local/constrained rehearsal 설정을 소유한다. Web 단계 host는 운영 compose
+`infra/deploy/user/compose.yml`을 그대로 쓰고 `compose.user-host.yml`로 local 값만 덮는다([User host rehearsal](#user-host-rehearsal)).
+예외는 `compose.web.yml` 하나다. 이 파일은 rehearsal profile과 production-candidate profile `ingress-trust`에 함께
+합성된다([`compose.web.yml`의 두 역할](#composewebyml의-두-역할)).
 
 OrbStack과 독립 Linux VM의 선택, profile별 자원 및 증거 경계는
 [Local environment selector](../runbooks/rehearsal/local-environments.md)를 먼저 확인한다.
@@ -24,6 +26,8 @@ Lightsail secret delivery의 AWS-account-free candidate/activation/rollback faul
 | `web-rehearsal`            | rehearsal-only       | `observability-rehearsal` → `compose.web.yml` → `compose.web.fixture.yml` | Web/BFF standalone rehearsal + upstream fixture                                                                  |
 | `full-stack-api-rehearsal` | rehearsal-only       | `api-rehearsal` → `compose.postgres.yml`(disposable PostgreSQL 18)        | Full-stack API/nginx/DB rehearsal only                                                                           |
 | `full-stack-web-rehearsal` | rehearsal-only       | `observability-rehearsal` → `compose.web.yml`                             | 실제 API에 연결하며 fixture를 제외한 Web rehearsal                                                               |
+| `user-host`                | production-candidate | `infra/deploy/user/compose.yml`                                           | Web 단계 User App host(ingress·Web) 운영 compose                                                                 |
+| `user-host-rehearsal`      | rehearsal-only       | `user-host` → `compose.user-host.yml`                                     | 운영 compose에 local build image·시험 인증서·loopback port만 덮은 rehearsal                                      |
 | `ingress-trust`            | production-candidate | `api-base` → `compose.web.yml` → `infra/deploy/compose.ingress-trust.yml` | Single public ingress forwarding trust 검증 대상                                                                 |
 
 `infra/compose-profiles.json`이 파일 순서의 source of truth다. 직접 `-f` 순서를 재작성하지 않고 다음 entry를 사용한다.
@@ -49,9 +53,32 @@ pnpm infra:compose -- observability-rehearsal config
   덮어쓴다. 파일 순서는 [ingress-trust target](../deploy/README.md#renderer와-고정-compose-순서)이 고정하고 renderer와 test가 강제한다.
 
 Compose inventory 검사(`scripts/infra/check/inspect.mjs`)는 파일마다 처음 나온 profile의 분류를 쓰므로 이 파일은 rehearsal-only로 분류된다.
-`ingress-trust`는 forwarding trust 검증 대상이고, 지금 운영 중인 Web 단계 host의 compose가 아니다. 운영 Web 단계 배포
-구성은 [Production environment](../../docs/deploy/production-environment.md)가 설명하고 Web CD 작업이 저장소에 더한다. 그
-뒤 이 파일과 운영 compose의 역할 정리는 그 작업이 맡는다.
+`ingress-trust`는 forwarding trust 검증 대상이고, 지금 운영 중인 Web 단계 host의 compose가 아니다. Web 단계 host의
+운영 compose는 `infra/deploy/user/compose.yml`이고, 그 local rehearsal은 이 파일이 아니라 `user-host-rehearsal`이다.
+
+## User host rehearsal
+
+운영 compose를 원본으로 쓰고 다음만 덮는다: image(저장소에서 local build, 이름은 `user-host.rehearsal.env`), host 경로
+(`/opt/dormduri/...` 대신 `USER_HOST_REHEARSAL_ROOT` 아래 폴더), publish port(80·443 대신 loopback 8180·8543).
+
+```bash
+root="$PWD/.artifacts/tools/infra/user-host-rehearsal"
+mkdir -p "$root"/{acme-webroot,tls,mode}
+# 시험용 자체 서명 인증서. ingress는 uid 101로 돌므로 시험 key만 0644로 둔다.
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=dormduri.com \
+  -addext subjectAltName=DNS:dormduri.com,DNS:www.dormduri.com \
+  -keyout "$root/tls/privkey.pem" -out "$root/tls/fullchain.pem"
+chmod 644 "$root/tls/privkey.pem"
+export USER_HOST_REHEARSAL_ROOT="$root"
+pnpm infra:compose -- user-host-rehearsal up -d --build --wait
+curl -sk --resolve dormduri.com:8543:127.0.0.1 -o /dev/null -w '%{http_code}\n' https://dormduri.com:8543/
+touch "$root/mode/maintenance"   # 점검 mode: 모든 경로 503 점검 중
+rm "$root/mode/maintenance"
+pnpm infra:compose -- user-host-rehearsal down
+```
+
+경로별 응답 전체는 `node scripts/infra/user-host/ingress-smoke.mjs --web-image=dormduri-web:user-host-rehearsal`이 실제
+요청으로 확인한다(경로 표는 [User host 묶음](../deploy/README.md#user-host-묶음)).
 
 ## 4GiB product + RDS-like local allowance rehearsal
 

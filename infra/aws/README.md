@@ -5,6 +5,16 @@ setup checklist를 소유한다. 지금 적용한 구성과 계정·비용 알�
 [`docs/deploy/production-environment.md`](../../docs/deploy/production-environment.md)가 설명한다. 현재 resource를 생성하거나
 AWS SDK/CLI를 실행하는 IaC 디렉터리가 아니다.
 
+Web 단계 CD가 쓰는 계정 resource의 정책 원본도 여기 둔다. Account·repository ID 같은 값은 `<ACCOUNT_ID>`,
+`<GITHUB_OWNER_ID>`, `<GITHUB_REPO_ID>` placeholder로 두고 Owner가 console에서 채운다(파일에 실제 값을 쓰지 않는다).
+
+- `iam/host-role.trust.json`·`iam/host-role.ecr-pull.json`: Lightsail host를 SSM hybrid managed node로 등록하는 service
+  role(trust `ssm.amazonaws.com`)과 그 role이 두 ECR repository에서 image를 받는 권한
+- `iam/publish-role.trust.json`·`iam/publish-role.permissions.json`: GitHub Actions가 image를 ECR에 올리는 OIDC role
+- `iam/deploy-role.trust.json`·`iam/deploy-role.permissions.json`: GitHub Actions가 SSM document를 부르는 OIDC role
+- `iam/github-oidc-sub-template.json`: 저장소의 GitHub OIDC `sub` claim 설정. 두 OIDC role trust가 이 형식으로 대조한다
+- `ecr/lifecycle-policy.json`: `dormduri/web`·`dormduri/ingress` repository의 image 보존 규칙
+
 - `rds-setup-checklist.md`: PostgreSQL 18, private network, backup/PITR, SSL, connection budget
 - `secrets-manager-checklist.md`: Secrets Manager origin, GitHub OIDC release principal, mounted-file
   application read source와 rotation 입력

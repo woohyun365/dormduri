@@ -1,0 +1,35 @@
+# Web 단계 host compose(infra/deploy/user/compose.yml)의 local rehearsal 덮어쓰기. 운영 compose를 그대로 쓰고 다음만 바꾼다.
+# - image: 저장소에서 local build(이름은 infra/rehearsal/user-host.rehearsal.env)
+# - host 경로: `/opt/dormduri/...` 대신 USER_HOST_REHEARSAL_ROOT 아래의 시험 인증서·ACME webroot·점검 flag 폴더
+# - publish: 80·443 대신 loopback의 높은 port
+# 여러 파일을 합칠 때 상대 경로는 첫 파일(infra/deploy/user/compose.yml)의 폴더를 기준으로 한다.
+services:
+  web:
+    build:
+      context: ../../..
+      dockerfile: infra/deploy/web/Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: https://dormduri.com
+        NEXT_PUBLIC_SENTRY_ENABLED: '0'
+        NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT: local
+        NEXT_PUBLIC_WEB_RELEASE: ${WEB_RELEASE}
+      labels:
+        dormduri.local.created-by: ${LOCAL_RESOURCE_CREATED_BY:-manual}
+        dormduri.local.run-id: ${LOCAL_RESOURCE_RUN_ID:-local}
+    environment:
+      WEB_OBSERVABILITY_ENVIRONMENT: local
+
+  ingress:
+    build:
+      context: ingress
+      labels:
+        dormduri.local.created-by: ${LOCAL_RESOURCE_CREATED_BY:-manual}
+        dormduri.local.run-id: ${LOCAL_RESOURCE_RUN_ID:-local}
+    ports: !override
+      - 127.0.0.1:${USER_HOST_REHEARSAL_HTTP_PORT:-8180}:8080
+      - 127.0.0.1:${USER_HOST_REHEARSAL_HTTPS_PORT:-8543}:8443
+    # volume은 container 경로가 같으면 덮어쓴다.
+    volumes:
+      - ${USER_HOST_REHEARSAL_ROOT:?USER_HOST_REHEARSAL_ROOT must name the local test directory}/acme-webroot:/var/www/acme:ro
+      - ${USER_HOST_REHEARSAL_ROOT:?USER_HOST_REHEARSAL_ROOT must name the local test directory}/tls:/etc/dormduri-tls:ro
+      - ${USER_HOST_REHEARSAL_ROOT:?USER_HOST_REHEARSAL_ROOT must name the local test directory}/mode:/run/dormduri-mode:ro

@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { loadImageInventory, resolveImageReference } from '../artifacts/image-inventory.mjs';
+import { renderMarkdownTable, runIngressSmoke } from '../user-host/ingress-smoke.mjs';
+import { runDocumentGuardChecks } from '../user-host/ssm-document-runtime.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const outputArg = process.argv.find((argument) => argument.startsWith('--output='));
@@ -23,6 +25,8 @@ const checks = [];
 
 try {
   validateNginx();
+  await validateUserHostIngress();
+  validateUserHostDocument();
   validatePrometheus();
   validateLoki();
   validateAlloy();
@@ -61,6 +65,53 @@ function validateNginx() {
     requiredImage('api-ingress'),
     '-t',
   ]);
+}
+
+// Web 단계 ingress image: nginx -t와 경로별 정적 화면 선택(세 503이 같은 status라 응답의 <title>·header로 본다).
+async function validateUserHostIngress() {
+  const result = await runIngressSmoke({ repoRoot });
+  const smokePath = resolveArtifactPath(repoRoot, ['infra', 'user-host-ingress-smoke.json']);
+  mkdirSync(dirname(smokePath), { recursive: true });
+  writeFileSync(smokePath, `${JSON.stringify(result, null, 2)}\n`);
+  writeFileSync(smokePath.replace(/\.json$/u, '.md'), renderMarkdownTable(result));
+  const failed = result.rows.filter((row) => !row.pass);
+  if (failed.length) {
+    for (const row of failed) {
+      console.error(
+        `${row.mode} ${row.method} ${row.host ?? ''}${row.path}: ${(row.problems ?? []).join('; ')}`,
+      );
+    }
+    fail('user-host-ingress runtime configuration validation failed');
+  }
+  checks.push({
+    name: 'user-host-ingress',
+    image: result.nginxBase,
+    requests: result.rows.length,
+    rows: result.rows.map(
+      ({ mode, scheme, host, method, path, status, title, retryAfter, xRobotsTag }) => ({
+        mode,
+        scheme,
+        host,
+        method,
+        path,
+        status,
+        title,
+        retryAfter,
+        xRobotsTag,
+      }),
+    ),
+  });
+}
+
+// Web 단계 SSM document: 허용 밖 입력 거부와 host lock(겹친 실행은 75)이 Docker·AWS에 닿기 전에 끝나는지.
+function validateUserHostDocument() {
+  const image = requiredImage('web-build-node');
+  const { problems } = runDocumentGuardChecks({ repoRoot, image });
+  if (problems.length) {
+    console.error(problems.join('\n'));
+    fail('user-host-document runtime validation failed');
+  }
+  checks.push({ name: 'user-host-document-guards', image });
 }
 
 function validatePrometheus() {

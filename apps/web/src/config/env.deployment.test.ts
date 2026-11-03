@@ -22,6 +22,7 @@ describe('Web deployment env projection', () => {
       'NEXT_PUBLIC_SENTRY_DSN',
       'NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT',
       'NEXT_PUBLIC_WEB_RELEASE',
+      'NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN',
     ]) {
       expect(WEB_BUILD_PUBLIC_ENV_KEYS).toContain(key);
       expect(dockerfile).toContain(`ARG ${key}`);

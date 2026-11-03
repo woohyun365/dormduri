@@ -95,6 +95,17 @@
       ],
       "managedNetworks": [{ "env": "OBSERVABILITY_NETWORK", "default": "dormduri-observability" }]
     },
+    "user-host": {
+      "classification": "production-candidate",
+      "project": "dormduri-web",
+      "files": ["infra/deploy/user/compose.yml"]
+    },
+    "user-host-rehearsal": {
+      "classification": "rehearsal-only",
+      "project": "dormduri-user-host-rehearsal",
+      "envFile": "infra/rehearsal/user-host.rehearsal.env",
+      "files": ["infra/deploy/user/compose.yml", "infra/rehearsal/compose.user-host.yml"]
+    },
     "ingress-trust": {
       "classification": "production-candidate",
       "project": "dormduri-ingress-trust",

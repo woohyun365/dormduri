@@ -1,0 +1,88 @@
+# Web 단계 host compose(production-web-baseline Phase 3). 배포 document(ssm/deploy.sh)가 이 파일을 document 안에 담아
+# host `/opt/dormduri/compose/compose.yml`에 매번 다시 쓴다. 그래서 document 해시가 실행 구성을 고정한다.
+# image는 registry digest 참조만 받는다. registry 주소는 document가 host credential로 정하고 이 파일에 적지 않는다.
+# host 경로(`/opt/dormduri/...`)는 Lightsail host 준비가 만든다. 로컬 rehearsal은 infra/rehearsal/compose.user-host.yml이 덮어쓴다.
+name: dormduri-web
+
+services:
+  web:
+    image: ${WEB_IMAGE:?WEB_IMAGE must be a registry digest reference}
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: '3000'
+      TZ: Asia/Seoul
+      WEB_APP_URL: https://dormduri.com
+      # Web 단계에는 API가 없다. ingress private 8081이 모든 요청을 즉시 503으로 끝낸다(D-WB10).
+      API_URL: http://ingress:8081
+      WEB_OBSERVABILITY_ENVIRONMENT: production
+      WEB_RELEASE: ${WEB_RELEASE:?WEB_RELEASE must identify the web digest}
+    # host에 publish하지 않는다. ingress만 web network에서 닿는다.
+    expose:
+      - '3000'
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      # Next.js 이미지 최적화 cache. tmpfs라 container memory 한도에 함께 잡힌다(Phase 1 서버 측정 206MiB/320MiB).
+      - /app/apps/web/.next/cache:size=128m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 15s
+    networks:
+      - web
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 320M
+          pids: 256
+
+  ingress:
+    image: ${INGRESS_IMAGE:?INGRESS_IMAGE must be a registry digest reference}
+    ports:
+      - '80:8080'
+      - '443:8443'
+    volumes:
+      - /opt/dormduri/acme-webroot:/var/www/acme:ro
+      - /opt/dormduri/tls:/etc/dormduri-tls:ro
+      - /opt/dormduri/mode:/run/dormduri-mode:ro
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 15s
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8081/__ingress/health']
+      interval: 15s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    networks:
+      - web
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+          pids: 128
+
+networks:
+  web:
+    driver: bridge

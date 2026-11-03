@@ -1,0 +1,49 @@
+{
+  "rules": [
+    {
+      "rulePriority": 1,
+      "description": "deploy- tag image: keep the 30 most recently pushed",
+      "selection": {
+        "tagStatus": "tagged",
+        "tagPrefixList": ["deploy-"],
+        "countType": "imageCountMoreThan",
+        "countNumber": 30
+      },
+      "action": { "type": "expire" }
+    },
+    {
+      "rulePriority": 2,
+      "description": "sha- build tag image without deploy- tag: keep the 20 most recently pushed",
+      "selection": {
+        "tagStatus": "tagged",
+        "tagPrefixList": ["sha-"],
+        "countType": "imageCountMoreThan",
+        "countNumber": 20
+      },
+      "action": { "type": "expire" }
+    },
+    {
+      "rulePriority": 3,
+      "description": "rehearsal- image: expire 14 days after push",
+      "selection": {
+        "tagStatus": "tagged",
+        "tagPrefixList": ["rehearsal-"],
+        "countType": "sinceImagePushed",
+        "countUnit": "days",
+        "countNumber": 14
+      },
+      "action": { "type": "expire" }
+    },
+    {
+      "rulePriority": 4,
+      "description": "untagged image: expire 1 day after push (children of a live image index are kept)",
+      "selection": {
+        "tagStatus": "untagged",
+        "countType": "sinceImagePushed",
+        "countUnit": "days",
+        "countNumber": 1
+      },
+      "action": { "type": "expire" }
+    }
+  ]
+}
