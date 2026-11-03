@@ -555,5 +555,8 @@ jobs:
             echo "$GIT_TAG already exists"
             exit 0
           fi
-          gh release create "$GIT_TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE" \
+          # tag는 이 실행의 commit(GITHUB_SHA)에 둔다. push 실행은 source commit과 같고 dispatch 실행은 실행한 main commit이다.
+          # workflow 파일이 default branch(main)와 다른 commit에 tag·Release를 만들려면 Workflows 권한이 필요한데 GITHUB_TOKEN에는
+          # 없어, 옛 source commit에는 만들지 못한다(403). 배포한 source는 본문 release_commit_sha가 적는다.
+          gh release create "$GIT_TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "$GIT_TAG ($ACTION)" --notes-file "$RUNNER_TEMP/record.md"

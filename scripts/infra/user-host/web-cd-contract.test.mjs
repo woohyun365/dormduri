@@ -280,6 +280,19 @@ test('a stopped run writes its stop condition and only a scanned stage record be
   );
 });
 
+test('the deploy tag goes on the run commit and the stage record names the deployed source', () => {
+  // GITHUB_TOKEN has no Workflows permission, so it cannot tag a commit whose workflow files differ
+  // from the default branch main (a rollback dispatch hit 403). Push runs tag their source commit anyway.
+  const record = steps(JOBS.record).at(-1).body;
+  assert.match(
+    record,
+    /gh release create "\$GIT_TAG" --repo "\$GITHUB_REPOSITORY" --target "\$GITHUB_SHA" \\$/mu,
+  );
+  assert.doesNotMatch(record, /--target "\$SOURCE"/u);
+  assert.match(record, /--source="\$SOURCE"/u);
+  assert.match(record, /^ {10}SOURCE: \$\{\{ needs\.deploy\.outputs\.source_commit \}\}$/mu);
+});
+
 test('no workflow artifact is uploaded and no per-node SSM invocation is read', () => {
   assert.doesNotMatch(workflow, /upload-artifact/u);
   for (const source of [workflow, sender]) {
