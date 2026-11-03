@@ -22,6 +22,10 @@ describe('React Compiler scope: the use client directive check', () => {
     ["// 'use client'\nexport default 1;"],
     ["/* unterminated 'use client'"],
     ['export default 1;'],
+    // A block comment ends at its first `*/`, as in JavaScript. The lazy pattern before the CodeQL fix stretched a
+    // comment over later code to reach a string, so these two counted as client modules.
+    ["/* a */ x */ 'use client';"],
+    ["/* a */ export const x = 1; /* b */ 'use client';"],
   ])('does not find a directive that is not the first statement: %j', (source) => {
     expect(hasUseClientDirective(source)).toBe(false);
   });
