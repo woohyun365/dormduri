@@ -289,9 +289,28 @@ function lineHunks(before, after) {
 function addedGrade(after, index) {
   if (inHistory(after, index)) return ['P0', 'revision-history'];
   if (index < after.headerEnd && HEADER_KEY.test(after.lines[index])) return ['P2', 'header-key'];
+  // Each rule is a floor: a heading with a P2 keyword keeps P2 even when it also names an exploration round.
   const text = headingText(after, sectionOf(after, index));
-  if (text.includes(EXPLORATION_ROUND)) return ['P0', 'exploration-round'];
-  return CONTRACT_WORDS.some((word) => text.includes(word)) ? ['P2', 'added'] : ['P1', 'added'];
+  if (CONTRACT_WORDS.some((word) => text.includes(word))) return ['P2', 'added'];
+  return text.includes(EXPLORATION_ROUND) ? ['P0', 'exploration-round'] : ['P1', 'added'];
+}
+
+// Unchanged lines whose heading status differs between the two texts (a fence opened or closed around them): later
+// lines would read as part of another section, so such a line is P2.
+function headingShifts(before, after, hunks) {
+  const removed = new Set(hunks.flatMap((hunk) => hunk.removed));
+  const added = new Set(hunks.flatMap((hunk) => hunk.added));
+  const beforeHeadings = new Set(before.headings);
+  const afterHeadings = new Set(after.headings);
+  const shifted = [];
+  let i = 0;
+  for (let j = 0; j < after.lines.length; j += 1) {
+    if (added.has(j)) continue;
+    while (removed.has(i)) i += 1;
+    if (beforeHeadings.has(i) !== afterHeadings.has(j)) shifted.push(j);
+    i += 1;
+  }
+  return shifted;
 }
 
 // A removed line paired, in hunk order, with an added line.
@@ -326,7 +345,8 @@ export function classifyRevision(beforeText, afterText) {
   }
   const before = planModel(beforeText);
   const lines = [];
-  for (const { removed, added } of lineHunks(before.lines, after.lines)) {
+  const hunks = lineHunks(before.lines, after.lines);
+  for (const { removed, added } of hunks) {
     if (!removed.length) {
       for (const index of added) lines.push(entry('after', after, index, addedGrade(after, index)));
       continue;
@@ -345,6 +365,8 @@ export function classifyRevision(beforeText, afterText) {
       lines.push(entry('after', after, index, grade));
     }
   }
+  for (const index of headingShifts(before, after, hunks))
+    lines.push(entry('after', after, index, ['P2', 'heading-structure']));
   return { minimum: highest(lines.map(({ grade }) => grade)), lines };
 }
 
