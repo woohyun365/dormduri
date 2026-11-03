@@ -67,6 +67,12 @@ export const INGRESS_SMOKE_CASES = Object.freeze([
     path,
     expect: web('/'),
   })),
+  // decode 뒤 제어·공백 문자나 `%`·`?`가 남는 경로는 Web 요청 줄을 바꿀 수 있으므로 nginx가 400으로 끝낸다.
+  ...[
+    '/_next/static/x%20HTTP/1.1%0d%0aX-Injected:%20yes%0d%0aX:%20y',
+    '/_next/static/%252e%252e/%252e%252e/x',
+    '/_next/static/a%3Fb',
+  ].map((path) => ({ mode: 'serving', path, expect: { status: 400, notWeb: true } })),
   ...[
     '/login',
     '/signup',
@@ -170,6 +176,7 @@ export function checkResponse(testCase, response) {
   if (expect.web && Object.values(PAGE_TITLES).includes(response.title)) {
     problems.push('allowed path returned a static page');
   }
+  if (expect.notWeb && headers['x-stub-uri'] !== undefined) problems.push('request reached Web');
   if (
     expect.sameAs &&
     headers['x-stub-uri'] !== undefined &&

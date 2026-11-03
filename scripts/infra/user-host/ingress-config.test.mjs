@@ -115,6 +115,13 @@ test('the allow list sends only the opened pages, Next.js assets and the Web met
   assert.doesNotMatch(conf, /proxy_pass/u);
   // Web gets the normalized path nginx matched, so encoded slashes or dot segments cannot reach an unopened page.
   assert.match(proxyWeb, /^proxy_pass \$web_upstream\$uri\$is_args\$args;$/mu);
+  // $uri is decoded and copied into the upstream request line unescaped, so control characters, spaces, `%`, `?` and `#`
+  // must end at nginx before proxy_pass.
+  const guard = /^if \(\$uri ~ "\[\\x01-\\x20\\x7F%\?#\]"\) \{\n {2}return 400;\n\}$/mu.exec(
+    proxyWeb,
+  );
+  assert.ok(guard, 'the decoded-path guard is present');
+  assert.ok(guard.index < proxyWeb.indexOf('proxy_pass '), 'the guard runs before proxy_pass');
 });
 
 test('every Web route the stage does not open is a coming-soon path, and nothing else is', () => {

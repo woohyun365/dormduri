@@ -67,6 +67,8 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
 - 모든 응답에 `X-Robots-Tag: noindex`를 붙이고, HTTPS 응답에는 HSTS·`nosniff`·frame 거부·Referrer-Policy header도 붙인다
   (HTTP의 301·ACME 응답은 noindex만). Method와 상관없이 같은 화면을 낸다. 정적 화면의 내부 경로 `/__pages/`는 밖에서
   요청하면 404다.
+- Web에는 nginx가 판정한 정규화 경로만 보낸다(`/notices/..%2F` 같은 부호화 slash·dot segment는 `/`로 간다). Decode 뒤
+  제어·공백 문자나 `%`·`?`·`#`가 남는 경로는 Web 요청 줄을 바꿀 수 있으므로 nginx 기본 400으로 끝낸다.
 - Web 허용 목록과 준비 중 경로는 `apps/web/src/app`의 route 파일에서 유도해 대조한다(`scripts/infra/user-host/web-routes.mjs`,
   `ingress-config.test.mjs`). Web에 page를 더하면 이 test가 실패하므로 ingress 설정도 함께 고친다. Route 파일이 바뀌면 CI
   infra lane도 돈다.
@@ -98,7 +100,8 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
   root, capability 모두 제거, memory Web 320MiB·ingress 96MiB, log 회전), ingress 설정 test, document 생성본 일치.
 - `pnpm infra:check:runtime`: ingress image build와 `nginx -t`, stub Web 뒤에서 경로마다 status·title·header를 실제로
   요청하는 smoke, 일회용 container에서 document 실행(입력 거부와 host lock, 그리고 가짜 `docker`·`aws`·`curl` 위에서 배포
-  성공·기동 실패와 smoke 실패의 자동 복귀·rollback 입력 대조·첫 배포 실패의 점검 mode를 exit code와 host 상태 파일로 판정).
+  성공·기동 실패와 smoke 실패의 자동 복귀·rollback 입력 대조·첫 배포 실패의 점검 mode, 그리고 rollback 대상 기동 실패·
+  새 쌍과 현재 쌍이 모두 실패·점검 mode의 ingress 기동 실패를 exit code와 host 상태 파일로 판정).
   같은 document 실행은 `node scripts/infra/user-host/ssm-document-runtime.mjs`로 따로 돌릴 수 있다.
 - 실제 Web image로 같은 smoke를 돌릴 때: `node scripts/infra/user-host/ingress-smoke.mjs --web-image=<local image>`.
 

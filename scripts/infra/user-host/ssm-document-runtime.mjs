@@ -50,7 +50,8 @@ run tls-missing deploy ${WEB} ${INGRESS}
 if [ -e /opt/dormduri/compose/compose.yml ]; then echo compose=written; else echo compose=absent; fi
 `;
 
-// 가짜 digest. 첫 글자가 상태 파일 판정의 label이다: 1·2 정상, 3 container 기동 실패, 4 기동 뒤 내부 smoke 실패.
+// 가짜 digest. 첫 글자가 상태 파일 판정의 label이다. 실패는 BAD_UP(기동이 실패할 Web digest 목록), BAD_SMOKE(기동 뒤 내부
+// smoke가 실패할 digest), BAD_INGRESS(점검 mode의 ingress 기동 실패)로 case마다 정한다.
 const pair = (label) => `sha256:${label.repeat(64)}`;
 export const DEPLOY_PATH_CASES = Object.freeze([
   {
@@ -93,6 +94,23 @@ export const DEPLOY_PATH_CASES = Object.freeze([
     previous: '1',
     flag: 'no',
   },
+  // 2차 실패: rollback 대상이 뜨지 않으면 current로 돌아가 exit 1, 새 쌍과 current가 모두 실패하면 점검 mode.
+  {
+    name: 'rollback-start-failure-keeps-current',
+    exit: 1,
+    result: 'RESULT=failed action=rollback reason=rollback-failed-kept-current',
+    current: '2',
+    previous: '1',
+    flag: 'no',
+  },
+  {
+    name: 'deploy-and-current-failure-enters-maintenance',
+    exit: 1,
+    result: 'RESULT=failed action=deploy reason=entered-maintenance',
+    current: '2',
+    previous: '1',
+    flag: 'yes',
+  },
   {
     name: 'rollback',
     exit: 0,
@@ -125,6 +143,14 @@ export const DEPLOY_PATH_CASES = Object.freeze([
     previous: 'none',
     flag: 'yes',
   },
+  {
+    name: 'maintenance-ingress-failure',
+    exit: 1,
+    result: 'RESULT=failed action=maintenance reason=maintenance-failed',
+    current: 'none',
+    previous: 'none',
+    flag: 'yes',
+  },
 ]);
 
 const shellQuote = (value) => `'${String(value).replaceAll("'", "'\\''")}'`;
@@ -141,12 +167,14 @@ esac
     // compose up 은 WEB_IMAGE의 digest로 성공·실패를 정하고, 떠 있는 Web digest를 기록한다(curl stub이 읽는다).
     docker: `#!/bin/bash
 echo "docker $*" >>/tmp/docker.log
+# 실제 docker login --password-stdin처럼 stdin을 다 읽는다(안 읽으면 앞쪽 aws가 SIGPIPE로 끝나 pipefail에 걸린다).
+[ "$1" = login ] && cat >/dev/null
 [ "$1" = compose ] || exit 0
 case " $* " in
   *" up "*)
-    case " $* " in *" --no-deps "*) exit 0 ;; esac
+    case " $* " in *" --no-deps "*) [ -z "\${BAD_INGRESS:-}" ]; exit ;; esac
     web=\${WEB_IMAGE##*@}
-    if [ -n "\${BAD_UP:-}" ] && [ "\${web}" = "\${BAD_UP}" ]; then exit 1; fi
+    case " \${BAD_UP:-} " in *" \${web} "*) exit 1 ;; esac
     printf '%s' "\${web}" >/tmp/running_web
     ;;
 esac
@@ -204,11 +232,14 @@ run second-deploy SSM_action=deploy SSM_webDigest=${pair('2')} SSM_ingressDigest
 run start-failure-rolls-back BAD_UP=${pair('3')} SSM_action=deploy SSM_webDigest=${pair('3')} SSM_ingressDigest=$I
 run smoke-failure-rolls-back BAD_SMOKE=${pair('4')} SSM_action=deploy SSM_webDigest=${pair('4')} SSM_ingressDigest=$I
 run rollback-mismatch SSM_action=rollback SSM_webDigest=${pair('3')} SSM_ingressDigest=$I
+run rollback-start-failure-keeps-current BAD_UP=${pair('1')} SSM_action=rollback SSM_webDigest=${pair('1')} SSM_ingressDigest=$I
+run deploy-and-current-failure-enters-maintenance "BAD_UP=${pair('3')} ${pair('2')}" SSM_action=deploy SSM_webDigest=${pair('3')} SSM_ingressDigest=$I
 run rollback SSM_action=rollback SSM_webDigest=${pair('1')} SSM_ingressDigest=$I
 run rollback-without-previous SSM_action=rollback SSM_webDigest=${pair('2')} SSM_ingressDigest=$I
 rm -rf "$state" /opt/dormduri/mode /tmp/running_web
 run first-deploy-failure-enters-maintenance BAD_UP=${pair('3')} SSM_action=deploy SSM_webDigest=${pair('3')} SSM_ingressDigest=$I
 run maintenance SSM_action=maintenance SSM_webDigest=${pair('1')} SSM_ingressDigest=$I
+run maintenance-ingress-failure BAD_INGRESS=1 SSM_action=maintenance SSM_webDigest=${pair('1')} SSM_ingressDigest=$I
 `;
 
 export function judgeDeployPathOutput(output) {
