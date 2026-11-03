@@ -284,7 +284,8 @@ blocking 여부와 `GO`/`NO-GO` disposition입니다. Trigger가 생기기 전�
    참조해야 합니다.
 8. 구현 결과를 바꾸는 blocking OQ가 없고, 비차단 gap은 owner·필요 evidence·revisit trigger를 가집니다.
 9. 새로 작성하는 계획은 [Plan references](./references.md) 검사 위반이 0입니다. 이 문법 전부터 있던 계획은
-   `--report-only` 건수를 기록하고 고친 참조부터 문법을 따릅니다. Readiness reviewer가 검사 출력으로 확인합니다
+   `--report-only` 건수를 기록하고 고친 참조부터 문법을 따릅니다. Readiness reviewer([계획 리뷰 등급](../session-continuity.md#계획-초안-staging과-promote)
+   P3)가 검사 출력으로 확인합니다
    (`model-mediated`).
 10. Plan이 고정하는 비가역 결정(pack 규칙. Pack 밖 결정은 plan이 비가역 여부를 적습니다)마다 Owner 명시 확인(질문 도구 답
     또는 사용자 입력 원문)이 있고 상태가 `validated`입니다. `unknown`·`provisional`이면 승격하지 않습니다

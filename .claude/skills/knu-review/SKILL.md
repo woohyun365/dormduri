@@ -56,21 +56,27 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
 해당하는 단계만 실행하고, 각 실행은 runner evidence record로 남깁니다. 명령은 `scripts/agents/common/` 아래 도구입니다.
 
 1. 자체 정합 점검: 수정이 규칙·수치·범위를 바꾸면 같은 유형의 서술(같은 문서의 다른 절·표, 다른 owner 문서, 개수·합계)을 전 범위에서
-   검색합니다. 로그에는 검색마다 명령과 exit 줄(`rg exit=1`은 0건)을 남기고, record는 검색을 모두 실행한 묶음의 exit 0과
+   검색합니다. 다음 회차를 요청하기 전에 blocking 전부를 한 번에 고치고, 같은 유형 검색은 문장 단위(줄바꿈·연속 공백을 접는 검색
+   또는 `rg -U`)로 저장소 전체 tracked 경로(ignored 원천은 `rg --no-ignore`)에서 하고, 결정적 검사를 통과시킨 뒤 요청합니다.
+   로그에는 검색마다 명령과 exit 줄(`rg exit=1`은 0건)을 남기고, record는 검색을 모두 실행한 묶음의 exit 0과
    조각(`` `rg exit=1` `` 등)으로 씁니다. 0건 검색을 실패 record로 남기지 않고 exit를 뒤집는 명령(`|| true`, `!`)도 쓰지 않습니다.
 2. 새 파일: snapshot은 HEAD 기준이라 stage와 무관하고 새 파일은 내용 digest로 들어가므로 stage하지 않습니다. Tracked 파일만
    보는 검사(`pnpm test:repo-policy`)가 새 파일을 보게 하려면 commit한 snapshot에서 실행하고, commit 전이면 저장소 밖 독립
    clone에서 새 파일을 add한 뒤 실행해 record로 남깁니다. 메인 checkout의 stage를 바꾸지 않습니다.
 3. RED 기록이 있으면 `red-reason-check.mjs`로 실패 사유를 대조합니다.
 4. 리뷰 입력에 계획·증거·readiness Markdown이 있으면 `citation-check.mjs`를 실행합니다.
-5. 계획 readiness 리뷰면 `plan-reference-check.mjs`를 실행합니다.
+5. 계획 리뷰면 등급을 선언하고 `plan-shape-check.mjs --revision`을 실행합니다(P0는 리뷰 없음, P1은 reviewer 없음.
+   [계획 리뷰 등급](../../../docs/development/agent-workflows/session-continuity.md#계획-초안-staging과-promote)). P2·P3면
+   `plan-reference-check.mjs`도 그 절 3번의 기준 대비 판정으로 실행합니다. P2의 바뀐 절 입력은 Parent가 만든
+   `<plan>.scope.diff`(바뀐 절의 앞뒤)와 인용한 결정 행을 `paths`로 줍니다.
 6. 검사·harness 변경의 test 보호를 주장하면 `mutation-harness.mjs`를 실행합니다(spec은 계획 증거 위치의 리뷰 디렉터리).
 7. `review` 직전 runner evidence에 `runner-log-check.mjs`를 실행하고 exit 0이 아니면 dispatch하지 않습니다. 이 실행은 같은
    evidence의 record가 될 수 없으므로 출력만 evidence 옆에 둡니다.
 
 ## 1회차 다중 reviewer
 
-- Owner가 정한 변경의 1회차에만 `--composition e2|e3 --reviewers 2|3`을 더합니다. 계획 readiness 리뷰는 단일입니다. `e3`는
+- [`qa.md` Independent review disposition](../../../docs/development/agent-workflows/qa.md#independent-review-disposition)
+  trigger를 충족한 구현 변경의 1회차에만 `--composition e2|e3 --reviewers 2|3`을 더합니다. 계획 리뷰(P2·P3)는 단일입니다. `e3`는
   기준 문서(자동 선택이나 `--criteria`)가 필요하고 기준 항목을 구성원에게 연속 구간으로 나눕니다. 2회차부터는 단일 reviewer입니다.
 - 출력은 `reviewerSpec` 대신 `reviewers[]`(구성원마다 `reviewerSpec`·`packet`·`reviewerPrompt`)와 `group`입니다. 구성원 spec을 각각
   `prepare`하고, Agent 호출 N개를 한 메시지에서 background로 보냅니다. 같은 구성원 spec을 다시 `prepare`해 보내지 않습니다.
@@ -101,7 +107,8 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
   binding·pack이 추출 규칙과 맞지 않으면 `review`가 `binding-values-invalid`로 멈춥니다.
 
 - Reviewer prompt는 12,000자를 넘을 수 없습니다. Parent 경로는 packet이 파일로 빠진 뒤 크기이고, 남는 초과는 runner 기록과
-  acceptance 문장 길이에서 옵니다. Native subject 경로는 acceptance·read path·runner 기록을 줄입니다.
+  acceptance 문장 길이에서 옵니다. 그래서 runner 기록의 낱개 줄은 log에 두고 record에는 요약 조각만 둡니다. Native subject
+  경로는 acceptance·read path·runner 기록을 줄입니다.
 - `reviewerSpec`의 prompt는 고치지 않고 등록합니다. `review`가 reviewer마다 prompt digest를
   `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에 남기고, 등록은 다른 prompt를 `review-prompt-changed`로, 기록이
   없거나 packet 파일 줄이 빠진 prompt를 `review-prompt-unbound`로 거부합니다(registry 직접 등록도 같음). 바꿀 것이 있으면 `review`를
