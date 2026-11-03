@@ -58,6 +58,10 @@ const WEB_ROUTE_FILE = /^apps\/web\/src\/app\/(?:.+\/)?(?:page|route)\.(?:tsx?|j
 const WEB_APP_METADATA_FILE =
   /^apps\/web\/src\/app\/(?:robots|sitemap|manifest|favicon|icon\d*|apple-icon\d*|opengraph-image\d*|twitter-image\d*)\.[^/]+$/u;
 
+const WEB_ENV_COMPOSE_FILES = new Set([
+  'infra/deploy/user/compose.yml',
+  'infra/rehearsal/compose.web.yml',
+]);
 const WEB_PUBLIC_FILE = /^apps\/web\/public\/(?!\.gitkeep$).+/u;
 
 export function isUserHostIngressInput(path) {
@@ -297,7 +301,9 @@ export function classifyChanges(paths) {
       ) {
         result.api = true;
       }
-      if (path.startsWith('infra/deploy/web/')) {
+      // The Web env projection test (apps/web/src/config/env.deployment.test.ts) reads these compose files, so a change
+      // to them alone must still run the web lane.
+      if (path.startsWith('infra/deploy/web/') || WEB_ENV_COMPOSE_FILES.has(path)) {
         result.web = true;
       }
       matched = true;

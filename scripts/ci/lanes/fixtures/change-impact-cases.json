@@ -299,6 +299,32 @@
     }
   },
   {
+    "name": "user-host-compose-selects-web-env-test",
+    "paths": ["infra/deploy/user/compose.yml"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "web-rehearsal-compose-selects-web-env-test",
+    "paths": ["infra/rehearsal/compose.web.yml"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
     "name": "infra-workflow",
     "paths": [".github/workflows/infra-ci.yml"],
     "expected": {
