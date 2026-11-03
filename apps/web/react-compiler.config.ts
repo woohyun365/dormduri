@@ -23,7 +23,14 @@ export const reactCompilerOptions = {
 // compiled components. Matched from the app `src/` directory so the checkout path itself never matches.
 const harnessFile =
   /\/(?:__tests__|__stories__|__fixtures__|stories|test-support|test)\/|\.(?:test|spec|stories)\.[cm]?[jt]sx?$/u;
-const useClientDirective = /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*['"]use client['"]/u;
+// Leading whitespace and comments, then the directive. A block comment ends at its first `*/` (`[^*]*\*+(?:[^/*][^*]*\*+)*`
+// has one way to match), so a run of comments cannot be split several ways and the test stays linear in the file length.
+const useClientDirective =
+  /^(?:\s|\/\/[^\n]*\n|\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\/)*['"]use client['"]/u;
+
+export function hasUseClientDirective(source: string): boolean {
+  return useClientDirective.test(source);
+}
 
 // Next.js runs React Compiler only on modules in the browser bundle (its loader skips the server layers and
 // node_modules). Vitest and Storybook build every file for one client environment and cannot see that module graph,
@@ -39,7 +46,7 @@ export function isCompiledByNextBrowserBuild(filename: string): boolean {
   if (srcIndex === -1) return true;
   const fromSrc = path.slice(srcIndex);
   if (harnessFile.test(fromSrc)) return false;
-  if (fromSrc.startsWith('/src/app/')) return useClientDirective.test(readFileSync(path, 'utf8'));
+  if (fromSrc.startsWith('/src/app/')) return hasUseClientDirective(readFileSync(path, 'utf8'));
   return true;
 }
 

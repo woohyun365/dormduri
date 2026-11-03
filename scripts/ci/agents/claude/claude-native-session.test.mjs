@@ -4005,6 +4005,7 @@ test('builder completion judges the manifest of every delivered group member', (
 // names the plan that chose it.
 const RESEARCH_PRICE_REQUEST = 'AWS 공식 가격 페이지의 Lightsail 월 요금 근거를 조사해줘.';
 const RESEARCH_PRICE_URL = 'https://aws.amazon.com/lightsail/pricing/';
+const RESEARCH_PROMPT = `Read ${RESEARCH_PRICE_URL} only. Answer as JSON {"claims":[{"url","quote","checkedAt"}]}.`;
 const RESEARCH_TOOLS = ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'];
 const RESEARCH_FACTS = {
   extract: [
@@ -4040,7 +4041,7 @@ function research(t, { kind = 'extract', role = 'knu_researcher', required = fal
       confidence: 'high',
     })),
   });
-  f.options.prompt = `Read ${RESEARCH_PRICE_URL} only. Answer as JSON {"claims":[{"url","quote","checkedAt"}]}.`;
+  f.options.prompt = RESEARCH_PROMPT;
   f.options.expectedResolvedModel = 'claude-sonnet-5-5';
   return f;
 }
@@ -4126,7 +4127,8 @@ test('a researcher registers read and extract on bounded-standard without a pair
     const g = registerResearch(research(t, { kind }));
     assert.equal(g.registered.invocation.subagent_type, 'knu_researcher', kind);
     assert.equal(g.registered.invocation.model, 'sonnet', kind);
-    assert.ok(g.registered.invocation.prompt.includes(RESEARCH_PRICE_URL), kind);
+    // The registered prompt starts with the Lead's prompt line, which names the URL the Lead chose.
+    assert.equal(g.registered.invocation.prompt.split('\n')[0], RESEARCH_PROMPT, kind);
   }
 });
 
