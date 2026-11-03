@@ -58,7 +58,8 @@ Compose inventory 검사(`scripts/infra/check/inspect.mjs`)는 파일마다 처�
 
 ## User host rehearsal
 
-운영 compose를 원본으로 쓰고 다음만 덮는다: image(저장소에서 local build, 이름은 `user-host.rehearsal.env`), host 경로
+운영 compose를 원본으로 쓰고 다음만 덮는다(`pnpm infra:check:static`이 두 render를 비교해 이 밖의 차이를 거부한다):
+image(저장소에서 local build, 이름은 `user-host.rehearsal.env`), host 경로
 (`/opt/dormduri/...` 대신 `USER_HOST_REHEARSAL_ROOT` 아래 폴더), publish port(80·443 대신 loopback 8180·8543).
 
 ```bash

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // SSM Command document `dormduri-web-deploy`(schema 2.2)를 infra/deploy/user/ssm/deploy.sh와 infra/deploy/user/compose.yml로
-// 만든다. 결과 JSON은 tracked 파일이고 그 바이트의 sha256이 AWS document Hash와 같다(Phase 1 확인). CD는 배포 전에
+// 만든다. 결과 JSON은 tracked 파일이고 그 바이트의 sha256이 AWS document Hash와 같다. CD는 배포 전에
 // AWS document Hash와 이 파일의 sha256을 대조한다. document 생성·갱신은 Owner가 한다(CD role에는 갱신 권한이 없다).
 //
 //   node scripts/infra/user-host/ssm-document.mjs          # 파일을 다시 쓴다

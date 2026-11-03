@@ -97,6 +97,19 @@ test('each widened trust or permission is rejected', () => {
       /lifecycle 1: selects every image/u,
     ],
     [
+      'infra/aws/ecr/lifecycle-policy.json',
+      (p) => {
+        p.rules[0].rulePriority = 2;
+        p.rules[1].rulePriority = 1;
+      },
+      /lifecycle: deploy- rule is not the first rule/u,
+    ],
+    [
+      'infra/aws/ecr/lifecycle-policy.json',
+      (p) => (p.rules[0].selection.countNumber = 1),
+      /lifecycle: deploy- keeps fewer than the current and previous pair/u,
+    ],
+    [
       'infra/aws/iam/host-role.trust.json',
       (p) => (p.Statement[0].Condition.StringEquals['aws:SourceAccount'] = '123456789012'),
       /host-role\.trust\.json: contains a 12-digit account-like number/u,

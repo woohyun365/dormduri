@@ -1,10 +1,16 @@
 // Web 단계 host compose(infra/deploy/user/compose.yml)의 구조 계약. `docker compose config --format json` 결과를 받아
 // 어긋난 점의 목록을 돌려준다(빈 목록 = 통과). validate-compose가 실제 파일에, test가 fixture에 쓴다.
-// 기준: production-web-baseline Phase 3(web publish 없음, read-only root·tmpfs·non-root image·no-new-privileges,
-// infrastructure-target 시작값 nginx 96MiB·Web 320MiB, json-file 10MB × 3).
+// 기준: web publish 없음, read-only root·tmpfs·non-root image·no-new-privileges, memory는 infrastructure-target
+// readiness의 시작값(nginx 96MiB·Web 320MiB), json-file 10MB × 3.
 export const USER_HOST_MEMORY_LIMITS = Object.freeze({
   web: 320 * 1024 * 1024,
   ingress: 96 * 1024 * 1024,
+});
+// 운영 compose는 배포 document가 넣는 registry digest 참조를 받는다. local render·smoke는 같은 형식의 placeholder를 쓴다.
+export const USER_HOST_RENDER_ENVIRONMENT = Object.freeze({
+  WEB_IMAGE: `dormduri/web@sha256:${'0'.repeat(64)}`,
+  INGRESS_IMAGE: `dormduri/ingress@sha256:${'0'.repeat(64)}`,
+  WEB_RELEASE: 'web-000000000000',
 });
 export const INGRESS_PUBLISHED_PORTS = Object.freeze(['80:8080', '443:8443']);
 export const INGRESS_READ_ONLY_MOUNTS = Object.freeze([
@@ -90,6 +96,46 @@ export function checkUserHostCompose(config) {
     !ingress.healthcheck?.test?.some?.((part) => String(part).includes(':8081/__ingress/health'))
   ) {
     problems.push('ingress: healthcheck does not probe the private health location');
+  }
+  return problems;
+}
+
+// Local rehearsal이 운영 render에서 바꿔도 되는 곳: project·network 이름, local build(image 출처), ingress의 loopback
+// publish port와 host 경로 source. 그 밖(env, hardening, mount target·read_only, service 구성)이 다르면 rehearsal은 운영
+// 구성을 시험하지 못한다.
+const REHEARSAL_DIFFERENCES = [
+  /^\.name$/u,
+  /^\.networks\.[^.]+\.name$/u,
+  /^\.services\.[^.]+\.(?:build|image)(?:\.|\[|$)/u,
+  /^\.services\.ingress\.ports\[\d+\]\.(?:host_ip|published)$/u,
+  /^\.services\.ingress\.volumes\[\d+\]\.source$/u,
+];
+
+function differences(left, right, path, out) {
+  if (Array.isArray(left) && Array.isArray(right) && left.length === right.length) {
+    left.forEach((item, index) => differences(item, right[index], `${path}[${index}]`, out));
+  } else if (
+    left &&
+    right &&
+    typeof left === 'object' &&
+    typeof right === 'object' &&
+    !Array.isArray(left) &&
+    !Array.isArray(right)
+  ) {
+    for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) {
+      differences(left[key], right[key], `${path}.${key}`, out);
+    }
+  } else if (JSON.stringify(left) !== JSON.stringify(right)) out.push(path);
+  return out;
+}
+
+export function rehearsalDifferenceProblems(production, rehearsal) {
+  const problems = differences(production, rehearsal, '', [])
+    .filter((path) => !REHEARSAL_DIFFERENCES.some((pattern) => pattern.test(path)))
+    .map((path) => `rehearsal differs from the host compose at ${path}`);
+  for (const port of rehearsal.services?.ingress?.ports ?? []) {
+    if (port.host_ip !== '127.0.0.1')
+      problems.push(`rehearsal publishes ingress ${port.target} beyond loopback`);
   }
   return problems;
 }

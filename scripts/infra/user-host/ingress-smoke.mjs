@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Web 단계 ingress image smoke(production-web-baseline D-WB10). ingress image를 build해 로컬 Docker에서 띄우고,
+// Web 단계 ingress image smoke(경로 표: infra/deploy/README.md 'User host 묶음'). ingress image를 build해 로컬 Docker에서 띄우고,
 // 경로·method·mode(정상·Web 무응답·점검)별로 status·<title>·header를 단언한다. 세 503 화면은 status가 같아
 // `nginx -t`만으로는 어느 화면이 나가는지 알 수 없으므로 실제 응답을 본다. 결과 표는 evidence로도 쓴다.
 //
 // Web은 기본으로 stub(모든 경로 200, `X-Powered-By`를 붙임)이고, `--web-image=<로컬 image>`를 주면 그 Web image를
-// Web 단계 compose와 같은 server env로 띄운다. node 내장 module만 쓴다(runtime gate에는 package 설치가 없다).
+// 운영 compose(infra/deploy/user/compose.yml)를 render한 Web environment 그대로 띄운다. node 내장 module만 쓴다(runtime gate에는 package 설치가 없다).
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
 import { tmpdir } from 'node:os';
@@ -16,15 +16,34 @@ import { fileURLToPath } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { loadImageInventory, resolveImageReference } from '../artifacts/image-inventory.mjs';
+import { buildComposeArgs, loadComposeInventory } from '../compose/profile.mjs';
+import { USER_HOST_RENDER_ENVIRONMENT } from './compose-contract.mjs';
 
 const defaultRepoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 export const CANONICAL_HOST = 'dormduri.com';
-export const PAGE_TITLES = Object.freeze({
-  comingSoon: '돔두리 — 준비 중',
-  maintenance: '돔두리 — 점검 중',
-  unavailable: '돔두리 — 잠시 문제가 있어요',
-  notFound: '돔두리 — 페이지를 찾을 수 없어요',
+// 화면 제목의 원본은 정적 화면 파일의 <title>이다. smoke와 배포 document의 내부 smoke(ssm-document.test가 대조)가 이것을 쓴다.
+export const PAGE_FILES = Object.freeze({
+  comingSoon: 'coming-soon.html',
+  maintenance: 'maintenance.html',
+  unavailable: 'unavailable.html',
+  notFound: 'not-found.html',
 });
+export function readPageTitles(repoRoot = defaultRepoRoot) {
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(PAGE_FILES).map(([key, file]) => {
+        const html = readFileSync(
+          resolve(repoRoot, 'infra/deploy/user/ingress/html', file),
+          'utf8',
+        );
+        const titles = [...html.matchAll(/<title>([^<]*)<\/title>/gu)];
+        if (titles.length !== 1) throw new Error(`${file} must have exactly one <title>`);
+        return [key, titles[0][1]];
+      }),
+    ),
+  );
+}
+export const PAGE_TITLES = readPageTitles();
 const STUB_TITLE = 'stub web';
 const LABEL = 'dormduri.local.created-by=user-host-ingress-smoke';
 
@@ -364,6 +383,19 @@ function privateListenerChecks(webContainer, ingressAlias) {
   ];
 }
 
+// 운영 compose의 Web environment(registry digest 자리는 같은 형식의 placeholder).
+export function userHostWebEnvironment(repoRoot = defaultRepoRoot) {
+  const result = spawnSync(
+    'docker',
+    buildComposeArgs(loadComposeInventory(repoRoot), 'user-host', ['config', '--format', 'json'], {
+      repoRoot,
+    }),
+    { cwd: repoRoot, encoding: 'utf8', env: { ...process.env, ...USER_HOST_RENDER_ENVIRONMENT } },
+  );
+  if (result.status !== 0) throw new Error(`user-host compose render failed: ${result.stderr}`);
+  return JSON.parse(result.stdout).services.web.environment;
+}
+
 export async function runIngressSmoke({
   repoRoot = defaultRepoRoot,
   webImage,
@@ -414,16 +446,10 @@ export async function runIngressSmoke({
     docker(['network', 'create', '--label', LABEL, names.network]);
     const webArgs = webImage
       ? [
-          '-e',
-          'NODE_ENV=production',
-          '-e',
-          `WEB_APP_URL=https://${CANONICAL_HOST}`,
-          '-e',
-          'API_URL=http://ingress:8081',
-          '-e',
-          'WEB_OBSERVABILITY_ENVIRONMENT=local',
-          '-e',
-          'WEB_RELEASE=user-host-smoke',
+          ...Object.entries(userHostWebEnvironment(repoRoot)).flatMap(([key, value]) => [
+            '-e',
+            `${key}=${value}`,
+          ]),
           webImage,
         ]
       : ['-v', `${directories.stub}/stub.conf:/etc/nginx/conf.d/default.conf:ro`, nginxImage];

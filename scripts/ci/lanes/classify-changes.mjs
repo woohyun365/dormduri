@@ -51,15 +51,19 @@ const STORYBOOK_CHECK_PATHS = new Set([
   'apps/web/react-compiler.config.ts',
 ]);
 
-// Web route files and app-root metadata files decide which paths the Web stage ingress sends to Web and which it answers
-// with the coming-soon page (scripts/infra/user-host/web-routes.mjs), so they also select the infra lane that checks the
-// ingress against the Web routes.
+// Web route files, app-root metadata files and public files decide which paths the Web stage ingress sends to Web and
+// which it answers with the coming-soon page (scripts/infra/user-host/web-routes.mjs), so they also select the infra lane
+// that checks the ingress against the Web routes.
 const WEB_ROUTE_FILE = /^apps\/web\/src\/app\/(?:.+\/)?(?:page|route)\.(?:tsx?|jsx?|mdx?)$/u;
 const WEB_APP_METADATA_FILE =
   /^apps\/web\/src\/app\/(?:robots|sitemap|manifest|favicon|icon\d*|apple-icon\d*|opengraph-image\d*|twitter-image\d*)\.[^/]+$/u;
 
+const WEB_PUBLIC_FILE = /^apps\/web\/public\/(?!\.gitkeep$).+/u;
+
 export function isUserHostIngressInput(path) {
-  return WEB_ROUTE_FILE.test(path) || WEB_APP_METADATA_FILE.test(path);
+  return (
+    WEB_ROUTE_FILE.test(path) || WEB_APP_METADATA_FILE.test(path) || WEB_PUBLIC_FILE.test(path)
+  );
 }
 
 function isStorybookInput(path) {

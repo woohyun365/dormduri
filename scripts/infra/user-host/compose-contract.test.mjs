@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { checkUserHostCompose } from './compose-contract.mjs';
+import { checkUserHostCompose, rehearsalDifferenceProblems } from './compose-contract.mjs';
 
 // The shape `docker compose config --format json` renders for infra/deploy/user/compose.yml. validate-compose runs the
 // same check on the real file; this fixture proves the check rejects each weakened boundary.
@@ -105,6 +105,59 @@ test('each weakened boundary is rejected', () => {
   ];
   for (const [change, expected] of cases) {
     const problems = withChange(change);
+    assert.ok(
+      problems.some((problem) => expected.test(problem)),
+      `${expected}: ${problems.join(' | ')}`,
+    );
+  }
+});
+
+function rehearsalOf(production) {
+  const rehearsal = structuredClone(production);
+  rehearsal.name = 'dormduri-user-host-rehearsal';
+  rehearsal.networks = { web: { name: 'dormduri-user-host-rehearsal_web' } };
+  rehearsal.services.web.build = { context: '/repo', dockerfile: 'infra/deploy/web/Dockerfile' };
+  rehearsal.services.ingress.build = { context: '/repo/infra/deploy/user/ingress' };
+  rehearsal.services.ingress.ports = [
+    { target: 8080, published: '8180', host_ip: '127.0.0.1', protocol: 'tcp' },
+    { target: 8443, published: '8543', host_ip: '127.0.0.1', protocol: 'tcp' },
+  ];
+  for (const volume of rehearsal.services.ingress.volumes)
+    volume.source = `/repo/.artifacts${volume.target}`;
+  return rehearsal;
+}
+
+test('the rehearsal may change only the build source, loopback ports and host path sources', () => {
+  const production = {
+    name: 'dormduri-web',
+    networks: { web: { name: 'dormduri-web_web' } },
+    ...validConfig(),
+  };
+  assert.deepEqual(rehearsalDifferenceProblems(production, rehearsalOf(production)), []);
+  const cases = [
+    [
+      (s) => (s.web.environment.WEB_APP_URL = 'http://localhost'),
+      /at \.services\.web\.environment\.WEB_APP_URL/u,
+    ],
+    [(s) => (s.web.read_only = false), /at \.services\.web\.read_only/u],
+    [
+      (s) => (s.ingress.volumes[0].target = '/srv'),
+      /at \.services\.ingress\.volumes\[0\]\.target/u,
+    ],
+    [
+      (s) => (s.ingress.volumes[1].read_only = false),
+      /at \.services\.ingress\.volumes\[1\]\.read_only/u,
+    ],
+    [(s) => delete s.ingress.ports[0].host_ip, /publishes ingress 8080 beyond loopback/u],
+    [
+      (s) => (s.web.deploy.resources.limits.memory = '536870912'),
+      /\.services\.web\.deploy\.resources\.limits\.memory/u,
+    ],
+  ];
+  for (const [change, expected] of cases) {
+    const rehearsal = rehearsalOf(production);
+    change(rehearsal.services);
+    const problems = rehearsalDifferenceProblems(production, rehearsal);
     assert.ok(
       problems.some((problem) => expected.test(problem)),
       `${expected}: ${problems.join(' | ')}`,

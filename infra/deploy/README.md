@@ -56,16 +56,17 @@ infra/deploy/
 Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다. `www`는 apex로, HTTP는 HTTPS로
 301 redirect한다(HTTP-01 ACME 경로 제외). 모르는 host는 연결을 끊는다(HTTP 444, TLS handshake 거부).
 
-| 요청                                                                                                        | 응답                                       |
-| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `/`, `/privacy`, `/terms`, `/_next/static/*`, `/_next/image`, `/robots.txt`, `/sitemap.xml`, `/icon.png`    | Web으로 전달                               |
-| `/login`, `/signup`, `/password-reset`, `/main`, `/notifications`, `/support`, `/notices`, `/api`와 그 아래 | 503 준비 중(`Retry-After: 3600`)           |
-| 그 밖의 경로                                                                                                | 404 찾을 수 없음                           |
-| Web이 502·504로 실패                                                                                        | 503 일시적 오류(`Retry-After: 60`)         |
-| 점검 flag(host `/opt/dormduri/mode/maintenance`)가 있을 때                                                  | 모든 경로 503 점검 중(`Retry-After: 3600`) |
+| 요청                                                                                                        | 응답                                            |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `/`, `/privacy`, `/terms`, `/_next/static/*`, `/_next/image`, `/robots.txt`, `/sitemap.xml`, `/icon.png`    | Web으로 전달                                    |
+| `/login`, `/signup`, `/password-reset`, `/main`, `/notifications`, `/support`, `/notices`, `/api`와 그 아래 | 503 준비 중(`Retry-After: 3600`)                |
+| 그 밖의 경로                                                                                                | 404 찾을 수 없음                                |
+| Web이 502·504로 실패                                                                                        | 503 일시적 오류(`Retry-After: 60`)              |
+| 점검 flag(host `/opt/dormduri/mode/maintenance`)가 있을 때                                                  | 모든 공개 경로 503 점검 중(`Retry-After: 3600`) |
 
-- 모든 응답에 `X-Robots-Tag: noindex`와 HSTS·`nosniff`·frame 거부·Referrer-Policy header를 붙인다. Method와 상관없이 같은
-  화면을 낸다.
+- 모든 응답에 `X-Robots-Tag: noindex`를 붙이고, HTTPS 응답에는 HSTS·`nosniff`·frame 거부·Referrer-Policy header도 붙인다
+  (HTTP의 301·ACME 응답은 noindex만). Method와 상관없이 같은 화면을 낸다. 정적 화면의 내부 경로 `/__pages/`는 밖에서
+  요청하면 404다.
 - Web 허용 목록과 준비 중 경로는 `apps/web/src/app`의 route 파일에서 유도해 대조한다(`scripts/infra/user-host/web-routes.mjs`,
   `ingress-config.test.mjs`). Web에 page를 더하면 이 test가 실패하므로 ingress 설정도 함께 고친다. Route 파일이 바뀌면 CI
   infra lane도 돈다.
@@ -83,14 +84,17 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
 - `deploy`는 새 digest 쌍을 올리고 health와 경로별 smoke(`/`·`/privacy`·`/terms` 200, `/signup` 준비 중 503, 없는 경로
   404)를 본다. 실패하면 직전 쌍으로 되돌리고, 직전 쌍이 없으면(첫 배포) 점검 mode로 둔다. Host 상태는
   `/opt/dormduri/state/{current,previous}`다.
-- `rollback`은 입력 쌍이 host의 `previous`와 같을 때만 실행한다. `maintenance`는 점검 flag를 켜고 ingress만 남긴다.
+- `rollback`은 입력 쌍이 host의 `previous`와 같을 때만 실행한다. 성공하면 `current`를 그 쌍으로 바꾸고 `previous`를
+  비운다(되돌린 쌍을 다음 rollback 대상으로 두지 않는다. 다시 되돌리려면 새 배포가 필요하다). `maintenance`는 점검 flag를
+  켜고 ingress만 남긴다.
 
 ### Local rehearsal과 검사
 
 - `pnpm infra:compose -- user-host-rehearsal <compose 명령>`: 운영 compose에
   [`infra/rehearsal/compose.user-host.yml`](../rehearsal/compose.user-host.yml)을 덮어 local build image·시험 인증서·
   loopback port로 띄운다. `USER_HOST_REHEARSAL_ROOT`가 `acme-webroot`·`tls`·`mode` 폴더가 있는 local 경로를 가리켜야 한다.
-- `pnpm infra:check:static`: compose 구조 계약(`scripts/infra/user-host/compose-contract.mjs`. Web publish 없음, read-only
+- `pnpm infra:check:static`: rehearsal render가 운영 render와 build·loopback port·host 경로 source에서만 다른지 비교,
+  compose 구조 계약(`scripts/infra/user-host/compose-contract.mjs`. Web publish 없음, read-only
   root, capability 모두 제거, memory Web 320MiB·ingress 96MiB, log 회전), ingress 설정 test, document 생성본 일치.
 - `pnpm infra:check:runtime`: ingress image build와 `nginx -t`, stub Web 뒤에서 경로마다 status·title·header를 실제로
   요청하는 smoke, document의 입력 거부와 host lock을 일회용 container에서 실행.

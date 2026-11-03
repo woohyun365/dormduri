@@ -1,7 +1,7 @@
 // Web 단계 CD의 AWS 정책 원본(infra/aws/iam/*.json, infra/aws/ecr/lifecycle-policy.json) 계약. 각 함수는 어긋난 점의
-// 목록을 돌려준다(빈 목록 = 통과). 기준: production-web-baseline D-WB3·D-WB4(OIDC trust는 aud와 정확한 sub를
-// StringEquals로만 받는다, publish는 두 repository push만, deploy는 tag 붙은 managed node와 custom document 하나에만
-// SendCommand, document 갱신 권한 없음, host role은 두 repository pull만)와 D-WB7(식별자는 placeholder).
+// 목록을 돌려준다(빈 목록 = 통과). 기준: OIDC trust는 aud와 정확한 sub를 StringEquals로만 받는다, publish는 두
+// repository push만, deploy는 tag 붙은 managed node와 custom document 하나에만 SendCommand(document 갱신 권한 없음),
+// host role은 두 repository pull만, 식별자는 placeholder(docs/deploy/README.md 식별자 규칙).
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -183,11 +183,17 @@ export function lifecycleProblems(policy) {
     if (selection.tagStatus === 'any')
       problems.push(`lifecycle ${rule.rulePriority}: selects every image`);
   }
+  // Rollback 쌍은 deploy- tag로 남는다. ECR은 우선순위가 높은 규칙에 맞은 image를 낮은 규칙으로 만료하지 않으므로
+  // deploy- 규칙이 가장 먼저 와야 sha-·untagged 규칙이 배포한 image를 지우지 않는다.
   const deployRule = rules.find((rule) =>
     asList(rule.selection?.tagPrefixList).includes('deploy-'),
   );
   if (deployRule?.selection?.countType !== 'imageCountMoreThan')
     problems.push('lifecycle: deploy- images are not kept by count');
+  if (!(deployRule?.selection?.countNumber >= 2))
+    problems.push('lifecycle: deploy- keeps fewer than the current and previous pair');
+  if (deployRule && priorities.some((priority) => priority < deployRule.rulePriority))
+    problems.push('lifecycle: deploy- rule is not the first rule');
   return problems;
 }
 

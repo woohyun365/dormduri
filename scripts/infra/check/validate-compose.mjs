@@ -7,7 +7,11 @@ import { fileURLToPath } from 'node:url';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { buildComposeArgs, loadComposeInventory } from '../compose/profile.mjs';
 import { buildIngressComposeArgs, writeIngressConfig } from '../ingress/render.mjs';
-import { checkUserHostCompose } from '../user-host/compose-contract.mjs';
+import {
+  checkUserHostCompose,
+  rehearsalDifferenceProblems,
+  USER_HOST_RENDER_ENVIRONMENT,
+} from '../user-host/compose-contract.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const inventory = loadComposeInventory(repoRoot);
@@ -15,9 +19,7 @@ const failures = [];
 // The Web stage host compose takes registry digest references that the deploy document sets; validation uses
 // well-formed placeholders and a local test directory for the rehearsal overlay.
 const userHostEnvironment = {
-  WEB_IMAGE: `dormduri/web@sha256:${'0'.repeat(64)}`,
-  INGRESS_IMAGE: `dormduri/ingress@sha256:${'0'.repeat(64)}`,
-  WEB_RELEASE: 'web-000000000000',
+  ...USER_HOST_RENDER_ENVIRONMENT,
   USER_HOST_REHEARSAL_ROOT: resolveArtifactPath(repoRoot, [
     'infra',
     'user-host-rehearsal-validation',
@@ -132,16 +134,26 @@ for (const [profileName, expectation] of Object.entries({
   }
 }
 
-const userHost = spawnSync(
-  'docker',
-  buildComposeArgs(inventory, 'user-host', ['config', '--format', 'json'], { repoRoot }),
-  { cwd: repoRoot, encoding: 'utf8', env: { ...process.env, ...userHostEnvironment } },
-);
-if (userHost.status === 0) {
-  for (const problem of checkUserHostCompose(JSON.parse(userHost.stdout))) {
-    failures.push(`user-host: ${problem}`);
+function renderUserHost(profileName) {
+  const result = spawnSync(
+    'docker',
+    buildComposeArgs(inventory, profileName, ['config', '--format', 'json'], { repoRoot }),
+    { cwd: repoRoot, encoding: 'utf8', env: { ...process.env, ...userHostEnvironment } },
+  );
+  if (result.status === 0) return JSON.parse(result.stdout);
+  failures.push(`${profileName} render: ${result.stderr}`);
+  return null;
+}
+const userHost = renderUserHost('user-host');
+const userHostRehearsal = renderUserHost('user-host-rehearsal');
+if (userHost) {
+  for (const problem of checkUserHostCompose(userHost)) failures.push(`user-host: ${problem}`);
+}
+if (userHost && userHostRehearsal) {
+  for (const problem of rehearsalDifferenceProblems(userHost, userHostRehearsal)) {
+    failures.push(`user-host-rehearsal: ${problem}`);
   }
-} else failures.push(`user-host render: ${userHost.stderr}`);
+}
 
 const ingressEnvironment = {
   ...process.env,

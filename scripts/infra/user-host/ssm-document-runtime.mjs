@@ -1,5 +1,4 @@
-// SSM document 본문의 입력 거부와 host lock을 일회용 container에서 실제로 돌려 본다(production-web-baseline Phase 3
-// document host lock test). document JSON의 runCommand를 그대로 script로 쓰고, Docker·AWS에 닿기 전에 끝나는 경로만
+// SSM document 본문의 입력 거부와 host lock을 일회용 container에서 실제로 돌려 본다. document JSON의 runCommand를 그대로 script로 쓰고, Docker·AWS에 닿기 전에 끝나는 경로만
 // 실행한다: 허용 밖 action, 형식이 틀린 digest, 다른 실행이 잡은 host lock, TLS 사본 없음.
 // node 내장 module만 쓴다(runtime gate에는 package 설치가 없다).
 import { spawnSync } from 'node:child_process';

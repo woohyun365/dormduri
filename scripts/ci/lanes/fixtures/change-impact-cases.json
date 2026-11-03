@@ -26,6 +26,19 @@
     }
   },
   {
+    "name": "web-public-file-selects-ingress-check",
+    "paths": ["apps/web/public/og/card.png"],
+    "expected": {
+      "web": true,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": false,
+      "agentWorkflow": false
+    }
+  },
+  {
     "name": "storybook-only",
     "paths": ["apps/web/src/main/MainPage.stories.tsx"],
     "expected": {

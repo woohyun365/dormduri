@@ -139,7 +139,17 @@ test('the route reader fails closed on conventions it does not map', () => {
     writeFileSync(join(app, '_private/page.tsx'), '');
     writeFileSync(join(app, 'robots.ts'), '');
     writeFileSync(join(app, 'opengraph-image.png'), '');
+    const publicDirectory = join(root, 'apps/web/public');
+    mkdirSync(join(publicDirectory, 'og'), { recursive: true });
+    writeFileSync(join(publicDirectory, '.gitkeep'), '');
+    writeFileSync(join(publicDirectory, 'og/card.png'), '');
     const routes = readWebRoutes(root);
+    assert.deepEqual(
+      routes.publicFiles,
+      ['/og/card.png'],
+      'a public file must be on the allow list',
+    );
+    assert.ok(expectedIngressRoutes(routes).exact.includes('/og/card.png'));
     assert.deepEqual(
       routes.segments,
       ['login'],

@@ -1,4 +1,5 @@
-# Web 단계 host compose(infra/deploy/user/compose.yml)의 local rehearsal 덮어쓰기. 운영 compose를 그대로 쓰고 다음만 바꾼다.
+# Web 단계 host compose(infra/deploy/user/compose.yml)의 local rehearsal 덮어쓰기. 운영 compose를 그대로 쓰고 다음만 바꾼다
+# (validate-compose가 두 render를 비교해 이 밖의 차이를 거부한다).
 # - image: 저장소에서 local build(이름은 infra/rehearsal/user-host.rehearsal.env)
 # - host 경로: `/opt/dormduri/...` 대신 USER_HOST_REHEARSAL_ROOT 아래의 시험 인증서·ACME webroot·점검 flag 폴더
 # - publish: 80·443 대신 loopback의 높은 port
@@ -16,8 +17,6 @@ services:
       labels:
         dormduri.local.created-by: ${LOCAL_RESOURCE_CREATED_BY:-manual}
         dormduri.local.run-id: ${LOCAL_RESOURCE_RUN_ID:-local}
-    environment:
-      WEB_OBSERVABILITY_ENVIRONMENT: local
 
   ingress:
     build:

@@ -10,6 +10,7 @@ import {
   DOCUMENT_PATH,
   readSources,
 } from './ssm-document.mjs';
+import { PAGE_TITLES } from './ingress-smoke.mjs';
 
 const repoRoot = process.cwd();
 const committed = readFileSync(resolve(repoRoot, DOCUMENT_PATH), 'utf8');
@@ -105,8 +106,14 @@ test('the document carries the host compose it writes and keeps registry output 
   );
   assert.match(body, /^project=dormduri-web$/mu);
   // Standard output goes to SSM results that the deploy role reads: only RESULT lines and digests, never the registry.
-  for (const line of lines.filter((item) => /^\s*(?:echo|printf)\b/u.test(item))) {
-    assert.doesNotMatch(line, /registry|account/u, line);
+  // say and fail print to standard output too, so every call of the four writers is checked.
+  const writers = lines.filter((item) => /^\s*(?:echo|printf|say|fail)\b/u.test(item));
+  assert.ok(
+    writers.some((line) => /^\s*say\b/u.test(line)),
+    'say lines are covered',
+  );
+  for (const line of writers) {
+    assert.doesNotMatch(line, /registry|account|\$\(ref\b/u, line);
   }
 });
 
@@ -126,4 +133,41 @@ test('the generator refuses bodies that would change meaning inside SSM or the h
     buildDocument({ script, compose: 'x: 1\n' }),
     /"runCommand": \[\n\s+"a",\n\s+"x: 1",\n\s+"b"\n/u,
   );
+});
+
+// The host smoke inside the document greps the static page titles. Their source is the page files, so a changed <title>
+// must fail here, not on the host after the document is created.
+test('the host smoke expects the page titles of the static page files', () => {
+  const body = lines.join('\n');
+  const functionBody = (name) => {
+    const match = new RegExp(`^${name}\\(\\) \\{\\n([\\s\\S]*?)^\\}`, 'mu').exec(body);
+    assert.ok(match, `${name} is defined`);
+    return match[1];
+  };
+  const calls = (source) =>
+    [...source.matchAll(/page_ok (\S+) (\d{3})(?: '([^']*)')?/gu)].map(([, path, code, title]) => ({
+      path,
+      code,
+      title: title ?? null,
+    }));
+  assert.deepEqual(calls(functionBody('smoke_serving')), [
+    { path: '/', code: '200', title: null },
+    { path: '/privacy', code: '200', title: null },
+    { path: '/terms', code: '200', title: null },
+    { path: '/signup', code: '503', title: PAGE_TITLES.comingSoon },
+    { path: '/__smoke_not_allowed', code: '404', title: PAGE_TITLES.notFound },
+  ]);
+  assert.deepEqual(calls(functionBody('smoke_maintenance')), [
+    { path: '/', code: '503', title: PAGE_TITLES.maintenance },
+    { path: '/privacy', code: '503', title: PAGE_TITLES.maintenance },
+  ]);
+});
+
+// A successful rollback must not leave the pair it rolled away from as the next rollback target.
+test('a successful rollback clears previous instead of recording the rolled-back pair', () => {
+  const body = lines.join('\n');
+  const rollback = /^  rollback\)\n([\s\S]*?)^    ;;/mu.exec(body);
+  assert.ok(rollback, 'rollback case');
+  assert.doesNotMatch(rollback[1], /write_pair "\$\{state\}\/previous"/u);
+  assert.match(rollback[1], /rm -f "\$\{state\}\/previous"/u);
 });

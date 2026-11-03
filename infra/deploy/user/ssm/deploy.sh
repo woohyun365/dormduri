@@ -135,7 +135,7 @@ start_pair() {
 }
 
 # 점검 mode: flag를 두고 ingress만 띄운 뒤 Web을 내린다. ingress마저 뜨지 않으면 compose를 내린다
-# (Web 단계는 공개 출시 전이라 연결 거부를 받아들인다, production-web-baseline §6).
+# (Web 단계는 공개 출시 전이라 그 동안의 연결 거부를 받아들인다).
 enter_maintenance() {
   touch "${mode_dir}/maintenance"
   chmod 0644 "${mode_dir}/maintenance"
@@ -196,8 +196,9 @@ case "${action}" in
     c_ingress=${p_ingress}
     pull_pair "${web}" "${ingress}" || fail pull
     if start_pair "${web}" "${ingress}"; then
-      write_pair "${state}/previous" "${c_web}" "${c_ingress}"
+      # 되돌린 쌍은 다시 rollback 대상이 되지 않는다. host는 그보다 이전 안전 쌍을 모르므로 previous를 비운다.
       write_pair "${state}/current" "${web}" "${ingress}"
+      rm -f "${state}/previous"
       say "RESULT=succeeded action=rollback web=${web} ingress=${ingress}"
       exit 0
     fi
