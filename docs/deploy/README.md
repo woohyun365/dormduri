@@ -31,7 +31,7 @@
 
 - 기록할 수 있는 값: 공개 도메인·host 이름, Region, Lightsail bundle 이름, ECR repository 이름(registry host 제외), image
   digest, commit SHA, workflow run URL, tag·Release 이름, SSM document 이름
-- 기록하지 않는 값: AWS account ID(registry host와 ARN에 든 값 포함), IP 주소, instance·managed node ID, activation code·ID,
+- 기록하지 않는 값: AWS account ID(registry host와 ARN, IAM role·user·access key unique ID(`AROA…` 등)에 든 값 포함), IP 주소, instance·managed node ID, activation code·ID,
   access portal URL, email 주소, ACME account URI, secret과 인증 code. Git 밖 plan·evidence·log를 포함한 모든 기록(run 요약,
   PR·Issue·Release 본문, attestation, workflow artifact)에 적용합니다. 이런 값이 필요한 자리에는 "Owner console"이라고 적습니다.
 - 두 목록 어디에도 없는 resource 이름(IAM role·permission set·SNS 주제·alarm·health check·event destination 이름 등)은 공개되는
@@ -41,5 +41,5 @@
 - GitHub 소유자·저장소 숫자 ID는 공개 API로 조회되지만 사람이 쓰는 기록에는 적지 않습니다. GitHub이 만드는 attestation 인증서와
   provenance에는 이 값이 들어가므로 attestation은 이 항목의 예외입니다.
 
-문서를 commit하기 전에 금지 종류(숫자 12자리, `arn:aws:`, `dkr.ecr`, `mi-`·`i-` 뒤 hex, IPv4, email, `/acme/acct/`, UUID 형식
+문서를 commit하기 전에 금지 종류(숫자 12자리, `arn:aws:`, `AROA`·`AKIA` 같은 unique ID 접두 뒤 대문자열, `dkr.ecr`, `mi-`·`i-` 뒤 hex, IPv4, email, `/acme/acct/`, UUID 형식
 activation ID)가 없는지 확인합니다. 두 목록 밖 resource 이름은 pattern으로 찾을 수 없으므로 리뷰가 봅니다.
