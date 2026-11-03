@@ -202,4 +202,9 @@ test('이름 있는 volume label은 실행마다 새 project를 만드는 full-s
     .filter(([, profile]) => profile.files.includes('infra/rehearsal/compose.postgres.yml'))
     .map(([name]) => name);
   assert.deepEqual(fullStackOnly, ['full-stack-api-rehearsal']);
+  // compose.web.yml carries local Web assumptions (local image, loopback publish), so only the full-stack Web profile uses it.
+  const webRehearsalOnly = Object.entries(inventory.profiles)
+    .filter(([, profile]) => profile.files.includes('infra/rehearsal/compose.web.yml'))
+    .map(([name]) => name);
+  assert.deepEqual(webRehearsalOnly, ['full-stack-web-rehearsal']);
 });

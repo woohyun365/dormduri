@@ -145,8 +145,8 @@ Web BFF는 `web_bff_request_completed` structured event를 같은 Docker stdout 
 
 ### Web local 확인
 
-Web BFF event의 Loki ingest와 관측 component 장애 중 Web 응답 유지는 [Web 운영 관측 runbook의 Local 확인](../runbooks/operations/observability/web-bff.md#local-확인)을
-따른다. 관측 component 장애 중 제품 요청 fail-open은 full-stack rehearsal(`pnpm infra:rehearsal:full-stack`)이 확인한다.
+관측 component 장애 중 API `/health`와 Web root 응답 유지는 full-stack rehearsal(`pnpm infra:rehearsal:full-stack`)이 확인한다.
+Web BFF event의 Loki ingest와 장애 중 BFF 경로 응답은 지금 자동 검사가 없다([Web 운영 관측 runbook의 Local 확인](../runbooks/operations/observability/web-bff.md#local-확인)).
 
 ## Alert rule / Slack delivery
 

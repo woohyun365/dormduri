@@ -55,8 +55,8 @@ production profile에서 허용하지 않는다. 원본 secret은 report나 CI a
 | Alertmanager | container `/-/ready`                         | 없음, fail-open  |
 | Grafana      | container `/api/health` + external rehearsal | 없음, fail-open  |
 
-`pnpm infra:rehearsal:full-stack`은 Alloy, Loki, Prometheus, Grafana를 각각 중단하는 동안 제품 요청의 fail-open과
-component recovery를 확인한다([full-stack rehearsal](../../rehearsal/full-stack.md)).
+`pnpm infra:rehearsal:full-stack`은 Alloy, Loki, Prometheus, Grafana를 각각 중단하는 동안 API `/health`와 Web root 응답
+유지, component recovery를 확인한다([full-stack rehearsal](../../rehearsal/full-stack.md)).
 관측 component 장애가 API/Web readiness를 실패시키거나 사용자 요청을 차단해서는 안 된다.
 
 ## Retention, volume, host alert

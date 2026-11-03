@@ -72,7 +72,7 @@
 ### 1. Account-free baseline 재확인
 
 - 배포할 commit의 Web CI 결과에서 unit gate(SDK, privacy, sampling)와 static/build gate(upload-disabled build의
-  `pnpm web:sentry:verify-build`, Storybook)가 통과했는지 본다.
+  `pnpm web:sentry:verify-build`)가 통과했는지 본다. Storybook 산출물의 Sentry 설정은 자동 검사가 없다.
 - BFF stdout → Alloy → Loki 경로는 [Web 운영 관측 runbook의 Local 확인](../../../operations/observability/web-bff.md#local-확인)을 따른다.
 - 이 결과는 managed Sentry intake 성공을 의미하지 않는다.
 

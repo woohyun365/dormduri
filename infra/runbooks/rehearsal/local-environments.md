@@ -180,6 +180,13 @@ image·volume과 label이 없는 자원은 그 작업의 owner가 정한다.
   `docker image rm`.
 - 옛 이름 builder `knu-roommate-artifacts`: `docker buildx rm knu-roommate-artifacts`(옛 이름, cache와 state volume을 함께 지움).
 
+지운 rehearsal이 남겼을 수 있는 자원도 같은 방식으로 정확한 이름을 골라 지운다.
+
+- forwarding-trust fixture image `dormduri-chat-ingress-fixture:*`(`docker image ls -a`)와 그 실행의 project
+  `dormduri-s1-<12자리>`(`docker ps -a --filter label=com.docker.compose.project`로 확인)
+- Web BFF rehearsal project `dormduri-web-rehearsal`: `docker volume ls --filter label=com.docker.compose.project=dormduri-web-rehearsal`
+  와 같은 filter의 `docker network ls`로 찾는다
+
 ### 임시 PostgreSQL
 
 검증용 임시 DB는 익명 volume이 남지 않게 data 경로를 tmpfs로 두고 `--rm`으로 띄운다. Image는 dev compose와 같은 pin을

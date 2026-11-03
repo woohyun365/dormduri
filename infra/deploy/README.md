@@ -4,7 +4,7 @@
 단계: ingress와 Web)이다. API와 그 nginx(`compose.api.yml`, `nginx/`)는 API 개발 rehearsal(stress, full-stack)이 쓰는
 **production-neutral runtime candidate**이고, API 단계가 `user/` 묶음으로 옮긴다. 구조 원칙은
 [Production runtime topology](../../docs/architecture/platform/production-runtime-topology.md#repository와-deploy-구조-목표)가
-소유한다. Local resource limit, disposable DB, upstream fixture와 관측 network는 `infra/rehearsal/README.md`가 소유하며 이
+소유한다. Local resource limit, disposable DB와 관측 network는 `infra/rehearsal/README.md`가 소유하며 이
 디렉터리에는 자동 합성하지 않는다.
 
 Web 단계의 hosting target·registry·전달 경로는 [Production environment](../../docs/deploy/production-environment.md)가
