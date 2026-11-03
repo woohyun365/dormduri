@@ -262,14 +262,19 @@ test('the review skill names real composition flags and dispatch-step tools', ()
     assert.ok(flags.has(flag), `${flag} is a review option`);
     assert.match(text, new RegExp(`${flag} `, 'u'), flag);
   }
-  const tools = [...text.matchAll(/`([a-z-]+\.mjs)`/gu)].map((m) => m[1]);
-  assert.deepEqual([...new Set(tools)].sort(), [
-    'citation-check.mjs',
-    'mutation-harness.mjs',
-    'plan-reference-check.mjs',
-    'red-reason-check.mjs',
-    'runner-log-check.mjs',
-  ]);
+  const tools = [...text.matchAll(/`([a-z-]+\.mjs)(?: [^`]*)?`/gu)].map((m) => m[1]);
+  assert.deepEqual(
+    [...new Set(tools)].sort(),
+    [
+      'citation-check.mjs',
+      'mutation-harness.mjs',
+      'plan-reference-check.mjs',
+      'plan-shape-check.mjs',
+      'red-reason-check.mjs',
+      'runner-log-check.mjs',
+    ],
+    'plan review grade: dispatch-step tools',
+  );
   for (const tool of tools)
     assert.ok(existsSync(resolve(root, 'scripts/agents/common', tool)), tool);
   const settle = skill('knu-settle');
@@ -393,6 +398,73 @@ test('settle, registry and qualification documents carry the E2 recovery and pil
 
 // G8: a Parent subject request carries requirements, never the change description, and the skill
 // names the input checks review and registration apply to it.
+// Several reviewers are for a change that meets the QA disposition trigger, and plan reviews are single at every grade
+// that gets a reviewer; the dispatch steps carry the grade check and the round rules carry the delta.
+function reviewSection(heading, next) {
+  const text = skill('knu-review');
+  const start = text.indexOf(heading);
+  assert.ok(start >= 0, heading);
+  return text.slice(start, next ? text.indexOf(next, start) : undefined);
+}
+function dispatchStep(number) {
+  const steps = reviewSection('## Dispatch 전 단계', '## 1회차 다중 reviewer').split(
+    /\n(?=\d+\. )/u,
+  );
+  return (steps.find((step) => step.startsWith(`${number}. `)) ?? '').replace(/\s+/gu, ' ');
+}
+
+test('knu-review keeps several reviewers to trigger changes and plan reviews single', () => {
+  const section = reviewSection('## 1회차 다중 reviewer', '## 공통');
+  const first = (section.split(/\n(?=- )/u)[1] ?? '').replace(/\s+/gu, ' ');
+  for (const phrase of [
+    'Independent review disposition',
+    'trigger를 충족한 구현 변경의 1회차에만',
+    '계획 리뷰(P2·P3)는 단일입니다',
+  ])
+    assert.ok(first.includes(phrase), `plan review grade: multi reviewer bullet ${phrase}`);
+  const flat = skill('knu-review').replace(/\s+/gu, ' ');
+  for (const old of ['Owner가 정한 변경의 1회차에만', '계획 readiness 리뷰는 단일입니다'])
+    assert.ok(!flat.includes(old), `plan review grade: old sentence ${old}`);
+});
+
+test('knu-review dispatch step 1 fixes every blocking finding and searches by sentence before the next round', () => {
+  const step = dispatchStep(1);
+  for (const phrase of [
+    'blocking 전부를 한 번에 고치고',
+    '문장 단위',
+    '`rg -U`',
+    '저장소 전체 tracked 경로',
+    '`rg --no-ignore`',
+    '결정적 검사를 통과시킨 뒤',
+  ])
+    assert.ok(step.includes(phrase), `plan review grade: step 1 ${phrase}`);
+});
+
+test('knu-review dispatch step 5 declares the plan grade and runs the revision check', () => {
+  const step = dispatchStep(5);
+  for (const phrase of [
+    '등급을 선언하고',
+    '`plan-shape-check.mjs --revision',
+    'P0는 리뷰 없음',
+    'P1은 reviewer 없음',
+    '`plan-reference-check.mjs`',
+    '`<plan>.scope.diff`',
+    '`paths`',
+  ])
+    assert.ok(step.includes(phrase), `plan review grade: step 5 ${phrase}`);
+});
+
+test('knu-review prompt limit bullet keeps single runner lines in the log', () => {
+  const section = reviewSection('## 공통');
+  const bullet = (
+    section.split(/\n(?=- )/u).find((item) => item.includes('12,000자')) ?? ''
+  ).replace(/\s+/gu, ' ');
+  assert.ok(
+    bullet.includes('runner 기록의 낱개 줄은 log에 두고 record에는 요약 조각만 둡니다'),
+    'plan review grade: prompt limit bullet runner record sentence',
+  );
+});
+
 test('knu-review asks for requirements in request and names the Parent subject input checks', () => {
   const text = skill('knu-review').replace(/\s+/gu, ' ');
   assert.ok(!text.includes('`request`는 검토할 변경의 설명'), 'request as change description');

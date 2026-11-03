@@ -39,7 +39,10 @@ Reviewer에게 기대 결론을 주지 않습니다. QA packet의 요청·accept
    맞지 않거나 출력 경로가 규칙에 맞지 않으면 CLI가 `binding-values-invalid`·`context-output-*`로 exit 1이므로 spawn하지 않고
    [등록·리뷰 거부 해소](../../../docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md#해결)를 따릅니다.
 4. 2단계 출력 `registered[]`의 `spawnArguments`를 그대로 spawn 도구에 넘깁니다. 메시지는 QA packet입니다. Frozen source 기준(HEAD·변경 파일),
-   lane acceptance, 3단계 기록의 기준 문서, 읽기 범위를 담고, 2회차부터는 이전 finding과 처분만 delta로 줍니다. 3단계 리뷰어 입력의
+   lane acceptance, 3단계 기록의 기준 문서, 읽기 범위를 담고, 2회차부터는 직전 회차의 finding과 처분, 그 뒤의 수정 diff, 수정이
+   닿은 절·함수를 delta로 줍니다. 계획 리뷰의 등급별 리뷰 여부·입력은 [계획 리뷰 등급](../../../docs/development/agent-workflows/session-continuity.md#계획-초안-staging과-promote)이,
+   2회차부터 delta만 읽는 범위와 전 범위로 돌아가는 조건은 [리뷰 회차](../../../docs/development/agent-workflows/qa.md#리뷰-회차)가
+   정합니다. 3단계 리뷰어 입력의
    `inputs[].path`를 읽기 범위에 넣고 입력 줄에는 경로와 포함 이유만 적습니다(원본 초안과 binding 문서는 넣지 않음. 입력이 없으면
    "없음", 초안이 없으면 "등급 기록 없음: feature로 봄", 초안 절 추출이 있으면 그 `변경 등급`·`등급 근거`·`정책 영향 없음`·`인용 규칙`은
    근거가 아니라 diff와 대조할 주장).

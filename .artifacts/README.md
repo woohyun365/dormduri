@@ -21,7 +21,7 @@ production runtime에서는 사용하지 않는다. 내용은 Git에서 제외�
   `plans/<Plan ID>/<Plan ID>/`에 둔다. 더 깊은 계획 계층은 bounded 단으로 평탄화하고 그 아래는 phase나 날짜로 나눈다.
 - **계획 작업 하위 구조.** `<phase|YYYY-MM-DD>/` 아래 주제가 여럿이면 `<topic>/`을 한 단 더 둡니다. 그 아래는 다음 이름을 씁니다.
   - `research/`: 근거 snapshot. 사실마다 출처를 달고, 확인하지 못한 것은 미검증으로 표시합니다.
-  - `plan-drafts/`: 계획 초안 staging, `SOURCE-MANIFEST.tsv`, 정산 뒤 쓰는 `promote-receipt.json`입니다. 절차는
+  - `plan-drafts/`: 계획 초안 staging, `SOURCE-MANIFEST.tsv`, promote 때 쓰는 `promote-receipt.json`입니다. 절차는
     [Session continuity](../docs/development/agent-workflows/session-continuity.md#계획-초안-staging과-promote)가 소유합니다.
   - `review/`: 리뷰 입력이 들어갑니다. subject, runner script·로그, runner evidence입니다.
   - `review-results/`: 회차별 `r<N>-result.json`, `r<N>-adjudication.json`, 재현 로그입니다. 정산 뒤에 쓰는 파일이므로
