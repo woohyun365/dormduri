@@ -34,12 +34,6 @@
       "updateOwner": "renovate"
     },
     {
-      "name": "ingress-trust-fixture-node",
-      "ownerPath": "scripts/infra/rehearsal/ingress-trust/Dockerfile",
-      "repository": "node",
-      "updateOwner": "renovate"
-    },
-    {
       "name": "api-ingress",
       "ownerPath": "infra/deploy/compose.api.yml",
       "repository": "nginx",

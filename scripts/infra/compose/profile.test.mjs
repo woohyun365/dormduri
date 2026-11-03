@@ -114,20 +114,6 @@ test('production render source에는 stress 전용 key가 없고 resource budget
   assert.match(stress, /AUTH_THROTTLE_LIMIT/u);
 });
 
-test('ingress-trust owns one project without legacy DB/resource/stress overlays', () => {
-  const inventory = loadComposeInventory(repoRoot);
-  const args = buildComposeArgs(inventory, 'ingress-trust', ['config'], { repoRoot });
-  assert.deepEqual(
-    args.filter((value, index) => args[index - 1] === '-f'),
-    [
-      'infra/deploy/compose.api.yml',
-      'infra/rehearsal/compose.web.yml',
-      'infra/deploy/compose.ingress-trust.yml',
-    ],
-  );
-  assert.deepEqual(resolveManagedNetworks(inventory.profiles['ingress-trust']), []);
-});
-
 test('Web 단계 rehearsal은 운영 host compose를 그대로 쓰고 local 덮어쓰기만 더한다', () => {
   const inventory = loadComposeInventory(repoRoot);
   const production = inventory.profiles['user-host'];
@@ -142,7 +128,7 @@ test('Web 단계 rehearsal은 운영 host compose를 그대로 쓰고 local 덮�
     'infra/rehearsal/compose.user-host.yml',
   ]);
   assert.notEqual(rehearsal.project, production.project);
-  // compose.web.yml stays the Web service of the API-stage ingress-trust candidate and the BFF rehearsals.
+  // compose.web.yml stays the Web service of the local Web/BFF rehearsals.
   for (const profile of [production, rehearsal]) {
     assert.ok(!profile.files.includes('infra/rehearsal/compose.web.yml'));
   }
@@ -173,7 +159,6 @@ test('로컬 자원 label은 rehearsal·runner overlay에만 있고 운영 후�
     'infra/deploy/compose.api.yml',
     'infra/observability/compose.base.yml',
     'infra/observability/compose.production.yml',
-    'infra/deploy/compose.ingress-trust.yml',
     'infra/deploy/user/compose.yml',
   ]) {
     assert.doesNotMatch(read(path), /dormduri\.local\./u, path);

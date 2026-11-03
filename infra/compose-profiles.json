@@ -105,15 +105,6 @@
       "project": "dormduri-user-host-rehearsal",
       "envFile": "infra/rehearsal/user-host.rehearsal.env",
       "files": ["infra/deploy/user/compose.yml", "infra/rehearsal/compose.user-host.yml"]
-    },
-    "ingress-trust": {
-      "classification": "production-candidate",
-      "project": "dormduri-ingress-trust",
-      "files": [
-        "infra/deploy/compose.api.yml",
-        "infra/rehearsal/compose.web.yml",
-        "infra/deploy/compose.ingress-trust.yml"
-      ]
     }
   }
 }

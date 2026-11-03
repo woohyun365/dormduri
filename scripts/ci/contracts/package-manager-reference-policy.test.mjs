@@ -31,7 +31,6 @@ test('the restore drill and Docker images install pnpm from the root packageMana
     '.github/workflows/api-restore-drill-manual.yml',
     'infra/deploy/api/Dockerfile',
     'infra/deploy/web/Dockerfile',
-    'scripts/infra/rehearsal/ingress-trust/Dockerfile',
   ]) {
     const source = readFileSync(resolve(path), 'utf8');
     assert.ok(source.includes(installCommand), `${path} must install the root packageManager`);

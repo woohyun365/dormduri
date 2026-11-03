@@ -167,8 +167,8 @@ public/API/Web/observer network를 연결하고 upstream source를 명시적으�
 collector peer의 token-protected metrics만 중계하며 API trust CIDR에 observer network를 포함하지 않는다.
 Public IPv6는 explicit dual-stack IPAM/listener로 지원하고 내부 transit은 IPv4를 유지할 수 있다.
 
-구현 owner와 renderer 입력·고정 Compose 순서는 [deploy candidate 계약](../../../infra/deploy/README.md#single-public-ingress-forwarding-trust-target)을
-따른다. 실제 hostname/TLS/peer 관찰·network isolation·distinct-client/transport 검증 및 rollout/rollback
+API 단계가 이 경계를 user host ingress(`infra/deploy/user/ingress/`)에 구현한다([repository 구조](#repository와-deploy-구조-목표)).
+실제 hostname/TLS/peer 관찰·network isolation·distinct-client/transport 검증 및 rollout/rollback
 증거가 없으면 forwarding trust 활성화는 승인되지 않는다. Source/정적 검증은 release evidence를 대신하지 않는다.
 
 #### BackOffice host
