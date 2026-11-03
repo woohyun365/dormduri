@@ -60,8 +60,11 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 6. 성공하면 tag·record job이 deploy image tag와 Release를 남긴다. Release의 `components`는 `미판정`으로 시작한다. Operator가
    evidence(이 run, ECR attestation manifest, 경보 확인)를 본 뒤 Release 본문을 고친다. 증거가 빠진 component는 `PASS`로 적지
    않는다.
-7. 첫 실행 뒤에는 그 run log·run 요약·Release·attestation을 내려받아 `node scripts/infra/user-host/public-record-scan.mjs <파일>`
-   로 검사하고(exit 0이어야 한다) 그 실행의 workflow artifact가 0개인지 본다. Run log는 7일 뒤 지워지므로 그 안에 한다. 내려받은
+7. 첫 실행 뒤에는 그 run log·Release·attestation을 내려받아 `node scripts/infra/user-host/public-record-scan.mjs <파일>`
+   로 검사하고(exit 0이어야 한다) 그 실행의 workflow artifact가 0개인지 본다. Attestation API 응답의 `bundle_url`은 GitHub이
+   요청자에게 주는 임시 다운로드 링크라 지우고 검사한다. 성공한 실행의 run 요약은 record job이 Release 본문과 같은 stage record를
+   붙인 것이고 workflow 안에서 같은 scanner를 거친다(API로 내려받을 수 없다). 실패한 실행의 stop condition 요약은 run 화면에서
+   본다. Run log는 7일 뒤 지워지므로 그 안에 한다. 내려받은
    파일은 `.artifacts/` 아래에 두고 Git에 넣지 않으며, 검사 결과(exit와 건수)만 단계 이슈 댓글에 적는다.
 
 ## 대기 실행

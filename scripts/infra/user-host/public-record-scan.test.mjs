@@ -7,6 +7,7 @@ import { FORBIDDEN_KINDS, scanText } from './public-record-scan.mjs';
 const POSITIVE = {
   'AWS account ID': 'role in account 210987654321 assumed',
   ARN: 'role-to-assume arn:aws:iam::<ACCOUNT_ID>:role/example',
+  'AWS unique ID': 'Authenticated as assumedRoleId AROAEXAMPLEFAKEROLEID:GitHubActions',
   'registry host': 'pushed to example.dkr.ecr.ap-northeast-2.amazonaws.com/dormduri/web',
   'managed node or instance ID': 'target mi-0123456789abcdef0 and i-0abc1234def567890',
   'IPv4 address': 'resolved to 203.0.113.17 on port 443',
@@ -28,6 +29,14 @@ const NEGATIVE = [
   'uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1',
   'loopback 127.0.0.1 and wildcard 0.0.0.0 bind',
   'GET https://dormduri.com/signup 503 돔두리 — 준비 중 PASS',
+  // GitHub runner temp paths and worker IDs are per-job UUIDs, not activation IDs.
+  "Temporarily overriding HOME='/home/runner/work/_temp/3f2b8c1e-5a4d-4e7f-9b6a-0c1d2e3f4a5b' before making global git config changes",
+  'git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-3f2b8c1e-5a4d-4e7f-9b6a-0c1d2e3f4a5b.config',
+  'Worker ID: {3f2b8c1e-5a4d-4e7f-9b6a-0c1d2e3f4a5b}',
+  // The workflow script source prints the registry host template, not a host.
+  'echo "::add-mask::$account.dkr.ecr.$AWS_REGION.amazonaws.com"',
+  // A masked role ID keeps only the tail after the masked account part.
+  'Authenticated as assumedRoleId ***EXAMPLEFAKE:GitHubActions',
 ];
 
 test('every forbidden kind is found by its own pattern and the value is not reported', () => {
@@ -54,6 +63,32 @@ test('an allowed value does not hide a forbidden value on the same line', () => 
       .map((finding) => finding.kind)
       .sort(),
     ['AWS account ID', 'registry host'],
+  );
+});
+
+test('a runner temp path or a registry host template does not hide a real value', () => {
+  const runnerPath = '/home/runner/work/_temp/3f2b8c1e-5a4d-4e7f-9b6a-0c1d2e3f4a5b';
+  assert.deepEqual(
+    scanText(`${runnerPath} activation 0f8fad5b-d9cb-469f-a165-70867728950e`).map((f) => f.kind),
+    ['activation ID'],
+  );
+  assert.deepEqual(
+    scanText('/tmp/3f2b8c1e-5a4d-4e7f-9b6a-0c1d2e3f4a5b outside the runner temp').map(
+      (f) => f.kind,
+    ),
+    ['activation ID'],
+  );
+  assert.deepEqual(
+    scanText(
+      '$account.dkr.ecr.$AWS_REGION.amazonaws.com and 210987654321.dkr.ecr.ap-northeast-2.amazonaws.com',
+    )
+      .map((f) => f.kind)
+      .sort(),
+    ['AWS account ID', 'registry host'],
+  );
+  assert.deepEqual(
+    scanText('example.dkr.ecr.$AWS_REGION.amazonaws.com').map((f) => f.kind),
+    ['registry host'],
   );
 });
 

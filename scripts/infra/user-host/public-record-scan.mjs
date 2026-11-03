@@ -2,7 +2,7 @@
 // 공개 기록(workflow log·run 요약·Release 본문·attestation 내용을 내려받은 text)에 D-WB7 기록 금지 값이 있는지 본다.
 // 종류마다 pattern 하나를 두고, 걸린 값은 출력하지 않고 종류·파일·줄만 적는다.
 // 허용 값(image digest, document 해시 같은 접두 없는 sha256 hex, commit SHA, workflow run·job URL, image·git 배포 tag,
-// timestamp)은 먼저 지운 뒤 검사한다. 그래서
+// timestamp, GitHub runner 임시 경로·worker UUID, script 원문의 registry host template)은 먼저 지운 뒤 검사한다. 그래서
 // run·job URL의 긴 숫자 ID와 digest 안의 숫자열은 account ID로 걸리지 않는다. GitHub 소유자·저장소 숫자 ID는 종류가 아니다
 // (숫자만으로는 다른 값과 구분할 수 없어 template placeholder test와 리뷰가 지킨다).
 import { readFileSync } from 'node:fs';
@@ -12,6 +12,8 @@ import { fileURLToPath } from 'node:url';
 export const FORBIDDEN_KINDS = Object.freeze([
   ['AWS account ID', /(?<![0-9])[0-9]{12}(?![0-9])/u],
   ['ARN', /\barn:aws[a-z-]*:/u],
+  // IAM role·user·access key의 unique ID. 앞부분이 account ID를 담는다(role ID는 configure-aws-credentials가 찍는다).
+  ['AWS unique ID', /\b(?:AROA|AIDA|AKIA|ASIA|AGPA|ANPA|ANVA|AIPA|APKA|ABIA|ACCA)[A-Z2-7]{16,}\b/u],
   ['registry host', /\.dkr\.ecr\./u],
   ['managed node or instance ID', /\b(?:mi-[0-9a-f]{17}|i-[0-9a-f]{8}(?:[0-9a-f]{9})?)\b/u],
   [
@@ -35,6 +37,20 @@ export const ALLOWED_VALUES = Object.freeze([
   ['image deploy tag', /\bdeploy-[0-9]{8}T[0-9]{4}-[0-9]+\b/gu],
   ['git deploy tag', /\bdeploy-web-[0-9]{8}-[0-9]+\b/gu],
   ['timestamp', /\b[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z\b/gu],
+  // GitHub runner가 job마다 새로 만드는 임시 경로·worker UUID. activation ID와 형식이 같아 이 경로·문맥에 든 UUID만 지운다.
+  [
+    'GitHub runner temp path',
+    /(?:\/home\/runner\/work\/_temp|\/github\/runner_temp)\/(?:git-credentials-)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gu,
+  ],
+  [
+    'GitHub runner worker ID',
+    /\bWorker ID: \{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}/gu,
+  ],
+  // workflow script 원문의 registry host template(account와 Region이 shell 변수). 값이 든 host는 그대로 걸린다.
+  [
+    'registry host template',
+    /\$\{?[A-Za-z_]+\}?\.dkr\.ecr\.\$\{?[A-Za-z_]+\}?\.amazonaws\.com\b/gu,
+  ],
 ]);
 
 export function scanText(text, source = 'input') {
