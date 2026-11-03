@@ -245,7 +245,7 @@ test('the static page CSP allows exactly the shared inline style and data: image
 
 test('every response carries noindex and the TLS servers carry the security headers', () => {
   for (const header of [
-    /^add_header Strict-Transport-Security "max-age=\d+" always;$/mu,
+    /^add_header Strict-Transport-Security "max-age=604800" always;$/mu,
     /^add_header X-Robots-Tag "noindex" always;$/mu,
     /^add_header X-Content-Type-Options "nosniff" always;$/mu,
     /^add_header X-Frame-Options "DENY" always;$/mu,
