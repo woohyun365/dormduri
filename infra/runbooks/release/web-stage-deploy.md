@@ -47,7 +47,7 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 ## 배포
 
 1. Web 배포 입력을 바꾼 PR이 `main`에 들어가면 `build`가 돌고 `deploy`가 `production` 승인을 기다린다.
-2. 첫 실행은 build job log를 연다. Account ID와 registry host가 `***`로 가려졌고 workflow artifact가 없음을 본 뒤 승인한다.
+2. 첫 실행은 build job log를 연다. Account ID(role unique ID 앞부분 포함, `Authenticated as assumedRoleId ***…`)와 registry host가 `***`로 가려졌고 workflow artifact가 없음을 본 뒤 승인한다.
 3. 승인하면 deploy job이 차례로 확인한다. 하나라도 실패하면 host에 아무것도 보내지 않는다.
    - 승인을 기다리는 동안 `main`의 배포 입력이 바뀌었는가(이 실행 commit과 `main` 끝의 배포 입력 경로 tree를 비교한다.
      `main`은 merge commit으로만 받으므로 history가 아니라 tree를 본다. 바뀌었으면 더 새 실행을 승인한다)

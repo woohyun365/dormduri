@@ -102,7 +102,8 @@ test('the account ID mask is on and the registry host is masked before the login
 });
 
 // configure-aws-credentials는 assume한 role의 unique ID(AROA…)를 끌 수 없게 찍는다. AROA 뒤 16자를 base32로 풀면 앞 48bit의
-// 가운데 40bit(첫 bit와 끝 7bit 사이)가 account ID라서, AROA 뒤 8자(40bit)는 첫 bit와 account ID로 정해진다.
+// 가운데 40bit(첫 bit와 끝 7bit 사이)가 account ID라서, AROA 뒤 9자(45bit)는 첫 bit, account ID와 끝 7bit 중 앞 4bit로
+// 정해진다. 9자를 가리면 남는 글자에 account ID bit가 없다.
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 function base32(bytes) {
   let bits = '';
@@ -157,11 +158,11 @@ test('the account part of every assumed role ID is masked before the action prin
     const masks = result.stdout
       .trim()
       .split('\n')
-      .map((line) => /^::add-mask::(AROA[A-Z2-7]{8})$/u.exec(line)?.[1]);
-    assert.equal(masks.length, 2, result.stdout);
+      .map((line) => /^::add-mask::(AROA[A-Z2-7]{9})$/u.exec(line)?.[1]);
+    assert.equal(masks.length, 32, result.stdout);
     assert.ok(masks.every(Boolean), result.stdout);
     for (const top of [0, 1]) {
-      for (const seed of [0, 77, 255]) {
+      for (const seed of [0, 1, 8, 77, 120, 255]) {
         const roleId = syntheticRoleId(account, top, seed);
         assert.equal(accountOf(roleId), account, 'the fixture follows the account ID decoding');
         assert.equal(
@@ -172,6 +173,11 @@ test('the account part of every assumed role ID is masked before the action prin
       }
     }
   }
+  // Only the masked 13 characters depend on the account ID: accounts that differ in the lowest bit share the rest.
+  const even = syntheticRoleId('123456789012', 1, 77);
+  const odd = syntheticRoleId('123456789013', 1, 77);
+  assert.notEqual(even.slice(0, 13), odd.slice(0, 13));
+  assert.equal(even.slice(13), odd.slice(13));
   for (const roleArn of ['', 'arn:aws:iam::12345678901:role/example', 'not-an-arn']) {
     const result = runMask(scripts[0], roleArn);
     assert.notEqual(result.status, 0, `${JSON.stringify(roleArn)} stops the job`);
