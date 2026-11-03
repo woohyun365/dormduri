@@ -38,6 +38,8 @@ Web 단계 host compose(`infra/deploy/user/compose.yml`)의 Web service 이름�
 - BFF log ingest(Web stdout → Alloy → Loki), Loki 검색 결과의 개인정보 부재, Loki 장애 중 BFF 경로 응답 유지는 지금 자동 검사가
   없다. Web 단계 ingress는 `/api`를 열지 않는다. API 단계가 BFF를 열 때 full-stack rehearsal에 이 확인을 더한다. 그 전에는 위
   'Release 전 확인' 2번, 3번의 Loki 부분, 5번을 증거 없는 항목으로 둔다.
+- Grafana dashboard `dormduri-web-bff-reliability`는 file과 provisioning 설정의 단언(API `observability-stack.spec.ts`)만 있다. 실제
+  Grafana에서 그 UID를 조회하는 검사는 없다(full-stack은 Grafana `/api/health`만 본다).
 
 ## Grafana 조회
 
