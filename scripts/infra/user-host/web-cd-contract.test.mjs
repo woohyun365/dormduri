@@ -101,6 +101,90 @@ test('the account ID mask is on and the registry host is masked before the login
   }
 });
 
+// configure-aws-credentials는 assume한 role의 unique ID(AROA…)를 끌 수 없게 찍는다. AROA 뒤 16자를 base32로 풀면 앞 48bit의
+// 가운데 40bit(첫 bit와 끝 7bit 사이)가 account ID라서, AROA 뒤 9자(45bit)는 첫 bit, account ID와 끝 7bit 중 앞 4bit로
+// 정해진다. 9자를 가리면 남는 글자에 account ID bit가 없다.
+const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function base32(bytes) {
+  let bits = '';
+  for (const byte of bytes) bits += byte.toString(2).padStart(8, '0');
+  return bits
+    .match(/.{5}/gu)
+    .map((chunk) => BASE32[Number.parseInt(chunk, 2)])
+    .join('');
+}
+function syntheticRoleId(account, top, seed) {
+  const head = (BigInt(top) << 47n) | (BigInt(account) << 7n) | BigInt(seed & 0x7f);
+  const bytes = [
+    ...Array.from({ length: 6 }, (_, i) => Number((head >> BigInt(40 - 8 * i)) & 0xffn)),
+  ];
+  for (let i = 0; i < 4; i += 1) bytes.push((seed * 37 + i * 101) & 0xff);
+  return `AROA${base32(bytes)}Q`;
+}
+function accountOf(roleId) {
+  let bits = '';
+  for (const char of roleId.slice(4, 20)) bits += BASE32.indexOf(char).toString(2).padStart(5, '0');
+  const head = BigInt(`0b${bits.slice(0, 48)}`);
+  return ((head & 0x7fffffffff80n) >> 7n).toString().padStart(12, '0');
+}
+const runMask = (script, roleArn) =>
+  spawnSync('bash', ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', script], {
+    encoding: 'utf8',
+    env: { PATH: process.env.PATH, ROLE_ARN: roleArn },
+  });
+
+test('the account part of every assumed role ID is masked before the action prints it', () => {
+  const scripts = [];
+  for (const [name, job] of Object.entries(JOBS)) {
+    const list = steps(job);
+    list.forEach((step, position) => {
+      if (!/configure-aws-credentials@/u.test(step.body)) return;
+      const secret = /role-to-assume: \$\{\{ secrets\.([A-Z_]+) \}\}/u.exec(step.body)[1];
+      const mask = list[position - 1];
+      assert.equal(mask?.name, 'Mask the account part of the role ID', `${name}: ${step.name}`);
+      assert.ok(
+        mask.body.includes(`ROLE_ARN: \${{ secrets.${secret} }}`),
+        `${name}: the mask reads the ARN secret of the role it masks`,
+      );
+      scripts.push(runScript(mask.body));
+    });
+  }
+  assert.equal(scripts.length, 3);
+  assert.equal(new Set(scripts).size, 1, 'every job runs the same mask script');
+
+  for (const account of ['123456789012', '012345678901', '999999999999', '000000000001']) {
+    const result = runMask(scripts[0], `arn:aws:iam::${account}:role/example`);
+    assert.equal(result.status, 0, result.stderr);
+    const masks = result.stdout
+      .trim()
+      .split('\n')
+      .map((line) => /^::add-mask::(AROA[A-Z2-7]{9})$/u.exec(line)?.[1]);
+    assert.equal(masks.length, 32, result.stdout);
+    assert.ok(masks.every(Boolean), result.stdout);
+    for (const top of [0, 1]) {
+      for (const seed of [0, 1, 8, 77, 120, 255]) {
+        const roleId = syntheticRoleId(account, top, seed);
+        assert.equal(accountOf(roleId), account, 'the fixture follows the account ID decoding');
+        assert.equal(
+          masks.filter((mask) => roleId.startsWith(mask)).length,
+          1,
+          `${account} top ${top} seed ${seed}`,
+        );
+      }
+    }
+  }
+  // Only the masked 13 characters depend on the account ID: accounts that differ in the lowest bit share the rest.
+  const even = syntheticRoleId('123456789012', 1, 77);
+  const odd = syntheticRoleId('123456789013', 1, 77);
+  assert.notEqual(even.slice(0, 13), odd.slice(0, 13));
+  assert.equal(even.slice(13), odd.slice(13));
+  for (const roleArn of ['', 'arn:aws:iam::12345678901:role/example', 'not-an-arn']) {
+    const result = runMask(scripts[0], roleArn);
+    assert.notEqual(result.status, 0, `${JSON.stringify(roleArn)} stops the job`);
+    assert.doesNotMatch(result.stdout, /::add-mask::/u);
+  }
+});
+
 test('no workflow value reaches a step through an unmasked variable', () => {
   assert.doesNotMatch(workflow, /\$\{\{\s*vars\./u, 'a variable value prints in the step header');
   assert.match(

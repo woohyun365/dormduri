@@ -107,6 +107,25 @@ jobs:
       - name: Scan the image filesystems before push
         run: node scripts/infra/user-host/image-secret-scan.mjs "$RUNNER_TEMP/web.oci" "$RUNNER_TEMP/ingress.oci"
 
+      # configure-aws-credentials는 assume한 role의 unique ID(AROA…)를 끌 수 없게 찍는다. 그 ID의 AROA 뒤 9자는 첫 bit,
+      # account ID와 다음 임의 4bit로 정해진다. action이 찍기 전에 ARN secret의 account ID로 후보 32개를 만들어 가린다.
+      # 남는 글자에는 account ID bit가 없다(D-WB7).
+      - name: Mask the account part of the role ID
+        env:
+          ROLE_ARN: ${{ secrets.AWS_PUBLISH_ROLE_ARN }}
+        run: |
+          IFS=: read -r _ _ _ _ account _ <<<"$ROLE_ARN"
+          [[ $account =~ ^[0-9]{12}$ ]] || { echo 'The role ARN secret holds no account ID.' >&2; exit 1; }
+          alphabet=ABCDEFGHIJKLMNOPQRSTUVWXYZ234567
+          for top in 0 1; do
+            for low in {0..15}; do
+              bits=$(( ((top << 47) | (10#$account << 7) | (low << 3)) >> 3 ))
+              prefix=AROA
+              for shift in 40 35 30 25 20 15 10 5 0; do prefix+=${alphabet:$(( (bits >> shift) & 31 )):1}; done
+              echo "::add-mask::$prefix"
+            done
+          done
+
       - name: Assume the publish role
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
@@ -229,6 +248,22 @@ jobs:
           subject-digest: ${{ needs.build.outputs.ingress_digest }}
           push-to-registry: false
           show-summary: false
+
+      - name: Mask the account part of the role ID
+        env:
+          ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          IFS=: read -r _ _ _ _ account _ <<<"$ROLE_ARN"
+          [[ $account =~ ^[0-9]{12}$ ]] || { echo 'The role ARN secret holds no account ID.' >&2; exit 1; }
+          alphabet=ABCDEFGHIJKLMNOPQRSTUVWXYZ234567
+          for top in 0 1; do
+            for low in {0..15}; do
+              bits=$(( ((top << 47) | (10#$account << 7) | (low << 3)) >> 3 ))
+              prefix=AROA
+              for shift in 40 35 30 25 20 15 10 5 0; do prefix+=${alphabet:$(( (bits >> shift) & 31 )):1}; done
+              echo "::add-mask::$prefix"
+            done
+          done
 
       - name: Assume the deploy role
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
@@ -418,6 +453,22 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - name: Mask the account part of the role ID
+        env:
+          ROLE_ARN: ${{ secrets.AWS_PUBLISH_ROLE_ARN }}
+        run: |
+          IFS=: read -r _ _ _ _ account _ <<<"$ROLE_ARN"
+          [[ $account =~ ^[0-9]{12}$ ]] || { echo 'The role ARN secret holds no account ID.' >&2; exit 1; }
+          alphabet=ABCDEFGHIJKLMNOPQRSTUVWXYZ234567
+          for top in 0 1; do
+            for low in {0..15}; do
+              bits=$(( ((top << 47) | (10#$account << 7) | (low << 3)) >> 3 ))
+              prefix=AROA
+              for shift in 40 35 30 25 20 15 10 5 0; do prefix+=${alphabet:$(( (bits >> shift) & 31 )):1}; done
+              echo "::add-mask::$prefix"
+            done
+          done
+
       - name: Assume the publish role
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
