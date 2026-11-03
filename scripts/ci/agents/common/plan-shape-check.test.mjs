@@ -546,6 +546,7 @@ test('기존 줄에 링크만 끼움 → P1', () => {
   // A link put in mid-line, or at the end or the start with the one space that separates it, comes out with that space.
   for (const next of [
     '근거 문장은 분석 3.4절[링크](r.md)이다.',
+    '근거 문장은 분석[원천](r.md) 3.4절이다.',
     '근거 문장은 분석 3.4절이다. [원천](r.md)',
     '[원천](r.md) 근거 문장은 분석 3.4절이다.',
     '근거 문장은 분석 3.4절이다. [원천](r.md) [둘째](s.md)',

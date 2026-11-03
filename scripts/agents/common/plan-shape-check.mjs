@@ -210,21 +210,30 @@ function checkedOnly(previous, next) {
 }
 
 // The new line is the old one with Markdown links added: the old links stay in order, and removing the added links
-// leaves the old line, a run of whitespace counting as one space.
+// leaves the old line, a run of whitespace counting as one space. The added links are removed alone, or together with
+// one whitespace next to them (the space that separates links put at the end or the start of the line; links with only
+// whitespace between them go as one, and between two spaces they leave one); either result may match.
+const INSERTED = '\u0000';
+const INSERTED_WITH_SPACE = /(\s?)\u0000(?:\s*\u0000)*(\s?)/gu;
 function onlyLinksInserted(previous, next) {
   const kept = [...previous.matchAll(LINK)].map(([link]) => link);
   let matched = 0;
   let inserted = 0;
-  const stripped = next.replace(LINK, (link) => {
+  const marked = next.replace(LINK, (link) => {
     if (matched < kept.length && link === kept[matched]) {
       matched += 1;
       return link;
     }
     inserted += 1;
-    return '';
+    return INSERTED;
   });
+  const alone = marked.replaceAll(INSERTED, '');
+  const spaced = marked.replace(INSERTED_WITH_SPACE, (_, left, right) =>
+    left && right ? left : '',
+  );
   const collapse = (text) => text.replace(/\s+/gu, ' ');
-  return inserted > 0 && matched === kept.length && collapse(stripped) === collapse(previous);
+  const same = (text) => collapse(text) === collapse(previous);
+  return inserted > 0 && matched === kept.length && (same(alone) || same(spaced));
 }
 
 // Hunks of a longest-common-subsequence line diff: the removed before lines and added after lines between equal lines.
