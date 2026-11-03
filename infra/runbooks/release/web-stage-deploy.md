@@ -6,7 +6,7 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 [Production environment](../../../docs/deploy/production-environment.md)가, 단계 기록 형식은
 [단계 배포 기록](./production-release-evidence.md#단계-배포-기록)이 소유한다.
 
-공개 저장소라 log·run 요약·Release·이슈·노트에 AWS account ID(registry host·ARN 포함), IP, node·instance ID, email을 쓰지
+공개 저장소라 log·run 요약·Release·이슈·노트에 AWS account ID(registry host·ARN·role unique ID 포함), IP, node·instance ID, email을 쓰지
 않는다([식별자 규칙](../../../docs/deploy/README.md#식별자-규칙)). 그런 값이 필요한 자리는 "Owner console"로 적는다. Host와
 외부 smoke 출력은 IP를 찍지 않으므로 `curl -v`나 DNS 조회 결과를 붙이지 않는다.
 
