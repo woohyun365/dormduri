@@ -863,6 +863,40 @@ test('표 칸 수가 바뀐 행은 P2다', () => {
   );
 });
 
+test('fence를 열거나 닫아 그대로인 줄의 heading 여부가 바뀌면 그 줄이 P2다', () => {
+  // An unclosed fence added in the exploration-round section turns every later heading into code: the bullet added under
+  // `## 6. 메모` would read as part of the exploration section, so the unchanged heading lines carry the grade.
+  const after = revised((l) => {
+    insertAfter(l, '- 1회차: 비교 이미지', '```');
+    insertAfter(l, '근거 문장은 분석 3.4절이다.', '- 새 결정 메모');
+  });
+  const { minimum: grade, lines } = shape.classifyRevision(BASE, after);
+  assert.equal(grade, 'P2');
+  assert.ok(
+    lines.some(
+      ({ side, line, kind }) =>
+        side === 'after' &&
+        kind === 'heading-structure' &&
+        line === at(after.split('\n'), '## 4. Phase') + 1,
+    ),
+  );
+  // A closed fence that holds a `##` line is code added inside the section; no unchanged heading changes.
+  assert.equal(
+    gradeOf((l) => insertAfter(l, '- 1회차: 비교 이미지', '```text', '## 7. 범위', '```')),
+    'P0',
+  );
+});
+
+test('heading에 `탐색 회차`와 P2 keyword가 함께 들면 그 절의 추가는 P2다', () => {
+  // Each rule gives a floor; the line takes the higher one.
+  assert.equal(
+    gradeOf((l) =>
+      insertAfter(l, '체크 아닌 줄 [ ] 표시', '', '### 6.1 탐색 회차 결정', '', '- 방향 확정'),
+    ),
+    'P2',
+  );
+});
+
 test('바뀐 줄이 없으면 최소 P0이고 줄 목록이 비었다', () => {
   assert.deepEqual(shape.classifyRevision(BASE, BASE), { minimum: 'P0', lines: [] });
 });
