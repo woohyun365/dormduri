@@ -45,7 +45,7 @@ Sentry를 도입할 때 잰 값이다. 그때 쓴 OrbStack Web Sentry rehearsal�
 | `NEXT_PUBLIC_WEB_RELEASE`                      | `development` | immutable release ID              |
 | `NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT`    |       `local` | local/preview/production          |
 
-`NEXT_PUBLIC_SENTRY_LOCAL_RECORDING`과 `NEXT_PUBLIC_SENTRY_RECORDING_TRANSPORT_REJECT`는 test/rehearsal 전용이며 production에서 사용하지 않는다.
+`NEXT_PUBLIC_SENTRY_LOCAL_RECORDING`과 `NEXT_PUBLIC_SENTRY_RECORDING_TRANSPORT_REJECT`는 test 전용이며 production에서 사용하지 않는다.
 
 ## Build·CI secret 경계
 
