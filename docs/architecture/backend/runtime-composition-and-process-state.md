@@ -20,8 +20,7 @@ one API process / AppModule
   └── purpose-specific local admission/state
 ```
 
-[API Compose](../../../infra/deploy/compose.api.yml)와
-[ingress trust overlay](../../../infra/deploy/compose.ingress-trust.yml)는 별도 worker가 아닌 하나의 API service를 대상으로 한다.
+[API Compose](../../../infra/deploy/compose.api.yml)는 별도 worker가 아닌 하나의 API service를 대상으로 한다.
 현재 headless worker capability는 **NO-GO**다. WorkerModule, 별도 worker entrypoint/binary, runtime-role selector는 없다.
 Combined는 설명 용어이며 새 enum·환경변수·Boolean role matrix를 추가하는 설계가 아니다.
 

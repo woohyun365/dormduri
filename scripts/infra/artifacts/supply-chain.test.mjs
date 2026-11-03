@@ -94,7 +94,7 @@ test('image pin checks reject unlisted, digest-less and inconsistent references'
   );
   assert.deepEqual(
     extractImageReferences(
-      'compose.web.fixture.yml',
+      'compose.yml',
       [
         `    image: \${WEB_UPSTREAM_IMAGE:-node:24.19.0-alpine@${digest('e')}}`,
         '    image: dormduri-web:${WEB_IMAGE_TAG:-local-rehearsal}',

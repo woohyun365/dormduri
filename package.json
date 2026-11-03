@@ -51,8 +51,6 @@
     "web:storybook": "pnpm --dir apps/web storybook",
     "web:storybook:build": "pnpm --dir apps/web storybook:build",
     "web:sentry:verify-build": "node scripts/observability/sentry/check-build.mjs",
-    "web:sentry:rehearsal": "node scripts/observability/rehearsal/web-sentry.mjs",
-    "web:observability:rehearsal": "node scripts/observability/rehearsal/web-bff.mjs",
     "observability:check:production": "node scripts/observability/production/validate-stack.mjs",
     "infra:inspect": "node scripts/infra/check/inspect.mjs",
     "infra:check:static": "node scripts/infra/check/run.mjs --static",

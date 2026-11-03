@@ -45,7 +45,7 @@
 ```bash
 pnpm observability:check:production
 pnpm infra:compose -- observability-production config
-pnpm web:observability:rehearsal
+pnpm infra:rehearsal:full-stack
 ```
 
 Target에서는 다음을 추가로 확인한다.

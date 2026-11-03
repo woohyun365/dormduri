@@ -110,7 +110,7 @@ Grafana Explore에서 datasource `Loki`를 선택하고 다음 query를 실행�
 {service="api", level="error"}
 ```
 
-Alloy는 Docker stdout log 중 `api`, `nginx`, `web` service만 수집하고 Docker compose service metadata를 Loki `service` label로 사용한다. 관측 stack 자체와 그 밖의 container log는 수집 대상이 아니다. API나 Web이 compose 밖의 host process로 실행되면 Docker log source가 아니므로 Loki에 structured log가 보이지 않는다. API는 같은 Docker daemon의 `api` service, Web BFF는 `web` service로 실행해야 각각의 dashboard query가 동작한다. `pnpm web:observability:rehearsal`은 production standalone Web image와 deterministic upstream fixture를 관측 stack에 연결해 이 경로를 OrbStack에서 검증한다.
+Alloy는 Docker stdout log 중 `api`, `nginx`, `web` service만 수집하고 Docker compose service metadata를 Loki `service` label로 사용한다. 관측 stack 자체와 그 밖의 container log는 수집 대상이 아니다. API나 Web이 compose 밖의 host process로 실행되면 Docker log source가 아니므로 Loki에 structured log가 보이지 않는다. API는 같은 Docker daemon의 `api` service, Web BFF는 `web` service로 실행해야 각각의 dashboard query가 동작한다.
 
 ## Rehearsal 진입점
 
@@ -143,26 +143,10 @@ requestId 같은 추적 필드는 JSON field로 남을 수 있지만 Loki label�
 
 Web BFF는 `web_bff_request_completed` structured event를 같은 Docker stdout 경로로 전달한다. Grafana dashboard UID는 `dormduri-web-bff-reliability`이며 browser runtime error와 Web Vitals는 승인된 managed provider에서 조회한다. 설정·smoke·kill switch 절차는 `infra/runbooks/operations/observability/web-bff.md`를 따른다.
 
-### Web configuration rehearsal
+### Web local 확인
 
-실행 조건과 evidence 해석은 `infra/rehearsal/README.md`가 소유한다. Repository root에서 다음
-configuration rehearsal을 실행할 수 있다.
-
-```bash
-pnpm web:observability:rehearsal
-```
-
-Runner는 다음 configuration과 연결을 검증하고 종료 시 전용 container·network·volume을 정리한다.
-
-- production Next standalone image build와 health
-- `bookmark.list` success/invalid-response/timeout structured event
-- `web` stdout → Alloy → Loki ingest
-- Grafana `dormduri-web-bff-reliability` dashboard provisioning
-- raw rehearsal email/token/query 비노출
-- Loki, Prometheus, Grafana 개별 중단 중 Web BFF 응답 fail-open과 recovery time
-
-실행 후 container를 유지하려면 `WEB_REHEARSAL_KEEP=1`을 사용한다. Resource limit, constrained
-실행, release evidence 금지 조건은 `infra/rehearsal/README.md`와 해당 rehearsal runbook을 따른다.
+관측 component 장애 중 API `/health`와 Web root 응답 유지는 full-stack rehearsal(`pnpm infra:rehearsal:full-stack`)이 확인한다.
+Web BFF event의 Loki ingest와 장애 중 BFF 경로 응답은 지금 자동 검사가 없다([Web 운영 관측 runbook의 Local 확인](../runbooks/operations/observability/web-bff.md#local-확인)).
 
 ## Alert rule / Slack delivery
 

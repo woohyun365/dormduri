@@ -421,12 +421,11 @@ test('groups non-npm updates so shared pins move in one PR', () => {
   }
 });
 
-test('the API, Web and ingress fixture images share one trixie-slim digest pin on the .node-version major', () => {
+test('the API and Web images share one trixie-slim digest pin on the .node-version major', () => {
   const read = (path) => readFileSync(resolve(process.cwd(), path), 'utf8');
   const references = [
     read('infra/deploy/api/Dockerfile').match(/^ARG NODE_IMAGE=(\S+)$/mu)?.[1],
     read('infra/deploy/web/Dockerfile').match(/^ARG NODE_IMAGE=(\S+)$/mu)?.[1],
-    read('scripts/infra/rehearsal/ingress-trust/Dockerfile').match(/^FROM (node:\S+)$/mu)?.[1],
   ];
   const nodeMajor = read('.node-version').trim().split('.')[0];
 

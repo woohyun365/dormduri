@@ -31,7 +31,6 @@ export function verifyResourceBudget({
     databaseLimitMiB === (databaseMode === 'local' ? localDatabaseAllowanceMiB : 0),
     `Database allowance mismatch: ${databaseLimitMiB}MiB.`,
   );
-  assert(!webConfig.services?.['web-upstream'], 'Full-stack profile includes the Web fixture.');
 
   const engineHeadroomMiB = engineMemoryMiB - productLimitMiB - databaseLimitMiB;
   recordScenario(
@@ -39,7 +38,6 @@ export function verifyResourceBudget({
     'pass',
     `${productLimitMiB}MiB product limits; ${databaseLimitMiB}MiB RDS-like local allowance; ${engineHeadroomMiB}MiB engine headroom`,
   );
-  recordScenario('full-stack-fixture-exclusion', 'pass', 'web-upstream is not composed');
 
   return { productLimitMiB, databaseLimitMiB, engineHeadroomMiB };
 }

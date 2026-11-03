@@ -48,7 +48,7 @@ test('stress profile은 base, runtime resource, stress policy 순서로 합성�
     'api-stress',
     'full-stack-api-rehearsal',
     'observability-rehearsal',
-    'web-rehearsal',
+    'full-stack-web-rehearsal',
   ]) {
     assert.deepEqual(resolveManagedNetworks(inventory.profiles[profileName]), [
       'dormduri-observability',
@@ -80,19 +80,14 @@ test('full-stack rehearsal profile은 production base와 resource budget, dispos
   );
 });
 
-test('Web standalone과 full-stack profile은 fixture 책임을 분리한다', () => {
+test('full-stack Web profile은 Web을 제품 resource budget과 함께 합성한다', () => {
   const inventory = loadComposeInventory(repoRoot);
-  const standaloneArgs = buildComposeArgs(inventory, 'web-rehearsal', ['config'], { repoRoot });
   const fullStackArgs = buildComposeArgs(inventory, 'full-stack-web-rehearsal', ['config'], {
     repoRoot,
   });
-  const standaloneFiles = standaloneArgs.filter(
-    (value, index) => standaloneArgs[index - 1] === '-f',
-  );
   const fullStackFiles = fullStackArgs.filter((value, index) => fullStackArgs[index - 1] === '-f');
 
-  assert.ok(standaloneFiles.includes('infra/rehearsal/compose.web.fixture.yml'));
-  assert.equal(fullStackFiles.includes('infra/rehearsal/compose.web.fixture.yml'), false);
+  assert.ok(fullStackFiles.includes('infra/rehearsal/compose.web.yml'));
   assert.ok(fullStackFiles.includes('infra/observability/compose.resources.yml'));
 });
 
@@ -114,20 +109,6 @@ test('production render source에는 stress 전용 key가 없고 resource budget
   assert.match(stress, /AUTH_THROTTLE_LIMIT/u);
 });
 
-test('ingress-trust owns one project without legacy DB/resource/stress overlays', () => {
-  const inventory = loadComposeInventory(repoRoot);
-  const args = buildComposeArgs(inventory, 'ingress-trust', ['config'], { repoRoot });
-  assert.deepEqual(
-    args.filter((value, index) => args[index - 1] === '-f'),
-    [
-      'infra/deploy/compose.api.yml',
-      'infra/rehearsal/compose.web.yml',
-      'infra/deploy/compose.ingress-trust.yml',
-    ],
-  );
-  assert.deepEqual(resolveManagedNetworks(inventory.profiles['ingress-trust']), []);
-});
-
 test('Web 단계 rehearsal은 운영 host compose를 그대로 쓰고 local 덮어쓰기만 더한다', () => {
   const inventory = loadComposeInventory(repoRoot);
   const production = inventory.profiles['user-host'];
@@ -142,7 +123,7 @@ test('Web 단계 rehearsal은 운영 host compose를 그대로 쓰고 local 덮�
     'infra/rehearsal/compose.user-host.yml',
   ]);
   assert.notEqual(rehearsal.project, production.project);
-  // compose.web.yml stays the Web service of the API-stage ingress-trust candidate and the BFF rehearsals.
+  // compose.web.yml stays the Web service of the full-stack rehearsal.
   for (const profile of [production, rehearsal]) {
     assert.ok(!profile.files.includes('infra/rehearsal/compose.web.yml'));
   }
@@ -173,7 +154,6 @@ test('로컬 자원 label은 rehearsal·runner overlay에만 있고 운영 후�
     'infra/deploy/compose.api.yml',
     'infra/observability/compose.base.yml',
     'infra/observability/compose.production.yml',
-    'infra/deploy/compose.ingress-trust.yml',
     'infra/deploy/user/compose.yml',
   ]) {
     assert.doesNotMatch(read(path), /dormduri\.local\./u, path);
@@ -222,4 +202,9 @@ test('이름 있는 volume label은 실행마다 새 project를 만드는 full-s
     .filter(([, profile]) => profile.files.includes('infra/rehearsal/compose.postgres.yml'))
     .map(([name]) => name);
   assert.deepEqual(fullStackOnly, ['full-stack-api-rehearsal']);
+  // compose.web.yml carries local Web assumptions (local image, loopback publish), so only the full-stack Web profile uses it.
+  const webRehearsalOnly = Object.entries(inventory.profiles)
+    .filter(([, profile]) => profile.files.includes('infra/rehearsal/compose.web.yml'))
+    .map(([name]) => name);
+  assert.deepEqual(webRehearsalOnly, ['full-stack-web-rehearsal']);
 });

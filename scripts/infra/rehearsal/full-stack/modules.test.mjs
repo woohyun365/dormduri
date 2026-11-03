@@ -92,7 +92,10 @@ test('resource budget separates product limits from the local database allowance
     databaseLimitMiB: 512,
     engineHeadroomMiB: 1120,
   });
-  assert.equal(scenarios.length, 2);
+  assert.deepEqual(
+    scenarios.map(([name]) => name),
+    ['product-resource-budget'],
+  );
 });
 
 test('cleanup repeats the same boundary and records idempotent completion', () => {
