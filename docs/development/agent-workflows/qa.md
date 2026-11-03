@@ -51,7 +51,7 @@ mock이나 assertion으로 false positive가 생길 수 있습니다.
 - 테스트와 구현이 같은 잘못된 가정을 공유할 수 있다는 구체적 evidence
 
 이 검토는 첫 push·PR 전에 local commit에서 받고, 결과(PASS 또는 BLOCKED·남은 gap과 그 근거)를 PR에 기록합니다. 검토 뒤
-source가 바뀌면 아래 delta re-review를 따르며, PASS 뒤 기계적 수정만 [PASS 뒤 처분](#pass-뒤-처분)으로 닫습니다. Hosted-only evidence가 필요한 예외는
+source가 바뀌면 아래 delta re-review(읽는 범위는 [리뷰 회차](#리뷰-회차)의 2회차 규칙)를 따르며, PASS 뒤 기계적 수정만 [PASS 뒤 처분](#pass-뒤-처분)으로 닫습니다. Hosted-only evidence가 필요한 예외는
 [Remote push budget](../github/branch-and-pr-strategy.md#remote-push-budget)을 따릅니다
 ([PR과 merge](../github/branch-and-pr-strategy.md#pr과-merge)).
 
@@ -105,8 +105,12 @@ acceptance coverage gap 0**이 merge 조건입니다. 보고된 blocking finding
 - **1회차**는 넓게 봅니다. 확신이 낮은 blocking 후보도 근거와 함께 보고하고 `low`는 중요한 순서로 5건까지 보고합니다.
   Trigger를 충족한 변경의 1회차는 같은 snapshot에 reviewer 여러 명을 둡니다. 구성(같은 범위 여러 명 또는 기준 항목 분담)과
   지원 범위는 host adapter가 정하며, 다중 reviewer를 지원하지 않는 host는 단일 reviewer로 리뷰하고 그 사실을 PR에 적습니다.
-- **2회차부터**는 단일 독립 reviewer가 전 범위를 다시 읽되 blocking finding만 보고합니다. 새로 생긴 것과 직전 결과에서 아직
-  해소되지 않은 것이 대상이며 `low`는 보고하지 않습니다. 직전 회차 결과는 리뷰 입력으로 함께 줍니다.
+- **2회차부터**는 단일 독립 reviewer가 delta만 읽고 blocking finding만 보고합니다. 입력은 직전 회차의 blocking·미해소
+  finding 목록, 직전 회차 snapshot 뒤의 수정 diff, 수정이 닿은 절·함수이고, reviewer는 그 finding의 해소 여부와 그 범위의 새
+  blocking을 보고합니다. `low`는 보고하지 않습니다. 수정이 직전 subject paths 밖 파일을 고치거나 새 파일을 만들었거나, 변경이
+  [Independent review disposition](#independent-review-disposition)의 trigger를 충족하면 전 범위를 다시 읽습니다. Trigger
+  충족은 Parent가 정해 회차 기록에 적고, diff 크기로는 정하지 않습니다. 결정적 검사는 매 회차 전 범위로 실행하고, 직전 회차
+  결과는 리뷰 입력으로 함께 줍니다.
 - 모든 회차에서 finding 0건은 정상 결과입니다. 채우려고 finding을 만들지 않습니다.
 - 여러 reviewer 중 한 명만 낸 blocking finding은 다수결로 버리지 않습니다. Parent가 재현해 반영하거나, 재현 근거를 기록하고
   기각합니다. 한 명만 낸 비차단 finding은 처분 기록에 남깁니다.
@@ -134,8 +138,10 @@ acceptance coverage gap 0**이 merge 조건입니다. 보고된 blocking finding
 
 ### 계획 readiness 리뷰
 
-[계획 readiness review](./plan-authoring/README.md#implementation-readiness-review)에도 위 severity·gate·회차·처분 규칙을 적용합니다.
-1회차 다중 reviewer는 적용하지 않고 단일 reviewer로 리뷰합니다. Readiness PASS는 구현 뒤 QA PASS를 대신하지 않습니다.
+계획 개정의 리뷰 여부와 입력 범위는 [계획 리뷰 등급](./session-continuity.md#계획-초안-staging과-promote)이 정합니다.
+리뷰를 받는 등급(P2·P3)과 [계획 readiness review](./plan-authoring/README.md#implementation-readiness-review)에도 위
+severity·gate·회차·처분 규칙을 적용합니다. 1회차 다중 reviewer는 적용하지 않고 단일 reviewer로 리뷰합니다. Readiness
+PASS는 구현 뒤 QA PASS를 대신하지 않습니다.
 
 ## Reviewer와 runner의 책임
 
@@ -213,7 +219,8 @@ Reviewer는 요구가 말하지 않은 동작을 intent·결정 기록과 합리
 
 Source/contract 또는 acceptance에 영향을 주는 요구사항·guide가 바뀌면 이전 리뷰는 해당 snapshot의 historical evidence입니다.
 바뀐 가정과 영향 범위를 packet에 밝힌 delta re-review와 관련 regression을 수행한 후 새 snapshot을 기록합니다. Delta re-review는
-[리뷰 회차](#리뷰-회차)의 다음 회차이므로 reviewer는 전 범위를 다시 읽고 blocking finding만 보고합니다. 무관한 metadata 수정으로
+[리뷰 회차](#리뷰-회차)의 다음 회차이므로 reviewer는 그 2회차 범위(delta와 전 범위로 돌아가는 조건)를 읽고 blocking
+finding만 보고합니다. 무관한 metadata 수정으로
 전체 suite를 자동 재실행하지 않지만, 기존 PASS를 새 코드의 PASS로 옮기지 않습니다. PASS 뒤 기계적 수정만
 [PASS 뒤 처분](#pass-뒤-처분)으로 닫습니다.
 

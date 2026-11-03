@@ -104,7 +104,7 @@ Runtime 지원 관측 필드와 effort 필드는 없습니다. Effort는 역할 
 - `initial-review`는 fresh scoped context만 허용합니다. 이전 builder를 reviewer로 바꾸거나 full history를 주입하지
   않습니다. `review-delta`는 scoped 또는 검증된 같은 reviewer 재사용이며 최초 독립 리뷰라고 다시 부르지 않습니다.
   [QA 리뷰 회차](../qa.md#리뷰-회차)의 2회차부터는 회차마다 `createReviewDispatch()`로 새 reviewer task(`review_<token>_<round>`)를
-  scoped로 열고, 바뀐 부분만이 아니라 전 범위와 직전 회차 결과를 함께 줍니다. 같은 reviewer `reuse`는 이 계약이 받지만 회차에는
+  scoped로 열고, 그 절의 2회차 범위(delta와 전 범위로 돌아가는 조건)와 직전 회차 결과를 함께 줍니다. 같은 reviewer `reuse`는 이 계약이 받지만 회차에는
   쓰지 않습니다. 회차마다 reviewer를 수락하고 수락한 child의 재개는 hook이 막기 때문입니다([등록·수락](./codex-native-registry.md#subagent-hook-guardrail과-완료-관측)).
 - `reuse`는 같은 outcome·lane·role·scope와 **이번 snapshot에 대한 재확인**이 필요합니다. 새 snapshot 자체는 delta에서
   정상적이지만 stale 확인값을 재사용하지 않습니다. 불일치하면 scoped 재구성을 추천하고 `compatible=false`로 둡니다.

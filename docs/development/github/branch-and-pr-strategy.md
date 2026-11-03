@@ -257,8 +257,8 @@ NODE
 4. commit은 하나의 의도와 Lore evidence를 가집니다.
 5. merge 전 독립 검토가 필요한 변경([QA disposition](../agent-workflows/qa.md#independent-review-disposition))은 이 local
    commit에서 검토를 받습니다. 지적 수정과 재검토도 push 전에 끝내고, 수정 commit은 local에 모읍니다. 검토 뒤 preflight
-   수정 등으로 source가 바뀌면 push 전에 [다음 회차](../agent-workflows/qa.md#리뷰-회차)로 다시 검토합니다(바뀐 delta를 밝히되
-   reviewer는 전 범위를 읽습니다). 실행 의미가 바뀌지 않는 기계적 수정은
+   수정 등으로 source가 바뀌면 push 전에 [다음 회차](../agent-workflows/qa.md#리뷰-회차)로 다시 검토합니다(reviewer가 읽는
+   delta와 전 범위로 돌아가는 조건은 그 회차 규칙을 따릅니다). 실행 의미가 바뀌지 않는 기계적 수정은
    [QA PASS 뒤 처분](../agent-workflows/qa.md#pass-뒤-처분)으로 닫습니다. Hosted-only evidence가 필요한 예외는
    [Remote push budget](#remote-push-budget) 9를 따릅니다.
 6. [Pre-PR CI lane preflight](#pre-pr-ci-lane-preflight)를 거쳐 branch를 한 번 push하고 PR을 만듭니다. PR은 `dev`를
