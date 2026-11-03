@@ -1,0 +1,63 @@
+#!/usr/bin/env node
+// 공개 기록(workflow log·run 요약·Release 본문·attestation 내용을 내려받은 text)에 D-WB7 기록 금지 값이 있는지 본다.
+// 종류마다 pattern 하나를 두고, 걸린 값은 출력하지 않고 종류·파일·줄만 적는다.
+// 허용 값(image digest, commit SHA, workflow run·job URL, image·git 배포 tag, timestamp)은 먼저 지운 뒤 검사한다. 그래서
+// run·job URL의 긴 숫자 ID와 digest 안의 숫자열은 account ID로 걸리지 않는다. GitHub 소유자·저장소 숫자 ID는 종류가 아니다
+// (숫자만으로는 다른 값과 구분할 수 없어 template placeholder test와 리뷰가 지킨다).
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+export const FORBIDDEN_KINDS = Object.freeze([
+  ['AWS account ID', /(?<![0-9])[0-9]{12}(?![0-9])/u],
+  ['ARN', /\barn:aws[a-z-]*:/u],
+  ['registry host', /\.dkr\.ecr\./u],
+  ['managed node or instance ID', /\b(?:mi-[0-9a-f]{17}|i-[0-9a-f]{8}(?:[0-9a-f]{9})?)\b/u],
+  [
+    'IPv4 address',
+    /(?<![0-9.])(?!(?:127\.0\.0\.1|0\.0\.0\.0)(?![0-9.]))(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?![0-9.])/u,
+  ],
+  ['email address', /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b/u],
+  ['ACME account URI', /\/acme\/acct\//u],
+  ['activation ID', /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/iu],
+]);
+
+// 지우고 검사하는 허용 값. 순서대로 지운다(긴 것 먼저).
+export const ALLOWED_VALUES = Object.freeze([
+  [
+    'GitHub run or job URL',
+    /https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/actions\/runs\/[0-9]+(?:\/(?:job|attempts)\/[0-9]+)*/gu,
+  ],
+  ['image digest', /\bsha256:[0-9a-f]{64}\b/gu],
+  ['commit SHA', /\b[0-9a-f]{40}\b/gu],
+  ['image deploy tag', /\bdeploy-[0-9]{8}T[0-9]{4}-[0-9]+\b/gu],
+  ['git deploy tag', /\bdeploy-web-[0-9]{8}-[0-9]+\b/gu],
+  ['timestamp', /\b[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z\b/gu],
+]);
+
+export function scanText(text, source = 'input') {
+  const findings = [];
+  text.split('\n').forEach((line, index) => {
+    let cleaned = line;
+    for (const [, pattern] of ALLOWED_VALUES) cleaned = cleaned.replace(pattern, ' ');
+    for (const [kind, pattern] of FORBIDDEN_KINDS) {
+      if (pattern.test(cleaned)) findings.push({ kind, source, line: index + 1 });
+    }
+  });
+  return findings;
+}
+
+const isDirectExecution = () =>
+  process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectExecution()) {
+  const files = process.argv.slice(2);
+  const inputs = files.length
+    ? files.map((file) => [file, readFileSync(file, 'utf8')])
+    : [['stdin', readFileSync(0, 'utf8')]];
+  const findings = inputs.flatMap(([source, text]) => scanText(text, source));
+  for (const finding of findings)
+    console.error(`${finding.kind}: ${finding.source}:${finding.line}`);
+  console.log(`public record scan: ${inputs.length} inputs, ${findings.length} findings`);
+  process.exit(findings.length ? 1 : 0);
+}

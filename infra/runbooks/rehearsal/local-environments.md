@@ -129,7 +129,6 @@ label이 붙는다. Label은 남은 자원을 골라 지우기 위한 표시이�
   label을 둔다. Image tag가 고정(`dormduri-web:user-host-rehearsal`, `dormduri-ingress:user-host-rehearsal`)이라 run ID는
   `local`이다. `pnpm infra:check:runtime`의 ingress smoke는 만든 container·network·image에
   `dormduri.local.created-by=user-host-ingress-smoke`를 붙이고 끝날 때 지운다.
-- `pnpm infra:artifacts:build`는 OCI layout을 `.artifacts`에 쓰고 image store에 image를 남기지 않는다.
 
 남은 자원 확인(읽기 전용):
 
@@ -141,7 +140,6 @@ docker image inspect --format '{{index .Config.Labels "dormduri.local.created-by
 docker volume ls --filter label=dormduri.local.created-by \
   --format 'table {{.Name}}\t{{.Label "dormduri.local.created-by"}}\t{{.Label "dormduri.local.run-id"}}'
 docker volume ls --filter label=com.docker.compose.project=dormduri-api
-docker buildx du --builder dormduri-artifacts
 docker buildx du
 docker system df
 ```
@@ -152,12 +150,8 @@ image·volume과 label이 없는 자원은 그 작업의 owner가 정한다.
 
 ### Builder cache
 
-- `dormduri-artifacts` builder는 `pnpm infra:artifacts:build`가
-  [`buildkitd.toml`](../../../scripts/infra/artifacts/buildkitd.toml)로 만든다(cache 최대 20GB, 쓰이지 않은 cache 14일
-  보존). 만든 뒤 `docker buildx inspect`의 GC policy가 그 상한과 다르면 build 전에 실패한다.
-- 설정을 바꿨거나 그 확인이 실패하면 builder를 지우고 다시 만든다: `docker buildx rm dormduri-artifacts` 뒤
-  `pnpm infra:artifacts:build`. `buildx rm`은 그 builder의 cache와 state volume을 함께 지운다. Cache만 줄이려면
-  `docker buildx prune --builder dormduri-artifacts`처럼 그 builder를 지정한다.
+- 저장소 script는 별도 buildx builder를 만들지 않는다. 지운 local OCI build가 만든 `dormduri-artifacts` builder가 남아 있으면
+  `docker buildx rm dormduri-artifacts`로 지운다(그 builder의 cache와 state volume을 함께 지운다).
 - 기본 builder(OrbStack `orbstack`·`default`)의 cache 상한은 사용자의 OrbStack·Docker 설정이다. 이 저장소는 바꾸지
   않는다. 확인은 `docker buildx du`·`docker system df`·`docker buildx inspect <builder>`의 GC policy이고, 조절 위치는
   Docker Engine `daemon.json`의 `builder.gc`(예: `defaultKeepStorage`)다. OrbStack은 `orb config docker` 또는

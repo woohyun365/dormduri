@@ -1,0 +1,254 @@
+// web-cd.yml의 결정적 검사(D-WB5·D-WB7). 실제 AWS·GitHub 동작은 Phase 4 첫 실행이 확인하고, 여기서는 workflow 글이
+// 신뢰 경계를 지키는지 본다: job별 권한과 environment, 직렬화, attestation 이름·조건·순서, provenance 검증 조건과 순서,
+// mask 순서, role secret 위치, artifact upload 없음, node별 SSM 조회 없음, 경로 filter와 두 Dockerfile 입력의 일치.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
+const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
+const workflow = read('.github/workflows/web-cd.yml');
+const sender = read('scripts/infra/user-host/ssm-send.sh');
+
+// `jobs:` 아래 두 칸 들여쓴 이름마다 그 job의 글.
+function jobs(source) {
+  const body = source.slice(source.indexOf('\njobs:\n') + 7);
+  const parts = body.split(/^ {2}(?=[a-z][a-z0-9_-]*:$)/mu).filter(Boolean);
+  return Object.fromEntries(parts.map((part) => [part.slice(0, part.indexOf(':')), part]));
+}
+// job 글 → 이름 있는 step 목록(순서 유지).
+function steps(job) {
+  return job
+    .split(/^ {6}- name: /mu)
+    .slice(1)
+    .map((part) => ({ name: part.slice(0, part.indexOf('\n')), body: part }));
+}
+function permissions(job) {
+  const block = /^ {4}permissions:\n((?: {6}[a-z-]+: [a-z]+\n)+)/mu.exec(job)?.[1] ?? '';
+  return Object.fromEntries(
+    [...block.matchAll(/^ {6}([a-z-]+): ([a-z]+)$/gmu)].map((m) => [m[1], m[2]]),
+  );
+}
+const index = (list, pattern) => list.findIndex((step) => pattern.test(step.body));
+
+const JOBS = jobs(workflow);
+
+test('only the designated jobs hold write scopes and only deploy references the production environment', () => {
+  assert.match(workflow, /^permissions:\n {2}contents: read\n\n/mu);
+  assert.deepEqual(Object.keys(JOBS), ['build', 'deploy', 'tag', 'record']);
+  assert.deepEqual(permissions(JOBS.build), { contents: 'read', 'id-token': 'write' });
+  assert.deepEqual(permissions(JOBS.deploy), {
+    contents: 'read',
+    'id-token': 'write',
+    attestations: 'write',
+  });
+  assert.deepEqual(permissions(JOBS.tag), { contents: 'read', 'id-token': 'write' });
+  assert.deepEqual(permissions(JOBS.record), { contents: 'write' });
+  assert.match(JOBS.deploy, /^ {4}environment: production$/mu);
+  for (const name of ['build', 'tag', 'record'])
+    assert.doesNotMatch(JOBS[name], /environment:/u, name);
+});
+
+test('one workflow-level concurrency group serializes every run without cancelling the running one', () => {
+  assert.match(
+    workflow,
+    /^concurrency:\n {2}group: web-cd-production\n {2}cancel-in-progress: false$/mu,
+  );
+  assert.doesNotMatch(Object.values(JOBS).join('\n'), /concurrency:/u);
+});
+
+test('the publish role ARN is a repository secret and the deploy role ARN is read only by the environment job', () => {
+  const roles = (job) =>
+    [...job.matchAll(/role-to-assume: \$\{\{ secrets\.([A-Z_]+) \}\}/gu)].map((m) => m[1]);
+  assert.deepEqual(roles(JOBS.build), ['AWS_PUBLISH_ROLE_ARN']);
+  assert.deepEqual(roles(JOBS.tag), ['AWS_PUBLISH_ROLE_ARN']);
+  assert.deepEqual(roles(JOBS.deploy), ['AWS_DEPLOY_ROLE_ARN']);
+  assert.deepEqual(roles(JOBS.record), []);
+  assert.equal(
+    (workflow.match(/role-to-assume:/gu) ?? []).length,
+    3,
+    'no role is assumed elsewhere',
+  );
+  assert.doesNotMatch(workflow, /arn:aws/u);
+});
+
+test('the account ID mask is on and the registry host is masked before the login prints it', () => {
+  for (const [name, job] of Object.entries(JOBS)) {
+    const list = steps(job);
+    for (const step of list.filter(({ body }) => /configure-aws-credentials@/u.test(body))) {
+      assert.match(step.body, /mask-aws-account-id: true/u, `${name}: ${step.name}`);
+    }
+    const login = index(list, /amazon-ecr-login@/u);
+    if (login < 0) continue;
+    assert.match(list[login].body, /mask-password: 'true'/u, name);
+    const mask = list[login - 1];
+    assert.equal(mask.name, 'Mask the registry host', `${name}: the mask step precedes the login`);
+    assert.match(mask.body, /aws sts get-caller-identity --query Account --output text/u);
+    assert.match(
+      mask.body,
+      /echo "::add-mask::\$account\.dkr\.ecr\.\$AWS_REGION\.amazonaws\.com"/u,
+    );
+    assert.doesNotMatch(mask.body, /env:/u, `${name}: an env value would print in the step header`);
+    list.forEach((step, position) => {
+      if (/steps\.ecr\.outputs\.registry/u.test(step.body)) {
+        assert.ok(position > login, `${name}: ${step.name} reads the registry after the login`);
+      }
+    });
+  }
+});
+
+test('no workflow value reaches a step through an unmasked variable', () => {
+  assert.doesNotMatch(workflow, /\$\{\{\s*vars\./u, 'a variable value prints in the step header');
+  assert.match(
+    JOBS.build,
+    /NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN: \$\{\{ secrets\.CLOUDFLARE_WEB_ANALYTICS_TOKEN \}\}/u,
+  );
+});
+
+test('attestations are made only on push, after approval, with literal subject names and the build digests', () => {
+  const list = steps(JOBS.deploy);
+  const attests = list.filter(({ body }) => /actions\/attest@/u.test(body));
+  assert.deepEqual(
+    attests.map(({ body }) => [
+      /subject-name: (\S+)/u.exec(body)?.[1],
+      /subject-digest: (.+)/u.exec(body)?.[1].trim(),
+      /if: (.+)/u.exec(body)?.[1].trim(),
+    ]),
+    [
+      [
+        'dormduri/web',
+        '${{ needs.build.outputs.web_digest }}',
+        "${{ github.event_name == 'push' }}",
+      ],
+      [
+        'dormduri/ingress',
+        '${{ needs.build.outputs.ingress_digest }}',
+        "${{ github.event_name == 'push' }}",
+      ],
+    ],
+  );
+  assert.doesNotMatch(
+    JOBS.build,
+    /actions\/attest@/u,
+    'nothing reaches the public log before approval',
+  );
+  for (const name of ['tag', 'record']) assert.doesNotMatch(JOBS[name], /actions\/attest@/u);
+  for (const { body } of attests) assert.match(body, /push-to-registry: false/u);
+});
+
+test('every run step uses bash with pipefail so a piped failure stops the step', () => {
+  assert.match(workflow, /^defaults:\n {2}run:\n {4}shell: bash$/mu);
+  assert.doesNotMatch(workflow, /^ +shell: (?!bash$)/mu);
+});
+
+test('only main runs reach the environment job', () => {
+  assert.match(JOBS.deploy, /^ {4}if: \$\{\{ [^\n]*github\.ref == 'refs\/heads\/main'/mu);
+  assert.match(JOBS.build, /^ {4}if: \$\{\{ github\.event_name == 'push' \}\}$/mu);
+  assert.match(workflow, /^ {2}push:\n {4}branches: \[main\]$/mu);
+});
+
+test('provenance is verified for both digests before anything is sent to the host', () => {
+  const list = steps(JOBS.deploy);
+  const verify = index(list, /gh attestation verify/u);
+  const send = index(list, /ssm-send\.sh/u);
+  const lastAttest = list.map(({ body }) => /actions\/attest@/u.test(body)).lastIndexOf(true);
+  assert.ok(verify > lastAttest && verify < send, 'attest → verify → send');
+  const body = list[verify].body;
+  assert.match(body, /--signer-workflow "\$GITHUB_REPOSITORY\/\.github\/workflows\/web-cd\.yml"/u);
+  assert.match(body, /--source-ref refs\/heads\/main/u);
+  assert.match(body, /--deny-self-hosted-runners/u);
+  assert.match(body, /--source-digest "\$GITHUB_SHA"/u, 'a push run deploys only its own commit');
+  assert.match(body, /release-record\.mjs match/u, 'a dispatch pair must match its deploy record');
+  for (const [label, pattern] of [
+    ['the document hash check', /describe-document/u],
+    ['the SBOM check', /release-record\.mjs check-sbom/u],
+    ['the deploy record plan', /release-record\.mjs plan/u],
+    ['the newer change check', /git log -1 --format=%H origin\/main/u],
+  ]) {
+    const position = index(list, pattern);
+    assert.ok(position >= 0 && position < send, `${label} runs before sending`);
+  }
+});
+
+test('a stopped run writes its stop condition and only a scanned stage record becomes a Release', () => {
+  const deploy = steps(JOBS.deploy);
+  const last = deploy.at(-1);
+  assert.match(last.body, /if: \$\{\{ failure\(\) \}\}/u);
+  assert.match(last.body, />> "\$GITHUB_STEP_SUMMARY"/u);
+  const record = steps(JOBS.record).at(-1).body;
+  const order = [
+    'release-record.mjs record',
+    'public-record-scan.mjs "$RUNNER_TEMP/record.md"',
+    'cat "$RUNNER_TEMP/record.md" >> "$GITHUB_STEP_SUMMARY"',
+    'gh release create',
+  ].map((text) => record.indexOf(text));
+  assert.ok(
+    order.every((position) => position >= 0),
+    JSON.stringify(order),
+  );
+  assert.deepEqual(
+    [...order].sort((left, right) => left - right),
+    order,
+  );
+});
+
+test('no workflow artifact is uploaded and no per-node SSM invocation is read', () => {
+  assert.doesNotMatch(workflow, /upload-artifact/u);
+  for (const source of [workflow, sender]) {
+    assert.doesNotMatch(source, /list-command-invocations|get-command-invocation/u);
+  }
+  assert.match(sender, /list-commands --command-id/u);
+  assert.match(sender, /echo "::add-mask::\$command_id"/u);
+});
+
+test('dispatch inputs reach shell steps only through the environment', () => {
+  for (const { name, body } of Object.values(JOBS).flatMap(steps)) {
+    const run = /^ {8}run: ([\s\S]*)$/mu.exec(body)?.[1] ?? '';
+    assert.doesNotMatch(run, /\$\{\{\s*(?:inputs|github\.event)\./u, name);
+  }
+});
+
+// Dockerfile의 COPY 원본 → 저장소 경로(build context 기준).
+function copySources(dockerfile, context) {
+  return [...read(dockerfile).matchAll(/^COPY (?!--from)(.+)$/gmu)].flatMap((match) => {
+    const parts = match[1].split(/\s+/u).filter((part) => !part.startsWith('--'));
+    return parts.slice(0, -1).map((source) => (context ? `${context}/${source}` : source));
+  });
+}
+const covered = (path, filters) =>
+  filters.some((filter) =>
+    filter.endsWith('/**') ? `${path}/`.startsWith(filter.slice(0, -2)) : filter === path,
+  );
+
+test('the push path filter covers every Dockerfile input and matches the stale-run check', () => {
+  const pathBlock = /^ {4}paths:\n((?: {6}- .+\n)+)/mu.exec(workflow)[1];
+  const paths = [...pathBlock.matchAll(/^ {6}- (\S+)$/gmu)].map((match) => match[1]);
+  for (const source of [
+    ...copySources('infra/deploy/web/Dockerfile', ''),
+    ...copySources('infra/deploy/user/ingress/Dockerfile', 'infra/deploy/user/ingress'),
+  ]) {
+    assert.ok(
+      covered(source.replace(/\/$/u, ''), paths),
+      `${source} is not in the push path filter`,
+    );
+  }
+  for (const required of [
+    '.dockerignore',
+    'infra/deploy/web/**',
+    'infra/deploy/user/**',
+    '.github/workflows/web-cd.yml',
+  ]) {
+    assert.ok(paths.includes(required), required);
+  }
+  const stale = /git log -1 --format=%H origin\/main -- ([\s\S]+?)\)/u
+    .exec(workflow)[1]
+    .split(/[\s\\]+/u)
+    .filter(Boolean);
+  assert.deepEqual(
+    stale.sort(),
+    paths.map((path) => path.replace(/\/\*\*$/u, '')).sort(),
+    'the stale-run check reads the same paths as the trigger',
+  );
+});

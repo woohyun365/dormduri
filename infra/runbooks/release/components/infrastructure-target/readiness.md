@@ -50,7 +50,9 @@ admin audit와 관측량을 포함한 별도 rehearsal로 이 시작값을 교�
 
 ### 월 비용 planning input
 
-2026-07-27 공개 AWS 가격과 planning 환율 `1 USD = 1,400 KRW`를 사용한 현재 입력이다.
+지금 Web 단계의 실제 월 비용과 항목별 단가는 [서버 비용](../../../../../docs/deploy/server-costs.md)이 소유한다. 아래 표는 그
+뒤 단계(DB를 들이는 단계부터)의 planning 값이고, 2026-07-27 공개 AWS 가격과 planning 환율 `1 USD = 1,400 KRW`를 사용한
+입력이다.
 
 | 단계               | 구성                                                                     |     기본 월 비용 | 예비비 포함 planning budget |
 | ------------------ | ------------------------------------------------------------------------ | ---------------: | --------------------------: |
@@ -101,6 +103,12 @@ Pricing Calculator와 실제 billing 조건으로 갱신하고 evidence에 계�
 - publish principal, runtime pull principal, 최소 권한과 rotation owner
 - release SHA에 연결된 immutable image digest
 - SBOM와 provenance/attestation 생성·검증 위치
+
+Web 단계 값: registry는 ECR 비공개 `dormduri/web`·`dormduri/ingress`(보존 규칙 원본 `infra/aws/ecr/lifecycle-policy.json`),
+publish·deploy·host role 원본은 `infra/aws/iam/`이다. CD가 build tag `sha-<commit>`으로 올린 digest를 host가 digest로 받고,
+SBOM은 ECR image index의 attestation manifest, provenance는 GitHub artifact attestation(승인 뒤 생성, SendCommand 전
+검증)이다. Digest 쌍과 SBOM manifest digest는 Release 단계 기록에 남는다. 절차는
+[Web 단계 배포](../../web-stage-deploy.md)다.
 
 ### DNS, TLS, ingress
 

@@ -56,8 +56,6 @@
     "infra:check:static": "node scripts/infra/check/run.mjs --static",
     "infra:check:runtime": "node scripts/infra/check/run.mjs --runtime",
     "infra:check": "node scripts/infra/check/run.mjs",
-    "infra:artifacts:build": "node scripts/infra/artifacts/build.mjs",
-    "infra:artifacts:verify": "node scripts/infra/artifacts/verify-manifest.mjs",
     "infra:compose": "node scripts/infra/compose/profile.mjs",
     "infra:rehearsal:full-stack": "node scripts/infra/rehearsal/full-stack/index.mjs",
     "infra:rehearsal:lightsail-secrets": "pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts test/operations/platform/lightsail-secret-delivery.spec.ts test/operations/platform/mounted-file-secret-reader.spec.ts",

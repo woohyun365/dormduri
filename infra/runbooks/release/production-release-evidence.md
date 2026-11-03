@@ -108,6 +108,7 @@ redaction_confirmed: false
 
 ```yaml
 stage:
+action:
 release_id:
 release_commit_sha:
 images:
@@ -128,6 +129,7 @@ redaction_confirmed: false
 | 필드                           | 적는 값                                                                                                                                                     |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `stage`                        | 단계 이름(예: `web`)                                                                                                                                        |
+| `action`                       | 그 실행의 동작(`deploy`·`rollback`·`maintenance`). `rollback`의 `images`는 되돌린 쌍이고, `maintenance`는 지금 쌍과 직전 안전 쌍을 바꾸지 않는다            |
 | `release_id`                   | 배포 tag 이름                                                                                                                                               |
 | `release_commit_sha`           | 배포한 source commit SHA                                                                                                                                    |
 | `images`                       | image마다 registry host 없는 `<repository 이름>@sha256:<digest>`                                                                                            |
@@ -135,7 +137,7 @@ redaction_confirmed: false
 | `components`                   | 그 단계가 올리거나 바꾼 component마다 결과(`PASS`·`FAIL`·`ACCEPTED_RISK`)와 evidence identifier. 그 단계에 들지 않는 component와 항목은 `해당 없음(<이유>)` |
 | `smoke`                        | target smoke에서 확인한 경로와 결과                                                                                                                         |
 | `rollback_check`               | 그 단계 rollback 확인 결과와 그 실행의 workflow run URL                                                                                                     |
-| `previous_safe`                | 이 배포 직전의 안전한 image(`images`와 같은 형식). 첫 배포면 `없음(첫 배포)`                                                                                |
+| `previous_safe`                | 이 실행 뒤 rollback 대상이 되는 직전 안전 image(`images`와 같은 형식). 첫 배포면 `없음(첫 배포)`, rollback 뒤에는 `없음(rollback 뒤 host가 직전 쌍을 비움)` |
 | `aggregate_state`              | `COLLECTING`                                                                                                                                                |
 | `final_decision`               | `PENDING_TARGET`                                                                                                                                            |
 | `operator`                     | 배포를 승인·실행한 사람의 역할 또는 GitHub 계정 이름                                                                                                        |

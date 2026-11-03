@@ -8,8 +8,10 @@
 디렉터리에는 자동 합성하지 않는다.
 
 Web 단계의 hosting target·registry·전달 경로는 [Production environment](../../docs/deploy/production-environment.md)가
-적는다. Web image를 build·publish하고 배포 명령을 부르는 CD workflow는 아직 없다. Host에서 할 일은 아래
-[User host 묶음](#user-host-묶음)의 SSM document가 정한다.
+적는다. Web·ingress image를 build·publish하고 배포 명령을 부르는 것은 CD workflow
+[`web-cd.yml`](../../.github/workflows/web-cd.yml)이고, 그 실행 절차는
+[Web 단계 배포](../runbooks/release/web-stage-deploy.md)가 소유한다. Host에서 할 일은 아래 [User host 묶음](#user-host-묶음)의
+SSM document가 정한다.
 
 ## 자산과 책임
 
@@ -133,7 +135,7 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
 
 ## 제공하지 않는 기능
 
-- production image build·publish workflow(registry 수명 정책 원본은 `infra/aws/ecr/`)
+- API image의 build·publish와 배포(Web 단계 CD는 `web`·`ingress` image만 다룬다. registry 수명 정책 원본은 `infra/aws/ecr/`)
 - provider/instance/network provisioning
 - production secret 생성 또는 credential rotation
 - API candidate의 traffic 전환과 automated rollback(user host 묶음의 되돌림은 SSM document가 한다)
