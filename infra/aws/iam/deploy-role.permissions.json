@@ -38,6 +38,21 @@
         "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/web",
         "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/ingress"
       ]
+    },
+    {
+      "Sid": "LogInToVerifyProvenance",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadManifestsToVerifyProvenance",
+      "Effect": "Allow",
+      "Action": "ecr:BatchGetImage",
+      "Resource": [
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/web",
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/ingress"
+      ]
     }
   ]
 }

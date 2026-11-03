@@ -1,0 +1,507 @@
+name: Web CD
+
+# Web 단계 배포(infra/runbooks/release/web-stage-deploy.md). main에서 Web 배포 입력이 바뀌면 image 둘을 build·검사·push하고,
+# production 승인 뒤 provenance를 검증하고 SSM document로 host에 배포한다. workflow_dispatch는 기록된 쌍의 재배포·rollback·
+# 점검 mode용이다. 공개 저장소라 account ID·registry host·ARN·node ID·IP를 log와 기록에 남기지 않는다(D-WB7).
+on:
+  push:
+    branches: [main]
+    # Web·ingress image가 복사하는 입력과 이 workflow. scripts/infra/user-host/web-cd-contract.test.mjs가 두 Dockerfile의
+    # COPY·.dockerignore와 맞는지 고정한다.
+    paths:
+      - apps/web/**
+      - packages/shared/**
+      - packages/tsconfig/**
+      - packages/eslint-config/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts/ci/product/prepare-next-standalone.mjs
+      - .dockerignore
+      - infra/deploy/web/**
+      - infra/deploy/user/**
+      - .github/workflows/web-cd.yml
+  workflow_dispatch:
+    inputs:
+      action:
+        description: deploy(기록된 쌍 재배포), rollback(host의 직전 쌍으로), maintenance(점검 mode)
+        required: true
+        type: choice
+        options: [deploy, rollback, maintenance]
+      web_digest:
+        description: dormduri/web image digest (sha256:...)
+        required: true
+        type: string
+      ingress_digest:
+        description: dormduri/ingress image digest (sha256:...)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# 배포와 rollback이 겹치지 않게 workflow 단위로 줄 세운다. 대기 실행은 더 새 실행으로 바뀐다(runbook 대기 실행 규칙).
+concurrency:
+  group: web-cd-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  DEPLOY_DOCUMENT: dormduri-web-deploy
+  # image를 만드는 도구도 tag와 digest로 고정한다. Renovate custom regex manager가 workflow의 `*_IMAGE` 값을 갱신하고
+  # infra/image-inventory.json이 owner를 적는다.
+  BUILDKIT_IMAGE: moby/buildkit:v0.34.1@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c
+  SBOM_SCANNER_IMAGE: docker/buildkit-syft-scanner:1.12.1@sha256:873a7458c3c8ac8e32c7b796c10e1600b07b963d2aa000a72a2d97aaaa2d6315
+
+# shell을 정하지 않은 run은 `bash -e`라 pipe 앞 명령의 실패를 놓친다(외부 smoke | tee). `bash`는 `-eo pipefail`이다.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build, scan and push the image pair
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      web_digest: ${{ steps.push.outputs.web_digest }}
+      ingress_digest: ${{ steps.push.outputs.ingress_digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+
+      # SBOM은 image index의 attestation manifest로만 남긴다(ECR 비공개, workflow artifact 없음). provenance는 승인 뒤
+      # deploy job이 GitHub artifact attestation으로 만든다.
+      - name: Build both images as OCI layouts with an SBOM
+        env:
+          # Landing 방문 통계 token(privacy-web-facts D-PW9). 공개 HTML에 나오는 값이지만 log에 남기지 않게 repository
+          # secret으로 둔다(secret은 자동으로 가려진다). 없으면 build는 성공하고 script가 없다.
+          NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${{ secrets.CLOUDFLARE_WEB_ANALYTICS_TOKEN }}
+        run: |
+          docker buildx create --name web-cd --driver docker-container --driver-opt "image=$BUILDKIT_IMAGE" --use
+          docker buildx build --builder web-cd --platform linux/amd64 \
+            --attest "type=sbom,generator=$SBOM_SCANNER_IMAGE" --provenance=false \
+            --file infra/deploy/web/Dockerfile \
+            --build-arg NEXT_PUBLIC_APP_URL=https://dormduri.com \
+            --build-arg NEXT_PUBLIC_SENTRY_ENABLED=0 \
+            --build-arg NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT=production \
+            --build-arg NEXT_PUBLIC_WEB_RELEASE="$GITHUB_SHA" \
+            --build-arg NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN \
+            --output "type=oci,dest=$RUNNER_TEMP/web.oci,tar=false" .
+          docker buildx build --builder web-cd --platform linux/amd64 \
+            --attest "type=sbom,generator=$SBOM_SCANNER_IMAGE" --provenance=false \
+            --output "type=oci,dest=$RUNNER_TEMP/ingress.oci,tar=false" infra/deploy/user/ingress
+
+      - name: Scan the image filesystems before push
+        run: node scripts/infra/user-host/image-secret-scan.mjs "$RUNNER_TEMP/web.oci" "$RUNNER_TEMP/ingress.oci"
+
+      - name: Assume the publish role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      # Registry host는 account ID를 담는다. login action이 그 주소를 찍기 전에 script 안에서 만들어 가린다(env로 받으면
+      # step 머리에 찍힌다).
+      - name: Mask the registry host
+        run: |
+          account=$(aws sts get-caller-identity --query Account --output text)
+          echo "::add-mask::$account.dkr.ecr.$AWS_REGION.amazonaws.com"
+
+      - name: Log in to the registry
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+        with:
+          mask-password: 'true'
+
+      # 검사한 layout을 digest 그대로 올린다. tag immutability라 같은 commit의 두 번째 push는 거부된다.
+      - name: Push the scanned layouts without changing their digests
+        id: push
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          for name in web ingress; do
+            skopeo copy --quiet --all --preserve-digests \
+              "oci:$RUNNER_TEMP/$name.oci" "docker://$REGISTRY/dormduri/$name:sha-$GITHUB_SHA"
+            digest=$(jq -r '.manifests[0].digest' "$RUNNER_TEMP/$name.oci/index.json")
+            echo "${name}_digest=$digest" >> "$GITHUB_OUTPUT"
+            echo "dormduri/$name@$digest"
+          done
+
+  deploy:
+    name: Verify and deploy to the user host
+    needs: build
+    # dispatch도 main에서만 받는다(environment 보호 규칙과 이중).
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || needs.build.result == 'success') }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      action: ${{ steps.request.outputs.action }}
+      web_digest: ${{ steps.request.outputs.web_digest }}
+      ingress_digest: ${{ steps.request.outputs.ingress_digest }}
+      source_commit: ${{ steps.provenance.outputs.source_commit }}
+      web_sbom: ${{ steps.sbom.outputs.web_sbom }}
+      ingress_sbom: ${{ steps.sbom.outputs.ingress_sbom }}
+      previous_safe_web: ${{ steps.plan.outputs.previous_safe_web }}
+      previous_safe_ingress: ${{ steps.plan.outputs.previous_safe_ingress }}
+      smoke: ${{ steps.smoke.outputs.summary }}
+      image_tag: ${{ steps.tags.outputs.image_tag }}
+      git_tag: ${{ steps.tags.outputs.git_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+
+      - name: Resolve the deploy request
+        id: request
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_ACTION: ${{ inputs.action }}
+          INPUT_WEB: ${{ inputs.web_digest }}
+          INPUT_INGRESS: ${{ inputs.ingress_digest }}
+          BUILT_WEB: ${{ needs.build.outputs.web_digest }}
+          BUILT_INGRESS: ${{ needs.build.outputs.ingress_digest }}
+        run: |
+          if [ "$EVENT" = push ]; then
+            action=deploy; web=$BUILT_WEB; ingress=$BUILT_INGRESS
+          else
+            action=$INPUT_ACTION; web=$INPUT_WEB; ingress=$INPUT_INGRESS
+          fi
+          case "$action" in deploy|rollback|maintenance) ;; *) echo "unknown action"; exit 1 ;; esac
+          for digest in "$web" "$ingress"; do
+            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "a digest is not sha256:<64 hex>"; exit 1; }
+          done
+          {
+            echo "action=$action"
+            echo "web_digest=$web"
+            echo "ingress_digest=$ingress"
+          } >> "$GITHUB_OUTPUT"
+          echo "$action dormduri/web@$web dormduri/ingress@$ingress"
+
+      # 승인 대기 중 main의 배포 입력이 바뀌었으면 이 실행은 옛 쌍이다(runbook 대기 실행 규칙). main은 merge commit만
+      # 받으므로 history가 아니라 배포 입력 tree를 비교한다.
+      - name: Reject a push run that a newer deploy input change superseded
+        id: fresh
+        if: ${{ github.event_name == 'push' }}
+        run: bash scripts/infra/user-host/deploy-inputs-current.sh "$GITHUB_SHA" origin/main
+
+      # 승인 뒤 첫 단계에서 build job 출력 digest에 provenance를 만든다. subject 이름에 registry host를 넣지 않고,
+      # registry에 attestation을 올리지 않는다.
+      - name: Attest the Web image
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: dormduri/web
+          subject-digest: ${{ needs.build.outputs.web_digest }}
+          push-to-registry: false
+          show-summary: false
+
+      - name: Attest the ingress image
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: dormduri/ingress
+          subject-digest: ${{ needs.build.outputs.ingress_digest }}
+          push-to-registry: false
+          show-summary: false
+
+      - name: Assume the deploy role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Mask the registry host
+        run: |
+          account=$(aws sts get-caller-identity --query Account --output text)
+          echo "::add-mask::$account.dkr.ecr.$AWS_REGION.amazonaws.com"
+
+      - name: Log in to the registry
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+        with:
+          mask-password: 'true'
+
+      # 두 digest가 main의 이 workflow가 만든 attestation을 갖는지 본다. push는 이 실행 commit이어야 하고, dispatch는 두
+      # source commit이 같고 그 commit의 배포 기록 쌍이 입력과 같아야 한다.
+      - name: Verify the provenance of both images
+        id: provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          WEB: ${{ steps.request.outputs.web_digest }}
+          INGRESS: ${{ steps.request.outputs.ingress_digest }}
+        run: |
+          source_digest=()
+          if [ "$EVENT" = push ]; then source_digest=(--source-digest "$GITHUB_SHA"); fi
+          for name in web ingress; do
+            digest=$WEB; [ "$name" = ingress ] && digest=$INGRESS
+            gh attestation verify "oci://$REGISTRY/dormduri/$name@$digest" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/web-cd.yml" \
+              --source-ref refs/heads/main \
+              --deny-self-hosted-runners \
+              "${source_digest[@]}" \
+              --format json \
+              | jq -r '[.[].verificationResult.signature.certificate.sourceRepositoryDigest] | unique | .[]' \
+              > "$RUNNER_TEMP/$name.source"
+            [ "$(wc -l < "$RUNNER_TEMP/$name.source")" -eq 1 ] || { echo "$name: attestations name more than one source commit"; exit 1; }
+          done
+          source=$(cat "$RUNNER_TEMP/web.source")
+          [[ "$source" =~ ^[a-f0-9]{40}$ ]] || { echo "the attested source commit is malformed"; exit 1; }
+          [ "$source" = "$(cat "$RUNNER_TEMP/ingress.source")" ] || { echo "the two images come from different commits"; exit 1; }
+          if [ "$EVENT" = workflow_dispatch ]; then
+            node scripts/infra/user-host/release-record.mjs match --source="$source" --web="$WEB" --ingress="$INGRESS"
+          fi
+          echo "source_commit=$source" >> "$GITHUB_OUTPUT"
+          echo "provenance verified: source $source"
+
+      # SBOM은 build가 image index에 붙인 attestation manifest다(D-WB3). 그 manifest가 SPDX layer를 갖는지 본다.
+      - name: Confirm the SBOM attestation of both images
+        id: sbom
+        env:
+          WEB: ${{ steps.request.outputs.web_digest }}
+          INGRESS: ${{ steps.request.outputs.ingress_digest }}
+        run: |
+          for name in web ingress; do
+            digest=$WEB; [ "$name" = ingress ] && digest=$INGRESS
+            aws ecr batch-get-image --repository-name "dormduri/$name" --image-ids imageDigest="$digest" \
+              --accepted-media-types application/vnd.oci.image.index.v1+json \
+              --query 'images[0].imageManifest' --output text > "$RUNNER_TEMP/$name.index.json"
+            attestation=$(node scripts/infra/user-host/release-record.mjs attestation-manifest "$RUNNER_TEMP/$name.index.json")
+            aws ecr batch-get-image --repository-name "dormduri/$name" --image-ids imageDigest="$attestation" \
+              --accepted-media-types application/vnd.oci.image.manifest.v1+json \
+              --query 'images[0].imageManifest' --output text > "$RUNNER_TEMP/$name.attestation.json"
+            node scripts/infra/user-host/release-record.mjs check-sbom "$RUNNER_TEMP/$name.attestation.json"
+            echo "${name}_sbom=$attestation" >> "$GITHUB_OUTPUT"
+            echo "dormduri/$name SBOM attestation manifest $attestation"
+          done
+
+      # 배포 기록으로 host의 지금 쌍과 직전 안전 쌍을 알아낸다. rollback은 마지막 기록의 previous_safe 쌍만 받는다.
+      - name: Plan the run from the deploy records
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTION: ${{ steps.request.outputs.action }}
+          WEB: ${{ steps.request.outputs.web_digest }}
+          INGRESS: ${{ steps.request.outputs.ingress_digest }}
+        run: node scripts/infra/user-host/release-record.mjs plan --action="$ACTION" --web="$WEB" --ingress="$INGRESS" >> "$GITHUB_OUTPUT"
+
+      # document는 Owner가 저장소 생성본으로 console에서 만든다. 다르면 host에 아무것도 보내지 않는다.
+      - name: Check the deploy document hash
+        id: document
+        run: |
+          expected=$(sha256sum infra/deploy/user/ssm/dormduri-web-deploy.json | cut -d' ' -f1)
+          actual=$(aws ssm describe-document --name "$DEPLOY_DOCUMENT" --query Document.Hash --output text)
+          if [ "$actual" != "$expected" ]; then
+            echo "the AWS document differs from infra/deploy/user/ssm/dormduri-web-deploy.json"
+            exit 1
+          fi
+          echo "hash=$expected" >> "$GITHUB_OUTPUT"
+          echo "document hash matches ($expected)"
+
+      - name: Send the deploy command and wait for its command-level status
+        id: send
+        env:
+          ACTION: ${{ steps.request.outputs.action }}
+          WEB: ${{ steps.request.outputs.web_digest }}
+          INGRESS: ${{ steps.request.outputs.ingress_digest }}
+          HASH: ${{ steps.document.outputs.hash }}
+        run: bash scripts/infra/user-host/ssm-send.sh "$ACTION" "$WEB" "$INGRESS" "$HASH"
+
+      - name: Smoke the public host from outside
+        id: smoke
+        continue-on-error: true
+        env:
+          ACTION: ${{ steps.request.outputs.action }}
+        run: |
+          mode=serving; [ "$ACTION" = maintenance ] && mode=maintenance
+          node scripts/infra/user-host/external-smoke.mjs --mode="$mode" | tee "$RUNNER_TEMP/smoke.txt"
+          echo "summary=$(tail -n 1 "$RUNNER_TEMP/smoke.txt")" >> "$GITHUB_OUTPUT"
+
+      # 새 쌍이 host 안 검사는 통과했지만 밖에서 실패했다. 기록의 직전 쌍으로 되돌리고, 직전 쌍이 없거나 host가 그 되돌림을
+      # 받지 않으면(기록과 host 상태가 어긋남, 대상 기동 실패) 점검 mode로 둬 실패한 쌍을 계속 내보내지 않는다.
+      - name: Roll back after a failed external smoke
+        id: recover
+        if: ${{ steps.smoke.outcome == 'failure' && steps.request.outputs.action == 'deploy' }}
+        env:
+          ROLLBACK_WEB: ${{ steps.plan.outputs.rollback_web }}
+          ROLLBACK_INGRESS: ${{ steps.plan.outputs.rollback_ingress }}
+          WEB: ${{ steps.request.outputs.web_digest }}
+          INGRESS: ${{ steps.request.outputs.ingress_digest }}
+          HASH: ${{ steps.document.outputs.hash }}
+        run: |
+          if [ -n "$ROLLBACK_WEB" ]; then
+            if bash scripts/infra/user-host/ssm-send.sh rollback "$ROLLBACK_WEB" "$ROLLBACK_INGRESS" "$HASH"; then
+              echo "recovered: rolled back to the previous pair" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "the rollback was not applied; entering maintenance instead"
+          fi
+          bash scripts/infra/user-host/ssm-send.sh maintenance "$WEB" "$INGRESS" "$HASH"
+          echo "recovered: entered maintenance" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail when the external smoke failed
+        if: ${{ steps.smoke.outcome == 'failure' }}
+        run: |
+          echo "external smoke failed; see the step above and the runbook."
+          exit 1
+
+      - name: Name the deploy tags
+        id: tags
+        run: node scripts/infra/user-host/release-record.mjs tags --run-number="$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+
+      # 멈춘 실행은 단계 기록이 아니다. 멈춘 조건과 되돌림 결과를 run 요약에 남긴다(release evidence 단계 배포 기록).
+      - name: Write the stop condition to the run summary
+        if: ${{ failure() }}
+        env:
+          ACTION: ${{ steps.request.outputs.action }}
+          WEB: ${{ steps.request.outputs.web_digest }}
+          INGRESS: ${{ steps.request.outputs.ingress_digest }}
+          FRESH: ${{ steps.fresh.outcome }}
+          PROVENANCE: ${{ steps.provenance.outcome }}
+          SBOM: ${{ steps.sbom.outcome }}
+          PLAN: ${{ steps.plan.outcome }}
+          DOCUMENT: ${{ steps.document.outcome }}
+          SEND: ${{ steps.send.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          RECOVER: ${{ steps.recover.outcome }}
+        run: |
+          {
+            echo "## Web CD stopped"
+            echo ""
+            echo "- action: ${ACTION:-unresolved}, pair: dormduri/web@${WEB:-none} dormduri/ingress@${INGRESS:-none}"
+            echo "- newer change check: ${FRESH:-not run}, provenance: ${PROVENANCE:-not run}, SBOM: ${SBOM:-not run}"
+            echo "- deploy records: ${PLAN:-not run}, document hash: ${DOCUMENT:-not run}"
+            echo "- host command: ${SEND:-not run}, external smoke: ${SMOKE:-not run}"
+            echo "- rollback or maintenance after the external smoke: ${RECOVER:-not run}"
+            echo ""
+            echo "Read the host result (RESULT line) in the console before the next run. Input refusal (exit 2) and host lock"
+            echo "(exit 75) leave the host as it was; other host failures keep or restore a working pair, or enter maintenance (runbook)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  tag:
+    name: Tag the deployed pair in the registry
+    needs: deploy
+    # build를 건너뛴 dispatch에서도 돌도록 !cancelled()를 둔다(없으면 건너뛴 조상 job 때문에 함께 건너뛴다).
+    if: ${{ !cancelled() && needs.deploy.result == 'success' && needs.deploy.outputs.action != 'maintenance' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Assume the publish role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      # 배포한 쌍에 deploy- tag를 더해 ECR lifecycle의 최근 배포 보존 규칙에 넣는다. 출력에는 registry 정보를 찍지 않는다.
+      - name: Add the deploy tag to both digests
+        env:
+          IMAGE_TAG: ${{ needs.deploy.outputs.image_tag }}
+          WEB: ${{ needs.deploy.outputs.web_digest }}
+          INGRESS: ${{ needs.deploy.outputs.ingress_digest }}
+        run: |
+          for name in web ingress; do
+            digest=$WEB; [ "$name" = ingress ] && digest=$INGRESS
+            # 다시 실행한 job이 이미 붙인 tag에서 멈추지 않게, 같은 digest에 같은 tag가 있으면 건너뛴다(tag immutability).
+            existing=$(aws ecr batch-get-image --repository-name "dormduri/$name" --image-ids imageTag="$IMAGE_TAG" \
+              --accepted-media-types application/vnd.oci.image.index.v1+json \
+              --query 'images[0].imageId.imageDigest' --output text)
+            if [ "$existing" = "$digest" ]; then
+              echo "dormduri/$name@$digest already tagged $IMAGE_TAG"
+              continue
+            fi
+            # 명령 치환이 끝 줄바꿈을 지워 manifest 원문 그대로 다시 올린다(바이트가 다르면 digest가 달라 거부된다).
+            manifest=$(aws ecr batch-get-image --repository-name "dormduri/$name" --image-ids imageDigest="$digest" \
+              --accepted-media-types application/vnd.oci.image.index.v1+json \
+              --query 'images[0].imageManifest' --output text)
+            tagged=$(aws ecr put-image --repository-name "dormduri/$name" --image-tag "$IMAGE_TAG" \
+              --image-manifest "$manifest" \
+              --image-manifest-media-type application/vnd.oci.image.index.v1+json --image-digest "$digest" \
+              --query image.imageId.imageDigest --output text)
+            [ "$tagged" = "$digest" ] || { echo "$name: tagged digest differs"; exit 1; }
+            echo "dormduri/$name@$digest tagged $IMAGE_TAG"
+          done
+
+  record:
+    name: Record the deploy tag and Release
+    needs: [deploy, tag]
+    # host가 바뀐 실행은 tag 결과와 상관없이 기록한다. 기록이 host보다 늦으면 다음 실행의 직전 쌍 계산이 어긋난다.
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+
+      # 단계 기록(infra/runbooks/release/production-release-evidence.md)을 만들고 공개 기록 scanner를 통과한 것만 run 요약과
+      # Release 본문에 쓴다.
+      - name: Create the deploy tag and Release with the stage record
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTION: ${{ needs.deploy.outputs.action }}
+          WEB: ${{ needs.deploy.outputs.web_digest }}
+          INGRESS: ${{ needs.deploy.outputs.ingress_digest }}
+          WEB_SBOM: ${{ needs.deploy.outputs.web_sbom }}
+          INGRESS_SBOM: ${{ needs.deploy.outputs.ingress_sbom }}
+          PREVIOUS_WEB: ${{ needs.deploy.outputs.previous_safe_web }}
+          PREVIOUS_INGRESS: ${{ needs.deploy.outputs.previous_safe_ingress }}
+          SOURCE: ${{ needs.deploy.outputs.source_commit }}
+          SMOKE: ${{ needs.deploy.outputs.smoke }}
+          GIT_TAG: ${{ needs.deploy.outputs.git_tag }}
+          EVENT: ${{ github.event_name }}
+          OPERATOR: ${{ github.triggering_actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node scripts/infra/user-host/release-record.mjs record --action="$ACTION" --release-id="$GIT_TAG" \
+            --source="$SOURCE" --web="$WEB" --ingress="$INGRESS" --web-sbom="$WEB_SBOM" --ingress-sbom="$INGRESS_SBOM" \
+            --event="$EVENT" --run-url="$RUN_URL" --smoke="$SMOKE" --previous-web="$PREVIOUS_WEB" \
+            --previous-ingress="$PREVIOUS_INGRESS" --operator="$OPERATOR" > "$RUNNER_TEMP/record.md"
+          node scripts/infra/user-host/public-record-scan.mjs "$RUNNER_TEMP/record.md"
+          cat "$RUNNER_TEMP/record.md" >> "$GITHUB_STEP_SUMMARY"
+          # 다시 실행한 job은 이미 만든 Release를 그대로 둔다(같은 run number라 tag 이름이 같다).
+          if gh release view "$GIT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "$GIT_TAG already exists"
+            exit 0
+          fi
+          gh release create "$GIT_TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE" \
+            --title "$GIT_TAG ($ACTION)" --notes-file "$RUNNER_TEMP/record.md"

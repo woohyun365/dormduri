@@ -3,7 +3,8 @@
 > **Audience:** 사람 대상 portfolio·onboarding·engineering discussion. 규칙의 owner가 아닙니다. 정리 범위·label·확인
 > 명령·임시 PostgreSQL은 [로컬 환경 runbook](../../../infra/runbooks/rehearsal/local-environments.md#정리와-재개-handoff),
 > full-stack 정리·keep-running·재사용은 [full-stack runbook](../../../infra/runbooks/rehearsal/full-stack.md#종료-확인),
-> artifact builder는 [Local image artifact contract](../../../infra/artifacts/README.md)가 소유합니다.
+> 남은 artifact builder 정리는 [로컬 환경 runbook](../../../infra/runbooks/rehearsal/local-environments.md#builder-cache)이 소유합니다.
+> 아래 기록의 local OCI build(`build.mjs`)는 [Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md) CD build가 대체해 지웠습니다.
 
 로컬 rehearsal과 image build가 실행할 때마다 Docker image와 build cache를 남기던 문제를 고친 기록입니다
 ([#715](https://github.com/woohyun365/dormduri/issues/715)). 같은 변경이 infra·Docker 이름을 `dormduri`로 바꿨으므로

@@ -82,6 +82,16 @@ test('each widened trust or permission is rejected', () => {
       /deploy permissions: ssm:SendCommand resource or condition is wider/u,
     ],
     [
+      'infra/aws/iam/deploy-role.permissions.json',
+      (p) => p.Statement.push({ Effect: 'Allow', Action: 'ecr:PutImage', Resource: '*' }),
+      /deploy permissions: action ecr:PutImage is not allowed/u,
+    ],
+    [
+      'infra/aws/iam/deploy-role.permissions.json',
+      (p) => (p.Statement.find((s) => s.Action === 'ecr:BatchGetImage').Resource = '*'),
+      /deploy permissions: ecr:BatchGetImage resource or condition is wider/u,
+    ],
+    [
       'infra/aws/iam/host-role.trust.json',
       (p) => (p.Statement[0].Principal = { Service: 'ec2.amazonaws.com' }),
       /host trust: principal is not only ssm\.amazonaws\.com/u,

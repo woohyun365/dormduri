@@ -273,14 +273,24 @@ function prepareHostDirectories() {
   return directories;
 }
 
-function request({ scheme = 'https', host = CANONICAL_HOST, path, method = 'GET', ports }) {
+// local smoke는 loopback으로 연결하고 인증서를 검증하지 않는다(시험 인증서). CD 외부 smoke는 address를 그 host 이름으로,
+// ports를 80·443으로 주고 verify로 인증서를 검증한다.
+export function request({
+  scheme = 'https',
+  host = CANONICAL_HOST,
+  path,
+  method = 'GET',
+  ports,
+  address = '127.0.0.1',
+  verify = false,
+}) {
   return new Promise((resolveResponse) => {
     if (scheme === 'tls') {
       const socket = tls.connect({
-        host: '127.0.0.1',
+        host: address,
         port: ports.https,
         servername: host,
-        rejectUnauthorized: false,
+        rejectUnauthorized: verify,
       });
       socket.setTimeout(5000);
       socket.once('secureConnect', () => {
@@ -299,12 +309,12 @@ function request({ scheme = 'https', host = CANONICAL_HOST, path, method = 'GET'
     const client = scheme === 'http' ? http : https;
     const req = client.request(
       {
-        host: '127.0.0.1',
+        host: address,
         port: scheme === 'http' ? ports.http : ports.https,
         method,
         path,
         servername: host,
-        rejectUnauthorized: false,
+        rejectUnauthorized: verify,
         headers: {
           Host: host,
           ...(method === 'GET'

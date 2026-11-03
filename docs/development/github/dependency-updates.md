@@ -18,6 +18,7 @@
 | Vulnerability alerts            | Dependabot(alert 전용)                              | 없음   |
 | pnpm package-manager            | Mend-hosted Renovate(Dashboard 승인 줄, 사람 merge) | `dev`  |
 | `.node-version`(nodenv)         | Mend-hosted Renovate                                | `dev`  |
+| Workflow build 도구 image       | Mend-hosted Renovate                                | `dev`  |
 
 두 bot은 기본 branch(`main`)의 설정을 읽는다. Dependabot 쪽(`.github/dependabot.yml` 삭제)은 `dev` → `main` 승격으로
 기본 branch에 올라간 뒤 효력을 갖는다. Renovate 쪽은 [base branch 설정 합치기](../../architecture/platform/dependency-automation.md#현재-구조)를

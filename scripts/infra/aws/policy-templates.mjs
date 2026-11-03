@@ -1,6 +1,7 @@
 // Web 단계 CD의 AWS 정책 원본(infra/aws/iam/*.json, infra/aws/ecr/lifecycle-policy.json) 계약. 각 함수는 어긋난 점의
 // 목록을 돌려준다(빈 목록 = 통과). 기준: OIDC trust는 aud와 정확한 sub를 StringEquals로만 받는다, publish는 두
-// repository push만, deploy는 tag 붙은 managed node와 custom document 하나에만 SendCommand(document 갱신 권한 없음),
+// repository push만, deploy는 tag 붙은 managed node와 custom document 하나에만 SendCommand(document 갱신 권한 없음)와
+// provenance 검증용 두 repository manifest 읽기,
 // host role은 두 repository pull만, 식별자는 placeholder(docs/deploy/README.md 식별자 규칙).
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -145,6 +146,9 @@ export function deployPermissionProblems(policy) {
         sameSet(resources, [documentArn]) && !condition,
       'ssm:ListCommands': anyResource,
       'ecr:DescribeImages': twoRepositories,
+      // gh attestation verify reads the image manifest from the registry (D-WB3, D-WB4 allows read of both repositories).
+      'ecr:GetAuthorizationToken': anyResource,
+      'ecr:BatchGetImage': twoRepositories,
     }),
   );
   return problems;

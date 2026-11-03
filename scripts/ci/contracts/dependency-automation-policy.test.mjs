@@ -131,6 +131,7 @@ test('keeps the hosted Renovate policy active on dev with base branch config mer
     'dockerfile',
     'docker-compose',
     'nodenv',
+    'custom.regex',
   ]);
   assert.deepEqual(policy.baseBranchPatterns, ['dev']);
   assert.equal(policy.useBaseBranchConfig, 'merge');
@@ -153,6 +154,27 @@ test('keeps the hosted Renovate policy active on dev with base branch config mer
       /enabledManagers must contain exactly .*nodenv/u,
     ],
     [(config) => delete config.vulnerabilityAlerts, /vulnerabilityAlerts.prConcurrentLimit/u],
+    [
+      (config) =>
+        (config.enabledManagers = config.enabledManagers.filter((m) => m !== 'custom.regex')),
+      /enabledManagers must contain exactly .*custom\.regex/u,
+    ],
+    [(config) => delete config.customManagers, /customManagers must hold exactly/u],
+    [
+      (config) => (config.customManagers[0].managerFilePatterns = ['/.*/']),
+      /docker regex manager over workflow files/u,
+    ],
+    [
+      (config) =>
+        (config.customManagers[0].matchStrings = [
+          config.customManagers[0].matchStrings[0].replace(
+            '(?<currentDigest>sha256:[a-f0-9]{64})',
+            'latest',
+          ),
+        ]),
+      /docker regex manager over workflow files/u,
+    ],
+    [(config) => (config.customManagers[0].datasourceTemplate = 'npm'), /docker regex manager/u],
   ]) {
     const config = structuredClone(renovateConfig);
     mutate(config);

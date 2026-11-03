@@ -596,12 +596,20 @@ test('orchestration jobs use the one-core runner and every other job shares one 
   );
 });
 
+// Only the Web CD workflow assumes AWS roles through OIDC (production-web-baseline D-WB4·D-WB5); every validation
+// workflow stays without deployment authority. web-cd-contract.test.mjs owns which jobs of web-cd.yml hold it.
+const DEPLOYMENT_WORKFLOWS = ['web-cd.yml'];
+
 test('current workflows validate changes without claiming production deployment authority', () => {
   const workflowDirectory = resolve(repoRoot, '.github/workflows');
   const workflowSource = readdirSync(workflowDirectory)
     .filter((fileName) => fileName.endsWith('.yml') || fileName.endsWith('.yaml'))
+    .filter((fileName) => !DEPLOYMENT_WORKFLOWS.includes(fileName))
     .map((fileName) => read(`.github/workflows/${fileName}`))
     .join('\n');
+  for (const fileName of DEPLOYMENT_WORKFLOWS) {
+    assert.ok(readdirSync(workflowDirectory).includes(fileName), `${fileName} is missing`);
+  }
 
   for (const unsupportedCapability of [
     'aws-actions/configure-aws-credentials',

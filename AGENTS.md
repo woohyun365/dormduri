@@ -124,7 +124,6 @@
 ## 9. Artifact responsibility
 
 - 로컬 검증 결과: `.artifacts/`(계획 증거 `plans/<umbrella Plan ID>/<bounded Plan ID>/`, script 기본 출력 `tools/<kind>/`)
-- 추적 가능한 infra schema·manifest: `infra/artifacts/`
 - 장기 정책·아키텍처·운영 문서: `docs/`
 - CI 생성물: `${{ runner.temp }}` 아래 생성 후 `upload-artifact`
 - repository script는 `scripts/artifacts/paths.mjs`의 `resolveArtifactPath()`를 사용한다.

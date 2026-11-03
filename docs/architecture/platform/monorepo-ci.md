@@ -4,7 +4,12 @@
 
 돔두리의 pull request와 default `main` push 검증은 `.github/workflows/ci.yml`이 진입점이다. `dev`는 active ruleset이 PR-only integration과 green `CI summary`를 요구하므로 merge 직후 같은 graph를 다시 실행하지 않는다. Workflow는 변경 경로를 분류하고 필요한 reusable app workflow만 호출한다. Pull request에서는 분류와 무관하게 `Lifecycle gate`도 실행하고, 항상 존재하는 `CI summary` job에서 선택된 lane과 `Lifecycle gate`의 성공 여부를 fail-closed로 판정한다.
 
-현재 workflow는 CI만 제공한다. Image publish, production environment approval, deployment identity, rollout, traffic switch, rollback은 포함하지 않는다. Production CD 구현 전 입력은 `docs/deploy/production-environment.md`가 소유한다.
+이 문서의 CI workflow는 production deploy 권한을 갖지 않는다(`PRS-R47`). Web 단계 CD는 별도 workflow
+`.github/workflows/web-cd.yml`이 `main` push(Web 배포 입력 경로)와 `main`의 dispatch에서만 실행하고, image publish,
+`production` environment 승인, OIDC deployment identity, SSM 배포, rollback을 소유한다. CI graph(`ci.yml`)는 CD를 호출하지 않고
+CD는 CI 결과를 다시 판정하지 않는다. `main`에 들어온 commit은 이미 `dev` PR의 `CI summary`를 통과했다. CD 절차는
+[Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md), 지금 운영 구성은
+`docs/deploy/production-environment.md`가 소유한다. API 단계 CD 입력은 같은 문서의 "이후 단계에서 정할 입력"이다.
 
 ## Decision과 drivers
 
