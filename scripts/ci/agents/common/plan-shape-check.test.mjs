@@ -543,9 +543,21 @@ test('같은 표의 `결정` 열 칸만 고침 → P2', () => {
 });
 
 test('기존 줄에 링크만 끼움 → P1', () => {
+  // A link put in mid-line, or at the end or the start with the one space that separates it, comes out with that space.
+  for (const next of [
+    '근거 문장은 분석 3.4절[링크](r.md)이다.',
+    '근거 문장은 분석 3.4절이다. [원천](r.md)',
+    '[원천](r.md) 근거 문장은 분석 3.4절이다.',
+    '근거 문장은 분석 3.4절이다. [원천](r.md) [둘째](s.md)',
+  ])
+    assert.equal(
+      gradeOf((l) => replaceLine(l, '근거 문장은 분석 3.4절이다.', next)),
+      'P1',
+      next,
+    );
   assert.equal(
     gradeOf((l) =>
-      replaceLine(l, '근거 문장은 분석 3.4절이다.', '근거 문장은 분석 3.4절[링크](r.md)이다.'),
+      replaceLine(l, '본문 [링크](a.md#x) 문장.', '본문 [링크](a.md#x) 문장. [원천](r.md)'),
     ),
     'P1',
   );
@@ -557,7 +569,7 @@ test('링크를 끼우며 공백 하나가 늘어남 → P1', () => {
       replaceLine(
         l,
         '근거 문장은 분석 3.4절이다.',
-        '근거 문장은 분석 [3.4절 원천](r.md) 3.4절이다.',
+        '근거 문장은 분석 [3.4절 원천](r.md)  3.4절이다.',
       ),
     ),
     'P1',
@@ -572,6 +584,13 @@ test('링크와 다른 글자를 함께 끼움 → P2', () => {
         '근거 문장은 분석 3.4절이다.',
         '근거 문장은 분석 [링크](r.md) 새 글자 3.4절이다.',
       ),
+    ),
+    'P2',
+  );
+  // Indenting the line while appending a link is not a link-only change.
+  assert.equal(
+    gradeOf((l) =>
+      replaceLine(l, '근거 문장은 분석 3.4절이다.', '  근거 문장은 분석 3.4절이다. [원천](r.md)'),
     ),
     'P2',
   );
