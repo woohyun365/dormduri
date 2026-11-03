@@ -163,6 +163,40 @@ test('a dispatch pair matches only a record whose tag points at the attested sou
   assert.equal(matchesRecord([{ ...recorded, tagName: 'release-1' }], dispatch), false);
 });
 
+test('a dispatch record tagged at its run commit feeds the serving state and vouches only when tag and source match', () => {
+  // The record job tags the run commit. A dispatch run's commit is the main head it ran from, so a
+  // later dispatch of the pair matches its push record, or a dispatch record whose run commit was the source.
+  const sourceA = commit('c');
+  const sourceB = commit('f');
+  const runCommit = commit('9');
+  const at = (hour) => `2026-11-04T${hour}:00:00Z`;
+  const pushA = { ...release({ previousSafe: null }, sourceA), createdAt: at('10') };
+  const pushB = {
+    ...release(
+      { sourceCommit: sourceB, pair: pair('f', '1'), previousSafe: pair('a', 'b') },
+      sourceB,
+    ),
+    createdAt: at('11'),
+  };
+  const rollbackA = {
+    ...release({ action: 'rollback', event: 'workflow_dispatch', previousSafe: null }, runCommit),
+    createdAt: at('12'),
+  };
+  const releases = [pushA, pushB, rollbackA];
+  const dispatchA = { sourceCommit: sourceA, web: digest('a'), ingress: digest('b') };
+  assert.deepEqual(servingState(releases), { current: pair('a', 'b'), previousSafe: null });
+  assert.equal(matchesRecord(releases, dispatchA), true);
+  assert.equal(matchesRecord([rollbackA], dispatchA), false);
+  // A dispatch record tagged at the run commit R never vouches for its pair at R itself.
+  assert.equal(matchesRecord([rollbackA], { ...dispatchA, sourceCommit: runCommit }), false);
+  // A dispatch run from the source commit itself tags that commit and matches like a push record.
+  assert.equal(matchesRecord([{ ...rollbackA, tagCommit: sourceA }], dispatchA), true);
+  assert.deepEqual(planRun({ action: 'deploy', pair: pair('f', '1') }, releases), {
+    previousSafe: pair('a', 'b'),
+    rollbackTarget: pair('a', 'b'),
+  });
+});
+
 test('the SBOM check reads the BuildKit index and attestation manifest shapes', () => {
   const image = { mediaType: 'application/vnd.oci.image.manifest.v1+json', digest: digest('1') };
   const attestation = {

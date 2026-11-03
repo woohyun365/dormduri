@@ -17,7 +17,7 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 | `build`  | `main` push에서 Web 배포 입력 경로가 바뀜            | `id-token: write`, publish role(repository secret)                       | Web·ingress image를 SBOM과 함께 OCI layout으로 build, image filesystem secret scan, digest 그대로 ECR에 `sha-<commit>` tag로 push                                  |
 | `deploy` | build 성공 또는 `main`의 dispatch, `production` 승인 | `id-token: write`·`attestations: write`, deploy role(environment secret) | 더 새 변경 확인, provenance 생성(push만)·검증, SBOM 확인, 배포 기록으로 직전 쌍 계산, document 해시 대조, SendCommand, 외부 smoke, 실패 시 rollback 또는 점검 mode |
 | `tag`    | deploy 성공, 동작이 `maintenance`가 아님             | `id-token: write`, publish role                                          | 배포한 쌍에 `deploy-<UTC YYYYMMDD>T<HHmm>-<run>` image tag를 더한다(ECR lifecycle의 최근 배포 보존)                                                                |
-| `record` | deploy 성공(tag 결과와 상관없이)                     | `contents: write`                                                        | 단계 기록을 만들어 공개 기록 scanner로 검사한 뒤 run 요약과 Release `deploy-web-<UTC YYYYMMDD>-<run>`(source commit에 tag) 본문에 쓴다                             |
+| `record` | deploy 성공(tag 결과와 상관없이)                     | `contents: write`                                                        | 단계 기록을 만들어 공개 기록 scanner로 검사한 뒤 run 요약과 Release `deploy-web-<UTC YYYYMMDD>-<run>`(실행 commit에 tag, push 실행은 source commit) 본문에 쓴다    |
 
 - Workflow 최상위 권한은 `contents: read`이고 write는 위 job에만 있다(`scripts/ci/contracts/github-workflow-trust.test.mjs`).
   Workflow 글의 신뢰 경계는 `scripts/infra/user-host/web-cd-contract.test.mjs`가 고정한다.
@@ -82,6 +82,8 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 Actions > Web CD > Run workflow에서 branch `main`을 고르고 `action`과 digest 쌍을 넣는다. 쌍은 Release 단계 기록의 `images`나
 `previous_safe`에서 복사한다. Dispatch는 build와 attestation 생성을 하지 않고, 두 digest의 attestation source commit이 같고 그
 commit의 배포 기록 쌍이 입력과 같을 때만 진행한다. 그래서 기록이 없는 쌍(로컬 build, 섞은 쌍)은 SendCommand 전에 거부된다.
+대조하는 기록은 최근 Release 100개 안에서 tag가 그 source commit을 가리키는 것, 곧 그 쌍을 만든 push 실행의 기록이다. Dispatch
+기록의 tag는 실행한 `main` commit에 붙으므로 그 쌍을 보증하지 않는다.
 
 | `action`      | 넣는 쌍                                             | 결과                                                                                                                    |
 | ------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -105,7 +107,20 @@ Host는 `rollback` 입력이 host의 직전 쌍과 같을 때만 받는다. 기�
   `recovered:` 줄이다. Maintenance까지 실패했으면 아래 [Break-glass](#break-glass)로 간다.
 - Host는 바뀌었는데 `tag`나 `record` job이 실패했으면 그 실행의 Re-run failed jobs로 다시 돌린다. 두 job은 이미 붙인 tag와 이미
   만든 Release를 건너뛴다. 다시 실패하면 기록이 host보다 늦은 상태다. 다음 push 배포의 자동 되돌림은 위처럼 점검 mode로
-  떨어질 수 있으므로, 원인을 고친 뒤 가장 최근 Release의 `images` 쌍을 `deploy`로 올려 기록과 host를 맞춘다.
+  떨어질 수 있으므로, 원인을 고친 뒤 지금 `main`에서 실행 종류별로 기록과 host를 맞춘다.
+  - dispatch `deploy`·`rollback`: 그 실행이 host에 올린 쌍(입력 쌍)을 `deploy`로 다시 보낸다. 같은 쌍이라 host는 직전 쌍을
+    그대로 두고 기록만 생긴다. 가장 최근 Release의 쌍을 올리면 방금 한 동작이 되돌려진다. `rollback` 뒤에는 새 기록의
+    `previous_safe`가 되돌리기 전 쌍으로 남지만 host는 직전 쌍을 비웠다.
+  - dispatch `maintenance`: 점검 mode 기록은 지금 쌍·직전 쌍 계산에 들지 않으므로 다시 보내지 않고 이슈 댓글에 동작과 쌍을
+    남긴다.
+  - push 실행: 새 쌍은 기록이 없어 dispatch 대조를 통과하지 못하므로 가장 최근 Release의 `images` 쌍을 `deploy`로 올리고, 그
+    변경은 다음 push 배포로 다시 올린다. host의 직전 쌍은 그 새 쌍이 된다.
+  - 어느 경우든 지금 쌍은 기록과 host가 같아진다. 직전 쌍은 `rollback`·push 경우에 다음 배포까지 다를 수 있고, 기록의
+    `previous_safe`로 `rollback`하면 host가 exit 2로 거부하고 바뀌지 않는다. 다음 배포부터 둘이 다시 같다.
+- `record` job이 `HTTP 403: Resource not accessible by integration`으로 실패했으면 실행이 만들어진 뒤 record job 전에(줄 대기·
+  승인 대기·deploy 중) `main`에 workflow 파일 변경이 들어와 실행 commit의 workflow가 `main`(default branch)과 달라진 것이다.
+  그런 commit에 tag·Release를 만들려면 Workflows 권한이 필요한데 `GITHUB_TOKEN`에는 없어서 다시 돌려도 같다. 고칠 원인이 없으므로
+  바로 위 실행 종류별 대응으로 맞춘다.
 - 첫 배포가 실패하면 host는 점검 mode로 멈춘다. 원인을 고친 PR을 다시 `main`에 넣는다.
 - Provenance·SBOM·기록 대조·document 해시에서 멈추면 host는 바뀌지 않았다. 다른 workflow나 로컬에서 만든 image, 기록이 없는
   쌍, document 갱신 누락이 흔한 원인이다.
