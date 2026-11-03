@@ -41,6 +41,7 @@ const recordLocationFiles = {
 
 const stageRecordFields = [
   'stage',
+  'action',
   'release_id',
   'release_commit_sha',
   'images',

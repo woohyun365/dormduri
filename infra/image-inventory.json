@@ -1,7 +1,7 @@
 {
   "version": 2,
   "updatedAt": "2026-11-03",
-  "policy": "External images are pinned in their owner file with a readable exact tag and an immutable digest; Renovate updates that file, and readers resolve the reference from it. Internal API/Web artifacts use the source commit as their tag and record their built digest in the artifact manifest.",
+  "policy": "External images are pinned in their owner file with a readable exact tag and an immutable digest; Renovate updates that file, and readers resolve the reference from it. Internal Web-stage images (dormduri/web, dormduri/ingress) are built and pushed by .github/workflows/web-cd.yml with the tag sha-<source commit>, and each deploy Release records the digest pair; the API image has no published artifact yet.",
   "images": [
     {
       "name": "api-build-node",
@@ -37,6 +37,18 @@
       "name": "user-host-ingress",
       "ownerPath": "infra/deploy/user/ingress/Dockerfile",
       "repository": "nginx",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "web-cd-buildkit",
+      "ownerPath": ".github/workflows/web-cd.yml",
+      "repository": "moby/buildkit",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "web-cd-sbom-scanner",
+      "ownerPath": ".github/workflows/web-cd.yml",
+      "repository": "docker/buildkit-syft-scanner",
       "updateOwner": "renovate"
     },
     {

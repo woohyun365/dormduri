@@ -302,6 +302,7 @@ test('Renovate owns every version update while Dependabot keeps alerts only', ()
     'dockerfile',
     'docker-compose',
     'nodenv',
+    'custom.regex',
   ]);
   assert.deepEqual(renovate.baseBranchPatterns, ['dev']);
   assert.equal(renovate.automerge, false);

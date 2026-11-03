@@ -348,6 +348,14 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
+    // Web CD and the daily TLS check run only from main or a schedule. A change to them is checked by the infra lane
+    // (user-host scripts they call) and the repo-policy lane (workflow trust and web-cd contract tests).
+    if (path === '.github/workflows/web-cd.yml' || path === '.github/workflows/web-tls-check.yml') {
+      result.infra = true;
+      result.repoPolicy = true;
+      matched = true;
+    }
+
     if (path === '.github/workflows/api-restore-drill-manual.yml') {
       result.api = true;
       result.infra = true;

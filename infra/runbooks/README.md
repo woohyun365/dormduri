@@ -23,6 +23,7 @@ secret-free evidence 경계만 기록한다.
 
 ## 주요 진입점
 
+- Web 단계 배포·재배포·rollback·점검 mode: [`release/web-stage-deploy.md`](./release/web-stage-deploy.md)
 - DB backup·restore: [`operations/database/backup-restore.md`](./operations/database/backup-restore.md)
 - Production observability: [`operations/observability/production-stack.md`](./operations/observability/production-stack.md)
 - Slack delivery 설정: [`operations/observability/slack-delivery.md`](./operations/observability/slack-delivery.md)

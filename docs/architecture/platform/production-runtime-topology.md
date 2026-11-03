@@ -20,11 +20,19 @@ Route 53 dormduri.com (apex, www → apex redirect)
 └── Lightsail host 4 GB (서울, static IP, firewall 80·443만)
     └── containerized nginx ingress (HTTPS 종료, Let's Encrypt)
         └── Web (Next.js standalone, UI + BFF, 첫 배포 전)
+
+GitHub Actions web-cd (main, production 승인)
+├── build → ECR 비공개 dormduri/web·dormduri/ingress (digest, SBOM attestation manifest)
+└── deploy → Systems Manager Run Command(document dormduri-web-deploy) → host가 ECR에서 digest로 pull
 ```
 
 - 공개 진입: `dormduri.com` apex·`www` A record가 host static IP를 가리킨다. Canonical Web host는 apex이고 `www`는
   apex로 redirect한다. Firewall은 80·443만 열고 22는 닫는다.
 - TLS: host의 containerized nginx가 Let's Encrypt 인증서로 HTTPS를 종료한다(certbot HTTP-01 webroot 갱신, CAA, HSTS).
+- 배포 전달: host는 Systems Manager hybrid managed node이고, CD(`web-cd.yml`)가 OIDC deploy role로 document
+  `dormduri-web-deploy`를 배포 대상 tag에 보낸다. Host는 host role로 ECR에서 digest 쌍을 받아 compose로 올리고 health·내부
+  smoke가 실패하면 직전 쌍으로 되돌린다. SSH는 쓰지 않는다. 절차는
+  [Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md)다.
 - 지금 상태: host는 점검 mode(nginx 503 응답)이고 Web image는 아직 배포되지 않았다.
 - 외부 가용성: Route 53 HTTPS health check → `us-east-1` CloudWatch alarm → SNS email 구독. 흐름은
   [Observability topology](./observability-topology.md#지금-web-단계)가 적는다.

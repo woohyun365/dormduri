@@ -25,6 +25,8 @@ host 공통 `.plans/`, 실행 증거는 `.artifacts/`, 과거 구현 기록과 �
 - [Decision records](./decisions/README.md): 제품 설계·계획의 layer별 결정 기록 형식과 색인
 - [FE 결정 기록](./decisions/fe.md): Domain/SWE/Web/FE layer 결정(component-architecture: renderer 중립 guard 범위·도구·import 허용 목록, route entry import 확인; rendering-boundary: React Compiler 적용; design-system: token 원본, 문구 원본, 문체, motion, 시각 품질 판정)
 - [BE 결정 기록](./decisions/be.md): Domain/SWE/Web/BE layer 결정(application-architecture: HTTP adapter를 NodeAdapter로)
+- [Infra 결정 기록](./decisions/infra.md): Domain/SWE/Web/infra layer 결정(topology-runtime-config: 단일 host compose; ci-cd: 승인 뒤 배포 전용 job)
+- [Operations and release 결정 기록](./decisions/operations-release.md): Domain/SWE/Web/operations-release layer 결정(release-gate: 직전 digest 쌍으로 되돌림)
 - [Security and privacy 결정 기록](./decisions/security-privacy.md): Domain/SWE/Web/security-privacy layer 결정(data-privacy-secret: Landing 방문 통계의 목적·항목·수탁자)
 
 ## Frontend

@@ -27,7 +27,7 @@
 - 근거: Cloudflare 공식 문서는 cookie·브라우저 저장소를 쓰지 않고 fingerprint하지 않으며 beacon의 접속 IP를 저장하지 않는다고 적는다.
   script를 받아 오는 요청의 접속 IP 처리는 공식 문장이 없어 처리방침은 그 IP를 저장하지 않는다고 적지 않는다.
   무료이고 DNS를 옮기지 않는다. 방문자 브라우저가 미국 법인 Cloudflare에 직접 전송하므로 보수적으로 위탁과 국외 이전 다섯 항목을
-  처리방침에 공개했다. 고지와 코드가 같은 변경에 있어 고지 없는 처리가 생기지 않는다. 되돌림은 쉽다(token 변수를 지우면 다음
+  처리방침에 공개했다. 고지와 코드가 같은 변경에 있어 고지 없는 처리가 생기지 않는다. 되돌림은 쉽다(token secret을 지우면 다음
   build부터 script가 빠진다). 이미 보낸 방문 data는 Cloudflare 보유 기준(DR-R2)을 따른다
 - 기각한 대안: Landing 동의 배너(cookie 없는 통계에 비해 무겁고 Owner가 처리방침 공개를 골랐다), 방문 분석 보류, root layout에서
   불러옴(모든 route로 퍼진다), route 파일에서 렌더(Landing route 규칙이 바뀐다), Next.js third-party 패키지(새 dependency),

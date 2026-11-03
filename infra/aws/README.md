@@ -11,7 +11,8 @@ Web 단계 CD가 쓰는 계정 resource의 정책 원본도 여기 둔다. Accou
 - `iam/host-role.trust.json`·`iam/host-role.ecr-pull.json`: Lightsail host를 SSM hybrid managed node로 등록하는 service
   role(trust `ssm.amazonaws.com`)과 그 role이 두 ECR repository에서 image를 받는 권한
 - `iam/publish-role.trust.json`·`iam/publish-role.permissions.json`: GitHub Actions가 image를 ECR에 올리는 OIDC role
-- `iam/deploy-role.trust.json`·`iam/deploy-role.permissions.json`: GitHub Actions가 SSM document를 부르는 OIDC role
+- `iam/deploy-role.trust.json`·`iam/deploy-role.permissions.json`: GitHub Actions가 SSM document를 부르는 OIDC role(provenance
+  검증과 SBOM 확인을 위한 두 repository의 manifest 읽기 포함)
 - `iam/github-oidc-sub-template.json`: 저장소의 GitHub OIDC `sub` claim 설정. 두 OIDC role trust가 이 형식으로 대조한다
 - `ecr/lifecycle-policy.json`: `dormduri/web`·`dormduri/ingress` repository의 image 보존 규칙
 
