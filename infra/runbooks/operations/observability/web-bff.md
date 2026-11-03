@@ -18,7 +18,7 @@ Web 운영 관측은 두 개의 독립 owner로 운영한다.
 | `NEXT_PUBLIC_WEB_RELEASE`                   | immutable release identifier |     commit SHA/image tag |
 | `NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT` | bounded environment          | local/preview/production |
 
-현재 repository에는 실제 Web production hosting compose가 없다. 실제 배포 환경에서는 compose service label을 `web`으로 고정하거나 Alloy의 동등한 label mapping을 먼저 구성한다.
+Web 단계 host compose(`infra/deploy/user/compose.yml`)의 Web service 이름은 `web`이다. 관측 stack을 붙일 때 Alloy가 이 이름을 `service` label로 받는지 먼저 확인한다(지금 Web 단계에는 관측 stack이 없다).
 
 ## Release 전 확인
 

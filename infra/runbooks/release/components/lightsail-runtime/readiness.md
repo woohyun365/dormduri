@@ -2,21 +2,22 @@
 
 ## 책임과 상태
 
-이 문서는 Lightsail User App host와 mounted secret runtime의 실제 배포 입력을 소유한다. 현재 실제
-instance가 없으므로 `PENDING_TARGET`다.
+이 문서는 Lightsail User App host와 mounted secret runtime의 실제 배포 입력을 소유한다. Web 단계 host는 있고 그 상태는
+[Production environment](../../../../../docs/deploy/production-environment.md)가 적는다. API secret runtime 입력은 API
+단계 전이라 `PENDING_TARGET`다.
 
 ## Release 입력
 
-| 입력                                  | 현재 값                            |
-| ------------------------------------- | ---------------------------------- |
-| Lightsail bundle / region / instance  | `PENDING_TARGET`                   |
-| Static IP / firewall                  | `PENDING_TARGET`                   |
-| Deploy user / SSH key / sudo boundary | `PENDING_TARGET`                   |
-| Secret release root                   | `/var/lib/dormduri/secrets/api`    |
-| Container mount root                  | `/run/secrets/dormduri-api`        |
-| API runtime UID/GID                   | `10001:10001`                      |
-| Snapshot / disk headroom / retention  | `PENDING_TARGET`                   |
-| Current / previous release retention  | 최소 2개, 실제 값 `PENDING_TARGET` |
+| 입력                                 | 현재 값                                                                                                                                                                                              |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lightsail bundle / region / instance | `PENDING_TARGET`                                                                                                                                                                                     |
+| Static IP / firewall                 | `PENDING_TARGET`                                                                                                                                                                                     |
+| 배포·operator 접근                   | SSM hybrid managed node(host role 원본 `infra/aws/iam/host-role.*`). 배포는 SSM Command document `dormduri-web-deploy`(원본 `infra/deploy/user/ssm/`), operator는 Session Manager, SSH는 break-glass |
+| Secret release root                  | `/var/lib/dormduri/secrets/api`                                                                                                                                                                      |
+| Container mount root                 | `/run/secrets/dormduri-api`                                                                                                                                                                          |
+| API runtime UID/GID                  | `10001:10001`                                                                                                                                                                                        |
+| Snapshot / disk headroom / retention | `PENDING_TARGET`                                                                                                                                                                                     |
+| Current / previous release retention | 최소 2개, 실제 값 `PENDING_TARGET`                                                                                                                                                                   |
 
 ## 준비 절차
 
@@ -27,7 +28,8 @@ instance가 없으므로 `PENDING_TARGET`다.
 5. Secrets Manager 원문 bundle과 snapshot의 보존·삭제·접근 owner를 함께 결정한다.
 6. Snapshot restore 후에는 Secrets Manager에서 새 bundle을 materialize하고 노출 가능 credential을
    rotation한 뒤에만 traffic을 연다.
-7. SSH, Docker, nginx 외 public port를 닫고 observability port를 private network에 둔다.
+7. Public port는 ingress의 80·443만 연다. SSH(22)는 닫고 break-glass 때만 잠시 연다. Observability port는 private
+   network에 둔다.
 
 ## 중단 조건
 

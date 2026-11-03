@@ -4,12 +4,27 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { buildComposeArgs, loadComposeInventory } from '../compose/profile.mjs';
 import { buildIngressComposeArgs, writeIngressConfig } from '../ingress/render.mjs';
+import {
+  checkUserHostCompose,
+  rehearsalDifferenceProblems,
+  USER_HOST_RENDER_ENVIRONMENT,
+} from '../user-host/compose-contract.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const inventory = loadComposeInventory(repoRoot);
 const failures = [];
+// The Web stage host compose takes registry digest references that the deploy document sets; validation uses
+// well-formed placeholders and a local test directory for the rehearsal overlay.
+const userHostEnvironment = {
+  ...USER_HOST_RENDER_ENVIRONMENT,
+  USER_HOST_REHEARSAL_ROOT: resolveArtifactPath(repoRoot, [
+    'infra',
+    'user-host-rehearsal-validation',
+  ]),
+};
 const ingress = writeIngressConfig(
   {
     mode: 'fixture-http',
@@ -52,6 +67,7 @@ for (const profileName of Object.keys(inventory.profiles)) {
       env: {
         ...process.env,
         ...(profileName === 'ingress-trust' ? ingress.composeEnvironment : {}),
+        ...(profileName.startsWith('user-host') ? userHostEnvironment : {}),
         API_IMAGE_TAG: process.env.API_IMAGE_TAG ?? 'validation-commit',
         API_RUNTIME_ENV_FILE: '../rehearsal/fixtures/empty.runtime-env',
         REHEARSAL_API_NETWORK: 'dormduri-validation-api',
@@ -115,6 +131,27 @@ for (const [profileName, expectation] of Object.entries({
   }
   if (hasResourceBudget !== expectation.resources) {
     failures.push(`${profileName}: unexpected resource budget projection`);
+  }
+}
+
+function renderUserHost(profileName) {
+  const result = spawnSync(
+    'docker',
+    buildComposeArgs(inventory, profileName, ['config', '--format', 'json'], { repoRoot }),
+    { cwd: repoRoot, encoding: 'utf8', env: { ...process.env, ...userHostEnvironment } },
+  );
+  if (result.status === 0) return JSON.parse(result.stdout);
+  failures.push(`${profileName} render: ${result.stderr}`);
+  return null;
+}
+const userHost = renderUserHost('user-host');
+const userHostRehearsal = renderUserHost('user-host-rehearsal');
+if (userHost) {
+  for (const problem of checkUserHostCompose(userHost)) failures.push(`user-host: ${problem}`);
+}
+if (userHost && userHostRehearsal) {
+  for (const problem of rehearsalDifferenceProblems(userHost, userHostRehearsal)) {
+    failures.push(`user-host-rehearsal: ${problem}`);
   }
 }
 

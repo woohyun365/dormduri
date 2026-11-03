@@ -1,18 +1,25 @@
 # Runtime container candidates
 
-`infra/deploy`는 API, Web, nginx의 deployable image와 **production-neutral runtime candidate**를
-소유한다. Local resource limit, disposable DB, upstream fixture와 관측 network는
-`infra/rehearsal/README.md`가 소유하며 이 디렉터리에는 자동 합성하지 않는다.
+`infra/deploy`는 app image(API·Web)와 host 묶음을 소유한다. 지금 운영에 올리는 것은 User App host 묶음 `user/`(Web
+단계: ingress와 Web)이다. API와 그 nginx(`compose.api.yml`, `nginx/`)는 API 개발 rehearsal(stress, full-stack)이 쓰는
+**production-neutral runtime candidate**이고, API 단계가 `user/` 묶음으로 옮긴다. 구조 원칙은
+[Production runtime topology](../../docs/architecture/platform/production-runtime-topology.md#repository와-deploy-구조-목표)가
+소유한다. Local resource limit, disposable DB, upstream fixture와 관측 network는 `infra/rehearsal/README.md`가 소유하며 이
+디렉터리에는 자동 합성하지 않는다.
 
-현재 hosting target, image registry, 원격 rollout, environment approval, rollback automation은
-아직 제공하지 않는다. 실제 target 입력은
-`infra/runbooks/release/production-release-readiness.md`에서 확인하고 provider별 구현은 target이
-결정된 뒤 별도 설계한다.
+Web 단계의 hosting target·registry·전달 경로는 [Production environment](../../docs/deploy/production-environment.md)가
+적는다. Web image를 build·publish하고 배포 명령을 부르는 CD workflow는 아직 없다. Host에서 할 일은 아래
+[User host 묶음](#user-host-묶음)의 SSM document가 정한다.
 
 ## 자산과 책임
 
 ```text
 infra/deploy/
+├── web/Dockerfile                   # Next.js standalone image
+├── user/                            # User App host 묶음(지금 운영: Web 단계)
+│   ├── compose.yml                  # web·ingress service와 hardening
+│   ├── ingress/                     # ingress image: nginx.conf, conf.d/, snippets/, html/(정적 안내 화면 넷)
+│   └── ssm/                         # deploy.sh(원본)와 dormduri-web-deploy.json(생성한 SSM Command document)
 ├── compose.api.yml                  # API + nginx runtime candidate
 ├── .env.api.example                 # API runtime env projection
 ├── .env.api.lightsail.example       # Lightsail non-secret runtime projection
@@ -24,15 +31,15 @@ infra/deploy/
 │   ├── secret-mount.contract.json    # required secret-per-file inventory와 permission contract
 │   ├── entrypoint.sh                # runtime requirement fail-fast; migration 미실행
 │   └── healthcheck.sh               # container health probe
-├── web/Dockerfile                   # Next.js standalone image
-├── nginx/                           # proxy, route, metrics allowlist, TLS example
-├── user/ingress/html/               # nginx가 Web 없이 내보내는 정적 안내 화면 넷
+├── nginx/                           # API candidate의 proxy, route, metrics allowlist, TLS example
 └── scripts/
     ├── api-release-smoke.sh          # health/readiness/metrics smoke와 dry-run
     ├── materialize-api-secret-bundle.sh
     ├── verify-api-secret-bundle.sh
     └── install-api-secret-bundle.sh
 ```
+
+배포·publish·host role과 ECR 수명 정책의 원본은 계정 resource라 [`infra/aws/`](../aws/README.md)에 둔다.
 
 `compose.api.yml`은 API와 nginx의 공통 runtime shape만 정의한다. 다음 항목은 다른 owner가 합성한다.
 
@@ -42,10 +49,66 @@ infra/deploy/
 - observability topology: `infra/observability/`
 - migration과 role grant: `infra/db/`
 
+## User host 묶음
+
+### 경로와 응답
+
+Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다. `www`는 apex로, HTTP는 HTTPS로
+301 redirect한다(HTTP-01 ACME 경로 제외). 모르는 host는 연결을 끊는다(HTTP 444, TLS handshake 거부).
+
+| 요청                                                                                                        | 응답                                            |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `/`, `/privacy`, `/terms`, `/_next/static/*`, `/_next/image`, `/robots.txt`, `/sitemap.xml`, `/icon.png`    | Web으로 전달                                    |
+| `/login`, `/signup`, `/password-reset`, `/main`, `/notifications`, `/support`, `/notices`, `/api`와 그 아래 | 503 준비 중(`Retry-After: 3600`)                |
+| 그 밖의 경로                                                                                                | 404 찾을 수 없음                                |
+| Web이 502·504로 실패                                                                                        | 503 일시적 오류(`Retry-After: 60`)              |
+| 점검 flag(host `/opt/dormduri/mode/maintenance`)가 있을 때                                                  | 모든 공개 경로 503 점검 중(`Retry-After: 3600`) |
+
+- 모든 응답에 `X-Robots-Tag: noindex`를 붙이고, HTTPS 응답에는 HSTS·`nosniff`·frame 거부·Referrer-Policy header도 붙인다
+  (HTTP의 301·ACME 응답은 noindex만). Method와 상관없이 같은 화면을 낸다. 정적 화면의 내부 경로 `/__pages/`는 밖에서
+  요청하면 404다.
+- Web에는 nginx가 판정한 정규화 경로만 보낸다(`/notices/..%2F` 같은 부호화 slash·dot segment는 `/`로 간다). Decode 뒤
+  제어·공백 문자나 `%`·`?`·`#`가 남는 경로는 Web 요청 줄을 바꿀 수 있으므로 nginx 기본 400으로 끝낸다.
+- Web 허용 목록과 준비 중 경로는 `apps/web/src/app`의 route 파일에서 유도해 대조한다(`scripts/infra/user-host/web-routes.mjs`,
+  `ingress-config.test.mjs`). Web에 page를 더하면 이 test가 실패하므로 ingress 설정도 함께 고친다. Route 파일이 바뀌면 CI
+  infra lane도 돈다.
+- Web의 `API_URL`은 ingress의 private listener `http://ingress:8081`이다. 지금은 health 경로 밖의 모든 요청에 503 JSON을
+  돌려준다. API 단계가 이 자리에 private BFF 경로를 넣는다.
+
+### 배포 명령(SSM document)
+
+- `user/ssm/deploy.sh`가 원본이다. `node scripts/infra/user-host/ssm-document.mjs`가 이 파일과 `user/compose.yml`을 묶어
+  `user/ssm/dormduri-web-deploy.json`을 만든다. 생성본은 손으로 고치지 않고 prettier에서 제외한다(내용이 바뀌면 AWS
+  document version이 바뀐다). `--check`는 다시 쓰지 않고 원본과 같은지만 본다.
+- 입력은 `action`(`deploy`·`rollback`·`maintenance`)과 `webDigest`·`ingressDigest`(`sha256:` 뒤 64자)뿐이다. 형식이 틀리면
+  Docker·AWS에 닿기 전에 exit 2, 다른 실행이 host lock을 잡고 있으면 exit 75로 끝난다. 표준 출력에는 `RESULT` 줄과
+  digest만 쓰고 registry 주소가 든 출력은 root 전용 host log에만 남긴다.
+- `deploy`는 새 digest 쌍을 올리고 health와 경로별 smoke(`/`·`/privacy`·`/terms` 200, `/signup` 준비 중 503, 없는 경로
+  404)를 본다. 실패하면 직전 쌍으로 되돌리고, 직전 쌍이 없으면(첫 배포) 점검 mode로 둔다. Host 상태는
+  `/opt/dormduri/state/{current,previous}`다.
+- `rollback`은 입력 쌍이 host의 `previous`와 같을 때만 실행한다. 성공하면 `current`를 그 쌍으로 바꾸고 `previous`를
+  비운다(되돌린 쌍을 다음 rollback 대상으로 두지 않는다. 다시 되돌리려면 새 배포가 필요하다). `maintenance`는 점검 flag를
+  켜고 ingress만 남긴다.
+
+### Local rehearsal과 검사
+
+- `pnpm infra:compose -- user-host-rehearsal <compose 명령>`: 운영 compose에
+  [`infra/rehearsal/compose.user-host.yml`](../rehearsal/compose.user-host.yml)을 덮어 local build image·시험 인증서·
+  loopback port로 띄운다. `USER_HOST_REHEARSAL_ROOT`가 `acme-webroot`·`tls`·`mode` 폴더가 있는 local 경로를 가리켜야 한다.
+- `pnpm infra:check:static`: rehearsal render가 운영 render와 build·loopback port·host 경로 source에서만 다른지 비교,
+  compose 구조 계약(`scripts/infra/user-host/compose-contract.mjs`. Web publish 없음, read-only
+  root, capability 모두 제거, memory Web 320MiB·ingress 96MiB, log 회전), ingress 설정 test, document 생성본 일치.
+- `pnpm infra:check:runtime`: ingress image build와 `nginx -t`, stub Web 뒤에서 경로마다 status·title·header를 실제로
+  요청하는 smoke, 일회용 container에서 document 실행(입력 거부와 host lock, 그리고 가짜 `docker`·`aws`·`curl` 위에서 배포
+  성공·기동 실패와 smoke 실패의 자동 복귀·rollback 입력 대조·첫 배포 실패의 점검 mode, 그리고 rollback 대상 기동 실패·
+  새 쌍과 현재 쌍이 모두 실패·점검 mode의 ingress 기동 실패를 exit code와 host 상태 파일로 판정).
+  같은 document 실행은 `node scripts/infra/user-host/ssm-document-runtime.mjs`로 따로 돌릴 수 있다.
+- 실제 Web image로 같은 smoke를 돌릴 때: `node scripts/infra/user-host/ingress-smoke.mjs --web-image=<local image>`.
+
 ## 정적 안내 화면
 
-`user/ingress/html/`의 네 파일은 nginx가 Web을 거치지 않고 직접 내보내는 안내 화면이다. Web 단계 ingress
-설정이 경로와 상태에 맞춰 연결하며, 그 설정이 생기기 전에는 runtime에서 쓰이지 않는다.
+`user/ingress/html/`의 네 파일은 nginx가 Web을 거치지 않고 직접 내보내는 안내 화면이다. Ingress image가
+`/__pages/` 아래 내부 경로로 넣고, 위 [경로와 응답](#경로와-응답) 표대로 연결한다.
 
 | 파일               | 화면         | 내보내는 때                              | 응답                      |
 | ------------------ | ------------ | ---------------------------------------- | ------------------------- |
@@ -56,7 +119,7 @@ infra/deploy/
 
 - Web이 내려가도 떠야 하므로 각 파일은 한 파일로 끝난다. CSS는 파일 안 `<style>` 하나이고 네 파일이 같은
   `<style>`을 쓴다. JavaScript, 외부 CSS·글꼴·그림, 외부 주소가 없고 그림은 `data:` URI뿐이다.
-  `scripts/infra/ingress/static-pages.test.mjs`가 이 형식과 화면별 링크를 검사한다. 이 test는 쓸 수 있는 tag·속성·CSS
+  `scripts/infra/user-host/static-pages.test.mjs`가 이 형식과 화면별 링크를 검사한다. 이 test는 쓸 수 있는 tag·속성·CSS
   함수를 허용 목록으로 정하므로, 새 요소가 필요하면 그것이 아무것도 받아 오지 않는지 확인한 뒤 test 목록에 더한다.
 - 색과 로고는 Web 원본을 복사했다. Landing 어두운 palette(`apps/web/src/styles/tokens/tokens.generated.css`),
   곰 mark(`apps/web/src/screens/ui/brand/art/logo-mark.png`를 96px로 줄인 PNG), 손글씨 글자
@@ -70,10 +133,10 @@ infra/deploy/
 
 ## 제공하지 않는 기능
 
-- production image publish와 registry lifecycle
+- production image build·publish workflow(registry 수명 정책 원본은 `infra/aws/ecr/`)
 - provider/instance/network provisioning
 - production secret 생성 또는 credential rotation
-- traffic 전환과 automated rollback
+- API candidate의 traffic 전환과 automated rollback(user host 묶음의 되돌림은 SSM document가 한다)
 - local fixture, stress policy, disposable DB
 - 미래 BackOffice deployable
 

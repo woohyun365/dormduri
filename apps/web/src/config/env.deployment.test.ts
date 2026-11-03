@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  WEB_ENV_KEYS,
   WEB_BUILD_PUBLIC_ENV_KEYS,
   WEB_BUILD_SERVER_ENV_KEYS,
   WEB_BUILD_SECRET_ENV_KEYS,
@@ -12,6 +13,7 @@ import {
 const repoRoot = resolve(process.cwd(), '../..');
 const dockerfile = readFileSync(resolve(repoRoot, 'infra/deploy/web/Dockerfile'), 'utf8');
 const rehearsalCompose = readFileSync(resolve(repoRoot, 'infra/rehearsal/compose.web.yml'), 'utf8');
+const userHostCompose = readFileSync(resolve(repoRoot, 'infra/deploy/user/compose.yml'), 'utf8');
 
 describe('Web deployment env projection', () => {
   it('projects production browser inputs through explicit build args', () => {
@@ -22,6 +24,7 @@ describe('Web deployment env projection', () => {
       'NEXT_PUBLIC_SENTRY_DSN',
       'NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT',
       'NEXT_PUBLIC_WEB_RELEASE',
+      'NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN',
     ]) {
       expect(WEB_BUILD_PUBLIC_ENV_KEYS).toContain(key);
       expect(dockerfile).toContain(`ARG ${key}`);
@@ -35,6 +38,14 @@ describe('Web deployment env projection', () => {
       expect(rehearsalCompose).toContain(`${key}:`);
       expect(dockerfile).not.toMatch(new RegExp(`^(?:ARG|ENV) ${key}(?:=|$)`, 'mu'));
     }
+  });
+
+  it('passes every target-required server runtime key from the Web stage host compose', () => {
+    const required = WEB_ENV_KEYS.filter(
+      (entry) => entry.scope === 'runtime-server' && entry.requirement === 'target-required',
+    ).map((entry) => entry.key);
+    expect(required.length).toBeGreaterThan(0);
+    for (const key of required) expect(userHostCompose).toMatch(new RegExp(`^ {6}${key}:`, 'mu'));
   });
 
   it('projects non-secret build server inputs without mixing them into runtime env', () => {

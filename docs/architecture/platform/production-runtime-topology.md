@@ -193,15 +193,31 @@ apps/
 ├── backoffice-web/
 └── backoffice-api/
 
-infra/deploy/
-├── user/
-│   └── compose.yml
-└── backoffice/
-    └── compose.yml
+infra/
+├── deploy/
+│   ├── web/                 # app image: 사용자 Web(Dockerfile)
+│   ├── api/                 # app image: API(Dockerfile·entrypoint·env manifest)
+│   ├── user/                # User App host 한 대의 실행 묶음
+│   │   ├── compose.yml      # host에서 함께 도는 service
+│   │   ├── ingress/         # host 전용 ingress image(nginx 설정·정적 화면)
+│   │   └── ssm/             # 배포 명령 원본과 그것으로 만든 SSM Command document
+│   └── backoffice/          # BackOffice host 묶음(deployable이 생길 때)
+├── aws/                     # 계정 resource: IAM·ECR 정책 template과 설정 checklist
+└── rehearsal/               # local rehearsal 덮어쓰기
+scripts/infra/user-host/     # user host 묶음의 구조 계약·ingress smoke·SSM document 생성
 ```
 
-BackOffice deployable이 생기기 전에는 빈 디렉터리나 가짜 compose를 만들지 않는다. 구현 시 caller,
-CI path filter, image inventory, environment manifest와 rollback 경계를 함께 이전한다.
+- App image 정의는 `infra/deploy/<app>/`에, 한 host에서 함께 도는 구성은 `infra/deploy/<host>/` 하나에 둔다. 그 host만
+  쓰는 image(ingress)는 host 묶음 안에 둔다.
+- 계정 단위 AWS resource(배포·publish·host role, OIDC 조건, ECR 수명 정책)의 정책 원본은 host 묶음이 아니라 `infra/aws/`에
+  둔다. 실제 값(account·repository ID)은 placeholder로 두고 console에서 채운다.
+- Local rehearsal은 운영 compose를 원본으로 쓰고 `infra/rehearsal/`의 덮어쓰기 파일로 image·host 경로·publish port만
+  바꾼다(profile `user-host-rehearsal`). 운영 구성을 rehearsal용으로 따로 복제하지 않는다.
+- API 단계는 별도 host compose나 ingress를 두지 않는다. `infra/deploy/user/compose.yml`에 API service를, `ingress/`에 API
+  host와 private BFF 경로를 더한다. 지금의 `infra/deploy/compose.api.yml`·`infra/deploy/nginx/`는 API 개발 rehearsal(stress,
+  full-stack)이 쓰는 후보이고 API 단계가 이 묶음으로 옮긴다.
+- BackOffice deployable이 생기기 전에는 빈 디렉터리나 가짜 compose를 만들지 않는다. 구현 시 caller, CI path filter, image
+  inventory, environment manifest와 rollback 경계를 함께 이전한다.
 
 ## Capacity 근거와 변경 trigger
 
@@ -221,8 +237,9 @@ Release gate가 쓰는 container limit과 이후 단계 planning budget은
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                          |
-| ---------- | -------------------------------------------------------------------------------------------------- |
-| 2026-08-11 | User App 4GiB와 미래 BackOffice 2GiB를 분리하고 managed PostgreSQL을 공유하는 topology를 확정했다. |
-| 2026-10-20 | 루트 README에 있던 출시 전 배포 구성도와 설명을 이 문서로 옮겼다.                                  |
-| 2026-10-31 | 지금 적용한 Web 단계 배치를 첫 절로 두고 기존 결정·구성도·책임 경계를 이후 목표 절로 옮겼다.       |
+| 날짜       | 변경 내용                                                                                                            |
+| ---------- | -------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-11 | User App 4GiB와 미래 BackOffice 2GiB를 분리하고 managed PostgreSQL을 공유하는 topology를 확정했다.                   |
+| 2026-10-20 | 루트 README에 있던 출시 전 배포 구성도와 설명을 이 문서로 옮겼다.                                                    |
+| 2026-10-31 | 지금 적용한 Web 단계 배치를 첫 절로 두고 기존 결정·구성도·책임 경계를 이후 목표 절로 옮겼다.                         |
+| 2026-11-03 | 구조 목표를 app image·host 묶음·계정 resource·rehearsal 덮어쓰기로 나누고 API 단계가 user host 묶음에 합쳐지게 했다. |

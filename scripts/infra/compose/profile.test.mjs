@@ -128,6 +128,27 @@ test('ingress-trust owns one project without legacy DB/resource/stress overlays'
   assert.deepEqual(resolveManagedNetworks(inventory.profiles['ingress-trust']), []);
 });
 
+test('Web 단계 rehearsal은 운영 host compose를 그대로 쓰고 local 덮어쓰기만 더한다', () => {
+  const inventory = loadComposeInventory(repoRoot);
+  const production = inventory.profiles['user-host'];
+  const rehearsal = inventory.profiles['user-host-rehearsal'];
+  assert.equal(production.classification, 'production-candidate');
+  assert.deepEqual(production.files, ['infra/deploy/user/compose.yml']);
+  // The deploy document runs the host compose under this project name.
+  assert.equal(production.project, 'dormduri-web');
+  assert.equal(rehearsal.classification, 'rehearsal-only');
+  assert.deepEqual(rehearsal.files, [
+    'infra/deploy/user/compose.yml',
+    'infra/rehearsal/compose.user-host.yml',
+  ]);
+  assert.notEqual(rehearsal.project, production.project);
+  // compose.web.yml stays the Web service of the API-stage ingress-trust candidate and the BFF rehearsals.
+  for (const profile of [production, rehearsal]) {
+    assert.ok(!profile.files.includes('infra/rehearsal/compose.web.yml'));
+  }
+  assert.deepEqual(resolveManagedNetworks(rehearsal), []);
+});
+
 test('runner overlay는 profile file 뒤에 붙고 profile 이름과 project는 그대로다', () => {
   const inventory = loadComposeInventory(repoRoot);
   const args = buildComposeArgs(inventory, 'api-base', ['build', 'api'], {
@@ -153,6 +174,7 @@ test('로컬 자원 label은 rehearsal·runner overlay에만 있고 운영 후�
     'infra/observability/compose.base.yml',
     'infra/observability/compose.production.yml',
     'infra/deploy/compose.ingress-trust.yml',
+    'infra/deploy/user/compose.yml',
   ]) {
     assert.doesNotMatch(read(path), /dormduri\.local\./u, path);
   }
@@ -160,6 +182,7 @@ test('로컬 자원 label은 rehearsal·runner overlay에만 있고 운영 후�
     'infra/rehearsal/compose.api.runtime.yml',
     'infra/rehearsal/compose.postgres.yml',
     'infra/rehearsal/compose.web.yml',
+    'infra/rehearsal/compose.user-host.yml',
     'apps/api/test/stress/docker/compose.local-labels.yml',
     'scripts/infra/rehearsal/full-stack/compose.volume-labels.api.yml',
     'scripts/infra/rehearsal/full-stack/compose.volume-labels.web.yml',

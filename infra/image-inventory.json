@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-10-29",
+  "updatedAt": "2026-11-03",
   "policy": "External images are pinned in their owner file with a readable exact tag and an immutable digest; Renovate updates that file, and readers resolve the reference from it. Internal API/Web artifacts use the source commit as their tag and record their built digest in the artifact manifest.",
   "images": [
     {
@@ -42,6 +42,12 @@
     {
       "name": "api-ingress",
       "ownerPath": "infra/deploy/compose.api.yml",
+      "repository": "nginx",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "user-host-ingress",
+      "ownerPath": "infra/deploy/user/ingress/Dockerfile",
       "repository": "nginx",
       "updateOwner": "renovate"
     },
