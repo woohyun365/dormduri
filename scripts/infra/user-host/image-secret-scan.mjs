@@ -2,8 +2,9 @@
 // CD가 push하기 전에 build한 image의 filesystem에 secret 비슷한 값이 없는지 본다. 입력은 BuildKit이 쓴 OCI layout
 // 디렉터리(`--output type=oci,dest=<dir>,tar=false`)이고, attestation manifest가 아닌 image manifest의 layer를 모두
 // 푼다. 걸린 값은 출력하지 않고 종류·image 안 경로·줄 번호만 적는다.
-// pattern 종류는 저장소 tracked-scope guard(scripts/git/tracked-scope.mjs)와 같다. 그 module은 목록을 export하지 않아
-// 여기에 따로 둔다. image에서는 build 입력에 섞이면 안 되는 local env 파일 이름도 본다.
+// pattern 목록은 저장소 tracked-scope guard(scripts/git/tracked-scope.mjs)의 종류를 모두 담고 Slack webhook·Sentry auth
+// token을 더한다. 그 module은 목록을 export하지 않아 여기에 따로 두며, 두 목록을 한 원본으로 합치는 일은 그 module owner의
+// 후속이다. image에서는 build 입력에 섞이면 안 되는 local env 파일 이름도 본다.
 import { createReadStream, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,6 +22,7 @@ export const IMAGE_SECRET_PATTERNS = Object.freeze([
   ['Google API key', /\bAIza[0-9A-Za-z_-]{35}/u],
   ['API secret key', /\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{32,}/u],
   ['Sentry auth token', /\bsntry[su]_[A-Za-z0-9+/=_-]{20,}/u],
+  ['credential in a URL', /\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:[^\s/@]+@/iu],
 ]);
 // 알려진 오탐. 종류와 image 안 경로를 함께 좁힌다(경로만으로 넓게 빼지 않는다).
 export const ALLOWED_FINDINGS = Object.freeze([
@@ -28,6 +30,12 @@ export const ALLOWED_FINDINGS = Object.freeze([
     kind: 'private key',
     path: /^usr\/local\/lib\/node_modules\/npm\//u,
     reason: 'Node base image의 npm 문서·설정 정의가 `key` 설정 예시로 PEM header를 적는다',
+  },
+  {
+    kind: 'credential in a URL',
+    path: /^usr\/local\/lib\/node_modules\/npm\/node_modules\/hosted-git-info\/lib\/parse-url\.js$/u,
+    reason:
+      'Node base image의 npm hosted-git-info가 주석에 `proto://user:pass@host` 형식의 URL 예시를 적는다',
   },
 ]);
 const allowed = (finding) =>

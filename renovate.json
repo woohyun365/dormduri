@@ -2,7 +2,25 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": "Hosted Renovate owns every version update and vulnerability fix PR (npm, GitHub Actions, Dockerfile and Compose images, and the .node-version file) and targets dev for CI validation.",
   "enabled": true,
-  "enabledManagers": ["npm", "github-actions", "dockerfile", "docker-compose", "nodenv"],
+  "enabledManagers": [
+    "npm",
+    "github-actions",
+    "dockerfile",
+    "docker-compose",
+    "nodenv",
+    "custom.regex"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Build tool images that a workflow uses inside run scripts, pinned as a workflow env value `<NAME>_IMAGE: <repository>:<tag>@sha256:<digest>` (infra/image-inventory.json lists them).",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": [
+        "\\n\\s+[A-Z][A-Z0-9_]*_IMAGE: (?<depName>[a-z0-9][a-z0-9._/-]*):(?<currentValue>[A-Za-z0-9._-]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
   "baseBranchPatterns": ["dev"],
   "useBaseBranchConfig": "merge",
   "dependencyDashboard": true,

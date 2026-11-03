@@ -19,6 +19,8 @@ const POSITIVE = {
 const NEGATIVE = [
   'web: dormduri/web@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606',
   'source: 81675ef53d91fef89ef118851afe3704498c2ba6',
+  // The deploy job prints the SSM document hash without a prefix; a random hash can hold a 12-digit run.
+  `document hash matches (ab${'210987654321'}cd${'e'.repeat(48)})`,
   'run: https://github.com/woohyun365/dormduri/actions/runs/41573137218/job/125710567034',
   'image tag deploy-20261027T1530-42 and git tag deploy-web-20261027-42',
   '2026-11-03T03:42:19.1234567Z ##[group]Run node scripts/infra/user-host/external-smoke.mjs',

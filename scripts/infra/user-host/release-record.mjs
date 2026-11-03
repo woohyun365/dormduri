@@ -56,7 +56,7 @@ function ensure(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-// BuildKit `--sbom=true` image index에서 platform image 하나와 그것을 가리키는 attestation manifest의 digest를 고른다.
+// BuildKit SBOM attestation(`--attest type=sbom`)이 붙은 image index에서 platform image 하나와 그것을 가리키는 attestation manifest의 digest를 고른다.
 export function attestationManifestDigest(index) {
   const manifests = index?.manifests ?? [];
   const attestations = manifests.filter(

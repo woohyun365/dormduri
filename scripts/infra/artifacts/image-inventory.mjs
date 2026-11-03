@@ -45,20 +45,26 @@ export function isImmutableReference(reference) {
   return IMMUTABLE_REFERENCE.test(reference);
 }
 
-// External image references in one owner file: the `image:` key of Compose and workflow files, and `# syntax=` and `FROM`
-// of a Dockerfile. The Renovate managers also read workflow `container: <image>` strings, `uses: docker://<image>` and
+// External image references in one owner file: the `image:` key of Compose and workflow files, a workflow `env` value
+// whose key ends in `_IMAGE` (build tool images used inside run scripts, updated by the Renovate custom regex manager),
+// and `# syntax=` and `FROM` of a Dockerfile. The Renovate managers also read workflow `container: <image>` strings, `uses: docker://<image>` and
 // Dockerfile `COPY --from=<image>` or `RUN --mount=…from=<image>`; those forms are not extracted here, so pin external
 // images only in the forms above. Locally built images whose name or tag is a variable
 // (`dormduri-api:${API_IMAGE_TAG:?…}`, `${INGRESS_FIXTURE_IMAGE:?…}`) are not external pins.
 export function extractImageReferences(path, source) {
   return DOCKERFILE_NAME.test(basename(path))
     ? extractDockerfileReferences(source)
-    : extractYamlImageReferences(source);
+    : extractYamlImageReferences(source, WORKFLOW_FILE.test(path));
 }
 
-function extractYamlImageReferences(source) {
+const WORKFLOW_FILE = /(^|\/)\.github\/workflows\/[^/]+\.ya?ml$/u;
+
+function extractYamlImageReferences(source, workflow) {
   const references = [];
-  for (const [, raw] of source.matchAll(/^\s*image:\s*(\S.*?)\s*$/gmu)) {
+  const key = workflow
+    ? /^\s*(?:image|[A-Z][A-Z0-9_]*_IMAGE):\s*(\S.*?)\s*$/gmu
+    : /^\s*image:\s*(\S.*?)\s*$/gmu;
+  for (const [, raw] of source.matchAll(key)) {
     const value = unquote(raw);
     const reference = DEFAULT_VALUE.exec(value)?.groups.value ?? value;
     if (!reference.includes('$')) references.push(reference);

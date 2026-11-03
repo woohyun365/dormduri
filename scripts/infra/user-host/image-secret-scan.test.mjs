@@ -119,6 +119,39 @@ test('attestation manifests are not scanned and a clean image has no findings', 
   }
 });
 
+test('a credential inside a URL is reported, and only the npm URL parser comment is allowed', async () => {
+  const urlWithCredential = [
+    'https://',
+    'deploy',
+    ':',
+    'not-a-real-password',
+    '@registry.example.invalid/',
+  ].join('');
+  const layout = writeLayout([
+    tar(
+      tarEntry('app/config.js', `const url = "${urlWithCredential}";\n`),
+      tarEntry(
+        'usr/local/lib/node_modules/npm/node_modules/hosted-git-info/lib/parse-url.js',
+        `// ${urlWithCredential}\n`,
+      ),
+      tarEntry('usr/local/lib/node_modules/npm/lib/fetch.js', `// ${urlWithCredential}\n`),
+    ),
+  ]);
+  try {
+    const result = await scanLayout(layout);
+    assert.deepEqual(result.findings.map(({ kind, path }) => `${kind}|${path}`).sort(), [
+      'credential in a URL|app/config.js',
+      'credential in a URL|usr/local/lib/node_modules/npm/lib/fetch.js',
+    ]);
+    assert.ok(
+      !JSON.stringify(result).includes('not-a-real-password'),
+      'the value is never reported',
+    );
+  } finally {
+    rmSync(layout, { recursive: true, force: true });
+  }
+});
+
 test('the allow list is narrowed by kind and path together', async () => {
   const layout = writeLayout([
     tar(

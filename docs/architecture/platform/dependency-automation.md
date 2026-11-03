@@ -19,6 +19,7 @@ Mend-hosted Renovate (base branch: dev)
 ├── github-actions manager (full commit SHA + version comment)
 ├── dockerfile + docker-compose managers (tag@sha256 digest)
 ├── nodenv manager (.node-version, node-image group with the Docker Node image)
+├── custom.regex manager (workflow build tool images: `<NAME>_IMAGE` env value, tag@sha256 digest)
 ├── security updates from GitHub vulnerability alerts
 ├── security·patch·minor·Docker digest: Renovate self-merge after CI summary
 └── major: Dependency Dashboard approval (a security fix opens at once), human review
@@ -28,9 +29,11 @@ GitHub Dependabot
 ```
 
 한 version-update surface에 두 updater를 동시에 활성화하지 않는다. `renovate.json`은 npm, `github-actions`,
-`dockerfile`, `docker-compose`, `nodenv` manager를 활성화하고 `dev`를 base branch로 사용한다. `.github/dependabot.yml`은
+`dockerfile`, `docker-compose`, `nodenv`, `custom.regex` manager를 활성화하고 `dev`를 base branch로 사용한다. `.github/dependabot.yml`은
 두지 않고 저장소 Settings의 Dependabot security updates는 끈다. Repository policy는 ecosystem마다 owner가 0개이거나
-2개인 상태를 모두 거부한다. `nodenv`(`.node-version`)는 대응하는 Dependabot ecosystem이 없어 Renovate가 유일한 owner다.
+2개인 상태를 모두 거부한다. `nodenv`(`.node-version`)는 대응하는 Dependabot ecosystem이 없어 Renovate가 유일한 owner다. `custom.regex`도 같다.
+이 manager는 workflow run script 안에서 쓰는 build 도구 image(workflow `env`의 `<NAME>_IMAGE: <repository>:<tag>@sha256:<digest>`)만
+갱신하고, 그 image는 다른 image처럼 `infra/image-inventory.json`에 owner 파일을 둔다(지금은 Web CD의 BuildKit·SBOM scanner).
 
 Renovate와 Dependabot은 기본 branch(`main`)의 설정을 읽는다. Renovate는 `useBaseBranchConfig: "merge"`로 `dev` base
 branch를 처리할 때 `main` 설정 위에 `dev`의 `renovate.json`을 합친다. 합치는 방식은 option마다 다르다.

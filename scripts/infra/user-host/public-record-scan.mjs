@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // 공개 기록(workflow log·run 요약·Release 본문·attestation 내용을 내려받은 text)에 D-WB7 기록 금지 값이 있는지 본다.
 // 종류마다 pattern 하나를 두고, 걸린 값은 출력하지 않고 종류·파일·줄만 적는다.
-// 허용 값(image digest, commit SHA, workflow run·job URL, image·git 배포 tag, timestamp)은 먼저 지운 뒤 검사한다. 그래서
+// 허용 값(image digest, document 해시 같은 접두 없는 sha256 hex, commit SHA, workflow run·job URL, image·git 배포 tag,
+// timestamp)은 먼저 지운 뒤 검사한다. 그래서
 // run·job URL의 긴 숫자 ID와 digest 안의 숫자열은 account ID로 걸리지 않는다. GitHub 소유자·저장소 숫자 ID는 종류가 아니다
 // (숫자만으로는 다른 값과 구분할 수 없어 template placeholder test와 리뷰가 지킨다).
 import { readFileSync } from 'node:fs';
@@ -29,6 +30,7 @@ export const ALLOWED_VALUES = Object.freeze([
     /https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/actions\/runs\/[0-9]+(?:\/(?:job|attempts)\/[0-9]+)*/gu,
   ],
   ['image digest', /\bsha256:[0-9a-f]{64}\b/gu],
+  ['sha256 hex hash', /\b[0-9a-f]{64}\b/gu],
   ['commit SHA', /\b[0-9a-f]{40}\b/gu],
   ['image deploy tag', /\bdeploy-[0-9]{8}T[0-9]{4}-[0-9]+\b/gu],
   ['git deploy tag', /\bdeploy-web-[0-9]{8}-[0-9]+\b/gu],

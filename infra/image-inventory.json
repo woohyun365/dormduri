@@ -40,6 +40,18 @@
       "updateOwner": "renovate"
     },
     {
+      "name": "web-cd-buildkit",
+      "ownerPath": ".github/workflows/web-cd.yml",
+      "repository": "moby/buildkit",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "web-cd-sbom-scanner",
+      "ownerPath": ".github/workflows/web-cd.yml",
+      "repository": "docker/buildkit-syft-scanner",
+      "updateOwner": "renovate"
+    },
+    {
       "name": "prometheus",
       "ownerPath": "infra/observability/compose.base.yml",
       "repository": "prom/prometheus",

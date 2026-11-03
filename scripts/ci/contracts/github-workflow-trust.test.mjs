@@ -80,6 +80,16 @@ export function writeScopeLines(source) {
       continue;
     }
     if (inPermissions && !/^ {6}\S/u.test(line)) inPermissions = false;
+    // A one-line value: `permissions: write-all` grants every scope, and a flow mapping `{ contents: write }` grants
+    // its write entries. A job-level line belongs to that job; any other line is outside a designated job.
+    const inline = /^( *)permissions:\s*(\S.*?)\s*$/u.exec(line);
+    if (inline) {
+      const owner = inJobs && inline[1].length === 4 ? job : '';
+      if (/^['"]?write-all['"]?$/u.test(inline[2])) found.push({ job: owner, scope: 'write-all' });
+      for (const entry of inline[2].matchAll(/([a-z-]+)\s*:\s*write\b/gu))
+        found.push({ job: owner, scope: entry[1] });
+      continue;
+    }
     const write = /^\s+([a-z-]+):\s+write\s*$/u.exec(line);
     if (write) found.push({ job: inPermissions ? job : '', scope: write[1] });
   }
@@ -185,6 +195,25 @@ test('a write scope outside the designated web-cd jobs is rejected', () => {
     [
       'web-cd.yml',
       `name: x\npermissions:\n  contents: write\njobs:\n${job('build', ['id-token: write'])}`,
+      1,
+    ],
+    [
+      'ci.yml',
+      workflow(
+        '  build:\n    runs-on: ubuntu-26.04\n    permissions: write-all\n    steps:\n      - run: true\n',
+      ),
+      1,
+    ],
+    [
+      'ci.yml',
+      workflow(
+        '  build:\n    runs-on: ubuntu-26.04\n    permissions: { contents: write, id-token: write }\n    steps:\n      - run: true\n',
+      ),
+      2,
+    ],
+    [
+      'web-cd.yml',
+      `name: x\npermissions: write-all\njobs:\n${job('build', ['id-token: write'])}`,
       1,
     ],
   ]) {

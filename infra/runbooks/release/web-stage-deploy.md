@@ -17,7 +17,7 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 | `build`  | `main` push에서 Web 배포 입력 경로가 바뀜            | `id-token: write`, publish role(repository secret)                       | Web·ingress image를 SBOM과 함께 OCI layout으로 build, image filesystem secret scan, digest 그대로 ECR에 `sha-<commit>` tag로 push                                  |
 | `deploy` | build 성공 또는 `main`의 dispatch, `production` 승인 | `id-token: write`·`attestations: write`, deploy role(environment secret) | 더 새 변경 확인, provenance 생성(push만)·검증, SBOM 확인, 배포 기록으로 직전 쌍 계산, document 해시 대조, SendCommand, 외부 smoke, 실패 시 rollback 또는 점검 mode |
 | `tag`    | deploy 성공, 동작이 `maintenance`가 아님             | `id-token: write`, publish role                                          | 배포한 쌍에 `deploy-<UTC YYYYMMDD>T<HHmm>-<run>` image tag를 더한다(ECR lifecycle의 최근 배포 보존)                                                                |
-| `record` | deploy 성공(tag 성공 또는 건너뜀)                    | `contents: write`                                                        | 단계 기록을 만들어 공개 기록 scanner로 검사한 뒤 run 요약과 Release `deploy-web-<UTC YYYYMMDD>-<run>`(source commit에 tag) 본문에 쓴다                             |
+| `record` | deploy 성공(tag 결과와 상관없이)                     | `contents: write`                                                        | 단계 기록을 만들어 공개 기록 scanner로 검사한 뒤 run 요약과 Release `deploy-web-<UTC YYYYMMDD>-<run>`(source commit에 tag) 본문에 쓴다                             |
 
 - Workflow 최상위 권한은 `contents: read`이고 write는 위 job에만 있다(`scripts/ci/contracts/github-workflow-trust.test.mjs`).
   Workflow 글의 신뢰 경계는 `scripts/infra/user-host/web-cd-contract.test.mjs`가 고정한다.
@@ -25,7 +25,11 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
   [대기 실행](#대기-실행)을 따른다.
 - Web 배포 입력 경로(trigger의 `paths`)는 두 Dockerfile이 복사하는 경로, `.dockerignore`, `infra/deploy/web/**`,
   `infra/deploy/user/**`와 이 workflow다. 그 밖의 merge는 build하지 않는다.
+- Image를 만드는 BuildKit과 SBOM scanner도 workflow `env`의 `BUILDKIT_IMAGE`·`SBOM_SCANNER_IMAGE`에 tag와 digest로 고정하고,
+  Renovate custom regex manager가 갱신한다([image inventory](../../image-inventory.json)).
 - `web-tls-check.yml`이 매일 공개 인증서의 남은 기간과 apex·`www` 포함을 본다(아래 [경보 대응](#경보-대응)).
+- Run log와 run 요약은 저장소 설정의 보존 기간(7일) 뒤 지워진다. 남길 것(멈춘 실행의 멈춘 조건·복구 결과, 첫 실행의 공개 기록
+  검사 결과)은 7일 안에 그 단계 이슈 댓글로 옮긴다. 단계 기록은 Release 본문이라 보존 기간과 상관없다.
 
 ## 첫 실행 전 Owner 확인
 
@@ -45,7 +49,8 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 1. Web 배포 입력을 바꾼 PR이 `main`에 들어가면 `build`가 돌고 `deploy`가 `production` 승인을 기다린다.
 2. 첫 실행은 build job log를 연다. Account ID와 registry host가 `***`로 가려졌고 workflow artifact가 없음을 본 뒤 승인한다.
 3. 승인하면 deploy job이 차례로 확인한다. 하나라도 실패하면 host에 아무것도 보내지 않는다.
-   - 승인을 기다리는 동안 `main`에 더 새 배포 입력 변경이 들어왔는가(들어왔으면 그 실행을 승인한다)
+   - 승인을 기다리는 동안 `main`의 배포 입력이 바뀌었는가(이 실행 commit과 `main` 끝의 배포 입력 경로 tree를 비교한다.
+     `main`은 merge commit으로만 받으므로 history가 아니라 tree를 본다. 바뀌었으면 더 새 실행을 승인한다)
    - 두 digest의 attestation이 이 workflow·`refs/heads/main`·이 실행 commit에서 왔는가(`gh attestation verify`)
    - 두 image index에 SPDX SBOM attestation manifest가 있는가
    - document 해시가 저장소 생성본과 같은가
@@ -56,8 +61,8 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
    evidence(이 run, ECR attestation manifest, 경보 확인)를 본 뒤 Release 본문을 고친다. 증거가 빠진 component는 `PASS`로 적지
    않는다.
 7. 첫 실행 뒤에는 그 run log·run 요약·Release·attestation을 내려받아 `node scripts/infra/user-host/public-record-scan.mjs <파일>`
-   로 검사하고(exit 0이어야 한다) 그 실행의 workflow artifact가 0개인지 본다. 내려받은 파일은 `.artifacts/` 아래에 두고 Git에
-   넣지 않는다.
+   로 검사하고(exit 0이어야 한다) 그 실행의 workflow artifact가 0개인지 본다. Run log는 7일 뒤 지워지므로 그 안에 한다. 내려받은
+   파일은 `.artifacts/` 아래에 두고 Git에 넣지 않으며, 검사 결과(exit와 건수)만 단계 이슈 댓글에 적는다.
 
 ## 대기 실행
 
@@ -81,14 +86,23 @@ commit의 배포 기록 쌍이 입력과 같을 때만 진행한다. 그래서 �
 | `deploy`      | 기록이 있는 아무 쌍                                 | 그 쌍을 다시 올린다. 지금 쌍과 다르면 지금 쌍이 새 `previous_safe`가 된다. 점검 mode도 끝난다                           |
 | `maintenance` | 기록이 있는 쌍(보통 지금 쌍)                        | 모든 공개 경로가 '점검 중' 503이 되고 Web을 내린다(그 쌍의 ingress만 쓴다). 끝내려면 지금 쌍을 `deploy`로 다시 올린다   |
 
+Host는 `rollback` 입력이 host의 직전 쌍과 같을 때만 받는다. 기록의 `previous_safe`와 host의 직전 쌍은 멈춘 실행 뒤에 어긋날 수
+있다. 예를 들어 CD가 외부 smoke 실패로 자동 되돌린 뒤에는 host가 직전 쌍을 비웠지만 그 실행은 Release를 남기지 않는다. 그때
+`rollback`은 host가 exit 2로 거부하고 아무것도 바꾸지 않는다. 원하는 Release의 `images` 쌍을 `deploy`로 올린다.
+
 ## 실패 대응
 
-- 멈춘 실행은 run 요약의 "Web CD stopped" 절에 단계별 결과를 남긴다. 단계 기록(Release)은 만들지 않는다.
+- 멈춘 실행은 run 요약의 "Web CD stopped" 절에 단계별 결과를 남긴다. 단계 기록(Release)은 만들지 않는다. Run 요약은 7일 뒤
+  지워지므로 host가 바뀐 실행(자동 되돌림·점검 mode 포함)은 그 절과 host `RESULT=` 줄을 7일 안에 단계 이슈 댓글로 옮긴다.
 - Host command가 Success가 아니면 host가 스스로 직전 쌍으로 되돌렸거나(첫 배포는 점검 mode) 입력을 거부했다. 결과는
   Systems Manager > Run Command > Command history의 그 command 출력 `RESULT=` 줄이다(exit 2 입력 거부, exit 75 다른 실행이
   host lock을 잡음, 그 밖은 자동 복귀 결과). Host log는 Session Manager로 root 전용 log를 본다.
-- 외부 smoke가 실패하면 deploy job이 직전 쌍으로 `rollback`을 보내고, 직전 쌍이 없으면 `maintenance`를 보낸다. 그 결과도 run
-  요약에 남는다. Rollback·maintenance까지 실패했으면 아래 [Break-glass](#break-glass)로 간다.
+- 외부 smoke가 실패하면 deploy job이 기록의 직전 쌍으로 `rollback`을 보낸다. 직전 쌍이 없거나 host가 그 rollback을 받지
+  않으면(기록과 host 상태가 어긋남, 직전 쌍 기동 실패) `maintenance`를 보내 실패한 쌍을 계속 내보내지 않는다. 결과는 run 요약의
+  `recovered:` 줄이다. Maintenance까지 실패했으면 아래 [Break-glass](#break-glass)로 간다.
+- Host는 바뀌었는데 `tag`나 `record` job이 실패했으면 그 실행의 Re-run failed jobs로 다시 돌린다. 두 job은 이미 붙인 tag와 이미
+  만든 Release를 건너뛴다. 다시 실패하면 기록이 host보다 늦은 상태다. 다음 push 배포의 자동 되돌림은 위처럼 점검 mode로
+  떨어질 수 있으므로, 원인을 고친 뒤 가장 최근 Release의 `images` 쌍을 `deploy`로 올려 기록과 host를 맞춘다.
 - 첫 배포가 실패하면 host는 점검 mode로 멈춘다. 원인을 고친 PR을 다시 `main`에 넣는다.
 - Provenance·SBOM·기록 대조·document 해시에서 멈추면 host는 바뀌지 않았다. 다른 workflow나 로컬에서 만든 image, 기록이 없는
   쌍, document 갱신 누락이 흔한 원인이다.

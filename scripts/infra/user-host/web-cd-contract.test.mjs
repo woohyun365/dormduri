@@ -2,8 +2,10 @@
 // 신뢰 경계를 지키는지 본다: job별 권한과 environment, 직렬화, attestation 이름·조건·순서, provenance 검증 조건과 순서,
 // mask 순서, role secret 위치, artifact upload 없음, node별 SSM 조회 없음, 경로 filter와 두 Dockerfile 입력의 일치.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -165,7 +167,7 @@ test('provenance is verified for both digests before anything is sent to the hos
     ['the document hash check', /describe-document/u],
     ['the SBOM check', /release-record\.mjs check-sbom/u],
     ['the deploy record plan', /release-record\.mjs plan/u],
-    ['the newer change check', /git log -1 --format=%H origin\/main/u],
+    ['the newer change check', /deploy-inputs-current\.sh/u],
   ]) {
     const position = index(list, pattern);
     assert.ok(position >= 0 && position < send, `${label} runs before sending`);
@@ -242,13 +244,172 @@ test('the push path filter covers every Dockerfile input and matches the stale-r
   ]) {
     assert.ok(paths.includes(required), required);
   }
-  const stale = /git log -1 --format=%H origin\/main -- ([\s\S]+?)\)/u
-    .exec(workflow)[1]
-    .split(/[\s\\]+/u)
+  const script = read('scripts/infra/user-host/deploy-inputs-current.sh');
+  const stale = /^DEPLOY_INPUT_PATHS=\(\n([\s\S]+?)\n\)$/mu
+    .exec(script)[1]
+    .split(/\s+/u)
     .filter(Boolean);
   assert.deepEqual(
     stale.sort(),
     paths.map((path) => path.replace(/\/\*\*$/u, '')).sort(),
-    'the stale-run check reads the same paths as the trigger',
+    'the newer-change check compares the same paths as the trigger',
   );
+  assert.match(
+    workflow,
+    /run: bash scripts\/infra\/user-host\/deploy-inputs-current\.sh "\$GITHUB_SHA" origin\/main/u,
+  );
+});
+
+// step 글의 `run: |` block을 들여쓰기 없이 꺼낸다.
+function runScript(body) {
+  const lines = body.slice(body.indexOf('run: |\n') + 'run: |\n'.length).split('\n');
+  const indent = /^ */u.exec(lines[0])[0].length;
+  return lines
+    .filter((line) => line.trim() === '' || line.length - line.trimStart().length >= indent)
+    .map((line) => line.slice(indent))
+    .join('\n');
+}
+
+// recover step의 script를 가짜 ssm-send.sh 위에서 돌린다. codes는 동작별 exit code, 결과는 보낸 동작 순서·exit·요약.
+function runRecover(script, { rollbackWeb, codes }) {
+  const root = mkdtempSync(join(tmpdir(), 'web-cd-recover-'));
+  try {
+    mkdirSync(join(root, 'scripts/infra/user-host'), { recursive: true });
+    writeFileSync(
+      join(root, 'scripts/infra/user-host/ssm-send.sh'),
+      `echo "$1 $2 $3 $4" >> "$CALLS"\ncase "$1" in rollback) exit ${codes.rollback ?? 0} ;; maintenance) exit ${codes.maintenance ?? 0} ;; esac\nexit 9\n`,
+    );
+    const env = {
+      PATH: process.env.PATH,
+      CALLS: join(root, 'calls'),
+      GITHUB_STEP_SUMMARY: join(root, 'summary'),
+      ROLLBACK_WEB: rollbackWeb,
+      ROLLBACK_INGRESS: rollbackWeb ? 'sha256:previous-ingress' : '',
+      WEB: 'sha256:new-web',
+      INGRESS: 'sha256:new-ingress',
+      HASH: 'document-hash',
+    };
+    const result = spawnSync('bash', ['-eo', 'pipefail', '-c', script], {
+      cwd: root,
+      env,
+      encoding: 'utf8',
+    });
+    const readOr = (path) => {
+      try {
+        return readFileSync(path, 'utf8');
+      } catch {
+        return '';
+      }
+    };
+    return {
+      status: result.status,
+      calls: readOr(env.CALLS).trim().split('\n').filter(Boolean),
+      summary: readOr(env.GITHUB_STEP_SUMMARY),
+    };
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+test('a failed external smoke of a deploy rolls back or enters maintenance, then fails the job', () => {
+  const list = steps(JOBS.deploy);
+  const at = (name) => list.findIndex((step) => step.name === name);
+  const smoke = list[at('Smoke the public host from outside')];
+  const recover = list[at('Roll back after a failed external smoke')];
+  const fail = list[at('Fail when the external smoke failed')];
+  assert.ok(smoke && recover && fail, 'the smoke, recover and fail steps exist');
+  assert.match(smoke.body, /id: smoke\n/u);
+  assert.match(
+    smoke.body,
+    /continue-on-error: true/u,
+    'a smoke failure must reach the recover step',
+  );
+  assert.match(
+    recover.body,
+    /if: \$\{\{ steps\.smoke\.outcome == 'failure' && steps\.request\.outputs\.action == 'deploy' \}\}/u,
+  );
+  assert.match(fail.body, /if: \$\{\{ steps\.smoke\.outcome == 'failure' \}\}/u);
+  assert.match(fail.body, /exit 1/u);
+  assert.ok(
+    at('Smoke the public host from outside') < at('Roll back after a failed external smoke'),
+  );
+  assert.ok(
+    at('Roll back after a failed external smoke') < at('Fail when the external smoke failed'),
+  );
+
+  const script = runScript(recover.body);
+  const rollback = 'rollback sha256:previous-web sha256:previous-ingress document-hash';
+  const maintenance = 'maintenance sha256:new-web sha256:new-ingress document-hash';
+  const accepted = runRecover(script, { rollbackWeb: 'sha256:previous-web', codes: {} });
+  assert.deepEqual(
+    [accepted.status, accepted.calls],
+    [0, [rollback]],
+    'an accepted rollback ends the recovery',
+  );
+  assert.match(accepted.summary, /recovered: rolled back/u);
+  const refused = runRecover(script, {
+    rollbackWeb: 'sha256:previous-web',
+    codes: { rollback: 1 },
+  });
+  assert.deepEqual(
+    [refused.status, refused.calls],
+    [0, [rollback, maintenance]],
+    'a refused rollback falls through to maintenance of the failed pair',
+  );
+  assert.match(refused.summary, /recovered: entered maintenance/u);
+  const first = runRecover(script, { rollbackWeb: '', codes: {} });
+  assert.deepEqual(
+    [first.status, first.calls],
+    [0, [maintenance]],
+    'no previous pair enters maintenance',
+  );
+  const stuck = runRecover(script, {
+    rollbackWeb: 'sha256:previous-web',
+    codes: { rollback: 1, maintenance: 1 },
+  });
+  assert.notEqual(stuck.status, 0, 'a failed maintenance fails the step');
+});
+
+test('tag and record run after a successful deploy even when build was skipped, and record does not wait on tag', () => {
+  const condition = (job) => /^ {4}if: (.+)$/mu.exec(job)?.[1];
+  assert.equal(
+    condition(JOBS.tag),
+    "${{ !cancelled() && needs.deploy.result == 'success' && needs.deploy.outputs.action != 'maintenance' }}",
+  );
+  assert.equal(condition(JOBS.record), "${{ !cancelled() && needs.deploy.result == 'success' }}");
+  assert.match(
+    JOBS.tag,
+    /already tagged \$IMAGE_TAG/u,
+    'a re-run tag job skips a tag it already added',
+  );
+  assert.match(
+    JOBS.record,
+    /gh release view "\$GIT_TAG"/u,
+    'a re-run record job keeps the Release it made',
+  );
+});
+
+test('the build tools are pinned images from the inventory', async () => {
+  const { loadImageInventory, resolveImageReference } =
+    await import('../artifacts/image-inventory.mjs');
+  const inventory = loadImageInventory(repoRoot);
+  for (const [name, variable] of [
+    ['web-cd-buildkit', 'BUILDKIT_IMAGE'],
+    ['web-cd-sbom-scanner', 'SBOM_SCANNER_IMAGE'],
+  ]) {
+    const image = inventory.images.find((candidate) => candidate.name === name);
+    assert.ok(image, name);
+    assert.equal(image.ownerPath, '.github/workflows/web-cd.yml');
+    const reference = resolveImageReference(repoRoot, image);
+    assert.match(
+      workflow,
+      new RegExp(`^ {2}${variable}: ${reference.replace(/[.*+?^${}()|[\]\\/]/gu, '\\$&')}$`, 'mu'),
+    );
+  }
+  assert.match(JOBS.build, /--driver-opt "image=\$BUILDKIT_IMAGE"/u);
+  assert.equal(
+    (JOBS.build.match(/--attest "type=sbom,generator=\$SBOM_SCANNER_IMAGE"/gu) ?? []).length,
+    2,
+  );
+  assert.doesNotMatch(JOBS.build, /--sbom=/u, 'the default SBOM generator is a moving tag');
 });
