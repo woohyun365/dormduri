@@ -257,6 +257,17 @@ test('the Actions allow list check rejects an unlisted publisher and an unused p
   assert.deepEqual(actionAllowListProblems('| Actions | allowed | `VERIFIED_REMOTE` |', [workflow]), [
     'Actions row must record "selected; GitHub-owned true, ..." and a status',
   ]);
+  // Docker and local references are skipped, an `owner/*@*` pattern covers that owner's actions, and a GitHub-owned
+  // action under another owner name is not.
+  const mixed = [
+    'mixed.yml',
+    'steps:\n  - uses: docker://alpine@sha256:abc\n  - uses: ./.github/actions/local@v1\n  - name: Tool\n    uses: octo/tool/sub@abc\n  - uses: github/codeql-action/init@abc\n',
+  ];
+  assert.deepEqual(actionAllowListProblems(row('`octo/*@*`'), [mixed]), []);
+  assert.deepEqual(actionAllowListProblems(row('`octo/other@*`'), [mixed]), [
+    'mixed.yml: octo/tool/sub is not GitHub-owned and not in the Actions allow list row',
+    'Actions allow list pattern octo/other@* has no workflow caller',
+  ]);
 });
 
 test('GitHub operator authentication stays layered, least-privilege, and secret-free', () => {
