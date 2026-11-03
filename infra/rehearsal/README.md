@@ -2,7 +2,7 @@
 
 이 디렉터리는 local/constrained rehearsal 설정을 소유한다. Web 단계 host는 운영 compose
 `infra/deploy/user/compose.yml`을 그대로 쓰고 `compose.user-host.yml`로 local 값만 덮는다([User host rehearsal](#user-host-rehearsal)).
-`compose.web.yml`은 local Web/BFF rehearsal의 Web service다([`compose.web.yml`](#composewebyml)).
+`compose.web.yml`은 full-stack rehearsal의 Web service다([`compose.web.yml`](#composewebyml)).
 
 OrbStack과 독립 Linux VM의 선택, profile별 자원 및 증거 경계는
 [Local environment selector](../runbooks/rehearsal/local-environments.md)를 먼저 확인한다.
@@ -13,20 +13,19 @@ Lightsail secret delivery의 AWS-account-free candidate/activation/rollback faul
 
 ## Profile composition
 
-| Profile                    | 분류                 | Compose order                                                             | Responsibility                                                                                                   |
-| -------------------------- | -------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `api-base`                 | production-candidate | `infra/deploy/compose.api.yml`                                            | API/nginx production-neutral runtime candidate                                                                   |
-| `api-rehearsal`            | rehearsal-only       | `api-base` → `compose.api.runtime.yml`                                    | 제품 container resource budget와 observability network                                                           |
-| `api-stress`               | stress-only          | `api-rehearsal` → `apps/api/test/stress/docker/compose.stress.yml`        | stress-only throttle와 proxy knobs                                                                               |
-| `api-stress-standalone`    | stress-only          | `api-base` → `apps/api/test/stress/docker/compose.stress.yml`             | 관측 stack과 resource budget 없이 실행하는 production-like stress smoke                                          |
-| `observability-base`       | runtime-base         | `infra/observability/compose.base.yml` → shared resources                 | private observability topology base                                                                              |
-| `observability-production` | production-candidate | `observability-base` → `infra/observability/compose.production.yml`       | Production 관측 stack 후보([production stack runbook](../runbooks/operations/observability/production-stack.md)) |
-| `observability-rehearsal`  | rehearsal-only       | `observability-base` → rehearsal network                                  | constrained observability와 external local network                                                               |
-| `web-rehearsal`            | rehearsal-only       | `observability-rehearsal` → `compose.web.yml` → `compose.web.fixture.yml` | Web/BFF standalone rehearsal + upstream fixture                                                                  |
-| `full-stack-api-rehearsal` | rehearsal-only       | `api-rehearsal` → `compose.postgres.yml`(disposable PostgreSQL 18)        | Full-stack API/nginx/DB rehearsal only                                                                           |
-| `full-stack-web-rehearsal` | rehearsal-only       | `observability-rehearsal` → `compose.web.yml`                             | 실제 API에 연결하며 fixture를 제외한 Web rehearsal                                                               |
-| `user-host`                | production-candidate | `infra/deploy/user/compose.yml`                                           | Web 단계 User App host(ingress·Web) 운영 compose                                                                 |
-| `user-host-rehearsal`      | rehearsal-only       | `user-host` → `compose.user-host.yml`                                     | 운영 compose에 local build image·시험 인증서·loopback port만 덮은 rehearsal                                      |
+| Profile                    | 분류                 | Compose order                                                       | Responsibility                                                                                                   |
+| -------------------------- | -------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `api-base`                 | production-candidate | `infra/deploy/compose.api.yml`                                      | API/nginx production-neutral runtime candidate                                                                   |
+| `api-rehearsal`            | rehearsal-only       | `api-base` → `compose.api.runtime.yml`                              | 제품 container resource budget와 observability network                                                           |
+| `api-stress`               | stress-only          | `api-rehearsal` → `apps/api/test/stress/docker/compose.stress.yml`  | stress-only throttle와 proxy knobs                                                                               |
+| `api-stress-standalone`    | stress-only          | `api-base` → `apps/api/test/stress/docker/compose.stress.yml`       | 관측 stack과 resource budget 없이 실행하는 production-like stress smoke                                          |
+| `observability-base`       | runtime-base         | `infra/observability/compose.base.yml` → shared resources           | private observability topology base                                                                              |
+| `observability-production` | production-candidate | `observability-base` → `infra/observability/compose.production.yml` | Production 관측 stack 후보([production stack runbook](../runbooks/operations/observability/production-stack.md)) |
+| `observability-rehearsal`  | rehearsal-only       | `observability-base` → rehearsal network                            | constrained observability와 external local network                                                               |
+| `full-stack-api-rehearsal` | rehearsal-only       | `api-rehearsal` → `compose.postgres.yml`(disposable PostgreSQL 18)  | Full-stack API/nginx/DB rehearsal only                                                                           |
+| `full-stack-web-rehearsal` | rehearsal-only       | `observability-rehearsal` → `compose.web.yml`                       | 실제 API에 연결한 Web rehearsal                                                                                  |
+| `user-host`                | production-candidate | `infra/deploy/user/compose.yml`                                     | Web 단계 User App host(ingress·Web) 운영 compose                                                                 |
+| `user-host-rehearsal`      | rehearsal-only       | `user-host` → `compose.user-host.yml`                               | 운영 compose에 local build image·시험 인증서·loopback port만 덮은 rehearsal                                      |
 
 `infra/compose-profiles.json`이 파일 순서의 source of truth다. 직접 `-f` 순서를 재작성하지 않고 다음 entry를 사용한다.
 
@@ -41,8 +40,8 @@ pnpm infra:compose -- observability-rehearsal config
 
 ### `compose.web.yml`
 
-`compose.web.yml`은 Web service 하나를 정의하고 `web-rehearsal`·`full-stack-web-rehearsal`이 `observability-rehearsal` 뒤에
-합성해 local Web/BFF rehearsal을 돌린다. Local 가정(local image 이름, `web.local.invalid` origin, loopback publish, 관측
+`compose.web.yml`은 Web service 하나를 정의하고 `full-stack-web-rehearsal`이 `observability-rehearsal` 뒤에 합성해 실제
+API에 연결한 local Web/BFF rehearsal을 돌린다. Local 가정(local image 이름, `web.local.invalid` origin, loopback publish, 관측
 network)은 rehearsal의 것이다. Web 단계 host의 운영 compose는 `infra/deploy/user/compose.yml`이고, 그 local rehearsal은
 이 파일이 아니라 `user-host-rehearsal`이다.
 
@@ -102,9 +101,7 @@ orbctl start
 7. Loopback port, running image의 generated-secret 부재, stress throttle 격리를 확인한다.
 8. 모든 container·volume·network를 두 번 정리해 cleanup idempotency를 확인하고, 그 실행이 build한 API·Web image 둘을 지운다.
 
-Standalone Web rehearsal의 `web-upstream` fixture는 full-stack profile에 합성하지 않는다. Full-stack
-Web은 실제 nginx/API를 사용하며, evidence의 제품 container limit 합계에는 fixture나 PostgreSQL을
-포함하지 않는다.
+Full-stack Web은 실제 nginx/API를 사용하며, evidence의 제품 container limit 합계에는 PostgreSQL을 포함하지 않는다.
 
 Secret-free JSON/Markdown 결과는 기본적으로 `.artifacts/tools/infra/full-stack-rehearsal/`에 생성된다.
 실행 중 생성한 DB password, HMAC key, metrics token은 OS 임시 디렉터리에만 두고 종료 시 삭제한다.

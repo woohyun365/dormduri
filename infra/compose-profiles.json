@@ -68,20 +68,6 @@
       ],
       "managedNetworks": [{ "env": "OBSERVABILITY_NETWORK", "default": "dormduri-observability" }]
     },
-    "web-rehearsal": {
-      "classification": "rehearsal-only",
-      "project": "dormduri-web-observability",
-      "envFile": "infra/observability/.env.observability",
-      "validationEnvFile": "infra/observability/.env.observability.example",
-      "files": [
-        "infra/observability/compose.base.yml",
-        "infra/observability/compose.resources.yml",
-        "infra/rehearsal/compose.observability.yml",
-        "infra/rehearsal/compose.web.yml",
-        "infra/rehearsal/compose.web.fixture.yml"
-      ],
-      "managedNetworks": [{ "env": "OBSERVABILITY_NETWORK", "default": "dormduri-observability" }]
-    },
     "full-stack-web-rehearsal": {
       "classification": "rehearsal-only",
       "project": "dormduri-full-stack-web",

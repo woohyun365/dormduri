@@ -48,19 +48,9 @@ test('full-stack runner proves product, observability, secret and cleanup bounda
   assert.doesNotMatch(runner, /\.omx\/(?:reports|artifacts|screenshots)/u);
 });
 
-test('full-stack profile excludes the standalone Web upstream fixture', () => {
-  const inventory = JSON.parse(readRepoFile('infra/compose-profiles.json'));
-  const standaloneFiles = inventory.profiles['web-rehearsal'].files;
-  const fullStackFiles = inventory.profiles['full-stack-web-rehearsal'].files;
-  const webRuntime = readRepoFile('infra/rehearsal/compose.web.yml');
-  const fixtureOverlay = readRepoFile('infra/rehearsal/compose.web.fixture.yml');
+test('full-stack Web runs the full-stack-web-rehearsal profile against the real API', () => {
   const runner = readRehearsalSources();
 
-  assert.ok(standaloneFiles.includes('infra/rehearsal/compose.web.fixture.yml'));
-  assert.equal(fullStackFiles.includes('infra/rehearsal/compose.web.fixture.yml'), false);
-  assert.doesNotMatch(webRuntime, /web-upstream:/u);
-  assert.match(fixtureOverlay, /web-upstream:/u);
-  assert.match(fixtureOverlay, /depends_on:[\s\S]*web-upstream/u);
   assert.match(runner, /buildComposeArgs\(inventory, 'full-stack-web-rehearsal'/u);
 });
 

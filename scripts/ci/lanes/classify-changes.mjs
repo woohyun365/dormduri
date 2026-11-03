@@ -90,7 +90,6 @@ const LANE_SCRIPT_PATHS = new Map([
   ['scripts/ci/lanes/run-timed-command.mjs', ['web', 'api', 'storybook']],
   ['scripts/infra/compose/profile.mjs', ['api']],
   ['scripts/observability/production/environment.mjs', ['api']],
-  ['scripts/observability/rehearsal/web-bff.mjs', ['api']],
   ['scripts/observability/sentry/check-build.mjs', ['web']],
 ]);
 

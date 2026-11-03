@@ -28,12 +28,6 @@
       "updateOwner": "renovate"
     },
     {
-      "name": "web-rehearsal-upstream",
-      "ownerPath": "infra/rehearsal/compose.web.fixture.yml",
-      "repository": "node",
-      "updateOwner": "renovate"
-    },
-    {
       "name": "api-ingress",
       "ownerPath": "infra/deploy/compose.api.yml",
       "repository": "nginx",

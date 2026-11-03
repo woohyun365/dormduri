@@ -6,13 +6,8 @@ Sentry는 Web browser runtime error, unexpected Next.js server/edge exception, s
 
 ## Account-free 구현 검증
 
-외부 계정·DSN·token 없이 다음 명령을 실행한다.
-
-```bash
-pnpm web:sentry:rehearsal
-```
-
-이 검증은 다음을 확인한다.
+외부 계정·DSN·token 없이 Web CI가 PR마다 검증한다(unit gate의 `src/observability/sentry/__tests__` 등, static/build gate의
+`pnpm web:sentry:verify-build`와 Storybook build). 이 검증은 다음을 확인한다.
 
 - client/node/edge 설정 선택과 production evidence gate
 - privacy scrub, 같은 Error 중복 방지, provider rejection fail-open
@@ -20,7 +15,6 @@ pnpm web:sentry:rehearsal
 - Sentry SDK 외부 feature import 금지
 - upload-disabled production build와 public source map 부재
 - Storybook 정적 산출물에 외부 Sentry intake 설정이 없는 상태
-- Docker Engine 2CPU/4GB envelope 정보와 local resource snapshot
 
 이 결과는 managed intake나 source-map symbolication 성공을 의미하지 않는다.
 

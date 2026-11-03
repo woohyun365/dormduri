@@ -22,48 +22,19 @@ Web 단계 host compose(`infra/deploy/user/compose.yml`)의 Web service 이름�
 
 ## Release 전 확인
 
-1. Sentry release readiness 입력이 준비되고 managed release evidence와 local rehearsal이 통과한다.
+1. Sentry release readiness 입력이 준비되고 managed release evidence와 Web CI의 account-free Sentry 검사가 통과한다.
 2. BFF synthetic timeout이 `outcome=timeout`과 requestId correlation으로 Loki에서 조회된다.
 3. email, token, cookie, body, raw URL/query가 Sentry와 Loki 검색 결과에 없다.
 4. Sentry runtime/performance kill switch를 각각 끈 뒤 사용자 navigation과 API flow가 정상이다.
 5. Loki가 중단되어도 BFF 사용자 응답이 유지된다.
 
-## OrbStack Web local constrained rehearsal
+## Local 확인
 
-### 범위
-
-- Docker context: `orbstack`
-- Docker Engine: 2 CPU / 4096MiB 또는 full-stack 공용 설정 4608MiB(±256MiB)
-- Web: production Next standalone image
-- Upstream: success/invalid-response/timeout만 제공하는 local fixture
-- 관측: Web stdout → Alloy → Loki → Grafana
-
-Upstream fixture는 API contract나 RDS/API 성능을 대표하지 않는다. Managed Sentry intake, source-map upload, TLS/domain도 이 rehearsal의 범위가 아니다.
-
-### 실행
-
-```bash
-pnpm web:sentry:rehearsal
-pnpm web:observability:rehearsal
-```
-
-첫 명령은 account-free SDK/privacy/build contract를 검증하고, 두 번째 명령은 BFF log ingest와 Loki 장애 fail-open을 검증한다.
-
-BFF runner는 다음 순서로 fail-closed 검증한다.
-
-1. OrbStack context와 2CPU/4096MiB 또는 4608MiB local rehearsal envelope 확인
-2. compose config 검증과 production Web image build
-3. Web/Loki/Grafana readiness 확인
-4. BFF success, malformed upstream response, 8초 timeout 발생
-5. Loki에서 `success`, `invalid_response`, `timeout`, requestId 확인
-6. synthetic email/token이 log에 없는지 확인
-7. Grafana dashboard UID 확인
-8. Loki 중단 중 BFF success 응답 유지
-9. container resource snapshot 출력
-10. 전용 container/network/volume cleanup
-
-실패 상태를 유지하려면 `WEB_REHEARSAL_KEEP=1`, evidence 파일을 남기려면
-`WEB_REHEARSAL_EVIDENCE_PATH=.artifacts/tools/observability/web-rehearsal.json`을 사용한다.
+- Sentry SDK·privacy·sampling·upload-disabled build의 account-free 검사는 Web CI가 PR마다 돈다(unit gate의 Sentry·operational·
+  Web Vitals test, static/build gate의 `pnpm web:sentry:verify-build`와 Storybook build).
+- BFF log ingest(Web stdout → Alloy → Loki)와 Loki 장애 중 BFF 응답 유지는 지금 자동 검사가 없다. Web 단계 ingress는 `/api`를
+  열지 않는다. API 단계가 BFF를 열 때 실제 API와 연결하는 full-stack rehearsal(`pnpm infra:rehearsal:full-stack`)에 이 확인을
+  더한다. 그 전에는 위 'Release 전 확인' 2·5번을 증거 없는 항목으로 둔다.
 
 ## Grafana 조회
 

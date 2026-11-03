@@ -49,8 +49,7 @@ orbctl start
 | Docker engine target       |    4608MiB | 제품 4096MiB + local DB 512MiB                                                                        |
 
 제품 limit 합계와 local DB limit을 제외한 나머지는 OS/Docker/filesystem cache와 순간적인 process
-증가를 위한 engine headroom이다. Standalone Web용 `web-upstream` fixture는 full-stack profile에서
-제외하고 실제 nginx/API 연결을 사용한다. 미래 BackOffice는 별도 2GiB host가 목표이므로 이
+증가를 위한 engine headroom이다. Full-stack Web은 실제 nginx/API 연결을 사용한다. 미래 BackOffice는 별도 2GiB host가 목표이므로 이
 4GiB User App rehearsal에 합성하지 않는다.
 
 결과는 `.artifacts/tools/infra/full-stack-rehearsal/<run-id>.{json,md}`에 저장한다. evidence에는
@@ -61,7 +60,6 @@ secret과 DB URL을 기록하지 않는다. 임시 password, HMAC key, metrics t
 
 - `engine-resource-envelope`: 로컬 Docker resource envelope가 기준과 다르다.
 - `product-resource-budget`: 제품 limit 또는 RDS-like local DB allowance가 기준과 다르다.
-- `full-stack-fixture-exclusion`: standalone Web upstream fixture가 full-stack에 섞였다.
 - `fresh-migration-deploy`: fresh PostgreSQL 18에서 migration baseline을 적용하지 못했다.
 - `database-credential-boundary`: DB role/grant 또는 credential 분리가 맞지 않는다.
 - `web-api-bridge`: Web BFF가 nginx를 통해 API에 도달하지 못했다.

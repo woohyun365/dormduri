@@ -104,10 +104,10 @@ scheduler를 만들지 않는다.
 저장소 script가 Docker image store에 만드는 image와, 실행마다 새로 만드는 project의 이름 있는 volume에는 다음
 label이 붙는다. Label은 남은 자원을 골라 지우기 위한 표시이고 source 일치 근거가 아니다(위 "실행 전 결정 순서" 3번).
 
-| Label                       | 값                                                                                                                                                                               |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dormduri.local.created-by` | 만든 script의 저장소 상대 경로. 값을 넘기지 않는 실행(compose 직접 실행, `pnpm web:observability:rehearsal`)은 `manual`이다                                                      |
-| `dormduri.local.run-id`     | 실행마다 새 tag로 build하는 full-stack image와 그 실행의 volume은 run ID. 고정 tag image(dockerized smoke, `pnpm web:observability:rehearsal`)와 값을 넘기지 않는 실행은 `local` |
+| Label                       | 값                                                                                                                                           |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dormduri.local.created-by` | 만든 script의 저장소 상대 경로. 값을 넘기지 않는 실행(compose 직접 실행)은 `manual`이다                                                      |
+| `dormduri.local.run-id`     | 실행마다 새 tag로 build하는 full-stack image와 그 실행의 volume은 run ID. 고정 tag image(dockerized smoke)와 값을 넘기지 않는 실행은 `local` |
 
 - Full-stack rehearsal: rehearsal overlay의 API·Web build(`infra/rehearsal/compose.*.yml`)와, 그 runner만 붙이는
   `scripts/infra/rehearsal/full-stack/compose.volume-labels.*.yml`·full-stack profile만 쓰는
@@ -122,7 +122,7 @@ label이 붙는다. Label은 남은 자원을 골라 지우기 위한 표시이�
   source를 다시 build해도 image ID가 새로 생기고 이전 판이 tag 없이 남는다. 운영 후보 `infra/deploy/compose.api.yml`의
   build 정의에는 label이 없다.
 - 이름이 고정된 project(dockerized smoke의 `dormduri-api`·`dormduri-observability`, `pnpm infra:compose`로 직접 띄운
-  project, `pnpm web:observability:rehearsal`)의 volume에는 label을 두지 않는다. Compose는 volume label을 volume 설정
+  project)의 volume에는 label을 두지 않는다. Compose는 volume label을 volume 설정
   hash에 넣으므로, 실행마다 바뀌는 run ID label을 붙이면 다음 실행이 `Recreate (data will be lost)?`를 묻는다. 이
   volume은 이름이 고정이라 쌓이지 않으며 `com.docker.compose.project` label로 찾는다.
 - User host rehearsal(`user-host-rehearsal` profile): overlay `infra/rehearsal/compose.user-host.yml`의 Web·ingress build에
