@@ -3,6 +3,7 @@ name: Web CD
 # Web 단계 배포(infra/runbooks/release/web-stage-deploy.md). main에서 Web 배포 입력이 바뀌면 image 둘을 build·검사·push하고,
 # production 승인 뒤 provenance를 검증하고 SSM document로 host에 배포한다. workflow_dispatch는 기록된 쌍의 재배포·rollback·
 # 점검 mode용이다. 공개 저장소라 account ID·registry host·ARN·node ID·IP를 log와 기록에 남기지 않는다(D-WB7).
+# aws-actions 두 action은 저장소 Actions 허용 목록에 있어야 시작한다(docs/development/github/remote-repository-settings.md Actions 행).
 on:
   push:
     branches: [main]

@@ -200,6 +200,65 @@ test('remote-setting handoff exposes expected values, evidence states, and mutat
   assert.doesNotMatch(remoteSettings, /gh api[^\n]*--method\s+(?:PATCH|PUT|POST|DELETE)/u);
 });
 
+// The repository Actions setting allows GitHub-owned actions plus the `owner/repo@*` patterns the Actions row lists. A
+// workflow step outside that set never starts (startup failure), so every `uses:` must be GitHub-owned or match a listed
+// pattern, and every listed pattern must still have a caller.
+export function actionAllowListProblems(remoteSettings, workflows) {
+  const actionsRow = remoteSettings.match(/^\| Actions +\| selected; GitHub-owned true, (.+?) +\| `[A-Z_]+` +\|$/mu);
+  if (!actionsRow) return ['Actions row must record "selected; GitHub-owned true, ..." and a status'];
+  const patterns = [...actionsRow[1].matchAll(/`([\w.-]+\/[\w.*-]+(?:\/[\w.*-]+)*)@\*`/gu)].map((m) => m[1]);
+  const matches = (action, pattern) =>
+    pattern.endsWith('/*') ? action.startsWith(pattern.slice(0, -1)) : action === pattern;
+  const problems = [];
+  const used = new Set();
+  for (const [name, text] of workflows) {
+    for (const [, action] of text.matchAll(/^\s*(?:-\s+)?uses:\s*([^@\s]+)@\S+/gmu)) {
+      if (action.startsWith('./') || action.startsWith('docker://')) continue;
+      if (/^(?:actions|github)\//u.test(action)) continue;
+      const pattern = patterns.find((candidate) => matches(action, candidate));
+      if (pattern) used.add(pattern);
+      else problems.push(`${name}: ${action} is not GitHub-owned and not in the Actions allow list row`);
+    }
+  }
+  for (const pattern of patterns)
+    if (!used.has(pattern)) problems.push(`Actions allow list pattern ${pattern}@* has no workflow caller`);
+  return problems;
+}
+
+test('every workflow action is GitHub-owned or in the documented Actions allow list', () => {
+  const remoteSettings = read('docs/development/github/remote-repository-settings.md');
+  const workflows = readdirSync(resolve(repoRoot, '.github/workflows'))
+    .filter((name) => /\.ya?ml$/u.test(name))
+    .map((name) => [name, read(`.github/workflows/${name}`)]);
+  assert.deepEqual(actionAllowListProblems(remoteSettings, workflows), []);
+});
+
+test('the Actions allow list check rejects an unlisted publisher and an unused pattern', () => {
+  const row = (list) =>
+    `| Actions | selected; GitHub-owned true, verified creators false, ${list} | \`VERIFIED_REMOTE\` |`;
+  const workflow = [
+    'ci.yml',
+    'steps:\n  - uses: actions/checkout@abc\n  - uses: pnpm/action-setup@abc\n  - uses: aws-actions/amazon-ecr-login@abc\n  - uses: ./local\n',
+  ];
+  assert.deepEqual(
+    actionAllowListProblems(row('`pnpm/action-setup@*`, `aws-actions/amazon-ecr-login@*`'), [workflow]),
+    [],
+  );
+  assert.deepEqual(actionAllowListProblems(row('`pnpm/action-setup@*` only'), [workflow]), [
+    'ci.yml: aws-actions/amazon-ecr-login is not GitHub-owned and not in the Actions allow list row',
+  ]);
+  assert.deepEqual(
+    actionAllowListProblems(
+      row('`pnpm/action-setup@*`, `aws-actions/amazon-ecr-login@*`, `docker/login-action@*`'),
+      [workflow],
+    ),
+    ['Actions allow list pattern docker/login-action@* has no workflow caller'],
+  );
+  assert.deepEqual(actionAllowListProblems('| Actions | allowed | `VERIFIED_REMOTE` |', [workflow]), [
+    'Actions row must record "selected; GitHub-owned true, ..." and a status',
+  ]);
+});
+
 test('GitHub operator authentication stays layered, least-privilege, and secret-free', () => {
   const agents = read('AGENTS.md');
   const index = read('docs/development/github/README.md');
