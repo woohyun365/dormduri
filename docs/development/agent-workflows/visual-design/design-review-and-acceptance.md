@@ -114,18 +114,39 @@ owner preference: not-collected, not implied by this example
 기각한 취향 제안이 반복되지 않도록 합니다. CSS 값마다 승인을 요청하는 대신 승인 범위의 수정안을 실행하되, 제품·비용·위험이나
 합의한 방향 변경은 [Owner–Lead](../owner-lead-collaboration.md)의 협의 경계를 사용합니다.
 
+시각 비평도 현재 host의 독립 리뷰 진입점으로 돌립니다. Parent가 비평 subject를 정하고 비평할 캡처 PNG를 read path로 줍니다.
+등록·호출·정산은 [현재 host adapter](../adapters/README.md)를 따릅니다.
+
 ## 실제 수정 루프
 
-`render → isolated critique → adopt/reject/defer → authorized patch → recapture → keep/revert`를 사용합니다.
-[공통 maker-checker](../orchestration.md#pattern-selector)를 따라 기본 최대 두 번의 critique→revision cycle로 제한합니다.
+시각 작업의 검토 순서는 이 절 하나가 소유합니다.
+
+1. 모든 후보를 같은 콘텐츠·[대표 상태 묶음](./visual-brief.md#verification)·viewport로 렌더합니다.
+2. Owner에게 보이기 전에 지킬 것(고지·대비·접근성)을 결정적 검사로 확인합니다. 방향이 맞아도 고지 누락이나 대비 실패가
+   있으면 Owner의 방향 판단이 흐려집니다.
+3. Owner가 방향을 고릅니다(select/revise/reject).
+4. 고른 후보에만 `isolated critique → adopt/reject/defer → authorized patch → recapture → keep/revert`를 사용합니다.
+   [공통 maker-checker](../orchestration.md#pattern-selector)를 따라 기본 최대 두 번의 critique→revision cycle로 제한합니다.
+5. Owner가 확정합니다(`W-DESIGN` 확정 기록, [lifecycle state machine](../lifecycle-state-machine.md#확인-주체와-강도)).
+
 의견이 안 모이면 결과와 정확한 질문을 돌려주며, 새 방향은 brief를 다시 여는 별도 판단입니다. 마지막 revision이 항상
 더 좋다고 가정하지 않고, 동일/악화 또는 이전 후보 유지도 관찰 결과로 남깁니다.
 
 - content/map hash, candidate revision, viewport/scale, locale와 브라우저 버전을 고정합니다.
 - 사용 가능한 font/asset, font 로드 완료, 색상·reduced-motion, 애니메이션·동적 데이터 처리 조건을 기록합니다.
+- 실제 그린 글꼴(platform font)을 기록합니다. 글꼴 finding은 축소 스크린샷이 아니라 그 기록으로 판정합니다.
 - 전후 중요 영역과 전체 구성을 함께 보존합니다. 필수 콘텐츠를 가리거나 masking해서 비교를 통과시키지 않습니다.
 - screenshot 안정화는 별도 interaction/keyboard 검증을 대체하지 않습니다. 실제 이미지를 보지 못하면 시각 판정은 BLOCKED입니다.
 - Renderer는 허용된 환경·출력 경로만 쓰고, reviewer는 공통 QA의 read-only/runner 구분을 따릅니다.
+
+검증 probe와 결함 수정에는 다음을 함께 씁니다.
+
+- **probe 양성·음성 대조:** probe는 고치기 전 build에서 실패를 재현하고, 일부러 깨뜨린 입력을 잡는지 확인한 뒤 근거로 씁니다.
+  값을 바꿔도 결과가 같으면 story arg 연결부터 의심합니다.
+- **원인 먼저:** 시각 결함은 고치기 전에 CSS를 덧씌운 캡처 한 쌍으로 원인을 확인합니다. 측정 실패는 전환 중간 프레임 때문인지
+  따로 재고, 선택지를 쓰기 전에 그 동작이 이미 있는지 확인합니다.
+- **접근 경로 함께 정하기:** hover로만 동작하는 요청은 키보드·터치 경로를 먼저 정합니다. 기능을 지우거나 끄면 그 기능의
+  키보드·터치 경로와 안내 문구를 다시 확인하고, 계속 움직이는 요소는 멈춤 수단을 함께 제안합니다.
 
 일반 작업은 근거 있는 no-change로 끝날 수 있습니다. **수정 하네스 자체를 검증한다고 할 때는** 실제 patch·recapture·독립
 delta 검토가 있어야 하며 절차를 써놓는 것만으로 통과시키지 않습니다. 본 후보에 수정 근거가 없으면 명시된 보조 composition

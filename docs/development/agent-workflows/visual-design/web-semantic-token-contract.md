@@ -41,6 +41,8 @@ Token은 업무 상태를 표현하지만 지원 자격·privacy·action의 sour
   Desktop/Mobile 의미 공유는 모든 값의 동일화를 뜻하지 않습니다. data/action 의미는 기존 공통 owner를 유지합니다.
 - **Fallback:** 정의 없는 참조는 declaration·import/cascade·fallback·실제 상태에서 확인합니다. 비슷한 이름의 변수나
   임의 brand 값으로 메우지 않습니다. 수정 권한과 기대 역할이 확인된 뒤 필요한 최소 변경을 선택합니다.
+- **소속 기관 상징색과의 거리:** brand 색이 소속 기관(학교 등)의 상징색으로 읽히면 안 되는 제품은 후보 색과 공식 자산에서 잰
+  상징색 사이 거리를 ΔE(CIEDE2000)로 재 판단 근거로 남깁니다. 이 측정은 색 선택 규칙이나 기준값이 아닙니다.
 
 ## 변경할 때의 packet
 
@@ -85,8 +87,7 @@ surface + mode + authority
 ## 미확인 참조의 인계
 
 Home에서 `--knu-primary-dark`를 참조하지만 두 CSS owner에서 정의를 찾지 못한 관찰은 **해결된 결함이 아닙니다**.
-대표 [PrimaryWithdrawalSheet](../../../../apps/web/src/main/tabs/home/sections/primary/PrimaryWithdrawalSheet.tsx)와
-[Home activity dialogs](../../../../apps/web/src/main/tabs/home/sections/activity/dialogs)를 다시 검색합니다. 정확한 참조 목록·개수와
+그 이름을 참조하는 modal/sheet consumer를 저장소 전체에서 다시 검색합니다. 정확한 참조 목록·개수와
 revision은 해당 작업 evidence에 남기고 장기 지침의 고정 개수로 삼지 않습니다. source search만으로 실제 hover 영향은 확정하지 않습니다.
 
 - **Owner:** 영향받는 Home modal/sheet의 다음 승인된 UI/bugfix 작업자.

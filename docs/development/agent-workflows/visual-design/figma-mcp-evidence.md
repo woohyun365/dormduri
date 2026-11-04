@@ -1,6 +1,6 @@
 # Figma MCP evidence and connection readiness
 
-이 문서는 KNU Roommate 저장소의 도구 binding 문서로, [repo binding](../domain/knu-binding.md)의 `tool.design-source`가 가리키는 Figma 연결의 절차와 증거 경계를 둡니다.
+이 문서는 돔두리 저장소의 도구 binding 문서로, [repo binding](../domain/knu-binding.md)의 `tool.design-source`가 가리키는 Figma 연결의 절차와 증거 경계를 둡니다.
 
 ## Repository boundary
 
@@ -92,6 +92,9 @@ Figma MCP read tool limits는 plan과 seat에 따라 달라질 수 있습니다.
 - rate-limited fallback
 
 Rate limit을 피하려고 다른 credential이나 account를 자동 전환하지 않습니다.
+
+여러 frame을 레퍼런스로 비교할 때는 `whoami`와 공식 한도를 확인한 뒤 page metadata 1회와 묶음 frame 스크린샷으로 받고, 로컬에서
+잘라 비교판을 만듭니다. frame별 호출은 비교할 frame을 고른 뒤에만 합니다.
 
 ### 6. Separate mutations
 
