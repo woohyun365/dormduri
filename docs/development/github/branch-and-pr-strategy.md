@@ -10,6 +10,7 @@
 | `main`                             | 검증된 release 기준과 default-branch provider 설정          |
 | `dev`                              | 다음 통합을 위한 integration branch와 모든 일반 PR의 target |
 | feature/fix/chore/perf/docs branch | 하나의 bounded implementation과 review·CI·rollback 경계     |
+| `explore/<surface>`                | 시각 탐색 회차 전용 local branch. push·PR 없음              |
 
 `dev`와 `main`에 직접 commit·push하지 않습니다. 사용자가 최신 integration baseline 위에서 구현하라고 요청한 경우에도
 의미는 `dev`를 기준으로 삼는 것이지 `dev`가 implementation branch가 된다는 뜻이 아닙니다.
@@ -46,6 +47,11 @@ git status --short
 ```
 
 Local `dev`가 `origin/dev`와 diverge했다면 force/reset으로 숨기지 않고 commit graph와 작업 소유자를 먼저 확인합니다.
+
+시각 탐색(`explore/<surface>`)을 확정한 뒤 구현을 시작할 때는 explore에서 정리 commit과 검사를 마친 tree의 필요한 경로만 fresh
+`origin/dev`에서 만든 `feat/<surface>`로 옮겨 리뷰하기 좋은 commit으로 나눕니다. explore branch를 merge·rebase·cherry-pick하지
+않고, 옮긴 경로 목록과 정리 뒤 explore tip sha를 PR 본문에 적습니다. 정리 commit과 확정 기록은
+[시각 탐색 branch](../agent-workflows/visual-design/design-task-orchestration.md#시각-탐색-branch)가 소유합니다.
 
 ## Bounded PR
 
@@ -182,6 +188,8 @@ Local iteration은 빠른 feedback 경계이고 remote push는 GitHub Actions �
 10. `[skip ci]`, direct `dev`/`main` push, red fail-closed summary merge는 정상적인 비용 절감 수단이 아닙니다.
 11. Review 시작 후 단순 history 미화를 위한 force-push를 피합니다. 추가 bounded commit으로 evidence를 보존하고 `dev`
     대상 squash merge를 bounded integration history 정리 경계로 사용합니다.
+12. 시각 탐색의 local `explore/<surface>` branch는 push하지 않습니다(push 0). 첫 remote 검증은 정리한 tree를 옮긴
+    `feat/<surface>` branch에서 합니다.
 
 이 전략은 PR 수를 무작정 줄이지 않습니다. 서로 독립적인 owner와 rollback 경계는 별도 PR로 유지하고, CI 비용은 safe
 change selection, local-green 검증, 같은 목적의 batch와 failed-job rerun으로 줄입니다.
@@ -347,6 +355,10 @@ Local cleanup은 remote 삭제, worktree 제거, GC를 포함하지 않습니다
 않습니다. 개인 경로·과거 branch inventory·bundle receipt는 local artifact/handoff에 두며 장기 정책에 복제하지 않습니다.
 이 절차는 advisory-policy이고 관련 문서 회귀는 deterministic-static 정합성 검사입니다. Agent의 실제 삭제 판단이나
 host 권한을 강제하지 않으며, 새 CLI·hook·상태 파일 설치를 요구하지 않습니다.
+
+시각 탐색의 local `explore/<surface>` branch와 정리 전 후보 tag는 구현 PR merge와 증거 기록 뒤 위 판정·실행 절차로 정리하며,
+`dev`에 merge되지 않는 explore tip의 통합 증거는 그 구현 PR과 확정 기록의 tip sha입니다
+([시각 탐색 branch](../agent-workflows/visual-design/design-task-orchestration.md#시각-탐색-branch)).
 
 ## 예외와 복구
 
