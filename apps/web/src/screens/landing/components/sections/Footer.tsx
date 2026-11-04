@@ -14,7 +14,7 @@ export function Footer({ logo }: { logo: BrandLogoTone }) {
   return (
     <footer
       id={LANDING_SURFACE_SECTION_IDS.footer}
-      className="border-t border-stroke-subtle bg-layer-basement text-body-sm"
+      className="border-t border-stroke-subtle bg-layer-basement pb-safe-area text-body-sm"
     >
       <div className={`${container} grid grid-cols-2 gap-8 py-12 md:grid-cols-4`}>
         <div className="col-span-2 md:col-span-4">

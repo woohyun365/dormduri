@@ -1,6 +1,8 @@
 // Class names the landing sections share.
 
-export const container = 'mx-auto w-full max-w-content px-gutter';
+// The content width and its side margin: the gutter, or the safe area inset where the iPhone sensor
+// housing reaches further in landscape (the route draws to the screen edge, app/page.tsx).
+export const container = 'mx-auto w-full max-w-content px-gutter-safe';
 
 // A section whose content enters on scroll (useSectionReveal on the page frame marks it pending).
 export const revealSection = 'group';
