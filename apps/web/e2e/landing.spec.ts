@@ -61,6 +61,10 @@ test.describe('Landing public experience', () => {
       ratio: 1,
     });
     await expect(hero.locator('a[href="/signup"]')).toBeInViewport({ ratio: 1 });
+    // Upright phones: the hero picture runs 6rem past the first screen, so iPhone Safari shows it under
+    // its floating toolbar instead of the next section (Owner 2026-11-04).
+    const heroBox = (await hero.boundingBox())!;
+    expect(heroBox.y + heroBox.height).toBeGreaterThanOrEqual(844 + 96);
   });
 
   test('가입·로그인 행동은 44×44px 이상이고 keyboard focus에 2px 테두리가 생긴다', async ({

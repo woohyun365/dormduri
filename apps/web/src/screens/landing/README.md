@@ -103,6 +103,8 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 - `/` route는 화면 끝까지 그립니다(`src/app/page.tsx`의 `viewport` export, `viewport-fit=cover`). iPhone 가로 화면의 센서 자리
   양옆도 Landing 배경이고, 글·버튼은 `px-gutter-safe`(gutter와 safe area inset 가운데 큰 값)로, footer 끝은 `pb-safe-area`로
   safe area 안에 둡니다. 다른 route의 viewport와 배경은 바꾸지 않습니다.
+- 세로 휴대폰에서 hero는 첫 화면보다 6rem 길어 그림이 첫 화면 아래 끝을 넘습니다. iPhone Safari는 떠 있는 도구막대·home indicator
+  아래도 페이지를 보여 주지만 그 자리는 어떤 viewport 단위에도 들지 않습니다.
 - 움직임은 motion 줄이기에서 멈추거나 바로 끝납니다. 첫 화면 질문 넘김은 멈춤 버튼이 있습니다(WCAG 2.2.2).
 - 글자 대비 4.5:1(큰 글자 3:1), 터치 타깃, `focus-visible:focus-ring`은 [Foundations](../../styles/tokens/README.md) token을 씁니다.
   임의 값(`-[…]`)과 raw 색은 lint error입니다.
