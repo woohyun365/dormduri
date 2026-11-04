@@ -356,9 +356,9 @@ Local cleanup은 remote 삭제, worktree 제거, GC를 포함하지 않습니다
 이 절차는 advisory-policy이고 관련 문서 회귀는 deterministic-static 정합성 검사입니다. Agent의 실제 삭제 판단이나
 host 권한을 강제하지 않으며, 새 CLI·hook·상태 파일 설치를 요구하지 않습니다.
 
-시각 탐색의 local `explore/<surface>` branch와 정리 전 후보 tag는 구현 PR merge와 증거 기록 뒤 위 판정·실행 절차로 정리하며,
-`dev`에 merge되지 않는 explore tip의 통합 증거는 그 구현 PR과 확정 기록의 tip sha입니다
-([시각 탐색 branch](../agent-workflows/visual-design/design-task-orchestration.md#시각-탐색-branch)).
+시각 탐색의 local `explore/<surface>` branch와 정리 전 후보 tag는 구현 PR merge와 증거 기록 뒤 정리하며, `dev`에 merge되지
+않고 내용을 보관하지 않는 ref이므로 위 표의 unpublished 보존 행과 실행 1의 bundle 보존을 적용하지 않고 그 구현 PR과 확정
+기록의 tip sha를 통합 증거로 삼습니다([시각 탐색 branch](../agent-workflows/visual-design/design-task-orchestration.md#시각-탐색-branch)).
 
 ## 예외와 복구
 
