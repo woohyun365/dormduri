@@ -23,7 +23,7 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 `LandingScreen`이 아래 순서로 조합합니다. 섹션은 `components/sections/`에 하나씩 있습니다.
 
 1. `Header`: 로고(홈 `/` 링크. 이 페이지에서 누르면 새로고침 없이 맨 위로 가고 주소의 #섹션을 지움), 로그인, 시작하기(가입의 헤더 줄임말)
-2. `HeroSection`(`#hero`): 제목, 본문, 질문 상자, 가입 행동과 그 결과 문장, 첫 화면 고지 두 줄
+2. `HeroSection`(`#hero`): 제목, 본문, 질문 상자, 가입 행동, 첫 화면 고지 두 줄
 3. `BeforeSection`(`#before`): 무엇이 다른가요. 커뮤니티 게시판 글과 서비스 화면을 겹친 두 창
 4. `ItemsSection`(`#items`): 생활패턴 항목과 나·상대 카드 겹쳐 보기
 5. `StepSection`(`#search`·`#chat`·`#match`): 01 찾기 · 02 대화 · 03 매칭과 휴대폰 캡처 자리. 단계 표시는 순서와 현재 단계만
@@ -99,7 +99,10 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 
 - 기본은 server render입니다. client 부분은 상호작용이나 browser API가 필요한 가장 작은 단위입니다: `LandingFrame`(스크롤 등장),
   `HeroAsk`(질문 넘김과 이동), `BeforeStack`(겹친 창 앞뒤 전환), `StatementFields`(카드 끌어 겹치기), `HomeLink`(header 로고를
-  누르면 맨 위로).
+  누르면 맨 위로), `LandingDocumentBackground`(Landing을 보는 동안 `html`·`body` 배경을 frame 배경으로 두고 떠나면 되돌림).
+- `/` route는 화면 끝까지 그립니다(`src/app/page.tsx`의 `viewport` export, `viewport-fit=cover`). iPhone 가로 화면의 센서 자리
+  양옆도 Landing 배경이고, 글·버튼은 `px-gutter-safe`(gutter와 safe area inset 가운데 큰 값)로, footer 끝은 `pb-safe-area`로
+  safe area 안에 둡니다. 다른 route의 viewport와 배경은 바꾸지 않습니다.
 - 움직임은 motion 줄이기에서 멈추거나 바로 끝납니다. 첫 화면 질문 넘김은 멈춤 버튼이 있습니다(WCAG 2.2.2).
 - 글자 대비 4.5:1(큰 글자 3:1), 터치 타깃, `focus-visible:focus-ring`은 [Foundations](../../styles/tokens/README.md) token을 씁니다.
   임의 값(`-[…]`)과 raw 색은 lint error입니다.
@@ -108,7 +111,8 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 
 ## SEO
 
-- `/` route의 title, description, canonical, Open Graph, Twitter metadata는 `src/app/metadata.ts`가 관리합니다.
+- `/` route의 title, description, canonical, Open Graph, Twitter metadata는 `src/app/metadata.ts`가 관리합니다. 링크 미리보기
+  이미지는 `src/app/link-preview.jpg`(1200×630 JPEG, 로고와 이름을 밤 배경에 둠)이고, 로고나 Landing 배경을 바꾸면 다시 만듭니다.
 - `robots.ts`와 `sitemap.ts`는 공개 정적 route와 private·API route 경계를 구분합니다.
 
 ## 검증
@@ -117,11 +121,13 @@ test가 글자로 고정하는 문구는 정책 고지뿐입니다. 그 밖 문�
 e2e는 랜드마크·링크 목적지·고지 문장으로 찾습니다. 섹션 순서와 DOM 구조도 고정하지 않습니다. 고지 밖 문구 하나를 바꿔도 test가
 깨지지 않아야 합니다.
 
-| 검사                                                       | 위치                                                                                               |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| 조합·고지 위치·링크·예시 표식                              | `__tests__/LandingScreen.test.tsx`, `model/landingPolicyCopy.test.ts`                              |
-| 예시 답과 공유 schema                                      | `model/comparePairs.test.ts`                                                                       |
-| 방문 통계 script: token 없음·있음(`spa:false`)·잘못된 형식 | `__tests__/LandingVisitAnalytics.test.tsx`(형식), `src/config/env.schema.test.ts`(공개 build 입력) |
-| Storybook 렌더·axe                                         | `pnpm --dir apps/web ci:storybook:build && pnpm --dir apps/web ci:storybook:visual`                |
-| route·화면 import 경계                                     | `apps/web/src/app/__tests__/public-landing-route.test.ts`                                          |
-| 실제 `/`: 첫 화면 고지·주 행동 크기·focus·가로 넘침·목적지 | `apps/web/e2e/landing.spec.ts`(`pnpm web:e2e`)                                                     |
+| 검사                                                                           | 위치                                                                                               |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| 조합·고지 위치·링크·예시 표식                                                  | `__tests__/LandingScreen.test.tsx`, `model/landingPolicyCopy.test.ts`                              |
+| 예시 답과 공유 schema                                                          | `model/comparePairs.test.ts`                                                                       |
+| 방문 통계 script: token 없음·있음(`spa:false`)·잘못된 형식                     | `__tests__/LandingVisitAnalytics.test.tsx`(형식), `src/config/env.schema.test.ts`(공개 build 입력) |
+| Storybook 렌더·axe                                                             | `pnpm --dir apps/web ci:storybook:build && pnpm --dir apps/web ci:storybook:visual`                |
+| route·화면 import 경계                                                         | `apps/web/src/app/__tests__/public-landing-route.test.ts`                                          |
+| 실제 `/`: 첫 화면 고지·주 행동 크기·focus·가로 넘침·목적지                     | `apps/web/e2e/landing.spec.ts`(`pnpm web:e2e`)                                                     |
+| `html`·`body` 배경 설정과 되돌림                                               | `__tests__/LandingDocumentBackground.test.tsx`                                                     |
+| 실제 `/`: `viewport-fit=cover`·문서 배경, 법적 문서는 원래 값, 미리보기 이미지 | `apps/web/e2e/landing.spec.ts`, `src/app/__tests__/metadata.test.ts`                               |

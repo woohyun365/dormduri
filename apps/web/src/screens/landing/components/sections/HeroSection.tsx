@@ -54,10 +54,7 @@ export function HeroSection() {
         {/* The question box, the sign-up action and the notices rise together, so nothing overlaps. */}
         <div className="flex w-full flex-col items-center gap-6 card-in enter-delay-4">
           <HeroAsk />
-          <div className="flex flex-col items-center gap-2">
-            <SignupLink className="lift-on-hover" />
-            <p className="text-label break-keep">{landingCopy.heroCtaResult}</p>
-          </div>
+          <SignupLink className="lift-on-hover" />
           <NoticeLines className="text-label text-fg-muted" />
         </div>
       </div>

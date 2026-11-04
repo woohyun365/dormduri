@@ -47,7 +47,10 @@ import { pairSheets } from '../model/landingCopy';
 // the button (also the keyboard's way), brings each pair together (내 잠귀 with 상대 잠버릇, 취침 시간
 // with 취침 시간); a drag stays where it was let go. Phones use the button only and give the coins more
 // room (3 columns until lg). A pair's second name hangs under the first with ↕ on the line between.
-// --overlap (0 apart, 1 met) drives the sheets, the coins and the names (pair-* utilities).
+// --overlap (0 apart, 1 met) drives the sheets, the coins and the names (pair-* utilities). Stacked, my
+// sheet stays put and the 상대 sheet comes all the way up onto it while the gap under it closes; the
+// page keeps the pressed button where it was, so the met sheets show right above it instead of
+// scrolling off the top (Owner 2026-11-04, feedback 2).
 
 const fieldIcons: Record<LifestyleDisplayField, LucideIcon> = {
   bedtime: Moon,
@@ -91,12 +94,14 @@ function Sheet({
   pairs,
   sheetRef,
   className = '',
+  style,
   ...handlers
 }: {
   side: 'mine' | 'theirs';
   pairs: readonly ComparePair[];
   sheetRef: RefObject<HTMLDivElement | null>;
   className?: string;
+  style?: CSSProperties;
   onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
   onPointerMove?: (event: PointerEvent<HTMLDivElement>) => void;
   onPointerUp?: () => void;
@@ -116,6 +121,7 @@ function Sheet({
           ? 'border-2 border-stroke-subtle bg-layer-default depth-card'
           : 'z-10 border-2 border-dashed border-brand-stroke'
       } ${className}`}
+      style={style}
       {...handlers}
     >
       <p className={`flex flex-col text-left ${fade}`}>
@@ -213,6 +219,35 @@ export function StatementFields({ pairs }: { pairs: readonly ComparePair[] }) {
   // Only side by side (lg): stacked, a drag would run along the page scroll, so phones use the
   // button.
   const side = to.y === 0 && to.x !== 0;
+  // Stacked: my sheet keeps its place and the 상대 sheet travels the whole way; the margin under it
+  // shrinks by the same distance, so no empty band is left where it was.
+  const stacked = to.y !== 0;
+  const mineStyle = stacked ? ({ '--to-x': '0px', '--to-y': '0px' } as CSSProperties) : undefined;
+  const theirsStyle = stacked
+    ? ({
+        '--to-x': `${to.x * 2}px`,
+        '--to-y': `${to.y * 2}px`,
+        marginBottom: `calc(var(--overlap) * ${to.y}px)`,
+      } as CSSProperties)
+    : undefined;
+  // While the gap closes or opens (pair-ease, --duration-band 720ms), keep the pressed button at the same
+  // place on screen every frame: the page scroll and the closing gap then move as one and nothing below
+  // jumps. Instant, because the page's smooth scroll-behavior would lag the correction; browser scroll
+  // anchoring is off meanwhile so it does not correct twice.
+  const keepInPlace = (anchor: HTMLElement) => {
+    if (!stacked) return;
+    const root = document.documentElement;
+    const start = anchor.getBoundingClientRect().top;
+    const until = performance.now() + 1000;
+    root.style.overflowAnchor = 'none';
+    const step = () => {
+      const drift = anchor.getBoundingClientRect().top - start;
+      if (drift !== 0) window.scrollBy({ top: drift, behavior: 'instant' });
+      if (performance.now() < until) requestAnimationFrame(step);
+      else root.style.overflowAnchor = '';
+    };
+    requestAnimationFrame(step);
+  };
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || !side) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -248,7 +283,7 @@ export function StatementFields({ pairs }: { pairs: readonly ComparePair[] }) {
   return (
     <div
       style={style}
-      className={`mx-auto mt-12 flex w-full max-w-page flex-col items-center gap-6 px-gutter ${
+      className={`mx-auto mt-12 flex w-full max-w-page flex-col items-center gap-6 px-gutter-safe ${
         dragging ? '' : 'pair-ease'
       }`}
     >
@@ -256,11 +291,18 @@ export function StatementFields({ pairs }: { pairs: readonly ComparePair[] }) {
         {pairSheets.title} · {`${pairs.length}${pairSheets.pairUnit}`}
       </p>
       <div className="relative flex flex-col items-center gap-6 lg:flex-row lg:items-start lg:gap-16">
-        <Sheet side="mine" pairs={pairs} sheetRef={mineRef} className="pair-sheet-mine" />
+        <Sheet
+          side="mine"
+          pairs={pairs}
+          sheetRef={mineRef}
+          className="pair-sheet-mine"
+          style={mineStyle}
+        />
         <Sheet
           side="theirs"
           pairs={pairs}
           sheetRef={theirsRef}
+          style={theirsStyle}
           className={`pair-sheet-theirs touch-pan-y select-none ${
             dragging ? 'cursor-grabbing' : side ? 'cursor-grab' : ''
           }`}
@@ -274,9 +316,10 @@ export function StatementFields({ pairs }: { pairs: readonly ComparePair[] }) {
       <div className="flex flex-col items-center gap-2">
         <button
           type="button"
-          onClick={() => {
+          onClick={(event) => {
             setOverlap(met ? 0 : 1);
             setMoved(true);
+            keepInPlace(event.currentTarget);
           }}
           className="inline-flex min-h-target-min items-center rounded-full border border-stroke-neutral px-4 text-body-sm font-bold transition-colors hover:border-brand-solid hover:bg-brand-solid hover:text-fg-on-brand focus-visible:focus-ring"
         >

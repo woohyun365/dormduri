@@ -21,7 +21,7 @@ token은 지금 새 화면 계층에 있는 화면(공개 랜딩)이 쓰는 것�
 | `motion-reduced.tokens.json`             | `motion: reduced` 문맥 값(duration 0ms)                                                              |
 | `build-tokens.mjs`, `build-tokens.d.mts` | 생성기(Node ESM, `node:` 모듈만 사용)와 test용 타입 선언                                             |
 | `tokens.generated.css`                   | 생성 결과. 직접 고치지 않습니다                                                                      |
-| `utilities.css`                          | token을 묶는 `@utility`(focus ring, 깊이, 등장 효과)                                                 |
+| `utilities.css`                          | token을 묶는 `@utility`(focus ring, 깊이, 등장 효과, safe area 여백)                                 |
 | `__stories__/`                           | Storybook `Foundations` 문서(MDX)와 계산값 견본(`Samples/Tokens`·`Samples/Palettes`)                 |
 
 - JSON을 고친 뒤 `apps/web`에서 `node src/styles/tokens/build-tokens.mjs`로 CSS를 다시 만들고 함께 commit합니다. 원본과 생성
@@ -117,6 +117,9 @@ token은 지금 새 화면 계층에 있는 화면(공개 랜딩)이 쓰는 것�
 
 - 간격은 4px 격자입니다(`--spacing` 0.25rem, `p-4` 같은 배수, 반 단계는 `0.5` 배수). 화면 좌우 여백 `gutter`(20px),
   section 간격 `section`(40px)·`section-desktop`(64px)은 이름 token으로 둡니다.
+- 화면 끝까지 그리는 page(`viewport-fit=cover`, Landing route)는 글·버튼 좌우 여백에 `px-gutter-safe`(gutter와 safe area
+  inset 가운데 큰 값), 아래 끝에 `pb-safe-area`(home indicator 자리)를 씁니다. `env()`는 token 값이 될 수 없어 `utilities.css`의
+  `@utility`로 둡니다. cover가 아니면 inset이 0이라 `px-gutter`와 같습니다.
 - 폭: `max-w-page`(1152px)는 page 본문, `max-w-content`(1080px)는 랜딩 section 안 내용, `max-w-reading`(720px)은 긴 글 읽기 폭입니다.
 - radius는 역할별로 고정합니다: `rounded-input`(4px), `rounded-control`(8px), `rounded-panel`(12px), `rounded-sheet`(16px). 둥근
   pill은 `rounded-full`입니다.

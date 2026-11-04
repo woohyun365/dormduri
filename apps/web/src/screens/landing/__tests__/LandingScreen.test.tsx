@@ -227,9 +227,12 @@ describe('LandingScreen', () => {
     render(<LandingScreen />);
 
     const switches = screen.getByRole('group', { name: beforeStack.switchLabel });
-    const postSwitch = within(switches).getByRole('button', { name: beforeStack.labels.post });
+    // Each tab shows its time word; its name also says the window it brings forward.
+    const postSwitch = within(switches).getByRole('button', {
+      name: `${beforeStack.labels.post} · ${beforeStack.windows.post}`,
+    });
     const serviceSwitch = within(switches).getByRole('button', {
-      name: beforeStack.labels.service,
+      name: `${beforeStack.labels.service} · ${beforeStack.windows.service}`,
     });
     // The window that holds the post; data-back marks the window behind.
     const postWindow = screen.getByRole('article').closest('[data-back]');

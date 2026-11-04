@@ -304,3 +304,17 @@
 @utility pen-stroke-pending {
   stroke-dashoffset: 1;
 }
+
+/* Safe area for a page drawn to the screen edge (viewport-fit=cover, the landing route). Text and
+   buttons keep the gutter, or the safe area inset where the sensor housing and the rounded corners
+   reach further (iPhone landscape); the bottom edge clears the home indicator. Without cover the
+   insets are 0, so px-gutter-safe equals px-gutter and pb-safe-area adds nothing. env() cannot be a
+   token value, and screens may not use arbitrary values, so these live here. */
+@utility px-gutter-safe {
+  padding-left: max(var(--spacing-gutter), env(safe-area-inset-left));
+  padding-right: max(var(--spacing-gutter), env(safe-area-inset-right));
+}
+
+@utility pb-safe-area {
+  padding-bottom: env(safe-area-inset-bottom);
+}
