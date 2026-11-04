@@ -27,6 +27,27 @@ describe('LandingDocumentBackground', () => {
     expect(document.body.style.backgroundColor).toBe('white');
   });
 
+  it('restores the saved background once the last of two landings leaves', () => {
+    const light = 'rgb(255, 255, 255)';
+    const { unmount } = render(
+      <>
+        <div data-palette="dark" style={{ backgroundColor: frameBackground }}>
+          <LandingDocumentBackground scheme="dark" />
+        </div>
+        <div data-palette="light" style={{ backgroundColor: light }}>
+          <LandingDocumentBackground scheme="light" />
+        </div>
+      </>,
+    );
+
+    expect(document.body.style.backgroundColor).not.toBe('');
+
+    unmount();
+
+    expect(document.documentElement.style.backgroundColor).toBe('');
+    expect(document.body.style.backgroundColor).toBe('');
+  });
+
   it('leaves html and body alone outside a landing frame', () => {
     render(<LandingDocumentBackground scheme="dark" />);
 

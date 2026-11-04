@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { faqItems, pairSheets } from '@/screens/landing/model/landingCopy';
+import { beforeStack, faqItems, pairSheets } from '@/screens/landing/model/landingCopy';
 import { getLandingPolicyCopy } from '@/screens/landing/model/landingPolicyCopy';
 
 // A route other than the landing keeps the app document: the default viewport (no viewport-fit=cover)
@@ -13,6 +13,23 @@ async function expectAppDocument(page: Page) {
       document.body.style.backgroundColor,
     ]),
   ).toEqual(['', '']);
+}
+
+// The page scrolls smoothly (globals.css), so a keyboard focus move can still be scrolling; wait until
+// it has stopped before measuring a position.
+async function waitForScrollToSettle(page: Page) {
+  let last = Number.NaN;
+  await expect
+    .poll(
+      async () => {
+        const y = await page.evaluate(() => window.scrollY);
+        const settled = y === last;
+        last = y;
+        return settled;
+      },
+      { intervals: [100] },
+    )
+    .toBe(true);
 }
 
 // The landing's own copy is not pinned here (src/screens/landing/README.md, 검증): the page is found by
@@ -122,14 +139,28 @@ test.describe('Landing public experience', () => {
       element.scrollIntoView({ block: 'center', behavior: 'instant' }),
     );
     const pressedAt = (await join.boundingBox())!.y;
-    await join.click();
+    // Press and watch the button on every frame of the motion: it never leaves the place it was pressed.
+    const largestDrift = await join.evaluate(
+      (button) =>
+        new Promise<number>((resolve) => {
+          const start = button.getBoundingClientRect().top;
+          const until = performance.now() + 1_000;
+          let largest = 0;
+          (button as HTMLElement).click();
+          const watch = () => {
+            largest = Math.max(largest, Math.abs(button.getBoundingClientRect().top - start));
+            if (performance.now() < until) requestAnimationFrame(watch);
+            else resolve(largest);
+          };
+          requestAnimationFrame(watch);
+        }),
+    );
+    expect(largestDrift).toBeLessThanOrEqual(2);
 
-    // The same button now parts the sheets; it stays where it was pressed while the gap closes.
+    // The same button now parts the sheets.
     const part = page.getByRole('button', { name: pairSheets.part });
     await expect(part).toBeVisible();
-    await expect
-      .poll(async () => Math.abs((await part.boundingBox())!.y - pressedAt), { timeout: 3_000 })
-      .toBeLessThanOrEqual(2);
+    expect(Math.abs((await part.boundingBox())!.y - pressedAt)).toBeLessThanOrEqual(2);
     // The met sheets end above the button, on screen, and the gap under them is closed: before the fix
     // they went off the top and left an empty screen above the button.
     const sheetsBottom = await part.evaluate((button) => {
@@ -138,6 +169,62 @@ test.describe('Landing public experience', () => {
     });
     expect(sheetsBottom).toBeGreaterThan(0);
     expect(pressedAt - sheetsBottom).toBeLessThan(120);
+  });
+
+  test('겹쳐 보기 버튼은 24px 이상이고 keyboard로 누르면 focus가 같은 버튼에 남고 2px 테두리가 보인다', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+
+    const join = page.getByRole('button', { name: pairSheets.join });
+    await join.evaluate((element) =>
+      element.scrollIntoView({ block: 'center', behavior: 'instant' }),
+    );
+    const box = (await join.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(24);
+    expect(box.height).toBeGreaterThanOrEqual(24);
+
+    // Focus without a pointer and without scrolling (a keyboard user arrives the same way), so
+    // focus-visible applies and the button stays where a reader sees it.
+    await join.evaluate((element) => (element as HTMLElement).focus({ preventScroll: true }));
+    await expect(join).toBeFocused();
+    await expect(join).toHaveCSS('outline-style', 'solid');
+    await expect(join).toHaveCSS('outline-width', '2px');
+
+    const pressedAt = (await join.boundingBox())!.y;
+    await page.keyboard.press('Enter');
+    const part = page.getByRole('button', { name: pairSheets.part });
+    await expect(part).toBeFocused();
+    expect(Math.abs((await part.boundingBox())!.y - pressedAt)).toBeLessThanOrEqual(2);
+
+    await page.keyboard.press('Space');
+    await expect(page.getByRole('button', { name: pairSheets.join })).toBeFocused();
+  });
+
+  test('무엇이 다른가요 전환 탭은 44px 높이이고 keyboard로 고르며 2px 테두리가 보인다', async ({
+    page,
+  }) => {
+    await page.goto('/');
+
+    const tabs = page.getByRole('group', { name: beforeStack.switchLabel }).getByRole('button');
+    await expect(tabs).toHaveCount(2);
+    for (const tab of await tabs.all()) {
+      expect((await tab.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+
+    const later = tabs.nth(1);
+    await later.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(later).toBeFocused();
+    await waitForScrollToSettle(page);
+    await expect(later).toHaveCSS('outline-style', 'solid');
+    await expect(later).toHaveCSS('outline-width', '2px');
+
+    await page.keyboard.press('Enter');
+    await expect(later).toHaveAttribute('aria-pressed', 'true');
+    await expect(tabs.nth(0)).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('알아두세요와 자주 묻는 질문을 보여 준다', async ({ page }) => {
@@ -180,6 +267,9 @@ test.describe('Landing public experience', () => {
       .locator('[data-palette]')
       .first()
       .evaluate((frame) => getComputedStyle(frame).backgroundColor);
+    // The frame paints an opaque landing color (rgb, not a transparent or white one) for html and body to take.
+    expect(frameBackground).toMatch(/^rgb\(/);
+    expect(frameBackground).not.toBe('rgb(255, 255, 255)');
     await expect
       .poll(() =>
         page.evaluate(() => [
