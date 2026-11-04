@@ -3,6 +3,19 @@
 VisualBrief는 한 UI 작업의 방향을 정리하는 task-scoped artifact입니다. Repository 전체의 design manifesto가 아니며,
 사용자 승인이나 implementation authority를 자동 생성하지 않습니다.
 
+## 요청문 순서
+
+시각 작업 요청문은 사람이 쓰든 Parent가 받아 정리하든 다음 순서로 씁니다. 각 칸은 아래 Required sections의 해당 절로 옮깁니다.
+
+1. 배경: 화면이 놓인 맥락과 사용자
+2. 해야 할 일: 이번 요청의 결과와 허용된 출력
+3. 현재 문제: 관찰한 화면·상태와 그 문제
+4. 지킬 것: 바꾸면 안 되는 정책·문구·상태·action·접근성
+5. 레퍼런스: 승인된 레퍼런스와 볼 aspect, 없으면 `no approved reference`
+6. 보고 형식: 회차마다 받을 이미지·질문·기록
+
+"계층별 단계"와 "하지 말 것"은 있으면 적는 칸입니다.
+
 ## Required sections
 
 ### Target and user job
@@ -51,6 +64,7 @@ new-surface의 필수 조건으로 만들지 않습니다. Reference 안의 지�
 ### Visual direction candidates
 
 - substantial exploration은 기본 두 후보, 서로 다른 가설이 더 필요할 때 세 번째; 단순 유지보수에는 후보를 강제하지 않음
+- 후보는 서로 다른 레퍼런스·골격 가설에서 출발하는 것이 기본값
 - 한 문장의 design intent와 사용자 job 연결, attention/content hierarchy
 - 구체적인 type 역할·줄 길이·간격/밀도 관계와 layout의 모바일/데스크톱 전환
 - typography, color, shape/elevation, imagery와 motion이 왜 도움이 되는지 또는 필요 없는지
@@ -99,7 +113,7 @@ prototype 금지가 아닙니다. Writer의 rationale/self-check는 보존하되
 - [표현 책임·device 검증](./device-presentation-and-verification.md)의 짧은 packet을 소비합니다:
   affected surface → Desktop/Mobile IA·interaction 차이 → 공통 data/action owner → shared/split/unchanged와 이유 →
   assertion transition → device verification → remaining gaps. 변경하지 않는 화면의 선행 분해는 요구하지 않습니다.
-- 320px, 390px, tablet landscape와 desktop
+- 검증 폭·높이와 캡처 조건은 [Device verification packet](./device-presentation-and-verification.md#device-verification-packet)
 - zoom/reflow, long copy, empty/loading/error/action states
 - keyboard order, visible focus, modal focus restore와 screen-reader status
 - contrast, touch target, safe area와 reduced motion
@@ -124,6 +138,8 @@ VisualBrief는 BFF·API·product policy 변경 권한을 부여하지 않습니�
 ### Verification
 
 - production route와 Storybook story/state
+- 상태가 갈리는 화면은 대표 상태 묶음을 정하고 모든 후보를 같은 묶음으로 렌더(빈 상태, 이유가 보이는 비활성 action 포함).
+  상태 목록은 그 화면의 owner README가 가짐([새 화면 계층](../../../../apps/web/src/screens/README.md))
 - viewport, seed/content와 screenshot command
 - keyboard/focus/reduced-motion checks
 - component interaction and contract tests

@@ -40,8 +40,8 @@ Native specialist 호출이 자동 runtime Team 실행을 뜻하지 않으며 Co
 
 ## 디자인 skill 경계
 
-Claude Code와 Codex는 같은 경로(VisualBrief → 허용된 render → 독립 critique → Owner 선택)를 사용하며 host마다 다른
-visual skill routing을 두지 않습니다. 디자인 skill이 없어도 이 경로로 작업합니다.
+Claude Code와 Codex는 같은 경로(VisualBrief와 [실제 수정 루프](./design-review-and-acceptance.md#실제-수정-루프)의 검토 순서)를
+사용하며 host마다 다른 visual skill routing을 두지 않습니다. 디자인 skill이 없어도 이 경로로 작업합니다.
 
 Skill은 VisualBrief의 보조 도구이며 mode·수정 권한·제품 사실·한국어/a11y·기존 표현/token owner를 덮어쓰지 않습니다.
 한 작업의 주 skill은 하나가 기본이고, 작은 maintain·비시각 작업에는 미호출이 정상입니다. 복잡한 제품 flow·전면 IA 개편은
@@ -85,10 +85,15 @@ Native read-only smoke는 실제 UI 품질 검증과 별개입니다. 별도 승
 - 산출물: 짧은 intent/hierarchy/type·density/composition/responsive 선택, self-check, 허용된 실제 후보
 - 관련 acceptance, 현재 도구의 검증 한계, 완료/보고/중단 조건
 
-초기 request가 analyze-only라면 render나 prototype 파일을 만들지 않습니다. 명시적으로 허용된 로컬 prototype은 격리된
-출력 디렉터리에 두며 product branch 파일로 자동 승격하지 않습니다. 추가 asset/font/dependency는
-[명시적 experiment 범위](./visual-brief.md#bounded-dependency-and-font-experiments)와 license·성능을 확인하며
-임의로 설치하지 않습니다. Synthetic content만으로 실제 긴 문구를 다룰 수 있다고 보고하지 않습니다.
+초기 request가 analyze-only라면 render나 시안 파일을 만들지 않습니다. 명시적으로 허용된 제품 화면의 코드 시안은
+`apps/web/src/screens/<기능>/`에서 기본 story를 바꾸지 않는 비교 story로 만들고, 기본안과 같은 검사를 통과한 뒤 보입니다.
+비교 story와 시안 코드의 제품 규칙은 [screens README](../../../../apps/web/src/screens/README.md)가 소유합니다. `.artifacts`에는
+캡처·회차 기록·Owner 원문을 두고, 시안을 제품 route로 올리는 일은 [시각 탐색 branch](#시각-탐색-branch)의 확정과 정리 뒤에
+합니다. 추가 asset/font/dependency는 [명시적 experiment 범위](./visual-brief.md#bounded-dependency-and-font-experiments)와
+license·성능을 확인하며 임의로 설치하지 않습니다. Synthetic content만으로 실제 긴 문구를 다룰 수 있다고 보고하지 않습니다.
+
+작업 순서의 기본값은 layout을 먼저 정하고([레퍼런스 골격](./reference-content-contract.md#reference에서-가져올-부분만-추출하기))
+token은 화면을 고른 뒤 그 화면에 맞춰 줄이는 것입니다. 기본값이므로 brief가 다른 순서를 정하면 그 순서를 따릅니다.
 
 재구성 예: 공개 문서의 내용·actions를 보존하고 layout은 탐색하도록 승인했다면 designer는 같은 콘텐츠로 읽기/탐색의
 다른 구성을 제시합니다. 정해지지 않은 간격·type scale은 임시 선택으로 설명하고, 각 CSS 값의 승인을 요청하지 않습니다.
@@ -110,6 +115,47 @@ adopt/reject/defer, 허용된 patch, 재렌더링·delta review와 keep/revert�
 Owner에게는 후보별 이미지와 의도·핵심 차이·검증 결과·남은 tradeoff를 보여주고 select/revise/reject를 쉽게 요청합니다.
 기술적으로 명확한 작업은 Parent가 계속하고, 제품·비용·위험·합의 방향을 바꾸는 선택만 사람에게 돌려줍니다.
 실제 사람의 preference가 없으면 not-collected이며, 하네스/제안 완료와 production 디자인 승인을 구분합니다.
+
+## 탐색 회차 루프
+
+시각 탐색은 Owner 질문 → 변경 → 검증 → 보고 → 기록을 한 회차로 되풀이하며 회차 수에 상한을 두지 않습니다. 검토 순서는
+[실제 수정 루프](./design-review-and-acceptance.md#실제-수정-루프), Owner 질문의 형식은
+[decision packet](../owner-lead-collaboration.md#짧은-협의-decision-packet)을 따릅니다.
+
+- **회차 기록 단위:** 회차마다 `.artifacts`의 회차 디렉터리에 보고·검사 로그·비교 이미지를 둡니다. 보고 첫 줄에는 Owner 답을
+  어떻게 읽었는지 적고, Owner 질문·답 원문은 회차 절로 남깁니다. 보고하는 화면 수치는 렌더한 화면에서 잰 값만 씁니다.
+- **plan의 탐색 기록:** 시각 plan의 탐색 기록 절은 `## 탐색 회차 기록`처럼 heading에 `탐색 회차`를 담고, 같은 heading에
+  `범위`·`규칙`·`결정` 같은 계약 낱말을 함께 쓰지 않습니다. 그 절 아래에 회차 기록만 더하는 개정의 리뷰 등급은
+  [계획 초안 staging과 promote](../session-continuity.md#계획-초안-staging과-promote)가 정합니다.
+- **작업 중 추가 요청:** 회차 도중 온 요청은 같은 회차에 넣고 원문을 남깁니다. build를 바꾸는 수정은 검사 시작 전에 끝내고,
+  이전 build로 돌던 검사는 멈추고 마지막 build에서 다시 돌립니다. 다시 돌리지 않은 검사는 보고에 "추가 요청 전 build"로
+  적습니다.
+- **범위 지키기:** 평가하다 찾은 범위 밖 고칠 거리는 고치지 않고 질문으로 남깁니다. 허락 범위를 넘는 작은 변경은 보고에 따로
+  적어 Owner 결정을 받습니다.
+- **고른 뒤 바로 삭제:** Owner가 고르면 같은 회차에 고르지 않은 시안·story·arg·utility를 지웁니다. 지운 것만 쓰던 부품·문구·
+  utility가 새로 남으므로 lint warning 0과 이름별 호출부 검색을 더 지울 것이 없을 때까지 되풀이합니다.
+- **규칙 예외 기록:** 요청문·규칙에 대한 Owner 예외는 그 값 옆 주석과 보고에 근거 수치와 함께 남깁니다. Owner 결정이 기존
+  규칙을 바꾸면 바뀐 규칙 문장을 결정 기록에 새로 씁니다.
+
+## 시각 탐색 branch
+
+여러 회차의 시안 실험은 `explore/<surface>` branch에서 합니다. 지운 레퍼런스 모사 코드와 외부 사진이 공개 history에 남지
+않게 하려는 것입니다. 이 branch의 종류·push budget·정리 시점·이동의 일반 문장은
+[Branch and pull request strategy](../../github/branch-and-pr-strategy.md#branch-책임)가 소유하고, 이 절은 시각 쪽 단계만
+정합니다. 확정 기록과 override의 정의는 [lifecycle state machine](../lifecycle-state-machine.md#확인-주체와-강도)의 `W-DESIGN`입니다.
+
+| 단계      | 위치                                  | 할 일                                                                                                                                                                                                                                                                                     |
+| --------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 탐색·회차 | `explore/<surface>`                   | 시안은 위 비교 story로 만듭니다. 회차마다 commit을 하나 이상 남기고 회차 기록에 branch tip sha를 적습니다. 레퍼런스 모사 코드와 외부 사진은 explore branch와 `.artifacts`에만 둡니다. 제품 route 교체·기존 화면 삭제·token 전역 정리는 하지 않고, 했다면 `W-DESIGN` override로 기록합니다 |
+| 확정      | 확정 기록                             | `W-DESIGN` 확정 기록에 고른 후보·revision·explore tip sha를 적습니다. 고르지 않은 후보를 다시 볼 수 있게 정리 전 tip에 local 후보 tag를 남기고 그 sha도 적습니다                                                                                                                          |
+| 정리      | 같은 explore branch                   | 확정 직후 정리 commit에서 고르지 않은 시안 component, 비교 story·arg, 그 후보만 쓰던 helper·utility class·임시 token·asset을 지우고 고른 시안을 기본 story와 제품 component로 올립니다. 그 뒤 lint·type·test·Storybook 검사(렌더·대비·접근성)를 통과시키고 정리 뒤 tip sha를 기록합니다   |
+| 이동      | fresh `origin/dev`의 `feat/<surface>` | 정리 뒤 tree의 필요한 경로만 [구현 시작 preflight](../../github/branch-and-pr-strategy.md#구현-시작-preflight)대로 옮깁니다. route 연결과 assertion 전환은 이 branch에서 합니다                                                                                                           |
+| 끝        | —                                     | explore branch와 후보 tag의 정리 시점과 절차는 [Local branch cleanup](../../github/branch-and-pr-strategy.md#local-branch-cleanup)입니다. 레퍼런스 모사 코드·외부 사진이 든 tag·branch는 보관(bundle 포함)하지 않고 회차 기록과 캡처만 `.artifacts`에 남깁니다                            |
+
+고르지 않은 시안을 남긴 채 고른 것만 경로로 추출하지 않습니다. 숨은 의존이 빠지거나 안 쓰는 코드가 딸려 오고, 그 문제가 구현
+branch의 검사에서야 드러나며, 구현 branch의 첫 상태가 검증되지 않은 조합이 되기 때문입니다. explore에서 정리 commit을 먼저
+만들면 구현 branch로의 이동은 검증된 tree의 복사가 됩니다. [screens README](../../../../apps/web/src/screens/README.md)가 고른 뒤
+고르지 않은 시안을 지우라는 "같은 변경"은 explore 흐름에서는 이 정리 commit입니다.
 
 ## Evidence와 기능의 한계
 
