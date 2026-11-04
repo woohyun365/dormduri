@@ -7,9 +7,59 @@ import test from 'node:test';
 
 import lintStaged from 'lint-staged';
 
+import repositoryConfig from '../../../.lintstagedrc.mjs';
+
 function git(cwd, args) {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 }
+
+test('the repository lint-staged config formats every staged file Prettier can parse', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'knu-lint-staged-repository-config-'));
+  const prettier = resolve('node_modules/.bin/prettier');
+  const config = Object.fromEntries(
+    Object.entries(repositoryConfig).map(([pattern, commands]) => [
+      pattern,
+      commands.map((command) => {
+        assert.match(command, /^prettier /u);
+        return command.replace(/^prettier /u, `${prettier} `);
+      }),
+    ]),
+  );
+  const formatted = {
+    'module.mjs': ['export const value={answer:42}\n', 'export const value = { answer: 42 };'],
+    'common.cjs': ['module.exports={answer:42}\n', 'module.exports = { answer: 42 };'],
+    'module.mts': ['export const value:number=42\n', 'export const value: number = 42;'],
+    'source.ts': ['export const value:number=42\n', 'export const value: number = 42;'],
+    'workflow.yml': ['on:   push\njobs:    {}\n', 'on: push\njobs: {}'],
+    'config.yaml': ['key:   [1,2]\n', 'key: [1, 2]'],
+  };
+  const untouched = {
+    'query.sql': 'SELECT   1;\n',
+    'ignored.yml': 'key:   1\n',
+  };
+
+  try {
+    git(cwd, ['init', '--quiet']);
+    git(cwd, ['config', 'user.name', 'dormduri lint-staged fixture']);
+    git(cwd, ['config', 'user.email', 'lint-staged-fixture@example.invalid']);
+    writeFileSync(join(cwd, '.prettierignore'), 'ignored.yml\n');
+    git(cwd, ['add', '.prettierignore']);
+    git(cwd, ['commit', '--quiet', '-m', 'fixture baseline']);
+
+    for (const [name, [source]] of Object.entries(formatted))
+      writeFileSync(join(cwd, name), source);
+    for (const [name, source] of Object.entries(untouched)) writeFileSync(join(cwd, name), source);
+    git(cwd, ['add', '--', ...Object.keys(formatted), ...Object.keys(untouched)]);
+
+    assert.equal(await lintStaged({ cwd, config, quiet: true }), true);
+    for (const [name, [, expected]] of Object.entries(formatted))
+      assert.equal(git(cwd, ['show', `:${name}`]), expected, name);
+    for (const [name, source] of Object.entries(untouched))
+      assert.equal(git(cwd, ['show', `:${name}`]), source.trimEnd(), name);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
 
 test('lint-staged formats the staged snapshot and restores an unstaged hunk', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'knu-lint-staged-'));
