@@ -26,6 +26,7 @@ test('the repository lint-staged config formats every staged file Prettier can p
     '.github/workflows/check.yml': ['on:   push\njobs:    {}\n', 'on: push\njobs: {}'],
     'packages/tool/index.cts': ['module.exports={answer:42}\n', 'module.exports = { answer: 42 };'],
     'styles.css': ['a{color:red}\n', 'a {\n  color: red;\n}'],
+    '.eslintrc.json': ['{"root":true}\n', '{ "root": true }'],
   };
   const untouched = {
     'query.sql': 'SELECT   1;\n',
