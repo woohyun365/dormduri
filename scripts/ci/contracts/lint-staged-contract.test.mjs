@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 
 import lintStaged from 'lint-staged';
@@ -13,25 +13,19 @@ function git(cwd, args) {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 }
 
+// The repository config runs unchanged; the repository binaries are put first on PATH as `pnpm lint-staged` does.
 test('the repository lint-staged config formats every staged file Prettier can parse', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'knu-lint-staged-repository-config-'));
-  const prettier = resolve('node_modules/.bin/prettier');
-  const config = Object.fromEntries(
-    Object.entries(repositoryConfig).map(([pattern, commands]) => [
-      pattern,
-      commands.map((command) => {
-        assert.match(command, /^prettier /u);
-        return command.replace(/^prettier /u, `${prettier} `);
-      }),
-    ]),
-  );
+  const originalPath = process.env.PATH;
   const formatted = {
     'module.mjs': ['export const value={answer:42}\n', 'export const value = { answer: 42 };'],
     'common.cjs': ['module.exports={answer:42}\n', 'module.exports = { answer: 42 };'],
     'module.mts': ['export const value:number=42\n', 'export const value: number = 42;'],
     'source.ts': ['export const value:number=42\n', 'export const value: number = 42;'],
-    'workflow.yml': ['on:   push\njobs:    {}\n', 'on: push\njobs: {}'],
     'config.yaml': ['key:   [1,2]\n', 'key: [1, 2]'],
+    '.github/workflows/check.yml': ['on:   push\njobs:    {}\n', 'on: push\njobs: {}'],
+    'packages/tool/index.cts': ['module.exports={answer:42}\n', 'module.exports = { answer: 42 };'],
+    'styles.css': ['a{color:red}\n', 'a {\n  color: red;\n}'],
   };
   const untouched = {
     'query.sql': 'SELECT   1;\n',
@@ -46,17 +40,21 @@ test('the repository lint-staged config formats every staged file Prettier can p
     git(cwd, ['add', '.prettierignore']);
     git(cwd, ['commit', '--quiet', '-m', 'fixture baseline']);
 
-    for (const [name, [source]] of Object.entries(formatted))
+    for (const [name, [source]] of Object.entries(formatted)) {
+      mkdirSync(dirname(join(cwd, name)), { recursive: true });
       writeFileSync(join(cwd, name), source);
+    }
     for (const [name, source] of Object.entries(untouched)) writeFileSync(join(cwd, name), source);
     git(cwd, ['add', '--', ...Object.keys(formatted), ...Object.keys(untouched)]);
 
-    assert.equal(await lintStaged({ cwd, config, quiet: true }), true);
+    process.env.PATH = [resolve('node_modules/.bin'), originalPath].join(delimiter);
+    assert.equal(await lintStaged({ cwd, config: repositoryConfig, quiet: true }), true);
     for (const [name, [, expected]] of Object.entries(formatted))
       assert.equal(git(cwd, ['show', `:${name}`]), expected, name);
     for (const [name, source] of Object.entries(untouched))
       assert.equal(git(cwd, ['show', `:${name}`]), source.trimEnd(), name);
   } finally {
+    process.env.PATH = originalPath;
     rmSync(cwd, { recursive: true, force: true });
   }
 });
