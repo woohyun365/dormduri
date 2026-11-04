@@ -64,7 +64,7 @@ new-surface의 필수 조건으로 만들지 않습니다. Reference 안의 지�
 ### Visual direction candidates
 
 - substantial exploration은 기본 두 후보, 서로 다른 가설이 더 필요할 때 세 번째; 단순 유지보수에는 후보를 강제하지 않음
-- 후보는 서로 다른 레퍼런스·골격 가설에서 출발하는 것이 기본값; 같은 token·문구·부품으로 구성만 바꾼 후보는 고를 근거를 주기 어려움
+- 후보는 서로 다른 레퍼런스·골격 가설에서 출발하는 것이 기본값
 - 한 문장의 design intent와 사용자 job 연결, attention/content hierarchy
 - 구체적인 type 역할·줄 길이·간격/밀도 관계와 layout의 모바일/데스크톱 전환
 - typography, color, shape/elevation, imagery와 motion이 왜 도움이 되는지 또는 필요 없는지

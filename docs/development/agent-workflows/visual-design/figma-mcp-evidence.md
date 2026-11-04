@@ -93,8 +93,8 @@ Figma MCP read tool limits는 plan과 seat에 따라 달라질 수 있습니다.
 
 Rate limit을 피하려고 다른 credential이나 account를 자동 전환하지 않습니다.
 
-여러 frame을 레퍼런스로 비교할 때는 `whoami`와 공식 한도를 확인한 뒤 page metadata 1회와 묶음 frame 스크린샷으로 받고, 로컬에서
-잘라 비교판을 만듭니다. frame별 호출은 비교할 frame을 고른 뒤에만 합니다.
+Figma 파일을 레퍼런스로 볼 때는 `whoami`와 공식 한도를 확인한 뒤 page metadata 1회와 묶음 frame 스크린샷으로 받고, 로컬에서
+잘라 비교판을 만듭니다. frame별 호출은 고른 뒤에만 합니다.
 
 ### 6. Separate mutations
 

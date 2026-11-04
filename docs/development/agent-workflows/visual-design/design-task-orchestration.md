@@ -40,8 +40,8 @@ Native specialist 호출이 자동 runtime Team 실행을 뜻하지 않으며 Co
 
 ## 디자인 skill 경계
 
-Claude Code와 Codex는 같은 경로(VisualBrief → 허용된 render → 독립 critique → Owner 선택)를 사용하며 host마다 다른
-visual skill routing을 두지 않습니다. 디자인 skill이 없어도 이 경로로 작업합니다.
+Claude Code와 Codex는 같은 경로(VisualBrief와 [실제 수정 루프](./design-review-and-acceptance.md#실제-수정-루프)의 검토 순서)를
+사용하며 host마다 다른 visual skill routing을 두지 않습니다. 디자인 skill이 없어도 이 경로로 작업합니다.
 
 Skill은 VisualBrief의 보조 도구이며 mode·수정 권한·제품 사실·한국어/a11y·기존 표현/token owner를 덮어쓰지 않습니다.
 한 작업의 주 skill은 하나가 기본이고, 작은 maintain·비시각 작업에는 미호출이 정상입니다. 복잡한 제품 flow·전면 IA 개편은
@@ -128,7 +128,8 @@ Owner에게는 후보별 이미지와 의도·핵심 차이·검증 결과·남�
   `범위`·`규칙`·`결정` 같은 계약 낱말을 함께 쓰지 않습니다. 그 절 아래에 회차 기록만 더하는 개정의 리뷰 등급은
   [계획 초안 staging과 promote](../session-continuity.md#계획-초안-staging과-promote)가 정합니다.
 - **작업 중 추가 요청:** 회차 도중 온 요청은 같은 회차에 넣고 원문을 남깁니다. build를 바꾸는 수정은 검사 시작 전에 끝내고,
-  이전 build로 돈 검사는 마지막 build에서 다시 돌리거나 보고에 "추가 요청 전 build"로 적습니다.
+  이전 build로 돌던 검사는 멈추고 마지막 build에서 다시 돌립니다. 다시 돌리지 않은 검사는 보고에 "추가 요청 전 build"로
+  적습니다.
 - **범위 지키기:** 평가하다 찾은 범위 밖 고칠 거리는 고치지 않고 질문으로 남깁니다. 허락 범위를 넘는 작은 변경은 보고에 따로
   적어 Owner 결정을 받습니다.
 - **고른 뒤 바로 삭제:** Owner가 고르면 같은 회차에 고르지 않은 시안·story·arg·utility를 지웁니다. 지운 것만 쓰던 부품·문구·
@@ -138,8 +139,8 @@ Owner에게는 후보별 이미지와 의도·핵심 차이·검증 결과·남�
 
 ## 시각 탐색 branch
 
-여러 회차의 시안 실험은 local `explore/<surface>` branch에서 하고 push·PR을 만들지 않습니다. 공개 history에 지운 레퍼런스
-모사 코드와 외부 사진이 남지 않게 하기 위해서입니다. branch 종류·push budget·정리·이동의 일반 문장은
+여러 회차의 시안 실험은 `explore/<surface>` branch에서 합니다. 지운 레퍼런스 모사 코드와 외부 사진이 공개 history에 남지
+않게 하려는 것입니다. 이 branch의 종류·push budget·정리 시점·이동의 일반 문장은
 [Branch and pull request strategy](../../github/branch-and-pr-strategy.md#branch-책임)가 소유하고, 이 절은 시각 쪽 단계만
 정합니다. 확정 기록과 override의 정의는 [lifecycle state machine](../lifecycle-state-machine.md#확인-주체와-강도)의 `W-DESIGN`입니다.
 
@@ -149,7 +150,7 @@ Owner에게는 후보별 이미지와 의도·핵심 차이·검증 결과·남�
 | 확정      | 확정 기록                             | `W-DESIGN` 확정 기록에 고른 후보·revision·explore tip sha를 적습니다. 고르지 않은 후보를 다시 볼 수 있게 정리 전 tip에 local 후보 tag를 남기고 그 sha도 적습니다                                                                                                                          |
 | 정리      | 같은 explore branch                   | 확정 직후 정리 commit에서 고르지 않은 시안 component, 비교 story·arg, 그 후보만 쓰던 helper·utility class·임시 token·asset을 지우고 고른 시안을 기본 story와 제품 component로 올립니다. 그 뒤 lint·type·test·Storybook 검사(렌더·대비·접근성)를 통과시키고 정리 뒤 tip sha를 기록합니다   |
 | 이동      | fresh `origin/dev`의 `feat/<surface>` | 정리 뒤 tree의 필요한 경로만 [구현 시작 preflight](../../github/branch-and-pr-strategy.md#구현-시작-preflight)대로 옮깁니다. route 연결과 assertion 전환은 이 branch에서 합니다                                                                                                           |
-| 끝        | —                                     | 구현 PR merge와 증거 기록 뒤 explore branch와 후보 tag를 정리합니다. 레퍼런스 모사 코드·외부 사진이 든 tag·branch는 보관하지 않고 회차 기록과 캡처만 `.artifacts`에 남깁니다                                                                                                              |
+| 끝        | —                                     | explore branch와 후보 tag의 정리 시점과 절차는 [Local branch cleanup](../../github/branch-and-pr-strategy.md#local-branch-cleanup)입니다. 레퍼런스 모사 코드·외부 사진이 든 tag·branch는 보관(bundle 포함)하지 않고 회차 기록과 캡처만 `.artifacts`에 남깁니다                            |
 
 고르지 않은 시안을 남긴 채 고른 것만 경로로 추출하지 않습니다. 숨은 의존이 빠지거나 안 쓰는 코드가 딸려 오고, 그 문제가 구현
 branch의 검사에서야 드러나며, 구현 branch의 첫 상태가 검증되지 않은 조합이 되기 때문입니다. explore에서 정리 commit을 먼저

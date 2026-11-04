@@ -134,7 +134,7 @@ owner preference: not-collected, not implied by this example
 
 - content/map hash, candidate revision, viewport/scale, locale와 브라우저 버전을 고정합니다.
 - 사용 가능한 font/asset, font 로드 완료, 색상·reduced-motion, 애니메이션·동적 데이터 처리 조건을 기록합니다.
-- 실제 그린 글꼴(platform font)을 기록합니다. 글꼴 finding은 축소 스크린샷이 아니라 그 기록으로 판정합니다.
+- 실제 그린 글꼴(platform font)을 기록합니다.
 - 전후 중요 영역과 전체 구성을 함께 보존합니다. 필수 콘텐츠를 가리거나 masking해서 비교를 통과시키지 않습니다.
 - screenshot 안정화는 별도 interaction/keyboard 검증을 대체하지 않습니다. 실제 이미지를 보지 못하면 시각 판정은 BLOCKED입니다.
 - Renderer는 허용된 환경·출력 경로만 쓰고, reviewer는 공통 QA의 read-only/runner 구분을 따릅니다.

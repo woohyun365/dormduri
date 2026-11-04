@@ -13,7 +13,8 @@ Next.js/React/BFF, accessibility contract, component owner, performance와 test 
 3. 상태가 갈리는 화면은 [대표 상태 묶음](./visual-brief.md#verification)을 정합니다.
 4. 시안 위치·회차 기록·탐색 branch는 [Design task orchestration](./design-task-orchestration.md#탐색-회차-루프)을 따릅니다.
 5. 렌더부터 Owner 확정까지의 검토 순서는 [실제 수정 루프](./design-review-and-acceptance.md#실제-수정-루프) 하나입니다.
-6. 검증 폭·device 증거는 [표현 책임·device 검증](./device-presentation-and-verification.md)이, 시각 값은 제품 owner 문서가 가집니다.
+6. 검증 폭을 보는 절차와 device 증거는 [표현 책임·device 검증](./device-presentation-and-verification.md)이, 폭 값을 포함한
+   시각 값은 제품 owner 문서가 가집니다.
 7. 확정한 방향의 구현은 별도 승인 범위에서 하고 production·Storybook 정합성을 확인합니다.
 
 ## When to read
