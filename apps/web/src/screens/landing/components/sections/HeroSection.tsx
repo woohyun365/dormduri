@@ -18,14 +18,17 @@ const wideHeroMedia = '(min-aspect-ratio: 3/5)';
 // Where the tall cut shows (upright phones), a 12rem bottom padding sets the copy 4rem above the
 // middle: centered, the body ran over the moon. The pause toggle under the question box makes the copy
 // 3.25rem taller, and on short phones the sign-up note then lands on the bears; the picture's base
-// scrim (ScenePicture) holds the contrast there.
+// scrim (ScenePicture) holds the contrast there. Upright phones also get 6rem under the copy's full
+// screen, so the picture runs past the first screen's bottom edge: iPhone Safari shows the page under its
+// floating toolbar and home indicator, below every viewport unit, where the next section showed as a
+// band (Owner 2026-11-04). The copy keeps its place; the picture grows a little.
 export function HeroSection() {
   return (
     <section
       id={LANDING_SURFACE_SECTION_IDS.hero}
       aria-labelledby="tabs-hero-title"
       data-palette="dark"
-      className="relative isolate overflow-hidden bg-layer-basement text-fg-neutral focus-on-media"
+      className="relative isolate overflow-hidden bg-layer-basement text-fg-neutral focus-on-media [@media(max-aspect-ratio:3/5)]:pb-24"
     >
       <ScenePicture art={heroNight} media={wideHeroMedia} hero />
       <div
@@ -54,10 +57,7 @@ export function HeroSection() {
         {/* The question box, the sign-up action and the notices rise together, so nothing overlaps. */}
         <div className="flex w-full flex-col items-center gap-6 card-in enter-delay-4">
           <HeroAsk />
-          <div className="flex flex-col items-center gap-2">
-            <SignupLink className="lift-on-hover" />
-            <p className="text-label break-keep">{landingCopy.heroCtaResult}</p>
-          </div>
+          <SignupLink className="lift-on-hover" />
           <NoticeLines className="text-label text-fg-muted" />
         </div>
       </div>

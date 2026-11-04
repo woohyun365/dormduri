@@ -14,9 +14,6 @@ export const landingCopy = {
   heroTitle: { lead: '기숙사 룸메이트,', accent: '생활패턴', rest: '부터 맞춰 보고 정해요' },
   // Word joiners keep 수면·생활습관 on one line; narrow phones broke it before the middle dot.
   body: '학교 이메일로 인증한 같은 기숙사 학생끼리 수면⁠·⁠생활습관을 항목별로 비교하고, 대화해 본 뒤 매칭을 정해요.',
-  // Under the hero's sign-up action, in line with the FAQ: before registering a visitor sees summaries,
-  // and registering opens the chat.
-  heroCtaResult: '가입하고 시즌에 등록하면 같은 기숙사 후보와 대화할 수 있어요.',
   exampleTag: '예시',
   noticesTitle: '알아두세요',
   noticesLead: '가입 전에 꼭 확인해 주세요.',
@@ -92,8 +89,8 @@ export const faqItems = [
 // compare, chat, match.
 export const beforeTitle = {
   eyebrow: '무엇이 다른가요',
-  lead: '체크리스트에 동그라미 치고 올리던 방식,',
-  rest: '이제 생활패턴 적합도로 바로 봐요.',
+  lead: '동그라미 친 체크리스트 대신,',
+  rest: '생활패턴 적합도로 봐요.',
 } as const;
 
 // The two answer sheets under the statement, laid one on the other by the visitor. My sheet outlines
@@ -167,10 +164,13 @@ export const landingSectionIds = {
 
 export type LandingSectionId = keyof typeof landingSectionIds;
 
-// The two overlapping cards of the 무엇이 다른가요 section and the switch that brings one forward.
+// The two overlapping cards of the 무엇이 다른가요 section and the switch that brings one forward. A tab
+// shows its time word; the window it brings forward is part of its name for screen readers (the window's
+// own tab title shows it on screen).
 export const beforeStack = {
   switchLabel: '앞에 볼 화면',
-  labels: { post: '지금까지 · 커뮤니티 게시판', service: '이제는 · 서비스 안에서' },
+  labels: { post: '지금까지', service: '이제는' },
+  windows: { post: '커뮤니티 게시판', service: '서비스 안에서' },
 } as const;
 
 // The invented example post on the 지금까지 card: a campus community post seen in a browser, with a

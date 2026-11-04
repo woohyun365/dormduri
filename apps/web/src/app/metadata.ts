@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import linkPreview from './link-preview.jpg';
 
 const DEFAULT_PUBLIC_SITE_URL = 'http://localhost:3000';
 
@@ -13,6 +14,12 @@ export const LANDING_PAGE_TITLE = '강원대 룸메이트 찾기';
 export const LANDING_TITLE = `${SITE_NAME} | ${LANDING_PAGE_TITLE}`;
 export const LANDING_DESCRIPTION =
   '돔두리는 강원대학교 기숙사 입주생이 생활패턴과 기숙사 조건을 확인하고 룸메이트 후보를 찾아보는 독립 운영 서비스입니다.';
+
+// The landing's link preview card (KakaoTalk, X and other messengers): the logo mark and the name on the
+// landing's night room, a 1200×630 JPEG (Owner 2026-11-04). It is not named by the Next file convention
+// (opengraph-image), so only the landing carries it. Make the image again when the logo or the landing
+// background changes.
+export const LANDING_PREVIEW_IMAGE_ALT = '돔두리 로고와 이름, 밤의 기숙사 방 그림';
 
 export const PUBLIC_SITEMAP_ROUTES = [
   { pathname: '/', changeFrequency: 'weekly', priority: 1 },
@@ -68,7 +75,13 @@ export function createRootMetadata(rawEnv: PublicMetadataEnv = process.env): Met
   };
 }
 
-export function createLandingMetadata(): Metadata {
+export function createLandingMetadata(rawEnv: PublicMetadataEnv = process.env): Metadata {
+  const previewImage = {
+    url: createPublicUrl(linkPreview.src, rawEnv),
+    width: linkPreview.width,
+    height: linkPreview.height,
+    alt: LANDING_PREVIEW_IMAGE_ALT,
+  };
   return {
     title: { absolute: LANDING_TITLE },
     description: LANDING_DESCRIPTION,
@@ -82,11 +95,13 @@ export function createLandingMetadata(): Metadata {
       siteName: SITE_NAME,
       locale: 'ko_KR',
       type: 'website',
+      images: [{ ...previewImage, type: 'image/jpeg' }],
     },
     twitter: {
-      card: 'summary',
+      card: 'summary_large_image',
       title: LANDING_TITLE,
       description: LANDING_DESCRIPTION,
+      images: [previewImage],
     },
   };
 }

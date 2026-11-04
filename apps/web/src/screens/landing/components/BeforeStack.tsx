@@ -29,7 +29,8 @@ function BackScrim({ behind, which }: { behind: boolean; which: BeforeCard }) {
 // The 지금까지 community post and the 이제는 service card overlap, the service card in front. The
 // windows come in as server-rendered children; only the switch is client code. Only the switch brings
 // a window to the front: neither hover nor a tap on a window does, because a finger that drags the page
-// down over the post caught it as a tap and hid the service card (Owner 2026-10-27).
+// down over the post caught it as a tap and hid the service card (Owner 2026-10-27). The switch is two
+// underlined tabs, so it does not read as the step markers below (Owner 2026-11-04, feedback 5).
 export function BeforeStack({ post, service }: { post: ReactNode; service: ReactNode }) {
   const [front, setFront] = useState<BeforeCard>('service');
   const cardClass = (which: BeforeCard) =>
@@ -37,16 +38,21 @@ export function BeforeStack({ post, service }: { post: ReactNode; service: React
   // Cells name their start and end lines: col-span would reset the start and push a card off the grid.
   return (
     <div className={`flex flex-col gap-4 ${soft} ${softDelay[1]}`}>
-      <div role="group" aria-label={beforeStack.switchLabel} className="flex flex-wrap gap-2">
+      <div
+        role="group"
+        aria-label={beforeStack.switchLabel}
+        className="grid w-full max-w-reading grid-cols-2 border-b border-stroke-subtle"
+      >
         {(['post', 'service'] as const).map((which) => (
           <button
             key={which}
             type="button"
             aria-pressed={front === which}
             onClick={() => setFront(which)}
-            className="inline-flex min-h-target-min items-center rounded-full border border-stroke-subtle px-3 py-1.5 text-label font-bold focus-visible:focus-ring aria-pressed:border-brand-solid aria-pressed:bg-brand-solid aria-pressed:text-fg-on-brand"
+            className="-mb-px flex min-h-target-primary cursor-pointer items-center justify-center border-b-2 border-transparent px-2 text-body-sm font-bold text-fg-muted transition-colors hover:text-fg-neutral focus-visible:focus-ring aria-pressed:border-brand-solid aria-pressed:text-fg-brand"
           >
-            {beforeStack.labels[which]}
+            {beforeStack.labels[which]}{' '}
+            <span className="sr-only">· {beforeStack.windows[which]}</span>
           </button>
         ))}
       </div>

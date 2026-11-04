@@ -1,6 +1,36 @@
-import { expect, test } from '@playwright/test';
-import { faqItems } from '@/screens/landing/model/landingCopy';
+import { expect, test, type Page } from '@playwright/test';
+import { beforeStack, faqItems, pairSheets } from '@/screens/landing/model/landingCopy';
 import { getLandingPolicyCopy } from '@/screens/landing/model/landingPolicyCopy';
+
+// A route other than the landing keeps the app document: the default viewport (no viewport-fit=cover)
+// and no background set on html or body.
+async function expectAppDocument(page: Page) {
+  const viewport = await page.locator('meta[name="viewport"]').getAttribute('content');
+  expect(viewport).not.toMatch(/viewport-fit/);
+  expect(
+    await page.evaluate(() => [
+      document.documentElement.style.backgroundColor,
+      document.body.style.backgroundColor,
+    ]),
+  ).toEqual(['', '']);
+}
+
+// The page scrolls smoothly (globals.css), so a keyboard focus move can still be scrolling; wait until
+// it has stopped before measuring a position.
+async function waitForScrollToSettle(page: Page) {
+  let last = Number.NaN;
+  await expect
+    .poll(
+      async () => {
+        const y = await page.evaluate(() => window.scrollY);
+        const settled = y === last;
+        last = y;
+        return settled;
+      },
+      { intervals: [100] },
+    )
+    .toBe(true);
+}
 
 // The landing's own copy is not pinned here (src/screens/landing/README.md, 검증): the page is found by
 // landmark, link target and the policy notices' own words (the fixed disclaimers as written, the others
@@ -31,6 +61,10 @@ test.describe('Landing public experience', () => {
       ratio: 1,
     });
     await expect(hero.locator('a[href="/signup"]')).toBeInViewport({ ratio: 1 });
+    // Upright phones: the hero picture runs 6rem past the first screen, so iPhone Safari shows it under
+    // its floating toolbar instead of the next section (Owner 2026-11-04).
+    const heroBox = (await hero.boundingBox())!;
+    expect(heroBox.y + heroBox.height).toBeGreaterThanOrEqual(844 + 96);
   });
 
   test('가입·로그인 행동은 44×44px 이상이고 keyboard focus에 2px 테두리가 생긴다', async ({
@@ -98,6 +132,105 @@ test.describe('Landing public experience', () => {
     ).toBe(false);
   });
 
+  test('휴대폰 폭에서 겹쳐 보기는 누른 버튼을 제자리에 두고 겹친 카드를 그 바로 위에 보여 준다', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+
+    const join = page.getByRole('button', { name: pairSheets.join });
+    await join.evaluate((element) =>
+      element.scrollIntoView({ block: 'center', behavior: 'instant' }),
+    );
+    const pressedAt = (await join.boundingBox())!.y;
+    // Press and watch the button on every frame of the motion: it never leaves the place it was pressed.
+    const largestDrift = await join.evaluate(
+      (button) =>
+        new Promise<number>((resolve) => {
+          const start = button.getBoundingClientRect().top;
+          const until = performance.now() + 1_000;
+          let largest = 0;
+          (button as HTMLElement).click();
+          const watch = () => {
+            largest = Math.max(largest, Math.abs(button.getBoundingClientRect().top - start));
+            if (performance.now() < until) requestAnimationFrame(watch);
+            else resolve(largest);
+          };
+          requestAnimationFrame(watch);
+        }),
+    );
+    expect(largestDrift).toBeLessThanOrEqual(2);
+
+    // The same button now parts the sheets.
+    const part = page.getByRole('button', { name: pairSheets.part });
+    await expect(part).toBeVisible();
+    expect(Math.abs((await part.boundingBox())!.y - pressedAt)).toBeLessThanOrEqual(2);
+    // The met sheets end above the button, on screen, and the gap under them is closed: before the fix
+    // they went off the top and left an empty screen above the button.
+    const sheetsBottom = await part.evaluate((button) => {
+      const sheets = button.closest('section')!.querySelectorAll('[class*="pair-sheet-"]');
+      return Math.max(...Array.from(sheets, (sheet) => sheet.getBoundingClientRect().bottom));
+    });
+    expect(sheetsBottom).toBeGreaterThan(0);
+    expect(pressedAt - sheetsBottom).toBeLessThan(120);
+  });
+
+  test('겹쳐 보기 버튼은 24px 이상이고 keyboard로 누르면 focus가 같은 버튼에 남고 2px 테두리가 보인다', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+
+    const join = page.getByRole('button', { name: pairSheets.join });
+    await join.evaluate((element) =>
+      element.scrollIntoView({ block: 'center', behavior: 'instant' }),
+    );
+    const box = (await join.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(24);
+    expect(box.height).toBeGreaterThanOrEqual(24);
+
+    // Focus without a pointer and without scrolling (a keyboard user arrives the same way), so
+    // focus-visible applies and the button stays where a reader sees it.
+    await join.evaluate((element) => (element as HTMLElement).focus({ preventScroll: true }));
+    await expect(join).toBeFocused();
+    await expect(join).toHaveCSS('outline-style', 'solid');
+    await expect(join).toHaveCSS('outline-width', '2px');
+
+    const pressedAt = (await join.boundingBox())!.y;
+    await page.keyboard.press('Enter');
+    const part = page.getByRole('button', { name: pairSheets.part });
+    await expect(part).toBeFocused();
+    expect(Math.abs((await part.boundingBox())!.y - pressedAt)).toBeLessThanOrEqual(2);
+
+    await page.keyboard.press('Space');
+    await expect(page.getByRole('button', { name: pairSheets.join })).toBeFocused();
+  });
+
+  test('무엇이 다른가요 전환 탭은 44px 높이이고 keyboard로 고르며 2px 테두리가 보인다', async ({
+    page,
+  }) => {
+    await page.goto('/');
+
+    const tabs = page.getByRole('group', { name: beforeStack.switchLabel }).getByRole('button');
+    await expect(tabs).toHaveCount(2);
+    for (const tab of await tabs.all()) {
+      expect((await tab.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+
+    const later = tabs.nth(1);
+    await later.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(later).toBeFocused();
+    await waitForScrollToSettle(page);
+    await expect(later).toHaveCSS('outline-style', 'solid');
+    await expect(later).toHaveCSS('outline-width', '2px');
+
+    await page.keyboard.press('Enter');
+    await expect(later).toHaveAttribute('aria-pressed', 'true');
+    await expect(tabs.nth(0)).toHaveAttribute('aria-pressed', 'false');
+  });
+
   test('알아두세요와 자주 묻는 질문을 보여 준다', async ({ page }) => {
     await page.goto('/');
 
@@ -126,6 +259,57 @@ test.describe('Landing public experience', () => {
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole('heading', { name: '로그인' })).toBeVisible();
   });
+
+  test('Landing은 화면 끝까지 그리고 html·body 배경을 Landing 배경으로 둔다', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
+      'content',
+      /(^|,\s*)viewport-fit=cover(,|$)/,
+    );
+    const frameBackground = await page
+      .locator('[data-palette]')
+      .first()
+      .evaluate((frame) => getComputedStyle(frame).backgroundColor);
+    // The frame paints an opaque landing color (rgb, not a transparent or white one) for html and body to take.
+    expect(frameBackground).toMatch(/^rgb\(/);
+    expect(frameBackground).not.toBe('rgb(255, 255, 255)');
+    await expect
+      .poll(() =>
+        page.evaluate(() => [
+          getComputedStyle(document.documentElement).backgroundColor,
+          getComputedStyle(document.body).backgroundColor,
+        ]),
+      )
+      .toEqual([frameBackground, frameBackground]);
+  });
+
+  test('Landing에서 법적 문서로 가면 새 문서를 읽고 viewport·배경이 앱 기본값이다', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await expect.poll(() => page.evaluate(() => document.body.style.backgroundColor)).not.toBe('');
+    await page.evaluate(() => {
+      (window as Window & { landingMark?: number }).landingMark = 1;
+    });
+
+    await page.getByRole('contentinfo').locator('a[href="/privacy"]').click();
+    await expect(page).toHaveURL(/\/privacy$/);
+    await expect(page.getByRole('heading', { level: 1, name: /개인정보/ })).toBeVisible();
+
+    // The footer link is a plain anchor, so the legal page is a new document, not a client move.
+    expect(
+      await page.evaluate(() => (window as Window & { landingMark?: number }).landingMark),
+    ).toBeUndefined();
+    await expectAppDocument(page);
+  });
+
+  test('법적 문서를 바로 열면 viewport·배경이 앱 기본값이다', async ({ page }) => {
+    await page.goto('/privacy');
+    await expect(page.getByRole('heading', { level: 1, name: /개인정보/ })).toBeVisible();
+
+    await expectAppDocument(page);
+  });
 });
 
 test.describe('Landing runtime SEO boundary', () => {
@@ -137,6 +321,27 @@ test.describe('Landing runtime SEO boundary', () => {
     const href = await icons.getAttribute('href');
     expect(href).toMatch(/^\/icon\.png/);
     expect((await request.get(href!)).headers()['content-type']).toBe('image/png');
+  });
+
+  test('링크 미리보기는 이미지 절대 URL·크기·대체 글을 주고 그 이미지가 열린다', async ({
+    page,
+    request,
+  }) => {
+    await page.goto('/');
+
+    const meta = (attribute: 'property' | 'name', key: string) =>
+      page.locator(`meta[${attribute}="${key}"]`).getAttribute('content');
+    const imageUrl = await meta('property', 'og:image');
+    expect(imageUrl).toMatch(/^https?:\/\/[^/]+\/_next\/static\/media\/link-preview\.[\w-]+\.jpg$/);
+    expect(await meta('property', 'og:image:width')).toBe('1200');
+    expect(await meta('property', 'og:image:height')).toBe('630');
+    expect(await meta('property', 'og:image:alt')).toBeTruthy();
+    expect(await meta('name', 'twitter:card')).toBe('summary_large_image');
+    expect(await meta('name', 'twitter:image')).toBe(imageUrl);
+
+    const image = await request.get(new URL(imageUrl!).pathname);
+    expect(image.status()).toBe(200);
+    expect(image.headers()['content-type']).toBe('image/jpeg');
   });
 
   test('robots.txt excludes API and protected app shell routes', async ({ request }) => {

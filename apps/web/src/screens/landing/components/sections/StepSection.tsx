@@ -10,24 +10,22 @@ import { container, revealSection, soft, targetSection } from '../sectionStyles'
 import { StepCaptures } from '../StepCaptures';
 
 // Where the visitor is in the three-step flow: the order with the current step marked, shown as
-// information only, not links (Owner 2026-10-28: a link put a #section in the address).
+// information only, not links (Owner 2026-10-28: a link put a #section in the address). Plain text, the
+// current step in bold brand color: as chips the markers looked like the buttons above (Owner
+// 2026-11-04, feedback 5).
 function FlowSteps({ current }: { current: FlowStepId }) {
   return (
-    <ol aria-label={flowStepsLabel} className="flex items-center gap-2 text-label">
+    <ol aria-label={flowStepsLabel} className="flex items-center gap-2 text-label text-fg-muted">
       {flowStepOrder.map((step, index) => {
         const on = step === current;
         return (
           <li key={step} className="flex items-center gap-2">
-            {index > 0 ? <span aria-hidden="true" className="h-px w-5 bg-stroke-neutral" /> : null}
+            {index > 0 ? <span aria-hidden="true">·</span> : null}
             <span
               aria-current={on ? 'step' : undefined}
-              className={`inline-flex min-h-target-min items-center gap-1.5 rounded-full px-2.5 ${
-                on
-                  ? 'bg-brand-solid font-bold text-fg-on-brand depth-glow'
-                  : 'border border-stroke-subtle text-fg-muted'
-              }`}
+              className={on ? 'font-bold text-fg-brand' : undefined}
             >
-              <span className="tabular-nums">{String(index + 1).padStart(2, '0')}</span>
+              <span className="tabular-nums">{String(index + 1).padStart(2, '0')}</span>{' '}
               {flowSteps[step].label}
             </span>
           </li>

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Web CD의 단계 기록(D-WB5·D-WB12). 배포가 성공한 실행마다 record job이 source commit에 git tag
-// `deploy-web-<UTC YYYYMMDD>-<run number>`와 GitHub Release를 만들고, 본문과 run 요약에 같은 단계 기록을 남긴다. 형식은
+// Web CD의 단계 기록(D-WB5·D-WB12). 배포가 성공한 실행마다 record job이 실행 commit(push 실행은 source commit, dispatch
+// 실행은 실행한 main commit)에 git tag `deploy-web-<UTC YYYYMMDD>-<run number>`와 GitHub Release를 만들고, 본문과 run 요약에
+// 같은 단계 기록을 남긴다. 배포한 source commit은 본문 release_commit_sha다. 형식은
 // infra/runbooks/release/production-release-evidence.md "단계 배포 기록"의 YAML template이다.
 // deploy job은 이 기록으로 host의 지금 쌍과 직전 안전 쌍을 알고(외부 smoke 실패 때 되돌릴 쌍), dispatch 입력 쌍이 그
 // source commit의 기록과 같은지 대조한다(D-WB3). 기록에는 registry host·ARN·node ID 자리가 없고 image는
@@ -212,7 +213,8 @@ export function planRun({ action, pair }, releases) {
   return { previousSafe, rollbackTarget: null };
 }
 
-// dispatch 입력 쌍이 그 source commit에 있는 배포 기록과 같은지 본다. tagCommit은 tag가 가리키는 commit이다.
+// dispatch 입력 쌍이 그 source commit에 있는 배포 기록과 같은지 본다. tagCommit은 tag가 가리키는 commit이다. tag는 실행
+// commit에 붙으므로 통과하는 기록은 그 쌍을 만든 push 실행의 것이다(dispatch 기록은 실행 commit이 source와 같을 때만).
 export function matchesRecord(releases, { sourceCommit, web, ingress }) {
   return records(releases).some(
     (release) =>
