@@ -11,7 +11,7 @@ import {
 describe('Matches policy purity boundary', () => {
   it('request와 active-match policy는 Nest·Prisma infrastructure에서 독립적이다', () => {
     const forbidden =
-      /from\s+['"].*(?:@nestjs|@repo\/database|platform\/database)|\bPrismaService\b|\bInjectable\b/;
+      /from\s+['"].*(?:@nestjs|@repo\/database|generated\/prisma|platform\/database)|\bPrismaService\b|\bInjectable\b/;
 
     for (const policyRoot of [
       join(matchesRoot, 'requests/policies'),

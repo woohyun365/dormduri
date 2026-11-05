@@ -51,7 +51,7 @@ formatting 검사를 Repository policy gate에서 계속 실행합니다. 이 �
 
 ## 표면 정의
 
-- `API`: NestJS API와 Prisma schema·migration
+- `API`: NestJS API와 개발·test seed(`apps/api/prisma/`)
 - `Web`: Next.js Web과 BFF, Storybook
 - `Packages-shared`: Web·API가 함께 쓰는 contract와 schema
 - `Packages-database`: API가 쓰는 Prisma schema·migration·TypedSQL·grant SQL과 생성 client

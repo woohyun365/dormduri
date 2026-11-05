@@ -1,7 +1,7 @@
 # Prisma 7 seed 설정과 custom generated client 경계
 
 **상태**: Current
-**마지막 검증 환경**: Prisma 7.8, Node.js ESM, PostgreSQL 18
+**마지막 검증 환경**: Prisma 7.10.1, Node.js 26 ESM, PostgreSQL 18
 **현재 owner**: `packages/database/prisma.config.ts`, `apps/api/prisma/seed.js`, `apps/api/package.json`
 
 ## 증상

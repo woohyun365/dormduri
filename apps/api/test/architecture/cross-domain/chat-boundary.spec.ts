@@ -309,7 +309,7 @@ describe('cross-domain chat architecture boundary', () => {
     );
 
     expect(source).not.toMatch(
-      /from\s+['"].*@nestjs|PrismaService|@repo\/database|conversationThread|conversationMessage/,
+      /from\s+['"].*@nestjs|PrismaService|@repo\/database|generated\/prisma|conversationThread|conversationMessage/,
     );
   });
 });
