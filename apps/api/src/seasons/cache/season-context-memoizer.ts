@@ -1,4 +1,4 @@
-import type { Campus } from '../../generated/prisma/enums.js';
+import type { Campus } from '@repo/database/enums';
 import type { ResolvedCurrentSeasonContext } from '../runtime/current-season-context.query.js';
 import type { SeasonContextCache } from './season-context-cache.js';
 

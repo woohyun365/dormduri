@@ -75,7 +75,7 @@ Signup nickname 확인, final signup, Change Password, Logout BFF가 strict requ
 
 ```bash
 pnpm --dir apps/api prisma:generate
-pnpm --dir apps/api prisma:validate
+pnpm --dir packages/database prisma:validate
 pnpm --dir apps/api exec vitest run \
   --config ./vitest.config.integration.ts \
   --maxWorkers=1 \
@@ -97,7 +97,7 @@ RETENTION_DISCLOSURE_DATABASE_URL='postgresql://<disposable-target>' \
 pnpm --dir apps/api prisma:seed:reference
 ```
 
-모든 URL은 동일한 disposable schema를 가리켜야 한다. Local Prisma config가 `apps/api/.env`를 source of truth로 사용하는 개발 shell과 분리하기 위해 rehearsal은 `NODE_ENV=test`를 명시한다.
+모든 URL은 동일한 disposable schema를 가리켜야 한다. Local Prisma config(`packages/database/prisma.config.ts`)가 `apps/api/.env`를 source of truth로 사용하는 개발 shell과 분리하기 위해 rehearsal은 `NODE_ENV=test`를 명시한다.
 
 Production 사용자 생성 이후에는 destructive DB recreation을 rollback으로 사용하지 않는다.
 

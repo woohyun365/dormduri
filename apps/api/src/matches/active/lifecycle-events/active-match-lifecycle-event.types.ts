@@ -1,9 +1,9 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type {
   ActiveMatchLifecycleActorType,
   ActiveMatchLifecycleEventReason,
   ActiveMatchLifecycleEventType,
-} from '../../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 
 export const ACTIVE_MATCH_LIFECYCLE_METADATA_KEYS = [
   'transitionOwner',

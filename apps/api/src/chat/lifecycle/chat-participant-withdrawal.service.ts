@@ -1,10 +1,10 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import {
   ConversationThreadLifecycleEventReason,
   ConversationThreadLifecycleEventType,
   ConversationThreadLifecycleSourceDomain,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import {
   type ChatThreadWithdrawalPort,
   type ChatThreadWithdrawalResult,

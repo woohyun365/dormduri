@@ -1,5 +1,5 @@
 import type { PrismaService } from '../../platform/database/prisma.service.js';
-import { claimRetentionReviewJobs } from '../../generated/prisma/sql.js';
+import { claimRetentionReviewJobs } from '@repo/database/sql';
 import { disposeDueRetentionAccessLogs } from '../access-logs/retention-access-log-disposal.service.js';
 import {
   createConversationRetainedBodyOwner,

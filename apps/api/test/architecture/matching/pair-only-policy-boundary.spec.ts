@@ -6,7 +6,7 @@ const apiRoot = process.cwd();
 const workspaceRoot = join(apiRoot, '../..');
 const officialPolicyRoot = join(workspaceRoot, 'docs/policies');
 const sharedMatchContractRoot = join(workspaceRoot, 'packages/shared/src/match/contract');
-const prismaMigrationsRoot = join(apiRoot, 'prisma/migrations');
+const prismaMigrationsRoot = join(apiRoot, '../../packages/database/prisma/migrations');
 
 function read(path: string) {
   return readFileSync(path, 'utf8');
@@ -102,7 +102,7 @@ describe('pair-only matching policy boundary', () => {
   });
 
   it('Prisma keeps match persistence on pair request, active relation, unmatch, and history aggregates', () => {
-    const schemaSource = read(join(apiRoot, 'prisma/schema.prisma'));
+    const schemaSource = read(join(apiRoot, '../../packages/database/prisma/schema.prisma'));
     const migrationSource = sourceFiles(prismaMigrationsRoot, '.sql').map(read).join('\n');
     const matchModels = declaredNames(schemaSource, 'model').filter((name) =>
       name.includes('Match'),

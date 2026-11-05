@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { VerificationCodePurpose } from '../../../generated/prisma/enums.js';
+import type { VerificationCodePurpose } from '@repo/database/enums';
 import {
   acquireTransactionAdvisoryLock,
   getActiveVerificationRecord,
   recordVerificationCodeFailure,
-} from '../../../generated/prisma/sql.js';
+} from '@repo/database/sql';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import {
   getVerificationCodePurposeLockKey,

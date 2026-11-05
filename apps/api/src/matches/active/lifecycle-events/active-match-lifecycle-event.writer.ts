@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import {
   ActiveMatchLifecycleActorType,
   ActiveMatchLifecycleEventReason,
   ActiveMatchLifecycleEventType,
-} from '../../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import { toActiveMatchLifecycleEventMetadata } from './active-match-lifecycle-event.metadata.js';
 import { ActiveMatchLifecycleEventRepository } from './active-match-lifecycle-event.repository.js';
 import type {

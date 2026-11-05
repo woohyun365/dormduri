@@ -1,4 +1,4 @@
-import { Prisma } from '../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 
 type PrismaKnownRequestLike = Prisma.PrismaClientKnownRequestError & {
   code: string;

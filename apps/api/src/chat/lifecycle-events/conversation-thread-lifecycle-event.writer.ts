@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../../generated/prisma/client.js';
-import { ConversationThreadLifecycleActorType } from '../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import { ConversationThreadLifecycleActorType } from '@repo/database/enums';
 import { toConversationThreadLifecycleEventMetadata } from './conversation-thread-lifecycle-event.payload.policy.js';
 import { ConversationThreadLifecycleEventRepository } from './conversation-thread-lifecycle-event.repository.js';
 import type { ConversationThreadLifecycleEventAppendInput } from './conversation-thread-lifecycle-event.types.js';

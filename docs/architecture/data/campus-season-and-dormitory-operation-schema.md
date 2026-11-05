@@ -62,4 +62,4 @@
 ## 참고 소스
 
 1. `docs/policies/season-lifecycle.md`
-2. `apps/api/prisma/schema.prisma`
+2. `packages/database/prisma/schema.prisma`

@@ -6,7 +6,7 @@ import {
 } from '@repo/shared/social-safety/bookmark';
 import { roommateSearchResponseSchema } from '@repo/shared/roommate-search/contract';
 import request from 'supertest';
-import type { Prisma } from '../../../src/generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
 import { LifecycleSweepService } from '../../../src/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';

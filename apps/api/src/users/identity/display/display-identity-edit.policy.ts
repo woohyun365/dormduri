@@ -1,6 +1,6 @@
 import type { DisplayIdentityEditUnavailableReason } from '@repo/shared/user/identity/display';
-import type { Campus } from '../../../generated/prisma/enums.js';
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Campus } from '@repo/database/enums';
+import type { Prisma } from '@repo/database/client';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import type { SeasonContextPort } from '../../../seasons/ports/season-context.port.js';
 import type { SeasonState } from '@repo/shared/season/runtime';

@@ -22,6 +22,8 @@ pnpm-debug.log*
 dist
 build
 out
+packages/database/src/generated/
+# 공유 DB package 이동 전 Prisma client 생성 위치. 남은 로컬 산출물은 `pnpm api:prisma:generate`가 지운다.
 apps/api/src/generated/
 
 ## 테스트/커버리지 산출물

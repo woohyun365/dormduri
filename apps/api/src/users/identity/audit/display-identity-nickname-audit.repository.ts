@@ -1,9 +1,9 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type {
   DisplayIdentityNicknameChangeActorType,
   DisplayIdentityNicknameChangeReason,
   DisplayIdentityNicknameChangeSource,
-} from '../../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 
 type DisplayIdentityNicknameAuditClient =

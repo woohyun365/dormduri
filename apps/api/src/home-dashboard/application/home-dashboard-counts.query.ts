@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { HomeDashboardMatching, HomeDashboardStats } from '@repo/shared/home';
 import type { MatchOverviewResponse } from '@repo/shared/match/contract';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { formatKstDate, toKstEndIso, toKstStartIso } from '../../platform/time/kst-date.js';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';

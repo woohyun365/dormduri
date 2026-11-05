@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Prisma } from '../../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import type { ArchiveJobWorkItem } from '../../../retention/archive-jobs/archive-job.types.js';
 

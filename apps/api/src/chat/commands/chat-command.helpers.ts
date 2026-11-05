@@ -1,5 +1,5 @@
 import type { SendConversationMessageRequest } from '@repo/shared/chat';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { chatErrors } from '../errors/chat.errors.js';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 import { threadSelect } from '../persistence/chat-thread.select.js';

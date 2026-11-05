@@ -1,7 +1,4 @@
-import {
-  findChatRealtimeReplayCursor,
-  findChatRealtimeReplayEvents,
-} from '../../generated/prisma/sql.js';
+import { findChatRealtimeReplayCursor, findChatRealtimeReplayEvents } from '@repo/database/sql';
 import { isChatRealtimePayloadPrivacySafe } from '../events/chat-realtime-event.mapper.js';
 
 type TypedQueryable = {

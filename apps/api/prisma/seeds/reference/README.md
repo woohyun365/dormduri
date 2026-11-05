@@ -115,6 +115,6 @@ pnpm --dir apps/api test --run \
   test/operations/reference-data/college-reference-data.spec.ts \
   test/operations/reference-data/dormitory-reference-data.spec.ts \
   test/operations/reference-data/reference-seed-scripts.spec.ts
-pnpm --dir apps/api prisma:validate
+pnpm --dir packages/database prisma:validate
 pnpm api:typecheck
 ```

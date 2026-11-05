@@ -2,9 +2,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const schema = readFileSync(join(process.cwd(), 'prisma/schema.prisma'), 'utf8');
+const schema = readFileSync(
+  join(process.cwd(), '../../packages/database/prisma/schema.prisma'),
+  'utf8',
+);
 const baseline = readFileSync(
-  join(process.cwd(), 'prisma/migrations/000000000000_initial_baseline/migration.sql'),
+  join(
+    process.cwd(),
+    '../../packages/database/prisma/migrations/000000000000_initial_baseline/migration.sql',
+  ),
   'utf8',
 );
 

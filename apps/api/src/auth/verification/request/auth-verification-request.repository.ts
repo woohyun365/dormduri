@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../../../generated/prisma/client.js';
-import type { AuthMailKind, VerificationCodePurpose } from '../../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import type { AuthMailKind, VerificationCodePurpose } from '@repo/database/enums';
 import {
   acquireTransactionAdvisoryLock,
   getVerificationBackstopRetryAfterSeconds,
   getVerificationRetryAfterSeconds,
-} from '../../../generated/prisma/sql.js';
+} from '@repo/database/sql';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import {
   getVerificationCodePurposeLockKey,

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { Prisma } from '../../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import { matchesErrors } from '../../errors/matches.errors.js';
 import {
   createMatchesServiceSpecHarness,

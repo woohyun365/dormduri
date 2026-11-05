@@ -1,5 +1,5 @@
 import { formatKstDate } from '../../../platform/time/kst-date.js';
-import type { Prisma, PrismaClient } from '../../../generated/prisma/client.js';
+import type { Prisma, PrismaClient } from '@repo/database/client';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import {
   lifestyleColumnSelect,

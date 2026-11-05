@@ -1,4 +1,4 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 
 export type AcademicIdentityChangeReason = 'USER_CORRECTION' | 'ACADEMIC_CYCLE_ALLOWANCE';

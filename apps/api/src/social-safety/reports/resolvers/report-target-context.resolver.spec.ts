@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthenticatedUserContext } from '../../../auth/application/auth-actor-context.types.js';
 import type { ChatReportTargetContextPort } from '../../../chat/application/ports/chat-report-target-context.port.js';
 import { normalizeApiError } from '../../../platform/http/api-error.js';
-import { Campus, Gender } from '../../../generated/prisma/enums.js';
+import { Campus, Gender } from '@repo/database/enums';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import { ReportTargetContextResolver } from './report-target-context.resolver.js';
 

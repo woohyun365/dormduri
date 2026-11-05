@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import {
   getActiveLoginLock,
   recordLoginFailure as recordLoginFailureSql,
-} from '../../../generated/prisma/sql.js';
+} from '@repo/database/sql';
 import { LOGIN_FAILURE_LIMIT, LOGIN_LOCKOUT_SECONDS } from '@repo/shared/auth/policy';
 
 export interface ActiveLoginLockRecord {

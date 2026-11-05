@@ -26,6 +26,7 @@ const renovateOwnerGroups = JSON.parse(
 function collectDependencyDeclarations() {
   const manifestPaths = [
     'package.json',
+    'packages/database/package.json',
     'packages/shared/package.json',
     'packages/eslint-config/package.json',
     'packages/tsconfig/package.json',

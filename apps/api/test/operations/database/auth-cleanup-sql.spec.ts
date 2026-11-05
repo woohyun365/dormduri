@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const sqlRoot = join(process.cwd(), 'prisma/sql');
+const sqlRoot = join(process.cwd(), '../../packages/database/prisma/sql');
 
 function readSql(name: string) {
   return readFileSync(join(sqlRoot, name), 'utf8');

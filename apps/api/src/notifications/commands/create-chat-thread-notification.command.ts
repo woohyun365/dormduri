@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { type ChatThreadNotificationWriter } from '../application/ports/chat-thread-notification-writer.port.js';
 import {
   NOTIFICATION_WRITER,

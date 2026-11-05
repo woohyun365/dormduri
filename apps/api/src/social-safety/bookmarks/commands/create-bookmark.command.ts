@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { CreateBookmarkResponse } from '@repo/shared/social-safety/bookmark';
 import type { AuthenticatedUserContext } from '../../../auth/application/auth-actor-context.types.js';
-import { Prisma } from '../../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { BookmarkPresenter } from '../presenters/bookmark.presenter.js';
 import { BookmarkRepository } from '../repositories/bookmark.repository.js';

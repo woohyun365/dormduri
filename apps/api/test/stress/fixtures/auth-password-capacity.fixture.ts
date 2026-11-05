@@ -11,7 +11,7 @@ import { DEFAULT_AUTH_PERSISTENCE_HMAC_KEY_VERSION } from '../../../src/auth/con
 import { hashOpaqueToken } from '../../../src/auth/sessions/opaque-token.js';
 import { hashVerificationGrant } from '../../../src/auth/verification/grant/auth-verification-grant.js';
 import { DEFAULT_DATABASE_URL } from '../../../src/platform/database/database.config.js';
-import { PrismaClient } from '../../../src/generated/prisma/client.js';
+import { PrismaClient } from '@repo/database/client';
 import {
   buildPrismaSessionOptions,
   stripPrismaConnectionOptions,

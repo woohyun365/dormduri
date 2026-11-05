@@ -5,7 +5,7 @@ import {
   ConversationThreadLifecycleEventReason,
   ConversationThreadLifecycleEventType,
   ConversationThreadLifecycleSourceDomain,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import { chatErrors } from '../errors/chat.errors.js';
 import { toConversationThreadLifecycleTransitionMetadata } from '../lifecycle-events/conversation-thread-lifecycle-event.transition.js';
 import { ChatRealtimeOutboxService } from '../outbox/chat-realtime-outbox.service.js';

@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const sqlPath = path.resolve(process.cwd(), 'prisma/role-grants/auth-role-grants.sql');
+const sqlPath = path.resolve(
+  process.cwd(),
+  '../../packages/database/prisma/role-grants/auth-role-grants.sql',
+);
 const sql = readFileSync(sqlPath, 'utf8');
 
 describe('Auth DB role grants SQL artifact', () => {

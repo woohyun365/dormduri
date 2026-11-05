@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 
 const ACCESS_LOG_DISPOSAL_JOB_SOURCE_ID = 'retention-access-log-hard-disposal';
 

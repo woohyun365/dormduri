@@ -12,6 +12,7 @@ RUN npm install --global "$(node -p "require('./package.json').packageManager")"
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
+COPY packages/database/package.json packages/database/package.json
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
 COPY packages/eslint-config/package.json packages/eslint-config/package.json
@@ -19,10 +20,12 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY apps/api apps/api
+COPY packages/database packages/database
 COPY packages/shared packages/shared
 COPY packages/tsconfig packages/tsconfig
 RUN pnpm --dir apps/api exec tsc -p ../../packages/shared/tsconfig.json
-RUN test -f apps/api/src/generated/prisma/client.ts && test -f apps/api/src/generated/prisma/sql.ts
+RUN test -f packages/database/src/generated/prisma/client.ts && test -f packages/database/src/generated/prisma/sql.ts
+RUN pnpm --dir apps/api exec tsc -p ../../packages/database/tsconfig.json
 RUN pnpm --dir apps/api exec nest build
 RUN pnpm deploy --legacy --filter api --prod /workspace/runtime
 
@@ -38,7 +41,7 @@ RUN apt-get update \
   && useradd --system --uid 10001 --gid dormduri --home-dir /app --shell /usr/sbin/nologin dormduri
 COPY --from=build --chown=dormduri:dormduri /workspace/runtime ./
 COPY --from=build --chown=dormduri:dormduri /workspace/apps/api/dist ./dist
-COPY --from=build --chown=dormduri:dormduri /workspace/apps/api/src/generated/prisma ./src/generated/prisma
+COPY --from=build --chown=dormduri:dormduri /workspace/packages/database/prisma ./prisma
 COPY --from=build --chown=dormduri:dormduri /workspace/apps/api/prisma ./prisma
 COPY --chown=dormduri:dormduri infra/deploy/api/entrypoint.sh ./entrypoint.sh
 COPY --chown=dormduri:dormduri infra/deploy/api/healthcheck.sh ./healthcheck.sh

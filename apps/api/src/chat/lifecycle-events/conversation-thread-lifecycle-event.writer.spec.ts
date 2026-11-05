@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import {
   ConversationThreadClosedReason,
   ConversationThreadKind,
@@ -8,7 +8,7 @@ import {
   ConversationThreadLifecycleEventType,
   ConversationThreadLifecycleSourceDomain,
   ConversationThreadStatus,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import { ConversationThreadLifecycleEventRepository } from './conversation-thread-lifecycle-event.repository.js';
 import { ConversationThreadLifecycleEventWriter } from './conversation-thread-lifecycle-event.writer.js';
 import type { ConversationThreadLifecycleEventCreateInput } from './conversation-thread-lifecycle-event.types.js';

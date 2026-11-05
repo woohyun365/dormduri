@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { ReportOptionalActionResult } from '@repo/shared/social-safety/report';
-import type { Prisma } from '../../../generated/prisma/client.js';
-import type { ReportCaseEventType } from '../../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import type { ReportCaseEventType } from '@repo/database/enums';
 import type { ReportListCursor } from '../queries/report-list.cursor.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 

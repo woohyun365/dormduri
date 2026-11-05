@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { CreateBlockResponse } from '@repo/shared/social-safety/block';
 import type { AuthenticatedUserContext } from '../../../auth/application/auth-actor-context.types.js';
-import { Prisma } from '../../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { BlockTargetPolicyEvaluator } from '../policies/block-target-policy.evaluator.js';
 import { BlockPresenter } from '../presenters/block.presenter.js';

@@ -1,4 +1,4 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 
 export const CHAT_REPORT_TARGET_CONTEXT_PORT = Symbol('CHAT_REPORT_TARGET_CONTEXT_PORT');
 

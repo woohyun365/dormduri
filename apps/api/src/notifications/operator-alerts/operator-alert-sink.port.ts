@@ -2,7 +2,7 @@ import type {
   OperatorAlertCategory,
   OperatorAlertSeverity,
   ReportRiskTier,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 
 export const OPERATOR_ALERT_SINK = Symbol('OPERATOR_ALERT_SINK');
 

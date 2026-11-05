@@ -681,12 +681,6 @@
       "rationale": "sleep 이후 OrbStack PostgreSQL clock drift의 local 진단 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
     },
     {
-      "path": "docs/development/troubleshooting/database/prisma-7-seed-config-and-generated-client.md",
-      "owner": "development domain owner",
-      "kind": "domain",
-      "rationale": "Prisma 7 seed config와 generated client의 owner/generator 경계 계약을 보존한다. 해당 실패가 관측될 때만 조건부로 읽으며 host 일반화를 위해 unrelated tooling/product 내용을 재작성하지 않는다."
-    },
-    {
       "path": "docs/development/troubleshooting/frontend/email-verification-request-identity-and-stale-response.md",
       "owner": "development domain owner",
       "kind": "domain",

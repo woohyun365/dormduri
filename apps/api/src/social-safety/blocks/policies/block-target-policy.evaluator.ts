@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { AuthenticatedUserContext } from '../../../auth/application/auth-actor-context.types.js';
-import type { Prisma } from '../../../generated/prisma/client.js';
-import type { Campus, Gender } from '../../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import type { Campus, Gender } from '@repo/database/enums';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { SeasonParticipantsService } from '../../../season-participants/application/season-participants.service.js';
 import {

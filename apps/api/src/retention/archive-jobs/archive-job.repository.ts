@@ -1,5 +1,5 @@
-import type { Prisma } from '../../generated/prisma/client.js';
-import { claimRetentionArchiveJobs } from '../../generated/prisma/sql.js';
+import type { Prisma } from '@repo/database/client';
+import { claimRetentionArchiveJobs } from '@repo/database/sql';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   DEFAULT_ARCHIVE_JOB_CLAIM_BATCH_SIZE,

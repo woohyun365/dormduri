@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { RequestMethod } from '@nestjs/common';
 
-vi.mock('../../../src/generated/prisma/sql.js', () => {
+vi.mock('@repo/database/sql', () => {
   const typedSqlFactory = vi.fn(() => ({}));
   return {
     acquireTransactionAdvisoryLock: typedSqlFactory,

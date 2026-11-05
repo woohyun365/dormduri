@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import {
   ConversationThreadLifecycleActorType,
   ConversationThreadLifecycleEventReason,
   ConversationThreadLifecycleEventType,
   ConversationThreadLifecycleSourceDomain,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import {
   conversationThreadLifecycleEventSelect,
   ConversationThreadLifecycleEventRepository,

@@ -1,5 +1,5 @@
 import type { SelectableDormitory } from '@repo/shared/season/participation';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import { assertUserAccountIdentity } from '../../identity/account-identity-invariant.js';
 import { accountIdentityIncompleteError } from '../../platform/http/account-identity-invariant.error.js';

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { findActiveChatThreadSearchMetadata } from '../../generated/prisma/sql.js';
+import { findActiveChatThreadSearchMetadata } from '@repo/database/sql';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import type {
   ChatThreadSearchMetadata,

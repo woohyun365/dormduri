@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import { toCompleteLifestyleColumnData } from '../lifestyle/lifestyle-persistence.mapper.js';
 import type { CurrentSeasonParticipantRecord } from '../participants/season-participant-records.js';

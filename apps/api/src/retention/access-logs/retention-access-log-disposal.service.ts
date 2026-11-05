@@ -1,5 +1,5 @@
-import { Prisma } from '../../generated/prisma/client.js';
-import { disposeDueRetentionAccessLogs as disposeDueRetentionAccessLogsSql } from '../../generated/prisma/sql.js';
+import { Prisma } from '@repo/database/client';
+import { disposeDueRetentionAccessLogs as disposeDueRetentionAccessLogsSql } from '@repo/database/sql';
 import type { RetentionAccessLogDisposalResult } from './retention-access-log.types.js';
 
 const DEFAULT_RETENTION_ACCESS_LOG_DISPOSAL_BATCH_SIZE = 100;

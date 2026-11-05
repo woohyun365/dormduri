@@ -1,4 +1,4 @@
-import type { Campus, Gender } from '../../generated/prisma/enums.js';
+import type { Campus, Gender } from '@repo/database/enums';
 import type { AuthenticatedSessionUser } from '@repo/shared/auth/response';
 
 export interface AuthSessionUserRecord {

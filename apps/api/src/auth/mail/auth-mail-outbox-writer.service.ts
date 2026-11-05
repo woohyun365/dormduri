@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { AuthMailEnvelopeWriter } from './auth-mail-envelope-writer.service.js';
 import { AuthMailOutboxRepository } from './auth-mail-outbox.repository.js';
 

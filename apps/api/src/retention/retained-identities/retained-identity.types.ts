@@ -1,4 +1,4 @@
-import type { RetentionAccessReason, RetentionCaseReason } from '../../generated/prisma/enums.js';
+import type { RetentionAccessReason, RetentionCaseReason } from '@repo/database/enums';
 import type { EncryptedRetentionPayload, RetentionCipher } from '../crypto/retention-cipher.js';
 
 export interface RetainedIdentifierPlaintext {

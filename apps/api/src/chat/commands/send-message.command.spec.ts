@@ -4,7 +4,7 @@ import {
   ConversationThreadLifecycleEventReason,
   ConversationThreadLifecycleEventType,
   ConversationThreadLifecycleSourceDomain,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import { chatErrors } from '../errors/chat.errors.js';
 import {
   createChatServiceSpecHarness,

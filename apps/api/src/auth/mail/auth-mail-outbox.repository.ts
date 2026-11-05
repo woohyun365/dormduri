@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type {
   AuthMailKind,
   AuthMailOutboxStatus,
   VerificationCodePurpose,
-} from '../../generated/prisma/enums.js';
-import { claimAuthMailOutboxEvents } from '../../generated/prisma/sql.js';
+} from '@repo/database/enums';
+import { claimAuthMailOutboxEvents } from '@repo/database/sql';
 import { PrismaService } from '../../platform/database/prisma.service.js';
-import { acquireTransactionAdvisoryLock } from '../../generated/prisma/sql.js';
+import { acquireTransactionAdvisoryLock } from '@repo/database/sql';
 import {
   getVerificationCodePurposeLockKey,
   VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,

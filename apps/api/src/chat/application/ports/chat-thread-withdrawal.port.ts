@@ -1,4 +1,4 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 
 export const CHAT_THREAD_WITHDRAWAL_PORT = Symbol('CHAT_THREAD_WITHDRAWAL_PORT');
 

@@ -6,7 +6,8 @@ import { defineConfig } from 'prisma/config';
 const DEFAULT_DATABASE_URL =
   'postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public';
 const DEFAULT_DIRECT_URL = DEFAULT_DATABASE_URL;
-const LOCAL_DOTENV_PATH = fileURLToPath(new URL('.env', import.meta.url));
+// The local database settings stay in the user API's env file, which the API runtime also reads.
+const LOCAL_DOTENV_PATH = fileURLToPath(new URL('../../apps/api/.env', import.meta.url));
 
 /**
  * Local Codex/tmux shells can inherit stale DATABASE_URL/DIRECT_URL values from
@@ -28,7 +29,9 @@ export default defineConfig({
   },
   migrations: {
     path: 'prisma/migrations',
-    seed: 'pnpm run prisma:seed:run',
+    // Seed data is the user API's development and test data, so `prisma db seed` runs the API seed script
+    // after this config has loaded apps/api/.env.
+    seed: 'pnpm --filter api run prisma:seed:run',
   },
   datasource: {
     // Production-grade split:

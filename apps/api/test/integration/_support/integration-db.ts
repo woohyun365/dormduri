@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
-import { PrismaClient } from '../../../src/generated/prisma/client.js';
+import { PrismaClient } from '@repo/database/client';
 import { recordIntegrationMigrationInvocation } from './integration-migration-evidence.js';
 
 const DEFAULT_DATABASE_URL =
@@ -18,7 +18,8 @@ const DEFAULT_DATABASE_URL =
  * mask that failure.
  */
 const SUPPORT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const API_DIR = path.resolve(SUPPORT_DIR, '../../..');
+// Prisma CLI runs from the shared database package, where its config, schema and migrations live.
+const DATABASE_DIR = path.resolve(SUPPORT_DIR, '../../../../../packages/database');
 
 export interface IntegrationDatabaseSandbox {
   schemaName: string;
@@ -50,7 +51,7 @@ function setRuntimeDatabaseUrl(databaseUrl: string) {
 
 function runPrismaMigrateDeploy(databaseUrl: string) {
   execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
-    cwd: API_DIR,
+    cwd: DATABASE_DIR,
     env: {
       ...process.env,
       DATABASE_URL: databaseUrl,
@@ -61,7 +62,7 @@ function runPrismaMigrateDeploy(databaseUrl: string) {
 
 export function runPrismaMigrateStatus(databaseUrl: string) {
   return execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'status'], {
-    cwd: API_DIR,
+    cwd: DATABASE_DIR,
     env: {
       ...process.env,
       DATABASE_URL: databaseUrl,

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import {
   CHAT_BLOCK_SIDE_EFFECT_PORT,
   type ChatBlockSideEffectPort,

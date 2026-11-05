@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   findDirectionLimitReachedMatchRequestSearchMetadata,
   findPendingMatchRequestSearchMetadata,
-} from '../../../generated/prisma/sql.js';
+} from '@repo/database/sql';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import type {
   MatchRequestDirectionLimitMetadata,

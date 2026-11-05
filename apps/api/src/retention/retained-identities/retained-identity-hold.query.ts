@@ -1,5 +1,5 @@
-import type { Prisma } from '../../generated/prisma/client.js';
-import type { LegalHoldReason, RetentionCaseReason } from '../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import type { LegalHoldReason, RetentionCaseReason } from '@repo/database/enums';
 
 export async function loadRetainedIdentityForCaseTx(
   tx: Prisma.TransactionClient,

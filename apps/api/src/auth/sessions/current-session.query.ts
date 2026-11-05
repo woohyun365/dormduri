@@ -1,5 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
-import type { Campus, Gender } from '../../generated/prisma/enums.js';
+import type { Campus, Gender } from '@repo/database/enums';
 import type { AuthenticatedSessionUser } from '@repo/shared/auth/response';
 import type { ApiSessionRejectionReason, ApiSessionResponse } from '@repo/shared/auth/session';
 import { hasUserDisplayIdentity } from '../../identity/account-identity-invariant.js';

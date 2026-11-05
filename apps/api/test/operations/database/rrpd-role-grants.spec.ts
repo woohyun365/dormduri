@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 describe('RRPD DB role grants SQL artifact', () => {
-  const sqlPath = path.resolve(process.cwd(), 'prisma/role-grants/rrpd-role-grants.sql');
+  const sqlPath = path.resolve(
+    process.cwd(),
+    '../../packages/database/prisma/role-grants/rrpd-role-grants.sql',
+  );
   const sql = readFileSync(sqlPath, 'utf8');
 
   it('runtime role에서 RRPD table 권한을 회수하고 일반 table만 grant한다', () => {

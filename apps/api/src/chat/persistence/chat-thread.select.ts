@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { SeasonParticipantEnsureInput } from '../../season-participants/application/season-participants.service.js';
 
 export const threadSelect = {

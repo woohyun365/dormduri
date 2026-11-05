@@ -1,4 +1,4 @@
-import type { Campus, Gender } from '../../generated/prisma/enums.js';
+import type { Campus, Gender } from '@repo/database/enums';
 import type { AuthCapability } from '../access/auth-capability.js';
 
 export interface AuthenticatedUserContext {

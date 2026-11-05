@@ -1,5 +1,5 @@
 import type { PreviousSeasonProfileResponse } from '@repo/shared/season/participation';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { formatKstDate } from '../../platform/time/kst-date.js';
 import { getVerifiedUserForSeasonAction } from '../application/season-action-user.query.js';
 import type { SeasonParticipantUseCaseDeps } from '../application/season-participant-use-case.deps.js';

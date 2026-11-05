@@ -1,4 +1,4 @@
-import type { Campus, Gender } from '../../generated/prisma/enums.js';
+import type { Campus, Gender } from '@repo/database/enums';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import type { DbClient, SeasonParticipantUseCaseDeps } from './season-participant-use-case.deps.js';
 

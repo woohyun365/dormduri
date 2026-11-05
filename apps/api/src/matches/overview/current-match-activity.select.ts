@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { matchRequestSummarySelect } from '../requests/persistence/match-request.select.js';
 
 export const matchOverviewRequestSelect = {
