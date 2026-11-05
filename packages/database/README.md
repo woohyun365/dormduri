@@ -44,4 +44,6 @@ pnpm db:seed                                   # prisma db seed → apps/api see
 - TypedSQL 생성(`prisma generate --sql`)은 SQL 결과 type을 DB에 물어 만든다. 그래서 migration이 적용된 PostgreSQL이 떠
   있어야 한다(CI는 `migrate deploy` 뒤 `pnpm api:prepare`, 로컬은 `pnpm db:up` 뒤). API image build는 DB 없이 미리 만든
   생성물을 복사해 build만 한다.
+- Prisma 7은 `migrate dev`·`migrate reset`·`db push` 뒤 seed를 자동 실행하지 않는다. seed가 필요하면 그 뒤 `pnpm db:seed`를
+  따로 실행한다. seed script는 생성 client 없이 `pg`로 실행한다.
 - Production migration은 `pnpm api:db:deploy:migrate`([`infra/db/README.md`](../../infra/db/README.md))로만 적용한다.

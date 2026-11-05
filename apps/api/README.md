@@ -263,7 +263,5 @@ curl "http://localhost:4000/api/dormitories?campus=CHUNCHEON&gender=M"
 
 ## 8. 참고 문서
 
-- Prisma / seed 관련 세부 이슈:
-  - `docs/development/troubleshooting/database/prisma-7-seed-config-and-generated-client.md`
 - season date-only 규칙:
   - `docs/architecture/data/date-only-normalization-rule.md`
