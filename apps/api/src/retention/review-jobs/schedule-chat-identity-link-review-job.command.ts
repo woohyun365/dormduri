@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { buildChatIdentityLinkReviewPayload } from './retention-review-job.payload.js';
 
 export async function scheduleChatIdentityLinkReviewJobTx(

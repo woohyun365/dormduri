@@ -1,6 +1,6 @@
 import { toDateOnlyString } from '@repo/shared/date';
 import type { SelectableDormitory } from '@repo/shared/season/participation';
-import type { Campus, DormitoryGenderPolicy } from '../../generated/prisma/enums.js';
+import type { Campus, DormitoryGenderPolicy } from '@repo/database/enums';
 
 export interface DormitorySelectionCatalogRecord {
   dormitory: {

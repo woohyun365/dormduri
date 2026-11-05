@@ -1,4 +1,4 @@
-import type { Prisma } from '../../../src/generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { PrismaService } from '../../../src/platform/database/prisma.service.js';
 
 export type PrismaQueryTraceEvent = Prisma.QueryEvent;

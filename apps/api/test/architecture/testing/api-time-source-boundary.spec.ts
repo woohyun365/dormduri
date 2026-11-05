@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 const apiRoot = process.cwd();
 const sourceRoot = join(apiRoot, 'src');
-const sqlRoot = join(apiRoot, 'prisma', 'sql');
+// SQL asset paths in the inventory are relative to the shared database package that owns them.
+const databaseRoot = join(apiRoot, '..', '..', 'packages', 'database');
+const sqlRoot = join(databaseRoot, 'prisma', 'sql');
 
 import {
   allowedTimeSourceCategories,
@@ -42,6 +44,10 @@ function relativeApiPath(path: string) {
   return relative(apiRoot, path).split(sep).join('/');
 }
 
+function relativeDatabasePath(path: string) {
+  return relative(databaseRoot, path).split(sep).join('/');
+}
+
 function isProductionSourceFile(path: string) {
   const relativePath = relativeApiPath(path);
 
@@ -65,7 +71,7 @@ function findSqlTimeUsageFiles() {
   return walkFiles(sqlRoot)
     .filter((path) => path.endsWith('.sql'))
     .filter((path) => sqlTimePattern.test(readSource(path)))
-    .map(relativeApiPath)
+    .map(relativeDatabasePath)
     .sort();
 }
 
@@ -136,7 +142,7 @@ describe('API time source boundary inventory', () => {
 
   it('keeps each SQL time usage rationale explicit', () => {
     for (const entry of sqlTimeUsageInventory) {
-      expect(existsSync(join(apiRoot, entry.path)), `${entry.path} exists`).toBe(true);
+      expect(existsSync(join(databaseRoot, entry.path)), `${entry.path} exists`).toBe(true);
       expect(entry.owner, `${entry.path} owner`).not.toHaveLength(0);
       expect(entry.rationale, `${entry.path} rationale`).not.toHaveLength(0);
     }

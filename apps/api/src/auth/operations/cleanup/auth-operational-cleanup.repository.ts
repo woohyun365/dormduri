@@ -5,7 +5,7 @@ import {
   pruneOldAuthSecurityEvents,
   pruneOldLoginAttempts,
   pruneOldVerificationCodeRequestLogs,
-} from '../../../generated/prisma/sql.js';
+} from '@repo/database/sql';
 
 export type AuthCleanupPrismaClient = {
   $queryRawTyped<T = unknown>(query: unknown): Promise<T[]>;

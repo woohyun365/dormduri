@@ -5,7 +5,7 @@ import type {
   SeasonState,
 } from '@repo/shared/season/runtime';
 import type { LocalDateString } from '@repo/shared/date';
-import type { Campus } from '../../generated/prisma/enums.js';
+import type { Campus } from '@repo/database/enums';
 
 export interface CurrentSeasonContext extends CurrentSeasonResponse {
   override: SeasonRuntimeOverride;

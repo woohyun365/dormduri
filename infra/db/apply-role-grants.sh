@@ -88,8 +88,8 @@ validate_identifier DB_READONLY_ROLE "$app_readonly_role"
 validate_identifier DB_MIGRATION_ROLE "$migration_role"
 
 root="$(repo_root)"
-auth_sql="$root/apps/api/prisma/role-grants/auth-role-grants.sql"
-rrpd_sql="$root/apps/api/prisma/role-grants/rrpd-role-grants.sql"
+auth_sql="$root/packages/database/prisma/role-grants/auth-role-grants.sql"
+rrpd_sql="$root/packages/database/prisma/role-grants/rrpd-role-grants.sql"
 
 for file in "$auth_sql" "$rrpd_sql"; do
   if [ ! -f "$file" ]; then

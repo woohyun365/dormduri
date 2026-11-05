@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { CurrentSeasonParticipantRecord } from '../../season-participants/application/season-participants.service.js';
 import type { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';

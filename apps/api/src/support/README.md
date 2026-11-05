@@ -54,7 +54,7 @@ Support 도메인의 server-side boundary map이다. 이 문서는 다음 세션
 - In-app support notification handoff: `notifications/support-notification.service.ts`.
 - Shared request/response contracts: `packages/shared/src/support/contract.ts` and `contracts/support-contract.spec.ts`.
 - Default Support Center FAQ seed: `apps/api/prisma/seed-data/reference/support-faq-seed-data.js`.
-- Persistence schema/migration SQL: `apps/api/prisma/schema.prisma` and the initial migration SQL.
+- Persistence schema/migration SQL: `packages/database/prisma/schema.prisma` and the initial migration SQL.
 
 ## Route matrix
 

@@ -1,5 +1,5 @@
-import type { Prisma } from '../../generated/prisma/client.js';
-import type { Campus } from '../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import type { Campus } from '@repo/database/enums';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import { formatKstDate } from '../../platform/time/kst-date.js';
 import {

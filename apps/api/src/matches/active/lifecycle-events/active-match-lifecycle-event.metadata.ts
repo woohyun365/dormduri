@@ -1,4 +1,4 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import {
   ACTIVE_MATCH_LIFECYCLE_METADATA_KEYS,
   type ActiveMatchLifecycleMetadataInput,

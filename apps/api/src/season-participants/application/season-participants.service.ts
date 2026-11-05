@@ -8,7 +8,7 @@ import type {
   DormitorySelectionDraftResponse,
   SeasonRegistrationFinalizeResponse,
 } from '@repo/shared/season/participation';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import {
   SEASON_PARTICIPANT_PUBLIC_TARGET_OWNER,

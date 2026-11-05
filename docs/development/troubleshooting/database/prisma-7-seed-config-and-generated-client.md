@@ -2,12 +2,12 @@
 
 **상태**: Current
 **마지막 검증 환경**: Prisma 7.8, Node.js ESM, PostgreSQL 18
-**현재 owner**: `apps/api/prisma.config.ts`, `apps/api/prisma/seed.js`, `apps/api/package.json`
+**현재 owner**: `packages/database/prisma.config.ts`, `apps/api/prisma/seed.js`, `apps/api/package.json`
 
 ## 증상
 
 - `package.json`의 과거 Prisma seed 설정을 CLI가 읽지 않습니다.
-- Custom output인 `apps/api/src/generated/prisma`를 TypeScript seed에서 직접 import하면 ESM의 `.js` specifier와 실행 시점의 `.ts` 파일이 충돌할 수 있습니다.
+- Custom output인 `packages/database/src/generated/prisma`를 TypeScript seed에서 직접 import하면 ESM의 `.js` specifier와 실행 시점의 `.ts` 파일이 충돌할 수 있습니다.
 
 ## 원인
 
@@ -17,10 +17,10 @@ application runtime과 다른 module-resolution 경로로 실행되므로 genera
 
 ## 해결
 
-- `prisma.config.ts`는 `seed: 'pnpm run prisma:seed:run'`을 사용합니다.
-- `prisma:seed:run`은 shared build 이후 `node prisma/seed.js`를 실행합니다.
+- `packages/database/prisma.config.ts`는 `seed: 'pnpm --filter api run prisma:seed:run'`을 사용합니다. seed는 사용자 API의 개발·test data라 `apps/api`에 있고, `pnpm db:seed`(`packages/database`에서 `prisma db seed`)는 config가 `apps/api/.env`를 읽은 뒤 이 script를 부릅니다.
+- `prisma:seed:run`은 shared build 이후 `apps/api`에서 `node prisma/seed.js`를 실행합니다.
 - Main seed와 reference seed는 JavaScript + `pg` 경계에서 독립 실행합니다.
-- Prisma 7에서 `migrate dev`나 `db push`가 seed를 자동 실행한다고 가정하지 않습니다.
+- Prisma 7에서 `migrate dev`·`migrate reset`·`db push`가 seed를 자동 실행한다고 가정하지 않습니다.
 
 ```bash
 pnpm db:up
@@ -32,7 +32,7 @@ pnpm db:seed:reference
 ## 검증
 
 ```bash
-pnpm --dir apps/api prisma:validate
+pnpm --dir packages/database prisma:validate
 pnpm api:prisma:generate
 pnpm api:typecheck
 ```

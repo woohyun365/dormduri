@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { CurrentUserResponse } from '@repo/shared/user';
 import type { SeasonState } from '@repo/shared/season/runtime';
-import type { Campus, Gender } from '../../generated/prisma/enums.js';
+import type { Campus, Gender } from '@repo/database/enums';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import { isParticipantRegistered } from '../policies/index.js';

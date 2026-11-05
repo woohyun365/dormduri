@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Prisma } from '../../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import { BookmarkPresenter } from '../presenters/bookmark.presenter.js';
 import { CreateBookmarkCommand } from './create-bookmark.command.js';
 

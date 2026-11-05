@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '../../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
 import { matchesErrors } from '../../errors/matches.errors.js';

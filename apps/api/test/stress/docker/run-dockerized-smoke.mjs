@@ -183,7 +183,7 @@ try {
     [
       'pnpm',
       '--dir',
-      'apps/api',
+      'packages/database',
       'exec',
       'prisma',
       'db',

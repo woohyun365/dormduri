@@ -2,7 +2,7 @@ import type {
   DormitorySelectionState,
   ParticipantStatus,
   SeasonParticipationIntent,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 
 export const seasonParticipantLifecycleEventTypes = [
   'JOINED',

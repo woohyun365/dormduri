@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
-import { Prisma } from '../../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
 import { formatKstDate } from '../../../platform/time/kst-date.js';
 import { parseLifestyleOrNull } from '../../../profiles/contracts/public-profile.presenter.js';

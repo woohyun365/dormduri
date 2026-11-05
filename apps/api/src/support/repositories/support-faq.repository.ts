@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { SupportTicketCategory } from '@repo/shared/support';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 
 const supportFaqSelect = {

@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { ChatThreadWithdrawalPort } from '../../chat/application/ports/chat-thread-withdrawal.port.js';
 import type { DormitorySelectionCatalogPort } from '../../dormitories/selection-catalog/dormitory-selection-catalog.port.js';
 import type { MatchParticipantWithdrawalPort } from '../../matches/application/ports/match-participant-withdrawal.port.js';

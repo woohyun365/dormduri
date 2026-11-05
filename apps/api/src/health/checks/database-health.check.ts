@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { getDatabaseReadiness } from '../../generated/prisma/sql.js';
+import { getDatabaseReadiness } from '@repo/database/sql';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   DEFAULT_HEALTH_READINESS_TIMEOUT_MS,

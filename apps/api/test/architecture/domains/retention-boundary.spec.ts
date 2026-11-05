@@ -4,7 +4,7 @@ import { join, relative, sep } from 'node:path';
 
 const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');
-const sqlRoot = join(apiRoot, 'prisma/sql');
+const sqlRoot = join(apiRoot, '../../packages/database/prisma/sql');
 const retentionRoot = join(apiSourceRoot, 'retention');
 const lifecycleRoot = join(apiSourceRoot, 'lifecycle');
 

@@ -3,7 +3,7 @@ import type { ConfigType } from '@nestjs/config';
 import authConfig from '../config/auth.config.js';
 import { AuthSecurityEventRepository } from './auth-security-event.repository.js';
 import type { AuthSecurityEventInput } from './auth-security-event.types.js';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import {
   defaultAuthSecurityEventSeverity,
   hashAuthSecurityEventDimension,

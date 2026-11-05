@@ -8,7 +8,7 @@ import {
   ConversationThreadLifecycleEventReason,
   ConversationThreadLifecycleEventType,
   ConversationThreadLifecycleSourceDomain,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import { buildParticipantPairIdentity } from '../../matches/persistence/match-pair-identity.js';
 import {
   isPrismaKnownRequestError,

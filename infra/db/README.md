@@ -64,7 +64,7 @@ pnpm api:db:deploy:migrate
 ```
 
 - 내부적으로 `MIGRATION_DATABASE_URL`을 Prisma CLI의 `DIRECT_URL`과 `DATABASE_URL`로 주입한다.
-- `prisma migrate deploy --schema prisma/schema.prisma`만 실행한다.
+- `packages/database`에서 `prisma migrate deploy --schema prisma/schema.prisma`만 실행한다.
 - Production deploy path에서 `prisma db push`, development migration, seed를 실행하지 않는다.
 
 ### Role grant apply
@@ -73,8 +73,8 @@ pnpm api:db:deploy:migrate
 pnpm api:db:deploy:role-grants
 ```
 
-- `apps/api/prisma/role-grants/auth-role-grants.sql`
-- `apps/api/prisma/role-grants/rrpd-role-grants.sql`
+- `packages/database/prisma/role-grants/auth-role-grants.sql`
+- `packages/database/prisma/role-grants/rrpd-role-grants.sql`
 
 두 SQL artifact를 `psql -v ON_ERROR_STOP=1`로 같은 migration/admin credential에 적용한다.
 

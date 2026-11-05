@@ -1,5 +1,5 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import type { Campus, SeasonOperationAuditAction } from '../../generated/prisma/enums.js';
+import type { Campus, SeasonOperationAuditAction } from '@repo/database/enums';
 import {
   DOMAIN_METRICS_PORT,
   recordDomainMetricSafely,

@@ -1,8 +1,5 @@
 import type { AuthenticatedRequest } from '../../auth/application/auth-actor-context.types.js';
-import type {
-  ConversationThreadMemberState,
-  ConversationThreadStatus,
-} from '../../generated/prisma/enums.js';
+import type { ConversationThreadMemberState, ConversationThreadStatus } from '@repo/database/enums';
 
 export interface ChatThreadContext {
   threadId: string;

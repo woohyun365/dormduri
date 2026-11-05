@@ -81,7 +81,12 @@
       "unplugin-swc",
       "zod"
     ],
-    "workspacePackages": ["@repo/eslint-config", "@repo/shared", "@repo/tsconfig"],
+    "workspacePackages": [
+      "@repo/database",
+      "@repo/eslint-config",
+      "@repo/shared",
+      "@repo/tsconfig"
+    ],
     "overrideSelectors": ["@nestjs/platform-node>qs", "esbuild", "postcss"],
     "lockfile": "pnpm-lock.yaml"
   },
@@ -168,5 +173,5 @@
     "shared-contract": ["zod"],
     "api-test-tooling": ["@types/supertest", "supertest"]
   },
-  "ignoredPackages": ["@repo/eslint-config", "@repo/shared", "@repo/tsconfig"]
+  "ignoredPackages": ["@repo/database", "@repo/eslint-config", "@repo/shared", "@repo/tsconfig"]
 }

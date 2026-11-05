@@ -3,7 +3,7 @@ import {
   LegalDocumentKind,
   type SignupLegalAcceptances,
 } from '@repo/shared/legal';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 
 export const SIGNUP_LEGAL_ACCEPTANCE_STALE = '[LegalAcceptance] signup legal acceptance stale';
 

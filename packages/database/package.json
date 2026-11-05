@@ -1,0 +1,45 @@
+{
+  "name": "@repo/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=26 <27"
+  },
+  "exports": {
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./enums": {
+      "types": "./dist/enums.d.ts",
+      "default": "./dist/enums.js"
+    },
+    "./sql": {
+      "types": "./dist/sql.d.ts",
+      "default": "./dist/sql.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf ./dist && tsc -p tsconfig.json",
+    "lint": "eslint \"src/**/*.ts\" prisma.config.ts",
+    "prisma:generate": "rm -rf src/generated/prisma && prisma generate --sql",
+    "prisma:push": "prisma db push --schema prisma/schema.prisma",
+    "prisma:seed": "prisma db seed --schema prisma/schema.prisma",
+    "prisma:validate": "prisma validate --schema prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "dotenv": "^18.0.9",
+    "prisma": "^7.10.1",
+    "typescript": "catalog:"
+  }
+}

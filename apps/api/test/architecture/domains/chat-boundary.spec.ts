@@ -8,11 +8,11 @@ const chatRoot = join(apiSourceRoot, 'chat');
 const chatEventsRoot = join(chatRoot, 'events');
 const chatLifecycleEventsRoot = join(chatRoot, 'lifecycle-events');
 const notificationsRoot = join(apiSourceRoot, 'notifications');
-const sqlRoot = join(apiRoot, 'prisma/sql');
-const prismaSchemaPath = join(apiRoot, 'prisma/schema.prisma');
+const sqlRoot = join(apiRoot, '../../packages/database/prisma/sql');
+const prismaSchemaPath = join(apiRoot, '../../packages/database/prisma/schema.prisma');
 const baselineMigrationPath = join(
   apiRoot,
-  'prisma/migrations/000000000000_initial_baseline/migration.sql',
+  '../../packages/database/prisma/migrations/000000000000_initial_baseline/migration.sql',
 );
 
 function walkTypeScriptFiles(root: string): string[] {

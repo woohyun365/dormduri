@@ -1,5 +1,5 @@
-import type { Prisma } from '../../generated/prisma/client.js';
-import type { ArchiveJobTarget } from '../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import type { ArchiveJobTarget } from '@repo/database/enums';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { createConversationRetainedBodyOwner } from '../../chat/retention/conversation-retained-body.service.js';
 import type { ConversationRetainedBodyOwnerOptions } from '../../chat/retention/conversation-retained-body.service.js';

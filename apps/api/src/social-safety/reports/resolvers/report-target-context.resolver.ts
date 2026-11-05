@@ -6,7 +6,7 @@ import type {
   ChatReportTargetClient,
   ChatReportTargetContextPort,
 } from '../../../chat/application/ports/chat-report-target-context.port.js';
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { reportErrors } from '../errors/report.errors.js';
 

@@ -1,5 +1,5 @@
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import { buildCurrentUserCapabilities } from '../../season-participants/capabilities/index.js';
 import { canCurrentDormitoryMatch } from '../../season-participants/policies/index.js';

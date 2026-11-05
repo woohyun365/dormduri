@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { ConversationThreadLifecycleEventCreateInput } from './conversation-thread-lifecycle-event.types.js';
 
 export const conversationThreadLifecycleEventSelect = {

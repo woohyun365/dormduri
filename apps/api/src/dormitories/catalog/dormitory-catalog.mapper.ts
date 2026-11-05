@@ -1,4 +1,4 @@
-import type { Campus, DormitoryGenderPolicy } from '../../generated/prisma/enums.js';
+import type { Campus, DormitoryGenderPolicy } from '@repo/database/enums';
 
 export interface DormitoryCatalogCampusRecord {
   code: Campus;

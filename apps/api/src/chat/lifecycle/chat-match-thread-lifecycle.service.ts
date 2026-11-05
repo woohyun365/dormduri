@@ -1,11 +1,11 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   ConversationThreadLifecycleEventReason,
   ConversationThreadLifecycleEventType,
   ConversationThreadLifecycleSourceDomain,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import {
   SEASON_CONTEXT_PORT,

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../../generated/prisma/client.js';
-import type { Campus } from '../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import type { Campus } from '@repo/database/enums';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import type { SeasonOperationSnapshotSource } from './season-operations.mapper.js';
 

@@ -1,4 +1,4 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { buildParticipantPairIdentity } from '../../persistence/match-pair-identity.js';
 import type {
   SeasonHistoryParticipant,

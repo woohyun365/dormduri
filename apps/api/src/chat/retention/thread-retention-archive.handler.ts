@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import { resolveChatIdentityReviewAfter } from '../../retention/archive-jobs/archive-job.payload.js';
 import { normalizeArchiveErrorCode } from '../../retention/archive-jobs/archive-job-transition.policy.js';

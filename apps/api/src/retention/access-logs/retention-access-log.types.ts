@@ -1,10 +1,10 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type {
   RetainedVaultObjectTarget,
   RetentionAccessReason,
   RetentionAccessResult,
   RetentionAccessTargetType,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 
 export type RetentionAccessLogClient = Pick<Prisma.TransactionClient, 'retentionAccessLog'> &
   Partial<Pick<Prisma.TransactionClient, 'retentionReviewJob'>>;

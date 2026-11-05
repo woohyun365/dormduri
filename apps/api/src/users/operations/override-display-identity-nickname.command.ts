@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { SeasonContextPort } from '../../seasons/ports/season-context.port.js';
 import { getUserWithDisplayIdentity } from '../application/user-display-identity.reader.js';

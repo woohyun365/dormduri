@@ -118,8 +118,11 @@ describe('deployment infra', () => {
     expect(dockerfile).toContain(
       'pnpm --dir apps/api exec tsc -p ../../packages/shared/tsconfig.json',
     );
-    expect(dockerfile).toContain('test -f apps/api/src/generated/prisma/client.ts');
-    expect(dockerfile).toContain('test -f apps/api/src/generated/prisma/sql.ts');
+    expect(dockerfile).toContain('test -f packages/database/src/generated/prisma/client.ts');
+    expect(dockerfile).toContain('test -f packages/database/src/generated/prisma/sql.ts');
+    expect(dockerfile).toContain(
+      'pnpm --dir apps/api exec tsc -p ../../packages/database/tsconfig.json',
+    );
     expect(dockerfile).toContain('pnpm --dir apps/api exec nest build');
     expect(dockerfile).toContain('node", "dist/main.js"');
     expect(dockerfile).not.toContain('prisma db push');

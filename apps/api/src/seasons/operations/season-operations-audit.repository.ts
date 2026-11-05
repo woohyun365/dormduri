@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma, SeasonOperationAuditAction } from '../../generated/prisma/client.js';
+import type { Prisma, SeasonOperationAuditAction } from '@repo/database/client';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { SeasonOperationSnapshotSource } from './season-operations.mapper.js';

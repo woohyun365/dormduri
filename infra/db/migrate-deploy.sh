@@ -10,7 +10,7 @@ Required env:
   MIGRATION_DATABASE_URL
 
 The script maps MIGRATION_DATABASE_URL to Prisma CLI DIRECT_URL and DATABASE_URL
-because apps/api/prisma.config.ts reads DIRECT_URL before DATABASE_URL.
+because packages/database/prisma.config.ts reads DIRECT_URL before DATABASE_URL.
 USAGE
 }
 
@@ -61,12 +61,12 @@ fi
 
 root="$(repo_root)"
 
-if [ ! -f "$root/apps/api/prisma/schema.prisma" ]; then
-  fail 'missing Prisma schema: apps/api/prisma/schema.prisma' 66
+if [ ! -f "$root/packages/database/prisma/schema.prisma" ]; then
+  fail 'missing Prisma schema: packages/database/prisma/schema.prisma' 66
 fi
 
 echo 'running Prisma migrate deploy using MIGRATION_DATABASE_URL'
 NODE_ENV=production \
 DIRECT_URL="$MIGRATION_DATABASE_URL" \
 DATABASE_URL="$MIGRATION_DATABASE_URL" \
-  pnpm --dir "$root/apps/api" exec prisma migrate deploy --schema prisma/schema.prisma
+  pnpm --dir "$root/packages/database" exec prisma migrate deploy --schema prisma/schema.prisma

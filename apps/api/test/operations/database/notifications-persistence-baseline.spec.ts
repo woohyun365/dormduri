@@ -3,10 +3,10 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const apiRoot = process.cwd();
-const schemaPath = join(apiRoot, 'prisma/schema.prisma');
+const schemaPath = join(apiRoot, '../../packages/database/prisma/schema.prisma');
 const baselineMigrationPath = join(
   apiRoot,
-  'prisma/migrations/000000000000_initial_baseline/migration.sql',
+  '../../packages/database/prisma/migrations/000000000000_initial_baseline/migration.sql',
 );
 
 describe('notifications persistence baseline', () => {

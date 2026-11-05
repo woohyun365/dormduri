@@ -1,5 +1,5 @@
-import type { Prisma } from '../../generated/prisma/client.js';
-import type { ArchiveJobStatus, ArchiveJobTarget } from '../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import type { ArchiveJobStatus, ArchiveJobTarget } from '@repo/database/enums';
 import { addDays, buildArchiveJobPayload } from './archive-job.payload.js';
 import {
   CHAT_MESSAGE_IDENTITY_REVIEW_AFTER_DAYS,

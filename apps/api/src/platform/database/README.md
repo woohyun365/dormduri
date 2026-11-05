@@ -29,7 +29,7 @@ session timezone에 맡기지 않는다. `getDatabaseNow()`도 adapter의 timest
 
 ## SQL / TypedSQL boundary
 
-Product-owned SQL lives under `apps/api/prisma/sql/*.sql` and is consumed through generated TypedSQL exports from `src/generated/prisma/sql.js`. This keeps SQL review, generated result typing, and ownership in one place.
+Product-owned SQL lives under `packages/database/prisma/sql/*.sql` and is consumed through the generated TypedSQL exports of the shared database package entry `@repo/database/sql`. This keeps SQL review, generated result typing, and ownership in one place.
 
 - Add or move a SQL asset only with `prisma:generate` and `test/architecture/testing/api-sql-boundary.spec.ts` inventory updates.
 - Use `pg_advisory_xact_lock` for transaction-scoped advisory locks; session-scoped advisory locks are not allowed.

@@ -1,4 +1,4 @@
-import { Prisma } from '../../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../../../privacy/deidentification/deidentified-display.policy.js';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import {

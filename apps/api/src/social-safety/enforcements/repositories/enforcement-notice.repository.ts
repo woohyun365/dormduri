@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import type { EnforcementNoticeListCursor } from '../queries/enforcement-notice-list.cursor.js';
 

@@ -1,4 +1,4 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 
 export const CHAT_MATCH_THREAD_LIFECYCLE_PORT = Symbol('CHAT_MATCH_THREAD_LIFECYCLE_PORT');
 

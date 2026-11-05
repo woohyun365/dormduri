@@ -45,7 +45,7 @@ Legal 도메인의 server-side boundary map이다. 이 문서는 `apps/api/src/l
 - Public response allowlist: `presenters/legal-document.presenter.ts`.
 - User-facing error contract: `errors/legal.errors.ts` and auth stale acceptance failure in `auth/errors/auth-failures.ts`.
 - Default legal document seed: `apps/api/prisma/seed-data/reference/legal-document-seed-data.js`.
-- Persistence schema/migration SQL: `apps/api/prisma/schema.prisma` and the initial migration SQL.
+- Persistence schema/migration SQL: `packages/database/prisma/schema.prisma` and the initial migration SQL.
 - Signup acceptance transaction hook: `apps/api/src/auth/registration/signup.command.ts`.
 
 ## Route matrix

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, type Mock } from 'vitest';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import { Prisma } from '../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import {
   buildPrismaSessionOptions,
   PRISMA_SESSION_TIME_ZONE,

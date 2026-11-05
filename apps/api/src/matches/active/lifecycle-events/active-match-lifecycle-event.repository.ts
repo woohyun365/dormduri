@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { ActiveMatchLifecycleEventCreateInput } from './active-match-lifecycle-event.types.js';
 
 @Injectable()

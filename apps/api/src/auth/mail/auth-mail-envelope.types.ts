@@ -1,4 +1,4 @@
-import type { AuthMailKind } from '../../generated/prisma/enums.js';
+import type { AuthMailKind } from '@repo/database/enums';
 
 export type VerificationAuthMailEnvelope = {
   schemaVersion: 1;

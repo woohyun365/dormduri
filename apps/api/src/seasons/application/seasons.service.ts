@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { CurrentSeasonResponse } from '@repo/shared/season/runtime';
-import type { Campus } from '../../generated/prisma/enums.js';
+import type { Campus } from '@repo/database/enums';
 import type { SeasonContextCache } from '../cache/season-context-cache.js';
 import type { CurrentSeasonContext, SeasonContextPort } from '../ports/season-context.port.js';
 import { CurrentSeasonContextQuery } from '../runtime/current-season-context.query.js';

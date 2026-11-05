@@ -42,7 +42,10 @@ describe('RRPD DB access control integration', () => {
     ]);
 
     const sql = readFileSync(
-      path.resolve(process.cwd(), 'prisma/role-grants/rrpd-role-grants.sql'),
+      path.resolve(
+        process.cwd(),
+        '../../packages/database/prisma/role-grants/rrpd-role-grants.sql',
+      ),
       'utf8',
     );
     await adminClient.query(sql);

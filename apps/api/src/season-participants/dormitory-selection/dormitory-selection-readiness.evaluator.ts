@@ -1,6 +1,6 @@
 import type { SelectableDormitory } from '@repo/shared/season/participation';
-import type { Prisma } from '../../generated/prisma/client.js';
-import type { Campus, Gender } from '../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import type { Campus, Gender } from '@repo/database/enums';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import type {
