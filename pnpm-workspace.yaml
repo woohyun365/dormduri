@@ -40,8 +40,8 @@ catalog:
   '@storybook/nextjs-vite': 10.6.5
   '@typescript-eslint/eslint-plugin': 8.72.1
   '@typescript-eslint/parser': 8.72.1
-  '@vitejs/plugin-react': 6.1.2
-  '@vitest/coverage-v8': 5.0.5
+  '@vitejs/plugin-react': 6.2.1
+  '@vitest/coverage-v8': 5.1.0
   eslint: 9.39.5
   eslint-config-next: 16.4.4
   eslint-config-prettier: 10.1.8
@@ -54,7 +54,7 @@ catalog:
   typescript: 6.0.3
   typescript-eslint: 8.72.1
   vite: 8.3.5
-  vitest: 5.0.5
+  vitest: 5.1.0
 
 # These exceptions are parent-scoped, dated compatibility contracts rather than
 # broad warning suppression. Their owner tests and removal triggers live in
