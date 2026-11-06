@@ -51,7 +51,7 @@ env:
   DEPLOY_DOCUMENT: dormduri-web-deploy
   # image를 만드는 도구도 tag와 digest로 고정한다. Renovate custom regex manager가 workflow의 `*_IMAGE` 값을 갱신하고
   # infra/image-inventory.json이 owner를 적는다.
-  BUILDKIT_IMAGE: moby/buildkit:v0.34.1@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c
+  BUILDKIT_IMAGE: moby/buildkit:v0.34.2@sha256:c5f8862f52499773af85bc07695b2379ef08e8002352b0df2c4864c91d78dabe
   SBOM_SCANNER_IMAGE: docker/buildkit-syft-scanner:1.12.1@sha256:873a7458c3c8ac8e32c7b796c10e1600b07b963d2aa000a72a2d97aaaa2d6315
 
 # shell을 정하지 않은 run은 `bash -e`라 pipe 앞 명령의 실패를 놓친다(외부 smoke | tee). `bash`는 `-eo pipefail`이다.
