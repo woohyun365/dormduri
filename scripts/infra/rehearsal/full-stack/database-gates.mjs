@@ -30,6 +30,9 @@ export function runDatabaseGates({
   recordScenario('database-role-grants', 'pass', 'application role baseline applied');
 
   runOperatorScript('infra/db/smoke-role-grants.sh', {
+    // The rehearsal migration user is the container superuser, so it owns the objects
+    // instead of migration_owner (production logs in through dormduri_migrator).
+    DB_EXPECTED_TABLE_OWNER: decodeURIComponent(new URL(urls.container.migration).username),
     MIGRATION_DATABASE_URL: psqlDatabaseUrl(urls.container.migration),
     DATABASE_URL: psqlDatabaseUrl(urls.container.runtime),
     RETENTION_WORKER_DATABASE_URL: psqlDatabaseUrl(urls.container.retention),

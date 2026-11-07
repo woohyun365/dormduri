@@ -9,7 +9,11 @@ export const DEFAULT_DATABASE_URL =
   'postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public';
 export const DEFAULT_DATABASE_ADAPTER_CONNECT_TIMEOUT_MS = 5_000;
 export const DEFAULT_DATABASE_ADAPTER_IDLE_TIMEOUT_MS = 300_000;
+// Pool max per Prisma role (infra/db/README.md Connection budget, #238). Each LOGIN user's
+// CONNECTION LIMIT is pool x 2 + 2 so an old and a new container can overlap.
 export const DEFAULT_DATABASE_POOL_MAX = 10;
+export const DEFAULT_RETENTION_WORKER_DATABASE_POOL_MAX = 3;
+export const DEFAULT_RETENTION_DISCLOSURE_DATABASE_POOL_MAX = 1;
 export const DEFAULT_DATABASE_POOL_MIN = 0;
 export const DEFAULT_DATABASE_QUERY_TIMEOUT_MS = 0;
 export const DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 0;
@@ -58,6 +62,18 @@ export default registerAs('database', () => {
     poolMax: readNumberEnv(process.env, 'DATABASE_POOL_MAX', DEFAULT_DATABASE_POOL_MAX, {
       min: 1,
     }),
+    retentionWorkerPoolMax: readNumberEnv(
+      process.env,
+      'RETENTION_WORKER_DATABASE_POOL_MAX',
+      DEFAULT_RETENTION_WORKER_DATABASE_POOL_MAX,
+      { min: 1 },
+    ),
+    retentionDisclosurePoolMax: readNumberEnv(
+      process.env,
+      'RETENTION_DISCLOSURE_DATABASE_POOL_MAX',
+      DEFAULT_RETENTION_DISCLOSURE_DATABASE_POOL_MAX,
+      { min: 1 },
+    ),
     poolMin: readNumberEnv(process.env, 'DATABASE_POOL_MIN', DEFAULT_DATABASE_POOL_MIN, {
       min: 0,
     }),

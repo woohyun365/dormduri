@@ -5,14 +5,14 @@ PostgreSQL schema와 그 schema에서 만드는 Prisma Client를 여러 서버 �
 
 ## 이 package가 가진 것
 
-| 경로                                | 내용                                                                                      |
-| ----------------------------------- | ----------------------------------------------------------------------------------------- |
-| `prisma/schema.prisma`              | Prisma schema(model·enum·관계·index)                                                      |
-| `prisma/migrations/`                | 적용 순서대로 쌓는 migration. 적용한 migration은 고치지 않고 새 migration을 더한다        |
-| `prisma/sql/`                       | 제품 TypedSQL query. 쓰는 곳·종류·의미는 API architecture test의 SQL inventory가 고정한다 |
-| `prisma/role-grants/`               | DB role·grant SQL. 적용·확인은 [`infra/db/`](../../infra/db/README.md) script가 한다      |
-| `prisma.config.ts`                  | Prisma CLI 설정. 로컬 개발 값은 `apps/api/.env`에서 읽는다                                |
-| `src/client.ts`·`enums.ts`·`sql.ts` | 진입점. `src/generated/prisma/`(생성물, Git 밖)를 다시 내보낸다                           |
+| 경로                                | 내용                                                                                                                                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prisma/schema.prisma`              | Prisma schema(model·enum·관계·index)                                                                                                                                                    |
+| `prisma/migrations/`                | 적용 순서대로 쌓는 migration. 적용한 migration은 고치지 않고 새 migration을 더한다                                                                                                      |
+| `prisma/sql/`                       | 제품 TypedSQL query. 쓰는 곳·종류·의미는 API architecture test의 SQL inventory가 고정한다                                                                                               |
+| `prisma/role-grants/`               | DB role bootstrap·grant·smoke SQL과 그 입력: table별 권한 `role-grant-matrix.csv`, 열 개인정보 class `column-classes.csv`. 실행은 [`infra/db/`](../../infra/db/README.md) script가 한다 |
+| `prisma.config.ts`                  | Prisma CLI 설정. 로컬 개발 값은 `apps/api/.env`에서 읽는다                                                                                                                              |
+| `src/client.ts`·`enums.ts`·`sql.ts` | 진입점. `src/generated/prisma/`(생성물, Git 밖)를 다시 내보낸다                                                                                                                         |
 
 seed(`apps/api/prisma/seed.js`·`seed-data/`·`seeds/`)는 사용자 API의 개발·test data라 `apps/api`에 있다. Prisma Client를
 만드는 `PrismaService`와 driver adapter·pool 설정은 각 앱의 platform 배선(`apps/api/src/platform/database`)이 가진다.

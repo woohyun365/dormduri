@@ -246,14 +246,19 @@ Retention core는 queue, retention case, retained vault, access log, review/disc
 
 RRPD retained vault는 application owner guard만으로 보호하지 않고 DB credential 경계도 분리한다. 일반 product runtime은 `RetainedVaultObject` 원문 payload와 `RetainedIdentity` 식별 복원 payload를 직접 조회하지 않는 것을 원칙으로 하며, retention worker/disclosure 경로만 별도 credential과 승인·로그 요구사항을 통해 접근한다.
 
-| DB 역할                | 책임                                       | RRPD 접근 원칙                                                                                                 |
-| ---------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `app_runtime`          | 일반 API/user-facing runtime               | 일반 서비스 테이블만 사용. retained vault/identifier payload 직접 SELECT/WRITE 금지                            |
-| `retention_worker`     | archive, disposal, review, lifecycle sweep | payload 이동·폐기·review job 처리에 필요한 RRPD read/write 허용                                                |
-| `retention_disclosure` | 승인된 disclosure owner                    | 승인 근거가 있는 retained payload/identifier read와 `RetentionAccessLog` 기록만 허용. 일반 서비스 write는 제한 |
-| `migrator`             | schema/grant 관리                          | DDL, grant/revoke, role setup 전용                                                                             |
+| DB 역할                | 책임                                       | RRPD 접근 원칙                                                                                                                                             |
+| ---------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app_runtime`          | 일반 API/user-facing runtime               | 일반 서비스 테이블만 사용. retained vault/identifier payload 직접 SELECT/WRITE 금지. 신고 접수가 보존 anchor `RetentionCase`를 INSERT하고 `id` 열만 읽는다 |
+| `retention_worker`     | archive, disposal, review, lifecycle sweep | payload 이동·폐기·review job 처리에 필요한 RRPD read/write 허용. 계정 삭제·archive가 실제로 쓰는 일반 table 연산만 더 받는다                               |
+| `retention_disclosure` | 승인된 disclosure owner                    | 승인 근거가 있는 retained payload/identifier read와 `RetentionAccessLog` 기록만 허용. 일반 서비스 write는 제한                                             |
+| `app_readonly`         | 운영자별 사람 조회                         | RRPD table 접근 없음. 일반 table도 secret·content 열은 읽지 않는다                                                                                         |
+| `backoffice_runtime`   | 백오피스 API                               | 기능마다 필요한 열만 열 단위로 더한다. RRPD 열람은 `retention_disclosure` 경계를 거친다                                                                    |
+| `migration_owner`      | schema/grant 관리                          | 모든 객체를 소유하고 DDL, grant/revoke만 한다. 접속은 migration LOGIN user가 이 role로 한다                                                                |
 
-PostgreSQL 일반 trigger는 SELECT를 감사할 수 없으므로 retained payload 조회 감사는 application disclosure path의 `RetentionAccessLog`와 DB role 차단을 1차 기준으로 한다. production에서 SELECT-level DB audit이 필요하면 pgaudit 또는 DB vendor audit 기능을 별도 운영 보강으로 검토한다.
+role별 table 권한의 원본은 grant 표(`packages/database/prisma/role-grants/role-grant-matrix.csv`)이고, 접속은 서비스·사람마다
+따로 둔 LOGIN user가 group role의 member로 한다([Database operator scripts](../../infra/db/README.md#credential-boundary)).
+
+PostgreSQL 일반 trigger는 SELECT를 감사할 수 없으므로 retained payload 조회 감사는 application disclosure path의 `RetentionAccessLog`와 DB role 차단을 기준으로 한다. RRPD SELECT 객체 감사는 하지 않는다. DB에 직접 들어온 사람의 열람·변경은 사람 LOGIN user의 pgAudit 모든 문장 기록이 남긴다([Security and privacy 결정 기록](../architecture/decisions/security-privacy.md#sectrustdb-privilege-audit)).
 
 운영 관측은 외부 monitoring vendor에 종속하지 않는 structured signal을 먼저 기준으로 둔다. lifecycle sweep은 due job 수, manual review 수, retry exhaustion, key unavailable, vault retained/disposed count, access log disposal count, sweep latency를 metric/alert event로 남겨야 한다. 이 signal은 admin/backoffice UI와 별개로 production logic 운영성에 해당한다.
 
@@ -324,3 +329,4 @@ PostgreSQL 일반 trigger는 SELECT를 감사할 수 없으므로 retained paylo
 | 2026-06-12 | `ConversationThreadLifecycleEvent`는 retention workflow state가 아니라 read-only/archive 전이 trace이며, `THREAD_RETENTION`의 대기·재시도·manual review·성공 상태는 `ArchiveJob`/retained vault/review/access log 경계가 소유한다고 명시했다                                                                                                                                                | #228                     |
 | 2026-11-01 | 적용되지 않는 법령 표의 옛 제품 이름을 서비스 이름 돔두리로 바꿨다(규칙 변경 없음)                                                                                                                                                                                                                                                                                                          | #803                     |
 | 2026-11-03 | 보유기간 총괄에 서비스 밖 문의 이메일(#10), Landing 방문 통계(#11), Web 요청 log(#12) 행과 첫 규칙 id(`DR-R1`~`DR-R3`)를 더했다. 기존 #1~#9는 바꾸지 않았다                                                                                                                                                                                                                                 | #288 / #289              |
+| 2026-11-07 | RRPD DB 역할 표를 grant 표 하나와 서비스·사람별 LOGIN user 구조에 맞췄다: `migrator`를 `migration_owner`로 바꾸고, 신고 접수의 `RetentionCase` anchor INSERT·`id` 열 읽기, worker의 계정 삭제·archive 연산, `app_readonly`·`backoffice_runtime` 행, RRPD SELECT 객체 감사를 하지 않고 사람 접속은 pgAudit로 남기는 기준을 더했다                                                            |

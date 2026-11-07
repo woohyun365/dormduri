@@ -6,6 +6,8 @@ export default defineApiVitestConfig({
     exclude: ['dist/**'],
     pool: 'forks',
     fileParallelism: true,
+    // Creates DB group roles and LOGIN users once, then workers run the separated role mode.
+    globalSetup: ['./test/setup/vitest.integration.global-setup.ts'],
     setupFiles: ['./test/setup/vitest.integration.setup.ts'],
     testTimeout: 60_000,
     hookTimeout: 60_000,

@@ -65,9 +65,9 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.integration.ts --ma
 ## Migration evidence
 
 ```bash
-KNU_INTEGRATION_MIGRATION_EVIDENCE_FILE=/tmp/knu-integration-migrations.jsonl \
+DORMDURI_API_INTEGRATION_MIGRATION_EVIDENCE_FILE=/tmp/dormduri-integration-migrations.jsonl \
   pnpm --dir apps/api ci:test:integration
-wc -l /tmp/knu-integration-migrations.jsonl
+wc -l /tmp/dormduri-integration-migrations.jsonl
 ```
 
 Evidence opt-in이 없으면 파일이나 product log를 만들지 않는다. Current full suite는 27 files / 225 tests / migration

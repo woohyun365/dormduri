@@ -35,6 +35,13 @@ export const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] =
       'bootstrap receipt records completion time for readiness evidence and accepts an injectable clock in tests.',
   }),
   entry({
+    path: 'src/background-jobs/background-job-metrics.service.ts',
+    owner: 'background-jobs',
+    category: 'duration-metric',
+    rationale:
+      'the last-success gauge records wall-clock seconds for staleness alerts; it is not a persisted business time.',
+  }),
+  entry({
     path: 'src/auth/verification/request/auth-verification-timing.policy.ts',
     owner: 'auth/verification',
     category: 'duration-metric',

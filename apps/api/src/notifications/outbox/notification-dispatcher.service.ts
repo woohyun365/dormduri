@@ -7,6 +7,10 @@ import {
   Optional,
 } from '@nestjs/common';
 import { notificationCreatedRealtimeEventSchema } from '@repo/shared/notifications';
+import {
+  BackgroundJobMetricsService,
+  runBackgroundJobTick,
+} from '../../background-jobs/background-job-metrics.service.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   REALTIME_DISPATCHER_CONFIG_PORT,
@@ -49,6 +53,8 @@ export class NotificationOutboxDispatcherService
     @Inject(REALTIME_DISPATCH_METRICS_PORT)
     @Optional()
     private readonly metrics?: RealtimeDispatchMetricsPort,
+    @Optional()
+    private readonly backgroundJobMetrics?: BackgroundJobMetricsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -57,7 +63,13 @@ export class NotificationOutboxDispatcherService
     }
 
     this.interval = setInterval(() => {
-      void this.dispatchOnce().catch((error) => {
+      void runBackgroundJobTick(this.backgroundJobMetrics, 'notification_dispatcher', async () => {
+        if (this.running) {
+          return 'skipped';
+        }
+        const result = await this.dispatchOnce();
+        return result.skippedReason ? 'skipped' : 'succeeded';
+      }).catch((error) => {
         this.logger.warn(
           `[NotificationOutboxDispatcher] dispatch tick failed: ${toErrorMessage(error)}`,
         );

@@ -2,8 +2,8 @@
   "schema": "lifecycle-path-domains/v1",
   "confirmedBy": {
     "status": "owner-confirmed",
-    "date": "2026-11-05",
-    "basis": "#847"
+    "date": "2026-11-07",
+    "basis": "#862"
   },
   "productRoots": [
     "apps/**",
@@ -72,7 +72,7 @@
       "domains": ["season-participation", "matching-lifecycle"]
     },
     {
-      "globs": ["apps/api/src/platform/observability/**"],
+      "globs": ["apps/api/src/platform/observability/**", "apps/api/src/background-jobs/**"],
       "domains": ["operational-observability"]
     },
     {

@@ -5,7 +5,12 @@ import { hashPassword } from '../../../src/auth/credentials/password-hashing/pas
 import { LifecycleSweepService } from '../../../src/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from './integration-app.js';
-import { createIntegrationDatabaseSandbox, truncateIntegrationSchema } from './integration-db.js';
+import type { PrismaClient } from '@repo/database/client';
+import {
+  createIntegrationAdminPrisma,
+  createIntegrationDatabaseSandbox,
+  truncateIntegrationSchema,
+} from './integration-db.js';
 import {
   DEFAULT_LIFESTYLE,
   toCompleteLifestyleColumnData,
@@ -34,6 +39,8 @@ const retainedVaultEnv = {
 export function useAccountLifecycleIntegrationFixture(sandboxName: string) {
   let previousEnv: Partial<Record<keyof typeof retainedVaultEnv, string | undefined>>;
   let prisma: PrismaService;
+  // RRPD verification reads; the app's runtime role cannot read RRPD tables.
+  let adminPrisma: PrismaClient;
   let authSessionService: AuthSessionService;
   let lifecycleSweepService: LifecycleSweepService;
   let httpServer: Parameters<typeof request>[0];
@@ -50,8 +57,12 @@ export function useAccountLifecycleIntegrationFixture(sandboxName: string) {
     Object.assign(process.env, retainedVaultEnv);
     const sandbox = await createIntegrationDatabaseSandbox(sandboxName);
     cleanupDb = sandbox.cleanup;
+    adminPrisma = createIntegrationAdminPrisma(sandbox);
     const integration = await createIntegrationApp();
-    closeApp = () => integration.app.close();
+    closeApp = async () => {
+      await integration.app.close();
+      await adminPrisma.$disconnect();
+    };
     prisma = integration.prisma;
     authSessionService = integration.app.get(AuthSessionService);
     lifecycleSweepService = integration.app.get(LifecycleSweepService);
@@ -188,6 +199,9 @@ export function useAccountLifecycleIntegrationFixture(sandboxName: string) {
   return {
     get prisma() {
       return prisma;
+    },
+    get adminPrisma() {
+      return adminPrisma;
     },
     get lifecycleSweepService() {
       return lifecycleSweepService;

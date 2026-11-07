@@ -32,6 +32,7 @@ export const DOMAIN_METRIC_LABEL_NAMES = [
   'campus',
   'dispatcher',
   'domain',
+  'job',
   'operation',
   'outcome',
   'phase',

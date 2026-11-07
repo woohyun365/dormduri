@@ -195,12 +195,12 @@ describe('season de-registration integration', () => {
     expect(anonymizedIdentity.nickname).toBe('탈퇴한 사용자');
     expect(anonymizedIdentity.nicknameNormalized.startsWith('deleted-')).toBe(true);
 
-    const retainedIdentity = await fixture.prisma.retainedIdentity.findUniqueOrThrow({
+    const retainedIdentity = await fixture.adminPrisma.retainedIdentity.findUniqueOrThrow({
       where: { originalUserId: 'user-a' },
     });
     expect(retainedIdentity.displayLabel).toBe('탈퇴한 사용자');
     await expect(
-      fixture.prisma.retainedIdentityHold.findFirst({
+      fixture.adminPrisma.retainedIdentityHold.findFirst({
         where: { retainedIdentityId: retainedIdentity.id, holdReason: 'ACCOUNT_DELETION' },
         include: { retentionCase: true },
       }),
@@ -208,7 +208,7 @@ describe('season de-registration integration', () => {
       holdReason: 'ACCOUNT_DELETION',
       retentionCase: { reason: 'ACCOUNT_DELETION' },
     });
-    const archiveJobs = await fixture.prisma.archiveJob.findMany({
+    const archiveJobs = await fixture.adminPrisma.archiveJob.findMany({
       where: { retainedIdentityId: retainedIdentity.id },
       orderBy: { target: 'asc' },
     });

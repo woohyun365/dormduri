@@ -4,7 +4,12 @@ import {
   Logger,
   OnApplicationBootstrap,
   OnModuleDestroy,
+  Optional,
 } from '@nestjs/common';
+import {
+  BackgroundJobMetricsService,
+  runBackgroundJobTick,
+} from '../../background-jobs/background-job-metrics.service.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   REALTIME_DISPATCHER_CONFIG_PORT,
@@ -40,6 +45,8 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
     private readonly metrics: RealtimeDispatchMetricsPort,
     @Inject(REALTIME_DISPATCHER_CONFIG_PORT)
     private readonly settings: RealtimeDispatcherConfigPort,
+    @Optional()
+    private readonly backgroundJobMetrics?: BackgroundJobMetricsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -47,8 +54,15 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
       return;
     }
 
+    // One job covers dispatch and the replay-window prune that runs inside the same tick.
     this.interval = setInterval(() => {
-      void this.dispatchOnce().catch((error) => {
+      void runBackgroundJobTick(this.backgroundJobMetrics, 'chat_realtime_dispatcher', async () => {
+        if (this.running) {
+          return 'skipped';
+        }
+        const result = await this.dispatchOnce();
+        return result.skippedReason ? 'skipped' : 'succeeded';
+      }).catch((error) => {
         this.logger.warn(`[ChatRealtimeDispatcher] dispatch tick failed: ${toErrorMessage(error)}`);
       });
     }, this.settings.dispatcherIntervalMs);

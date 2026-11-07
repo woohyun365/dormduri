@@ -81,12 +81,12 @@ export SECRET_NAME_PREFIX=/dormduri/production/api
 aws secretsmanager create-secret \
   --region "$AWS_REGION" \
   --name "$SECRET_NAME_PREFIX/DATABASE_URL" \
-  --secret-string 'postgresql://app_user:REPLACE_WITH_PASSWORD@rds-private-endpoint:5432/dormduri?schema=public'
+  --secret-string 'postgresql://dormduri_api:REPLACE_WITH_PASSWORD@rds-private-endpoint:5432/dormduri?schema=public'
 
 aws secretsmanager put-secret-value \
   --region "$AWS_REGION" \
   --secret-id "$SECRET_NAME_PREFIX/DATABASE_URL" \
-  --secret-string 'postgresql://app_user:REPLACE_WITH_ROTATED_PASSWORD@rds-private-endpoint:5432/dormduri?schema=public'
+  --secret-string 'postgresql://dormduri_api:REPLACE_WITH_ROTATED_PASSWORD@rds-private-endpoint:5432/dormduri?schema=public'
 ```
 
 반복 생성 대상은 코드 registry의 `secretEnvKeys`와 동일해야 한다.

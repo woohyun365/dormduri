@@ -6,13 +6,17 @@
 `infra/runbooks/release/production-release-evidence.md`에 연결한다. 이 runbook은 전체 release의 최종
 판정을 소유하지 않는다.
 
+첫 production release 전에 한 번, 그 뒤 분기마다 한 번 실행한다. 목표는 RPO 5분·RTO 2시간이다
+(`infra/aws/rds-setup-checklist.md` Initial RPO / RTO target). 같은 날 `infra/db/README.md` 유지보수 절의
+분기 점검을 한다.
+
 ## Required inputs
 
 - Release commit SHA.
-- Source DB identifier.
-- Restore source: automated backup/PITR timestamp 또는 manual snapshot identifier.
-- Temporary restored DB identifier.
-- Operator identity와 execution host.
+- Source DB identifier: 운영자가 console에서 확인만 하고 evidence에는 쓰지 않는다.
+- Restore source: automated backup/PITR timestamp(기본, 최근 migrate 시작 시각 또는 지정 시각) 또는 manual snapshot.
+- Temporary restored DB: 이름은 운영자가 정하고 evidence에는 쓰지 않는다.
+- Operator와 execution host 종류(이름·주소 없이).
 - Evidence output 위치.
 - Restored DB용 secret set:
   - `RESTORE_DRILL_MIGRATION_DATABASE_URL`
@@ -30,20 +34,24 @@
 - Restore target은 production DB가 아니라 temporary DB여야 한다.
 - DB URL, password, bearer token, HMAC secret은 issue/report/log/evidence에 붙이지 않는다.
 - Restore drill evidence 없이 production ready로 표시하지 않는다.
-- Restore cleanup 전에는 temporary DB identifier와 security group을 evidence에 남긴다.
+- Instance·snapshot·security group 식별자, endpoint, account는 evidence에 쓰지 않는다. 공개 저장소와 이슈에는 식별자 없는 판정만 남긴다.
 
 ## Procedure
 
-1. Release commit SHA와 source DB identifier를 기록한다.
-2. RDS automated backup retention, PITR 가능 window, 최근 manual snapshot 상태를 확인한다.
-3. PITR timestamp 또는 snapshot identifier를 선택하고 evidence에 secret 없는 identifier만 기록한다.
-4. 원본 production DB가 아닌 temporary restored DB를 생성한다.
-5. Temporary restored DB의 public access가 off인지 확인한다.
-6. Security group inbound가 API smoke host, migration/admin host, 필요한 operator 경로로만 제한되어 있는지 확인한다.
-7. Restored DB connection string에 SSL/TLS 정책(`sslmode=require` 또는 CA bundle 검증)이 적용되어 있는지 확인한다.
-8. Restored DB에 migration/admin credential로 접속해 Prisma migration baseline을 확인한다.
-9. Role grant가 필요하면 restored DB에만 `pnpm api:db:deploy:role-grants`를 적용한다.
-10. Restored DB credential boundary smoke를 실행한다.
+1. Release commit SHA를 기록한다.
+2. RDS automated backup retention(14일), PITR 가능 window(latest restorable time), 최근 manual snapshot 상태를 확인한다.
+3. 원본에서 기준 값을 읽어 기록한다: 기록 시각(UTC), `_prisma_migrations`의 마지막 migration 이름, 주요 table
+   (`User`·`SeasonParticipant`·`ConversationMessage`·`RetentionCase`) 행 수. 읽기만 하는 사람 조회 LOGIN user로 읽는다.
+4. 3의 기록 시각으로 PITR 복원을 요청하고 요청 시각을 기록한다. 원본 production DB가 아닌 temporary restored DB를
+   새 instance로 만든다. 복원 시각이 latest restorable time 안인지 기록한다.
+5. Temporary restored DB가 available이 된 시각을 기록한다.
+6. Temporary restored DB의 public access가 off인지 확인한다.
+7. Security group inbound가 API smoke host, migration/admin host, 필요한 operator 경로로만 제한되어 있는지 확인한다.
+8. Restored DB connection string에 SSL/TLS 정책(`sslmode=require` 또는 CA bundle 검증)이 적용되어 있는지 확인한다.
+9. Restored DB에 migration/admin credential로 접속해 Prisma migration baseline을 확인한다. 마지막 migration 이름과
+   주요 table 행 수가 3의 값과 같은지, `pgaudit` extension이 있는지(`pg_extension`) 본다.
+10. Role grant가 필요하면 restored DB에만 `pnpm api:db:deploy:role-grants`를 적용한다.
+11. Restored DB credential boundary smoke를 LOGIN user별로 실행한다.
 
     ```bash
     RESTORE_DRILL_MIGRATION_DATABASE_URL='postgresql://redacted' \
@@ -53,8 +61,8 @@
       pnpm api:db:restore-drill:smoke
     ```
 
-11. Disposable API/nginx를 restored DB secret set으로 구동하거나, restored DB를 바라보는 staging-like API endpoint를 준비한다.
-12. API readiness와 metrics guard를 확인한다.
+12. Disposable API/nginx를 restored DB secret set으로 구동하거나, restored DB를 바라보는 staging-like API endpoint를 준비한다.
+13. API readiness와 metrics guard를 확인하고 smoke가 끝난 시각을 기록한다. 4의 요청 시각부터 이 시각까지가 RTO다.
 
     ```bash
     API_BASE_URL='https://api-restore-drill.example.com' \
@@ -62,29 +70,40 @@
       infra/deploy/scripts/api-release-smoke.sh
     ```
 
-13. Evidence artifact에 아래 정보만 기록한다.
-14. Temporary restored DB와 drill 전용 secret/security group 변경을 cleanup한다.
-15. Cleanup 완료 시각과 담당자를 evidence에 기록한다.
+14. Evidence artifact에 아래 secret 없는 정보만 기록한다(식별자도 쓰지 않는다).
+15. Temporary restored DB와 drill 전용 secret/security group 변경을 cleanup하고 삭제를 확인한다.
+16. Cleanup 완료 시각과 담당자를 evidence에 기록한다.
 
 ## Evidence template
 
 ```txt
 release_sha=<commit-sha>
-source_db_identifier=<db-id>
-restore_source=<pitr-timestamp-or-snapshot-id>
-restored_db_identifier=<temporary-db-id>
-started_at=<iso8601>
-completed_at=<iso8601>
-rpo_target=<value>
+restore_source=pitr|manual-snapshot
+restore_point=<iso8601>
+restore_point_within_latest_restorable_time=yes|no
+rpo_target_minutes=5
+rto_target_minutes=120
+restore_requested_at=<iso8601>
+restore_available_at=<iso8601>
+smoke_completed_at=<iso8601>
 rto_observed_minutes=<number>
 migration_baseline=pass|fail
+last_migration_matches_source=pass|fail
+row_counts_match_source=pass|fail
+pgaudit_extension=pass|fail
 role_grant_smoke=pass|fail
 api_ready_smoke=pass|fail
 metrics_guard_smoke=pass|fail
 cleanup=pass|fail
-evidence_owner=<operator>
+drill_result=pass|fail
+evidence_owner=<operator-alias>
 notes=<secret-free-summary>
 ```
+
+`drill_result=pass`는 위 pass|fail 칸이 모두 `pass`이고 `restore_point_within_latest_restorable_time=yes`이며
+`rto_observed_minutes`가 `rto_target_minutes` 이하일 때만 쓴다. RTO만 넘었으면 `drill_result=fail`로 두고 원인(데이터
+크기·instance class·절차)을 `notes`에 적어 목표를 다시 본다. Instance·snapshot 식별자, endpoint, 행 수 원값은 적지
+않는다(행 수는 일치 여부만).
 
 ## Dry-run
 
@@ -101,5 +120,7 @@ Dry-run은 command shape와 secret boundary만 확인한다. Release evidence로
 
 - Migration baseline 확인 실패: restore source timestamp/snapshot과 release commit의 migration compatibility를 확인하고 release를 중지한다.
 - Role grant smoke 실패: restored DB grant drift를 확인하고 `infra/db/README.md`의 role grant apply 순서를 반복한다.
+- 마지막 migration 이름이나 행 수 불일치: 복원 시각과 3의 기록 시각이 같은지 확인하고 다시 복원한다. 같아도 다르면 drill을 실패로 기록한다.
+- `pgaudit` extension 없음: 원본 parameter group·extension 상태를 `infra/aws/rds-setup-checklist.md` 기준으로 확인한다.
 - `/health/ready` 실패: restored DB 연결·migration baseline과 process bootstrap receipt를 확인한다. Secret origin/provider 상세는 public health가 아니라 component release evidence에서 확인한다.
 - Cleanup 실패: temporary restored DB가 남아 있는 상태로 release ready를 표시하지 않는다.
