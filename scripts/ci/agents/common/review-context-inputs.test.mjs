@@ -755,3 +755,53 @@ test('the repository binding yields rows for an API service path and a renamed h
     /binding-values-invalid: .*README\.md/u,
   );
 });
+
+// The subject paths of the current held-out rescore set (review criteria README `### 재채점`): r07 S-BFF and r11 E3 from
+// the calibration designation, r13 E5 from the ho-003 replacement of r03 S-infra. The designation and usage records
+// are ignored evidence a CI run cannot read, so the paths are copied here; a later replacement keeps the same
+// `.artifacts/**` copy shape.
+const HELD_OUT = '.artifacts/plans/agent-workflow-oss-program/code-review-system';
+const HELD_OUT_COPY_PATHS = {
+  r07: [
+    'files/apps/web/src/app/api/_bff/server-read.test.ts',
+    'files/apps/web/src/app/api/_bff/server-read.ts',
+    'files/apps/web/src/auth/server/index.ts',
+    'files/apps/web/src/auth/server/read-session.test.ts',
+    'files/apps/web/src/auth/server/read-session.ts',
+    'change.diff',
+  ].map((path) => `${HELD_OUT}/p3/subjects/r07/${path}`),
+  r11: [
+    'files/apps/api/src/chat/realtime/chat-realtime-proxy-boundary.spec.ts',
+    'files/apps/api/src/chat/realtime/chat-realtime.gateway.spec.ts',
+    'files/apps/api/src/chat/realtime/chat-realtime.gateway.ts',
+    'files/apps/api/src/chat/realtime/chat-realtime.metrics.spec.ts',
+    'change.diff',
+  ].map((path) => `${HELD_OUT}/p3/subjects/r11/${path}`),
+  r13: ['files/scripts/ci/agents/codex/codex-native-skills.test.mjs', 'change.diff'].map(
+    (path) => `${HELD_OUT}/held-out/ho-003/subjects/r13/${path}`,
+  ),
+};
+
+// i21 (1): the repository binding and pack tie no row to the criteria documents the automatic selection picks for the
+// held-out copy paths, so the copy run prompt has no binding extract line. The binding is not a rescore trigger path.
+test('the repository binding ties no row to the criteria documents of the held-out copy paths', async () => {
+  const { collectReviewContext } = await loadExtracts();
+  const { loadReviewCriteriaCatalog, selectReviewCriteria } = await import(
+    pathToFileURL(
+      resolve(import.meta.dirname, '../../../agents/common/review-criteria-selection.mjs'),
+    ).href
+  );
+  const catalog = loadReviewCriteriaCatalog(REPO_ROOT);
+  for (const [subject, paths] of Object.entries(HELD_OUT_COPY_PATHS)) {
+    const selected = selectReviewCriteria({ paths, catalog }).documents.map(({ id }) => id);
+    assert.ok(selected.length, `${subject}: the automatic selection picks a criteria document`);
+    const { extracts, record } = collectReviewContext({ root: REPO_ROOT, paths });
+    assert.ok(
+      !('binding-values' in extracts) &&
+        !record.inputs.some((input) => input.kind === 'binding-values'),
+      `${subject}: ${BINDING} now ties rows to ${selected.join(', ')}, so the held-out copy run prompt gains a binding ` +
+        'extract line. The binding is not a rescore trigger path (RESCORE_TRIGGER_PATHS); the PR that adds those rows ' +
+        'changes the rescore prompt and must decide its 재채점 line.',
+    );
+  }
+});
