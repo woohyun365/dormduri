@@ -1,15 +1,20 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { defaultFiles, prBody } from './fixtures/policy-repo.mjs';
 import { parseLifecycleSection } from './lifecycle-section.mjs';
-import { buildLifecycleContext, evaluateLifecycle, LIFECYCLE_CHECKS } from './run.mjs';
+import {
+  buildLifecycleContext,
+  evaluateLifecycle,
+  LIFECYCLE_CHECKS,
+  runLifecycleGate,
+} from './run.mjs';
 
 const checkScript = fileURLToPath(new URL('./review-snapshot-check.mjs', import.meta.url));
 const resultFixture = (name) =>
@@ -123,6 +128,81 @@ test('W-REVIEW warns with the files changed after the PASS head, judging only th
     'warn',
     `PASS head ${short(EARLIER)}와 PR head ${short(HEAD)} 비교 실패: fatal: bad object`,
   ]);
+});
+
+// A git fixture of a reviewed PR branch updated from its base (Update branch): the PASS head changes the PR file, then
+// dev changes two other files and the branch merges dev. `after` commits more PR edits on top. The local gate run
+// diffs the PR from the merge-base, as CI does.
+function updatedBranch(t, after = null) {
+  const dir = mkdtempSync(join(tmpdir(), 'knu-review-update-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const root = join(dir, 'repo');
+  mkdirSync(root);
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  const commit = (files, message) => {
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), text);
+    }
+    git('add', '-A');
+    git('commit', '-q', '-m', message);
+    return git('rev-parse', 'HEAD');
+  };
+  git('init', '-q', '-b', 'dev');
+  git('config', 'user.email', 'fixture@example.invalid');
+  git('config', 'user.name', 'fixture');
+  git('config', 'commit.gpgsign', 'false');
+  commit({ ...defaultFiles(), 'scripts/ci/example.mjs': '// fork\n' }, 'fork');
+  git('switch', '-q', '-c', 'feature');
+  const passHead = commit({ 'scripts/ci/example.mjs': '// reviewed\n' }, 'reviewed');
+  git('switch', '-q', 'dev');
+  const base = commit(
+    { 'docs/base-moved.md': '# dev\n', 'scripts/ci/base-moved.mjs': '// dev\n' },
+    'dev moved',
+  );
+  git('switch', '-q', 'feature');
+  git('merge', '-q', '--no-edit', 'dev');
+  const head = after ? commit(after, 'after review') : git('rev-parse', 'HEAD');
+  const bodyFile = join(dir, 'body.md');
+  writeFileSync(
+    bodyFile,
+    prBody({
+      lifecycle: section('feature', [
+        '리뷰 PASS',
+        `c542b64e-32855c6a base=${base} head=${passHead} diff=none untracked=none`,
+      ]),
+    }),
+  );
+  return { root, bodyFile, base, passHead, head };
+}
+
+async function gateReviewRow(repo) {
+  const { summary } = await runLifecycleGate({
+    cwd: repo.root,
+    argv: ['--body-file', repo.bodyFile, '--base', repo.base, '--head', repo.head],
+  });
+  return summary.split('\n').find((line) => line.startsWith('| W-REVIEW | warn |'));
+}
+
+// RED 1: after Update branch, the files only the base changed leave the list and are counted instead.
+test('W-REVIEW leaves the base-side files of an Update branch out of the files changed after the PASS head', async (t) => {
+  const repo = updatedBranch(t);
+  assert.equal(
+    await gateReviewRow(repo),
+    `| W-REVIEW | warn | PASS head ${short(repo.passHead)} ≠ PR head ${short(repo.head)}, PASS 뒤 바뀐 파일 0개(base 쪽 2개 제외) |`,
+  );
+});
+
+// RED 2: a file the PR itself changed after the PASS head stays in the list beside the base-side count.
+test('W-REVIEW keeps the files the PR changed after the PASS head beside the base-side count', async (t) => {
+  const repo = updatedBranch(t, {
+    'scripts/ci/added.mjs': '// new\n',
+    'scripts/ci/example.mjs': '// after review\n',
+  });
+  assert.equal(
+    await gateReviewRow(repo),
+    `| W-REVIEW | warn | PASS head ${short(repo.passHead)} ≠ PR head ${short(repo.head)}, PASS 뒤 바뀐 파일 2개(base 쪽 2개 제외): scripts/ci/added.mjs, scripts/ci/example.mjs |`,
+  );
 });
 
 test('W-REVIEW warns when the PASS snapshot carries uncommitted or untracked changes', () => {
