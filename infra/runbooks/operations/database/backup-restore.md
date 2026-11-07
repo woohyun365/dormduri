@@ -41,17 +41,19 @@
 1. Release commit SHA를 기록한다.
 2. RDS automated backup retention(14일), PITR 가능 window(latest restorable time), 최근 manual snapshot 상태를 확인한다.
 3. 원본에서 기준 값을 읽어 기록한다: 기록 시각(UTC), `_prisma_migrations`의 마지막 migration 이름, 주요 table
-   (`User`·`SeasonParticipant`·`ConversationMessage`·`RetentionCase`) 행 수. migration LOGIN user로 읽기 전용
-   transaction(`SET default_transaction_read_only = on`)에서 `count(*)`와 migration 이름만 읽는다. 사람 조회 user는 RRPD
-   table(`RetentionCase`)을 읽을 수 없고, master user는 break-glass 전용이라 쓰지 않는다.
+   (`User`·`SeasonParticipant`·`ConversationThread`·`ConversationMessage`) 행 수. 자기 사람 조회 user
+   (`dormduri_ro_<별칭>`, SSM 포트 포워딩)로 접속해 읽기 전용 transaction(`BEGIN READ ONLY`)에서 `count(*)`와 migration
+   이름만 읽는다. 이 user의 문장은 모두 pgAudit에 남는다. RRPD table은 사람 조회 권한 밖이라 기준 값에 넣지 않고 11의
+   LOGIN user별 smoke가 복원 DB의 RRPD 경계를 본다. migration·app credential과 master user를 사람 조회에 쓰지 않는다
+   (migration user는 CD one-off 전용, master는 break-glass 전용).
 4. 3의 기록 시각으로 PITR 복원을 요청하고 요청 시각을 기록한다. 원본 production DB가 아닌 temporary restored DB를
    새 instance로 만든다. 복원 시각이 latest restorable time 안인지 기록한다.
 5. Temporary restored DB가 available이 된 시각을 기록한다.
 6. Temporary restored DB의 public access가 off인지 확인한다.
 7. Security group inbound가 API smoke host, migration/admin host, 필요한 operator 경로로만 제한되어 있는지 확인한다.
 8. Restored DB connection string에 SSL/TLS 정책(`sslmode=require` 또는 CA bundle 검증)이 적용되어 있는지 확인한다.
-9. Restored DB에 migration/admin credential로 접속해 Prisma migration baseline을 확인한다. 마지막 migration 이름과
-   주요 table 행 수가 3의 값과 같은지, `pgaudit` extension이 있는지(`pg_extension`) 본다.
+9. Restored DB에 3과 같은 사람 조회 user로 접속해(복원 DB는 원본의 role을 그대로 가진다) 같은 읽기 전용 query로
+   마지막 migration 이름과 주요 table 행 수가 3의 값과 같은지, `pgaudit` extension이 있는지(`pg_extension`) 본다.
 10. Role grant가 필요하면 restored DB에만 `pnpm api:db:deploy:role-grants`를 적용한다.
 11. Restored DB credential boundary smoke를 LOGIN user별로 실행한다.
 

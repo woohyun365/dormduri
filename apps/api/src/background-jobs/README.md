@@ -30,7 +30,8 @@ leaf module이다.
 | `chat_realtime_dispatcher` | `chat/realtime/chat-realtime-dispatcher.service.ts`       | dispatch와 replay window prune tick(prune 실패도 실패) |
 
 경보 규칙(마지막 성공이 작업 주기보다 오래 멈춤, 실패 수 증가)은 observability 경보 owner가 이 두 metric으로 만든다.
-작업별 결과 metric(처리 건수, lag, dispatch outcome)은 각 owner에 남는다.
+작업별 결과 metric(처리 건수, lag, dispatch outcome)은 각 owner에 남는다. 실행 안 항목 하나의 실패(RRPD 검토 job 하나가
+재시도·수동 검토로 넘어감, event 하나의 dispatch 실패)는 실행 실패가 아니고 그 owner의 record 상태와 metric이 맡는다.
 
 ## Hard rules
 
