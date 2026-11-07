@@ -756,10 +756,11 @@ test('the repository binding yields rows for an API service path and a renamed h
   );
 });
 
-// The subject paths of the current held-out rescore set (review criteria README `### 재채점`): r07 S-BFF and r11 E3 from
-// the calibration designation, r13 E5 from the ho-003 replacement of r03 S-infra. The designation and usage records
-// are ignored evidence a CI run cannot read, so the paths are copied here; a later replacement keeps the same
-// `.artifacts/**` copy shape.
+// The subject paths of the held-out rescore set as of usage record ho-003 (review criteria README `### 재채점`): r07 S-BFF
+// and r11 E3 from the calibration designation, r13 E5 that replaced r03 S-infra. The designation and usage records are
+// ignored evidence a CI run cannot read, so the paths are copied here. The selection reads only the path, so a later
+// subject keeps this protection while it stays under the same `.artifacts/**` copy shape; copy its paths here when the
+// set changes.
 const HELD_OUT = '.artifacts/plans/agent-workflow-oss-program/code-review-system';
 const HELD_OUT_COPY_PATHS = {
   r07: [
@@ -782,7 +783,7 @@ const HELD_OUT_COPY_PATHS = {
   ),
 };
 
-// i21 (1): the repository binding and pack tie no row to the criteria documents the automatic selection picks for the
+// The repository binding and pack tie no row to the criteria documents the automatic selection picks for the
 // held-out copy paths, so the copy run prompt has no binding extract line. The binding is not a rescore trigger path.
 test('the repository binding ties no row to the criteria documents of the held-out copy paths', async () => {
   const { collectReviewContext } = await loadExtracts();

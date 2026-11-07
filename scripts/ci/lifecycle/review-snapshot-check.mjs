@@ -47,8 +47,9 @@ const firstLine = (error) =>
     .split('\n')[0];
 
 // The PASS head against the PR head: null when they are equal, else the warning reason. The listed files are the paths
-// changed after the PASS head that the PR itself changes (merge-base to PR head); the rest came from the base, for
-// example through Update branch, and are only counted.
+// changed after the PASS head that the PR itself changes (merge-base to PR head). The rest are only counted as the
+// base side: what the base brought in, for example through Update branch, and files the PR returned to their
+// merge-base content after the PASS head.
 function headMismatch(context, passHead) {
   const prHead = context.revisions.head;
   if (passHead === prHead) return null;

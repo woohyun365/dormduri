@@ -162,7 +162,7 @@ function updatedBranch(t, after = null) {
     'dev moved',
   );
   git('switch', '-q', 'feature');
-  git('merge', '-q', '--no-edit', 'dev');
+  git('merge', '-q', '--no-ff', '--no-edit', 'dev');
   const head = after ? commit(after, 'after review') : git('rev-parse', 'HEAD');
   const bodyFile = join(dir, 'body.md');
   writeFileSync(
@@ -203,6 +203,16 @@ test('W-REVIEW keeps the files the PR changed after the PASS head beside the bas
   assert.equal(
     await gateReviewRow(repo),
     `| W-REVIEW | warn | PASS head ${short(repo.passHead)} ≠ PR head ${short(repo.head)}, PASS 뒤 바뀐 파일 2개(base 쪽 2개 제외): scripts/ci/added.mjs, scripts/ci/example.mjs |`,
+  );
+});
+
+// A file the PR returned to its merge-base content after the PASS head is outside the PR's own change, so it is counted
+// with the base side.
+test('W-REVIEW counts a file the PR returned to its merge-base content after the PASS head with the base side', async (t) => {
+  const repo = updatedBranch(t, { 'scripts/ci/example.mjs': '// fork\n' });
+  assert.equal(
+    await gateReviewRow(repo),
+    `| W-REVIEW | warn | PASS head ${short(repo.passHead)} ≠ PR head ${short(repo.head)}, PASS 뒤 바뀐 파일 0개(base 쪽 3개 제외) |`,
   );
 });
 
