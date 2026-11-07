@@ -104,6 +104,7 @@ test('W-REVIEW warns with the files changed after the PASS head, judging only th
     commits: {
       [EARLIER]: ['scripts/ci/lifecycle/run.mjs', 'docs/development/github/collaboration.md'],
     },
+    changedPaths: ['docs/development/github/collaboration.md', 'scripts/ci/lifecycle/run.mjs'],
   });
   assert.deepEqual(rows(changedAfter, 'W-REVIEW'), [
     [

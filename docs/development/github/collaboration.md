@@ -81,7 +81,8 @@ PR template의 `Lifecycle` 절은 CI `Lifecycle gate` job이 읽는 입력입니
   `<reviewId>`는 결과 `dispatchId`에서 `review-dispatch-` 접두를 뺀 값, `diff`는 `dirtyDiffDigest`, `untracked`는
   `untrackedInputDigests`를 경로 순 `<path>\t<digest>` 줄로 이은 sha256이고, digest는 `sha256:` 접두 없는 64자이며 값이 없으면
   `none`입니다. PASS 회차마다 줄을 더할 수 있고 형식이 맞는 마지막 줄을 대조합니다. `W-REVIEW`는 그 head가 PR head와 다르면(PASS
-  뒤 바뀐 파일을 summary에 적음), PASS head를 저장소에서 찾지 못하면(rebase 등), diff·untracked가 `none`이 아니면, 줄이 없거나
+  뒤 바뀐 파일 가운데 PR이 merge-base부터 바꾼 파일을 summary에 적고, Update branch처럼 base 쪽에서만 바뀐 파일은
+  `base 쪽 n개 제외`로 개수만 적음), PASS head를 저장소에서 찾지 못하면(rebase 등), diff·untracked가 `none`이 아니면, 줄이 없거나
   형식이 틀리면 경고합니다.
 - 리뷰 기준 문서(`docs/development/agent-workflows/review-criteria/**`), reviewer prompt 원본, reviewer 모델 정책 파일을 바꾸는 PR은
   held-out 재채점 결과를 `재채점: <통과|실패> <YYYY-MM-DD> <사용 기록 id>` 줄로, 재채점이 그 변경을 재지 않으면
