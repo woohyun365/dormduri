@@ -106,8 +106,9 @@ Role·LOGIN user·grant 표는 [Database operator scripts](../../../infra/db/REA
 - 판정: Ask
 - 상태: validated
 - 고른 선택지: 관리자 행위 감사는 append-only table 하나로 두고(관리자 계정 table과 함께 만듦), RRPD 열람 기록
-  `RetentionAccessLog`는 따로 둔다. 지금 감사 table 둘은 쓰는 role이 INSERT·SELECT만 받는다(`SeasonOperationAuditEvent`는
-  runtime, `RetentionAccessLog`는 disclosure). 열람 기록의 기한 폐기(열람자·목적 열을 비우는 UPDATE)는 worker만 한다
+  `RetentionAccessLog`는 따로 둔다. 지금 감사 table 둘은 앱에서 기록하는 role이 INSERT·SELECT만 받는다
+  (`SeasonOperationAuditEvent`는 runtime, `RetentionAccessLog`는 disclosure). `RetentionAccessLog`의 수명 처리(3년 기한
+  폐기로 열람자·목적 열을 비우는 UPDATE 등)는 RRPD table로서 worker가 맡는다(grant 표의 RRPD worker DML)
 - 근거: RRPD 열람 기록은 보존·폐기 주기(3년)와 disclosure 권한이 관리자 감사와 다르다. 시즌 운영이 백오피스로 옮겨 가면 관리자
   감사가 시즌 운영 감사를 흡수해 감사가 두 곳으로 나뉘지 않는다. append-only는 grant 표와 smoke가 막는다
 - 기각한 대안: 셋 다 한 table(RRPD 폐기와 관리자 감사 보존·권한이 섞임), 셋 다 따로(시즌 운영이 옮겨 오면 감사가 나뉨), 관리자

@@ -87,7 +87,11 @@ BEGIN
   rels AS (SELECT * FROM pg_temp.role_grant_relations(target_schema)),
   expected AS (SELECT * FROM pg_temp.role_grant_expected(target_schema)),
   table_privileges AS (
-    SELECT unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) AS privilege_type
+    -- MAINTAIN (VACUUM, ANALYZE, REINDEX, LOCK) exists from PostgreSQL 17; the table never grants it.
+    SELECT unnest(
+      ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']
+      || CASE WHEN current_setting('server_version_num')::int >= 170000 THEN ARRAY['MAINTAIN'] ELSE ARRAY[]::text[] END
+    ) AS privilege_type
   ),
   compared AS (
     SELECT
@@ -168,6 +172,18 @@ BEGIN
   END IF;
 
   WITH subjects AS (SELECT * FROM pg_temp.role_grant_smoke_subjects(login_users)),
+  managed AS (
+    SELECT r.oid, r.rolname
+    FROM pg_roles r
+    WHERE r.rolname = ANY (pg_temp.role_grant_managed_roles() || ARRAY['migration_owner'])
+  ),
+  -- Memberships that give privileges (PostgreSQL 16+ keeps ADMIN-only grants for role creators).
+  usable_memberships AS (
+    SELECT m.member, m.roleid
+    FROM pg_auth_members m
+    JOIN managed g ON g.oid = m.roleid
+    WHERE m.inherit_option OR m.set_option
+  ),
   structure_problems AS (
     SELECT format('relation %s is owned by %s, expected %s', r.relation_name, pg_get_userbyid(c.relowner), expected_owner) AS problem
     FROM pg_temp.role_grant_relations(target_schema) r
@@ -191,6 +207,44 @@ BEGIN
     FROM subjects s
     WHERE s.role_name <> 'none'
       AND NOT has_schema_privilege(s.subject, target_schema, 'USAGE')
+    UNION ALL
+    -- Every LOGIN member of a group, including human read-only users that have no URL here.
+    SELECT format('LOGIN user %s is a member of %s', pg_get_userbyid(u.member), string_agg(pg_get_userbyid(u.roleid), ', ' ORDER BY 1))
+    FROM usable_memberships u
+    JOIN pg_roles r ON r.oid = u.member AND r.rolcanlogin
+    GROUP BY u.member
+    HAVING count(*) > 1
+    UNION ALL
+    SELECT DISTINCT format('LOGIN user %s has superuser, CREATEROLE, CREATEDB or BYPASSRLS', r.rolname)
+    FROM usable_memberships u
+    JOIN pg_roles r ON r.oid = u.member AND r.rolcanlogin
+    WHERE r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolbypassrls
+    UNION ALL
+    -- Privileges reach roles only through the groups in the grant table.
+    SELECT DISTINCT format('%s has a direct grant on %s', pg_get_userbyid(x.grantee), r.relation_name)
+    FROM pg_temp.role_grant_relations(target_schema) r
+    JOIN pg_class c ON c.oid = r.relation_oid
+    CROSS JOIN LATERAL aclexplode(c.relacl) x
+    WHERE x.grantee <> 0 AND x.grantee <> c.relowner AND x.grantee NOT IN (SELECT oid FROM managed)
+    UNION ALL
+    SELECT DISTINCT format('%s has a direct column grant on %s.%s', pg_get_userbyid(x.grantee), r.relation_name, a.attname)
+    FROM pg_temp.role_grant_relations(target_schema) r
+    JOIN pg_attribute a ON a.attrelid = r.relation_oid AND a.attnum > 0 AND NOT a.attisdropped AND a.attacl IS NOT NULL
+    CROSS JOIN LATERAL aclexplode(a.attacl) x
+    WHERE x.grantee <> 0 AND x.grantee NOT IN (SELECT oid FROM managed)
+    UNION ALL
+    -- No role gets new objects automatically; types keep the PUBLIC USAGE default.
+    SELECT format(
+      'migration_owner default privileges grant %s on new %s to %s',
+      x.privilege_type,
+      CASE d.defaclobjtype WHEN 'r' THEN 'tables' WHEN 'S' THEN 'sequences' WHEN 'f' THEN 'functions' WHEN 'T' THEN 'types' WHEN 'n' THEN 'schemas' ELSE d.defaclobjtype::text END,
+      CASE WHEN x.grantee = 0 THEN 'PUBLIC' ELSE pg_get_userbyid(x.grantee) END
+    )
+    FROM pg_default_acl d
+    JOIN managed o ON o.oid = d.defaclrole AND o.rolname = 'migration_owner'
+    CROSS JOIN LATERAL aclexplode(d.defaclacl) x
+    WHERE x.grantee <> d.defaclrole
+      AND NOT (d.defaclobjtype = 'T' AND x.grantee = 0)
     UNION ALL
     SELECT 'migration_owner default privileges still give PUBLIC EXECUTE on new functions'
     WHERE EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'migration_owner')

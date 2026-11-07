@@ -8,9 +8,10 @@ leaf module이다.
 
 - `BackgroundJobsModule`: metric definition 등록과 `BackgroundJobMetricsService` export.
 - `BackgroundJobMetricsService.recordSucceeded(job)`, `recordFailed(job)`: 작업 owner가 예약 실행 결과를 기록한다.
-- `runBackgroundJobTick(metrics, job, tick)`: interval tick 하나를 실행하고 결과를 기록한다. 실패는 다시 던져
-  호출부의 기존 log가 그대로 남는다. 일부러 일하지 않은 tick(이미 실행 중, publisher 미연결)은 `skipped`로 돌려
-  아무것도 기록하지 않는다.
+- `runBackgroundJobTick(metrics, job, tick)`: interval tick 하나를 실행하고 결과를 기록한다. 던진 실패는 다시 던져
+  호출부의 기존 log가 그대로 남는다. owner가 log를 남기고 이어 간 단계 실패는 `failed`로 돌려 실패 수만 올린다(chat
+  realtime의 replay window prune). 일부러 일하지 않은 tick(이미 실행 중, publisher 미연결)은 `skipped`로 돌려 아무것도
+  기록하지 않는다.
 
 ## Metric
 
@@ -21,12 +22,12 @@ leaf module이다.
 
 `job` 값은 고정된 넷이다.
 
-| `job`                      | owner                                                     | 한 번의 실행                        |
-| -------------------------- | --------------------------------------------------------- | ----------------------------------- |
-| `lifecycle_sweep`          | `lifecycle/lifecycle-sweep.service.ts`                    | 주기·경계 sweep 한 번(task 전체)    |
-| `auth_mail_dispatcher`     | `auth/mail/auth-mail-dispatcher.service.ts`               | dispatch tick 한 번                 |
-| `notification_dispatcher`  | `notifications/outbox/notification-dispatcher.service.ts` | dispatch tick 한 번                 |
-| `chat_realtime_dispatcher` | `chat/realtime/chat-realtime-dispatcher.service.ts`       | dispatch와 replay window prune tick |
+| `job`                      | owner                                                     | 한 번의 실행                                           |
+| -------------------------- | --------------------------------------------------------- | ------------------------------------------------------ |
+| `lifecycle_sweep`          | `lifecycle/lifecycle-sweep.service.ts`                    | 주기·경계 sweep 한 번(task 전체)                       |
+| `auth_mail_dispatcher`     | `auth/mail/auth-mail-dispatcher.service.ts`               | dispatch tick 한 번                                    |
+| `notification_dispatcher`  | `notifications/outbox/notification-dispatcher.service.ts` | dispatch tick 한 번                                    |
+| `chat_realtime_dispatcher` | `chat/realtime/chat-realtime-dispatcher.service.ts`       | dispatch와 replay window prune tick(prune 실패도 실패) |
 
 경보 규칙(마지막 성공이 작업 주기보다 오래 멈춤, 실패 수 증가)은 observability 경보 owner가 이 두 metric으로 만든다.
 작업별 결과 metric(처리 건수, lag, dispatch outcome)은 각 owner에 남는다.

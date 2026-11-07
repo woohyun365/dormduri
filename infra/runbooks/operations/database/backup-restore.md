@@ -41,7 +41,9 @@
 1. Release commit SHA를 기록한다.
 2. RDS automated backup retention(14일), PITR 가능 window(latest restorable time), 최근 manual snapshot 상태를 확인한다.
 3. 원본에서 기준 값을 읽어 기록한다: 기록 시각(UTC), `_prisma_migrations`의 마지막 migration 이름, 주요 table
-   (`User`·`SeasonParticipant`·`ConversationMessage`·`RetentionCase`) 행 수. 읽기만 하는 사람 조회 LOGIN user로 읽는다.
+   (`User`·`SeasonParticipant`·`ConversationMessage`·`RetentionCase`) 행 수. migration LOGIN user로 읽기 전용
+   transaction(`SET default_transaction_read_only = on`)에서 `count(*)`와 migration 이름만 읽는다. 사람 조회 user는 RRPD
+   table(`RetentionCase`)을 읽을 수 없고, master user는 break-glass 전용이라 쓰지 않는다.
 4. 3의 기록 시각으로 PITR 복원을 요청하고 요청 시각을 기록한다. 원본 production DB가 아닌 temporary restored DB를
    새 instance로 만든다. 복원 시각이 latest restorable time 안인지 기록한다.
 5. Temporary restored DB가 available이 된 시각을 기록한다.

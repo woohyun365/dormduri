@@ -507,6 +507,7 @@ test('API integration shards own isolated runners and PostgreSQL services', () =
     "shard: '1/2'",
     "shard: '2/2'",
     'DORMDURI_API_INTEGRATION_SHARD: ${{ matrix.shard }}',
+    'DORMDURI_API_INTEGRATION_DATABASE_ROLES: separated',
     'pnpm --dir apps/api ci:test:integration:shard',
   ]);
   assert.equal(occurrences(apiWorkflow, 'services:'), 2);

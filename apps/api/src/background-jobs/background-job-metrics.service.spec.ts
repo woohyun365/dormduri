@@ -47,6 +47,20 @@ describe('BackgroundJobMetricsService', () => {
     expect(port.setGauge).not.toHaveBeenCalled();
   });
 
+  it('owner가 삼킨 단계 실패(failed)는 던지지 않고 실패 수를 하나 올린다', async () => {
+    const { port, service } = createMetrics();
+
+    await expect(
+      runBackgroundJobTick(service, 'chat_realtime_dispatcher', () => Promise.resolve('failed')),
+    ).resolves.toBeUndefined();
+
+    expect(port.incrementCounter).toHaveBeenCalledExactlyOnceWith({
+      name: 'api_background_job_failures_total',
+      labels: { job: 'chat_realtime_dispatcher' },
+    });
+    expect(port.setGauge).not.toHaveBeenCalled();
+  });
+
   it('건너뛴 tick은 아무것도 기록하지 않고 metrics 없이도 tick을 실행한다', async () => {
     const { port, service } = createMetrics();
     const tick = vi.fn(() => Promise.resolve('skipped' as const));

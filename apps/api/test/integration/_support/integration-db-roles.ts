@@ -67,6 +67,28 @@ export function withDatabaseUser(databaseUrl: string, user: string, password: st
   return url.toString();
 }
 
+/** Opt-in for a disposable PostgreSQL that is not on the loopback interface. */
+export const INTEGRATION_DISPOSABLE_DATABASE_ENV = 'DORMDURI_API_INTEGRATION_DISPOSABLE_DATABASE';
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
+/**
+ * The role bootstrap changes cluster-wide roles and sets the LOGIN users' passwords to
+ * the committed test values, so it only runs against a loopback PostgreSQL unless the
+ * caller states the target is disposable. The URL is never printed.
+ */
+export function assertDisposableIntegrationDatabase(
+  adminDatabaseUrl: string,
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  const host = new URL(adminDatabaseUrl).hostname.toLowerCase();
+  if (LOOPBACK_HOSTS.has(host) || env[INTEGRATION_DISPOSABLE_DATABASE_ENV] === 'yes') {
+    return;
+  }
+  throw new Error(
+    `integration role bootstrap refused: the admin database is not on loopback; set ${INTEGRATION_DISPOSABLE_DATABASE_ENV}=yes only for a disposable PostgreSQL, or ${INTEGRATION_DATABASE_ROLE_MODE_ENV}=shared`,
+  );
+}
+
 /**
  * Runs the production bootstrap (group roles, LOGIN users, membership) and the
  * database-wide default privileges once per test database. Both are cluster or
@@ -74,6 +96,7 @@ export function withDatabaseUser(databaseUrl: string, user: string, password: st
  * does. pgaudit settings are off because the disposable PostgreSQL has no pgaudit.
  */
 export async function bootstrapIntegrationDatabaseRoles(adminDatabaseUrl: string): Promise<void> {
+  assertDisposableIntegrationDatabase(adminDatabaseUrl);
   const client = new Client({ connectionString: adminDatabaseUrl });
   await client.connect();
   try {

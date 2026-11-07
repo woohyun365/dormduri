@@ -17,8 +17,8 @@ DB 계정·grant는 [Database operator scripts](../../../infra/db/README.md#cred
 - 판정: Ask
 - 상태: validated
 - 고른 선택지: DB 권한은 grant 표 하나(`packages/database/prisma/role-grants/role-grant-matrix.csv`)가 table마다 허용·거부의
-  원본이고, apply와 smoke가 같은 표를 읽는다. 관리자 행위·RRPD 열람 감사는 앱의 append-only table에 남긴다(쓰는 role은 INSERT·
-  SELECT만). DB 쪽은 pgAudit가 DDL·role class를 기본으로 남기고, 사람 LOGIN user와 master user는 모든 문장을 남긴다
+  원본이고, apply와 smoke가 같은 표를 읽는다. 관리자 행위·RRPD 열람 감사는 앱의 append-only table에 남긴다(앱에서 기록하는 role은
+  INSERT·SELECT만, RRPD 열람 기록의 기한 폐기는 worker). DB 쪽은 pgAudit가 DDL·role class를 기본으로 남기고, 사람 LOGIN user와 master user는 모든 문장을 남긴다
   (`pgaudit.log = 'all'`). bind 값은 pgAudit와 statement log 모두 남기지 않는다. PostgreSQL log는 CloudWatch에 731일(2년)
   둔다. 사람 DB 계정의 권한 부여·변경·말소 내역(3년)과 break-glass 사용은 pgAudit log와 따로 전용 운영 이슈의 댓글로 남긴다
   ([권한 내역과 break-glass](../../../infra/db/README.md#권한-내역과-break-glass)). RRPD SELECT 객체 감사는 하지 않는다

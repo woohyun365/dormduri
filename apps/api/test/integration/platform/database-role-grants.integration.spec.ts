@@ -308,5 +308,71 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
       }
       await expect(smokeAsMigrator()).resolves.toContain('role grant smoke ok');
     });
+
+    it('표 밖 sequence나 routine이 있으면 grant 적용이 실패한다', async () => {
+      for (const [create, drop, message] of [
+        [
+          `CREATE SEQUENCE ${table('PipelineSeq')}`,
+          `DROP SEQUENCE ${table('PipelineSeq')}`,
+          /sequence PipelineSeq needs a grant rule/u,
+        ],
+        [
+          `CREATE FUNCTION ${quoteIdentifier(schemaName)}.pipeline_fn() RETURNS int LANGUAGE sql AS 'SELECT 1'`,
+          `DROP FUNCTION ${quoteIdentifier(schemaName)}.pipeline_fn()`,
+          /routine pipeline_fn needs a grant rule/u,
+        ],
+      ] as const) {
+        await asMigrator((client) => client.query(create));
+        try {
+          await expect(applyAsMigrator()).rejects.toThrow(message);
+        } finally {
+          await asMigrator((client) => client.query(drop));
+        }
+      }
+      await expect(smokeAsMigrator()).resolves.toContain('role grant smoke ok');
+    });
+
+    it('MAINTAIN·자동 부여 default privilege·사람 user의 추가 membership·직접 grant를 smoke가 거부한다', async () => {
+      const human = `dormduri_ro_pipeline_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+      const cases: readonly (readonly [string, string, RegExp])[] = [
+        [
+          `GRANT MAINTAIN ON ${table('User')} TO app_runtime`,
+          `REVOKE MAINTAIN ON ${table('User')} FROM app_runtime`,
+          /app_runtime MAINTAIN on User: expected denied, actual granted/u,
+        ],
+        [
+          `ALTER DEFAULT PRIVILEGES FOR ROLE migration_owner IN SCHEMA ${quoteIdentifier(schemaName)} GRANT SELECT ON TABLES TO app_readonly`,
+          `ALTER DEFAULT PRIVILEGES FOR ROLE migration_owner IN SCHEMA ${quoteIdentifier(schemaName)} REVOKE SELECT ON TABLES FROM app_readonly`,
+          /migration_owner default privileges grant SELECT on new tables to app_readonly/u,
+        ],
+        [
+          `GRANT retention_disclosure TO ${quoteIdentifier(human)}`,
+          `REVOKE retention_disclosure FROM ${quoteIdentifier(human)}`,
+          new RegExp(`LOGIN user ${human} is a member of app_readonly, retention_disclosure`, 'u'),
+        ],
+        [
+          `GRANT SELECT ON ${table('User')} TO ${quoteIdentifier(human)}`,
+          `REVOKE SELECT ON ${table('User')} FROM ${quoteIdentifier(human)}`,
+          new RegExp(`${human} has a direct grant on User`, 'u'),
+        ],
+      ];
+      // A human read-only user as bootstrap makes it: LOGIN and a member of app_readonly only.
+      await admin.query(`CREATE ROLE ${quoteIdentifier(human)} LOGIN`);
+      await admin.query(`GRANT app_readonly TO ${quoteIdentifier(human)}`);
+      try {
+        await expect(smokeAsMigrator()).resolves.toContain('role grant smoke ok');
+        for (const [tamper, restore, message] of cases) {
+          await admin.query(tamper);
+          try {
+            await expect(smokeAsMigrator()).rejects.toThrow(message);
+          } finally {
+            await admin.query(restore);
+          }
+        }
+      } finally {
+        await admin.query(`DROP ROLE ${quoteIdentifier(human)}`);
+      }
+      await expect(smokeAsMigrator()).resolves.toContain('role grant smoke ok');
+    });
   },
 );

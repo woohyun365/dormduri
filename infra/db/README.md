@@ -184,12 +184,16 @@ Smoke는 읽기 전용이다(`default_transaction_read_only = on`). 다음을 �
 
 - 세 app URL이 각자 LOGIN user로 접속하고, 허용 table 하나는 읽고 거부 table 하나는 `permission denied`다.
 - migration URL은 `DB_EXPECTED_TABLE_OWNER`(default `migration_owner`)로 동작한다.
-- schema의 모든 table·열에 대해 PUBLIC, group role 다섯, 세 LOGIN user의 table 권한 일곱 가지와 열 권한 네 가지가
-  grant 표와 같다. 감사 table의 append-only와 `_prisma_migrations` 권한도 이 비교에 든다.
+- schema의 모든 table·열에 대해 PUBLIC, group role 다섯, 세 LOGIN user의 table 권한 여덟 가지(PostgreSQL 17+의
+  `MAINTAIN` 포함)와 열 권한 네 가지가 grant 표와 같다. 감사 table의 append-only와 `_prisma_migrations` 권한도 이
+  비교에 든다.
 - LOGIN user는 자기 group만 상속하고 superuser·CREATEROLE·CREATEDB·BYPASSRLS가 없다.
-- 모든 객체의 소유자, app role의 schema·database CREATE 없음, `migration_owner` default privilege.
+- 모든 객체의 소유자, app role의 schema·database CREATE 없음, `migration_owner` default privilege(PUBLIC 함수 실행
+  없음, 어느 role에도 자동 부여 없음).
 
-사람 조회 user처럼 host에 credential을 두지 않는 LOGIN user는 group role 비교로 확인한다.
+사람 조회 user처럼 host에 credential을 두지 않는 LOGIN user는 group role 비교와, migration 연결에서 읽는 membership
+검사(group 하나만, superuser·CREATEROLE·CREATEDB·BYPASSRLS 없음)와 직접 grant 검사(table·열 권한은 group role에만)로
+확인한다.
 
 ### Restore drill smoke
 

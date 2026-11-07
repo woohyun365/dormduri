@@ -73,7 +73,13 @@ function createPrismaMock(eventPayload?: unknown) {
 }
 
 describe('NotificationOutboxDispatcherService', () => {
-  function createFixture(dispatcherEnabled = false) {
+  function createFixture(
+    dispatcherEnabled = false,
+    backgroundJobMetrics?: {
+      recordSucceeded: ReturnType<typeof vi.fn>;
+      recordFailed: ReturnType<typeof vi.fn>;
+    },
+  ) {
     const prisma = createPrismaMock();
     const publisher: PublisherMock = {
       isBound: vi.fn(() => true),
@@ -84,9 +90,46 @@ describe('NotificationOutboxDispatcherService', () => {
       publisher,
       createSettings({ dispatcherEnabled }),
       new ChatRealtimeMetricsService(),
+      backgroundJobMetrics as never,
     );
     return { dispatcher, prisma, publisher };
   }
+
+  it.each([
+    ['성공', 'ok', 'recordSucceeded'],
+    ['실패', 'reject', 'recordFailed'],
+    ['publisher 미연결', 'unbound', null],
+  ] as const)(
+    '예약 tick %s는 공통 작업 metric(notification_dispatcher)에 그대로 기록한다',
+    async (_label, scenario, expected) => {
+      vi.useFakeTimers();
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const backgroundJobMetrics = { recordSucceeded: vi.fn(), recordFailed: vi.fn() };
+      const { dispatcher, prisma, publisher } = createFixture(true, backgroundJobMetrics);
+      if (scenario === 'reject')
+        prisma.$queryRawTyped.mockRejectedValueOnce(new Error('claim unavailable'));
+      if (scenario === 'unbound') publisher.isBound.mockReturnValue(false);
+      try {
+        dispatcher.onApplicationBootstrap();
+        await vi.advanceTimersByTimeAsync(1_000);
+
+        for (const name of ['recordSucceeded', 'recordFailed'] as const) {
+          if (name === expected) {
+            expect(backgroundJobMetrics[name]).toHaveBeenCalledExactlyOnceWith(
+              'notification_dispatcher',
+            );
+          } else {
+            expect(backgroundJobMetrics[name]).not.toHaveBeenCalled();
+          }
+        }
+      } finally {
+        dispatcher.onModuleDestroy();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        warn.mockRestore();
+      }
+    },
+  );
 
   it.each([true, false])(
     'enabled=%s에 따라 timer를 등록하고 destroy 뒤에는 실행하지 않는다',

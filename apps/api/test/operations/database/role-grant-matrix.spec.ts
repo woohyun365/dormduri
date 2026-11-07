@@ -248,6 +248,11 @@ describe('DB role grant SQL artifacts', () => {
       "'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'",
     );
     expect(smoke).toContain("pg_has_role(l.subject, o.other_role, 'MEMBER')");
+    // PostgreSQL 17+ MAINTAIN, human LOGIN users' memberships, direct grants, default ACL.
+    expect(smoke).toContain("ARRAY['MAINTAIN']");
+    expect(smoke).toContain('FROM usable_memberships u');
+    expect(smoke).toContain("format('%s has a direct grant on %s'");
+    expect(smoke).toContain("'migration_owner default privileges grant %s on new %s to %s'");
     expect(smoke).toContain('default_transaction_read_only');
   });
 });

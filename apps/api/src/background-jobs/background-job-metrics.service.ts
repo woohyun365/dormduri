@@ -12,8 +12,11 @@ export type BackgroundJobName =
   | 'notification_dispatcher'
   | 'chat_realtime_dispatcher';
 
-/** A tick returns `skipped` when it did no work on purpose (already running, publisher unbound). */
-export type BackgroundJobTickOutcome = 'succeeded' | 'skipped';
+/**
+ * `skipped`: the tick did no work on purpose (already running, publisher unbound).
+ * `failed`: a step failed but the owner kept running and logged it itself (no throw).
+ */
+export type BackgroundJobTickOutcome = 'succeeded' | 'skipped' | 'failed';
 
 @Injectable()
 export class BackgroundJobMetricsService {
@@ -44,8 +47,9 @@ export class BackgroundJobMetricsService {
 
 /**
  * Runs one scheduled tick and records its outcome: success sets the last success time,
- * a thrown error counts one failure and is rethrown to the caller's own log, a skipped
- * tick records nothing. Without the metrics service (unit wiring) it only runs the tick.
+ * a thrown error or a `failed` outcome counts one failure (a thrown error is rethrown to
+ * the caller's own log), a skipped tick records nothing. Without the metrics service
+ * (unit wiring) it only runs the tick.
  */
 export async function runBackgroundJobTick(
   metrics: BackgroundJobMetricsService | undefined,
@@ -61,5 +65,7 @@ export async function runBackgroundJobTick(
   }
   if (outcome === 'succeeded') {
     metrics?.recordSucceeded(job);
+  } else if (outcome === 'failed') {
+    metrics?.recordFailed(job);
   }
 }

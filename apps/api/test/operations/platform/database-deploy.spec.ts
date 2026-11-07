@@ -138,10 +138,29 @@ describe('production database deploy boundary', () => {
     const dbReadme = readDbFile('README.md');
     const policy = readRepoFile('docs/policies/production-runtime-safety.md');
 
-    expect(grantScript).not.toMatch(/\bCREATE\s+USER\b/);
-    expect(grantScript).not.toMatch(/\bCREATE\s+ROLE\b.*\bLOGIN\b/);
-    expect(grantScript).not.toMatch(/\bALTER\s+ROLE\b.*\bPASSWORD\b/);
-    expect(grantScript).not.toMatch(/\bGRANT\s+\w+\s+TO\s+\w+\b/);
+    // PRS-R29: the grant path (wrapper and every SQL it runs) never creates roles or
+    // memberships; only the master bootstrap does.
+    const grantSqlFiles = [
+      'apply-role-grants.sql',
+      'database-defaults.sql',
+      'role-grant-inputs.sql',
+      'smoke-role-grants.sql',
+    ];
+    for (const [name, source] of [
+      ['apply-role-grants.sh', grantScript],
+      ...grantSqlFiles.map((file) => [
+        file,
+        readRepoFile(`packages/database/prisma/role-grants/${file}`)
+          .split('\n')
+          .filter((line) => !line.trimStart().startsWith('--'))
+          .join('\n'),
+      ]),
+    ] as const) {
+      expect(source, name).not.toMatch(/\bCREATE\s+(USER|ROLE)\b/);
+      expect(source, name).not.toMatch(/\bALTER\s+ROLE\b/);
+      expect(source, name).not.toMatch(/\bPASSWORD\b/);
+      expect(source, name).not.toMatch(/\bGRANT\s+(\w+|%I|%s)\s+TO\b/);
+    }
     expect(bootstrapScript).toContain('BOOTSTRAP_DATABASE_URL');
     expect(bootstrapScript).not.toContain('echo "$BOOTSTRAP_DATABASE_URL"');
     expect(bootstrapScript).not.toMatch(/\bPASSWORD\b/);
