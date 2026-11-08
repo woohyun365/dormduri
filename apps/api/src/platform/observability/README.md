@@ -80,7 +80,7 @@ Adapter import 예외는 `test/architecture/platform/http-transport-boundary.spe
 - HTTP request metrics: `method`, `route`, `status_class`
 - Exception metrics: `code`, `status_class`, `domain`
 - In-flight gauge: `route`
-- Domain metrics: `domain`, `operation`, `outcome`, `dispatcher`, `scope`, `reason`, `campus`, `cache`, `target`, `state`, `action`, `sort`, `phase`
+- Domain metrics: `domain`, `operation`, `outcome`, `dispatcher`, `job`, `scope`, `reason`, `campus`, `cache`, `target`, `state`, `action`, `sort`, `phase`
 
 다음 값은 label로 쓰지 않는다.
 

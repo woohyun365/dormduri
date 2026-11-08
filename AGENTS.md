@@ -20,7 +20,8 @@
 ## 2. Repository map
 
 - `apps/web`: Next.js 사용자 Web과 BFF
-- `apps/api`: NestJS API, Prisma schema·migration·seed
+- `apps/api`: NestJS API와 개발·test seed
+- `packages/database`: Prisma schema·migration·typed SQL·DB role grant와 generated client
 - `packages/shared`: FE/BE 공유 contract와 schema
 - `packages/config-*`: 공통 lint·test·build 설정
 - `docs/policies`: 제품·보안·운영 불변 정책

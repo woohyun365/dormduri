@@ -7,8 +7,10 @@ import {
   PRISMA_SESSION_TIME_ZONE,
   PrismaService,
   recordPrismaConnectionAdapterError,
+  resolveManagedPrismaClientSettings,
   stripPrismaConnectionOptions,
 } from './prisma.service.js';
+import databaseConfig from './database.config.js';
 import type { AppLoggerService } from '../observability/logging/app-logger.service.js';
 import { PrismaPoolMetricsService } from '../observability/metrics/prisma-pool-metrics.service.js';
 import type { DomainMetricsPort } from '../observability/metrics/domain-metrics.port.js';
@@ -121,6 +123,45 @@ describe('PrismaService database clock', () => {
     await expect(harness.getDatabaseNow()).rejects.toThrow(
       '[PrismaService] failed to resolve database current timestamp',
     );
+  });
+});
+
+describe('Prisma role pool budget', () => {
+  it('runtime·worker·disclosure client는 role마다 자기 pool max를 쓰고 기본값은 10·3·1이다', () => {
+    const previous = {
+      DATABASE_POOL_MAX: process.env.DATABASE_POOL_MAX,
+      RETENTION_WORKER_DATABASE_POOL_MAX: process.env.RETENTION_WORKER_DATABASE_POOL_MAX,
+      RETENTION_DISCLOSURE_DATABASE_POOL_MAX: process.env.RETENTION_DISCLOSURE_DATABASE_POOL_MAX,
+    };
+    try {
+      delete process.env.DATABASE_POOL_MAX;
+      delete process.env.RETENTION_WORKER_DATABASE_POOL_MAX;
+      delete process.env.RETENTION_DISCLOSURE_DATABASE_POOL_MAX;
+      const defaults = databaseConfig();
+      expect(
+        (['runtime', 'retention_worker', 'retention_disclosure'] as const).map(
+          (role) => resolveManagedPrismaClientSettings(defaults, role).poolMax,
+        ),
+      ).toEqual([10, 3, 1]);
+
+      process.env.DATABASE_POOL_MAX = '7';
+      process.env.RETENTION_WORKER_DATABASE_POOL_MAX = '2';
+      process.env.RETENTION_DISCLOSURE_DATABASE_POOL_MAX = '4';
+      const overridden = databaseConfig();
+      expect(
+        (['runtime', 'retention_worker', 'retention_disclosure'] as const).map(
+          (role) => resolveManagedPrismaClientSettings(overridden, role).poolMax,
+        ),
+      ).toEqual([7, 2, 4]);
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
   });
 });
 

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { recordIntegrationMigrationInvocation } from '../../integration/_support/integration-migration-evidence.js';
 
-const ENV_KEY = 'KNU_INTEGRATION_MIGRATION_EVIDENCE_FILE';
+const ENV_KEY = 'DORMDURI_API_INTEGRATION_MIGRATION_EVIDENCE_FILE';
 const originalEvidenceFile = process.env[ENV_KEY];
 
 afterEach(() => {
@@ -22,7 +22,7 @@ describe('integration migration evidence', () => {
   });
 
   it('records one JSON line for each successful sandbox migration', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'knu-integration-migrations-'));
+    const directory = mkdtempSync(join(tmpdir(), 'dormduri-integration-migrations-'));
     const evidenceFile = join(directory, 'migrations.jsonl');
     process.env[ENV_KEY] = evidenceFile;
 

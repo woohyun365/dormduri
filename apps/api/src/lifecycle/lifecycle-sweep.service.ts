@@ -4,10 +4,12 @@ import {
   Logger,
   OnApplicationBootstrap,
   OnModuleDestroy,
+  Optional,
 } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
+import { BackgroundJobMetricsService } from '../background-jobs/background-job-metrics.service.js';
 import lifecycleConfig from './config/lifecycle.config.js';
 import {
   BOUNDARY_JOB_PREFIX,
@@ -49,6 +51,8 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
     private readonly retentionObservability: RetentionObservabilityPort,
     @Inject(lifecycleConfig.KEY)
     private readonly lifecycleSettings: ConfigType<typeof lifecycleConfig>,
+    @Optional()
+    private readonly backgroundJobMetrics?: BackgroundJobMetricsService,
   ) {
     this.runner = createLifecycleSweepRunner({
       prisma: this.prisma,
@@ -155,9 +159,11 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
         await this.refreshBoundarySchedules();
         await this.runPeriodicSweep();
       }
+      this.backgroundJobMetrics?.recordSucceeded('lifecycle_sweep');
     } catch (error) {
       this.logger.error('Lifecycle sweep failed', error instanceof Error ? error.stack : undefined);
       this.retentionObservability.emitSweepFailure({ mode, error });
+      this.backgroundJobMetrics?.recordFailed('lifecycle_sweep');
     } finally {
       this.running = false;
     }

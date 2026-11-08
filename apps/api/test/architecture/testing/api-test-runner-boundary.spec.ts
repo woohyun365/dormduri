@@ -161,7 +161,7 @@ describe('API test runner boundary', () => {
     const integrationShardCommand = scriptValue(apiPackage.scripts, 'ci:test:integration:shard');
     expect(integrationShardCommand).toContain('vitest run');
     expect(integrationShardCommand).toContain('--config ./vitest.config.integration.ts');
-    expect(integrationShardCommand).toContain('--shard=${KNU_API_INTEGRATION_SHARD:');
+    expect(integrationShardCommand).toContain('--shard=${DORMDURI_API_INTEGRATION_SHARD:');
     expect(integrationShardCommand).toContain('--maxWorkers=1');
 
     const e2eCommand = scriptValue(apiPackage.scripts, 'ci:test:e2e');

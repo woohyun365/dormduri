@@ -16,6 +16,10 @@ const sentinel = 'infra-ci-secret-sentinel';
 const migrationUrl = `postgresql://infra_ci:${sentinel}@db.invalid:5432/dormduri`;
 const dryRuns = [
   {
+    path: 'infra/db/bootstrap-roles.sh',
+    env: { BOOTSTRAP_DATABASE_URL: migrationUrl },
+  },
+  {
     path: 'infra/db/migrate-deploy.sh',
     env: { MIGRATION_DATABASE_URL: migrationUrl },
   },

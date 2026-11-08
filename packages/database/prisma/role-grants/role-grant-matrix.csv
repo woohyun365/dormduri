@@ -1,0 +1,146 @@
+table,role,privileges,columns
+CampusMaster,app_runtime,SELECT INSERT UPDATE DELETE,
+CampusMaster,app_readonly,SELECT,-secret -content
+CollegeMaster,app_runtime,SELECT INSERT UPDATE DELETE,
+CollegeMaster,app_readonly,SELECT,-secret -content
+Dormitory,app_runtime,SELECT INSERT UPDATE DELETE,
+Dormitory,app_readonly,SELECT,-secret -content
+Season,app_runtime,SELECT INSERT UPDATE DELETE,
+Season,app_readonly,SELECT,-secret -content
+SeasonDormitoryOperation,app_runtime,SELECT INSERT UPDATE DELETE,
+SeasonDormitoryOperation,app_readonly,SELECT,-secret -content
+UserDismissedNotice,app_runtime,SELECT INSERT UPDATE DELETE,
+UserDismissedNotice,app_readonly,SELECT,-secret -content
+UserBookmark,app_runtime,SELECT INSERT UPDATE DELETE,
+UserBookmark,app_readonly,SELECT,-secret -content
+UserBlock,app_runtime,SELECT INSERT UPDATE DELETE,
+UserBlock,app_readonly,SELECT,-secret -content
+UserBlockEvent,app_runtime,SELECT INSERT UPDATE DELETE,
+UserBlockEvent,app_readonly,SELECT,-secret -content
+ReportCase,app_runtime,SELECT INSERT UPDATE DELETE,
+ReportCase,app_readonly,SELECT,-secret -content
+ReportCaseEvent,app_runtime,SELECT INSERT UPDATE DELETE,
+ReportCaseEvent,app_readonly,SELECT,-secret -content
+SupportTicket,app_runtime,SELECT INSERT UPDATE DELETE,
+SupportTicket,app_readonly,SELECT,-secret -content
+SupportTicketMessage,app_runtime,SELECT INSERT UPDATE DELETE,
+SupportTicketMessage,app_readonly,SELECT,-secret -content
+SupportFaqArticle,app_runtime,SELECT INSERT UPDATE DELETE,
+SupportFaqArticle,app_readonly,SELECT,-secret -content
+SupportFaqPlacement,app_runtime,SELECT INSERT UPDATE DELETE,
+SupportFaqPlacement,app_readonly,SELECT,-secret -content
+LegalDocumentVersion,app_runtime,SELECT INSERT UPDATE DELETE,
+LegalDocumentVersion,app_readonly,SELECT,-secret -content
+LegalAcceptanceRecord,app_runtime,SELECT INSERT UPDATE DELETE,
+LegalAcceptanceRecord,app_readonly,SELECT,-secret -content
+SeasonParticipantLifecycleEvent,app_runtime,SELECT INSERT UPDATE DELETE,
+SeasonParticipantLifecycleEvent,app_readonly,SELECT,-secret -content
+MatchRequest,app_runtime,SELECT INSERT UPDATE DELETE,
+MatchRequest,app_readonly,SELECT,-secret -content
+ActiveMatch,app_runtime,SELECT INSERT UPDATE DELETE,
+ActiveMatch,app_readonly,SELECT,-secret -content
+ActiveMatchUnmatchRequest,app_runtime,SELECT INSERT UPDATE DELETE,
+ActiveMatchUnmatchRequest,app_readonly,SELECT,-secret -content
+ActiveMatchLifecycleEvent,app_runtime,SELECT INSERT UPDATE DELETE,
+ActiveMatchLifecycleEvent,app_readonly,SELECT,-secret -content
+ConversationThreadLifecycleEvent,app_runtime,SELECT INSERT UPDATE DELETE,
+ConversationThreadLifecycleEvent,app_readonly,SELECT,-secret -content
+ConversationThreadMember,app_runtime,SELECT INSERT UPDATE DELETE,
+ConversationThreadMember,app_readonly,SELECT,-secret -content
+ConversationThreadMember,retention_worker,SELECT,
+GlobalNotice,app_runtime,SELECT INSERT UPDATE DELETE,
+GlobalNotice,app_readonly,SELECT,-secret -content
+UserNotification,app_runtime,SELECT INSERT UPDATE DELETE,
+UserNotification,app_readonly,SELECT,-secret -content
+NotificationCampaign,app_runtime,SELECT INSERT UPDATE DELETE,
+NotificationCampaign,app_readonly,SELECT,-secret -content
+ModerationTerm,app_runtime,SELECT INSERT UPDATE DELETE,
+ModerationTerm,app_readonly,SELECT,-secret -content
+ChatRealtimeOutboxEvent,app_runtime,SELECT INSERT UPDATE DELETE,
+ChatRealtimeOutboxEvent,app_readonly,SELECT,-secret -content
+ChatRealtimeOutboxEvent,retention_worker,INSERT DELETE,
+ChatRealtimeOutboxEvent,retention_worker,SELECT,id eventType aggregateType aggregateId
+ChatRealtimeEventRecipient,app_runtime,SELECT INSERT UPDATE DELETE,
+ChatRealtimeEventRecipient,app_readonly,SELECT,-secret -content
+ChatRealtimeEventRecipient,retention_worker,INSERT,
+OperatorAlert,app_runtime,SELECT INSERT UPDATE DELETE,
+OperatorAlert,app_readonly,SELECT,-secret -content
+NotificationOutboxEvent,app_runtime,SELECT INSERT UPDATE DELETE,
+NotificationOutboxEvent,app_readonly,SELECT,-secret -content
+AuthMailOutboxEvent,app_runtime,SELECT INSERT UPDATE DELETE,
+AuthMailOutboxEvent,app_readonly,SELECT,-secret -content
+User,app_runtime,SELECT INSERT UPDATE DELETE,
+User,retention_worker,SELECT UPDATE,
+User,app_readonly,SELECT,-secret -content
+UserDisplayIdentity,app_runtime,SELECT INSERT UPDATE DELETE,
+UserDisplayIdentity,retention_worker,SELECT UPDATE,
+UserDisplayIdentity,app_readonly,SELECT,-secret -content
+UserAcademicIdentity,app_runtime,SELECT INSERT UPDATE DELETE,
+UserAcademicIdentity,retention_worker,SELECT DELETE,
+UserAcademicIdentity,app_readonly,SELECT,-secret -content
+UserAcademicIdentityChangeAllowance,app_runtime,SELECT INSERT UPDATE DELETE,
+UserAcademicIdentityChangeAllowance,retention_worker,SELECT DELETE,
+UserAcademicIdentityChangeAllowance,app_readonly,SELECT,-secret -content
+UserDisplayIdentityNicknameChangeEvent,app_runtime,SELECT INSERT UPDATE DELETE,
+UserDisplayIdentityNicknameChangeEvent,retention_worker,SELECT INSERT UPDATE,
+UserDisplayIdentityNicknameChangeEvent,app_readonly,SELECT,-secret -content
+UserAcademicIdentityChangeEvent,app_runtime,SELECT INSERT UPDATE DELETE,
+UserAcademicIdentityChangeEvent,retention_worker,SELECT UPDATE,
+UserAcademicIdentityChangeEvent,app_readonly,SELECT,-secret -content
+SeasonParticipant,app_runtime,SELECT INSERT UPDATE DELETE,
+SeasonParticipant,retention_worker,SELECT,
+SeasonParticipant,app_readonly,SELECT,-secret -content
+SeasonParticipantProfile,app_runtime,SELECT INSERT UPDATE DELETE,
+SeasonParticipantProfile,retention_worker,SELECT UPDATE,
+SeasonParticipantProfile,app_readonly,SELECT,-secret -content
+SeasonParticipantProfileHistory,app_runtime,SELECT INSERT UPDATE DELETE,
+SeasonParticipantProfileHistory,retention_worker,SELECT UPDATE,
+SeasonParticipantProfileHistory,app_readonly,SELECT,-secret -content
+SeasonMatchHistoryEntry,app_runtime,SELECT INSERT UPDATE DELETE,
+SeasonMatchHistoryEntry,retention_worker,SELECT UPDATE,
+SeasonMatchHistoryEntry,app_readonly,SELECT,-secret -content
+ConversationThread,app_runtime,SELECT INSERT UPDATE DELETE,
+ConversationThread,retention_worker,SELECT,
+ConversationThread,app_readonly,SELECT,-secret -content
+ConversationMessage,app_runtime,SELECT INSERT UPDATE DELETE,
+ConversationMessage,retention_worker,SELECT UPDATE,
+ConversationMessage,app_readonly,SELECT,-secret -content
+SeasonMatchHistoryEntryRetentionLink,app_runtime,SELECT INSERT UPDATE DELETE,
+SeasonMatchHistoryEntryRetentionLink,retention_worker,SELECT INSERT UPDATE,
+SeasonMatchHistoryEntryRetentionLink,app_readonly,SELECT,-secret -content
+LoginAttempt,app_runtime,SELECT INSERT UPDATE DELETE,
+LoginAttempt,retention_worker,SELECT DELETE,
+LoginAttempt,app_readonly,SELECT,-secret -content
+VerificationCode,app_runtime,SELECT INSERT UPDATE DELETE,
+VerificationCode,retention_worker,SELECT DELETE,
+VerificationCode,app_readonly,SELECT,-secret -content
+VerificationCodeRequestLog,app_runtime,SELECT INSERT UPDATE DELETE,
+VerificationCodeRequestLog,retention_worker,SELECT DELETE,
+VerificationCodeRequestLog,app_readonly,SELECT,-secret -content
+AuthSession,app_runtime,SELECT INSERT UPDATE DELETE,
+AuthSession,retention_worker,SELECT UPDATE DELETE,
+AuthSession,app_readonly,SELECT,-secret -content
+AuthSecurityEvent,app_runtime,SELECT INSERT UPDATE DELETE,
+AuthSecurityEvent,retention_worker,SELECT DELETE,
+AuthSecurityEvent,app_readonly,SELECT,-secret -content
+SeasonOperationAuditEvent,app_runtime,SELECT INSERT,
+SeasonOperationAuditEvent,app_readonly,SELECT,-secret -content
+RetentionAccessLog,retention_worker,SELECT INSERT UPDATE DELETE,
+RetentionAccessLog,retention_disclosure,SELECT INSERT,
+RetentionCase,app_runtime,INSERT,
+RetentionCase,app_runtime,SELECT,id
+RetentionCase,retention_worker,SELECT INSERT UPDATE DELETE,
+RetentionCase,retention_disclosure,SELECT,
+RetentionCase,app_readonly,SELECT,id
+RetainedIdentity,retention_worker,SELECT INSERT UPDATE DELETE,
+RetainedIdentity,retention_disclosure,SELECT,
+RetainedIdentityHold,retention_worker,SELECT INSERT UPDATE DELETE,
+RetainedIdentityHold,retention_disclosure,SELECT,
+RetainedVaultObject,retention_worker,SELECT INSERT UPDATE DELETE,
+RetainedVaultObject,retention_disclosure,SELECT,
+RetainedVaultObjectHold,retention_worker,SELECT INSERT UPDATE DELETE,
+RetainedVaultObjectHold,retention_disclosure,SELECT,
+ArchiveJob,retention_worker,SELECT INSERT UPDATE DELETE,
+RetentionReviewJob,retention_worker,SELECT INSERT UPDATE DELETE,
+RetentionReviewJob,retention_disclosure,SELECT INSERT UPDATE,
+_prisma_migrations,app_readonly,SELECT,

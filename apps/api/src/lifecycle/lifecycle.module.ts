@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthOperationsModule } from '../auth/operations/auth-operations.module.js';
+import { BackgroundJobsModule } from '../background-jobs/background-jobs.module.js';
 import { ChatModule } from '../chat/chat.module.js';
 import { MatchesModule } from '../matches/matches.module.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
@@ -28,6 +29,7 @@ import { LIFECYCLE_BOUNDARY_SCHEDULE, LIFECYCLE_SWEEP_TASKS } from './lifecycle-
 @Module({
   imports: [
     PrismaModule,
+    BackgroundJobsModule,
     AuthOperationsModule,
     ChatModule,
     MatchesModule,

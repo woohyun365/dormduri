@@ -19,8 +19,8 @@ git rev-parse --short HEAD
 
 pnpm --dir apps/api stress:local:preflight
 
-pnpm infra:compose -- api-stress config >/tmp/knu-api-compose.yml
-pnpm infra:compose -- observability-rehearsal config >/tmp/knu-observability-compose.yml
+pnpm infra:compose -- api-stress config >/tmp/dormduri-api-compose.yml
+pnpm infra:compose -- observability-rehearsal config >/tmp/dormduri-observability-compose.yml
 ```
 
 Pass 기준:

@@ -9,6 +9,7 @@ const deployRoot = join(repoRoot, 'infra/deploy');
 
 const requiredDbFiles = [
   'README.md',
+  'bootstrap-roles.sh',
   'migrate-deploy.sh',
   'apply-role-grants.sh',
   'smoke-role-grants.sh',
@@ -56,35 +57,35 @@ describe('production database deploy boundary', () => {
     expect(script).not.toContain('echo "$MIGRATION_DATABASE_URL"');
   });
 
-  it('applies role grant SQL artifacts with psql error-stop semantics', () => {
+  it('applies the grant table in one psql transaction with error-stop semantics', () => {
     const script = readDbFile('apply-role-grants.sh');
 
     expect(script).toContain('MIGRATION_DATABASE_URL');
     expect(script).toContain('psql "$MIGRATION_DATABASE_URL"');
     expect(script).toContain('-v ON_ERROR_STOP=1');
-    expect(script).toContain('auth-role-grants.sql');
-    expect(script).toContain('rrpd-role-grants.sql');
-    expect(script.indexOf('-f "$rrpd_sql"')).toBeLessThan(script.indexOf('-f "$auth_sql"'));
-    expect(script).toContain('dormduri.auth_schema');
-    expect(script).toContain('dormduri.rrpd_schema');
-    expect(script).toContain('DB_APP_RUNTIME_ROLE');
-    expect(script).toContain('DB_RETENTION_WORKER_ROLE');
-    expect(script).toContain('DB_RETENTION_DISCLOSURE_ROLE');
+    expect(script).toContain('--single-transaction');
+    expect(script).toContain('role-grant-matrix.csv');
+    expect(script).toContain('column-classes.csv');
+    expect(script).toContain('\\\\copy pg_temp.role_grant_matrix FROM');
+    expect(script.indexOf('-f "$inputs_sql"')).toBeLessThan(script.indexOf('-f "$defaults_sql"'));
+    expect(script.indexOf('-f "$defaults_sql"')).toBeLessThan(script.indexOf('-f "$apply_sql"'));
+    expect(script).toContain('DB_GRANT_SCHEMA');
     expect(script).not.toContain('echo "$MIGRATION_DATABASE_URL"');
   });
 
-  it('smokes runtime/retention/disclosure credentials without destructive DDL or DML', () => {
+  it('smokes every LOGIN user against the grant table read-only without destructive DDL or DML', () => {
     const script = readDbFile('smoke-role-grants.sh');
 
     expect(script).toContain('MIGRATION_DATABASE_URL');
     expect(script).toContain('DATABASE_URL');
     expect(script).toContain('RETENTION_WORKER_DATABASE_URL');
     expect(script).toContain('RETENTION_DISCLOSURE_DATABASE_URL');
-    expect(script).toContain('_prisma_migrations');
-    expect(script).toContain('has_table_privilege');
-    expect(script).toContain('RetainedIdentity');
-    expect(script).toContain('RetentionAccessLog');
-    expect(script).toContain('RetentionReviewJob');
+    expect(script).toContain('role-grant-matrix.csv');
+    expect(script).toContain('smoke-role-grants.sql');
+    expect(script).toContain("-c 'SET default_transaction_read_only = on'");
+    expect(script).toContain('check_login DATABASE_URL app_runtime User RetainedIdentity');
+    expect(script).toContain("*'permission denied'*");
+    expect(script).toContain('DB_EXPECTED_TABLE_OWNER');
     expect(script).not.toMatch(/\b(CREATE|DROP|ALTER|TRUNCATE)\b/);
     expect(script).not.toMatch(/\bDELETE\s+FROM\b/);
     expect(script).not.toMatch(/\bUPDATE\s+\w+\s+SET\b/);
@@ -97,11 +98,13 @@ describe('production database deploy boundary', () => {
     const apiPackage = readJson('apps/api/package.json');
 
     expect(rootPackage.scripts).toMatchObject({
+      'api:db:bootstrap-roles': 'pnpm --dir apps/api db:bootstrap-roles',
       'api:db:deploy:migrate': 'pnpm --dir apps/api db:deploy:migrate',
       'api:db:deploy:role-grants': 'pnpm --dir apps/api db:deploy:role-grants',
       'api:db:deploy:smoke': 'pnpm --dir apps/api db:deploy:smoke',
     });
     expect(apiPackage.scripts).toMatchObject({
+      'db:bootstrap-roles': '../../infra/db/bootstrap-roles.sh',
       'db:deploy:migrate': '../../infra/db/migrate-deploy.sh',
       'db:deploy:role-grants': '../../infra/db/apply-role-grants.sh',
       'db:deploy:smoke': '../../infra/db/smoke-role-grants.sh',
@@ -128,19 +131,42 @@ describe('production database deploy boundary', () => {
     expect(dbReadme).toContain('prisma db push');
   });
 
-  it('documents that credential creation and role membership stay outside grant scripts', () => {
+  it('keeps passwords out of every DB script and LOGIN user creation in the master bootstrap only', () => {
     const grantScript = readDbFile('apply-role-grants.sh');
+    const bootstrapScript = readDbFile('bootstrap-roles.sh');
+    const bootstrapSql = readRepoFile('packages/database/prisma/role-grants/bootstrap-roles.sql');
     const dbReadme = readDbFile('README.md');
     const policy = readRepoFile('docs/policies/production-runtime-safety.md');
 
-    expect(grantScript).not.toMatch(/\bCREATE\s+USER\b/);
-    expect(grantScript).not.toMatch(/\bCREATE\s+ROLE\b.*\bLOGIN\b/);
-    expect(grantScript).not.toMatch(/\bALTER\s+ROLE\b.*\bPASSWORD\b/);
-    expect(grantScript).not.toMatch(/\bGRANT\s+\w+\s+TO\s+\w+\b/);
-    expect(dbReadme).toContain('login role이 해당 application role의 member');
-    expect(dbReadme).toContain(
-      'password, LOGIN role 생성, role membership 부여를 자동 수행하지 않는다',
-    );
+    // PRS-R29: the grant path (wrapper and every SQL it runs) never creates roles or
+    // memberships; only the master bootstrap does.
+    const grantSqlFiles = [
+      'apply-role-grants.sql',
+      'database-defaults.sql',
+      'role-grant-inputs.sql',
+      'smoke-role-grants.sql',
+    ];
+    for (const [name, source] of [
+      ['apply-role-grants.sh', grantScript],
+      ...grantSqlFiles.map((file) => [
+        file,
+        readRepoFile(`packages/database/prisma/role-grants/${file}`)
+          .split('\n')
+          .filter((line) => !line.trimStart().startsWith('--'))
+          .join('\n'),
+      ]),
+    ] as const) {
+      expect(source, name).not.toMatch(/\bCREATE\s+(USER|ROLE)\b/);
+      expect(source, name).not.toMatch(/\bALTER\s+ROLE\b/);
+      expect(source, name).not.toMatch(/\bPASSWORD\b/);
+      expect(source, name).not.toMatch(/\bGRANT\s+(\w+|%I|%s)\s+TO\b/);
+    }
+    expect(bootstrapScript).toContain('BOOTSTRAP_DATABASE_URL');
+    expect(bootstrapScript).not.toContain('echo "$BOOTSTRAP_DATABASE_URL"');
+    expect(bootstrapScript).not.toMatch(/\bPASSWORD\b/);
+    expect(bootstrapSql).not.toMatch(/\bPASSWORD\b/);
+    expect(dbReadme).toContain('bootstrap은 비밀번호를 정하지 않는다');
+    expect(dbReadme).toContain('`\\password`');
     expect(policy).toContain('schema/table privilege baseline 적용을 소유한다');
   });
 });

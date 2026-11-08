@@ -4,8 +4,13 @@ import {
   Logger,
   OnApplicationBootstrap,
   OnModuleDestroy,
+  Optional,
 } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
+import {
+  BackgroundJobMetricsService,
+  runBackgroundJobTick,
+} from '../../background-jobs/background-job-metrics.service.js';
 import authConfig from '../config/auth.config.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
@@ -44,6 +49,8 @@ export class AuthMailDispatcherService implements OnApplicationBootstrap, OnModu
     @Inject(authConfig.KEY)
     private readonly settings: ConfigType<typeof authConfig>,
     private readonly metrics?: AuthMailMetricsService,
+    @Optional()
+    private readonly backgroundJobMetrics?: BackgroundJobMetricsService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -51,7 +58,13 @@ export class AuthMailDispatcherService implements OnApplicationBootstrap, OnModu
       return;
     }
     this.interval = setInterval(() => {
-      void this.dispatchOnce().catch((error) => {
+      void runBackgroundJobTick(this.backgroundJobMetrics, 'auth_mail_dispatcher', async () => {
+        if (this.running) {
+          return 'skipped';
+        }
+        await this.dispatchOnce();
+        return 'succeeded';
+      }).catch((error) => {
         this.logger.warn(
           `[AuthMailDispatcher] dispatch tick failed errorType=${toErrorType(error)}`,
         );

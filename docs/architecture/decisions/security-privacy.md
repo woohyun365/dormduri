@@ -1,11 +1,36 @@
 # Security and privacy 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-02
-**확인 근거**: [#289](https://github.com/woohyun365/dormduri/issues/289)의 2026-11-02 Web 단계 처리자 범위 결정 댓글(data-privacy-secret의 `sec.privacy.landing-visit-analytics`: Landing 방문 통계 도입, 처리방침 공개 근거, 코드 자리)
+**확인일**: 2026-11-07
+**확인 근거**: [#289](https://github.com/woohyun365/dormduri/issues/289)의 2026-11-02 Web 단계 처리자 범위 결정 댓글(data-privacy-secret의 `sec.privacy.landing-visit-analytics`: Landing 방문 통계 도입, 처리방침 공개 근거, 코드 자리), [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(trust-authz-model의 `sec.trust.db-privilege-audit`: grant 표 하나와 앱 append-only 감사·pgAudit)
 **근거**: [공개 법적 문서 fallback](../../../apps/web/src/legal/content/legal-fallback-documents.ts), [Web 운영 관측성 경계](../frontend/web-observability.md), [지금 운영 환경](../../deploy/production-environment.md), [Domain/SWE/Web/security-privacy pack](../../development/agent-workflows/domain/swe-web/security-privacy.md)
 
 `Domain/SWE/Web/security-privacy` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
+
+## trust-authz-model
+
+DB 계정·grant는 [Database operator scripts](../../../infra/db/README.md#credential-boundary)가, 접속 기록 parameter는
+[RDS setup and backup checklist](../../../infra/aws/rds-setup-checklist.md#parameter-group)가 소유합니다.
+
+#### sec.trust.db-privilege-audit
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: DB 권한은 grant 표 하나(`packages/database/prisma/role-grants/role-grant-matrix.csv`)가 table마다 허용·거부의
+  원본이고, apply와 smoke가 같은 표를 읽는다. 관리자 행위·RRPD 열람 감사는 앱의 append-only table에 남긴다(앱에서 기록하는 role은
+  INSERT·SELECT만, RRPD 열람 기록의 기한 폐기는 worker). DB 쪽은 pgAudit가 DDL·role class를 기본으로 남기고, 사람 LOGIN user와 master user는 모든 문장을 남긴다
+  (`pgaudit.log = 'all'`). bind 값은 pgAudit와 statement log 모두 남기지 않는다. PostgreSQL log는 CloudWatch에 731일(2년)
+  둔다. 사람 DB 계정의 권한 부여·변경·말소 내역(3년)과 break-glass 사용은 pgAudit log와 따로 전용 운영 이슈의 댓글로 남긴다
+  ([권한 내역과 break-glass](../../../infra/db/README.md#권한-내역과-break-glass)). RRPD SELECT 객체 감사는 하지 않는다
+- 근거: 앱이 쓰는 감사는 table 권한으로 고칠 수 없게 막고, DB에 직접 들어온 사람의 열람·변경은 pgAudit가 남긴다. 운영 worker의
+  RRPD 읽기까지 객체 감사로 남기면 log 양과 비용이 크고 열람 판단은 `RetentionAccessLog`와 role 차단이 한다. bind 값을 남기면
+  개인정보가 log로 흘러간다. master session은 pgAudit 설정을 끌 수 있어 접속·종료 log, break-glass 기록, 쓴 뒤 비밀번호
+  교체로 보완한다
+- 기각한 대안: RRPD SELECT 객체 감사(log 양·비용, 운영 worker 읽기까지 남음), 앱 감사만(DB에 직접 들어온 사람의 변경이 안
+  남음), 사람은 쓰기·DDL·role만(누가 어떤 개인정보를 열람했는지 안 남음), log 1년 보존(관리자 접속·행위 기록 2년 기준과 다름)
+- 재검토 조건: 관리자 감사 table을 만들 때, 사람 조회 경로가 SSM 밖으로 늘 때, pgAudit log 양이 CloudWatch 비용 기준을 넘을 때
+- 출처: #239, #862, Owner 확인 2026-11-04
+- pack 결정: 없음
 
 ## data-privacy-secret
 

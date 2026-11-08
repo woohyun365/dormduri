@@ -49,6 +49,7 @@ function createScheduledFixture(sweepEnabled = true) {
     emitSweep: vi.fn().mockResolvedValue(undefined),
     emitSweepFailure: vi.fn(),
   };
+  const backgroundJobMetrics = { recordSucceeded: vi.fn(), recordFailed: vi.fn() };
   const service = new LifecycleSweepService(
     prisma as never,
     {} as never,
@@ -57,6 +58,7 @@ function createScheduledFixture(sweepEnabled = true) {
     registry as never,
     observability,
     { sweepEnabled, sweepIntervalMs: 1_000 },
+    backgroundJobMetrics as never,
   );
   function boundaryTick() {
     const job = cronJobs.values().next().value;
@@ -71,6 +73,7 @@ function createScheduledFixture(sweepEnabled = true) {
     cronJobs,
     intervals,
     observability,
+    backgroundJobMetrics,
     boundaryTick,
     registry,
   };
@@ -340,13 +343,24 @@ describe('LifecycleSweepService', () => {
     async (mode, failurePoint) => {
       vi.useFakeTimers();
       const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-      const { service, prisma, run, boundarySchedule, observability, boundaryTick } =
-        createScheduledFixture();
+      const {
+        service,
+        prisma,
+        run,
+        boundarySchedule,
+        observability,
+        backgroundJobMetrics,
+        boundaryTick,
+      } = createScheduledFixture();
       const error = new Error(`${failurePoint} unavailable`);
       try {
         await service.onApplicationBootstrap();
+        expect(backgroundJobMetrics.recordSucceeded).toHaveBeenCalledExactlyOnceWith(
+          'lifecycle_sweep',
+        );
         run.mockClear();
         observability.emitSweep.mockClear();
+        backgroundJobMetrics.recordSucceeded.mockClear();
         if (failurePoint === 'clock') prisma.getDatabaseNow.mockRejectedValueOnce(error);
         else if (failurePoint === 'refresh')
           boundarySchedule.buildBoundaryJobs.mockRejectedValueOnce(error);
@@ -356,11 +370,19 @@ describe('LifecycleSweepService', () => {
 
         expect(observability.emitSweepFailure).toHaveBeenCalledExactlyOnceWith({ mode, error });
         expect(observability.emitSweep).not.toHaveBeenCalled();
+        // The shared background job metric counts the failed run and keeps the last success.
+        expect(backgroundJobMetrics.recordFailed).toHaveBeenCalledExactlyOnceWith(
+          'lifecycle_sweep',
+        );
+        expect(backgroundJobMetrics.recordSucceeded).not.toHaveBeenCalled();
         expect(run).toHaveBeenCalledTimes(failurePoint === 'task' ? 1 : 0);
         await vi.advanceTimersByTimeAsync(1_000);
         expect(run).toHaveBeenCalledTimes(failurePoint === 'task' ? 2 : 1);
         expect(observability.emitSweep).toHaveBeenCalledOnce();
         expect(observability.emitSweepFailure).toHaveBeenCalledOnce();
+        expect(backgroundJobMetrics.recordSucceeded).toHaveBeenCalledExactlyOnceWith(
+          'lifecycle_sweep',
+        );
       } finally {
         service.onModuleDestroy();
         vi.clearAllTimers();

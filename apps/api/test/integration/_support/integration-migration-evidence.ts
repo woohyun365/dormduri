@@ -1,6 +1,6 @@
 import { appendFileSync } from 'node:fs';
 
-const EVIDENCE_FILE_ENV = 'KNU_INTEGRATION_MIGRATION_EVIDENCE_FILE';
+const EVIDENCE_FILE_ENV = 'DORMDURI_API_INTEGRATION_MIGRATION_EVIDENCE_FILE';
 
 export function recordIntegrationMigrationInvocation(schemaName: string): void {
   const evidenceFile = process.env[EVIDENCE_FILE_ENV];

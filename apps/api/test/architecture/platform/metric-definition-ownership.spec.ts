@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AUTH_METRIC_DEFINITIONS } from '../../../src/auth/observability/auth-metric.definitions.js';
 import { AUTH_CLEANUP_METRIC_DEFINITIONS } from '../../../src/auth/operations/cleanup/auth-cleanup-metric.definitions.js';
+import { BACKGROUND_JOB_METRIC_DEFINITIONS } from '../../../src/background-jobs/background-job-metric.definitions.js';
 import { CHAT_REALTIME_METRIC_DEFINITIONS } from '../../../src/chat/realtime/chat-realtime-metric.definitions.js';
 import { HEALTH_METRIC_DEFINITIONS } from '../../../src/health/health-metric.definitions.js';
 import { PRISMA_METRIC_DEFINITIONS } from '../../../src/platform/database/prisma-metric.definitions.js';
@@ -14,6 +15,7 @@ const sourceRoot = join(process.cwd(), 'src');
 const ownerDefinitions = [
   ...AUTH_METRIC_DEFINITIONS,
   ...AUTH_CLEANUP_METRIC_DEFINITIONS,
+  ...BACKGROUND_JOB_METRIC_DEFINITIONS,
   ...CHAT_REALTIME_METRIC_DEFINITIONS,
   ...HEALTH_METRIC_DEFINITIONS,
   ...PRISMA_METRIC_DEFINITIONS,

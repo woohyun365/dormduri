@@ -41,6 +41,7 @@
     "format": "prettier . -w",
     "check": "pnpm shared:build && pnpm api:prisma:generate && pnpm api:check:prepared && pnpm web:check:prepared && prettier . -c",
     "prepare": "husky",
+    "api:db:bootstrap-roles": "pnpm --dir apps/api db:bootstrap-roles",
     "api:db:deploy:migrate": "pnpm --dir apps/api db:deploy:migrate",
     "api:db:deploy:role-grants": "pnpm --dir apps/api db:deploy:role-grants",
     "api:db:deploy:smoke": "pnpm --dir apps/api db:deploy:smoke",

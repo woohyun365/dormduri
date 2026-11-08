@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { resolveIntegrationCaseOwners } from '../_support/integration-case-owners.js';
 import { cleanupIntegrationTestResources } from '../_support/integration-suite.js';
-import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import type { PrismaClient } from '@repo/database/client';
+import {
+  PrismaService,
+  RetentionDisclosurePrismaService,
+  RetentionWorkerPrismaService,
+} from '../../../src/platform/database/prisma.service.js';
 import {
   activateThreadRetentionJobsForArchivedThreads,
   retryDueArchiveJobs,
@@ -25,6 +30,7 @@ import { ensureRetentionCaseTx } from '../../../src/retention/vault/retention-ca
 import { createIntegrationApp } from '../_support/integration-app.js';
 import { expectPrismaQueryBudget } from '../_support/integration-query-budget.js';
 import {
+  createIntegrationAdminPrisma,
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from '../_support/integration-db.js';
@@ -39,7 +45,13 @@ export function registerRetentionCases(
 ) {
   const { owners, label } = resolveIntegrationCaseOwners(ownerInput);
   describe(`RetainedIdentity integration — ${label}`, () => {
+    // Role clients follow production: general fixtures use runtime, RRPD calls use the
+    // retention worker (disclosure for vault disclosure), and RRPD fixtures or
+    // verification reads use the admin client so app grants stay under test.
     let prisma: PrismaService;
+    let retentionPrisma: RetentionWorkerPrismaService;
+    let retentionDisclosurePrisma: RetentionDisclosurePrismaService;
+    let adminPrisma: PrismaClient;
     let closeApp: (() => Promise<void>) | null = null;
     let cleanupDb: (() => Promise<void>) | null = null;
     const identifierCipher = createRetainedIdentityCipher({
@@ -74,9 +86,15 @@ export function registerRetentionCases(
       const sandbox = await createIntegrationDatabaseSandbox('retention_integration');
       cleanupDb = sandbox.cleanup;
 
+      adminPrisma = createIntegrationAdminPrisma(sandbox);
       const { app, prisma: prismaService } = await createIntegrationApp();
-      closeApp = () => app.close();
+      closeApp = async () => {
+        await app.close();
+        await adminPrisma.$disconnect();
+      };
       prisma = prismaService;
+      retentionPrisma = app.get(RetentionWorkerPrismaService);
+      retentionDisclosurePrisma = app.get(RetentionDisclosurePrismaService);
     });
 
     afterAll(async () => {
@@ -99,7 +117,7 @@ export function registerRetentionCases(
 
     if (owners.has('retained-identities')) {
       it('일반 탈퇴 retained identity는 identifier anchor만 만들고 profile history는 자동 생성하지 않는다', async () => {
-        const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+        const owner = createRetainedIdentityOwner(retentionPrisma, { identifierCipher });
         const deletedAt = new Date('2026-05-12T00:00:00.000Z');
         const historyCountBeforeRetention = await prisma.seasonParticipantProfileHistory.count({
           where: { participantId: 'participant-a' },
@@ -122,7 +140,7 @@ export function registerRetentionCases(
         expect(retainedIdentity.retentionCaseReason).toBe('ACCOUNT_DELETION');
         expect(retainedIdentity.emailHash).toHaveLength(64);
         await expect(
-          prisma.retainedIdentityHold.findFirst({
+          adminPrisma.retainedIdentityHold.findFirst({
             where: { retainedIdentityId: retainedIdentity.id, holdReason: 'ACCOUNT_DELETION' },
             include: { retentionCase: true },
           }),
@@ -150,7 +168,7 @@ export function registerRetentionCases(
         const now = new Date('2029-05-12T00:00:00.000Z');
         const leaseUntil = new Date('2029-05-12T00:01:00.000Z');
 
-        await prisma.archiveJob.createMany({
+        await adminPrisma.archiveJob.createMany({
           data: [
             {
               id: 'archive-claim-1',
@@ -168,12 +186,18 @@ export function registerRetentionCases(
         });
 
         const [firstClaim, secondClaim] = await expectPrismaQueryBudget(
-          prisma,
+          retentionPrisma,
           'retention archive due claim race',
           () =>
             Promise.all([
-              claimDueDeletionArchiveJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
-              claimDueDeletionArchiveJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
+              claimDueDeletionArchiveJobs(retentionPrisma, now, {
+                batchSize: 1,
+                claimLeaseMs: 60_000,
+              }),
+              claimDueDeletionArchiveJobs(retentionPrisma, now, {
+                batchSize: 1,
+                claimLeaseMs: 60_000,
+              }),
             ]),
           { maxQueries: 8 },
         );
@@ -182,7 +206,7 @@ export function registerRetentionCases(
         expect(claimedIds).toEqual(['archive-claim-1', 'archive-claim-2']);
         expect(new Set(claimedIds).size).toBe(2);
 
-        const claimedJobs = await prisma.archiveJob.findMany({
+        const claimedJobs = await adminPrisma.archiveJob.findMany({
           where: { id: { in: claimedIds } },
           select: { id: true, status: true, nextRunAt: true, lastAttemptAt: true },
           orderBy: { id: 'asc' },
@@ -209,7 +233,7 @@ export function registerRetentionCases(
         const now = new Date('2029-05-12T00:00:00.000Z');
         const leaseUntil = new Date('2029-05-12T00:01:00.000Z');
 
-        await prisma.retentionReviewJob.createMany({
+        await adminPrisma.retentionReviewJob.createMany({
           data: [
             {
               id: 'review-claim-1',
@@ -229,12 +253,18 @@ export function registerRetentionCases(
         });
 
         const [firstClaim, secondClaim] = await expectPrismaQueryBudget(
-          prisma,
+          retentionPrisma,
           'retention review due claim race',
           () =>
             Promise.all([
-              claimDueRetentionReviewJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
-              claimDueRetentionReviewJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
+              claimDueRetentionReviewJobs(retentionPrisma, now, {
+                batchSize: 1,
+                claimLeaseMs: 60_000,
+              }),
+              claimDueRetentionReviewJobs(retentionPrisma, now, {
+                batchSize: 1,
+                claimLeaseMs: 60_000,
+              }),
             ]),
           { maxQueries: 8 },
         );
@@ -243,7 +273,7 @@ export function registerRetentionCases(
         expect(claimedIds).toEqual(['review-claim-1', 'review-claim-2']);
         expect(new Set(claimedIds).size).toBe(2);
 
-        const claimedJobs = await prisma.retentionReviewJob.findMany({
+        const claimedJobs = await adminPrisma.retentionReviewJob.findMany({
           where: { id: { in: claimedIds } },
           select: { id: true, status: true, dueAt: true, lastAttemptAt: true },
           orderBy: { id: 'asc' },
@@ -267,7 +297,7 @@ export function registerRetentionCases(
 
     if (owners.has('retained-identities')) {
       it('legal hold가 있으면 일반 삭제 대신 LEGAL_HOLD retained identity로 분류한다', async () => {
-        const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+        const owner = createRetainedIdentityOwner(retentionPrisma, { identifierCipher });
 
         const retainedIdentity = await owner.createRetainedIdentitySnapshot({
           userId: 'user-a',
@@ -285,7 +315,7 @@ export function registerRetentionCases(
         expect(retainedIdentity.retentionCaseReason).toBe('LEGAL_HOLD');
         expect(retainedIdentity.legalHoldReason).toBe('LAW_ENFORCEMENT_REQUEST');
         await expect(
-          prisma.retainedIdentityHold.findFirst({
+          adminPrisma.retainedIdentityHold.findFirst({
             where: { retainedIdentityId: retainedIdentity.id, holdReason: 'LEGAL_HOLD' },
             include: { retentionCase: true },
           }),
@@ -298,7 +328,7 @@ export function registerRetentionCases(
 
     if (owners.has('review-jobs')) {
       it('5일 anchor 폐기 전 신고 신호가 생기면 REPORT_REVIEW 보존으로 승격한다', async () => {
-        const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+        const owner = createRetainedIdentityOwner(retentionPrisma, { identifierCipher });
         const deletedAt = new Date('2026-05-12T00:00:00.000Z');
 
         const initial = await owner.createRetainedIdentitySnapshot({
@@ -314,7 +344,7 @@ export function registerRetentionCases(
         });
         expect(initial.retentionCaseReason).toBe('ACCOUNT_DELETION');
         await expect(
-          prisma.retainedIdentityHold.findFirst({
+          adminPrisma.retainedIdentityHold.findFirst({
             where: { retainedIdentityId: initial.id, holdReason: 'ACCOUNT_DELETION' },
           }),
         ).resolves.toMatchObject({ holdUntil: new Date('2026-05-17T00:00:00.000Z') });
@@ -335,7 +365,7 @@ export function registerRetentionCases(
         expect(upgraded.id).toBe(initial.id);
         expect(upgraded.retentionCaseReason).toBe('REPORT_REVIEW');
         await expect(
-          prisma.retainedIdentityHold.findFirst({
+          adminPrisma.retainedIdentityHold.findFirst({
             where: { retainedIdentityId: upgraded.id, holdReason: 'REPORT_REVIEW' },
           }),
         ).resolves.toMatchObject({ holdUntil: new Date('2029-05-11T00:00:00.000Z') });
@@ -345,7 +375,7 @@ export function registerRetentionCases(
 
     if (owners.has('vault')) {
       it('retained identity 식별 복원은 승인 근거와 접근 로그를 요구한다', async () => {
-        const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+        const owner = createRetainedIdentityOwner(retentionPrisma, { identifierCipher });
         const retainedIdentity = await owner.createRetainedIdentitySnapshot({
           userId: 'user-a',
           deletedAt: new Date('2026-05-12T00:00:00.000Z'),
@@ -386,7 +416,7 @@ export function registerRetentionCases(
           keyVersion: 'integration-v1',
         });
 
-        const logs = await prisma.retentionAccessLog.findMany({
+        const logs = await adminPrisma.retentionAccessLog.findMany({
           where: { retainedIdentityId: retainedIdentity.id },
         });
         expect(logs).toHaveLength(1);
@@ -402,7 +432,7 @@ export function registerRetentionCases(
 
     if (owners.has('vault')) {
       it('보존 기간이 만료된 retained identity는 식별 복원 anchor를 폐기하고 로그를 남긴다', async () => {
-        const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+        const owner = createRetainedIdentityOwner(retentionPrisma, { identifierCipher });
         const retainedIdentity = await owner.createRetainedIdentitySnapshot({
           userId: 'user-a',
           deletedAt: new Date('2026-05-12T00:00:00.000Z'),
@@ -429,7 +459,7 @@ export function registerRetentionCases(
         );
 
         expect(result.processedCount).toBe(1);
-        const disposedIdentity = await prisma.retainedIdentity.findUniqueOrThrow({
+        const disposedIdentity = await adminPrisma.retainedIdentity.findUniqueOrThrow({
           where: { id: retainedIdentity.id },
         });
         expect(disposedIdentity).toMatchObject({
@@ -472,7 +502,7 @@ export function registerRetentionCases(
 
     if (owners.has('vault')) {
       it('보존 기간이 만료된 RRPD vault payload는 ciphertext와 digest를 함께 폐기하고 로그를 남긴다', async () => {
-        const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+        const owner = createRetainedIdentityOwner(retentionPrisma, { identifierCipher });
         const deletedAt = new Date('2026-05-12T00:00:00.000Z');
         const retainedIdentity = await owner.createRetainedIdentitySnapshot({
           userId: 'user-a',
@@ -486,7 +516,7 @@ export function registerRetentionCases(
           },
         });
 
-        const retainedVaultObject = await prisma.runSerializableTransaction(async (tx) => {
+        const retainedVaultObject = await retentionPrisma.runSerializableTransaction(async (tx) => {
           const retentionCase = await ensureRetentionCaseTx(tx, {
             reason: 'ACCOUNT_DELETION',
             triggerUserId: 'user-a',
@@ -523,7 +553,7 @@ export function registerRetentionCases(
           );
         });
 
-        const retainedBefore = await prisma.retainedVaultObject.findUniqueOrThrow({
+        const retainedBefore = await adminPrisma.retainedVaultObject.findUniqueOrThrow({
           where: { id: retainedVaultObject.id },
         });
         expect(retainedBefore).toMatchObject({
@@ -539,7 +569,7 @@ export function registerRetentionCases(
         );
 
         expect(result.processedCount).toBe(2);
-        const disposedVault = await prisma.retainedVaultObject.findUniqueOrThrow({
+        const disposedVault = await adminPrisma.retainedVaultObject.findUniqueOrThrow({
           where: { id: retainedVaultObject.id },
         });
         expect(disposedVault).toMatchObject({
@@ -551,7 +581,7 @@ export function registerRetentionCases(
         });
         expect(disposedVault.disposedAt?.toISOString()).toBe('2026-05-18T00:00:00.000Z');
 
-        const accessLogs = await prisma.retentionAccessLog.findMany({
+        const accessLogs = await adminPrisma.retentionAccessLog.findMany({
           where: { retainedVaultObjectId: retainedVaultObject.id },
         });
         expect(accessLogs).toEqual(
@@ -578,7 +608,7 @@ export function registerRetentionCases(
         });
 
         const deletedAt = new Date('2026-05-12T00:00:00.000Z');
-        const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+        const owner = createRetainedIdentityOwner(retentionPrisma, { identifierCipher });
         const retainedIdentity = await owner.createRetainedIdentitySnapshot({
           userId: 'user-a',
           deletedAt,
@@ -628,7 +658,7 @@ export function registerRetentionCases(
           },
         });
 
-        const result = await prisma.runSerializableTransaction((tx) =>
+        const result = await retentionPrisma.runSerializableTransaction((tx) =>
           createDeletionArchiveJobsTx(tx, {
             retainedIdentityId: retainedIdentity.id,
             userId: 'user-a',
@@ -638,7 +668,7 @@ export function registerRetentionCases(
 
         expect(result.createdCount).toBe(5);
 
-        const jobs = await prisma.archiveJob.findMany({
+        const jobs = await adminPrisma.archiveJob.findMany({
           where: { retainedIdentityId: retainedIdentity.id },
           orderBy: { target: 'asc' },
         });
@@ -703,7 +733,7 @@ export function registerRetentionCases(
 
         const deletedAt = new Date('2026-05-12T00:00:00.000Z');
         const archiveNow = new Date('2026-05-13T00:00:00.000Z');
-        const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+        const owner = createRetainedIdentityOwner(retentionPrisma, { identifierCipher });
         const retainedIdentity = await owner.createRetainedIdentitySnapshot({
           userId: 'user-a',
           deletedAt,
@@ -794,7 +824,7 @@ export function registerRetentionCases(
           ],
         });
 
-        await prisma.runSerializableTransaction((tx) =>
+        await retentionPrisma.runSerializableTransaction((tx) =>
           createDeletionArchiveJobsTx(tx, {
             retainedIdentityId: retainedIdentity.id,
             userId: 'user-a',
@@ -802,7 +832,7 @@ export function registerRetentionCases(
           }),
         );
 
-        const sweep = await retryDueArchiveJobs(prisma, archiveNow, undefined, {
+        const sweep = await retryDueArchiveJobs(retentionPrisma, archiveNow, undefined, {
           keyring: retainedVaultKeyring,
         });
         expect(sweep.manualReviewCount).toBe(0);
@@ -880,7 +910,7 @@ export function registerRetentionCases(
           archiveNow.toISOString(),
         );
 
-        const vaultObjects = await prisma.retainedVaultObject.findMany({
+        const vaultObjects = await adminPrisma.retainedVaultObject.findMany({
           where: {
             subjectRetainedIdentityId: retainedIdentity.id,
             target: {
@@ -929,7 +959,7 @@ export function registerRetentionCases(
           vaultObjects.every((object) => object.holds[0]?.holdReason === 'ACCOUNT_DELETION'),
         ).toBe(true);
 
-        const academicVaultObjects = await prisma.retainedVaultObject.findMany({
+        const academicVaultObjects = await adminPrisma.retainedVaultObject.findMany({
           where: {
             subjectRetainedIdentityId: retainedIdentity.id,
             target: 'ACADEMIC_IDENTITY_AUDIT_EVENT',
@@ -1006,7 +1036,7 @@ export function registerRetentionCases(
         )
     `;
 
-        await prisma.runSerializableTransaction((tx) =>
+        await retentionPrisma.runSerializableTransaction((tx) =>
           createDeletionArchiveJobsTx(tx, {
             retainedIdentityId: retainedIdentityB.id,
             userId: 'user-b',
@@ -1014,7 +1044,7 @@ export function registerRetentionCases(
           }),
         );
 
-        const counterpartSweep = await retryDueArchiveJobs(prisma, archiveNow, undefined, {
+        const counterpartSweep = await retryDueArchiveJobs(retentionPrisma, archiveNow, undefined, {
           keyring: retainedVaultKeyring,
         });
         expect(counterpartSweep.manualReviewCount).toBe(0);
@@ -1053,7 +1083,7 @@ export function registerRetentionCases(
         );
         expect(allMatchLinks).toHaveLength(4);
 
-        const matchVaultObjects = await prisma.retainedVaultObject.findMany({
+        const matchVaultObjects = await adminPrisma.retainedVaultObject.findMany({
           where: { target: 'MATCH_HISTORY_ENTRY' },
           orderBy: [{ sourceId: 'asc' }, { subjectRole: 'asc' }],
         });
@@ -1095,7 +1125,7 @@ export function registerRetentionCases(
         }
 
         const disclosure = await discloseRetainedVaultPayload(
-          prisma,
+          retentionDisclosurePrisma,
           {
             retainedVaultObjectId: viewerMatchVault.id,
             accessedBy: 'retention-integration-test',
@@ -1123,7 +1153,7 @@ export function registerRetentionCases(
         });
 
         const deletedAt = new Date('2026-05-12T00:00:00.000Z');
-        const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+        const owner = createRetainedIdentityOwner(retentionPrisma, { identifierCipher });
         const retainedIdentity = await owner.createRetainedIdentitySnapshot({
           userId: 'user-a',
           deletedAt,
@@ -1165,7 +1195,7 @@ export function registerRetentionCases(
           },
         });
 
-        await prisma.runSerializableTransaction((tx) =>
+        await retentionPrisma.runSerializableTransaction((tx) =>
           createDeletionArchiveJobsTx(tx, {
             retainedIdentityId: retainedIdentity.id,
             userId: 'user-a',
@@ -1173,7 +1203,7 @@ export function registerRetentionCases(
           }),
         );
 
-        const waitingJob = await prisma.archiveJob.findFirstOrThrow({
+        const waitingJob = await adminPrisma.archiveJob.findFirstOrThrow({
           where: {
             retainedIdentityId: retainedIdentity.id,
             target: 'THREAD_RETENTION',
@@ -1192,13 +1222,13 @@ export function registerRetentionCases(
         });
 
         const activation = await activateThreadRetentionJobsForArchivedThreads(
-          prisma,
+          retentionPrisma,
           new Date('2026-05-20T00:00:00.000Z'),
         );
         expect(activation.activatedCount).toBeGreaterThanOrEqual(1);
 
         const sweep = await retryDueArchiveJobs(
-          prisma,
+          retentionPrisma,
           new Date('2026-05-20T00:00:00.000Z'),
           {
             bodyCipher: chatBodyCipher,
@@ -1209,7 +1239,7 @@ export function registerRetentionCases(
         );
         expect(sweep.succeededCount).toBeGreaterThanOrEqual(1);
 
-        const succeededJob = await prisma.archiveJob.findUniqueOrThrow({
+        const succeededJob = await adminPrisma.archiveJob.findUniqueOrThrow({
           where: { id: waitingJob.id },
         });
         expect(succeededJob).toMatchObject({
@@ -1282,7 +1312,7 @@ export function registerRetentionCases(
     `;
         expect(staleMessageCreatedCount?.count).toBe(0);
 
-        const retainedBodies = await prisma.retainedVaultObject.findMany({
+        const retainedBodies = await adminPrisma.retainedVaultObject.findMany({
           where: { target: 'CHAT_MESSAGE_BODY', sourceTable: 'ConversationMessage' },
           orderBy: { sourceId: 'asc' },
           include: { holds: true },
@@ -1333,14 +1363,14 @@ export function registerRetentionCases(
         );
         expect(disposal.processedCount).toBeGreaterThanOrEqual(1);
 
-        const disposedIdentity = await prisma.retainedIdentity.findUniqueOrThrow({
+        const disposedIdentity = await adminPrisma.retainedIdentity.findUniqueOrThrow({
           where: { id: retainedIdentity.id },
         });
         expect(disposedIdentity.retentionDisposedAt?.toISOString()).toBe(
           '2026-05-18T00:00:00.000Z',
         );
 
-        const bodiesAfterIdentityDisposal = await prisma.retainedVaultObject.findMany({
+        const bodiesAfterIdentityDisposal = await adminPrisma.retainedVaultObject.findMany({
           where: { target: 'CHAT_MESSAGE_BODY', sourceTable: 'ConversationMessage' },
           orderBy: { sourceId: 'asc' },
         });

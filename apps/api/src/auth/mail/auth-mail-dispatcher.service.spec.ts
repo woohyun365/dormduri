@@ -19,7 +19,14 @@ const event = {
   attemptCount: 1,
 } as const;
 
-function createFixture(mailSendTimeoutMs = 20, mailDispatcherEnabled = false) {
+function createFixture(
+  mailSendTimeoutMs = 20,
+  mailDispatcherEnabled = false,
+  backgroundJobMetrics?: {
+    recordSucceeded: ReturnType<typeof vi.fn>;
+    recordFailed: ReturnType<typeof vi.fn>;
+  },
+) {
   const prisma = {
     getDatabaseNow: vi.fn().mockResolvedValue(now),
   };
@@ -62,6 +69,7 @@ function createFixture(mailSendTimeoutMs = 20, mailDispatcherEnabled = false) {
     emailSender,
     settings as never,
     metrics,
+    backgroundJobMetrics as never,
   );
   return { service, prisma, repository, emailSender, metrics };
 }
@@ -224,4 +232,33 @@ describe('AuthMailDispatcherService', () => {
       vi.useRealTimers();
     }
   });
+
+  it.each([
+    ['성공', false, 'recordSucceeded'],
+    ['실패', true, 'recordFailed'],
+  ] as const)(
+    '예약 tick %s는 공통 작업 metric(auth_mail_dispatcher)에 기록한다',
+    async (_label, claimRejects, expected) => {
+      vi.useFakeTimers({ now });
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const backgroundJobMetrics = { recordSucceeded: vi.fn(), recordFailed: vi.fn() };
+      const { service, repository } = createFixture(20, true, backgroundJobMetrics);
+      if (claimRejects) repository.claimBatch.mockRejectedValueOnce(new Error('claim unavailable'));
+      try {
+        service.onApplicationBootstrap();
+        await vi.advanceTimersByTimeAsync(1_000);
+
+        expect(backgroundJobMetrics[expected]).toHaveBeenCalledExactlyOnceWith(
+          'auth_mail_dispatcher',
+        );
+        const other = expected === 'recordFailed' ? 'recordSucceeded' : 'recordFailed';
+        expect(backgroundJobMetrics[other]).not.toHaveBeenCalled();
+      } finally {
+        service.onModuleDestroy();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        warn.mockRestore();
+      }
+    },
+  );
 });
