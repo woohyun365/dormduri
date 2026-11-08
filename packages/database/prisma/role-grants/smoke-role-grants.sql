@@ -12,10 +12,12 @@
 --
 -- Fails with every mismatch listed (up to 50 lines each):
 --   - inputs and schema problems (same as apply)
---   - LOGIN users: exist, can log in, inherit exactly their group role (no other
---     managed role, no migration_owner), no superuser/CREATEROLE/CREATEDB/BYPASSRLS
---   - every relation x {PUBLIC, managed roles, LOGIN users} x 7 table privileges and
---     every column x 4 column privileges equal the grant table
+--   - LOGIN users (the pairs above and every other LOGIN user that is a direct member
+--     of exactly one managed role): exist, can log in, inherit exactly their group role
+--     (no other managed role, no migration_owner), no superuser/CREATEROLE/CREATEDB/BYPASSRLS
+--   - every relation x {PUBLIC, managed roles, LOGIN users} x 7 table privileges (8 with
+--     MAINTAIN on PostgreSQL 17+) and every column x 4 column privileges equal the grant table
+--   - LOGIN users with two or more group memberships or a direct grant
 --   - relation and type owner, schema USAGE/CREATE, migration_owner default privileges
 
 DO $$

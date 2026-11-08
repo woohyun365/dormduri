@@ -10,8 +10,8 @@ Each app URL logs in, reports its LOGIN user and runs one allowed and one denied
 read. The migration connection then compares every table and column privilege of
 PUBLIC, every group role and those LOGIN users with the grant table
 (role-grant-matrix.csv), checks ownership and default privileges, and fails on any
-mismatch. Other LOGIN users (human read-only users) are covered through their group
-role on the migration connection.
+mismatch. Other LOGIN users that are a direct member of one group role (human
+read-only users) are compared the same way by role name on the migration connection.
 Required env for a real smoke:
   MIGRATION_DATABASE_URL
   DATABASE_URL

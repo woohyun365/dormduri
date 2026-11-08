@@ -258,6 +258,8 @@ describe('DB role grant SQL artifacts', () => {
     // PostgreSQL 17+ MAINTAIN, human LOGIN users' memberships, direct grants, default ACL.
     expect(smoke).toContain("ARRAY['MAINTAIN']");
     expect(smoke).toContain('FROM usable_memberships u');
+    // LOGIN users without a smoke URL join the table·column comparison by role name.
+    expect(inputs).toMatch(/unlisted AS \([\s\S]*HAVING count\(\*\) = 1/u);
     expect(smoke).toContain("format('%s has a direct grant on %s'");
     expect(smoke).toContain("'migration_owner default privileges grant %s on new %s to %s'");
     // Problem lines are compared by text: an aggregate ORDER BY <number> sorts by a constant, not a column.

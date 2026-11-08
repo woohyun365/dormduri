@@ -217,19 +217,37 @@ AS $fn$
     )
 $fn$;
 
--- Smoke subjects: PUBLIC (no grant), every managed role, and LOGIN users given as
--- space-separated role=user pairs; a LOGIN user must have exactly its role's grants.
+-- Smoke subjects: PUBLIC (no grant), every managed role, LOGIN users given as
+-- space-separated role=user pairs, and every other LOGIN user that is a direct member
+-- of exactly one managed role (human read-only users and others without a smoke URL;
+-- privileges are computed by role name, so no credential is needed). A LOGIN user must
+-- have exactly its role's grants. Two or more direct memberships are a structure problem.
 CREATE FUNCTION pg_temp.role_grant_smoke_subjects(login_users text)
 RETURNS TABLE (subject text, role_name text, is_login boolean)
 LANGUAGE sql
 STABLE
 AS $fn$
+  WITH listed AS (
+    SELECT split_part(pair, '=', 2) AS subject, split_part(pair, '=', 1) AS role_name
+    FROM regexp_split_to_table(btrim(COALESCE(login_users, '')), '\s+') AS pair
+    WHERE btrim(COALESCE(login_users, '')) <> ''
+  ),
+  unlisted AS (
+    SELECT r.rolname::text AS subject, min(g.rolname)::text AS role_name
+    FROM pg_auth_members m
+    JOIN pg_roles g ON g.oid = m.roleid AND g.rolname = ANY (pg_temp.role_grant_managed_roles())
+    JOIN pg_roles r ON r.oid = m.member AND r.rolcanlogin
+    WHERE (m.inherit_option OR m.set_option)
+      AND r.rolname::text NOT IN (SELECT l.subject FROM listed l)
+    GROUP BY r.rolname
+    HAVING count(*) = 1
+  )
   SELECT 'public', 'none', false
   UNION ALL
   SELECT role_name, role_name, false
   FROM unnest(pg_temp.role_grant_managed_roles()) AS role_name
   UNION ALL
-  SELECT split_part(pair, '=', 2), split_part(pair, '=', 1), true
-  FROM regexp_split_to_table(btrim(COALESCE(login_users, '')), '\s+') AS pair
-  WHERE btrim(COALESCE(login_users, '')) <> ''
+  SELECT subject, role_name, true FROM listed
+  UNION ALL
+  SELECT subject, role_name, true FROM unlisted
 $fn$;

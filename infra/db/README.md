@@ -191,9 +191,10 @@ Smoke는 읽기 전용이다(`default_transaction_read_only = on`). 다음을 �
 - 모든 객체의 소유자, app role의 schema·database CREATE 없음, `migration_owner` default privilege(PUBLIC 함수 실행
   없음, 어느 role에도 자동 부여 없음).
 
-사람 조회 user처럼 host에 credential을 두지 않는 LOGIN user는 group role 비교와, migration 연결에서 읽는 membership
-검사(group 하나만, superuser·CREATEROLE·CREATEDB·BYPASSRLS 없음)와 직접 grant 검사(table·열 권한은 group role에만)로
-확인한다.
+사람 조회 user처럼 host에 credential을 두지 않는 LOGIN user도 group 하나의 직접 member이면 같은 table·열 비교에 들어간다
+(권한은 role 이름으로 계산하므로 credential이 필요 없다). 그래서 predefined role(`pg_read_all_data` 등)이나 표 밖 role을
+거친 권한도 걸린다. group 둘 이상의 직접 member, superuser·CREATEROLE·CREATEDB·BYPASSRLS, group을 거치지 않은 직접
+grant(table·열)는 migration 연결의 구조 검사가 거부한다.
 
 ### Restore drill smoke
 

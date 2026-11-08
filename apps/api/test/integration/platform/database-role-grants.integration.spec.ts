@@ -135,8 +135,10 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
 
       const summary = await smokeAsMigrator();
       expect(summary).toMatch(
-        /^role grant smoke ok: schema \S+, 3 LOGIN users, \d+ table checks, \d+ column checks$/u,
+        /^role grant smoke ok: schema \S+, \d+ LOGIN users, \d+ table checks, \d+ column checks$/u,
       );
+      // The three app LOGIN users at least; other LOGIN members of one group join the count.
+      expect(smokeLoginCount(summary)).toBeGreaterThanOrEqual(3);
     });
 
     it('grant 적용은 다시 실행해도 같은 결과다', async () => {
@@ -338,8 +340,9 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
       await expect(smokeAsMigrator()).resolves.toContain('role grant smoke ok');
     });
 
-    it('MAINTAIN·자동 부여 default privilege·사람 user의 추가 membership·직접 grant를 smoke가 거부한다', async () => {
+    it('MAINTAIN·자동 부여 default privilege·사람 user의 추가 membership·직접 grant·간접 권한을 smoke가 거부한다', async () => {
       const human = `dormduri_ro_pipeline_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+      const outside = `dormduri_pipeline_outside_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
       const cases: readonly (readonly [string, string, RegExp])[] = [
         [
           `GRANT MAINTAIN ON ${table('User')} TO app_runtime`,
@@ -357,16 +360,30 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
           new RegExp(`LOGIN user ${human} is a member of app_readonly, retention_disclosure`, 'u'),
         ],
         [
-          `GRANT SELECT ON ${table('User')} TO ${quoteIdentifier(human)}`,
-          `REVOKE SELECT ON ${table('User')} FROM ${quoteIdentifier(human)}`,
-          new RegExp(`${human} has a direct grant on User`, 'u'),
+          `GRANT SELECT ("id") ON ${table('User')} TO ${quoteIdentifier(human)}`,
+          `REVOKE SELECT ("id") ON ${table('User')} FROM ${quoteIdentifier(human)}`,
+          new RegExp(`${human} has a direct column grant on User\\.id`, 'u'),
+        ],
+        // Privileges without an ACL entry or a second direct membership: a predefined role
+        // and a group inherited through a role outside the grant table.
+        [
+          `GRANT pg_read_all_data TO ${quoteIdentifier(human)}`,
+          `REVOKE pg_read_all_data FROM ${quoteIdentifier(human)}`,
+          new RegExp(`${human} SELECT on \\w+: expected denied, actual granted`, 'u'),
+        ],
+        [
+          `CREATE ROLE ${quoteIdentifier(outside)} NOLOGIN; GRANT retention_disclosure TO ${quoteIdentifier(outside)}; GRANT ${quoteIdentifier(outside)} TO ${quoteIdentifier(human)}`,
+          `DROP ROLE ${quoteIdentifier(outside)}`,
+          new RegExp(`LOGIN user ${human} is also a member of retention_disclosure`, 'u'),
         ],
       ];
       // A human read-only user as bootstrap makes it: LOGIN and a member of app_readonly only.
+      const before = smokeLoginCount(await smokeAsMigrator());
       await admin.query(`CREATE ROLE ${quoteIdentifier(human)} LOGIN`);
       await admin.query(`GRANT app_readonly TO ${quoteIdentifier(human)}`);
       try {
-        await expect(smokeAsMigrator()).resolves.toContain('role grant smoke ok');
+        // The human user is compared with the grant table without a URL of its own.
+        expect(smokeLoginCount(await smokeAsMigrator())).toBe(before + 1);
         for (const [tamper, restore, message] of cases) {
           await admin.query(tamper);
           try {
@@ -382,3 +399,11 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
     });
   },
 );
+
+function smokeLoginCount(summary: string): number {
+  const match = /, (\d+) LOGIN users,/u.exec(summary);
+  if (!match?.[1]) {
+    throw new Error(`smoke summary without a LOGIN user count: ${summary}`);
+  }
+  return Number(match[1]);
+}
