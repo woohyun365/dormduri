@@ -9,6 +9,7 @@ import type { ConfigType } from '@nestjs/config';
 import { getDatabaseTableMaintenanceStats } from '@repo/database/sql';
 import {
   BackgroundJobMetricsService,
+  drainBackgroundJob,
   runBackgroundJobTick,
 } from '../../background-jobs/background-job-metrics.service.js';
 import {
@@ -20,8 +21,14 @@ import observabilityConfig from '../observability/observability.config.js';
 import { PrismaService } from './prisma.service.js';
 
 export const DATABASE_TABLE_STATS_INTERVAL_MS = 15 * 60 * 1_000;
+// Pool query and statement timeouts default to none. With the lifecycle sweep's 20s wait this
+// stays inside the compose stop_grace_period (30s).
+const SHUTDOWN_READ_DRAIN_TIMEOUT_MS = 5_000;
 
-/** Delete-heavy tables from the maintenance baseline in `infra/db/README.md`. */
+/**
+ * Delete-heavy tables from the maintenance baseline in `infra/db/README.md`. The Prometheus
+ * adapter lowercases label values, so a rule matches `table="archivejob"`.
+ */
 export const DATABASE_MAINTENANCE_TABLES = [
   'AuthMailOutboxEvent',
   'ChatRealtimeOutboxEvent',
@@ -68,8 +75,12 @@ export class DatabaseTableStatsService implements OnApplicationBootstrap, OnModu
       this.interval = null;
     }
 
-    // The read is bounded by the pool's connection and statement timeouts.
-    await this.activeRead;
+    const read = this.activeRead;
+    if (read && !(await drainBackgroundJob(read, SHUTDOWN_READ_DRAIN_TIMEOUT_MS))) {
+      this.logger.warn(
+        `Database table stats read still running after ${SHUTDOWN_READ_DRAIN_TIMEOUT_MS}ms shutdown wait.`,
+      );
+    }
   }
 
   async collectOnce(): Promise<void> {

@@ -166,6 +166,39 @@ describe('retention-observability', () => {
     expect(JSON.stringify(domainMetrics.setGauge.mock.calls)).not.toContain('encryptedPayload');
   });
 
+  it('key unavailable·retry 소진·manual review를 서로 다른 gauge label로 낸다', async () => {
+    vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const domainMetrics = makeDomainMetrics();
+    const service = new RetentionObservabilityService(domainMetrics);
+    const prisma = makeBacklogPrisma({ archiveDueCount: 0, keyUnavailableCount: 1 });
+    prisma.retentionReviewJob.findMany.mockResolvedValue([
+      { attemptCount: 1, maxAttempts: 3, lastErrorCode: 'REVIEW_FAILED' },
+    ]);
+
+    await service.emitSweep({
+      prisma: prisma as never,
+      result: makeSweepResult({ accessLogDisposedCount: 0 }),
+      now: new Date('2026-05-26T00:00:00.000Z'),
+      durationMs: 1,
+    });
+
+    for (const [target, state, value] of [
+      ['key', 'unavailable', 1],
+      ['archive_jobs', 'retry_exhausted', 1],
+      ['archive_jobs', 'manual_review', 1],
+      ['review_jobs', 'manual_review', 1],
+      ['review_jobs', 'retry_exhausted', 0],
+    ] as const) {
+      expect(domainMetrics.setGauge).toHaveBeenCalledWith({
+        name: 'api_retention_backlog_total',
+        labels: { target, state },
+        value,
+      });
+    }
+  });
+
   it('sweep 실패를 gauge 상태 값 1로, 다음 성공을 0으로 낸다', async () => {
     vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
     vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);

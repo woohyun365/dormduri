@@ -47,6 +47,28 @@ export class BackgroundJobMetricsService {
 }
 
 /**
+ * Waits for scheduled work that shutdown should not cut off, up to `timeoutMs`. Returns
+ * false when the limit passed first; the work itself is not cancelled.
+ */
+export async function drainBackgroundJob(
+  work: Promise<unknown>,
+  timeoutMs: number,
+): Promise<boolean> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const drained = await Promise.race([
+    work.then(
+      () => true,
+      () => true,
+    ),
+    new Promise<boolean>((resolve) => {
+      timeout = setTimeout(() => resolve(false), timeoutMs);
+    }),
+  ]);
+  clearTimeout(timeout);
+  return drained;
+}
+
+/**
  * Runs one scheduled tick and records its outcome: success sets the last success time,
  * a thrown error or a `failed` outcome counts one failure (a thrown error is rethrown to
  * the caller's own log), a skipped tick records nothing. Without the metrics service

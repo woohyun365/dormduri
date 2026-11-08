@@ -9,7 +9,10 @@ import {
 import type { ConfigType } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
-import { BackgroundJobMetricsService } from '../background-jobs/background-job-metrics.service.js';
+import {
+  BackgroundJobMetricsService,
+  drainBackgroundJob,
+} from '../background-jobs/background-job-metrics.service.js';
 import lifecycleConfig from './config/lifecycle.config.js';
 import {
   BOUNDARY_JOB_PREFIX,
@@ -167,20 +170,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
 
   private async drainActiveScheduledSweep() {
     const sweep = this.activeScheduledSweep;
-    if (!sweep) {
-      return;
-    }
-
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    const timedOut = await Promise.race([
-      sweep.then(() => false),
-      new Promise<boolean>((resolve) => {
-        timeout = setTimeout(() => resolve(true), SHUTDOWN_SWEEP_DRAIN_TIMEOUT_MS);
-      }),
-    ]);
-    clearTimeout(timeout);
-
-    if (timedOut) {
+    if (sweep && !(await drainBackgroundJob(sweep, SHUTDOWN_SWEEP_DRAIN_TIMEOUT_MS))) {
       this.logger.warn(
         `Lifecycle sweep still running after ${SHUTDOWN_SWEEP_DRAIN_TIMEOUT_MS}ms shutdown wait.`,
       );

@@ -238,6 +238,18 @@ describe('SES From display name encoding', () => {
     expect(words.map(decodeEncodedWord).join('')).toBe(name);
   });
 
+  // 46 bytes would take 64 base64 chars, one word of 76 chars.
+  it('starts a second encoded-word at the 46th byte', () => {
+    const name = `${'가'.repeat(15)}a`;
+    const words = encodedWordsOf(fromAddressFor(name));
+
+    expect(words).toHaveLength(2);
+    for (const word of words) {
+      expect(word.length).toBeLessThanOrEqual(75);
+    }
+    expect(words.map(decodeEncodedWord).join('')).toBe(name);
+  });
+
   it('does not split a four-byte character across encoded-words', () => {
     const name = '😀'.repeat(20);
     const words = encodedWordsOf(fromAddressFor(name));

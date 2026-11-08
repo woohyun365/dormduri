@@ -183,6 +183,28 @@ describe('DatabaseTableStatsService', () => {
     expect(f.prisma.$queryRawTyped).not.toHaveBeenCalled();
   });
 
+  it('stops waiting for an in-flight read at the shutdown upper bound', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const f = createFixture();
+    f.prisma.$queryRawTyped.mockReturnValue(new Promise(() => undefined));
+    f.service.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(DATABASE_TABLE_STATS_INTERVAL_MS);
+    const settled = vi.fn();
+
+    const destroyed = f.service.onModuleDestroy().then(settled);
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(settled).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await destroyed;
+
+    expect(settled).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      'Database table stats read still running after 5000ms shutdown wait.',
+    );
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('waits for an in-flight read on destroy and schedules no further read', async () => {
     const f = createFixture();
     let finishRead!: (rows: unknown[]) => void;
