@@ -10,7 +10,8 @@ export type BackgroundJobName =
   | 'lifecycle_sweep'
   | 'auth_mail_dispatcher'
   | 'notification_dispatcher'
-  | 'chat_realtime_dispatcher';
+  | 'chat_realtime_dispatcher'
+  | 'database_table_stats';
 
 /**
  * `skipped`: the tick did no work on purpose (already running, publisher unbound).

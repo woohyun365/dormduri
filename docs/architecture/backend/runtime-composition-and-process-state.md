@@ -17,6 +17,7 @@ one API process / AppModule
   ├── AuthMailDispatcherService: enabled mail outbox dispatch
   ├── ChatRealtimeDispatcherService: enabled local fanout dispatch
   ├── NotificationOutboxDispatcherService: enabled local fanout dispatch
+  ├── DatabaseTableStatsService: metrics-enabled table gauge read
   └── purpose-specific local admission/state
 ```
 
@@ -31,10 +32,12 @@ Combined는 설명 용어이며 새 enum·환경변수·Boolean role matrix를 �
 | Lifecycle                  | `LIFECYCLE_SWEEP_ENABLED`: test=false, 그 외=true; interval은 production=300000ms, 그 외=60000ms | 이 API instance의 bootstrap automatic sweep과 schedule 등록                                      |
 | Auth mail                  | `AUTH_MAIL_DISPATCHER_ENABLED`: true; interval=1000ms                                            | 이 API instance의 mail dispatch timer; test 환경에서도 기본 true이므로 fixture가 명시적으로 제어 |
 | Chat + notification outbox | `CHAT_REALTIME_DISPATCHER_ENABLED`: test=false, 그 외=true; interval=1000ms                      | 두 dispatcher의 자동 timer; notification용 독립 enable 환경변수는 없음                           |
+| Database table stats       | `METRICS_ENABLED`: true; interval=900000ms                                                       | 이 API instance의 table 통계 읽기 timer                                                          |
 
 기본값과 env override의 owner는 [lifecycle config](../../../apps/api/src/lifecycle/config/lifecycle.config.ts),
 [auth config](../../../apps/api/src/auth/config/auth.config.ts),
-[chat realtime config](../../../apps/api/src/chat/realtime/chat-realtime.config.ts)다. 설정은 bootstrap 시 읽은 값이며 여기서는
+[chat realtime config](../../../apps/api/src/chat/realtime/chat-realtime.config.ts),
+[observability config](../../../apps/api/src/platform/observability/observability.config.ts)다. 설정은 bootstrap 시 읽은 값이며 여기서는
 hot reload를 보장하지 않는다. 이 스위치를 끄는 것은 자동 실행을 끄는 것이지 manual entrypoint의 권한을 차단하거나
 다른 process로 작업을 이전하는 것이 아니다. HTTP/Socket.IO serving을 없애는 스위치도 아니다.
 
@@ -50,6 +53,7 @@ Notification은 기존 notification publisher adapter와 이 설정/관측 port�
 | Lifecycle sweeps              | Combined API; [LifecycleModule](../../../apps/api/src/lifecycle/lifecycle.module.ts)이 8개 owner module과 11개 task를 조합 | 일부 task가 미래 후보일 수 있지만 현재 graph를 그대로 headless app에 복제하는 것은 narrow worker capability가 아님         |
 | Auth mail dispatcher          | Combined API의 auth owner; provider 호출은 기존 email sender가 소유                                                        | Local Socket.IO binding은 필요 없지만 named workload/value, secret/pool graph와 retry/shutdown 검증 전 분리하지 않음       |
 | Chat/notification dispatchers | Gateway가 publisher를 bind한 serving process                                                                               | **Serving-affine**: 미결합 publisher에서는 claim 전 `PUBLISHER_UNBOUND`로 skip; live client가 없는 process로 이동하지 않음 |
+| Database table stats          | Combined API; runtime credential로 `pg_stat_user_tables`만 읽음                                                            | 읽기 전용 metric이라 분리할 근거가 없음                                                                                    |
 
 ## Process-local state inventory
 
@@ -67,7 +71,8 @@ Notification은 기존 notification publisher adapter와 이 설정/관측 port�
 | [AuthMailDispatcherService](../../../apps/api/src/auth/mail/auth-mail-dispatcher.service.ts)                               | running suppression, periodic timer                                 | 같은 dispatcher instance의 dispatchOnce; DB claim/lease와 별도             | finally에서 running 해제; destroy는 timer 제거이지 active work drain이 아님                           | 측정된 mail lag/isolation 또는 stronger shutdown 요구                    | 다른 instance와 running flag를 공유하지 않으며 전체 exactly-once를 보장하지 않음 |
 | [ChatRealtimeDispatcherService](../../../apps/api/src/chat/realtime/chat-realtime-dispatcher.service.ts)                   | running/timer와 local lastPrunedAt cadence                          | bound publisher를 가진 instance; prune 시각은 coordination lock이 아님     | Restart 시 flags/cadence 소실; destroy는 timer 제거                                                   | Outbox lag/fanout isolation, cross-instance execution 또는 shutdown 계약 | Running/prune budget은 공유되지 않으며 DB lease가 fanout routing을 해결하지 않음 |
 | [NotificationOutboxDispatcherService](../../../apps/api/src/notifications/outbox/notification-dispatcher.service.ts)       | running suppression, timer, serving-affine publication              | notification dispatcher instance; 기존 chat-backed settings/port 사용      | Restart resets flags; timer 제거는 in-flight cancel/drain이 아님                                      | Notification lag/isolation 또는 multiple serving 요구                    | DB outbox가 durable해도 local publisher는 다른 process의 client를 소유하지 않음  |
-| [LifecycleSweepService](../../../apps/api/src/lifecycle/lifecycle-sweep.service.ts)                                        | scheduled periodic/boundary overlap suppression, interval/cron 소유 | 같은 service의 scheduled entry만 보호; public/manual runner는 우회         | 새 instance는 상태 초기화; destroy는 closing 전환·timer 제거·pending refresh의 late registration 차단 | Multi-instance scheduler 또는 stronger shutdown 계약                     | Global singleton/DB lease가 아니며 manual·다른 instance 실행을 배제하지 않음     |
+| [LifecycleSweepService](../../../apps/api/src/lifecycle/lifecycle-sweep.service.ts)                                        | scheduled periodic/boundary overlap suppression, interval/cron 소유 | 같은 service의 scheduled entry만 보호; public/manual runner는 우회         | 새 instance는 상태 초기화; destroy는 timer 제거·late registration 차단·scheduled sweep 상한 20초 대기 | Multi-instance scheduler 또는 stronger shutdown 계약                     | Global singleton/DB lease가 아니며 manual·다른 instance 실행을 배제하지 않음     |
+| [DatabaseTableStatsService](../../../apps/api/src/platform/database/database-table-stats.service.ts)                       | 15분 읽기 timer, in-flight read 중복 억제                           | 같은 service instance의 예약 읽기만 보호                                   | Restart 시 다음 주기까지 gauge 없음; destroy는 timer 제거와 진행 중 읽기 대기                         | 측정된 DB 부하 또는 multiple serving 승인                                | Instance마다 같은 DB 값을 따로 읽고 gauge도 instance별로 냄                      |
 | [ProcessPasswordHashAdmission](../../../apps/api/src/auth/credentials/password-hashing/password-hash-admission.service.ts) | hash/verify CPU·memory admission과 bounded queue                    | module-level process singleton; Nest service들이 같은 instance를 configure | Restart resets queue/budget; 새 Nest service가 독립 budget을 만들지 않음                              | Admission saturation 또는 여러 process의 aggregate capacity 판단         | 각 process가 별도 budget을 가지므로 process 합산 CPU/memory 제한은 아님          |
 
 Gateway의 admission registration과 [connected-socket gauge](../../../apps/api/src/chat/realtime/chat-realtime.metrics.ts)는
@@ -82,8 +87,9 @@ Metric service 자체는 socket identity가 없는 instance-local 집계이며, 
 - [Lifecycle public/manual runner](../../../apps/api/src/lifecycle/lifecycle-sweep-runner.ts)는 scheduled-running guard를 거치지
   않는다. Scheduled overlap suppression을 모든 manual/task 실행의 mutex로 설명하지 않는다.
 - Destroy hook은 현재 interval/cron을 제거한다. Lifecycle scheduler는 closing 상태를 확인하여 pending DB-time/schedule
-  계산 뒤의 새 timer 등록과 종료 후 scheduled entry를 차단한다. 이미 진입한 sweep/dispatch의 drain/cancel은 보장하지
-  않는다. Bootstrap의 shutdown hook 등록만으로 process 전체의 graceful drain을 보장하지 않는다.
+  계산 뒤의 새 timer 등록과 종료 후 scheduled entry를 차단한다. 이미 진입한 lifecycle scheduled sweep은 상한 20초까지
+  기다린 뒤 Prisma 연결 해제로 넘어가고 cancel하지 않는다. Dispatcher의 진행 중 dispatch drain/cancel과 manual runner의
+  drain은 보장하지 않는다. Bootstrap의 shutdown hook 등록만으로 process 전체의 graceful drain을 보장하지 않는다.
 - Durable outbox producer는 PostgreSQL transaction에 속한다. DB claim/lease/retry는 해당 row/task의 경계이고
   process-local running flag나 local Socket.IO fanout과 다르다. Claim 보호를 cluster-wide 모든 작업의 exactly-once로
   확대하지 않는다. Retention worker Prisma role도 credential boundary이지 별도 process가 아니다.

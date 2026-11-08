@@ -20,7 +20,7 @@ leaf module이다.
 | `api_background_job_last_success_timestamp_seconds` | gauge   | `job` | 마지막으로 성공한 예약 실행의 Unix 초 |
 | `api_background_job_failures_total`                 | counter | `job` | 실패한 예약 실행 수                   |
 
-`job` 값은 고정된 넷이다.
+`job` 값은 고정된 다섯이다.
 
 | `job`                      | owner                                                     | 한 번의 실행                                           |
 | -------------------------- | --------------------------------------------------------- | ------------------------------------------------------ |
@@ -28,6 +28,7 @@ leaf module이다.
 | `auth_mail_dispatcher`     | `auth/mail/auth-mail-dispatcher.service.ts`               | dispatch tick 한 번                                    |
 | `notification_dispatcher`  | `notifications/outbox/notification-dispatcher.service.ts` | dispatch tick 한 번                                    |
 | `chat_realtime_dispatcher` | `chat/realtime/chat-realtime-dispatcher.service.ts`       | dispatch와 replay window prune tick(prune 실패도 실패) |
+| `database_table_stats`     | `platform/database/database-table-stats.service.ts`       | watched table 통계 읽기와 gauge 갱신 한 번             |
 
 경보 규칙(마지막 성공이 작업 주기보다 오래 멈춤, 실패 수 증가)은 observability 경보 owner가 이 두 metric으로 만든다.
 작업별 결과 metric(처리 건수, lag, dispatch outcome)은 각 owner에 남는다. 실행 안 항목 하나의 실패(RRPD 검토 job 하나가

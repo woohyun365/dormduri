@@ -232,6 +232,17 @@ export const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
       'canonical database timestamp helper returns an adapter-timezone-independent epoch value.',
   }),
   sqlEntry({
+    path: 'prisma/sql/getDatabaseTableMaintenanceStats.sql',
+    owner: 'platform/database',
+    category: 'typedsql-query',
+    requiredPatterns: [
+      /FROM\s+pg_stat_user_tables/i,
+      /schemaname\s*=\s*current_schema\(\)/i,
+      /relname::text\s*=\s*ANY\(\$1::text\[\]\)/i,
+    ],
+    rationale: 'table maintenance gauges read only the listed tables of the connected schema.',
+  }),
+  sqlEntry({
     path: 'prisma/sql/getDatabaseReadiness.sql',
     owner: 'health/checks',
     category: 'db-time',

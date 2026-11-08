@@ -19,6 +19,7 @@ import { SeasonParticipantsModule } from './season-participants/season-participa
 import { SocialSafetyModule } from './social-safety/social-safety.module.js';
 import { SupportModule } from './support/support.module.js';
 import { API_CONFIG_MODULE_OPTIONS } from './config/composition/api-config.registry.js';
+import { DatabaseTableStatsModule } from './platform/database/database-table-stats.module.js';
 import { ObservabilityModule } from './platform/observability/observability.module.js';
 import { NoticesModule } from './notices/notices.module.js';
 
@@ -27,6 +28,7 @@ import { NoticesModule } from './notices/notices.module.js';
     ConfigModule.forRoot(API_CONFIG_MODULE_OPTIONS),
     ScheduleModule.forRoot(),
     ObservabilityModule,
+    DatabaseTableStatsModule,
     AuthModule,
     ChatModule,
     DormitoriesModule,

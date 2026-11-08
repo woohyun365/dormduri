@@ -9,6 +9,7 @@
 - `database/PrismaModule`: runtime/retention Prisma client wiring을 제공한다. 모든 consumer module이 명시적으로 import하는 non-global module이다.
 - `database/PrismaService`: runtime DB access, database clock, retryable transaction helper, connection pool budget 계산을 제공한다.
 - `database/RetentionWorkerPrismaService`, `database/RetentionDisclosurePrismaService`: retention worker/disclosure 전용 DB credential boundary다.
+- `database/DatabaseTableStatsModule`: AppModule이 import하는 watched table 통계 gauge reader다. 공통 작업 metric을 쓰려고 제품 module을 import하지 않는 `background-jobs`에 의존한다.
 - `http/`: controller/filter/error/request parsing 공통 primitive다. 제품별 error code/schema는 owning domain 또는 pure shared vocabulary가 소유한다.
 - `security/`: opaque HMAC token, stable JSON serialization 같은 reusable crypto/serialization primitive다. 제품별 token lifecycle/state machine은 owning domain이 소유한다.
 - `time/`: KST local-date helper 같은 domain-neutral date primitive를 제공한다.

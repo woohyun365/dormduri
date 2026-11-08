@@ -20,6 +20,7 @@ const prismaModuleImportBaseline = [
   'src/moderation/moderation.module.ts',
   'src/notices/notices.module.ts',
   'src/notifications/notifications.module.ts',
+  'src/platform/database/database-table-stats.module.ts',
   'src/platform/database/prisma.module.ts',
   'src/profiles/profiles.module.ts',
   'src/retention/retention.module.ts',

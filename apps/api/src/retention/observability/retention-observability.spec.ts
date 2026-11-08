@@ -32,6 +32,7 @@ describe('retention-observability', () => {
       archiveRetryExhaustedCount: 1,
       retentionReviewDueCount: 0,
       retentionReviewManualReviewCount: 1,
+      retentionReviewRetryExhaustedCount: 0,
       retainedVaultObjectCount: 3,
       disposedVaultObjectCount: 4,
       retainedIdentityDisposalDueCount: 0,
@@ -163,6 +164,71 @@ describe('retention-observability', () => {
     });
     expect(JSON.stringify(domainMetrics.setGauge.mock.calls)).not.toContain('identifierValue');
     expect(JSON.stringify(domainMetrics.setGauge.mock.calls)).not.toContain('encryptedPayload');
+  });
+
+  it('sweep 실패를 gauge 상태 값 1로, 다음 성공을 0으로 낸다', async () => {
+    vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const domainMetrics = makeDomainMetrics();
+    const service = new RetentionObservabilityService(domainMetrics);
+
+    service.emitSweepFailure({
+      mode: 'boundary',
+      error: new Error('encryptedPayload=secret'),
+      occurredAt: new Date('2026-05-26T00:00:01.000Z'),
+    });
+
+    expect(domainMetrics.setGauge).toHaveBeenCalledExactlyOnceWith({
+      name: 'api_retention_backlog_total',
+      labels: { target: 'sweep', state: 'failed' },
+      value: 1,
+    });
+
+    domainMetrics.setGauge.mockClear();
+    await service.emitSweep({
+      prisma: makeBacklogPrisma({ archiveDueCount: 0, keyUnavailableCount: 0 }) as never,
+      result: makeSweepResult({ accessLogDisposedCount: 0 }),
+      now: new Date('2026-05-26T00:00:02.000Z'),
+      durationMs: 1,
+    });
+
+    expect(domainMetrics.setGauge).toHaveBeenCalledWith({
+      name: 'api_retention_backlog_total',
+      labels: { target: 'sweep', state: 'failed' },
+      value: 0,
+    });
+  });
+
+  it('review job retry 소진을 gauge 상태 값으로 내고 review job counter는 늘리지 않는다', async () => {
+    vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const domainMetrics = makeDomainMetrics();
+    const service = new RetentionObservabilityService(domainMetrics);
+    const prisma = makeBacklogPrisma({ archiveDueCount: 0, keyUnavailableCount: 0 });
+    prisma.retentionReviewJob.findMany.mockResolvedValue([
+      { attemptCount: 3, maxAttempts: 3, lastErrorCode: 'REVIEW_FAILED' },
+      { attemptCount: 1, maxAttempts: 3, lastErrorCode: 'REVIEW_FAILED' },
+    ]);
+
+    const emission = await service.emitSweep({
+      prisma: prisma as never,
+      result: makeSweepResult({ accessLogDisposedCount: 0 }),
+      now: new Date('2026-05-26T00:00:00.000Z'),
+      durationMs: 1,
+    });
+
+    expect(emission.snapshot.retentionReviewRetryExhaustedCount).toBe(1);
+    expect(domainMetrics.setGauge).toHaveBeenCalledWith({
+      name: 'api_retention_backlog_total',
+      labels: { target: 'review_jobs', state: 'retry_exhausted' },
+      value: 1,
+    });
+    expect(domainMetrics.incrementCounter).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        labels: expect.objectContaining({ outcome: 'retry_exhausted' }) as unknown,
+      }),
+    );
   });
 
   it('Prometheus bridge 기록 실패는 retention metric/alert logging을 깨지 않는다', async () => {

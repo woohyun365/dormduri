@@ -283,7 +283,7 @@ class를 올린다. CloudWatch `DatabaseConnections`로 실제 사용량을 본�
 
 분기 점검은 restore drill과 같은 날 한다. 결과는 식별자 없이 restore drill evidence에 남긴다.
 
-- autovacuum: 삭제·갱신이 잦은 table(outbox 5개, auth 정리 5개, `ArchiveJob`·`RetentionReviewJob`·
+- autovacuum: 삭제·갱신이 잦은 table(outbox 3개, auth 정리 5개, `ArchiveJob`·`RetentionReviewJob`·
   `RetentionAccessLog`)의 `pg_stat_user_tables` dead tuple 비율과 마지막 autovacuum 시각을 본다. dead tuple이 live의
   20%를 넘는 상태가 하루 넘게 이어지는 table만 table별 storage parameter(낮은 `autovacuum_vacuum_scale_factor`)를
   migration으로 둔다.

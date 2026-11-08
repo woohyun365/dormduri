@@ -29,6 +29,8 @@ import { LIFECYCLE_BOUNDARY_SCHEDULE, LIFECYCLE_SWEEP_TASKS } from './lifecycle-
 import type { LifecycleSweepResult } from './lifecycle-sweep.types.js';
 
 const PERIODIC_INTERVAL_NAME = 'lifecycle-periodic-sweep';
+// Inside the compose stop_grace_period (30s), leaving time for the remaining shutdown hooks.
+const SHUTDOWN_SWEEP_DRAIN_TIMEOUT_MS = 20_000;
 
 export type { LifecycleSweepResult } from './lifecycle-sweep.types.js';
 
@@ -38,6 +40,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
   private readonly runner;
   private running = false;
   private closing = false;
+  private activeScheduledSweep: Promise<void> | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -73,7 +76,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
     await this.runScheduledSweep('periodic');
   }
 
-  onModuleDestroy() {
+  async onModuleDestroy() {
     this.closing = true;
     if (this.schedulerRegistry.doesExist('interval', PERIODIC_INTERVAL_NAME)) {
       this.schedulerRegistry.deleteInterval(PERIODIC_INTERVAL_NAME);
@@ -85,6 +88,8 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
       }
       this.schedulerRegistry.deleteCronJob(jobName);
     }
+
+    await this.drainActiveScheduledSweep();
   }
 
   async runSweep(now?: Date): Promise<LifecycleSweepResult> {
@@ -146,12 +151,43 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
     this.schedulerRegistry.addInterval(PERIODIC_INTERVAL_NAME, interval);
   }
 
-  private async runScheduledSweep(mode: 'periodic' | 'boundary') {
+  private runScheduledSweep(mode: 'periodic' | 'boundary'): Promise<void> {
     if (this.closing || this.running) {
-      return;
+      return Promise.resolve();
     }
 
     this.running = true;
+    const sweep = this.executeScheduledSweep(mode).finally(() => {
+      this.running = false;
+      this.activeScheduledSweep = null;
+    });
+    this.activeScheduledSweep = sweep;
+    return sweep;
+  }
+
+  private async drainActiveScheduledSweep() {
+    const sweep = this.activeScheduledSweep;
+    if (!sweep) {
+      return;
+    }
+
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = await Promise.race([
+      sweep.then(() => false),
+      new Promise<boolean>((resolve) => {
+        timeout = setTimeout(() => resolve(true), SHUTDOWN_SWEEP_DRAIN_TIMEOUT_MS);
+      }),
+    ]);
+    clearTimeout(timeout);
+
+    if (timedOut) {
+      this.logger.warn(
+        `Lifecycle sweep still running after ${SHUTDOWN_SWEEP_DRAIN_TIMEOUT_MS}ms shutdown wait.`,
+      );
+    }
+  }
+
+  private async executeScheduledSweep(mode: 'periodic' | 'boundary') {
     try {
       if (mode === 'boundary') {
         await this.runBoundarySweep();
@@ -164,8 +200,6 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
       this.logger.error('Lifecycle sweep failed', error instanceof Error ? error.stack : undefined);
       this.retentionObservability.emitSweepFailure({ mode, error });
       this.backgroundJobMetrics?.recordFailed('lifecycle_sweep');
-    } finally {
-      this.running = false;
     }
   }
 }
