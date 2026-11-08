@@ -2,7 +2,7 @@ import {
   claimChatRealtimeOutboxEvents,
   findChatRealtimeOutboxRecipients,
   pruneExpiredChatRealtimeOutboxEvents,
-} from '../../generated/prisma/sql.js';
+} from '@repo/database/sql';
 
 type TypedQueryable = {
   $queryRawTyped<T = unknown>(query: unknown): Promise<T[]>;

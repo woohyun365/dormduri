@@ -4,8 +4,8 @@ import type {
   HomeDashboardLastSeasonViewerFinalResult,
   HomeDashboardSeasonHistorySummary,
 } from '@repo/shared/home';
-import type { Prisma } from '../../generated/prisma/client.js';
-import type { Campus } from '../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import type { Campus } from '@repo/database/enums';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { formatKstDate } from '../../platform/time/kst-date.js';
 

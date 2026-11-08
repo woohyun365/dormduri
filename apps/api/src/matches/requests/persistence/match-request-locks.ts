@@ -1,9 +1,9 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import {
   acquireTransactionAdvisoryLock,
   lockMatchRequestRow as lockMatchRequestRowSql,
-} from '../../../generated/prisma/sql.js';
+} from '@repo/database/sql';
 import { matchesErrors } from '../../errors/matches.errors.js';
 import { isCooldownActive } from '../policies/match-request-expiration.policy.js';
 

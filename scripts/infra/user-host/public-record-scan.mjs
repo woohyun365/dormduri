@@ -2,7 +2,7 @@
 // 공개 기록(workflow log·run 요약·Release 본문·attestation 내용을 내려받은 text)에 D-WB7 기록 금지 값이 있는지 본다.
 // 종류마다 pattern 하나를 두고, 걸린 값은 출력하지 않고 종류·파일·줄만 적는다.
 // 허용 값(image digest, document 해시 같은 접두 없는 sha256 hex, commit SHA, workflow run·job URL, image·git 배포 tag,
-// timestamp, GitHub runner 임시 경로·worker UUID, script 원문의 registry host template)은 먼저 지운 뒤 검사한다. 그래서
+// timestamp, GitHub runner 임시 경로(regexp escape 형태 포함)·worker UUID, script 원문의 registry host template)은 먼저 지운 뒤 검사한다. 그래서
 // run·job URL의 긴 숫자 ID와 digest 안의 숫자열은 account ID로 걸리지 않는다. GitHub 소유자·저장소 숫자 ID는 종류가 아니다
 // (숫자만으로는 다른 값과 구분할 수 없어 template placeholder test와 리뷰가 지킨다).
 import { readFileSync } from 'node:fs';
@@ -41,6 +41,12 @@ export const ALLOWED_VALUES = Object.freeze([
   [
     'GitHub runner temp path',
     /(?:\/home\/runner\/work\/_temp|\/github\/runner_temp)\/(?:git-credentials-)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gu,
+  ],
+  // actions/checkout은 credential 정리(`git config --unset`)의 값 인자를 regexp escape(영문·숫자·_ 밖 문자 앞에 \)해 찍는다.
+  // escape된 UUID는 activation ID로는 안 걸리지만 숫자만인 마지막 부분이 account ID로 걸리므로 같은 경로만 지운다.
+  [
+    'GitHub runner temp path (regexp-escaped)',
+    /(?:\\\/home\\\/runner\\\/work\\\/_temp|\\\/github\\\/runner_temp)\\\/(?:git\\-credentials\\-)?[0-9a-f]{8}\\-[0-9a-f]{4}\\-[0-9a-f]{4}\\-[0-9a-f]{4}\\-[0-9a-f]{12}\b/gu,
   ],
   [
     'GitHub runner worker ID',

@@ -98,7 +98,6 @@ const LANE_SCRIPT_PATHS = new Map([
 // the agent tests or their fixtures name, or that a development document links, is listed here.
 export const AGENT_TEST_PRODUCT_INPUTS = {
   files: [
-    'apps/api/prisma/schema.prisma',
     'apps/api/prisma/seeds/reference/README.md',
     'apps/api/src/auth/README.md',
     'apps/api/src/auth/access/authenticated-user.guard.ts',
@@ -177,6 +176,7 @@ export const AGENT_TEST_PRODUCT_INPUTS = {
     'apps/web/src/screens/README.md',
     'apps/web/src/styles/knu.css',
     'apps/web/src/styles/tokens/README.md',
+    'packages/database/prisma/schema.prisma',
     'packages/shared/src/chat/request.ts',
     'packages/shared/src/legal/contract.ts',
     'packages/shared/src/match/contract/summary.ts',
@@ -274,6 +274,13 @@ export function classifyChanges(paths) {
     if (path.startsWith('packages/shared/')) {
       result.shared = true;
       result.web = true;
+      result.api = true;
+      matched = true;
+    }
+
+    // The shared database package (Prisma schema, migrations, TypedSQL, grant SQL and the generated client) is built
+    // and tested by the API lane, its only consumer.
+    if (path.startsWith('packages/database/')) {
       result.api = true;
       matched = true;
     }

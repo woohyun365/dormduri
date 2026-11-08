@@ -3,6 +3,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
+import { links as markdownLinks } from '../../agents/common/markdown-links.mjs';
+
 const repoRoot = process.cwd();
 
 function read(path) {
@@ -620,4 +622,32 @@ test('integration handoff records deleted or retained local branches through the
   const section = localBranchCleanupSection();
   assert.match(section, /삭제 후.*ref.*없.*확인/su);
   assert.match(section, /retained-with-reason.*완료.*실패.*아닙/su);
+});
+
+function branchStrategySection(guide, heading) {
+  const marker = `\n## ${heading}\n`;
+  assert.ok(guide.includes(marker), `missing branch strategy section: ${heading}`);
+  return guide.split(marker)[1].split('\n## ')[0];
+}
+
+// Structure only (table row, section mention, link), not the wording of the exploration branch rule.
+test('visual exploration branches stay local and hand the visual side to the design owner', () => {
+  const path = 'docs/development/github/branch-and-pr-strategy.md';
+  const guide = read(path);
+  const exploreRows = branchStrategySection(guide, 'Branch 책임')
+    .split('\n')
+    .filter((line) => line.trimStart().startsWith('|'))
+    .slice(2)
+    .filter((line) => /^\|\s*`explore\//u.test(line.trimStart()));
+  assert.equal(exploreRows.length, 1, 'Branch 책임 table explore branch row');
+  for (const heading of ['Remote push budget', 'Local branch cleanup'])
+    assert.match(branchStrategySection(guide, heading), /explore\//u, `${heading}: explore branch`);
+  const preflight = branchStrategySection(guide, '구현 시작 preflight');
+  assert.ok(
+    markdownLinks(repoRoot, path, preflight).some(
+      (link) =>
+        link.path === 'docs/development/agent-workflows/visual-design/design-task-orchestration.md',
+    ),
+    '구현 시작 preflight: visual exploration owner link',
+  );
 });

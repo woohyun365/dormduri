@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../../privacy/deidentification/deidentified-display.policy.js';
-import { Prisma } from '../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import { ensureRetentionCaseTx } from '../vault/retention-case.repository.js';
 import { validateRetainedIdentityMetadata } from './retained-identity-metadata.validator.js';
 import { resolveRetainedIdentityDecision } from './retained-identity-decision.policy.js';

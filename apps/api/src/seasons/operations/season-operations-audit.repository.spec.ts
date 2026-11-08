@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Campus, Gender } from '../../generated/prisma/enums.js';
+import { Campus, Gender } from '@repo/database/enums';
 import { SeasonOperationsAuditRepository } from './season-operations-audit.repository.js';
 
 const previousSeason = {

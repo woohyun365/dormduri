@@ -46,6 +46,8 @@
   lifecycle sweep도 실행되지 않는다.
 - `LifecycleSweepService.running`은 같은 service instance의 scheduled periodic/boundary sweep 중복 진입만 억제한다.
   Public/manual `runSweep`, `runPeriodicSweep`, `runBoundarySweep`는 이 guard를 거치지 않는다.
+- 예약 sweep(주기·경계) 한 번이 끝나면 공통 작업 metric `job="lifecycle_sweep"`에 성공 시각이나 실패 수를 기록한다
+  (`../background-jobs/README.md`). 수동 실행은 기록하지 않는다.
 - Destroy는 이 instance를 closing으로 전환하고 현재 periodic interval과 lifecycle boundary cron을 제거한다.
   Pending schedule refresh와 이후 scheduled entry도 새 timer를 등록하지 않는다. 이미 진입한 sweep의 drain/cancel은
   보장하지 않으며 public/manual runner의 실행 의미는 바꾸지 않는다.

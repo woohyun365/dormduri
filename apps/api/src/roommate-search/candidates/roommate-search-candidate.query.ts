@@ -4,7 +4,7 @@ import type {
   RoommateSearchScope,
 } from '@repo/shared/roommate-search/contract';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { currentSeasonParticipantSelect } from '../../season-participants/participants/season-participant-records.js';
 import {
   toStoredBedtime,

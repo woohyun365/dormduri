@@ -2,11 +2,12 @@
   "schema": "lifecycle-path-domains/v1",
   "confirmedBy": {
     "status": "owner-confirmed",
-    "date": "2026-11-03",
-    "basis": "#696"
+    "date": "2026-11-07",
+    "basis": "#862"
   },
   "productRoots": [
     "apps/**",
+    "packages/database/**",
     "packages/shared/**",
     "infra/**",
     "package.json",
@@ -71,7 +72,7 @@
       "domains": ["season-participation", "matching-lifecycle"]
     },
     {
-      "globs": ["apps/api/src/platform/observability/**"],
+      "globs": ["apps/api/src/platform/observability/**", "apps/api/src/background-jobs/**"],
       "domains": ["operational-observability"]
     },
     {
@@ -79,7 +80,7 @@
         "apps/api/src/platform/**",
         "apps/api/src/config/**",
         "apps/api/src/health/**",
-        "apps/api/prisma/migrations/**"
+        "packages/database/prisma/migrations/**"
       ],
       "except": ["apps/api/src/platform/observability/**"],
       "domains": ["production-runtime-safety"]
@@ -88,41 +89,45 @@
       "globs": [
         "apps/api/src/app.module.ts",
         "apps/api/src/main.ts",
-        "apps/api/prisma/schema.prisma",
-        "apps/api/prisma/role-grants/**",
-        "apps/api/prisma.config.ts"
+        "packages/database/prisma/schema.prisma",
+        "packages/database/prisma/role-grants/**",
+        "packages/database/prisma.config.ts",
+        "packages/database/src/**"
       ],
       "domains": ["production-runtime-safety"]
     },
     {
-      "globs": ["apps/api/prisma/sql/*Chat*.sql"],
+      "globs": ["packages/database/prisma/sql/*Chat*.sql"],
       "domains": ["chat-lifecycle"]
     },
     {
-      "globs": ["apps/api/prisma/sql/*Match*.sql"],
+      "globs": ["packages/database/prisma/sql/*Match*.sql"],
       "domains": ["matching-lifecycle"]
     },
     {
-      "globs": ["apps/api/prisma/sql/*Notification*.sql"],
+      "globs": ["packages/database/prisma/sql/*Notification*.sql"],
       "domains": ["notification-inbox"]
     },
     {
       "globs": [
-        "apps/api/prisma/sql/*Auth*.sql",
-        "apps/api/prisma/sql/*Login*.sql",
-        "apps/api/prisma/sql/*Verification*.sql"
+        "packages/database/prisma/sql/*Auth*.sql",
+        "packages/database/prisma/sql/*Login*.sql",
+        "packages/database/prisma/sql/*Verification*.sql"
       ],
       "domains": ["account-authentication"]
     },
     {
-      "globs": ["apps/api/prisma/sql/*Retention*.sql", "apps/api/prisma/sql/prune*.sql"],
+      "globs": [
+        "packages/database/prisma/sql/*Retention*.sql",
+        "packages/database/prisma/sql/prune*.sql"
+      ],
       "domains": ["data-retention"]
     },
     {
       "globs": [
-        "apps/api/prisma/sql/acquireTransactionAdvisoryLock.sql",
-        "apps/api/prisma/sql/getCurrentTimestamp.sql",
-        "apps/api/prisma/sql/getDatabaseReadiness.sql"
+        "packages/database/prisma/sql/acquireTransactionAdvisoryLock.sql",
+        "packages/database/prisma/sql/getCurrentTimestamp.sql",
+        "packages/database/prisma/sql/getDatabaseReadiness.sql"
       ],
       "domains": ["production-runtime-safety"]
     },
@@ -400,8 +405,10 @@
         "apps/*/tsconfig*.json",
         "apps/api/test/tsconfig.json",
         "packages/shared/tsconfig.json",
+        "packages/database/tsconfig.json",
         "apps/*/eslint.config.mjs",
         "packages/shared/eslint.config.mjs",
+        "packages/database/eslint.config.mjs",
         "apps/*/vitest.config*.ts",
         "packages/shared/vitest.config.ts",
         "apps/web/react-compiler.config.ts",
@@ -417,6 +424,7 @@
     {
       "globs": [
         "apps/*/README.md",
+        "packages/database/README.md",
         "apps/web/src/screens/README.md",
         "infra/README.md",
         "infra/rehearsal/**"
@@ -457,7 +465,7 @@
   ],
   "irreversiblePaths": [
     {
-      "glob": "apps/api/prisma/migrations/**",
+      "glob": "packages/database/prisma/migrations/**",
       "policy": "docs/policies/production-runtime-safety.md",
       "reason": "적용된 migration은 자동 down migration 없이 backup/PITR restore로만 되돌린다"
     },

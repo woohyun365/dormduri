@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, type Mocked } from 'vitest';
 
-vi.mock('../../generated/prisma/sql.js', () => ({
+vi.mock('@repo/database/sql', () => ({
   getCurrentTimestamp: vi.fn(() => ({})),
 }));
 

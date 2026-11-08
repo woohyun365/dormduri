@@ -4,9 +4,11 @@ import { describe, expect, it } from 'vitest';
 
 const apiRoot = process.cwd();
 const sourceRoot = join(apiRoot, 'src');
-const sqlRoot = join(apiRoot, 'prisma', 'sql');
-const generatedSqlRoot = join(apiRoot, 'src', 'generated', 'prisma', 'sql');
-const generatedSqlIndexPath = join(apiRoot, 'src', 'generated', 'prisma', 'sql.ts');
+// SQL asset paths in the inventory are relative to the shared database package that owns them.
+const databaseRoot = join(apiRoot, '..', '..', 'packages', 'database');
+const sqlRoot = join(databaseRoot, 'prisma', 'sql');
+const generatedSqlRoot = join(databaseRoot, 'src', 'generated', 'prisma', 'sql');
+const generatedSqlIndexPath = join(databaseRoot, 'src', 'generated', 'prisma', 'sql.ts');
 
 import {
   allowedSqlAssetCategories,
@@ -47,6 +49,10 @@ function relativeApiPath(path: string) {
   return relative(apiRoot, path).split(sep).join('/');
 }
 
+function relativeDatabasePath(path: string) {
+  return relative(databaseRoot, path).split(sep).join('/');
+}
+
 function sqlAssetFunctionName(path: string) {
   return basename(path, '.sql');
 }
@@ -65,7 +71,7 @@ function isProductionSourceFile(path: string) {
 function actualSqlAssetPaths() {
   return walkFiles(sqlRoot)
     .filter((path) => path.endsWith('.sql'))
-    .map(relativeApiPath)
+    .map(relativeDatabasePath)
     .sort();
 }
 
@@ -127,7 +133,7 @@ describe('API SQL boundary inventory', () => {
     for (const entry of sqlAssetInventory) {
       const functionName = sqlAssetFunctionName(entry.path);
 
-      expect(existsSync(join(apiRoot, entry.path)), `${entry.path} exists`).toBe(true);
+      expect(existsSync(join(databaseRoot, entry.path)), `${entry.path} exists`).toBe(true);
       expect(
         existsSync(join(generatedSqlRoot, `${functionName}.ts`)),
         `${entry.path} generated module`,
@@ -142,7 +148,7 @@ describe('API SQL boundary inventory', () => {
     const allowedCategorySet = new Set<string>(allowedSqlAssetCategories);
 
     for (const entry of sqlAssetInventory) {
-      const sql = normalizeSql(readSource(join(apiRoot, entry.path)));
+      const sql = normalizeSql(readSource(join(databaseRoot, entry.path)));
 
       expect(entry.owner, `${entry.path} owner`).not.toHaveLength(0);
       expect(entry.rationale, `${entry.path} rationale`).not.toHaveLength(0);
@@ -157,7 +163,7 @@ describe('API SQL boundary inventory', () => {
 
   it('forbids session-scoped advisory locks in SQL assets', () => {
     const violations = sqlAssetInventory
-      .map((entry) => ({ entry, sql: readSource(join(apiRoot, entry.path)) }))
+      .map((entry) => ({ entry, sql: readSource(join(databaseRoot, entry.path)) }))
       .filter(({ sql }) => forbiddenSessionAdvisoryLockPattern.test(sql))
       .map(({ entry }) => entry.path);
 
@@ -166,7 +172,7 @@ describe('API SQL boundary inventory', () => {
 
   it('keeps transaction advisory locks registered only as transaction-lock assets', () => {
     const actualLockPaths = actualSqlAssetPaths().filter((path) =>
-      transactionAdvisoryLockPattern.test(readSource(join(apiRoot, path))),
+      transactionAdvisoryLockPattern.test(readSource(join(databaseRoot, path))),
     );
     const registryLockPaths = sorted(
       sqlAssetInventory
@@ -179,7 +185,7 @@ describe('API SQL boundary inventory', () => {
 
   it('keeps SKIP LOCKED SQL registered only as worker-claim assets', () => {
     const actualClaimPaths = actualSqlAssetPaths().filter((path) =>
-      skipLockedPattern.test(readSource(join(apiRoot, path))),
+      skipLockedPattern.test(readSource(join(databaseRoot, path))),
     );
     const registryClaimPaths = sorted(
       sqlAssetInventory
@@ -192,7 +198,7 @@ describe('API SQL boundary inventory', () => {
 
   it('keeps DB time SQL registered as db-time assets', () => {
     const actualDbTimePaths = actualSqlAssetPaths().filter((path) =>
-      sqlTimePattern.test(readSource(join(apiRoot, path))),
+      sqlTimePattern.test(readSource(join(databaseRoot, path))),
     );
     const registryDbTimePaths = sorted(
       sqlAssetInventory.filter((entry) => entry.category === 'db-time').map((entry) => entry.path),
@@ -212,7 +218,7 @@ describe('API SQL boundary inventory', () => {
   });
 
   it('keeps generated SQL imports on the index surface', () => {
-    const deepSqlImportPattern = /generated\/prisma\/sql\//;
+    const deepSqlImportPattern = /@repo\/database\/sql\/|generated\/prisma\/sql\//;
     expect(findProductionFilesMatching(deepSqlImportPattern)).toEqual([]);
   });
 });

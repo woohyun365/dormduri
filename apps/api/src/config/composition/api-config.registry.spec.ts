@@ -20,8 +20,8 @@ describe('API config registry', () => {
 
     expect(API_CONFIG_SLICES).toHaveLength(14);
     expect(API_CONFIG_FACTORIES).toHaveLength(10);
-    expect(API_ENV_KEYS).toHaveLength(102);
-    expect(Object.keys(schemaDescription.keys ?? {})).toHaveLength(102);
+    expect(API_ENV_KEYS).toHaveLength(104);
+    expect(Object.keys(schemaDescription.keys ?? {})).toHaveLength(104);
   });
 
   it('rejects duplicate env metadata keys', () => {
@@ -93,7 +93,7 @@ describe('API ConfigModule options', () => {
   });
 
   it('accepts process keys the API schema does not own', async () => {
-    process.env.KNU_CONFIG_OPTIONS_UNOWNED_KEY = 'kept';
+    process.env.DORMDURI_CONFIG_OPTIONS_UNOWNED_KEY = 'kept';
 
     await expect(
       ConfigModule.forRoot({ ...API_CONFIG_MODULE_OPTIONS, ignoreEnvFile: true }),

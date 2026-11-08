@@ -1,5 +1,5 @@
 import { toDateOnlyString } from '@repo/shared/date';
-import type { DormitoryGenderPolicy, Gender } from '../../generated/prisma/enums.js';
+import type { DormitoryGenderPolicy, Gender } from '@repo/database/enums';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import { formatKstDate } from '../../platform/time/kst-date.js';
 

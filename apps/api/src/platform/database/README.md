@@ -20,16 +20,16 @@ session timezone에 맡기지 않는다. `getDatabaseNow()`도 adapter의 timest
 ## Directory responsibilities
 
 - `prisma.module.ts`: Prisma provider wiring and exports.
-- `prisma.service.ts`: runtime/worker/disclosure Prisma services and database utilities.
+- `prisma.service.ts`: runtime/worker/disclosure Prisma services and database utilities. Each service opens its own pool with its own max (`DATABASE_POOL_MAX`, `RETENTION_WORKER_DATABASE_POOL_MAX`, `RETENTION_DISCLOSURE_DATABASE_POOL_MAX`) so it stays under its LOGIN user's CONNECTION LIMIT (`infra/db/README.md` Connection budget).
 - `prisma-metric.definitions.ts`: PrismaModule이 등록하는 pool/retry metric definition catalog.
 - `prisma-error.ts`: Prisma error classification helper.
-- `test/operations/database/*-role-grants.spec.ts`: DB role grant artifact guard.
+- `test/operations/database/role-grant-matrix.spec.ts`, `column-classes.spec.ts`: grant 표·열 분류가 `schema.prisma` 전체를 덮고 최소 권한 불변 조건을 지키는지 막는 guard.
 - `test/operations/database/migration-baseline.spec.ts`: migration baseline guard.
 - `test/operations/database/updated-at-ownership.spec.ts`: `updatedAt` ownership guard.
 
 ## SQL / TypedSQL boundary
 
-Product-owned SQL lives under `apps/api/prisma/sql/*.sql` and is consumed through generated TypedSQL exports from `src/generated/prisma/sql.js`. This keeps SQL review, generated result typing, and ownership in one place.
+Product-owned SQL lives under `packages/database/prisma/sql/*.sql` and is consumed through the generated TypedSQL exports of the shared database package entry `@repo/database/sql`. This keeps SQL review, generated result typing, and ownership in one place.
 
 - Add or move a SQL asset only with `prisma:generate` and `test/architecture/testing/api-sql-boundary.spec.ts` inventory updates.
 - Use `pg_advisory_xact_lock` for transaction-scoped advisory locks; session-scoped advisory locks are not allowed.
@@ -60,7 +60,8 @@ Product-owned SQL lives under `apps/api/prisma/sql/*.sql` and is consumed throug
 - Prisma provider exports: `prisma.module.ts`.
 - Prisma metric definition: `prisma-metric.definitions.ts`.
 - Prisma pool/retry metric recording adapter: `../observability/metrics/prisma-pool-metrics.service.ts`.
-- DB role grant expectations: `test/operations/database/auth-role-grants.spec.ts`, `test/operations/database/rrpd-role-grants.spec.ts`.
+- DB role grant: `packages/database/prisma/role-grants/role-grant-matrix.csv`(table별 권한), `column-classes.csv`(열 분류). 실제 권한 확인은 `test/integration/platform/database-role-grants.integration.spec.ts`와 role 분리 integration mode.
+- Role별 pool max: `database.config.ts`, `database.env.ts`.
 - Migration baseline or updated-at ownership guards: `test/operations/database/`의 corresponding spec files.
 
 ## Useful verification
@@ -68,8 +69,8 @@ Product-owned SQL lives under `apps/api/prisma/sql/*.sql` and is consumed throug
 ```bash
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/platform/database/prisma.service.spec.ts \
-  test/operations/database/auth-role-grants.spec.ts \
-  test/operations/database/rrpd-role-grants.spec.ts \
+  test/operations/database/role-grant-matrix.spec.ts \
+  test/operations/database/column-classes.spec.ts \
   test/operations/database/migration-baseline.spec.ts \
   test/operations/database/updated-at-ownership.spec.ts \
   test/architecture/platform/prisma-module-import-boundary.spec.ts

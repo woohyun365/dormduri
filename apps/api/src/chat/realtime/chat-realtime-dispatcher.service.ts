@@ -4,7 +4,12 @@ import {
   Logger,
   OnApplicationBootstrap,
   OnModuleDestroy,
+  Optional,
 } from '@nestjs/common';
+import {
+  BackgroundJobMetricsService,
+  runBackgroundJobTick,
+} from '../../background-jobs/background-job-metrics.service.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   REALTIME_DISPATCHER_CONFIG_PORT,
@@ -32,6 +37,8 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
   private interval: NodeJS.Timeout | null = null;
   private running = false;
   private lastPrunedAt: Date | null = null;
+  // Set by each dispatch: the replay-window prune of that dispatch failed.
+  private lastPruneFailed = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -40,6 +47,8 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
     private readonly metrics: RealtimeDispatchMetricsPort,
     @Inject(REALTIME_DISPATCHER_CONFIG_PORT)
     private readonly settings: RealtimeDispatcherConfigPort,
+    @Optional()
+    private readonly backgroundJobMetrics?: BackgroundJobMetricsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -47,8 +56,19 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
       return;
     }
 
+    // One job covers dispatch and the replay-window prune that runs inside the same tick:
+    // a prune failure keeps the dispatch result but counts the tick as failed.
     this.interval = setInterval(() => {
-      void this.dispatchOnce().catch((error) => {
+      void runBackgroundJobTick(this.backgroundJobMetrics, 'chat_realtime_dispatcher', async () => {
+        if (this.running) {
+          return 'skipped';
+        }
+        const result = await this.dispatchOnce();
+        if (result.skippedReason) {
+          return 'skipped';
+        }
+        return this.lastPruneFailed ? 'failed' : 'succeeded';
+      }).catch((error) => {
         this.logger.warn(`[ChatRealtimeDispatcher] dispatch tick failed: ${toErrorMessage(error)}`);
       });
     }, this.settings.dispatcherIntervalMs);
@@ -136,7 +156,7 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
         oldestOccurredAt: claimed[0]?.occurredAt ?? null,
         now: databaseNow,
       });
-      await this.pruneExpiredReplayWindowIfDue(databaseNow);
+      this.lastPruneFailed = await this.pruneExpiredReplayWindowIfDue(databaseNow);
 
       return {
         claimedCount: claimed.length,
@@ -149,12 +169,13 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
     }
   }
 
-  private async pruneExpiredReplayWindowIfDue(now: Date) {
+  /** Returns true when a due prune failed (it is logged here and retried next tick). */
+  private async pruneExpiredReplayWindowIfDue(now: Date): Promise<boolean> {
     if (
       this.lastPrunedAt &&
       now.getTime() - this.lastPrunedAt.getTime() < CHAT_REALTIME_OUTBOX_PRUNE_INTERVAL_MS
     ) {
-      return;
+      return false;
     }
 
     try {
@@ -164,9 +185,11 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
       });
       this.lastPrunedAt = now;
       this.metrics.recordOutboxPrune({ deletedCount, now });
+      return false;
     } catch (error) {
       this.metrics.recordOutboxPruneFailure({ now });
       this.logger.warn(`[ChatRealtimeDispatcher] prune failed errorType=${toErrorLogType(error)}`);
+      return true;
     }
   }
 

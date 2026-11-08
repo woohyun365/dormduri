@@ -1,4 +1,4 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 
 export const MATCH_BLOCK_SIDE_EFFECT_PORT = Symbol('MATCH_BLOCK_SIDE_EFFECT_PORT');
 

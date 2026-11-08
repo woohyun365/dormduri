@@ -47,10 +47,10 @@ describe('account deletion retention integration', () => {
       }),
     ).resolves.toBeNull();
 
-    const retainedIdentity = await fixture.prisma.retainedIdentity.findUniqueOrThrow({
+    const retainedIdentity = await fixture.adminPrisma.retainedIdentity.findUniqueOrThrow({
       where: { originalUserId: 'user-c' },
     });
-    const retainedIdentityHold = await fixture.prisma.retainedIdentityHold.findFirstOrThrow({
+    const retainedIdentityHold = await fixture.adminPrisma.retainedIdentityHold.findFirstOrThrow({
       where: { retainedIdentityId: retainedIdentity.id, holdReason: 'ACCOUNT_DELETION' },
       include: { retentionCase: true },
     });
@@ -77,7 +77,7 @@ describe('account deletion retention integration', () => {
       nextNicknameNormalized: displayIdentity.nicknameNormalized,
     });
 
-    const archiveJobs = await fixture.prisma.archiveJob.findMany({
+    const archiveJobs = await fixture.adminPrisma.archiveJob.findMany({
       where: { retainedIdentityId: retainedIdentity.id },
       orderBy: { target: 'asc' },
     });
@@ -103,7 +103,7 @@ describe('account deletion retention integration', () => {
     expect(sweepResult.archiveJobSweep.succeededCount).toBeGreaterThanOrEqual(1);
     expect(sweepResult.retainedIdentityDisposalSweep.processedCount).toBe(2);
 
-    const disposedIdentity = await fixture.prisma.retainedIdentity.findUniqueOrThrow({
+    const disposedIdentity = await fixture.adminPrisma.retainedIdentity.findUniqueOrThrow({
       where: { id: retainedIdentity.id },
     });
     expect(disposedIdentity.originalUserId).toBeNull();
@@ -112,7 +112,7 @@ describe('account deletion retention integration', () => {
     expect(disposedIdentity.identifierKeyVersion).toBeNull();
     expect(disposedIdentity.retentionDisposalReason).toBe('RETENTION_HOLD_EXPIRED');
 
-    const disposalLog = await fixture.prisma.retentionAccessLog.findFirst({
+    const disposalLog = await fixture.adminPrisma.retentionAccessLog.findFirst({
       where: {
         retainedIdentityId: retainedIdentity.id,
         targetType: 'IDENTITY_ANCHOR',
@@ -121,7 +121,7 @@ describe('account deletion retention integration', () => {
     });
     expect(disposalLog).not.toBeNull();
 
-    const completedArchiveJobs = await fixture.prisma.archiveJob.findMany({
+    const completedArchiveJobs = await fixture.adminPrisma.archiveJob.findMany({
       where: { retainedIdentityId: retainedIdentity.id },
     });
     expect(completedArchiveJobs.every((job) => job.status === 'SUCCEEDED')).toBe(true);
@@ -147,11 +147,11 @@ describe('account deletion retention integration', () => {
     const seasonHistoryCount = await fixture.prisma.seasonParticipantProfileHistory.count();
     expect(seasonHistoryCount).toBe(0);
 
-    const retainedIdentity = await fixture.prisma.retainedIdentity.findFirstOrThrow({
+    const retainedIdentity = await fixture.adminPrisma.retainedIdentity.findFirstOrThrow({
       where: { originalUserId: 'user-no-history' },
     });
     await expect(
-      fixture.prisma.retainedIdentityHold.findFirst({
+      fixture.adminPrisma.retainedIdentityHold.findFirst({
         where: { retainedIdentityId: retainedIdentity.id, holdReason: 'ACCOUNT_DELETION' },
       }),
     ).resolves.toMatchObject({ holdReason: 'ACCOUNT_DELETION' });

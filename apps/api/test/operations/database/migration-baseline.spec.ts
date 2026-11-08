@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const BASELINE_MIGRATION_PATH = path.resolve(
   CURRENT_DIR,
-  '../../../prisma/migrations/000000000000_initial_baseline/migration.sql',
+  '../../../../../packages/database/prisma/migrations/000000000000_initial_baseline/migration.sql',
 );
 
 describe('migration baseline coverage', () => {

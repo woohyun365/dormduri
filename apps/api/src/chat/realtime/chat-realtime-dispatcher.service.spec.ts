@@ -32,6 +32,10 @@ function createDispatcher(input: {
   publisherBound?: boolean;
   publishRejects?: Error;
   dispatcherEnabled?: boolean;
+  backgroundJobMetrics?: {
+    recordSucceeded: ReturnType<typeof vi.fn>;
+    recordFailed: ReturnType<typeof vi.fn>;
+  };
 }) {
   const prisma = {
     getDatabaseNow: vi.fn().mockResolvedValue(now),
@@ -92,6 +96,7 @@ function createDispatcher(input: {
       publisher as never,
       metrics,
       settings,
+      input.backgroundJobMetrics as never,
     ),
   };
 }
@@ -475,4 +480,40 @@ describe('ChatRealtimeDispatcherService', () => {
       loggerSpy.mockRestore();
     }
   });
+
+  it.each([
+    ['prune 성공', false, 'recordSucceeded'],
+    ['prune 실패', true, 'recordFailed'],
+  ] as const)(
+    '예약 tick은 %s를 공통 작업 metric(chat_realtime_dispatcher)에 기록한다',
+    async (_label, pruneRejects, expected) => {
+      vi.useFakeTimers({ now });
+      const loggerSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const backgroundJobMetrics = { recordSucceeded: vi.fn(), recordFailed: vi.fn() };
+      const { dispatcher, prisma } = createDispatcher({
+        dispatcherEnabled: true,
+        backgroundJobMetrics,
+      });
+      prisma.$queryRawTyped.mockResolvedValueOnce([]);
+      if (pruneRejects) {
+        prisma.$queryRawTyped.mockRejectedValueOnce(new Error('prune unavailable'));
+      } else {
+        prisma.$queryRawTyped.mockResolvedValueOnce([]);
+      }
+      try {
+        dispatcher.onApplicationBootstrap();
+        await vi.advanceTimersByTimeAsync(1_000);
+
+        expect(backgroundJobMetrics[expected]).toHaveBeenCalledExactlyOnceWith(
+          'chat_realtime_dispatcher',
+        );
+        const other = expected === 'recordFailed' ? 'recordSucceeded' : 'recordFailed';
+        expect(backgroundJobMetrics[other]).not.toHaveBeenCalled();
+      } finally {
+        dispatcher.onModuleDestroy();
+        vi.useRealTimers();
+        loggerSpy.mockRestore();
+      }
+    },
+  );
 });

@@ -3,7 +3,7 @@
 공유 PostgreSQL/Prisma schema는 **공유 write 권한**을 뜻하지 않는다. 이 문서는 modular monolith의 현재 데이터 소유권,
 목적이 제한된 협업과 read debt를 정의한다. 별도 database/service, 범용 repository layer 또는 새 runtime role을 요구하지 않는다.
 
-기준은 [Prisma schema](../../../apps/api/prisma/schema.prisma), 실제 caller와
+기준은 [Prisma schema](../../../packages/database/prisma/schema.prisma), 실제 caller와
 [service boundary](../../policies/service-boundary.md), [profile model](../../policies/profile-model.md),
 [retention policy](../../policies/data-retention.md)다. 아래 소스 경로는 별도 표기가 없으면 `apps/api/src/` 기준이다.
 
@@ -144,7 +144,7 @@ Owner-public 서비스로 얻는 DTO와 위 direct read를 혼동하지 않는�
   Runtime command의 authority가 아니며 fixture-only 접근을 production owner 규칙의 예외로 재사용하지 않는다.
 - `apps/api/test/`의 integration/stress fixture, `src/**/test-support/`, specs는 재현 환경의 setup/teardown이다.
   Production import를 허용하지 않는다. Generated Prisma/TypedSQL은 schema/SQL 산출물이지 업무 owner가 아니다.
-- `apps/api/prisma/migrations/`, `infra/db/`의 migration/role-grant/restore 작업은 별도 운영 권한과 변경 절차를 따른다.
+- `packages/database/prisma/migrations/`, `infra/db/`의 migration/role-grant/restore 작업은 별도 운영 권한과 변경 절차를 따른다.
   API caller inventory만으로 운영 script의 실행 권한이나 실제 배포 role 상태를 증명하지 않는다.
 
 ## Enforcement와 변경 절차

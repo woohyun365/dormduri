@@ -5,8 +5,8 @@ import {
   type LifestyleData,
 } from '@repo/shared/lifestyle';
 import type { AuthenticatedUserContext } from '../../../auth/application/auth-actor-context.types.js';
-import type { Prisma } from '../../../generated/prisma/client.js';
-import type { Campus, Gender } from '../../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import type { Campus, Gender } from '@repo/database/enums';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import {
   MATCH_SCORE_PROJECTION_PORT,

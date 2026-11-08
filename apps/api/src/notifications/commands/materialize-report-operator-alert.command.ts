@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma } from '../../generated/prisma/client.js';
-import type { OperatorAlertSeverity, ReportRiskTier } from '../../generated/prisma/enums.js';
+import { Prisma } from '@repo/database/client';
+import type { OperatorAlertSeverity, ReportRiskTier } from '@repo/database/enums';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   OPERATOR_ALERT_SINK,

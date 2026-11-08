@@ -1,4 +1,4 @@
-import type { ArchiveJobStatus } from '../../generated/prisma/enums.js';
+import type { ArchiveJobStatus } from '@repo/database/enums';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { ArchiveJobWorkItem, ArchiveStorageResult } from './archive-job.types.js';
 

@@ -1,4 +1,4 @@
-import type { ArchiveJobStatus } from '../../generated/prisma/enums.js';
+import type { ArchiveJobStatus } from '@repo/database/enums';
 
 export const RETENTION_REVIEW_RETRY_BASE_DELAY_MS = 60 * 60 * 1_000;
 

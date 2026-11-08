@@ -3,6 +3,12 @@ import test from 'node:test';
 
 import { FORBIDDEN_KINDS, scanText } from './public-record-scan.mjs';
 
+// actions/checkout src/regexp-helper.ts escape(): it prints `git config --unset` value arguments with a backslash before
+// every character outside [A-Za-z0-9_].
+const regexpEscape = (value) => value.replace(/[^a-zA-Z0-9_]/g, (x) => `\\${x}`);
+// A per-job checkout UUID whose last part is digits only (about 0.35% of runs) looks like an account ID.
+const NUMERIC_TAIL_UUID = '3f2b8c1e-5a4d-4e7f-9b6a-210987654321';
+
 // Fake values only. Each line must be found as exactly its own kind.
 const POSITIVE = {
   'AWS account ID': 'role in account 210987654321 assumed',
@@ -33,6 +39,10 @@ const NEGATIVE = [
   "Temporarily overriding HOME='/home/runner/work/_temp/3f2b8c1e-5a4d-4e7f-9b6a-0c1d2e3f4a5b' before making global git config changes",
   'git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-3f2b8c1e-5a4d-4e7f-9b6a-0c1d2e3f4a5b.config',
   'Worker ID: {3f2b8c1e-5a4d-4e7f-9b6a-0c1d2e3f4a5b}',
+  `git config --local includeIf.gitdir:/home/runner/work/dormduri/dormduri/.git.path /home/runner/work/_temp/git-credentials-${NUMERIC_TAIL_UUID}.config`,
+  // The checkout cleanup prints the same temp paths regexp-escaped.
+  `[command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/dormduri/dormduri/.git.path ${regexpEscape(`/home/runner/work/_temp/git-credentials-${NUMERIC_TAIL_UUID}.config`)}`,
+  `[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path ${regexpEscape(`/github/runner_temp/git-credentials-${NUMERIC_TAIL_UUID}.config`)}`,
   // The workflow script source prints the registry host template, not a host.
   'echo "::add-mask::$account.dkr.ecr.$AWS_REGION.amazonaws.com"',
   // A masked role ID keeps only the tail after the masked account part.
@@ -77,6 +87,19 @@ test('a runner temp path or a registry host template does not hide a real value'
       (f) => f.kind,
     ),
     ['activation ID'],
+  );
+  const escapedRunnerPath = regexpEscape(
+    `/home/runner/work/_temp/git-credentials-${NUMERIC_TAIL_UUID}.config`,
+  );
+  assert.deepEqual(
+    scanText(`${escapedRunnerPath} in account 210987654321`).map((f) => f.kind),
+    ['AWS account ID'],
+  );
+  assert.deepEqual(
+    scanText(`${regexpEscape(`/tmp/${NUMERIC_TAIL_UUID}`)} outside the runner temp`).map(
+      (f) => f.kind,
+    ),
+    ['AWS account ID'],
   );
   assert.deepEqual(
     scanText(

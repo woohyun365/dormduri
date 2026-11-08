@@ -1,5 +1,5 @@
-import { Prisma } from '../../generated/prisma/client.js';
-import type { RetentionCaseReason } from '../../generated/prisma/enums.js';
+import { Prisma } from '@repo/database/client';
+import type { RetentionCaseReason } from '@repo/database/enums';
 
 const POLICY_VERSION = 'rrpd-v1';
 

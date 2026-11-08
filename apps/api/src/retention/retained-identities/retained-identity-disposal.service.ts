@@ -1,4 +1,4 @@
-import { Prisma } from '../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import { createRetentionAccessLog } from '../access-logs/create-retention-access-log.command.js';
 import { disposeDueRetainedVaultObjects } from '../vault/retained-vault.service.js';

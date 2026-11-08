@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type {
   Campus,
   DormitorySelectionState,
@@ -6,7 +6,7 @@ import type {
   ParticipantHiddenReasonCode,
   ParticipantStatus,
   SeasonParticipationIntent,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import type { SeasonAdditionalProfileDraft } from '@repo/shared/profile/contract';
 import type { ParticipantPolicyRecord } from '../policies/index.js';

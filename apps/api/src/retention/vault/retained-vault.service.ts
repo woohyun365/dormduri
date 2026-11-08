@@ -1,11 +1,11 @@
 import { createHmac } from 'node:crypto';
-import { Prisma } from '../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import type {
   RetainedVaultObjectTarget,
   RetainedVaultSubjectRole,
   RetentionAccessReason,
   RetentionCaseReason,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import { createRetentionAccessLog } from '../access-logs/create-retention-access-log.command.js';
 import {

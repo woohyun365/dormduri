@@ -1,8 +1,8 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import {
   acquireTransactionAdvisoryLock,
   lockActiveMatchRow as lockActiveMatchRowSql,
-} from '../../../generated/prisma/sql.js';
+} from '@repo/database/sql';
 import { matchesErrors } from '../../errors/matches.errors.js';
 
 export async function acquireActiveMatchLock(tx: Prisma.TransactionClient, activeMatchId: string) {

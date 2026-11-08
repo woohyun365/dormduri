@@ -3,6 +3,7 @@ import { ConfigType } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { DomainMetricDefinitionsModule } from '../platform/observability/metrics/domain-metric-definitions.module.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
+import { BackgroundJobsModule } from '../background-jobs/background-jobs.module.js';
 import { DisplayIdentityModule } from '../users/identity/display/display-identity.module.js';
 import authConfig from './config/auth.config.js';
 import { AuthController } from './auth.controller.js';
@@ -14,6 +15,7 @@ import { AUTH_METRIC_DEFINITIONS } from './observability/auth-metric.definitions
 @Module({
   imports: [
     PrismaModule,
+    BackgroundJobsModule,
     DisplayIdentityModule,
     DomainMetricDefinitionsModule.register('auth', AUTH_METRIC_DEFINITIONS),
     ThrottlerModule.forRootAsync({

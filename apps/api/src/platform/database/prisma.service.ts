@@ -2,8 +2,8 @@ import { Inject, Injectable, OnModuleDestroy, OnModuleInit, Optional } from '@ne
 import type { ConfigType } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
-import { getCurrentTimestamp } from '../../generated/prisma/sql.js';
+import { Prisma, PrismaClient } from '@repo/database/client';
+import { getCurrentTimestamp } from '@repo/database/sql';
 import databaseConfig from './database.config.js';
 import { AppLoggerService } from '../observability/logging/app-logger.service.js';
 import {
@@ -21,6 +21,7 @@ interface ManagedPrismaClientSettings {
   connectionString: string;
   schema: string | null;
   applicationName: string;
+  poolMax: number;
 }
 
 export function buildPrismaSessionOptions(schema: string | null): string {
@@ -97,7 +98,7 @@ function isRetryableTransactionConflict(error: unknown) {
   );
 }
 
-function resolveManagedPrismaClientSettings(
+export function resolveManagedPrismaClientSettings(
   databaseSettings: DatabaseSettings,
   role: PrismaConnectionRole,
 ): ManagedPrismaClientSettings {
@@ -107,12 +108,14 @@ function resolveManagedPrismaClientSettings(
         connectionString: databaseSettings.retentionWorkerDatabaseUrl,
         schema: databaseSettings.retentionWorkerSchema,
         applicationName: databaseSettings.retentionWorkerApplicationName,
+        poolMax: databaseSettings.retentionWorkerPoolMax,
       };
     case 'retention_disclosure':
       return {
         connectionString: databaseSettings.retentionDisclosureDatabaseUrl,
         schema: databaseSettings.retentionDisclosureSchema,
         applicationName: databaseSettings.retentionDisclosureApplicationName,
+        poolMax: databaseSettings.retentionDisclosurePoolMax,
       };
     case 'runtime':
     default:
@@ -120,6 +123,7 @@ function resolveManagedPrismaClientSettings(
         connectionString: databaseSettings.runtimeDatabaseUrl,
         schema: databaseSettings.runtimeSchema,
         applicationName: databaseSettings.applicationName,
+        poolMax: databaseSettings.poolMax,
       };
   }
 }
@@ -141,7 +145,7 @@ export abstract class ManagedPrismaClient
     const roleSettings = resolveManagedPrismaClientSettings(databaseSettings, role);
     const pool = new Pool({
       connectionString: stripPrismaConnectionOptions(roleSettings.connectionString),
-      max: databaseSettings.poolMax,
+      max: roleSettings.poolMax,
       min: databaseSettings.poolMin,
       connectionTimeoutMillis: databaseSettings.adapterConnectionTimeoutMs,
       idleTimeoutMillis: databaseSettings.adapterIdleTimeoutMs,

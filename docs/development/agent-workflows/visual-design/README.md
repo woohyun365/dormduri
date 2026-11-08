@@ -6,6 +6,17 @@ Next.js/React/BFF, accessibility contract, component owner, performance와 test 
 [Frontend plan authoring](../plan-authoring/frontend.md)이 계속 소유합니다.
 디자인 시스템·layout·접근성의 결정과 위험은 pack FE 하위 layer [design-system](../domain/swe-web/fe.md#design-system)·[layout-responsive-device](../domain/swe-web/fe.md#layout-responsive-device)·[accessibility](../domain/swe-web/fe.md#accessibility) 절에 있습니다.
 
+## 흐름 체크리스트
+
+1. 요청을 [요청문 순서](./visual-brief.md#요청문-순서)로 정리하고 mode·수정 권한을 [VisualBrief](./visual-brief.md)에 적습니다.
+2. 보존할 내용·상태·action과 레퍼런스 aspect를 [content/reference map](./reference-content-contract.md)에 나눕니다.
+3. 상태가 갈리는 화면은 [대표 상태 묶음](./visual-brief.md#verification)을 정합니다.
+4. 시안 위치·회차 기록·탐색 branch는 [Design task orchestration](./design-task-orchestration.md#탐색-회차-루프)을 따릅니다.
+5. 렌더부터 Owner 확정까지의 검토 순서는 [실제 수정 루프](./design-review-and-acceptance.md#실제-수정-루프) 하나입니다.
+6. 검증 폭을 보는 절차와 device 증거는 [표현 책임·device 검증](./device-presentation-and-verification.md)이, 폭 값을 포함한
+   시각 값은 제품 owner 문서가 가집니다.
+7. 확정한 방향의 구현은 별도 승인 범위에서 하고 production·Storybook 정합성을 확인합니다.
+
 ## When to read
 
 - 새 page/surface의 aesthetic direction을 제안할 때
@@ -94,13 +105,10 @@ assistant의 문장은 정책이 아닙니다. 실제 사용자가 대학생이�
 
 ## Recommended flow
 
-```text
-request → mode + authority + content/reference evidence → VisualBrief
-  → permitted proposal/prototype: concrete choices + self-check → rendered alternatives
-  → isolated critique → authorized revision → comparable recapture → keep/revert
-  → human select/revise/reject (required for production direction, not invented)
-  → separately approved production implementation → applicable parity/a11y/code checks
-```
+요청에서 VisualBrief, 허용된 시안까지는 위 체크리스트를 따릅니다. 렌더한 후보를 검토하고 Owner가 고르고 확정하는 순서는
+[실제 수정 루프](./design-review-and-acceptance.md#실제-수정-루프)가 소유하며 여기서 다시 적지 않습니다. 사람의 선택은
+production 방향에 필요하고 Agent가 만들어 내지 않습니다. 확정 뒤 production 구현은 별도로 승인받고 해당 parity·a11y·code 검사를
+거칩니다.
 
 ## Non-goals
 

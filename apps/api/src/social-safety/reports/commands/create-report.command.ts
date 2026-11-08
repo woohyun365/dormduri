@@ -5,7 +5,7 @@ import type {
   ReportOptionalActionResult,
 } from '@repo/shared/social-safety/report';
 import type { AuthenticatedUserContext } from '../../../auth/application/auth-actor-context.types.js';
-import { Prisma } from '../../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { BlockService } from '../../blocks/application/block.service.js';
 import {

@@ -11,7 +11,9 @@ import {
   DEFAULT_DATABASE_URL,
   DEFAULT_PRISMA_QUERY_LOG_EVENTS,
   DEFAULT_RETENTION_DISCLOSURE_DATABASE_APPLICATION_NAME,
+  DEFAULT_RETENTION_DISCLOSURE_DATABASE_POOL_MAX,
   DEFAULT_RETENTION_WORKER_DATABASE_APPLICATION_NAME,
+  DEFAULT_RETENTION_WORKER_DATABASE_POOL_MAX,
 } from './database.config.js';
 import {
   booleanEnv,
@@ -38,6 +40,15 @@ export const databaseEnvSchema = {
     min: 1,
   }),
   DATABASE_POOL_MAX: numberEnv(DEFAULT_DATABASE_POOL_MAX, { min: 1 }),
+  RETENTION_WORKER_DATABASE_POOL_MAX: numberEnv(DEFAULT_RETENTION_WORKER_DATABASE_POOL_MAX, {
+    min: 1,
+  }),
+  RETENTION_DISCLOSURE_DATABASE_POOL_MAX: numberEnv(
+    DEFAULT_RETENTION_DISCLOSURE_DATABASE_POOL_MAX,
+    {
+      min: 1,
+    },
+  ),
   DATABASE_POOL_MIN: numberEnv(DEFAULT_DATABASE_POOL_MIN, { min: 0 }),
   DATABASE_QUERY_TIMEOUT_MS: numberEnv(DEFAULT_DATABASE_QUERY_TIMEOUT_MS, { min: 0 }),
   DATABASE_STATEMENT_TIMEOUT_MS: numberEnv(DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS, { min: 0 }),
@@ -131,7 +142,23 @@ export const databaseEnvKeys = defineEnvKeys([
     category: 'database',
     source: 'process-env',
     defaultPolicy: 'safe-local-default',
-    description: 'Maximum PostgreSQL pool size per Prisma role.',
+    description: 'Maximum PostgreSQL pool size for the runtime Prisma role.',
+  },
+  {
+    key: 'RETENTION_WORKER_DATABASE_POOL_MAX',
+    owner: 'platform-database',
+    category: 'database',
+    source: 'process-env',
+    defaultPolicy: 'safe-local-default',
+    description: 'Maximum PostgreSQL pool size for the retention worker Prisma role.',
+  },
+  {
+    key: 'RETENTION_DISCLOSURE_DATABASE_POOL_MAX',
+    owner: 'platform-database',
+    category: 'database',
+    source: 'process-env',
+    defaultPolicy: 'safe-local-default',
+    description: 'Maximum PostgreSQL pool size for the retention disclosure Prisma role.',
   },
   {
     key: 'DATABASE_POOL_MIN',
@@ -139,7 +166,7 @@ export const databaseEnvKeys = defineEnvKeys([
     category: 'database',
     source: 'process-env',
     defaultPolicy: 'safe-local-default',
-    description: 'Minimum PostgreSQL pool size per Prisma role.',
+    description: 'Minimum PostgreSQL pool size for each Prisma role.',
   },
   {
     key: 'DATABASE_QUERY_TIMEOUT_MS',

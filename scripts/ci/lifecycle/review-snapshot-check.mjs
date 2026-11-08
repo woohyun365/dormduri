@@ -46,15 +46,21 @@ const firstLine = (error) =>
     .trim()
     .split('\n')[0];
 
-// The PASS head against the PR head: null when they are equal, else the warning reason.
+// The PASS head against the PR head: null when they are equal, else the warning reason. The listed files are the paths
+// changed after the PASS head that the PR itself changes (merge-base to PR head). The rest are only counted as the
+// base side: what the base brought in, for example through Update branch, and files the PR returned to their
+// merge-base content after the PASS head.
 function headMismatch(context, passHead) {
   const prHead = context.revisions.head;
   if (passHead === prHead) return null;
   const label = `PASS head ${short(passHead)}`;
   try {
     if (!context.hasCommit(passHead)) return `${label}를 저장소에서 찾지 못함(rebase 등)`;
+    const own = new Set(context.changedPaths);
     const paths = context.diffPaths(passHead, prHead);
-    return `${label} ≠ PR head ${short(prHead)}, PASS 뒤 바뀐 파일 ${paths.length}개: ${paths.join(', ')}`;
+    const listed = paths.filter((path) => own.has(path));
+    const excluded = paths.length - listed.length;
+    return `${label} ≠ PR head ${short(prHead)}, PASS 뒤 바뀐 파일 ${listed.length}개${excluded ? `(base 쪽 ${excluded}개 제외)` : ''}${listed.length ? `: ${listed.join(', ')}` : ''}`;
   } catch (error) {
     return `${label}와 PR head ${short(prHead)} 비교 실패: ${firstLine(error)}`;
   }

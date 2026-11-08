@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 
 export type AuthSecurityEventType = Prisma.AuthSecurityEventCreateInput['type'];
 export type AuthSecurityEventSeverity = Prisma.AuthSecurityEventCreateInput['severity'];

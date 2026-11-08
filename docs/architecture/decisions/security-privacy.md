@@ -1,16 +1,41 @@
 # Security and privacy 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-02
-**확인 근거**: [#289](https://github.com/woohyun365/dormduri/issues/289)의 2026-11-02 Web 단계 처리자 범위 결정 댓글(data-privacy-secret의 `sec.privacy.landing-visit-analytics`: Landing 방문 통계 도입, 처리방침 공개 근거, 코드 자리)
+**확인일**: 2026-11-08
+**확인 근거**: [#289](https://github.com/woohyun365/dormduri/issues/289)의 2026-11-02 Web 단계 처리자 범위 결정 댓글(data-privacy-secret의 `sec.privacy.landing-visit-analytics`: Landing 방문 통계 도입, 처리방침 공개 근거, 코드 자리), [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(trust-authz-model의 `sec.trust.db-privilege-audit`: grant 표 하나와 앱 append-only 감사·pgAudit), [#869의 log 보존 결정 댓글](https://github.com/woohyun365/dormduri/issues/869#issuecomment-6718939243)(data-privacy-secret의 `sec.privacy.log-retention`: log 종류별 보존과 IP 가림, 통신비밀보호법 적용 시점), [#869의 접속 log 필드 결정 댓글](https://github.com/woohyun365/dormduri/issues/869#issuecomment-6719267639)(같은 항목의 `OO-R1`)
 **근거**: [공개 법적 문서 fallback](../../../apps/web/src/legal/content/legal-fallback-documents.ts), [Web 운영 관측성 경계](../frontend/web-observability.md), [지금 운영 환경](../../deploy/production-environment.md), [Domain/SWE/Web/security-privacy pack](../../development/agent-workflows/domain/swe-web/security-privacy.md)
 
 `Domain/SWE/Web/security-privacy` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
 
+## trust-authz-model
+
+DB 계정·grant는 [Database operator scripts](../../../infra/db/README.md#credential-boundary)가, 접속 기록 parameter는
+[RDS setup and backup checklist](../../../infra/aws/rds-setup-checklist.md#parameter-group)가 소유합니다.
+
+#### sec.trust.db-privilege-audit
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: DB 권한은 grant 표 하나(`packages/database/prisma/role-grants/role-grant-matrix.csv`)가 table마다 허용·거부의
+  원본이고, apply와 smoke가 같은 표를 읽는다. 관리자 행위·RRPD 열람 감사는 앱의 append-only table에 남긴다(앱에서 기록하는 role은
+  INSERT·SELECT만, RRPD 열람 기록의 기한 폐기는 worker). DB 쪽은 pgAudit가 DDL·role class를 기본으로 남기고, 사람 LOGIN user와 master user는 모든 문장을 남긴다
+  (`pgaudit.log = 'all'`). bind 값은 pgAudit와 statement log 모두 남기지 않는다. PostgreSQL log는 CloudWatch에 731일(2년)
+  둔다. 사람 DB 계정의 권한 부여·변경·말소 내역(3년)과 break-glass 사용은 pgAudit log와 따로 전용 운영 이슈의 댓글로 남긴다
+  ([권한 내역과 break-glass](../../../infra/db/README.md#권한-내역과-break-glass)). RRPD SELECT 객체 감사는 하지 않는다
+- 근거: 앱이 쓰는 감사는 table 권한으로 고칠 수 없게 막고, DB에 직접 들어온 사람의 열람·변경은 pgAudit가 남긴다. 운영 worker의
+  RRPD 읽기까지 객체 감사로 남기면 log 양과 비용이 크고 열람 판단은 `RetentionAccessLog`와 role 차단이 한다. bind 값을 남기면
+  개인정보가 log로 흘러간다. master session은 pgAudit 설정을 끌 수 있어 접속·종료 log, break-glass 기록, 쓴 뒤 비밀번호
+  교체로 보완한다
+- 기각한 대안: RRPD SELECT 객체 감사(log 양·비용, 운영 worker 읽기까지 남음), 앱 감사만(DB에 직접 들어온 사람의 변경이 안
+  남음), 사람은 쓰기·DDL·role만(누가 어떤 개인정보를 열람했는지 안 남음), log 1년 보존(관리자 접속·행위 기록 2년 기준과 다름)
+- 재검토 조건: 관리자 감사 table을 만들 때, 사람 조회 경로가 SSM 밖으로 늘 때, pgAudit log 양이 CloudWatch 비용 기준을 넘을 때
+- 출처: #239, #862, Owner 확인 2026-11-04
+- pack 결정: 없음
+
 ## data-privacy-secret
 
-이 절의 결정은 [operational-observability.md](../../policies/operational-observability.md)가 제품 분석 수집 전에 요구하는 별도
-목적·보존·privacy 결정입니다.
+`sec.privacy.landing-visit-analytics`는 [operational-observability.md](../../policies/operational-observability.md)가 제품 분석
+수집 전에 요구하는 별도 목적·보존·privacy 결정입니다.
 
 #### sec.privacy.landing-visit-analytics
 
@@ -37,4 +62,29 @@
   막힌다), Cloudflare가 수집 항목·보존·처리 위치를 바꿀 때, 실제 사용자 공개 전 법률·개인정보 전문가 검토 결과가 나올 때, 로그인
   뒤 화면이 Landing에서 client 이동으로 열릴 때
 - 출처: #289, #290, Owner 확인 2026-10-30(도입)·2026-11-02(처리방침 공개 근거, 코드 자리)
+- pack 결정: 없음
+
+#### sec.privacy.log-retention
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: log를 종류별로 보존한다. Web·API·nginx 요청·앱 log는 운영 관측 저장소(Loki)에 30일 두고 그 저장소에는 가린 IP(IPv4
+  /24·IPv6 /48)만 둔다([data-retention.md DR-R3](../../policies/data-retention.md)). 그 저장소로 보내는 접속 log 필드는
+  [operational-observability.md OO-R1](../../policies/operational-observability.md)이 정한다. 관리자 접속·행위 기록과 pgAudit는
+  2년이다([data-retention.md DR-R4](../../policies/data-retention.md), [legal-basis.md LB-R7](../../policies/legal-basis.md)).
+  권한 부여·변경·말소 내역 3년은 [sec.trust.db-privilege-audit](#sectrustdb-privilege-audit)와 같다. 통신비밀보호법은 적용 대상으로
+  보고 이용자 간 통신(채팅)을 실제 사용자에게 여는 단계부터 로그기록·접속 IP를 3개월 보관하며, 그 전에는 운영 log 기준이다
+  ([legal-basis.md LB-R8](../../policies/legal-basis.md)). nginx 접속 log의 분류는
+  [Observability topology](../platform/observability-topology.md#접속-log-분류)가 소유한다
+- 근거: [안전성 확보조치 기준 제8조](https://www.law.go.kr/LSW//admRulSideInfoP.do?admRulSeq=2100000265956&chrClsCd=010201&joNo=0008&joBrNo=00&dashNo=&docCls=jo&urlMode=admRulScJoRltInfoR)(원문 확인 2026-11-04)는 1년 이상이고 5만명 이상·민감정보 처리 시스템은 2년 이상이다. 민감정보가 들어올 수 있는
+  채팅을 보수적으로 봐서 2년으로 둔다. [통신비밀보호법 시행령 제41조](https://www.law.go.kr/LSW//lsLinkCommonInfo.do?lspttninfSeq=121362&chrClsCd=010202)의 3개월은 전기통신사업자 의무이고
+  [전기통신사업법 제2조제8호](https://www.law.go.kr/lsLawLinkInfo.do?lsJoLnkSeq=1000110976&chrClsCd=010202)는 신고가 면제된 경우를 포함한다(둘 다 원문 확인 2026-11-04). 채팅을 열기 전에는 보관할 이용자 간 통신이 없다. 장애 분석에 원본 IP와 경로 속 식별자가 필요하지 않고
+  [운영 관측 정책](../../policies/operational-observability.md)은 raw IP·raw 식별자를 금지한다. 공개 처리방침은 원본 IP가 host json-file에
+  있는 기간에도 사실이어야 해서 IP 가림과 30일을 운영 관측 저장소 기록에만 적는다
+- 기각한 대안: 부가통신사업자 등록 시 적용으로 유보(신고 면제도 전기통신사업자에 포함), 관리자 접속기록 1년(민감정보가 들어올 수
+  있는 채팅), Loki에 원본 IP 저장(운영 관측 정책의 raw IP 금지), 접속 log 경로를 그대로 Loki에 저장(raw 식별자 금지를 ingress log에서 포기), Web 요청 log를 크기 rotation만으로 두기(운영 관측 저장소의 시간
+  기준이 없음)
+- 재검토 조건: 채팅을 실제 사용자에게 열 때(3개월 저장 위치와 방식, 처리방침 보유 표), 관리자 감사 table을 만들 때(`data-retention.md`
+  3번 행의 3년과 2년의 관계), log 보존이 host disk를 넘을 때, 실제 사용자 공개 전 법률·개인정보 전문가 검토 결과가 나올 때
+- 출처: #759, #869, Owner 확인 2026-11-04(보존 기준)·2026-11-08(적용일, 접속 log 필드)
 - pack 결정: 없음

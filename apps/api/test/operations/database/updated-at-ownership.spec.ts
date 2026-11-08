@@ -4,8 +4,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const SCHEMA_PATH = path.resolve(CURRENT_DIR, '../../../prisma/schema.prisma');
-const SQL_DIR_PATH = path.resolve(CURRENT_DIR, '../../../prisma/sql');
+const SCHEMA_PATH = path.resolve(
+  CURRENT_DIR,
+  '../../../../../packages/database/prisma/schema.prisma',
+);
+const SQL_DIR_PATH = path.resolve(CURRENT_DIR, '../../../../../packages/database/prisma/sql');
 
 describe('updatedAt ownership coverage', () => {
   const schema = readFileSync(SCHEMA_PATH, 'utf8');

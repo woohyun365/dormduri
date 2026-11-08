@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
+import { BackgroundJobsModule } from '../background-jobs/background-jobs.module.js';
 import { DomainMetricDefinitionsModule } from '../platform/observability/metrics/domain-metric-definitions.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
@@ -14,6 +15,7 @@ import { CHAT_REALTIME_METRIC_DEFINITIONS } from './realtime/chat-realtime-metri
 @Module({
   imports: [
     PrismaModule,
+    BackgroundJobsModule,
     DomainMetricDefinitionsModule.register('chat/realtime', CHAT_REALTIME_METRIC_DEFINITIONS),
     SeasonsModule,
     SeasonParticipantsModule,

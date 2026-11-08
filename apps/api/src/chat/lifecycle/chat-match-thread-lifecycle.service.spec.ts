@@ -3,7 +3,7 @@ import {
   ConversationThreadLifecycleEventReason,
   ConversationThreadLifecycleEventType,
   ConversationThreadLifecycleSourceDomain,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import type { ConversationThreadLifecycleEventAppendInput } from '../lifecycle-events/conversation-thread-lifecycle-event.types.js';
 import { createChatMatchThreadLifecycleOwner } from './chat-match-thread-lifecycle.service.js';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';

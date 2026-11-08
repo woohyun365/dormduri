@@ -1,5 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
-import type { Campus } from '../../generated/prisma/enums.js';
+import type { Campus } from '@repo/database/enums';
 import { formatKstDate } from '../../platform/time/kst-date.js';
 import type { SeasonContextCache } from '../cache/season-context-cache.js';
 import {

@@ -1,5 +1,5 @@
-import { Prisma } from '../../generated/prisma/client.js';
-import type { RetentionAccessReason } from '../../generated/prisma/enums.js';
+import { Prisma } from '@repo/database/client';
+import type { RetentionAccessReason } from '@repo/database/enums';
 import {
   ChatRealtimeOutboxService,
   hasChatRealtimeOutboxTx,

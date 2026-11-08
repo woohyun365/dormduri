@@ -1,5 +1,5 @@
 import type { CurrentSeasonResponse, SeasonState } from '@repo/shared/season/runtime';
-import type { Campus } from '../../generated/prisma/enums.js';
+import type { Campus } from '@repo/database/enums';
 import type { SeasonContextCache } from '../cache/season-context-cache.js';
 import {
   normalizeSeasonRuntimeRow,

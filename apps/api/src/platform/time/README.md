@@ -24,7 +24,7 @@ Product domains may import these helpers when they need shared KST local-date be
 `platform/time` owns deterministic KST local-date conversion helpers only. Product/audit persistence must resolve authoritative "now" from the database boundary, not from an ad-hoc application clock.
 
 - Use `PrismaService.getDatabaseNow()` when application code needs the current persisted timestamp.
-- Use `apps/api/prisma/sql/getCurrentTimestamp.sql` when TypedSQL/raw SQL owns the timestamp comparison.
+- Use `packages/database/prisma/sql/getCurrentTimestamp.sql` when TypedSQL/raw SQL owns the timestamp comparison.
 - Use `formatKstDate`, `compareKstDate`, and KST parse helpers for date-only conversion after the owning domain has supplied the reference `Date`.
 - Do not add a new production `new Date()` or `Date.now()` usage without updating `test/architecture/testing/api-time-source-boundary.spec.ts` with owner, category, and rationale.
 

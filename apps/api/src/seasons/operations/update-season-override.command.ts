@@ -1,8 +1,8 @@
 import { Injectable, Optional } from '@nestjs/common';
 import type { UpdateSeasonOverrideRequest } from '@repo/shared/season/operations';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
-import type { Campus } from '../../generated/prisma/enums.js';
-import { SeasonOperationAuditAction } from '../../generated/prisma/enums.js';
+import type { Campus } from '@repo/database/enums';
+import { SeasonOperationAuditAction } from '@repo/database/enums';
 import { seasonsErrors } from '../errors/seasons.errors.js';
 import type { SeasonOperationMetricOutcome } from './season-operational-metrics.service.js';
 import { SeasonOperationalMetricsService } from './season-operational-metrics.service.js';

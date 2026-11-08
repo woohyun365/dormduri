@@ -11,6 +11,21 @@
 - 실행 안전성: local/full command는 `pool: 'forks'`, `fileParallelism: true`, `--maxWorkers=2`; Hosted CI는 독립
   PostgreSQL runner 두 개가 `1/2`, `2/2` shard를 하나씩 소유하고 shard 안에서는 `--maxWorkers=1`을 사용
 
+## DB role mode
+
+`DORMDURI_API_INTEGRATION_DATABASE_ROLES`가 app client의 DB 접속 방식을 정한다. CI는 `separated`다.
+
+- `separated`(기본): global setup(`test/setup/vitest.integration.global-setup.ts`)이 한 번 production bootstrap SQL로
+  group role과 LOGIN user를 만들고 그 user들의 비밀번호를 commit된 test 값으로 맞춘 뒤 database 전역 default privilege를
+  적용한다. suite마다 admin 연결이 schema 생성·`migrate deploy`·grant 표 적용·truncate·fixture를 하고, app의 runtime·
+  worker·disclosure client는 각 LOGIN user로 접속한다. 표에 없는 권한이 필요한 production 연산은 권한 오류로 드러난다.
+- `shared`: 모든 client가 `DATABASE_URL`의 admin user로 접속한다. role을 만들 수 없는 PostgreSQL에서만 쓴다.
+- 대상 guard: bootstrap은 cluster 전역 role과 비밀번호를 바꾸므로 admin URL이 loopback(`localhost`·`127.0.0.1`·`::1`)일
+  때만 돈다. Docker network 이름처럼 loopback이 아닌 일회용 PostgreSQL이면 `DORMDURI_API_INTEGRATION_DISPOSABLE_DATABASE=yes`를
+  준다. 공유·운영 DB URL을 넣지 않는다.
+- base user는 role을 만들 수 있어야 한다(superuser 또는 CREATEROLE). bootstrap은 대상 DB의 `public` schema CREATE를
+  PUBLIC에서 회수하고 `migration_owner`에 database CREATE를 준다.
+
 ## 구조
 
 ```text
@@ -65,9 +80,9 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.integration.ts --ma
 ## Migration evidence
 
 ```bash
-KNU_INTEGRATION_MIGRATION_EVIDENCE_FILE=/tmp/knu-integration-migrations.jsonl \
+DORMDURI_API_INTEGRATION_MIGRATION_EVIDENCE_FILE=/tmp/dormduri-integration-migrations.jsonl \
   pnpm --dir apps/api ci:test:integration
-wc -l /tmp/knu-integration-migrations.jsonl
+wc -l /tmp/dormduri-integration-migrations.jsonl
 ```
 
 Evidence opt-in이 없으면 파일이나 product log를 만들지 않는다. Current full suite는 27 files / 225 tests / migration

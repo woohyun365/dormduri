@@ -4,7 +4,7 @@ import type {
   SeasonProfileState,
 } from '@repo/shared/season/participation';
 import type { LifestyleData } from '@repo/shared/lifestyle';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import {
   lifestyleFieldNames,

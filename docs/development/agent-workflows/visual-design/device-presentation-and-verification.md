@@ -63,9 +63,10 @@ Tailwind는 유지하며 각 표현 내부의 layout 조정 수단으로 사용�
 
 ## Device verification packet
 
-실제 UI를 바꾼 작업은 다음 항목을 **Desktop과 Mobile 각각** 기록합니다. 390px와 1280–1440px는 검증 출발 예시이지
-생산 breakpoint 규칙이 아닙니다. [기존 Storybook presets](../../../../apps/web/.storybook/preview.tsx)와
-[Playwright 설정](../../../../apps/web/playwright.config.ts)을 재사용하되 설정 존재를 실행 결과로 세지 않습니다.
+실제 UI를 바꾼 작업은 다음 항목을 **Desktop과 Mobile 각각** 기록합니다. 검증 폭·높이 값은
+[token README "breakpoint와 reflow"](../../../../apps/web/src/styles/tokens/README.md#breakpoint와-reflow)만 가집니다.
+[기존 Storybook presets](../../../../apps/web/.storybook/preview.tsx)와 [Playwright 설정](../../../../apps/web/playwright.config.ts)을
+재사용하되 설정 존재를 실행 결과로 세지 않습니다.
 
 | 항목          | 기록할 evidence                                                                                                                         |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -74,8 +75,10 @@ Tailwind는 유지하며 각 표현 내부의 layout 조정 수단으로 사용�
 | 시각과 접근성 | 양쪽 성공 캡처 경로, keyboard/focus·touch·읽기 순서·scroll/reflow 결과, 변경 전후 비교 조건                                             |
 | gap           | 실행하지 않은 row, mock/stub, capture와 실제 API 검증의 차이, 남은 담당 owner·확인 조건                                                 |
 
-320px reflow, 변경 breakpoint 직전/직후, zoom, 긴 한글·font fallback, safe area·가상 키보드, reduced motion은 영향에
-맞게 검사합니다. 기존 접근성 의무를 줄이지 않으며 무관한 전체 browser matrix를 모든 작업에 강제하지 않습니다.
+캡처는 그 절의 breakpoint 경계 양쪽 폭과 높이 축을 함께 봅니다(높이 축은 [랜딩 작업](../../../evidence/frontend/landing-rebuild-evidence.md)이
+짧은 휴대폰 높이에서 첫 화면 고지가 화면 아래로 내려가는 것을 찾은 축). reflow, zoom, 긴 한글·font fallback, safe area·가상
+키보드, reduced motion은 영향에 맞게 검사합니다. 기존 접근성 의무를 줄이지 않으며 무관한 전체 browser matrix를 모든 작업에
+강제하지 않습니다.
 Production과 Storybook fixture가 있으면 같은 상태·행동 계약인지 확인하고, story가 없으면 필요한 다른 bounded fixture를
 선택합니다. 실제 화면 변경이 없는 기능 수리는 해당 action/error/privacy 검증과 UI matrix가 불필요한 이유를 남깁니다.
 
@@ -96,16 +99,16 @@ RN build·성능·호환성을 실증했다고 말하지 않습니다.
 
 ## 읽기 전용 적용 예시
 
-다음은 후속 task packet을 구성하는 예시이지 현재 화면 migration이나 구현 승인이 아닙니다. 실행 시 current source와
-대조합니다. 작업 모드/수정 권한은 [VisualBrief](./visual-brief.md)를 따릅니다.
+다음은 후속 task packet을 구성하는 예시이지 현재 화면 migration이나 구현 승인이 아닙니다. 파일 경로는 적지 않으며 실행 시
+current source와 그 화면의 owner README를 대조합니다. 작업 모드/수정 권한은 [VisualBrief](./visual-brief.md)를 따릅니다.
 
-| 입력과 source                                                                                                                            | 선택·owner·보호 행동                                                                                               | 후속 evidence / gap                                                                                                                                                                                             |
-| ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Home dialog 여백·너비만 수리: [overlay](../../../../apps/web/src/main/tabs/home/overlays/HomeResponsiveDialog.tsx)                       | maintain / shared-responsive. 기존 focus/close/scroll lock 유지                                                    | affected viewport·reflow·[overlay 행동 회귀](../../../../apps/web/src/main/tabs/home/__tests__/HomeResponsiveOverlay.test.tsx). 작은 차이에 두 View 불필요                                                      |
-| Profile desktop 편집 패널과 mobile 단계형 편집을 승인받은 경우: [route](../../../../apps/web/src/main/routes/ProfileRoute.tsx)           | split-presentation을 편집 subtree에 한정. field/draft/validation/save 의미는 공통, local open state만 각 View 소유 | draft·pending/error·취소·resize/focus·실제 저장을 별도 검증. [현재 local hook](../../../../apps/web/src/main/hooks/useMainProfileState.ts)의 toast는 영속 save 증거가 아니며 persistence owner의 후속 수리 필요 |
-| Home의 같은 시즌 참여 철회 action을 두 표현에 배치: [HomeRoute](../../../../apps/web/src/main/routes/HomeRoute.tsx)                      | 기존 action/resource·중복 submit 방지 공유, 성공 refetch once / 실패 no refresh                                    | [runtime 회귀](../../../../apps/web/src/main/runtime/MainRuntime.test.tsx)와 실제 후속 network/action 검사. 기숙사 선택의 local toast를 실제 mutation 성공으로 혼동하지 않음                                    |
-| 변경 요청 없는 Chat 또는 표현과 무관한 Profile 저장 실패 수리                                                                            | unchanged-out-of-scope. 전자는 no-op, 후자는 기존 data/action seam의 필요한 결함만 수정                            | 전자는 diff 없음/이유, 후자는 action/error/privacy 회귀. 모든 legacy 분해·디자인 후보 불필요                                                                                                                    |
-| 승인된 Home IA 변경이 [layout test](../../../../apps/web/src/main/tabs/home/__tests__/HomeDashboardLayout.test.tsx)의 class/order와 충돌 | class/order의 대체 layout·읽기 순서 검증 먼저 정의, named region/content와 행동 의미 보존                          | assertion 단위 replacement map과 변경 surface의 device 결과. 전체 test 삭제 금지                                                                                                                                |
+| 입력과 source                                          | 선택·owner·보호 행동                                                                                               | 후속 evidence / gap                                                                                                                          |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| dialog 여백·너비만 수리                                | maintain / shared-responsive. 기존 focus/close/scroll lock 유지                                                    | affected viewport·reflow·그 overlay의 행동 회귀. 작은 차이에 두 View 불필요                                                                  |
+| desktop 편집 패널과 mobile 단계형 편집을 승인받은 경우 | split-presentation을 편집 subtree에 한정. field/draft/validation/save 의미는 공통, local open state만 각 View 소유 | draft·pending/error·취소·resize/focus·실제 저장을 별도 검증. local hook의 toast는 영속 save 증거가 아니며 persistence owner의 후속 수리 필요 |
+| 같은 참여 철회 action을 두 표현에 배치                 | 기존 action/resource·중복 submit 방지 공유, 성공 refetch once / 실패 no refresh                                    | runtime 회귀와 실제 후속 network/action 검사. local toast를 실제 mutation 성공으로 혼동하지 않음                                             |
+| 변경 요청 없는 화면 또는 표현과 무관한 저장 실패 수리  | unchanged-out-of-scope. 전자는 no-op, 후자는 기존 data/action seam의 필요한 결함만 수정                            | 전자는 diff 없음/이유, 후자는 action/error/privacy 회귀. 모든 legacy 분해·디자인 후보 불필요                                                 |
+| 승인된 IA 변경이 layout test의 class/order와 충돌      | class/order의 대체 layout·읽기 순서 검증 먼저 정의, named region/content와 행동 의미 보존                          | assertion 단위 replacement map과 변경 surface의 device 결과. 전체 test 삭제 금지                                                             |
 
 ## 강제력과 완료 범위
 

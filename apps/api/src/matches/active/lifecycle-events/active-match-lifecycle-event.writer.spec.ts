@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import {
   ActiveMatchLifecycleActorType,
   ActiveMatchLifecycleEventReason,
   ActiveMatchLifecycleEventType,
-} from '../../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 import { ActiveMatchLifecycleEventRepository } from './active-match-lifecycle-event.repository.js';
 import { ActiveMatchLifecycleEventWriter } from './active-match-lifecycle-event.writer.js';
 import type { ActiveMatchLifecycleEventCreateInput } from './active-match-lifecycle-event.types.js';

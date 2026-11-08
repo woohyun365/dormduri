@@ -1,7 +1,7 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
-import type { VerificationCodePurpose } from '../../generated/prisma/enums.js';
+import type { VerificationCodePurpose } from '@repo/database/enums';
 import {
   AUTH_VERIFICATION_CODE_MAX_ATTEMPTS,
   AUTH_VERIFICATION_GRANT_TTL_SECONDS,

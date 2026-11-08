@@ -3,6 +3,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
+import { anchors, links as markdownLinks, prose } from '../../../agents/common/markdown-links.mjs';
+import { classifyRevision } from '../../../agents/common/plan-shape-check.mjs';
+
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const workflowRoot = 'docs/development/agent-workflows';
 const visualRoot = `${workflowRoot}/visual-design`;
@@ -555,4 +558,83 @@ test('visual delta corpus retains freedom and scoped skill negative cases', () =
   const gap = cases.find((item) => item.id === 'visual-missing-native-discovery');
   assert.equal(gap.expectedAuthority, 'analyze');
   assert.equal(gap.expectations.disposition, 'report-gap');
+});
+
+// Structure only (paths, links, anchors, heading classification), not the wording or the agent's compliance.
+const linkTargets = (path) => markdownLinks(repoRoot, path, read(path));
+const orchestrationPath = `${visualRoot}/design-task-orchestration.md`;
+
+test('visual guides use the current screen layer, not the retired main and legal paths', () => {
+  for (const path of visualGuidePaths) {
+    const retired = read(path)
+      .split('\n')
+      .filter((line) => /apps\/web\/src\/(?:main|legal)\//u.test(line));
+    assert.deepEqual(retired, [], `${path}: retired screen layer path`);
+  }
+});
+
+test('dated observation cases live in agent workflow evidence that links back to the review guide', () => {
+  const reviewPath = `${visualRoot}/design-review-and-acceptance.md`;
+  assert.doesNotMatch(
+    prose(read(reviewPath)),
+    /^#{1,6}\s.*\d{4}-\d{2}-\d{2}/mu,
+    `${reviewPath}: dated observation heading`,
+  );
+  const evidence = linkTargets(reviewPath).filter(
+    ({ path }) =>
+      path.startsWith('docs/evidence/agent-workflows/') &&
+      path.endsWith('.md') &&
+      path !== 'docs/evidence/agent-workflows/README.md',
+  );
+  assert.ok(evidence.length > 0, `${reviewPath}: observation evidence link`);
+  for (const { path } of evidence) {
+    assert.ok(existsSync(resolve(repoRoot, path)), `${path}: observation evidence document`);
+    assert.ok(
+      linkTargets(path).some((link) => link.path === reviewPath),
+      `${path}: observation evidence links back to the review guide`,
+    );
+  }
+});
+
+test('design task orchestration links the screen owner and the branch strategy', () => {
+  for (const target of [
+    'apps/web/src/screens/README.md',
+    'docs/development/github/branch-and-pr-strategy.md',
+  ])
+    assert.ok(
+      linkTargets(orchestrationPath).some(({ path }) => path === target),
+      `${orchestrationPath}: owner link to ${target}`,
+    );
+});
+
+test('device verification links the token breakpoint section instead of owning widths', () => {
+  const devicePath = `${visualRoot}/device-presentation-and-verification.md`;
+  const tokenReadme = 'apps/web/src/styles/tokens/README.md';
+  assert.ok(
+    linkTargets(devicePath).some(
+      ({ path, fragment }) => path === tokenReadme && fragment === 'breakpoint와-reflow',
+    ),
+    `${devicePath}: token breakpoint anchor link`,
+  );
+  assert.ok(anchors(read(tokenReadme)).has('breakpoint와-reflow'), `${tokenReadme}: anchor`);
+});
+
+test('recommended exploration record headings grade an appended round as P0', () => {
+  const examples = [...prose(read(orchestrationPath)).matchAll(/`(#{2,6} [^`\n]+)`/gu)].map(
+    (match) => match[1],
+  );
+  assert.ok(examples.length > 0, `${orchestrationPath}: exploration record heading example`);
+  for (const heading of examples) {
+    const before = `# 시각 plan\n\n${heading}\n\n- 회차 01\n`;
+    const { minimum } = classifyRevision(before, `${before}- 회차 02\n`);
+    assert.equal(minimum, 'P0', `${heading}: exploration record grade`);
+  }
+  assert.ok(
+    linkTargets(orchestrationPath).some(
+      ({ path, fragment }) =>
+        path === `${workflowRoot}/session-continuity.md` &&
+        fragment === '계획-초안-staging과-promote',
+    ),
+    `${orchestrationPath}: plan revision grade owner link`,
+  );
 });

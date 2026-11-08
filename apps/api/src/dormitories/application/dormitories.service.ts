@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Campus, Gender } from '../../generated/prisma/enums.js';
+import type { Campus, Gender } from '@repo/database/enums';
 import { DormitoryCatalogQuery } from '../catalog/dormitory-catalog.query.js';
 
 @Injectable()

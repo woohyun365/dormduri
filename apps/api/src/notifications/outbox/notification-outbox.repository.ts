@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { claimNotificationOutboxEvents } from '../../generated/prisma/sql.js';
+import { claimNotificationOutboxEvents } from '@repo/database/sql';
 
 type TypedQueryable = {
   $queryRawTyped<T = unknown>(query: unknown): Promise<T[]>;

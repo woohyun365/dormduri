@@ -22,7 +22,7 @@ import {
   DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET,
 } from '../../../src/auth/config/auth.config.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
-import type { Prisma } from '../../../src/generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { CurrentUserViewService } from '../../../src/users/current-user/current-user-view.service.js';
 import { createUserUpdateOwner } from '../../../src/users/application/user-update-owner.js';
 import { DisplayIdentityNicknamePolicyService } from '../../../src/users/identity/display/display-identity-nickname-policy.service.js';

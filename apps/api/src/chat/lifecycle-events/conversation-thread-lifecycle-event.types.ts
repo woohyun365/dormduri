@@ -1,10 +1,10 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type {
   ConversationThreadLifecycleActorType,
   ConversationThreadLifecycleEventReason,
   ConversationThreadLifecycleEventType,
   ConversationThreadLifecycleSourceDomain,
-} from '../../generated/prisma/enums.js';
+} from '@repo/database/enums';
 
 export const CONVERSATION_THREAD_LIFECYCLE_EVENT_METADATA_ALLOWED_KEYS = [
   'sourceActiveMatchId',

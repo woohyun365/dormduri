@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { LegalDocumentKind as SharedLegalDocumentKind } from '@repo/shared/legal';
-import type { Prisma } from '../../generated/prisma/client.js';
-import type { LegalDocumentKind as PrismaLegalDocumentKind } from '../../generated/prisma/enums.js';
+import type { Prisma } from '@repo/database/client';
+import type { LegalDocumentKind as PrismaLegalDocumentKind } from '@repo/database/enums';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 
 export const legalDocumentVersionSelect = {

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import type { NotificationKind, NotificationSourceType } from '@repo/shared/notifications';
-import { Prisma } from '../../generated/prisma/client.js';
+import { Prisma } from '@repo/database/client';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { toSeasonSystemNoticeNotificationPayload } from '../policies/notification-payload.policy.js';
 import { normalizeNotificationCampaignChunkSize } from './notification-campaign-bounds.js';

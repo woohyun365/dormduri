@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { VerificationCodePurpose } from '../../../generated/prisma/enums.js';
+import type { VerificationCodePurpose } from '@repo/database/enums';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import {
   parseVerificationGrant,

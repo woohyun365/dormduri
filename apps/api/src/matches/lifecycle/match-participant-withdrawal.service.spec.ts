@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import { MatchParticipantWithdrawalService } from './match-participant-withdrawal.service.js';
 
 describe('MatchParticipantWithdrawalService', () => {

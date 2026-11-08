@@ -482,9 +482,9 @@ test('API CI migrates its fresh public schema before generating TypedSQL artifac
 
   assertIncludesAll(apiWorkflow, [
     '--stage=schema',
-    'pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma',
+    'pnpm --dir packages/database exec prisma migrate deploy --schema prisma/schema.prisma',
     '--stage=schema-diff',
-    'pnpm --dir apps/api exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code',
+    'pnpm --dir packages/database exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code',
     'pnpm api:prepare',
     '--stage=runtime-config-health-contract',
     '--stage=unit',
@@ -506,7 +506,8 @@ test('API integration shards own isolated runners and PostgreSQL services', () =
     'fail-fast: false',
     "shard: '1/2'",
     "shard: '2/2'",
-    'KNU_API_INTEGRATION_SHARD: ${{ matrix.shard }}',
+    'DORMDURI_API_INTEGRATION_SHARD: ${{ matrix.shard }}',
+    'DORMDURI_API_INTEGRATION_DATABASE_ROLES: separated',
     'pnpm --dir apps/api ci:test:integration:shard',
   ]);
   assert.equal(occurrences(apiWorkflow, 'services:'), 2);

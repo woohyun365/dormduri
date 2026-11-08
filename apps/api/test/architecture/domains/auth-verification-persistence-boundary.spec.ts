@@ -5,10 +5,10 @@ import { describe, expect, it } from 'vitest';
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const API_ROOT = path.resolve(CURRENT_DIR, '../../..');
-const SCHEMA_PATH = path.join(API_ROOT, 'prisma/schema.prisma');
+const SCHEMA_PATH = path.join(API_ROOT, '../../packages/database/prisma/schema.prisma');
 const BASELINE_PATH = path.join(
   API_ROOT,
-  'prisma/migrations/000000000000_initial_baseline/migration.sql',
+  '../../packages/database/prisma/migrations/000000000000_initial_baseline/migration.sql',
 );
 function readApiFile(relativePath: string): string {
   return readFileSync(path.join(API_ROOT, relativePath), 'utf8');
@@ -82,9 +82,15 @@ describe('auth verification persistence boundary', () => {
   });
 
   it('active lookup와 abuse backstop TypedSQL은 HMAC dimension과 전용 index를 사용한다', () => {
-    const activeLookup = readApiFile('prisma/sql/getActiveVerificationRecord.sql');
-    const cooldownLookup = readApiFile('prisma/sql/getVerificationRetryAfterSeconds.sql');
-    const backstopLookup = readApiFile('prisma/sql/getVerificationBackstopRetryAfterSeconds.sql');
+    const activeLookup = readApiFile(
+      '../../packages/database/prisma/sql/getActiveVerificationRecord.sql',
+    );
+    const cooldownLookup = readApiFile(
+      '../../packages/database/prisma/sql/getVerificationRetryAfterSeconds.sql',
+    );
+    const backstopLookup = readApiFile(
+      '../../packages/database/prisma/sql/getVerificationBackstopRetryAfterSeconds.sql',
+    );
 
     expect(activeLookup).toContain('"subjectKey" = $1');
     expect(activeLookup).toContain('"codeExpiresAt" > CURRENT_TIMESTAMP');
@@ -103,7 +109,7 @@ describe('auth verification persistence boundary', () => {
   });
 
   it('auth mail claim은 bounded SKIP LOCKED lease를 사용하고 decrypt owner는 dispatcher로 제한한다', () => {
-    const claim = readApiFile('prisma/sql/claimAuthMailOutboxEvents.sql');
+    const claim = readApiFile('../../packages/database/prisma/sql/claimAuthMailOutboxEvents.sql');
     const readerImportOwners = productionTypescriptFiles(path.join(API_ROOT, 'src/auth'))
       .filter(
         (filePath) =>

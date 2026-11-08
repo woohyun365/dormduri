@@ -3,8 +3,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Client, Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
-import { PrismaClient, type Prisma } from '../../../src/generated/prisma/client.js';
-import { acquireTransactionAdvisoryLock } from '../../../src/generated/prisma/sql.js';
+import { PrismaClient, type Prisma } from '@repo/database/client';
+import { acquireTransactionAdvisoryLock } from '@repo/database/sql';
 
 const RUN_ID = randomUUID();
 const TRANSACTION_MS = 20_000;

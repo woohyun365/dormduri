@@ -4,7 +4,7 @@ import type {
   SendConversationMessageResponse,
   UpdateChatReadMarkerRequest,
 } from '@repo/shared/chat';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@repo/database/client';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type { ChatUserContext } from '../application/chat-user-context.service.js';
 import type {
