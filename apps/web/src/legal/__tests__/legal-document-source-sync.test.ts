@@ -178,9 +178,10 @@ describe('public privacy policy log retention and change notice', () => {
     const [serverSentence, ...storeSentences] = retentionBasis('웹 서버 접속 기록').split('. ');
     const storeText = storeSentences.join('. ');
 
+    expect(serverSentence).toContain('서비스 서버에만');
     expect(serverSentence).toContain('오래된 기록부터 자동으로 삭제');
-    expect(serverSentence).not.toMatch(/가린|가리고|가림|30일/u);
-    expect(storeText).toContain('운영 관측 저장소');
+    expect(serverSentence).not.toMatch(/가린|가리|가림|마스킹|비식별|익명|일부|30일/u);
+    expect(storeText).toContain('서비스 서버 안의 운영 관측 저장소');
     expect(storeText).toContain('가린');
     expect(storeText).toContain('30일');
   });
