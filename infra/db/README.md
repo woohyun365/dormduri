@@ -53,7 +53,7 @@ Secret value는 command output, CI log, issue, report에 남기지 않는다. �
   비우면 table 단위, 열 이름을 쓰면 그 열만, `-secret -content`처럼 `-<class>`를 쓰면 그 class를 뺀 분류된 열
   전부다. 표에 없는 조합은 모두 거부다. role 칸의 `none`은 "표에 있지만 권한 없음"이다.
 - `column-classes.csv`는 모든 열의 개인정보 class(`secret`·`identifier`·`pseudonymous`·`quasi`·`content`·
-  `reference`·`operational`)다. 사람 조회 권한은 secret·content 열을 빼고, 백오피스 열 단위 권한과 log·경보 payload
+  `reference`·`operational`)다. 사람 조회 권한은 secret·content 열을 빼고 RRPD는 `RetentionCase.id`(복원 훈련 행 수 대조)만 읽으며, 백오피스 열 단위 권한과 log·경보 payload
   가림이 같은 분류를 쓴다.
 - 적용은 fail closed다. schema에 표에 없는 table·view, 분류되지 않은 열, 표에만 있는 table·열, sequence, routine이
   하나라도 있으면 아무 권한도 바꾸지 않고 실패한다. extension 소유 객체(`pg_stat_statements` view, `pgaudit` 함수)는

@@ -130,10 +130,17 @@ describe('DB role grant table', () => {
     expect(
       readonlyRows.flatMap((row) => row.privileges).filter((privilege) => privilege !== 'SELECT'),
     ).toEqual([]);
-    expect(readonlyRows.filter((row) => RRPD_TABLES.includes(row.table))).toEqual([]);
+    // RRPD stays closed to people except the RetentionCase anchor id, which the restore drill
+    // counts against the source (Owner 2026-11-08).
+    const restoreDrillAnchor = (row: (typeof readonlyRows)[number]) =>
+      row.table === 'RetentionCase' && row.columns === 'id';
+    expect(readonlyRows.filter((row) => RRPD_TABLES.includes(row.table)).map(describeRow)).toEqual(
+      readonlyRows.filter(restoreDrillAnchor).map(describeRow),
+    );
+    expect(readonlyRows.filter(restoreDrillAnchor)).toHaveLength(1);
     expect(
       readonlyRows
-        .filter((row) => row.table !== '_prisma_migrations')
+        .filter((row) => row.table !== '_prisma_migrations' && !restoreDrillAnchor(row))
         .filter(
           (row) =>
             !(

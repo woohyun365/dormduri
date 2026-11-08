@@ -131,6 +131,7 @@ RetentionCase,app_runtime,INSERT,
 RetentionCase,app_runtime,SELECT,id
 RetentionCase,retention_worker,SELECT INSERT UPDATE DELETE,
 RetentionCase,retention_disclosure,SELECT,
+RetentionCase,app_readonly,SELECT,id
 RetainedIdentity,retention_worker,SELECT INSERT UPDATE DELETE,
 RetainedIdentity,retention_disclosure,SELECT,
 RetainedIdentityHold,retention_worker,SELECT INSERT UPDATE DELETE,

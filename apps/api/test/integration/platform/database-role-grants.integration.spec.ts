@@ -245,13 +245,19 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
       });
     });
 
-    it('사람 조회 role은 secret·content 열을 읽지 못하고 RRPD table을 읽지 못한다', async () => {
+    it('사람 조회 role은 secret·content 열과 RRPD를 읽지 못하고 RetentionCase는 행 수만 센다', async () => {
       await admin.query('SET ROLE app_readonly');
       try {
         await expect(
           admin.query(`SELECT "id", "email" FROM ${table('User')} LIMIT 1`),
         ).resolves.toBeDefined();
+        // Restore drill baseline: the anchor count without reason, source or hold columns.
+        await expect(
+          admin.query(`SELECT count(*) FROM ${table('RetentionCase')}`),
+        ).resolves.toBeDefined();
         for (const sql of [
+          `SELECT "reason" FROM ${table('RetentionCase')} LIMIT 1`,
+          `SELECT * FROM ${table('RetentionCase')} LIMIT 1`,
           `SELECT "passwordHash" FROM ${table('User')} LIMIT 1`,
           `SELECT "body" FROM ${table('ConversationMessage')} LIMIT 1`,
           `SELECT * FROM ${table('User')} LIMIT 1`,

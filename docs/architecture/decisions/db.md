@@ -74,7 +74,8 @@ Role·LOGIN user·grant 표는 [Database operator scripts](../../../infra/db/REA
 - 근거: RRPD payload·식별 복원 table은 worker·disclosure만, 감사 table은 append만, migration 기록은 사람 조회만 닿게 해야 해서
   권한 경계가 실제로 다르다. 사람 조회를 운영자별로 나누고 credential 교체를 group 권한과 떼려면 LOGIN user가 따로 있어야 한다.
   runtime은 일반 table DML을 유지하고, worker는 계정 삭제·archive가 실제로 쓰는 연산만 더 받는다(계정 삭제와 RRPD 보존이 한
-  serializable transaction이다). 신고 접수는 runtime이 `RetentionCase` anchor를 INSERT하고 `id` 열만 읽는다. 사람 조회는 secret·
+  serializable transaction이다). 신고 접수는 runtime이 `RetentionCase` anchor를 INSERT하고 `id` 열만 읽는다. 사람 조회도 RRPD 가운데
+  `RetentionCase.id`만 읽어 복원 훈련이 행 수를 대조한다. 사람 조회는 secret·
   content 열을 뺀다. 새 table은 표에 넣고 같은 release의 grant 단계가 돌아야 열린다. Connection 예산은 role별 pool과
   `max_connections` × 0.6 규칙이다([Connection budget](../../../infra/db/README.md#connection-budget))
 - 기각한 대안: group role에 LOGIN 직접(운영자별로 나눌 수 없음), 서비스 이름으로 role을 새로 짓기(SQL·env·test 이름만 바뀜),
@@ -83,7 +84,8 @@ Role·LOGIN user·grant 표는 [Database operator scripts](../../../infra/db/REA
   내용을 일상 권한으로 봄), pool 하나 유지, 80% 규칙(사람 비상 접속 자리가 줄어듦)
 - 재검토 조건: 백오피스 기능이 사용자 table 열을 읽어야 할 때(열 단위로 더함), 관리자 감사 table을 만들 때, runtime 권한을
   table별로 더 좁힐 때, target `max_connections`가 규칙을 넘을 때
-- 출처: #237, #238, #862, Owner 확인 2026-11-04(role·grant·예산)·2026-11-07(`migration_owner`의 database CREATE)
+- 출처: #237, #238, #862, Owner 확인 2026-11-04(role·grant·예산)·2026-11-07(`migration_owner`의 database CREATE)·2026-11-08
+  (사람 조회의 `RetentionCase.id`)
 - pack 결정: [db.integrity.role-separation](../../development/agent-workflows/domain/swe-web/db.md#dbintegrityrole-separation)
 
 #### db.integrity.retention-execution
