@@ -133,6 +133,25 @@ describe('public legal document pages', () => {
     );
   });
 
+  // legal-basis.md LB-R6: the notice of a change after the first public release is what the page shows.
+  it('/privacy는 적용일과 주요 변경을 변경 요약과 최종 수정일로 화면에 안내한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('offline');
+      }),
+    );
+
+    const { container } = render(await PrivacyPage());
+
+    expect(container).toHaveTextContent('변경 요약');
+    expect(container).toHaveTextContent('2026년 11월 20일부터 적용합니다.');
+    expect(container).toHaveTextContent(
+      '주요 변경: 개인정보처리시스템 접속 기록 보관 기간을 1년에서 2년으로',
+    );
+    expect(screen.getByText('2026-11-20')).toBeInTheDocument();
+  });
+
   it('모바일 목차는 본문 heading보다 먼저 접근 가능하다', async () => {
     vi.stubGlobal(
       'fetch',
