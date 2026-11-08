@@ -76,7 +76,7 @@ Secret value는 command output, CI log, issue, report에 남기지 않는다. �
 | auth 정리(5)                                | DML                        | SELECT·DELETE(`AuthSession` UPDATE) | —                                                                 | secret·content 제외 |
 | 시즌 운영 감사                              | SELECT·INSERT(append-only) | —                                   | —                                                                 | content 제외        |
 | RRPD 열람 기록 `RetentionAccessLog`         | —                          | DML(폐기)                           | SELECT·INSERT                                                     | —                   |
-| RRPD anchor `RetentionCase`                 | INSERT, `id` 열 SELECT     | DML                                 | SELECT                                                            | —                   |
+| RRPD anchor `RetentionCase`                 | INSERT, `id` 열 SELECT     | DML                                 | SELECT                                                            | `id` 열 SELECT      |
 | RRPD 그 밖(6)                               | —                          | DML                                 | `ArchiveJob` 밖 SELECT, `RetentionReviewJob` SELECT·INSERT·UPDATE | —                   |
 | `_prisma_migrations`                        | —                          | —                                   | —                                                                 | SELECT              |
 

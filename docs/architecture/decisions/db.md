@@ -1,8 +1,8 @@
 # DB 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-07
-**확인 근거**: [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(migration-seed-compatibility의 `db.migration.change-strategy`·`db.migration.rollback-path`, integrity-retention-lifecycle의 `db.integrity.role-separation`·`db.integrity.retention-execution`과 pack 밖 결정의 Owner 확인 날짜)
+**확인일**: 2026-11-08
+**확인 근거**: [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(migration-seed-compatibility의 `db.migration.change-strategy`·`db.migration.rollback-path`, integrity-retention-lifecycle의 `db.integrity.role-separation`·`db.integrity.retention-execution`과 pack 밖 결정의 Owner 확인 날짜), [#862의 사람 조회 `RetentionCase.id` 결정 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6715462160)(`db.integrity.role-separation`, 2026-11-08)
 **근거**: [Database operator scripts](../../../infra/db/README.md), [RDS setup and backup checklist](../../../infra/aws/rds-setup-checklist.md), [Backup and restore drill runbook](../../../infra/runbooks/operations/database/backup-restore.md), [Data retention](../../policies/data-retention.md#rrpd-db-접근-통제와-운영-관측), [Domain/SWE/Web/DB pack](../../development/agent-workflows/domain/swe-web/db.md)
 
 `Domain/SWE/Web/DB` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
