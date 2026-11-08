@@ -95,6 +95,19 @@ Repository의 실행 가능한 초기 retention 값은 `infra/observability/prod
 실제 disk, volume, backup 또는 허용 손실은 target release readiness/evidence에서 확정한다. Provider account,
 region, retention과 operator는 Sentry release readiness/evidence에서 확정한다.
 
+## 접속 log 분류
+
+Ingress(nginx)와 Web의 요청 log는 [운영 관측 정책](../../policies/operational-observability.md)이 다루는 운영 log다. 장애
+분석이 목적이고 보존 기준은 [data-retention.md DR-R3](../../policies/data-retention.md)가 소유한다. 개인정보처리시스템 접속기록
+([data-retention.md DR-R4](../../policies/data-retention.md))과 이용자 로그기록([legal-basis.md LB-R8](../../policies/legal-basis.md))은
+이 log로 대신하지 않는다. 장애 분석에 원본 IP가 필요하지 않고, 이용자 로그기록은 채팅을 실제 사용자에게 여는 변경이 저장 위치와
+방식을 따로 정하기 때문이다.
+
+- 이후 목표: ingress log 형식이 client IP를 가린 값(IPv4 /24·IPv6 /48)으로 쓰고 Alloy가 같은 처리를 한 번 더 해서, host
+  json-file과 Loki에 원본 IP가 없다.
+- 지금 Web 단계: ingress는 원본 IP를 host json-file(10MB × 3)에 쓰고 이 log를 외부로 보내지 않는다. Loki 수집은 없다. 새 형식이
+  뜬 뒤 옛 형식으로 rollback하면 그 동안 host json-file에 원본 IP가 다시 쌓인다.
+
 ## 변경 trigger
 
 다음 조건이 생기면 topology를 재검토한다.
@@ -113,3 +126,4 @@ region, retention과 operator는 Sentry release readiness/evidence에서 확정�
 | 2026-08-11 | 정책에서 도구 선택과 데이터 흐름을 분리하고 BackOffice·제품 데이터 경계를 명확히 했다.                       |
 | 2026-09-03 | API metric client를 공식 successor인 `@prometheus-io/client`로 교체했다.                                     |
 | 2026-10-31 | 지금 Web 단계의 외부 가용성 경보 경로를 첫 절로 두고 수집 stack·Sentry·DB 지표 구성을 이후 목표 절로 옮겼다. |
+| 2026-11-08 | nginx·Web 요청 log를 운영 log로 분류하고 지금과 이후의 원본 IP 위치를 적었다(#759·#869).                     |

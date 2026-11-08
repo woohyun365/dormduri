@@ -154,3 +154,59 @@ describe('public legal contact and overseas transfer facts', () => {
     }
   });
 });
+
+describe('public privacy policy log retention and change notice', () => {
+  const privacy = LEGAL_FALLBACK_DOCUMENTS[LegalDocumentKind.PRIVACY_POLICY];
+
+  function retentionBasis(label: string): string {
+    const retentionTable = article(privacy, '제2조(처리하는 개인정보 항목 및 보유기간)').find(
+      (section) => section.type === 'table' && section.caption === '주요 보유기간과 파기 기준',
+    );
+    if (retentionTable?.type !== 'table') throw new Error('retention table not found');
+    const row = retentionTable.rows.find((candidate) => candidate[0] === label);
+    if (row?.[1] === undefined) throw new Error(`retention row not found: ${label}`);
+    return row[1];
+  }
+
+  it('keeps the personal data processing system access record for two years', () => {
+    expect(retentionBasis('개인정보처리시스템 접속 기록')).toContain('2년 보관');
+  });
+
+  // Until the ingress writes masked addresses, and again during a rollback to the old log format, the
+  // original IP is in the host json-file. Only the observability store sentence may claim masking.
+  it('claims IP masking and the 30-day limit only for the observability store records', () => {
+    const [serverSentence, ...storeSentences] = retentionBasis('웹 서버 접속 기록').split('. ');
+    const storeText = storeSentences.join('. ');
+
+    expect(serverSentence).toContain('오래된 기록부터 자동으로 삭제');
+    expect(serverSentence).not.toMatch(/가린|가리고|가림|30일/u);
+    expect(storeText).toContain('운영 관측 저장소');
+    expect(storeText).toContain('가린');
+    expect(storeText).toContain('30일');
+  });
+
+  // legal-basis.md LB-R6: a change after the first public release states its application date.
+  it('states the application date in the change summary when the last modified date moved', () => {
+    const changedDocuments = Object.values(LEGAL_FALLBACK_DOCUMENTS).filter(
+      (document) => document.lastModifiedAt !== document.effectiveAt,
+    );
+
+    expect(changedDocuments.map((document) => document.kind)).toContain(
+      LegalDocumentKind.PRIVACY_POLICY,
+    );
+    for (const document of changedDocuments) {
+      const [year, month, day] = document.lastModifiedAt.slice(0, 10).split('-').map(Number);
+      expect(document.changeSummary, document.kind).toContain(
+        `${year}년 ${month}월 ${day}일부터 적용`,
+      );
+    }
+  });
+
+  it('keeps the document id, version and effective date while the first consent record is absent', () => {
+    expect(privacy).toMatchObject({
+      id: 'privacy-policy-2026-06-22',
+      version: 'privacy-2026-06-22',
+      effectiveAt: '2026-06-22T00:00:00.000Z',
+    });
+  });
+});

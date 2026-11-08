@@ -6,6 +6,8 @@ import {
 } from '@repo/shared/legal';
 
 const ACTIVE_LEGAL_EFFECTIVE_AT = '2026-06-22T00:00:00.000Z';
+// legal-basis.md LB-R6: after the first public release a same-version edit shows its application date here.
+const PRIVACY_POLICY_APPLIED_AT = '2026-11-20T00:00:00.000Z';
 
 function heading(text: string) {
   return { type: 'heading' as const, level: 2 as const, text };
@@ -131,7 +133,7 @@ export const LEGAL_FALLBACK_DOCUMENTS = {
     version: 'privacy-2026-06-22',
     title: '돔두리 개인정보 처리방침',
     effectiveAt: ACTIVE_LEGAL_EFFECTIVE_AT,
-    lastModifiedAt: ACTIVE_LEGAL_EFFECTIVE_AT,
+    lastModifiedAt: PRIVACY_POLICY_APPLIED_AT,
     summaryItems: [
       '서비스 제공을 위해 계정, 인증, 시즌 프로필, 매칭·채팅·신고·문의 기록을 처리합니다.',
       '회원 탈퇴 또는 목적 달성 시 지체 없이 삭제하되, 신고·분쟁·법령상 보존이 필요한 정보는 분리 보관합니다.',
@@ -183,10 +185,10 @@ export const LEGAL_FALLBACK_DOCUMENTS = {
             '채팅 데이터',
             '공동 이력, 분쟁 대응, 보존 필요성에 따라 보관 전환 후 제한 보존하거나 삭제·비식별 표시로 대체',
           ],
-          ['개인정보처리시스템 접속 기록', '안전성 확보조치 기준에 따라 1년 보관'],
+          ['개인정보처리시스템 접속 기록', '안전성 확보조치 기준에 따라 2년 보관'],
           [
             '웹 서버 접속 기록',
-            '서비스 서버에만 저장하며, 정해진 저장 용량을 넘으면 오래된 기록부터 자동으로 삭제',
+            '서비스 서버에만 저장하며, 정해진 저장 용량을 넘으면 오래된 기록부터 자동으로 삭제. 장애 분석을 위해 운영 관측 저장소에 모으는 요청 기록은 접속 IP의 일부를 가린 값만 저장하고 30일 보관 후 삭제',
           ],
           [
             '지원·문의 기록',
@@ -322,7 +324,7 @@ export const LEGAL_FALLBACK_DOCUMENTS = {
       ),
     ],
     changeSummary:
-      '조문형 처리방침 구조에 맞춰 처리 목적, 항목·보유기간, 제3자 제공, 위탁, 권리 행사, 파기·안전조치 기준을 정리하고, 처리업무 수탁자와 국외 이전, 방문 통계, 개인정보 보호책임자와 문의 이메일을 적었습니다.',
+      '2026년 11월 20일부터 적용합니다. 주요 변경: 개인정보처리시스템 접속 기록 보관 기간을 1년에서 2년으로 늘리고, 운영 관측 저장소에 모으는 요청 기록의 보관 기준(접속 IP의 일부를 가린 값만 30일 보관)을 더했습니다.',
   }),
   [LegalDocumentKind.PERSONAL_DATA_COLLECTION_USE_CONSENT]: fallbackDocument({
     id: 'personal-data-collection-use-consent-2026-06-22',
