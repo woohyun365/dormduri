@@ -260,6 +260,10 @@ describe('DB role grant SQL artifacts', () => {
     expect(smoke).toContain('FROM usable_memberships u');
     expect(smoke).toContain("format('%s has a direct grant on %s'");
     expect(smoke).toContain("'migration_owner default privileges grant %s on new %s to %s'");
+    // Problem lines are compared by text: an aggregate ORDER BY <number> sorts by a constant, not a column.
+    for (const source of [smoke, apply, inputs]) {
+      expect(source).not.toMatch(/ORDER BY \d+\s*\)/u);
+    }
     expect(smoke).toContain('default_transaction_read_only');
   });
 });

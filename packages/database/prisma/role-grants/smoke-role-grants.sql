@@ -209,7 +209,7 @@ BEGIN
       AND NOT has_schema_privilege(s.subject, target_schema, 'USAGE')
     UNION ALL
     -- Every LOGIN member of a group, including human read-only users that have no URL here.
-    SELECT format('LOGIN user %s is a member of %s', pg_get_userbyid(u.member), string_agg(pg_get_userbyid(u.roleid), ', ' ORDER BY 1))
+    SELECT format('LOGIN user %s is a member of %s', pg_get_userbyid(u.member), string_agg(pg_get_userbyid(u.roleid), ', ' ORDER BY pg_get_userbyid(u.roleid)))
     FROM usable_memberships u
     JOIN pg_roles r ON r.oid = u.member AND r.rolcanlogin
     GROUP BY u.member
