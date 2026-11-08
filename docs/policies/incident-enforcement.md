@@ -257,7 +257,7 @@ ACTIVE ──(임시조치)──→ HIDDEN ──(이의 없음/30일)──→
 
 - 파기 중단 → 분리 보관: 개인정보보호법 제21조 단서 + 민법 제750조·제766조 (data-retention.md)
 - 채팅 archive 기본 유지: 개인정보보호법 제15조 제1항 제1호 및 처리방침 고지. 고정 90일 파기가 아니라 계정 식별 정보와 메시지 본문을 분리하고, 식별 연결은 보존 사유·승인·접근 로그 기준으로 제한
-- 접속 로그 1년 보관: 안전성 확보조치 기준
+- 접속 로그 2년 보관: 안전성 확보조치 기준
 
 이 구조는 data-retention.md의 기본 무기한 archive + 탈퇴 시 식별 정보 비식별화 + 제한 retained identity vault 구조와 정합한다. 추가 보관이 필요한 경우에도 보존 사유와 접근 근거를 retained identity access log로 남긴다.
 
@@ -320,7 +320,7 @@ User block은 viewer-specific relation이므로 participant-level hidden reason�
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | community-safety.md   | 텍스트 moderation 3단계(필터→신고→제재)의 2차·3차가 이 문서                                                                |
 | service-boundary.md   | L0-L4 대응 수준의 L3(신고 기반 제재)·L4(법적 대응)가 이 문서                                                               |
-| data-retention.md     | 신고 이력 3년(#6), 채팅 기본 archive(#4), 접속 로그 1년(#7), retained identity restricted vault → 증거 보관/탈퇴 처리 기간 |
+| data-retention.md     | 신고 이력 3년(#6), 채팅 기본 archive(#4), 접속 로그 2년(#7), retained identity restricted vault → 증거 보관/탈퇴 처리 기간 |
 | legal-basis.md        | 정보통신망법 §44조의2(임시조치), §44조의7(불법정보), 개인정보보호법 §18조(제3자 제공)                                      |
 | matching-lifecycle.md | 매칭 확정/취소 상태에서의 제재 영향 (잠금 해제 등)                                                                         |
 
@@ -358,3 +358,4 @@ User block은 viewer-specific relation이므로 participant-level hidden reason�
 | 2026-06-08 | high-risk report candidate event를 user notification이 아닌 `OperatorAlert` record/sink handoff로 materialize하는 책임 경계를 명시했다                                                                    | #220 / #196                  |
 | 2026-06-22 | 구현 파일명에 묶인 금지행위 초안 표현을 제품 이용약관과 신고/제재 사용자 안내 기준으로 정리했다                                                                                                           | web terms/privacy            |
 | 2026-07-08 | 신고 접수 receipt와 검토 완료 알림을 분리하고, 검토 완료 후에는 coarse result만 허용하며 신고 처리 결과 이의 경로를 support appeal로 연결한다고 명시했다                                                  | #263 / #264 / support appeal |
+| 2026-11-08 | 접속 로그 보관 기간을 `data-retention.md` #7과 같게 2년으로 맞췄다                                                                                                                                        | #869                         |
