@@ -105,10 +105,11 @@ Ingress(nginx)와 Web의 요청 log는 [운영 관측 정책](../../policies/ope
 이 log로 대신하지 않는다. 장애 분석에 원본 IP가 필요하지 않고, 이용자 로그기록은 채팅을 실제 사용자에게 여는 변경이 저장 위치와
 방식을 따로 정하기 때문이다.
 
-- 이후 목표: ingress log 형식이 client IP를 가린 값(IPv4 /24·IPv6 /48)으로 쓰고 query string과 referer를 남기지 않으며, Alloy가 IP를
-  한 번 더 가리고 경로 속 식별자를 가린다. 그래서 host json-file과 Loki에 원본 IP가 없고 Loki에는 경로 속 식별자도 없다.
+- 이후 목표: ingress log 형식이 client IP를 가린 값(IPv4 /24·IPv6 /48)으로 쓰고 query string과 referer를 남기지 않는다. Alloy는 옛 형식
+  log가 들어와도 저장소 기준을 지키도록 IP를 한 번 더 가리고 query string과 referer를 지우며 경로 속 식별자를 가린다. 그래서 host
+  json-file과 Loki에 원본 IP가 없고 Loki에는 query string·referer와 경로 속 식별자도 없다.
 - 지금 Web 단계: ingress는 원본 IP를 host json-file(10MB × 3)에 쓰고 이 log를 외부로 보내지 않는다. Loki 수집은 없다. 새 형식이
-  뜬 뒤 옛 형식으로 rollback하면 그 동안 host json-file에 원본 IP가 다시 쌓인다.
+  뜬 뒤 옛 형식으로 rollback하면 그 동안 host json-file에 원본 IP가 다시 쌓이고, Loki에는 위 Alloy 처리를 거친 값만 들어간다.
 
 ## 변경 trigger
 
