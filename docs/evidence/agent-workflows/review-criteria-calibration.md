@@ -268,7 +268,9 @@ merge 전 row는 대부분 subject key가 commit 기준(`basis:`)이라 수정 c
   놓친 결함 subject는 공개 history의 원본 commit과 fix commit으로 다시 만들 수 있습니다. 심은 결함 subject는 결함 편집이 공개하지 않는
   로컬 정답에만 있어 이 문서만으로는 다시 만들 수 없습니다.
 - 재측정 조건: 기준 문서 문구, reviewer prompt·구성, 모델을 바꾸면 held-out 3 subject를 같은 사본·구성으로 다시 돌려 이 합계와 비교합니다.
-  held-out은 기준 수정의 근거로 쓰지 않습니다.
+  held-out은 기준 수정의 근거로 쓰지 않습니다. 이 문서의 "같은 사본"과 "이 합계와 비교"는 held-out subject를 처음 교체하기 전까지의
+  뜻이고, 교체 뒤에는 사용 기록이 정한 set의 사본으로 돌려 그 set의 결함×반복을 모두 찾는지로 판정합니다(교체와 판정 규칙은
+  [Review criteria](../../development/agent-workflows/review-criteria/README.md#재채점)).
 
 ## 8. Interview evidence map
 
