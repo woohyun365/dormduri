@@ -33,11 +33,11 @@ overrides:
 catalog:
   '@types/node': 26.6.6
   '@eslint/js': 9.39.5
-  '@playwright/test': 1.64.1
+  '@playwright/test': 1.65.0
   '@sentry/nextjs': 10.78.0
   '@tailwindcss/postcss': 4.3.4
-  '@storybook/addon-docs': 10.6.5
-  '@storybook/nextjs-vite': 10.6.5
+  '@storybook/addon-docs': 10.6.6
+  '@storybook/nextjs-vite': 10.6.6
   '@typescript-eslint/eslint-plugin': 8.72.1
   '@typescript-eslint/parser': 8.72.1
   '@vitejs/plugin-react': 6.2.1
@@ -49,11 +49,11 @@ catalog:
   prettier: 3.9.10
   react: 19.3.1
   react-dom: 19.3.1
-  storybook: 10.6.5
+  storybook: 10.6.6
   tailwindcss: 4.3.4
   typescript: 6.0.3
   typescript-eslint: 8.72.1
-  vite: 8.3.5
+  vite: 8.3.6
   vitest: 5.1.0
 
 # These exceptions are parent-scoped, dated compatibility contracts rather than
