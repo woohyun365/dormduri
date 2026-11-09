@@ -46,6 +46,11 @@ export class RetentionObservabilityService {
   emitSweepFailure(input: { mode: 'periodic' | 'boundary'; error: unknown; occurredAt?: Date }) {
     const alert = buildRetentionSweepFailureAlert(input);
     this.logger.error(toAlertLogPayload(alert));
+    this.recordRetentionMetric({
+      name: 'retention.sweep.failed',
+      value: 1,
+      observedAt: alert.observedAt,
+    });
     this.recordSweepDuration(0, 'failure');
     return alert;
   }
@@ -118,6 +123,8 @@ function mapRetentionMetric(metric: RetentionMetric): {
         state: 'manual_review',
         reviewJobOutcome: 'manual_review',
       };
+    case 'retention.review.jobs.retry_exhausted':
+      return { target: 'review_jobs', state: 'retry_exhausted' };
     case 'retention.vault.objects.retained':
       return { target: 'vault_objects', state: 'retained' };
     case 'retention.vault.objects.disposed':
@@ -130,6 +137,8 @@ function mapRetentionMetric(metric: RetentionMetric): {
       return { target: 'access_log_disposal', state: 'disposed' };
     case 'retention.key.unavailable':
       return { target: 'key', state: 'unavailable' };
+    case 'retention.sweep.failed':
+      return { target: 'sweep', state: 'failed' };
     case 'retention.sweep.duration_ms':
       return null;
   }

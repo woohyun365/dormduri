@@ -49,8 +49,9 @@
 - 예약 sweep(주기·경계) 한 번이 끝나면 공통 작업 metric `job="lifecycle_sweep"`에 성공 시각이나 실패 수를 기록한다
   (`../background-jobs/README.md`). 수동 실행은 기록하지 않는다.
 - Destroy는 이 instance를 closing으로 전환하고 현재 periodic interval과 lifecycle boundary cron을 제거한다.
-  Pending schedule refresh와 이후 scheduled entry도 새 timer를 등록하지 않는다. 이미 진입한 sweep의 drain/cancel은
-  보장하지 않으며 public/manual runner의 실행 의미는 바꾸지 않는다.
+  Pending schedule refresh와 이후 scheduled entry도 새 timer를 등록하지 않는다. 이미 진입한 scheduled sweep은 상한
+  20초까지 기다린 뒤 Prisma 연결 해제로 넘어가고, 상한을 넘으면 경고 log만 남긴다(cancel은 하지 않는다).
+  Public/manual runner의 실행 의미는 바꾸지 않는다.
 - `ArchiveJob`/`RetentionReviewJob`의 `FOR UPDATE SKIP LOCKED` claim은 해당 queue row의 DB 동시성 경계다. 이를 모든
   lifecycle task의 global single-run 또는 exactly-once 보장으로 확대하지 않는다. `RetentionWorkerPrismaService`도
   credential boundary이지 별도 worker process의 증거가 아니다.

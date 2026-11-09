@@ -26,6 +26,11 @@ export async function buildRetentionSweepEmission(
       snapshot.retentionReviewManualReviewCount,
       observedAt,
     ),
+    metric(
+      'retention.review.jobs.retry_exhausted',
+      snapshot.retentionReviewRetryExhaustedCount,
+      observedAt,
+    ),
     metric('retention.vault.objects.retained', snapshot.retainedVaultObjectCount, observedAt),
     metric('retention.vault.objects.disposed', snapshot.disposedVaultObjectCount, observedAt),
     metric(
@@ -40,6 +45,7 @@ export async function buildRetentionSweepEmission(
       observedAt,
     ),
     metric('retention.sweep.duration_ms', input.durationMs, observedAt),
+    metric('retention.sweep.failed', 0, observedAt),
     metric('retention.key.unavailable', snapshot.keyUnavailableCount, observedAt),
   ];
 

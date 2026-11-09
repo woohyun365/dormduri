@@ -69,6 +69,8 @@ export async function collectRetentionBacklogSnapshot(
     archiveRetryExhaustedCount: archiveManualReviewRows.filter(isRetryExhausted).length,
     retentionReviewDueCount,
     retentionReviewManualReviewCount: retentionReviewManualReviewRows.length,
+    retentionReviewRetryExhaustedCount:
+      retentionReviewManualReviewRows.filter(isRetryExhausted).length,
     retainedVaultObjectCount,
     disposedVaultObjectCount,
     retainedIdentityDisposalDueCount,

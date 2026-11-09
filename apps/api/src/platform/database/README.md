@@ -21,7 +21,8 @@ session timezone에 맡기지 않는다. `getDatabaseNow()`도 adapter의 timest
 
 - `prisma.module.ts`: Prisma provider wiring and exports.
 - `prisma.service.ts`: runtime/worker/disclosure Prisma services and database utilities. Each service opens its own pool with its own max (`DATABASE_POOL_MAX`, `RETENTION_WORKER_DATABASE_POOL_MAX`, `RETENTION_DISCLOSURE_DATABASE_POOL_MAX`) so it stays under its LOGIN user's CONNECTION LIMIT (`infra/db/README.md` Connection budget).
-- `prisma-metric.definitions.ts`: PrismaModule이 등록하는 pool/retry metric definition catalog.
+- `prisma-metric.definitions.ts`: PrismaModule이 등록하는 pool/retry와 table 통계 metric definition catalog.
+- `database-table-stats.service.ts`, `database-table-stats.module.ts`: 삭제·갱신이 잦은 table(`DATABASE_MAINTENANCE_TABLES`, `infra/db/README.md` 유지보수 절)의 `pg_stat_user_tables` 값을 15분마다 읽어 `api_db_table_*` gauge로 낸다. Prometheus adapter가 label 값을 소문자로 바꾸므로 exported `table` 값은 `archivejob`처럼 소문자다. Prisma client가 끊기기 전에 멈추도록 PrismaModule 밖의 module이고, 종료 때 진행 중 읽기는 상한 5초까지 기다린다.
 - `prisma-error.ts`: Prisma error classification helper.
 - `test/operations/database/role-grant-matrix.spec.ts`, `column-classes.spec.ts`: grant 표·열 분류가 `schema.prisma` 전체를 덮고 최소 권한 불변 조건을 지키는지 막는 guard.
 - `test/operations/database/migration-baseline.spec.ts`: migration baseline guard.

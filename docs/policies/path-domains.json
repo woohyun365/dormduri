@@ -2,8 +2,8 @@
   "schema": "lifecycle-path-domains/v1",
   "confirmedBy": {
     "status": "owner-confirmed",
-    "date": "2026-11-07",
-    "basis": "#862"
+    "date": "2026-11-08",
+    "basis": "#874"
   },
   "productRoots": [
     "apps/**",
@@ -127,7 +127,8 @@
       "globs": [
         "packages/database/prisma/sql/acquireTransactionAdvisoryLock.sql",
         "packages/database/prisma/sql/getCurrentTimestamp.sql",
-        "packages/database/prisma/sql/getDatabaseReadiness.sql"
+        "packages/database/prisma/sql/getDatabaseReadiness.sql",
+        "packages/database/prisma/sql/getDatabaseTableMaintenanceStats.sql"
       ],
       "domains": ["production-runtime-safety"]
     },
