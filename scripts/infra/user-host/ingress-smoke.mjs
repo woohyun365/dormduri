@@ -1,7 +1,12 @@
 #!/usr/bin/env node
-// Web 단계 ingress image smoke(경로 표: infra/deploy/README.md 'User host 묶음'). ingress image를 build해 로컬 Docker에서 띄우고,
+// User host ingress image smoke(경로 표: infra/deploy/README.md 'User host 묶음'). ingress image를 build해 로컬 Docker에서 띄우고,
 // 경로·method·mode(정상·Web 무응답·점검)별로 status·<title>·header를 단언한다. 세 503 화면은 status가 같아
 // `nginx -t`만으로는 어느 화면이 나가는지 알 수 없으므로 실제 응답을 본다. 결과 표는 evidence로도 쓴다.
+// smoke network는 운영 Web transit과 같은 고정 subnet·주소(compose-contract WEB_TRANSIT)라 private listener의 listen·allow
+// 주소를 그대로 시험한다. 같은 subnet을 쓰는 다른 local network(user host rehearsal)가 떠 있으면 network 생성이 실패한다.
+// private listener(stub Web에서만 확인): Web 주소만 받고, 같은 network의 다른 주소와 API network의 peer는 403,
+// API가 없으면 JSON 503, API stub이 있으면 forwarding header를 지우고 보내며 `/internal/`은 닫는다. 끝에 접속 log 행에
+// 원 client 주소·query string·referer가 없는지 본다.
 //
 // Web은 기본으로 stub(모든 경로 200, `X-Powered-By`를 붙임)이고, `--web-image=<로컬 image>`를 주면 그 Web image를
 // 운영 compose(infra/deploy/user/compose.yml)를 render한 Web environment 그대로 띄운다. node 내장 module만 쓴다(runtime gate에는 package 설치가 없다).
@@ -17,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { loadImageInventory, resolveImageReference } from '../artifacts/image-inventory.mjs';
 import { buildComposeArgs, loadComposeInventory } from '../compose/profile.mjs';
-import { USER_HOST_RENDER_ENVIRONMENT } from './compose-contract.mjs';
+import { USER_HOST_RENDER_ENVIRONMENT, WEB_TRANSIT } from './compose-contract.mjs';
 
 const defaultRepoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 export const CANONICAL_HOST = 'dormduri.com';
@@ -48,12 +53,21 @@ const STUB_TITLE = 'stub web';
 const LABEL = 'dormduri.local.created-by=user-host-ingress-smoke';
 
 const page = (title, status, retryAfter) => ({ status, title, retryAfter, staticPage: true });
+// BFF `/api/**`: 공개 API 주소가 없으므로 Web·API에 보내지 않고 JSON '준비 중' 503으로 끝낸다.
+const jsonComingSoon = () => ({
+  status: 503,
+  json: '{"status":"coming-soon"}',
+  retryAfter: '3600',
+});
+// 접속 log 판정에 쓰는 referer. log 행에 나오면 안 된다.
+export const LOG_PROBE_REFERER = 'https://referer.invalid/from?token=probe';
 // sameAs: Web이 그 경로와 같은 page를 내야 한다(stub Web은 받은 URI를 X-Stub-Uri로 돌려준다).
 const web = (sameAs) => ({ status: 200, web: true, ...(sameAs ? { sameAs } : {}) });
 
 // 경로별 기대값. mode: serving(Web 응답), web-down(Web 무응답), maintenance(점검 flag).
 export const INGRESS_SMOKE_CASES = Object.freeze([
-  ...['/', '/privacy', '/terms'].map((path) => ({ mode: 'serving', path, expect: web() })),
+  ...['/', '/terms'].map((path) => ({ mode: 'serving', path, expect: web() })),
+  { mode: 'serving', path: '/privacy', headers: { Referer: LOG_PROBE_REFERER }, expect: web() },
   ...[
     '/_next/static/chunks/app.js',
     '/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fa.png&w=640&q=75',
@@ -73,22 +87,16 @@ export const INGRESS_SMOKE_CASES = Object.freeze([
     '/_next/static/%252e%252e/%252e%252e/x',
     '/_next/static/a%3Fb',
   ].map((path) => ({ mode: 'serving', path, expect: { status: 400, notWeb: true } })),
-  ...[
-    '/login',
-    '/signup',
-    '/password-reset',
-    '/main',
-    '/main/chat',
-    '/notices/1',
-    '/support',
-    '/api',
-  ].map((path) => ({ mode: 'serving', path, expect: page(PAGE_TITLES.comingSoon, 503, '3600') })),
-  {
+  ...['/login', '/signup', '/password-reset', '/main', '/main/chat', '/notices/1', '/support'].map(
+    (path) => ({ mode: 'serving', path, expect: page(PAGE_TITLES.comingSoon, 503, '3600') }),
+  ),
+  ...['/api', '/api/legal/documents/active-bundle', '/api/auth/session?x=1'].map((path) => ({
     mode: 'serving',
-    method: 'POST',
-    path: '/api/auth/login',
-    expect: page(PAGE_TITLES.comingSoon, 503, '3600'),
-  },
+    path,
+    expect: jsonComingSoon(),
+  })),
+  { mode: 'serving', method: 'POST', path: '/api/auth/login', expect: jsonComingSoon() },
+  { mode: 'serving', path: '/apix', expect: page(PAGE_TITLES.notFound, 404, null) },
   {
     mode: 'serving',
     method: 'PUT',
@@ -128,6 +136,7 @@ export const INGRESS_SMOKE_CASES = Object.freeze([
   })),
   { mode: 'web-down', method: 'POST', path: '/', expect: page(PAGE_TITLES.unavailable, 503, '60') },
   { mode: 'web-down', path: '/signup', expect: page(PAGE_TITLES.comingSoon, 503, '3600') },
+  { mode: 'web-down', method: 'POST', path: '/api/auth/login', expect: jsonComingSoon() },
   { mode: 'web-down', path: '/abc', expect: page(PAGE_TITLES.notFound, 404, null) },
   ...['/', '/privacy', '/signup', '/abc', '/_next/static/chunks/app.js'].map((path) => ({
     mode: 'maintenance',
@@ -172,6 +181,16 @@ export function checkResponse(testCase, response) {
   }
   if (expect.body !== undefined && response.body.trim() !== expect.body)
     problems.push('unexpected body');
+  if (expect.json !== undefined) {
+    if (response.body !== expect.json) problems.push(`body ${response.body} != ${expect.json}`);
+    if (!/^application\/json\b/iu.test(headers['content-type'] ?? ''))
+      problems.push(`content-type ${headers['content-type']}`);
+    if ((headers['retry-after'] ?? null) !== expect.retryAfter)
+      problems.push(`Retry-After ${headers['retry-after']} != ${expect.retryAfter}`);
+    if (headers['cache-control'] !== 'no-store') problems.push('JSON coming-soon is cacheable');
+    if (headers['x-content-type-options'] !== 'nosniff') problems.push('missing nosniff');
+    if (headers['x-stub-uri'] !== undefined) problems.push('request reached Web');
+  }
   if (expect.web && response.title === null) problems.push('Web response has no <title>');
   if (expect.web && Object.values(PAGE_TITLES).includes(response.title)) {
     problems.push('allowed path returned a static page');
@@ -249,9 +268,16 @@ function prepareHostDirectories() {
   mkdirSync(join(directories.acme, '.well-known/acme-challenge'), { recursive: true });
   writeFileSync(join(directories.acme, '.well-known/acme-challenge/smoke-token'), 'smoke-acme\n');
   writeSelfSignedCertificate(directories.tls);
+  // stub Web: 모든 경로 200, 받은 URI를 X-Stub-Uri로 돌려주고 X-Powered-By를 붙인다. node라 private listener probe도 이
+  // container 안 fetch로 한다(운영 Web container와 같은 자리).
   writeFileSync(
-    join(directories.stub, 'stub.conf'),
-    `server {\n  listen 3000;\n  location / {\n    add_header X-Powered-By stub-web;\n    add_header X-Stub-Uri $request_uri;\n    default_type text/html;\n    return 200 '<!doctype html><title>${STUB_TITLE}</title>';\n  }\n}\n`,
+    join(directories.stub, 'web.mjs'),
+    `import http from 'node:http';\nhttp.createServer((req, res) => {\n  res.setHeader('X-Powered-By', 'stub-web');\n  res.setHeader('X-Stub-Uri', req.url);\n  res.setHeader('Content-Type', 'text/html');\n  res.end('<!doctype html><title>${STUB_TITLE}</title>');\n}).listen(3000);\n`,
+  );
+  // API stub: 받은 URI와 forwarding header를 돌려준다(빈 header는 nginx가 내보내지 않는다).
+  writeFileSync(
+    join(directories.stub, 'api.conf'),
+    `server {\n  listen 4000;\n  location / {\n    add_header X-Stub-Uri $request_uri always;\n    add_header X-Stub-Forwarded-For "$http_x_forwarded_for" always;\n    add_header X-Stub-Real-Ip "$http_x_real_ip" always;\n    default_type application/json;\n    return 200 '{"stub":"api"}';\n  }\n}\n`,
   );
   // The ingress runs as uid 101 inside the container, so the bind-mounted test files must be world-readable.
   for (const directory of [
@@ -266,7 +292,8 @@ function prepareHostDirectories() {
     'tls/privkey.pem',
     'tls/fullchain.pem',
     'acme/.well-known/acme-challenge/smoke-token',
-    'stub/stub.conf',
+    'stub/web.mjs',
+    'stub/api.conf',
   ]) {
     chmodSync(join(root, file), 0o644);
   }
@@ -283,6 +310,7 @@ export function request({
   ports,
   address = '127.0.0.1',
   verify = false,
+  headers: extraHeaders = {},
 }) {
   return new Promise((resolveResponse) => {
     if (scheme === 'tls') {
@@ -317,6 +345,7 @@ export function request({
         rejectUnauthorized: verify,
         headers: {
           Host: host,
+          ...extraHeaders,
           ...(method === 'GET'
             ? {}
             : { 'Content-Type': 'application/json', 'Content-Length': '2' }),
@@ -365,53 +394,176 @@ function publishedPort(container, port) {
   return Number(output.slice(output.lastIndexOf(':') + 1));
 }
 
-function privateListenerChecks(webContainer, ingressAlias) {
-  // The private listener is reachable only from the web network. Probe it from the stub web container with a raw
-  // HTTP/1.0 request (busybox wget drops the headers and body of an error status).
-  const probe = (path) => {
-    const raw = docker(
-      [
-        'exec',
-        webContainer,
-        'sh',
-        '-c',
-        `printf 'GET ${path} HTTP/1.0\\r\\nHost: ${ingressAlias}\\r\\n\\r\\n' | nc -w 5 ${ingressAlias} 8081`,
-      ],
-      { allowFailure: true },
-    ).stdout;
-    const [head = '', body = ''] = raw.split('\r\n\r\n');
-    return {
-      status: Number(/^HTTP\/1\.1 (\d{3})/u.exec(head)?.[1] ?? 0) || null,
-      contentType: /^Content-Type: (.+)$/imu.exec(head)?.[1]?.trim() ?? null,
-      body: body.trim(),
-    };
+// container 안 node fetch로 private listener에 요청한다(배포 document의 host 안 smoke와 같은 방식). 연결이 안 되면 status null.
+const PROBE_SCRIPT = `
+const [target, path, extra] = process.argv.slice(1);
+fetch("http://" + target + ":8081" + path, { headers: JSON.parse(extra), signal: AbortSignal.timeout(10000) })
+  .then(async (response) => console.log(JSON.stringify({ status: response.status, headers: Object.fromEntries(response.headers), body: await response.text() })))
+  .catch((error) => console.log(JSON.stringify({ status: null, headers: {}, body: "", error: String(error.cause?.code ?? error.message) })));
+`;
+function probePrivate(container, target, path, extraHeaders = {}) {
+  const raw = docker(
+    ['exec', container, 'node', '-e', PROBE_SCRIPT, target, path, JSON.stringify(extraHeaders)],
+    { allowFailure: true },
+  ).stdout.trim();
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = { status: null, headers: {}, body: '', error: raw };
+  }
+  const headers = parsed.headers;
+  return {
+    raw,
+    status: parsed.status,
+    contentType: headers['content-type'] ?? null,
+    stubUri: headers['x-stub-uri'] ?? null,
+    forwarded: [headers['x-stub-forwarded-for'], headers['x-stub-real-ip']].filter(Boolean),
+    body: parsed.body.trim(),
   };
-  const api = probe('/api/legal/documents/privacy');
-  const health = probe('/__ingress/health');
-  const apiPass =
-    api.status === 503 &&
-    api.contentType === 'application/json' &&
-    api.body === '{"status":"unavailable"}';
-  return [
-    {
-      mode: 'serving',
-      scheme: 'private',
-      method: 'GET',
-      path: ':8081/api/legal/documents/privacy',
-      status: api.status,
-      pass: apiPass,
-      problems: apiPass ? [] : [`${api.status} ${api.contentType} ${api.body}`],
-    },
-    {
-      mode: 'serving',
-      scheme: 'private',
-      method: 'GET',
-      path: ':8081/__ingress/health',
-      status: health.status,
-      pass: health.status === 204,
-      problems: health.status === 204 ? [] : [`${health.status}`],
-    },
-  ];
+}
+
+function privateRow(path, response, problems) {
+  return {
+    mode: 'serving',
+    scheme: 'private',
+    method: 'GET',
+    path,
+    status: response.status ?? 'closed',
+    pass: problems.length === 0,
+    problems,
+  };
+}
+
+const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+
+// ingress resolver는 결과를 10초 cache한다(valid=10s). API container를 띄우거나 내린 직후의 창은 재시도로 기다린다.
+async function probeUntil(container, target, path, accept, extraHeaders = {}) {
+  let response;
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    response = probePrivate(container, target, path, extraHeaders);
+    if (accept(response)) return response;
+    await sleep(1000);
+  }
+  return response;
+}
+
+const unavailable = (response) =>
+  response.status === 503 &&
+  response.contentType === 'application/json' &&
+  response.body === '{"status":"unavailable"}';
+
+async function privateListenerChecks({ names, directories, nginxImage }) {
+  const rows = [];
+  const legal = '/api/legal/documents/active-bundle';
+  // API가 없을 때: Web 주소에서 JSON 503, health 204, API 운영 경로는 JSON 404.
+  const absent = probePrivate(names.web, 'ingress', legal);
+  rows.push(
+    privateRow(`web→:8081${legal} (API none)`, absent, unavailable(absent) ? [] : [absent.raw]),
+  );
+  const health = probePrivate(names.web, 'ingress', '/__ingress/health');
+  rows.push(
+    privateRow('web→:8081/__ingress/health', health, health.status === 204 ? [] : [health.raw]),
+  );
+  const internalClosed = (response) =>
+    response.status === 404 &&
+    response.body === '{"status":"not-found"}' &&
+    response.stubUri === null;
+  const internal = probePrivate(names.web, 'ingress', '/internal/metrics');
+  rows.push(
+    privateRow(
+      'web→:8081/internal/metrics',
+      internal,
+      internalClosed(internal) ? [] : [internal.raw],
+    ),
+  );
+  // 같은 Web network의 다른 주소와 API network의 peer: 403(본문을 API로 보내지 않는다).
+  const otherPeer = probePrivate(names.webPeer, WEB_TRANSIT.ingress, legal);
+  rows.push(
+    privateRow(
+      `web-transit peer→:8081${legal}`,
+      otherPeer,
+      otherPeer.status === 403 ? [] : [otherPeer.raw],
+    ),
+  );
+  const apiPeer = probePrivate(names.apiPeer, 'ingress', legal);
+  rows.push(
+    privateRow(
+      `api-transit peer→:8081${legal}`,
+      apiPeer,
+      apiPeer.status === 403 ? [] : [apiPeer.raw],
+    ),
+  );
+  // API stub이 뜨면 그리로 보낸다. 앞 hop의 client 주소 header는 지우고, `/internal/`은 여전히 ingress가 닫는다.
+  docker([
+    'run',
+    '-d',
+    '--label',
+    LABEL,
+    '--name',
+    names.api,
+    '--network',
+    names.apiNetwork,
+    '--network-alias',
+    'api',
+    '-v',
+    `${directories.stub}/api.conf:/etc/nginx/conf.d/default.conf:ro`,
+    nginxImage,
+  ]);
+  const spoofed = { 'X-Forwarded-For': '203.0.113.9', 'X-Real-IP': '203.0.113.9' };
+  const present = await probeUntil(
+    names.web,
+    'ingress',
+    legal,
+    (response) => response.status === 200,
+    spoofed,
+  );
+  const presentProblems = [];
+  if (present.status !== 200 || present.stubUri !== legal || present.body !== '{"stub":"api"}')
+    presentProblems.push(present.raw);
+  if (present.forwarded.length)
+    presentProblems.push(`forwarding headers reached API: ${present.forwarded}`);
+  rows.push(privateRow(`web→:8081${legal} (API stub)`, present, presentProblems));
+  const internalWithApi = probePrivate(names.web, 'ingress', '/internal/metrics');
+  rows.push(
+    privateRow(
+      'web→:8081/internal/metrics (API stub)',
+      internalWithApi,
+      internalClosed(internalWithApi) ? [] : [internalWithApi.raw],
+    ),
+  );
+  // API를 내리면(API maintenance) 다시 JSON 503이다.
+  docker(['rm', '-f', names.api], { allowFailure: true });
+  const stopped = await probeUntil(names.web, 'ingress', legal, unavailable);
+  rows.push(
+    privateRow(
+      `web→:8081${legal} (API stopped)`,
+      stopped,
+      unavailable(stopped) ? [] : [stopped.raw],
+    ),
+  );
+  return rows;
+}
+
+// 접속 log 행(OO-R1): client 주소는 IPv4 /24·IPv6 /48로 가린 값, 요청 경로에 query string 없음, referer 없음.
+export function checkAccessLog(text) {
+  const rows = text
+    .split('\n')
+    .map((line) => /^(\S+) - \[[^\]]+\] "(\S+) (\S+) (\S+)" (\d{3}) /u.exec(line))
+    .filter(Boolean);
+  const problems = [];
+  if (rows.length < 20) problems.push(`only ${rows.length} access rows`);
+  for (const [line, client, , path] of rows) {
+    if (!/^(?:\d{1,3}\.\d{1,3}\.\d{1,3}\.0\/24|[0-9a-f:]*::\/48|-)$/u.test(client))
+      problems.push(`client is not masked: ${line}`);
+    if (path.includes('?')) problems.push(`query string kept: ${line}`);
+  }
+  if (text.includes('referer.invalid')) problems.push('referer kept in the access log');
+  if (!rows.some(([, , , path]) => path === '/_next/image'))
+    problems.push('the request with a query string has no row');
+  for (const address of [WEB_TRANSIT.web, '203.0.113.9'])
+    if (text.includes(address)) problems.push(`full address ${address} in the log`);
+  return { rows: rows.length, problems };
 }
 
 // 운영 compose의 Web environment(registry digest 자리는 같은 형식의 placeholder).
@@ -437,12 +589,21 @@ export async function runIngressSmoke({
     repoRoot,
     inventory.images.find((image) => image.name === 'user-host-ingress'),
   );
+  // stub Web·probe peer의 node image(Web build image와 같은 pin).
+  const nodeImage = resolveImageReference(
+    repoRoot,
+    inventory.images.find((image) => image.name === 'web-build-node'),
+  );
   const suffix = `${process.pid}-${Date.now()}`;
   const names = {
     image: `dormduri-ingress:smoke-${suffix}`,
     network: `dormduri-ingress-smoke-${suffix}`,
+    apiNetwork: `dormduri-ingress-smoke-api-${suffix}`,
     web: `dormduri-ingress-smoke-web-${suffix}`,
     ingress: `dormduri-ingress-smoke-ingress-${suffix}`,
+    webPeer: `dormduri-ingress-smoke-web-peer-${suffix}`,
+    apiPeer: `dormduri-ingress-smoke-api-peer-${suffix}`,
+    api: `dormduri-ingress-smoke-api-${suffix}`,
   };
   const directories = prepareHostDirectories();
   const rows = [];
@@ -474,7 +635,20 @@ export async function runIngressSmoke({
       'no-new-privileges:true',
     ];
     docker(['run', '--rm', ...hardening, ...mounts, names.image, 'nginx', '-t']);
-    docker(['network', 'create', '--label', LABEL, names.network]);
+    docker([
+      'network',
+      'create',
+      '--label',
+      LABEL,
+      '--subnet',
+      WEB_TRANSIT.subnet,
+      '--ip-range',
+      WEB_TRANSIT.ipRange,
+      '--gateway',
+      WEB_TRANSIT.gateway,
+      names.network,
+    ]);
+    docker(['network', 'create', '--label', LABEL, names.apiNetwork]);
     const webArgs = webImage
       ? [
           ...Object.entries(userHostWebEnvironment(repoRoot)).flatMap(([key, value]) => [
@@ -483,7 +657,14 @@ export async function runIngressSmoke({
           ]),
           webImage,
         ]
-      : ['-v', `${directories.stub}/stub.conf:/etc/nginx/conf.d/default.conf:ro`, nginxImage];
+      : [
+          '-v',
+          `${directories.stub}/web.mjs:/stub/web.mjs:ro`,
+          '--entrypoint',
+          'node',
+          nodeImage,
+          '/stub/web.mjs',
+        ];
     docker([
       'run',
       '-d',
@@ -493,6 +674,8 @@ export async function runIngressSmoke({
       names.web,
       '--network',
       names.network,
+      '--ip',
+      WEB_TRANSIT.web,
       '--network-alias',
       'web',
       ...webArgs,
@@ -506,6 +689,8 @@ export async function runIngressSmoke({
       names.ingress,
       '--network',
       names.network,
+      '--ip',
+      WEB_TRANSIT.ingress,
       '--network-alias',
       'ingress',
       ...hardening,
@@ -516,6 +701,26 @@ export async function runIngressSmoke({
       '127.0.0.1::8443',
       names.image,
     ]);
+    docker(['network', 'connect', '--alias', 'ingress', names.apiNetwork, names.ingress]);
+    for (const [name, network] of [
+      [names.webPeer, names.network],
+      [names.apiPeer, names.apiNetwork],
+    ]) {
+      docker([
+        'run',
+        '-d',
+        '--label',
+        LABEL,
+        '--name',
+        name,
+        '--network',
+        network,
+        '--entrypoint',
+        'sleep',
+        nodeImage,
+        '600',
+      ]);
+    }
     const ports = {
       http: publishedPort(names.ingress, 8080),
       https: publishedPort(names.ingress, 8443),
@@ -530,7 +735,7 @@ export async function runIngressSmoke({
         chmodSync(join(directories.mode, 'maintenance'), 0o644);
       }
       if (mode === 'serving' && !webImage)
-        rows.push(...privateListenerChecks(names.web, 'ingress'));
+        rows.push(...(await privateListenerChecks({ names, directories, nginxImage })));
       for (const testCase of INGRESS_SMOKE_CASES.filter((item) => item.mode === mode)) {
         if (testCase.stubOnly && webImage) continue;
         const response = await request({ ...testCase, ports });
@@ -560,9 +765,21 @@ export async function runIngressSmoke({
         }
       }
     }
+    const log = checkAccessLog(docker(['logs', names.ingress]).stdout);
+    rows.push({
+      mode: 'all',
+      scheme: 'log',
+      method: '—',
+      path: 'access log rows',
+      status: log.rows,
+      pass: log.problems.length === 0,
+      problems: log.problems,
+    });
   } finally {
-    docker(['rm', '-f', names.ingress, names.web], { allowFailure: true });
-    docker(['network', 'rm', names.network], { allowFailure: true });
+    docker(['rm', '-f', names.ingress, names.web, names.webPeer, names.apiPeer, names.api], {
+      allowFailure: true,
+    });
+    docker(['network', 'rm', names.network, names.apiNetwork], { allowFailure: true });
     if (!keepImage) docker(['image', 'rm', '-f', names.image], { allowFailure: true });
     rmSync(directories.root, { recursive: true, force: true });
   }

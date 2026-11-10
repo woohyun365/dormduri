@@ -128,7 +128,9 @@ label이 붙는다. Label은 남은 자원을 골라 지우기 위한 표시이�
 - User host rehearsal(`user-host-rehearsal` profile): overlay `infra/rehearsal/compose.user-host.yml`의 Web·ingress build에
   label을 둔다. Image tag가 고정(`dormduri-web:user-host-rehearsal`, `dormduri-ingress:user-host-rehearsal`)이라 run ID는
   `local`이다. `pnpm infra:check:runtime`의 ingress smoke는 만든 container·network·image에
-  `dormduri.local.created-by=user-host-ingress-smoke`를 붙이고 끝날 때 지운다.
+  `dormduri.local.created-by=user-host-ingress-smoke`를 붙이고 끝날 때 지운다. 같은 검사의 document 실행은 Web build node
+  image에 `python3`만 더한 일회용 harness image와 그 container에
+  `dormduri.local.created-by=scripts/infra/user-host/ssm-document-runtime.mjs`를 붙이고 끝날 때 지운다.
 
 남은 자원 확인(읽기 전용):
 

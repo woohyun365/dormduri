@@ -3,7 +3,7 @@
 # usage: deploy-inputs-current.sh <이 실행 commit> <main ref>
 # main은 dev 승격을 merge commit으로 받으므로 history가 아니라 두 commit의 배포 입력 tree를 비교한다(pathspec `git log`는
 # merge를 건너뛰고 dev 쪽 commit을 낸다). 같으면 exit 0, 다르면 1(더 새 실행을 승인한다), git 오류는 2.
-# 경로 목록은 web-cd.yml의 push `paths`와 같다(web-cd-contract.test.mjs가 고정한다).
+# 경로 목록은 web-cd.yml의 push `paths`와 같다(web-cd-contract.test.mjs가 고정한다). `!` 제외 경로는 git `:(exclude)`다.
 set -euo pipefail
 
 DEPLOY_INPUT_PATHS=(
@@ -18,6 +18,7 @@ DEPLOY_INPUT_PATHS=(
   .dockerignore
   infra/deploy/web
   infra/deploy/user
+  ':(exclude)infra/deploy/user/api'
   .github/workflows/web-cd.yml
 )
 

@@ -5,9 +5,10 @@
 ## Required baseline
 
 - [ ] Engine: Amazon RDS for PostgreSQL 18(Single-AZ) 또는 동등한 managed PostgreSQL을 사용한다.
-- [ ] Network: API host와 같은 VPC의 private subnet에 둔다.
+- [ ] Network: DB subnet group의 private subnet에 두고, Lightsail user host는 Lightsail VPC peering으로 닿는다.
 - [ ] Public access: public access를 비활성화한다.
-- [ ] Security group: API host, migration/admin execution host, 제한된 operator IP 또는 bastion만 DB port에 접근할 수 있다.
+- [ ] Security group: DB port(5432)를 user host 주소 하나(/32)에만 연다. migrate one-off와 사람 조회도 user host를 거친다
+      (사람은 SSM 포트 포워딩).
 - [ ] Credentials: role과 LOGIN user는 master user가 `pnpm api:db:bootstrap-roles`로 만들고, 서비스마다 자기 LOGIN user URL을 쓴다(`infra/db/README.md` Credential boundary). master user는 bootstrap·break-glass에만 쓴다.
 - [ ] Runtime credential: `DATABASE_URL`은 app runtime LOGIN user로 제한한다.
 - [ ] Migration credential: `MIGRATION_DATABASE_URL`은 one-off migration/admin 경로에서만 사용한다.
@@ -19,7 +20,10 @@
 - [ ] Minor version upgrade: 자동 minor upgrade를 켠다(maintenance window 안에서 적용).
 - [ ] Deletion protection: production DB에는 deletion protection을 활성화한다.
 - [ ] Storage autoscaling: 초기 storage와 max storage threshold를 정한다. 늘어난 storage는 줄일 수 없다.
-- [ ] SSL/TLS: runtime/migration connection string은 `sslmode=require` 또는 CA bundle 검증 경로를 사용하고, parameter group의 `rds.force_ssl = 1`로 강제한다.
+- [ ] SSL/TLS: parameter group의 `rds.force_ssl = 1`로 강제하고, 모든 client가 서버 인증서와 host 이름을 검증한다. runtime URL은
+      `sslmode=verify-full&sslrootcert=/etc/dormduri/rds-ca/root.pem`, migration URL(Prisma CLI)은
+      `sslmode=require&sslcert=/etc/dormduri/rds-ca/root.pem&sslaccept=strict`, psql은 `infra/db/psql-tls.sh`의 `verify-full`이다.
+      CA 없는 `sslmode=require`는 쓰지 않는다(`infra/db/README.md` RDS SSL / CA bundle).
 - [ ] Parameter group: 기본 group이 아닌 전용 parameter group에 아래 값을 둔다.
 - [ ] Database Insights: Standard mode를 켠다.
 - [ ] Monitoring: CloudWatch `DatabaseConnections`, `CPUUtilization`, `FreeableMemory`, `ReadIOPS`, `WriteIOPS`, `DiskQueueDepth`, `FreeStorageSpace`를 확인하고 경보를 둔다(아래).
@@ -46,15 +50,15 @@
 
 ## Alarms
 
-- CloudWatch: `FreeStorageSpace`(storage autoscaling 상한 근처), `CPUUtilization`, `FreeableMemory`, `DatabaseConnections`(`max_connections` × 0.6, `infra/db/README.md` Connection budget)에 경보를 둔다.
+- CloudWatch: `FreeStorageSpace`(storage autoscaling 상한 근처), `CPUUtilization`, `CPUSurplusCreditsCharged`(T 계열의 CPU credit 초과 과금), `FreeableMemory`, `DatabaseConnections`(`max_connections` × 0.8. 계획 상한 × 0.6과의 관계는 `infra/db/README.md` Connection budget)에 경보를 둔다.
 - API 정리 작업: `api_background_job_last_success_timestamp_seconds{job}`가 그 작업 주기의 3배를 넘게 멈추거나 `api_background_job_failures_total{job}`이 연속해 늘면 경보한다(`apps/api/src/background-jobs/README.md`). 경보 규칙은 observability 경보 owner가 둔다.
 
 ## Initial RPO / RTO target
 
-| 항목 | 목표  | 뜻                                                                                                                      | evidence                                                        |
-| ---- | ----- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| RPO  | 5분   | RDS가 transaction log를 5분마다 올리므로 PITR로 잃는 데이터는 그 사이다. 복원 시각이 latest restorable time 안인지 본다 | 복원 시각, latest restorable time 안 여부(식별자 없음)          |
-| RTO  | 2시간 | 복원 요청부터 복원 instance에 API를 연결해 smoke를 통과할 때까지                                                        | 복원 요청·available·smoke 끝 시각, smoke status, cleanup status |
+| 항목 | 목표  | 뜻                                                                                                                                                                                               | evidence                                                        |
+| ---- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| RPO  | 10분  | RDS가 transaction log를 5분마다 올리고 latest restorable time이 그보다 늦게 반영된다(target 실측 지연 3.6~7.6분). PITR로 잃는 데이터는 그 사이다. 복원 시각이 latest restorable time 안인지 본다 | 복원 시각, latest restorable time 안 여부(식별자 없음)          |
+| RTO  | 2시간 | 복원 요청부터 복원 instance에 API를 연결해 smoke를 통과할 때까지                                                                                                                                 | 복원 요청·available·smoke 끝 시각, smoke status, cleanup status |
 
 첫 production release 전 restore drill로 실측하고 그 뒤 분기마다 한 번 한다. 측정이 2시간을 넘으면 원인(데이터 크기·instance class·절차)을 기록하고 목표를 다시 본다. 이후 release checklist에 최신 evidence 링크를 남긴다.
 

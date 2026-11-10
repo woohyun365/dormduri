@@ -9,16 +9,22 @@ Web 단계 CD가 쓰는 계정 resource의 정책 원본도 여기 둔다. Accou
 `<GITHUB_OWNER_ID>`, `<GITHUB_REPO_ID>` placeholder로 두고 Owner가 console에서 채운다(파일에 실제 값을 쓰지 않는다).
 
 - `iam/host-role.trust.json`·`iam/host-role.ecr-pull.json`: Lightsail host를 SSM hybrid managed node로 등록하는 service
-  role(trust `ssm.amazonaws.com`)과 그 role이 두 ECR repository에서 image를 받는 권한
+  role(trust `ssm.amazonaws.com`)과 그 role이 다섯 ECR repository(`dormduri/web`·`ingress`·`api`·`api-migrate`·
+  `observability-config`)에서 image를 받는 권한
+- `iam/host-role.secrets-read.json`: 같은 host role이 Secrets Manager 묶음 셋(`/dormduri/production/api/runtime`·
+  `api/migration`·`observability`)만 읽는 권한(`secrets-manager-checklist.md`)
 - `iam/publish-role.trust.json`·`iam/publish-role.permissions.json`: GitHub Actions가 image를 ECR에 올리는 OIDC role
 - `iam/deploy-role.trust.json`·`iam/deploy-role.permissions.json`: GitHub Actions가 SSM document를 부르는 OIDC role(provenance
   검증과 SBOM 확인을 위한 두 repository의 manifest 읽기 포함)
+- `iam/api-publish-role.*`·`iam/api-deploy-role.*`: API 묶음(`api-cd`)이 쓰는 같은 모양의 두 OIDC role. 세 API repository만
+  다루고, deploy role은 environment `production-api`에서만 `dormduri-api-deploy` document를 부른다. 어느 OIDC role도 secret을
+  읽지 않는다
 - `iam/github-oidc-sub-template.json`: 저장소의 GitHub OIDC `sub` claim 설정. 두 OIDC role trust가 이 형식으로 대조한다
-- `ecr/lifecycle-policy.json`: `dormduri/web`·`dormduri/ingress` repository의 image 보존 규칙
+- `ecr/lifecycle-policy.json`: 다섯 ECR repository에 같이 쓰는 image 보존 규칙
 
 - `rds-setup-checklist.md`: PostgreSQL 18, private network, backup/PITR, SSL, connection budget
-- `secrets-manager-checklist.md`: Secrets Manager origin, GitHub OIDC release principal, mounted-file
-  application read source와 rotation 입력
+- `secrets-manager-checklist.md`: Secrets Manager 묶음, host role secret reader, secret을 읽지 않는 OIDC release principal,
+  mounted-file application read source와 rotation 입력
 
 API secret과 Lightsail host 준비 상태는 각각
 [`api-secrets-manager/readiness.md`](../runbooks/release/components/api-secrets-manager/readiness.md),

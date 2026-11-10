@@ -303,7 +303,9 @@ export function classifyChanges(paths) {
         path.startsWith('infra/deploy/api/') ||
         path.startsWith('infra/deploy/nginx/') ||
         path === 'infra/deploy/compose.api.yml' ||
-        path.startsWith('infra/deploy/scripts/')
+        path.startsWith('infra/deploy/scripts/') ||
+        // The API operation test secret-bundle-parity.spec.ts compares this host installer with the Node scripts.
+        path === 'infra/deploy/user/api/ssm/secret_bundle.py'
       ) {
         result.api = true;
       }

@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@repo/database/client';
@@ -146,16 +148,28 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
       await expect(smokeAsMigrator()).resolves.toContain('role grant smoke ok');
     });
 
-    it('runtime LOGIN user는 RRPD payload·migration 기록에 닿지 않고 감사 table은 append만 한다', async () => {
+    it('runtime LOGIN user는 RRPD payload·migration 기록(readiness가 세는 두 열 밖)에 닿지 않고 감사 table은 append만 한다', async () => {
       await withLogin(INTEGRATION_LOGIN_USERS.runtime, async (client) => {
         await expect(
           client.query(`SELECT "id" FROM ${table('User')} LIMIT 1`),
         ).resolves.toBeDefined();
+        // /health/ready runs this query on the runtime connection.
+        const readiness = readFileSync(
+          resolve(process.cwd(), '../../packages/database/prisma/sql/getDatabaseReadiness.sql'),
+          'utf8',
+        ).replace('"_prisma_migrations"', table('_prisma_migrations'));
+        await expect(client.query(readiness)).resolves.toMatchObject({
+          rows: [{ failedCount: 0, incompleteCount: 0 }],
+        });
         for (const sql of [
           `SELECT "encryptedPayload" FROM ${table('RetainedVaultObject')} LIMIT 1`,
           `SELECT "encryptedIdentifierPayload" FROM ${table('RetainedIdentity')} LIMIT 1`,
           `SELECT "metadata" FROM ${table('RetentionCase')} LIMIT 1`,
           `SELECT "migration_name" FROM ${table('_prisma_migrations')} LIMIT 1`,
+          `SELECT "logs" FROM ${table('_prisma_migrations')} LIMIT 1`,
+          `SELECT "checksum" FROM ${table('_prisma_migrations')} LIMIT 1`,
+          `SELECT * FROM ${table('_prisma_migrations')} LIMIT 1`,
+          `UPDATE ${table('_prisma_migrations')} SET "finished_at" = "finished_at"`,
           `UPDATE ${table('SeasonOperationAuditEvent')} SET "reason" = "reason"`,
           `DELETE FROM ${table('SeasonOperationAuditEvent')}`,
           `TRUNCATE ${table('User')}`,

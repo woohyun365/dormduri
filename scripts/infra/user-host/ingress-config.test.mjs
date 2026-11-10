@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 
+import { WEB_TRANSIT } from './compose-contract.mjs';
 import { expectedIngressRoutes, readWebRoutes } from './web-routes.mjs';
 
 const repoRoot = process.cwd();
@@ -13,6 +14,7 @@ const read = (path) => readFileSync(resolve(ingressRoot, path), 'utf8');
 const conf = read('conf.d/dormduri.conf');
 const headers = read('snippets/headers.conf');
 const proxyWeb = read('snippets/proxy-web.conf');
+const proxyApi = read('snippets/proxy-api.conf');
 const staticPage = read('snippets/static-page.conf');
 const dockerfile = read('Dockerfile');
 const PAGE_FILES = ['coming-soon.html', 'maintenance.html', 'not-found.html', 'unavailable.html'];
@@ -76,6 +78,8 @@ function locations(block) {
 }
 
 function comingSoonSegments(location) {
+  const single = /^\^\/([a-z-]+)\(\?:\/\|\$\)$/u.exec(location.path);
+  if (single) return [single[1]];
   const alternatives = /^\^\/\(\?:([a-z|-]+)\)\(\?:\/\|\$\)$/u.exec(location.path);
   assert.ok(alternatives, `unexpected coming-soon pattern: ${location.path}`);
   return alternatives[1].split('|').sort();
@@ -86,7 +90,11 @@ const apexLocations = locations(apex);
 const proxied = apexLocations.filter((location) =>
   location.body.includes('include /etc/nginx/snippets/proxy-web.conf;'),
 );
-const comingSoon = apexLocations.filter((location) => location.modifier === '~');
+const regexLocations = apexLocations.filter((location) => location.modifier === '~');
+const comingSoon = regexLocations.filter((location) => location.body.includes('coming-soon.html'));
+const jsonComingSoon = regexLocations.filter(
+  (location) => !location.body.includes('coming-soon.html'),
+);
 
 test('the allow list sends only the opened pages, Next.js assets and the Web metadata files to Web', () => {
   const routes = readWebRoutes(repoRoot);
@@ -129,10 +137,22 @@ test('every Web route the stage does not open is a coming-soon path, and nothing
   assert.equal(comingSoon.length, 1);
   assert.deepEqual(comingSoonSegments(comingSoon[0]), expected.comingSoon);
   assert.match(comingSoon[0].body, /error_page 503 \/__pages\/coming-soon\.html;\s*return 503;/u);
-  assert.ok(
-    expected.comingSoon.includes('api'),
-    'the BFF prefix stays behind the coming-soon page',
-  );
+  assert.equal(regexLocations.length, 2, 'only the page and BFF coming-soon locations use a regex');
+});
+
+// The BFF prefix stays closed on the public host: there is no public API address (D-AB1), and a browser fetch reads JSON.
+test('the BFF prefix answers a JSON coming-soon 503 before reading a body and never reaches Web or API', () => {
+  const expected = expectedIngressRoutes(readWebRoutes(repoRoot));
+  assert.deepEqual(expected.jsonComingSoon, ['api']);
+  assert.equal(jsonComingSoon.length, 1);
+  assert.deepEqual(comingSoonSegments(jsonComingSoon[0]), expected.jsonComingSoon);
+  const { body } = jsonComingSoon[0];
+  assert.match(body, /return 503 '\{"status":"coming-soon"\}';/u);
+  assert.match(body, /default_type application\/json;/u);
+  assert.match(body, /add_header Retry-After "3600" always;/u);
+  assert.match(body, /add_header Cache-Control "no-store" always;/u);
+  assert.match(body, /include \/etc\/nginx\/snippets\/headers\.conf;/u);
+  assert.doesNotMatch(body, /proxy|snippets\/proxy-/u);
 });
 
 test('the route reader fails closed on conventions it does not map', () => {
@@ -257,11 +277,12 @@ test('every response carries noindex and the TLS servers carry the security head
     assert.match(block, /include \/etc\/nginx\/snippets\/headers\.conf;/u);
     assert.match(block, /include \/etc\/nginx\/snippets\/tls\.conf;/u);
   }
-  // Locations with their own add_header do not inherit the server headers, so each of them includes the snippet again.
+  // Locations with their own add_header do not inherit the server headers, so each of them includes the headers again
+  // (static-page.conf includes headers.conf).
   for (const location of apexLocations.filter((item) => /add_header/u.test(item.body))) {
     assert.match(
       location.body,
-      /include \/etc\/nginx\/snippets\/static-page\.conf;/u,
+      /include \/etc\/nginx\/snippets\/(?:static-page|headers)\.conf;/u,
       location.path,
     );
   }
@@ -302,10 +323,49 @@ test('unknown hosts are closed, HTTP only serves ACME and redirects, and the pri
   const privateListener = blocks.find((block) => /listen 8081;/u.test(block));
   assert.deepEqual(
     locations(privateListener).map((location) => location.path),
-    ['/__ingress/health', '/'],
+    ['/__ingress/health', '/internal/', '/', '@api_unavailable'],
   );
-  assert.doesNotMatch(privateListener, /proxy/u);
+  // The private listener sends to API only, never to Web.
+  assert.doesNotMatch(privateListener, /proxy-web|web_upstream/u);
+  assert.match(
+    locations(privateListener).find((location) => location.path === '/').body,
+    /^\s*include \/etc\/nginx\/snippets\/proxy-api\.conf;\s*$/u,
+  );
   assert.match(privateListener, /return 503 '\{"status":"unavailable"\}';/u);
+});
+
+// The private listener accepts the Web container address and loopback (the container healthcheck) only; any other peer, such as
+// a container on the API transit, gets 403. It listens on every address so nginx starts even if a network is attached after
+// the container starts. API operation paths stay closed.
+test('the private listener accepts only the Web container and loopback and sends nothing but API requests to API', () => {
+  const privateListener = serverBlocks(conf).find((block) => /listen 8081;/u.test(block));
+  assert.deepEqual(
+    [...privateListener.matchAll(/^\s*listen ([^;]+);/gmu)].map((match) => match[1]),
+    ['8081'],
+  );
+  assert.deepEqual(
+    [...privateListener.matchAll(/^\s*(allow|deny) ([^;]+);/gmu)].map(
+      (match) => `${match[1]} ${match[2]}`,
+    ),
+    [`allow ${WEB_TRANSIT.web}`, 'allow 127.0.0.1', 'deny all'],
+  );
+  const internal = locations(privateListener).find((location) => location.path === '/internal/');
+  assert.equal(internal.modifier, '^~');
+  assert.match(internal.body, /return 404 '\{"status":"not-found"\}';/u);
+  assert.match(proxyApi, /^set \$api_upstream http:\/\/api:4000;$/mu);
+  assert.match(proxyApi, /^proxy_pass \$api_upstream;$/mu);
+  assert.equal([...proxyApi.matchAll(/^proxy_pass /gmu)].length, 1);
+  // Forwarding trust is off (HTTP_TRUST_PROXY_HOPS=0): client address headers from the previous hop are cleared.
+  for (const header of [
+    'X-Forwarded-For',
+    'X-Real-IP',
+    'Forwarded',
+    'X-Forwarded-Host',
+    'X-Forwarded-Proto',
+  ])
+    assert.match(proxyApi, new RegExp(`^proxy_set_header ${header} "";$`, 'mu'), header);
+  assert.match(proxyApi, /^error_page 502 503 504 = @api_unavailable;$/mu);
+  assert.match(proxyApi, /^proxy_intercept_errors off;$/mu);
 });
 
 test('the ingress image pins its base by digest and runs as the unprivileged nginx user', () => {
@@ -314,4 +374,37 @@ test('the ingress image pins its base by digest and runs as the unprivileged ngi
   assert.match(dockerfile, /^USER 101:101$/mu);
   assert.match(dockerfile, /^ENTRYPOINT \[\]$/mu);
   assert.match(read('nginx.conf'), /^\s*server_tokens off;$/mu);
+});
+
+// Access log rows are operations logs (OO-R1): the client address is masked to IPv4 /24 or IPv6 /48, the request keeps
+// method, path without the query string and protocol, and the referer is not kept.
+test('the access log keeps a masked client prefix and the path without query string or referer', () => {
+  const nginx = read('nginx.conf');
+  const format = /log_format main ((?:'[^']*'\s*)+);/u.exec(nginx)?.[1].replace(/'\s*'/gu, '');
+  assert.ok(format, 'log_format main is defined');
+  assert.equal(
+    format,
+    `'$dormduri_client_prefix - [$time_local] "$request_method $dormduri_log_path $server_protocol" $status $body_bytes_sent "$http_user_agent" "$http_x_request_id"'`,
+  );
+  for (const forbidden of [
+    '$remote_addr',
+    '$request ',
+    '$request_uri',
+    '$http_referer',
+    '$args',
+    '$query_string',
+  ])
+    assert.ok(!format.includes(forbidden), forbidden);
+  assert.match(
+    nginx,
+    /map \$remote_addr \$dormduri_client_prefix \{\n(?:\s+"[^"]+" \$\w+[.:]\S*;\n)+\s+"~\^::" ::\/48;\n\s+default -;\n\s+\}/u,
+  );
+  assert.match(
+    nginx,
+    /map \$request_uri \$dormduri_log_path \{\s*~\^\(\?<path>\[\^\?\]\*\) \$path;\s*default -;\s*\}/u,
+  );
+  assert.equal([...nginx.matchAll(/^\s*access_log /gmu)].length, 1);
+  assert.match(nginx, /^\s*access_log \/dev\/stdout main;$/mu);
+  for (const source of [conf, proxyWeb, proxyApi, staticPage, headers])
+    assert.doesNotMatch(source, /access_log (?!off;)/u);
 });

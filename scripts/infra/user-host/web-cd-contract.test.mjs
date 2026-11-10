@@ -56,7 +56,7 @@ test('only the designated jobs hold write scopes and only deploy references the 
 test('one workflow-level concurrency group serializes every run without cancelling the running one', () => {
   assert.match(
     workflow,
-    /^concurrency:\n {2}group: web-cd-production\n {2}cancel-in-progress: false$/mu,
+    /^concurrency:\n {2}group: user-host-production\n {2}cancel-in-progress: false$/mu,
   );
   assert.doesNotMatch(Object.values(JOBS).join('\n'), /concurrency:/u);
 });
@@ -316,14 +316,21 @@ function copySources(dockerfile, context) {
     return parts.slice(0, -1).map((source) => (context ? `${context}/${source}` : source));
   });
 }
-const covered = (path, filters) =>
-  filters.some((filter) =>
-    filter.endsWith('/**') ? `${path}/`.startsWith(filter.slice(0, -2)) : filter === path,
-  );
+const matches = (path, filter) =>
+  filter.endsWith('/**') ? `${path}/`.startsWith(filter.slice(0, -2)) : filter === path;
+// GitHub `paths`: 마지막으로 맞은 pattern이 정한다(`!`는 제외).
+const triggers = (path, filters) =>
+  filters.reduce((result, filter) => {
+    if (filter.startsWith('!')) return matches(path, filter.slice(1)) ? false : result;
+    return matches(path, filter) ? true : result;
+  }, false);
+const covered = (path, filters) => triggers(path, filters);
 
 test('the push path filter covers every Dockerfile input and matches the stale-run check', () => {
   const pathBlock = /^ {4}paths:\n((?: {6}- .+\n)+)/mu.exec(workflow)[1];
-  const paths = [...pathBlock.matchAll(/^ {6}- (\S+)$/gmu)].map((match) => match[1]);
+  const paths = [...pathBlock.matchAll(/^ {6}- (\S+)$/gmu)].map((match) =>
+    match[1].replace(/^'(.*)'$/u, '$1'),
+  );
   for (const source of [
     ...copySources('infra/deploy/web/Dockerfile', ''),
     ...copySources('infra/deploy/user/ingress/Dockerfile', 'infra/deploy/user/ingress'),
@@ -345,16 +352,39 @@ test('the push path filter covers every Dockerfile input and matches the stale-r
   const stale = /^DEPLOY_INPUT_PATHS=\(\n([\s\S]+?)\n\)$/mu
     .exec(script)[1]
     .split(/\s+/u)
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((path) => path.replace(/^'(.*)'$/u, '$1'));
   assert.deepEqual(
     stale.sort(),
-    paths.map((path) => path.replace(/\/\*\*$/u, '')).sort(),
+    paths.map((path) => path.replace(/\/\*\*$/u, '').replace(/^!/u, ':(exclude)')).sort(),
     'the newer-change check compares the same paths as the trigger',
   );
   assert.match(
     workflow,
     /run: bash scripts\/infra\/user-host\/deploy-inputs-current\.sh "\$GITHUB_SHA" origin\/main/u,
   );
+});
+
+// web 묶음 입력은 web-cd를 걸고 API 묶음 입력(infra/deploy/user/api/**)은 걸지 않는다(api-cd 몫, D-AB11).
+test('the push path filter takes the web bundle inputs and leaves the API bundle inputs to api-cd', () => {
+  const pathBlock = /^ {4}paths:\n((?: {6}- .+\n)+)/mu.exec(workflow)[1];
+  const paths = [...pathBlock.matchAll(/^ {6}- (\S+)$/gmu)].map((match) =>
+    match[1].replace(/^'(.*)'$/u, '$1'),
+  );
+  for (const path of [
+    'infra/deploy/user/compose.yml',
+    'infra/deploy/user/ssm/deploy.sh',
+    'infra/deploy/user/ssm/lib.sh',
+    'infra/deploy/user/ingress/conf.d/dormduri.conf',
+  ])
+    assert.equal(triggers(path, paths), true, path);
+  for (const path of [
+    'infra/deploy/user/api/compose.yml',
+    'infra/deploy/user/api/ssm/deploy-api.sh',
+    'infra/deploy/user/api/ssm/dormduri-api-deploy.json',
+    'apps/api/src/main.ts',
+  ])
+    assert.equal(triggers(path, paths), false, path);
 });
 
 // step 글의 `run: |` block을 들여쓰기 없이 꺼낸다.

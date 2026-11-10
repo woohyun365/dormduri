@@ -11,7 +11,7 @@ export const DEFAULT_DATABASE_ADAPTER_CONNECT_TIMEOUT_MS = 5_000;
 export const DEFAULT_DATABASE_ADAPTER_IDLE_TIMEOUT_MS = 300_000;
 // Pool max per Prisma role (infra/db/README.md Connection budget, #238). Each LOGIN user's
 // CONNECTION LIMIT is pool x 2 + 2 so an old and a new container can overlap.
-export const DEFAULT_DATABASE_POOL_MAX = 10;
+export const DEFAULT_DATABASE_POOL_MAX = 7;
 export const DEFAULT_RETENTION_WORKER_DATABASE_POOL_MAX = 3;
 export const DEFAULT_RETENTION_DISCLOSURE_DATABASE_POOL_MAX = 1;
 export const DEFAULT_DATABASE_POOL_MIN = 0;

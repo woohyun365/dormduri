@@ -1,0 +1,60 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SendOnlyToTaggedNode",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ssm:ap-northeast-2:<ACCOUNT_ID>:managed-instance/*",
+      "Condition": {
+        "StringEquals": {
+          "ssm:resourceTag/dormduri-deploy-target": "user-app"
+        }
+      }
+    },
+    {
+      "Sid": "SendOnlyApiDeployDocument",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ssm:ap-northeast-2:<ACCOUNT_ID>:document/dormduri-api-deploy"
+    },
+    {
+      "Sid": "ReadApiDeployDocumentHash",
+      "Effect": "Allow",
+      "Action": "ssm:DescribeDocument",
+      "Resource": "arn:aws:ssm:ap-northeast-2:<ACCOUNT_ID>:document/dormduri-api-deploy"
+    },
+    {
+      "Sid": "ReadCommandLevelStatus",
+      "Effect": "Allow",
+      "Action": "ssm:ListCommands",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadImageDigests",
+      "Effect": "Allow",
+      "Action": "ecr:DescribeImages",
+      "Resource": [
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/api",
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/api-migrate",
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/observability-config"
+      ]
+    },
+    {
+      "Sid": "LogInToVerifyProvenance",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadManifestsToVerifyProvenance",
+      "Effect": "Allow",
+      "Action": "ecr:BatchGetImage",
+      "Resource": [
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/api",
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/api-migrate",
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/observability-config"
+      ]
+    }
+  ]
+}

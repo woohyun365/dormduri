@@ -23,7 +23,7 @@ LOGIN user는 group 권한을 상속하고(INHERIT) 다른 app group의 member�
 | Group role(NOLOGIN)    | LOGIN user                                                               | 쓰는 곳                       | Env key                             | CONNECTION LIMIT |
 | ---------------------- | ------------------------------------------------------------------------ | ----------------------------- | ----------------------------------- | ---------------- |
 | `migration_owner`      | `dormduri_migrator`(`SET role = migration_owner`)                        | migration·grant·smoke one-off | `MIGRATION_DATABASE_URL`            | 3                |
-| `app_runtime`          | `dormduri_api`                                                           | 사용자 API                    | `DATABASE_URL`                      | 22               |
+| `app_runtime`          | `dormduri_api`                                                           | 사용자 API                    | `DATABASE_URL`                      | 16               |
 | `retention_worker`     | `dormduri_retention_worker`                                              | 사용자 API의 정리·계정 삭제   | `RETENTION_WORKER_DATABASE_URL`     | 8                |
 | `retention_disclosure` | `dormduri_api_disclosure`(사용자 API), 백오피스용 user는 백오피스가 더함 | RRPD 제한 열람                | `RETENTION_DISCLOSURE_DATABASE_URL` | 4                |
 | `backoffice_runtime`   | 백오피스 API가 더함                                                      | 백오피스 API                  | 백오피스 env                        | —                |
@@ -69,16 +69,16 @@ Secret value는 command output, CI log, issue, report에 남기지 않는다. �
 
 묶음별 요약(원본은 CSV):
 
-| 묶음                                        | runtime                    | worker                              | disclosure                                                        | readonly            |
-| ------------------------------------------- | -------------------------- | ----------------------------------- | ----------------------------------------------------------------- | ------------------- |
-| 일반 기능·outbox                            | DML                        | 대화 보존이 쓰는 outbox·구성원 연산 | —                                                                 | secret·content 제외 |
-| 계정 삭제·archive가 고치는 사용자 table(13) | DML                        | 계정 삭제·archive가 쓰는 연산       | —                                                                 | secret·content 제외 |
-| auth 정리(5)                                | DML                        | SELECT·DELETE(`AuthSession` UPDATE) | —                                                                 | secret·content 제외 |
-| 시즌 운영 감사                              | SELECT·INSERT(append-only) | —                                   | —                                                                 | content 제외        |
-| RRPD 열람 기록 `RetentionAccessLog`         | —                          | DML(폐기)                           | SELECT·INSERT                                                     | —                   |
-| RRPD anchor `RetentionCase`                 | INSERT, `id` 열 SELECT     | DML                                 | SELECT                                                            | `id` 열 SELECT      |
-| RRPD 그 밖(6)                               | —                          | DML                                 | `ArchiveJob` 밖 SELECT, `RetentionReviewJob` SELECT·INSERT·UPDATE | —                   |
-| `_prisma_migrations`                        | —                          | —                                   | —                                                                 | SELECT              |
+| 묶음                                        | runtime                                             | worker                              | disclosure                                                        | readonly            |
+| ------------------------------------------- | --------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------- | ------------------- |
+| 일반 기능·outbox                            | DML                                                 | 대화 보존이 쓰는 outbox·구성원 연산 | —                                                                 | secret·content 제외 |
+| 계정 삭제·archive가 고치는 사용자 table(13) | DML                                                 | 계정 삭제·archive가 쓰는 연산       | —                                                                 | secret·content 제외 |
+| auth 정리(5)                                | DML                                                 | SELECT·DELETE(`AuthSession` UPDATE) | —                                                                 | secret·content 제외 |
+| 시즌 운영 감사                              | SELECT·INSERT(append-only)                          | —                                   | —                                                                 | content 제외        |
+| RRPD 열람 기록 `RetentionAccessLog`         | —                                                   | DML(폐기)                           | SELECT·INSERT                                                     | —                   |
+| RRPD anchor `RetentionCase`                 | INSERT, `id` 열 SELECT                              | DML                                 | SELECT                                                            | `id` 열 SELECT      |
+| RRPD 그 밖(6)                               | —                                                   | DML                                 | `ArchiveJob` 밖 SELECT, `RetentionReviewJob` SELECT·INSERT·UPDATE | —                   |
+| `_prisma_migrations`                        | `finished_at`·`rolled_back_at` 열 SELECT(readiness) | —                                   | —                                                                 | SELECT              |
 
 `backoffice_runtime`은 지금 권한이 없다. 백오피스 기능이 필요한 열만 열 단위로 더하고 test로 고정한다.
 
@@ -109,7 +109,9 @@ Secret value는 command output, CI log, issue, report에 남기지 않는다. �
    MIGRATION_DATABASE_URL='postgresql://...' pnpm api:db:deploy:role-grants
    ```
 
-4. LOGIN user별 credential boundary를 smoke한다.
+4. LOGIN user별 credential boundary를 smoke하고, auth mail outbox에 행이 하나도 없는지 본다(읽기 전용). 가입·비밀번호
+   재설정이 닫혀 있고 SES 발신 credential이 없는 단계라 행이 있으면 안 된다. 발신 credential이 없는 dispatcher는 행을
+   `FAILED`·`UNKNOWN`으로 끝내므로 상태와 관계없이 센다.
 
    ```bash
    MIGRATION_DATABASE_URL='postgresql://...' \
@@ -117,6 +119,7 @@ Secret value는 command output, CI log, issue, report에 남기지 않는다. �
    RETENTION_WORKER_DATABASE_URL='postgresql://...' \
    RETENTION_DISCLOSURE_DATABASE_URL='postgresql://...' \
      pnpm api:db:deploy:smoke
+   MIGRATION_DATABASE_URL='postgresql://...' sh infra/db/check-auth-mail-outbox-empty.sh
    ```
 
 5. API/nginx를 rollout한다. 옛 API container를 멈춘 뒤 새 container를 시작해 정리 작업·outbox dispatcher가 두
@@ -125,9 +128,16 @@ Secret value는 command output, CI log, issue, report에 남기지 않는다. �
 7. CloudWatch `DatabaseConnections`, `CPUUtilization`, `FreeableMemory`, `ReadIOPS`, `WriteIOPS`, `DiskQueueDepth`,
    `FreeStorageSpace`를 확인한다.
 
+운영 user host에서는 2~6을 API 배포 SSM document(`dormduri-api-deploy`, 본문 `infra/deploy/user/api/ssm/deploy-api.sh`)가
+한 번에 실행한다. migrate image의 one-off 넷(`migrate` → `grant` → `smoke` → `outbox`,
+`infra/deploy/api/migrate-entrypoint.sh`)이 모두 통과해야 옛 API container를 멈추고 새 container를 시작한다. 새
+container가 readiness나 host 안 smoke(ingress private listener를 거친 공개 열람 응답)를 통과하지 못하면 직전 release로
+되돌리고, 직전 release가 없으면 API를 내린 채 끝낸다. 2의 시작 시각은 root 전용 host log
+(`/opt/dormduri/state/deploy-api.log`)에 남는다. 위 `pnpm api:db:*` 명령은 같은 script의 local·CI 진입점이다.
+
 실패 처리:
 
-- 2~4 어느 단계든 실패하면 rollout하지 않고 이전 container가 계속 돈다. 자동 복원은 없다. 사람이 원인을 본다.
+- 2~4 어느 단계든 실패하면(outbox 확인 포함) rollout하지 않고 이전 container가 계속 돈다. 자동 복원은 없다. 사람이 원인을 본다.
 - migration 실패: `_prisma_migrations`의 실패 행과 log, 부분 적용 여부를 확인한다(Prisma가 migration마다
   transaction으로 감싸는지 공식 문서 근거가 없어 부분 적용을 가정한다). 손으로 되돌렸으면
   `prisma migrate resolve --rolled-back`, 손으로 끝냈으면 `--applied`를 실행하고 고친 migration으로 다시 배포한다
@@ -202,7 +212,9 @@ grant(table·열)는 migration 연결의 구조 검사가 거부한다.
 pnpm api:db:restore-drill:smoke
 ```
 
-Restore drill smoke는 `RESTORE_DRILL_*` credential을 기존 role grant smoke의 `MIGRATION_DATABASE_URL`, `DATABASE_URL`,
+Restore drill smoke는 migration 연결로 PostgreSQL major(기본 18), 마지막 적용 migration(저장소
+`packages/database/prisma/migrations`의 마지막 디렉터리와 같아야 함), `pgaudit` extension과 preload를 먼저 본 뒤
+`RESTORE_DRILL_*` credential을 기존 role grant smoke의 `MIGRATION_DATABASE_URL`, `DATABASE_URL`,
 `RETENTION_WORKER_DATABASE_URL`, `RETENTION_DISCLOSURE_DATABASE_URL`로 매핑해 재사용한다. 이 smoke는 temporary restored DB에서
 실행하며 production source DB를 수정하지 않는다. 실제 실행 전에는 `infra/runbooks/operations/database/backup-restore.md`에
 따라 restore source와 cleanup evidence를 준비한다.
@@ -254,30 +266,55 @@ Dry-run output도 secret value를 출력하지 않는다.
 
 ## RDS SSL / CA bundle
 
-Production RDS PostgreSQL은 SSL/TLS connection을 기본으로 한다. Connection string에는 운영 방식에 맞춰 `sslmode=require`
-또는 CA bundle 검증 옵션을 둔다. AWS RDS CA bundle 파일 자체는 repo에 넣지 않는다. CA bundle 배포가 필요하면 host
-image/bootstrap 또는 secret/config management 경로에서 제공한다.
+RDS parameter group의 `rds.force_ssl = 1`이 평문 연결을 거부하고, 모든 client가 서버 인증서와 host 이름을 검증한다.
+
+- CA: API·migrate image가 AWS RDS 전역 CA 묶음에서 꺼낸 단일 루트를 `/etc/dormduri/rds-ca/root.pem`(0444)에 둔다.
+  `infra/deploy/api/Dockerfile`의 `rds-ca` stage가 묶음을 받아 `infra/deploy/api/rds-ca-bundle.sha256`(묶음과 꺼낸
+  루트)으로 대조하므로 묶음이 바뀌면 build가 멈춘다. CA 파일은 repo에 넣지 않는다. 여러 인증서 묶음은 Prisma CLI가
+  읽지 못해 단일 루트를 쓴다.
+- Secret에 저장하는 URL 형식:
+
+  | 연결                                            | client                              | TLS 인자                                                                 |
+  | ----------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------ |
+  | runtime 셋(`DATABASE_URL`, `RETENTION_*`)       | `@prisma/adapter-pg`(node-postgres) | `sslmode=verify-full&sslrootcert=/etc/dormduri/rds-ca/root.pem`          |
+  | migration(`MIGRATION_DATABASE_URL`)             | Prisma CLI(`migrate deploy`)        | `sslmode=require&sslcert=/etc/dormduri/rds-ca/root.pem&sslaccept=strict` |
+  | `infra/db/*.sh`의 psql(위 두 URL을 그대로 받음) | libpq(`infra/db/psql-tls.sh`)       | URL의 TLS 인자를 떼고 `PGSSLMODE=verify-full`·`PGSSLROOTCERT`로 준다     |
+
+- Prisma CLI는 `sslmode=verify-full&sslrootcert`로는 서버 인증서를 검증하지 않았다(잘못된 CA·다른 host에도 붙음).
+  migration URL의 형식에서 Prisma는 `sslcert`를 신뢰할 CA로 읽고 `sslaccept=strict`로 인증서와 이름을 검증한다. libpq는
+  `sslcert`를 client 인증서로 읽으므로 psql에는 `psql-tls.sh`가 형식을 바꿔 준다.
+- `psql-tls.sh`는 검증하지 않는 설정(CA 없는 `require`·`prefer`, `strict`가 아닌 `sslaccept`, client key)을 psql 실행
+  전에 exit 64로 거부하고, libpq가 모르는 Prisma 전용 인자(`schema` 등)를 뗀다. CA 없는 `sslmode=require`는 쓰지 않는다.
+- 노트북에서 SSM 포트 포워딩으로 붙을 때는 URL host를 RDS endpoint 그대로 두고 연결 주소만 바꾼다(psql은 libpq
+  `hostaddr=127.0.0.1`, Prisma CLI는 Linux container의 `--add-host <endpoint>:host-gateway`). 이름 검증이 endpoint로
+  이루어진다.
 
 ## Connection budget
 
 Pool은 Prisma role마다 따로다(#238).
 
-| 접속                                     | pool max   | Env key                                                                                               |
-| ---------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------- |
-| 사용자 API runtime / worker / disclosure | 10 / 3 / 1 | `DATABASE_POOL_MAX` / `RETENTION_WORKER_DATABASE_POOL_MAX` / `RETENTION_DISCLOSURE_DATABASE_POOL_MAX` |
-| 백오피스 API runtime / disclosure        | 5 / 2      | 백오피스 env                                                                                          |
-| migration(one-off)                       | 2          | —                                                                                                     |
-| 사람 조회                                | 3          | —                                                                                                     |
+| 접속                                     | pool max  | Env key                                                                                               |
+| ---------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| 사용자 API runtime / worker / disclosure | 7 / 3 / 1 | `DATABASE_POOL_MAX` / `RETENTION_WORKER_DATABASE_POOL_MAX` / `RETENTION_DISCLOSURE_DATABASE_POOL_MAX` |
+| 백오피스 API runtime / disclosure        | 5 / 2     | 백오피스 env                                                                                          |
+| migration(one-off)                       | 2         | —                                                                                                     |
+| 사람 조회                                | 3         | —                                                                                                     |
 
-규칙: rollout 때 옛·새 container가 겹치므로 서비스 pool 합을 2배로 센다.
+규칙: 옛·새 container가 겹칠 수 있으므로 서비스 pool 합을 2배로 센다(사용자 API rollout은 옛 container를 멈춘 뒤 새
+container를 시작하지만 계획은 겹침을 가정한다).
 
 ```txt
-(사용자 API 14 + 백오피스 7) × 2 + migration 2 + 사람 3 + RDS 예약 연결 ≤ max_connections × 0.6
+(사용자 API 11 + 백오피스 7) × 2 + migration 2 + 사람 3 + RDS 예약 연결 5 ≤ max_connections × 0.6
 ```
 
-PostgreSQL 기본 예약 연결 3이면 합 50이고 `max_connections` 84 이상이 필요하다. Target에서 `SHOW max_connections`와
-`superuser_reserved_connections`·`reserved_connections`를 읽어 확인하고, 넘치면 runtime pool을 줄이거나 instance
-class를 올린다. CloudWatch `DatabaseConnections`로 실제 사용량을 본다.
+Target(RDS PostgreSQL 18, `db.t4g.micro`)은 `max_connections` 78, 예약 연결 5(`superuser_reserved_connections` 3 +
+`reserved_connections` 2)다(2026-11-09 실측, #238). 합은 46이고 상한은 46.8이다. 사용자 API runtime pool이 10이면 합이
+52라 넘치므로 instance class는 그대로 두고 runtime pool을 7로 줄였다(Owner 결정, 2026-11-09).
+
+`× 0.6`은 계획 상한이고 경보 기준이 아니다. CloudWatch `DatabaseConnections` 경보는 `max_connections × 0.8`(78이면
+62)이다(`infra/aws/rds-setup-checklist.md` Alarms 절). 계획 합과 경보 사이가 순간 증가·사람 break-glass·RDS 관리
+연결의 여유다. 경보가 울리면 실제 연결이 계획을 넘은 것이므로 pool과 class를 다시 본다. Class나 parameter group을
+바꾸면 `SHOW max_connections`와 두 예약 값을 다시 읽어 이 식과 경보 기준을 함께 고친다.
 
 ## 유지보수
 
@@ -313,7 +350,8 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
   test/operations/platform/database-deploy.spec.ts \
   test/operations/database/role-grant-matrix.spec.ts \
   test/operations/database/column-classes.spec.ts \
-  test/operations/database/migration-baseline.spec.ts
+  test/operations/database/migration-baseline.spec.ts \
+  test/operations/database/db-script-tls.spec.ts
 pnpm --dir apps/api exec vitest run --config ./vitest.config.integration.ts \
   test/integration/platform/database-role-grants.integration.spec.ts
 sh -n infra/db/*.sh

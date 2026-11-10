@@ -11,7 +11,8 @@ planning budget)과 release 결과는 infrastructure-target readiness/evidence�
 
 ## 지금 Web 단계
 
-지금은 사용자 Web만 공개하는 Web 단계의 배포 준비 상태다. API, managed PostgreSQL, 관측 stack과 BackOffice는 아직 없다.
+지금은 사용자 Web(Landing)만 공개하는 Web 단계다. API 단계를 위해 managed PostgreSQL과 secret 묶음을 만들었지만 API는 아직
+배포하지 않았다. 관측 stack과 BackOffice는 없다.
 Resource 종류·상태와 확인하는 Owner console 위치는 [Production environment](../../deploy/production-environment.md)가
 소유하고, 이 절은 배치만 적는다.
 
@@ -19,7 +20,9 @@ Resource 종류·상태와 확인하는 Owner console 위치는 [Production envi
 Route 53 dormduri.com (apex, www → apex redirect)
 └── Lightsail host 4 GB (서울, static IP, firewall 80·443만)
     └── containerized nginx ingress (HTTPS 종료, Let's Encrypt)
-        └── Web (Next.js standalone, UI + BFF, 첫 배포 전)
+        └── Web (Next.js standalone, UI + BFF)
+
+RDS for PostgreSQL 18 (서울, private, Lightsail VPC peering으로 host에서만 5432)   ← API 단계에서 연결
 
 GitHub Actions web-cd (main, production 승인)
 ├── build → ECR 비공개 dormduri/web·dormduri/ingress (digest, SBOM attestation manifest)
@@ -33,7 +36,7 @@ GitHub Actions web-cd (main, production 승인)
   `dormduri-web-deploy`를 배포 대상 tag에 보낸다. Host는 host role로 ECR에서 digest 쌍을 받아 compose로 올리고 health·내부
   smoke가 실패하면 직전 쌍으로 되돌린다. SSH는 쓰지 않는다. 절차는
   [Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md)다.
-- 지금 상태: host는 점검 mode(nginx 503 응답)이고 Web image는 아직 배포되지 않았다.
+- 지금 상태: Landing을 공개하고 있다. 마지막 배포 기록은 [Production environment](../../deploy/production-environment.md#지금-상태)가 적는다.
 - 외부 가용성: Route 53 HTTPS health check → `us-east-1` CloudWatch alarm → SNS email 구독. 흐름은
   [Observability topology](./observability-topology.md#지금-web-단계)가 적는다.
 - 메일: SES(서울) domain identity와 구성 세트가 있고 계정은 sandbox다. 메일을 보내는 API는 아직 없다. 준비·시험 절차는
@@ -164,7 +167,8 @@ flowchart TB
 
 초기 User App ingress는 upstream CDN/LB 없이 **containerized Nginx 하나에서 HTTPS/WSS를 종료**한다.
 Public Web/API virtual host는 분리한다. Browser Web `/api/auth/*`는 Web/BFF로, direct API/Socket.IO는
-API host로 들어간다. Web/BFF는 Web transit에만 bind한 Nginx private listener를 거쳐 API로 간다.
+API host로 들어간다. Web/BFF는 Web transit의 Web 주소만 허용하는 Nginx private listener를 거쳐 API로 간다(listener 주소를
+transit에 bind하면 network가 container 시작 뒤 붙을 때 nginx가 뜨지 못해, 모든 주소에서 듣고 `allow`·`deny`로 거른다).
 
 Public edge는 caller forwarded identity를 무시하고 원본 socket IP로 XFF를 덮어쓴다. Web은 단일 IP만
 검증해 전달하고 private listener는 exact Web peer ACL 통과 후 그 identity를 유지한다. Private 경유
@@ -175,7 +179,8 @@ public/API/Web/observer network를 연결하고 upstream source를 명시적으�
 collector peer의 token-protected metrics만 중계하며 API trust CIDR에 observer network를 포함하지 않는다.
 Public IPv6는 explicit dual-stack IPAM/listener로 지원하고 내부 transit은 IPv4를 유지할 수 있다.
 
-API 단계가 이 경계를 user host ingress(`infra/deploy/user/ingress/`)에 구현한다([repository 구조](#repository와-deploy-구조-목표)).
+API 단계 첫 구성은 user host ingress(`infra/deploy/user/ingress/`)에 private listener와 Web·API transit만 둔다. 공개 API host와
+forwarding trust는 이용자 API를 여는 단계가 더한다([repository 구조](#repository와-deploy-구조-목표)).
 실제 hostname/TLS/peer 관찰·network isolation·distinct-client/transport 검증 및 rollout/rollback
 증거가 없으면 forwarding trust 활성화는 승인되지 않는다. Source/정적 검증은 release evidence를 대신하지 않는다.
 
@@ -206,9 +211,10 @@ infra/
 │   ├── web/                 # app image: 사용자 Web(Dockerfile)
 │   ├── api/                 # app image: API(Dockerfile·entrypoint·env manifest)
 │   ├── user/                # User App host 한 대의 실행 묶음
-│   │   ├── compose.yml      # host에서 함께 도는 service
+│   │   ├── compose.yml      # Web 묶음 조각(web·ingress)
 │   │   ├── ingress/         # host 전용 ingress image(nginx 설정·정적 화면)
-│   │   └── ssm/             # 배포 명령 원본과 그것으로 만든 SSM Command document
+│   │   ├── ssm/             # Web 배포 명령 원본·공통 lib와 그것으로 만든 SSM Command document
+│   │   └── api/             # API 묶음 조각(api·migrate one-off)과 그 배포 명령·document
 │   └── backoffice/          # BackOffice host 묶음(deployable이 생길 때)
 ├── aws/                     # 계정 resource: IAM·ECR 정책 template과 설정 checklist
 └── rehearsal/               # local rehearsal 덮어쓰기
@@ -221,9 +227,10 @@ scripts/infra/user-host/     # user host 묶음의 구조 계약·ingress smoke�
   둔다. 실제 값(account·repository ID)은 placeholder로 두고 console에서 채운다.
 - Local rehearsal은 운영 compose를 원본으로 쓰고 `infra/rehearsal/`의 덮어쓰기 파일로 image·host 경로·publish port만
   바꾼다(profile `user-host-rehearsal`). 운영 구성을 rehearsal용으로 따로 복제하지 않는다.
-- API 단계는 별도 host compose나 ingress를 두지 않는다. `infra/deploy/user/compose.yml`에 API service를, `ingress/`에 API
-  host와 private BFF 경로를 더한다. 지금의 `infra/deploy/compose.api.yml`·`infra/deploy/nginx/`는 API 개발 rehearsal(stress,
-  full-stack)이 쓰는 후보이고 API 단계가 이 묶음으로 옮긴다.
+- API 단계는 별도 host나 ingress를 두지 않는다. 같은 host 묶음 안에 API 조각(`infra/deploy/user/api/compose.yml`)과 그
+  document를 따로 두어 Web과 API를 따로 배포·되돌린다. 두 조각은 compose project 하나로 합치고 document마다 자기 service만
+  바꾼다. `ingress/`에는 private BFF 경로를 더한다. `infra/deploy/compose.api.yml`·`infra/deploy/nginx/`는 API 개발
+  rehearsal(stress, full-stack)이 쓰는 후보로 남는다.
 - BackOffice deployable이 생기기 전에는 빈 디렉터리나 가짜 compose를 만들지 않는다. 구현 시 caller, CI path filter, image
   inventory, environment manifest와 rollback 경계를 함께 이전한다.
 
@@ -245,9 +252,10 @@ Release gate가 쓰는 container limit과 이후 단계 planning budget은
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                            |
-| ---------- | -------------------------------------------------------------------------------------------------------------------- |
-| 2026-08-11 | User App 4GiB와 미래 BackOffice 2GiB를 분리하고 managed PostgreSQL을 공유하는 topology를 확정했다.                   |
-| 2026-10-20 | 루트 README에 있던 출시 전 배포 구성도와 설명을 이 문서로 옮겼다.                                                    |
-| 2026-10-31 | 지금 적용한 Web 단계 배치를 첫 절로 두고 기존 결정·구성도·책임 경계를 이후 목표 절로 옮겼다.                         |
-| 2026-11-03 | 구조 목표를 app image·host 묶음·계정 resource·rehearsal 덮어쓰기로 나누고 API 단계가 user host 묶음에 합쳐지게 했다. |
+| 날짜       | 변경 내용                                                                                                                    |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-11 | User App 4GiB와 미래 BackOffice 2GiB를 분리하고 managed PostgreSQL을 공유하는 topology를 확정했다.                           |
+| 2026-10-20 | 루트 README에 있던 출시 전 배포 구성도와 설명을 이 문서로 옮겼다.                                                            |
+| 2026-10-31 | 지금 적용한 Web 단계 배치를 첫 절로 두고 기존 결정·구성도·책임 경계를 이후 목표 절로 옮겼다.                                 |
+| 2026-11-03 | 구조 목표를 app image·host 묶음·계정 resource·rehearsal 덮어쓰기로 나누고 API 단계가 user host 묶음에 합쳐지게 했다.         |
+| 2026-11-10 | API 묶음을 같은 host 묶음 안의 따로 배포하는 조각으로 두고, private listener를 주소 허용 방식으로, 지금 단계에 RDS를 더했다. |

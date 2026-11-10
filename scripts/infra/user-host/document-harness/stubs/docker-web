@@ -1,0 +1,24 @@
+#!/bin/bash
+# web document harness의 가짜 docker. compose up은 WEB_IMAGE의 digest로 성공·실패를 정하고 떠 있는 Web digest를 기록한다.
+. /work/common.sh
+echo "docker $*" >>/tmp/docker.log
+# 실제 docker login --password-stdin처럼 stdin을 다 읽는다(안 읽으면 앞쪽 aws가 SIGPIPE로 끝나 pipefail에 걸린다).
+[ "$1" = login ] && cat >/dev/null
+docker_common "$@"
+[ "$1" = compose ] || exit 0
+compose_args "$@"
+require_fragments
+echo "${sub}:${services}" >>/tmp/services.log
+# 다른 묶음 조각의 변수(API 묶음 current 기록 값)를 compose 호출 때 기록한다.
+[ -n "${API_IMAGE:-}" ] && echo "${API_IMAGE##*@}" >>/tmp/apivars.log
+if [ "${sub}" = up ]; then
+  case " $* " in *" --no-deps "*)
+    [ -z "${BAD_INGRESS:-}" ]
+    exit
+    ;;
+  esac
+  web=${WEB_IMAGE##*@}
+  case " ${BAD_UP:-} " in *" ${web} "*) exit 1 ;; esac
+  printf '%s' "${web}" >/tmp/running_web
+fi
+exit 0

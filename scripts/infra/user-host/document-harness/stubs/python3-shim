@@ -1,0 +1,9 @@
+#!/bin/bash
+# 실제 python3를 부르고, MODE_VIOLATION이면 설치가 끝난 secret release의 파일 하나를 contract 밖 mode로 바꾼다.
+# document가 설치기 결과를 다시 검사하는지(설치기만 믿지 않는지) 본다.
+/usr/bin/python3 "$@"
+code=$?
+if [ "${code}" = 0 ] && [ -n "${MODE_VIOLATION:-}" ] && [ "${3:-}" = install ]; then
+  chmod 0444 "$5/$6/DATABASE_URL"
+fi
+exit "${code}"

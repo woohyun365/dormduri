@@ -260,6 +260,19 @@
     }
   },
   {
+    "name": "user-host-api-secret-installer",
+    "paths": ["infra/deploy/user/api/ssm/secret_bundle.py"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
     "name": "api-deploy-script",
     "paths": ["infra/deploy/scripts/api-release-smoke.sh"],
     "expected": {

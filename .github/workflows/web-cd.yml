@@ -8,7 +8,7 @@ on:
   push:
     branches: [main]
     # Web·ingress image가 복사하는 입력과 이 workflow. scripts/infra/user-host/web-cd-contract.test.mjs가 두 Dockerfile의
-    # COPY·.dockerignore와 맞는지 고정한다.
+    # COPY·.dockerignore와 맞는지 고정한다. user host의 API 묶음 입력(infra/deploy/user/api/**)은 api-cd 몫이라 뺀다.
     paths:
       - apps/web/**
       - packages/shared/**
@@ -21,6 +21,7 @@ on:
       - .dockerignore
       - infra/deploy/web/**
       - infra/deploy/user/**
+      - '!infra/deploy/user/api/**'
       - .github/workflows/web-cd.yml
   workflow_dispatch:
     inputs:
@@ -43,7 +44,7 @@ permissions:
 
 # 배포와 rollback이 겹치지 않게 workflow 단위로 줄 세운다. 대기 실행은 더 새 실행으로 바뀐다(runbook 대기 실행 규칙).
 concurrency:
-  group: web-cd-production
+  group: user-host-production
   cancel-in-progress: false
 
 env:

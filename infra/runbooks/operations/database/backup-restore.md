@@ -2,11 +2,11 @@
 
 이 runbook은 RDS automated backup/PITR 또는 manual snapshot이 실제로 복구 가능한지 검증하기 위한 production release gate다. 목표는 production DB를 직접 변경하지 않고 temporary restored DB에서 migration baseline, DB role grants, credential boundary, API readiness를 확인하는 것이다.
 
-실행 결과는 component evidence identifier로 남기고
-`infra/runbooks/release/production-release-evidence.md`에 연결한다. 이 runbook은 전체 release의 최종
+실행 결과는 아래 형식으로 [실제 값의 기록 위치](../../release/production-release-evidence.md#실제-값의-기록-위치)에
+남긴다. 식별자는 값을 적지 않고 Owner console 위치와 확인 여부만 적는다. 이 runbook은 전체 release의 최종
 판정을 소유하지 않는다.
 
-첫 production release 전에 한 번, 그 뒤 분기마다 한 번 실행한다. 목표는 RPO 5분·RTO 2시간이다
+첫 production release 전에 한 번, 그 뒤 분기마다 한 번 실행한다. 목표는 RPO 10분·RTO 2시간이다
 (`infra/aws/rds-setup-checklist.md` Initial RPO / RTO target). 같은 날 `infra/db/README.md` 유지보수 절의
 분기 점검을 한다.
 
@@ -51,11 +51,14 @@
 5. Temporary restored DB가 available이 된 시각을 기록한다.
 6. Temporary restored DB의 public access가 off인지 확인한다.
 7. Security group inbound가 API smoke host, migration/admin host, 필요한 operator 경로로만 제한되어 있는지 확인한다.
-8. Restored DB connection string에 SSL/TLS 정책(`sslmode=require` 또는 CA bundle 검증)이 적용되어 있는지 확인한다.
+8. Restored DB connection string이 서버 인증서와 host 이름을 검증하는지 확인한다(runtime `verify-full` + 단일 루트,
+   migration은 Prisma 형식 `sslmode=require&sslcert=<루트>&sslaccept=strict`, psql은 `infra/db/psql-tls.sh`. 복원 DB는
+   endpoint 이름이 다르므로 URL host를 그 endpoint로 바꾼다. `infra/db/README.md` RDS SSL / CA bundle).
 9. Restored DB에 3과 같은 사람 조회 user로 접속해(복원 DB는 원본의 role을 그대로 가진다) 같은 읽기 전용 query로
    마지막 migration 이름과 주요 table 행 수가 3의 값과 같은지, `pgaudit` extension이 있는지(`pg_extension`) 본다.
 10. Role grant가 필요하면 restored DB에만 `pnpm api:db:deploy:role-grants`를 적용한다.
-11. Restored DB credential boundary smoke를 LOGIN user별로 실행한다.
+11. Restored DB credential boundary smoke를 LOGIN user별로 실행한다. smoke는 먼저 PostgreSQL major, 마지막 적용 migration(저장소
+    마지막 migration 디렉터리와 같음), `pgaudit` extension·preload를 본다.
 
     ```bash
     RESTORE_DRILL_MIGRATION_DATABASE_URL='postgresql://redacted' \
@@ -85,7 +88,7 @@ release_sha=<commit-sha>
 restore_source=pitr|manual-snapshot
 restore_point=<iso8601>
 restore_point_within_latest_restorable_time=yes|no
-rpo_target_minutes=5
+rpo_target_minutes=10
 rto_target_minutes=120
 restore_requested_at=<iso8601>
 restore_available_at=<iso8601>

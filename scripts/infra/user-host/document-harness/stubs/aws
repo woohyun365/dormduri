@@ -1,0 +1,31 @@
+#!/bin/bash
+# 가짜 aws CLI: 호출 이름만 기록하고(값 없음) 고정 응답을 낸다. runtime 묶음 값은 contract의 key마다 다른 가짜 값이다.
+printf 'aws %s %s %s\n' "$1" "$2" "${4:-}" >>/tmp/aws.log
+case "$1 $2" in
+  "sts get-caller-identity") echo 000000000000 ;;
+  "ecr get-login-password") echo stub-password ;;
+  "secretsmanager get-secret-value")
+    id=$4
+    case " ${BAD_FETCH:-} " in *" ${id} "*)
+      echo 'An error occurred (AccessDeniedException)' >&2
+      exit 255
+      ;;
+    esac
+    gen=$(($(cat /tmp/secret-gen 2>/dev/null || echo 0) + 1))
+    echo "${gen}" >/tmp/secret-gen
+    case "${id}" in
+      /dormduri/production/api/runtime)
+        GEN=${gen} python3 -I -c '
+import json, os, sys
+names = json.load(open(sys.argv[1]))["requiredFiles"]
+if os.environ.get("BAD_SECRET"):
+    names = names[1:]
+print(json.dumps({name: "fakesecretvalue-%s-%s" % (name, os.environ["GEN"]) for name in names}))
+' /work/contract.json
+        ;;
+      /dormduri/production/api/migration) echo '{"MIGRATION_DATABASE_URL":"postgresql://fakesecretvalue-migration"}' ;;
+      *) exit 254 ;;
+    esac
+    ;;
+  *) exit 1 ;;
+esac

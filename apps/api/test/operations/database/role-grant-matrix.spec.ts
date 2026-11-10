@@ -1,4 +1,11 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import {
+  DEFAULT_DATABASE_POOL_MAX,
+  DEFAULT_RETENTION_DISCLOSURE_DATABASE_POOL_MAX,
+  DEFAULT_RETENTION_WORKER_DATABASE_POOL_MAX,
+} from '../../../src/platform/database/database.config.js';
 import {
   COLUMN_CLASSES,
   GRANT_PRIVILEGES,
@@ -10,6 +17,18 @@ import {
   ROLE_GRANT_FILES,
   type RoleGrantMatrixRow,
 } from '../../support/database/role-grant-inputs.js';
+
+// Prisma migrate가 만드는 기록 table의 열(schema.prisma model이 아니다).
+const PRISMA_MIGRATIONS_COLUMNS = [
+  'id',
+  'checksum',
+  'finished_at',
+  'migration_name',
+  'logs',
+  'rolled_back_at',
+  'started_at',
+  'applied_steps_count',
+];
 
 const RRPD_TABLES = [
   'RetainedIdentity',
@@ -51,7 +70,9 @@ describe('DB role grant table', () => {
     const roles = new Set<string>([...MANAGED_DATABASE_ROLES, 'none']);
     const privileges = new Set<string>(GRANT_PRIVILEGES);
     const classNames = new Set<string>(COLUMN_CLASSES);
-    const columnsByTable = new Map<string, Set<string>>();
+    const columnsByTable = new Map<string, Set<string>>([
+      ['_prisma_migrations', new Set(PRISMA_MIGRATIONS_COLUMNS)],
+    ]);
     for (const column of schema.columns) {
       columnsByTable.set(
         column.table,
@@ -93,11 +114,23 @@ describe('DB role grant table', () => {
     expect(problems).toEqual([]);
   });
 
-  it('runtime은 RRPD payload·식별 복원 table과 migration 기록에 권한이 없다', () => {
+  it('runtime은 RRPD payload·식별 복원 table에 권한이 없고 migration 기록은 readiness가 세는 두 열만 읽는다', () => {
     for (const table of RRPD_TABLES.filter((name) => name !== 'RetentionCase')) {
       expect(rowsFor(table, 'app_runtime'), table).toEqual([]);
     }
-    expect(rowsFor('_prisma_migrations', 'app_runtime')).toEqual([]);
+    // /health/ready counts failed and unfinished migrations on the runtime connection (getDatabaseReadiness.sql).
+    // Migration names, checksums and logs stay closed (Owner 2026-11-10).
+    expect(rowsFor('_prisma_migrations', 'app_runtime').map(describeRow)).toEqual([
+      '_prisma_migrations,app_runtime,SELECT,finished_at rolled_back_at',
+    ]);
+    const readiness = readFileSync(
+      path.resolve(process.cwd(), '../../packages/database/prisma/sql/getDatabaseReadiness.sql'),
+      'utf8',
+    );
+    const used = PRISMA_MIGRATIONS_COLUMNS.filter((column) =>
+      new RegExp(`\\b${column}\\b`, 'u').test(readiness),
+    );
+    expect(used).toEqual(['finished_at', 'rolled_back_at']);
     // Report intake records the retention anchor id in its own transaction.
     expect(rowsFor('RetentionCase', 'app_runtime').map(describeRow)).toEqual([
       'RetentionCase,app_runtime,INSERT,',
@@ -209,7 +242,7 @@ describe('DB role grant SQL artifacts', () => {
     // LOGIN user, group, CONNECTION LIMIT (infra/db/README.md, Role과 LOGIN user).
     for (const user of [
       "ARRAY['dormduri_migrator', 'migration_owner', '3', 'set']",
-      "ARRAY['dormduri_api', 'app_runtime', '22', 'noset']",
+      "ARRAY['dormduri_api', 'app_runtime', '16', 'noset']",
       "ARRAY['dormduri_retention_worker', 'retention_worker', '8', 'noset']",
       "ARRAY['dormduri_api_disclosure', 'retention_disclosure', '4', 'noset']",
     ]) {
@@ -267,5 +300,76 @@ describe('DB role grant SQL artifacts', () => {
       expect(source).not.toMatch(/ORDER BY \d+\s*\)/u);
     }
     expect(smoke).toContain('default_transaction_read_only');
+  });
+});
+
+/**
+ * Connection budget (infra/db/README.md, Connection budget, #238): a service LOGIN user's CONNECTION LIMIT is
+ * pool × 2 + 2 (old and new container overlap) and a one-off or human user's is pool + 1. The code default pool,
+ * the two deploy env examples, the bootstrap SQL and the README Credential boundary table carry the same numbers.
+ */
+describe('DB connection budget', () => {
+  const bootstrap = readRoleGrantFile(ROLE_GRANT_FILES.bootstrap);
+  const repoRoot = path.resolve(process.cwd(), '../..');
+  const readme = readFileSync(path.join(repoRoot, 'infra/db/README.md'), 'utf8');
+  const bootstrapLimit = (user: string): number => {
+    const match = new RegExp(
+      `ARRAY\\['${user}', '[a-z_]+', '(\\d+)', '(?:set|noset)'\\]`,
+      'u',
+    ).exec(bootstrap);
+    if (!match?.[1]) throw new Error(`no bootstrap row for ${user}`);
+    return Number(match[1]);
+  };
+  const readmeLimit = (user: string): number => {
+    const row = readme
+      .split('\n')
+      .find((line) => line.startsWith('|') && line.includes(`\`${user}\``));
+    const cells = row?.split('|').map((cell) => cell.trim());
+    const value = cells?.at(-2);
+    if (!value || !/^\d+$/u.test(value)) throw new Error(`no README limit for ${user}`);
+    return Number(value);
+  };
+  const envPool = (file: string, key: string): number => {
+    const line = readFileSync(path.join(repoRoot, 'infra/deploy', file), 'utf8')
+      .split('\n')
+      .find((entry) => entry.startsWith(`${key}=`));
+    if (!line) throw new Error(`${file} has no ${key}`);
+    return Number(line.slice(key.length + 1));
+  };
+
+  it('service user CONNECTION LIMIT은 code 기본 pool × 2 + 2이고 env 예시 둘이 같은 pool을 쓴다', () => {
+    const pools = [
+      ['dormduri_api', 'DATABASE_POOL_MAX', DEFAULT_DATABASE_POOL_MAX],
+      [
+        'dormduri_retention_worker',
+        'RETENTION_WORKER_DATABASE_POOL_MAX',
+        DEFAULT_RETENTION_WORKER_DATABASE_POOL_MAX,
+      ],
+      [
+        'dormduri_api_disclosure',
+        'RETENTION_DISCLOSURE_DATABASE_POOL_MAX',
+        DEFAULT_RETENTION_DISCLOSURE_DATABASE_POOL_MAX,
+      ],
+    ] as const;
+    // Owner 2026-11-09(#238): db.t4g.micro max_connections 78이라 사용자 API runtime pool은 7이다.
+    expect(DEFAULT_DATABASE_POOL_MAX).toBe(7);
+    for (const [user, key, pool] of pools) {
+      expect(bootstrapLimit(user), user).toBe(pool * 2 + 2);
+      for (const file of ['.env.api.example', '.env.api.lightsail.example']) {
+        expect(envPool(file, key), `${file} ${key}`).toBe(pool);
+      }
+    }
+  });
+
+  it('README Credential boundary 표의 CONNECTION LIMIT은 bootstrap SQL과 같다', () => {
+    for (const user of [
+      'dormduri_migrator',
+      'dormduri_api',
+      'dormduri_retention_worker',
+      'dormduri_api_disclosure',
+    ]) {
+      expect(readmeLimit(user), user).toBe(bootstrapLimit(user));
+    }
+    expect(readme).toMatch(/예약 연결 5/u);
   });
 });
