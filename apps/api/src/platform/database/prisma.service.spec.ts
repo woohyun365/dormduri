@@ -127,7 +127,7 @@ describe('PrismaService database clock', () => {
 });
 
 describe('Prisma role pool budget', () => {
-  it('runtime·worker·disclosure client는 role마다 자기 pool max를 쓰고 기본값은 10·3·1이다', () => {
+  it('runtime·worker·disclosure client는 role마다 자기 pool max를 쓰고 기본값은 7·3·1이다', () => {
     const previous = {
       DATABASE_POOL_MAX: process.env.DATABASE_POOL_MAX,
       RETENTION_WORKER_DATABASE_POOL_MAX: process.env.RETENTION_WORKER_DATABASE_POOL_MAX,
@@ -142,9 +142,9 @@ describe('Prisma role pool budget', () => {
         (['runtime', 'retention_worker', 'retention_disclosure'] as const).map(
           (role) => resolveManagedPrismaClientSettings(defaults, role).poolMax,
         ),
-      ).toEqual([10, 3, 1]);
+      ).toEqual([7, 3, 1]);
 
-      process.env.DATABASE_POOL_MAX = '7';
+      process.env.DATABASE_POOL_MAX = '9';
       process.env.RETENTION_WORKER_DATABASE_POOL_MAX = '2';
       process.env.RETENTION_DISCLOSURE_DATABASE_POOL_MAX = '4';
       const overridden = databaseConfig();
@@ -152,7 +152,7 @@ describe('Prisma role pool budget', () => {
         (['runtime', 'retention_worker', 'retention_disclosure'] as const).map(
           (role) => resolveManagedPrismaClientSettings(overridden, role).poolMax,
         ),
-      ).toEqual([7, 2, 4]);
+      ).toEqual([9, 2, 4]);
     } finally {
       for (const [key, value] of Object.entries(previous)) {
         if (value === undefined) {

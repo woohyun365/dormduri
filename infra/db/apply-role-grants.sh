@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 set -eu
+# psql TLS form C (infra/db/psql-tls.sh).
+. "$(dirname -- "$0")/psql-tls.sh"
 
 usage() {
   cat <<'USAGE'
@@ -90,7 +92,7 @@ if ! command -v psql >/dev/null 2>&1; then
 fi
 
 echo "applying DB role grants to schema $schema using MIGRATION_DATABASE_URL"
-psql "$MIGRATION_DATABASE_URL" \
+db_psql "$MIGRATION_DATABASE_URL" \
   -X -q \
   -v ON_ERROR_STOP=1 \
   --single-transaction \

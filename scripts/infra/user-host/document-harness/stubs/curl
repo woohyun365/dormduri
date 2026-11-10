@@ -1,0 +1,46 @@
+#!/bin/bash
+# 실제 ingress의 경로별 응답을 흉내 낸다: 점검 flag면 모든 경로 점검 중 503, 아니면 허용 경로 200·준비 중 503·404.
+. /work/titles.env
+out=/dev/null
+url=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o)
+      out=$2
+      shift 2
+      ;;
+    -w | --max-time | --resolve) shift 2 ;;
+    -*) shift ;;
+    *)
+      url=$1
+      shift
+      ;;
+  esac
+done
+path=/${url#https://*/}
+[ "${url#https://*/}" = "${url}" ] && path=/
+running=$(cat /tmp/running_web 2>/dev/null)
+if [ -f /opt/dormduri/mode/maintenance ]; then
+  code=503
+  title=${TITLE_MAINTENANCE}
+elif [ -n "${BAD_SMOKE:-}" ] && [ "${running}" = "${BAD_SMOKE}" ]; then
+  code=500
+  title=
+else
+  case "${path}" in
+    / | /privacy | /terms)
+      code=200
+      title=
+      ;;
+    /signup)
+      code=503
+      title=${TITLE_COMING_SOON}
+      ;;
+    *)
+      code=404
+      title=${TITLE_NOT_FOUND}
+      ;;
+  esac
+fi
+printf '<title>%s</title>' "${title}" >"${out}"
+printf '%s' "${code}"

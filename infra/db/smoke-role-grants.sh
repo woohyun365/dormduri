@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 set -eu
+# psql TLS form C (infra/db/psql-tls.sh).
+. "$(dirname -- "$0")/psql-tls.sh"
 
 usage() {
   cat <<'USAGE'
@@ -51,7 +53,7 @@ require_env() {
 }
 
 psql_value() {
-  psql "$1" -X -q -t -A -v ON_ERROR_STOP=1 -c "$2" 2>/dev/null
+  db_psql "$1" -X -q -t -A -v ON_ERROR_STOP=1 -c "$2" 2>/dev/null
 }
 
 login_users=''
@@ -68,7 +70,7 @@ check_login() {
   if ! psql_value "$url" "SELECT 1 FROM \"$schema\".\"$allowed\" LIMIT 0" >/dev/null; then
     fail "failed smoke: $name cannot read $allowed" 1
   fi
-  denied_output="$(psql "$url" -X -q -t -A -v ON_ERROR_STOP=1 -c "SELECT 1 FROM \"$schema\".\"$denied\" LIMIT 0" 2>&1 || true)"
+  denied_output="$(db_psql "$url" -X -q -t -A -v ON_ERROR_STOP=1 -c "SELECT 1 FROM \"$schema\".\"$denied\" LIMIT 0" 2>&1 || true)"
   case "$denied_output" in
     *'permission denied'*) ;;
     *) fail "failed smoke: $name is not denied on $denied" 1 ;;
@@ -146,7 +148,7 @@ if [ "$migration_role" != "$expected_owner" ]; then
 fi
 echo "ok: MIGRATION_DATABASE_URL acts as $migration_role"
 
-psql "$MIGRATION_DATABASE_URL" \
+db_psql "$MIGRATION_DATABASE_URL" \
   -X -q \
   -v ON_ERROR_STOP=1 \
   -f "$inputs_sql" \

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { loadImageInventory, resolveImageReference } from '../artifacts/image-inventory.mjs';
 import { renderMarkdownTable, runIngressSmoke } from '../user-host/ingress-smoke.mjs';
-import { runDeployPathChecks, runDocumentGuardChecks } from '../user-host/ssm-document-runtime.mjs';
+import { runAllDocumentChecks } from '../user-host/ssm-document-runtime.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const outputArg = process.argv.find((argument) => argument.startsWith('--output='));
@@ -103,20 +103,20 @@ async function validateUserHostIngress() {
   });
 }
 
-// Web 단계 SSM document: 허용 밖 입력 거부와 host lock(겹친 실행은 75)이 Docker·AWS에 닿기 전에 끝나는지, 그리고
-// 가짜 docker·aws·curl 위에서 배포·자동 복귀·첫 배포 점검 mode·rollback 대조가 exit code와 host 상태로 맞는지.
+// User host SSM document 둘(web 묶음·API 묶음): 허용 밖 입력 거부와 host lock(겹친 실행은 75)이 Docker·AWS에 닿기 전에
+// 끝나는지, 그리고 가짜 docker·aws(·curl) 위에서 배포·자동 복귀·점검 mode·rollback 대조·옛 기록 채택(web)과 migrate
+// 순서·rollout 전 실패·secret 설치 검사(API)가 exit code와 host 상태로 맞는지. harness image는 web-build-node + python3다.
 function validateUserHostDocument() {
   const image = requiredImage('web-build-node');
-  const problems = [
-    ...runDocumentGuardChecks({ repoRoot, image }).problems,
-    ...runDeployPathChecks({ repoRoot, image }).problems,
-  ];
+  const results = runAllDocumentChecks({ repoRoot, baseImage: image });
+  const problems = results.flatMap(({ name, problems: found }) =>
+    found.map((problem) => `${name}: ${problem}`),
+  );
   if (problems.length) {
     console.error(problems.join('\n'));
     fail('user-host-document runtime validation failed');
   }
-  checks.push({ name: 'user-host-document-guards', image });
-  checks.push({ name: 'user-host-document-deploy-paths', image });
+  for (const { name } of results) checks.push({ name, image });
 }
 
 function validatePrometheus() {

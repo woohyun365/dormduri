@@ -47,7 +47,8 @@ fail-open 불변 조건을 소유한다. 구체적인 도구 선택과 데이터
 **OO-R1** Ingress 접속 log는 운영 log이고 보존은 [data-retention.md DR-R3](./data-retention.md)를 따른다. 운영 관측 저장소로 보낼 때는
 가린 IP(IPv4 /24·IPv6 /48), query string과 referer를 뺀 요청 경로, 경로 속 식별자를 가린 값만 보내고, user agent·상태와 요청 시각은
 그대로 둔다. Host json-file은 host 밖으로 보내지 않는 container stdout의 크기 rotation 기록이다. 이 파일에는 경로 속 식별자가 남을 수
-있고, ingress가 IP를 가린 형식으로 쓰기 전의 배포와 옛 형식으로 되돌린 rollback 동안에는 원본 IP와 query string도 있을 수 있다.
+있고, ingress가 IP를 가린 형식으로 쓰기 전의 배포와 옛 형식으로 되돌린 rollback 동안에는 원본 IP, query string과 referer도 있을 수
+있다.
 이 범위의 host json-file은 금지 로그 목록과 30일 보존 목표의 예외다.
 
 ## Browser와 Web 관측 정책
@@ -95,10 +96,11 @@ fail-open 불변 조건을 소유한다. 구체적인 도구 선택과 데이터
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                          | 관련 범위                 |
-| ---------- | -------------------------------------------------------------------------------------------------- | ------------------------- |
-| 2026-06-13 | 로그·metric 개인정보, 접근과 stress 실행 안전 경계를 신설했다.                                     | operational observability |
-| 2026-08-06 | Browser runtime error, BFF reliability와 Web Vitals의 수집 목적·privacy·fail-open 경계를 추가했다. | Web observability         |
-| 2026-08-08 | Browser와 BFF 관측 owner를 분리하고 managed provider release evidence 경계를 추가했다.             | provider responsibility   |
-| 2026-08-11 | 도구 topology, 서버 선택, 비용과 실행 절차를 architecture 및 release/rehearsal 문서로 분리했다.    | documentation ownership   |
-| 2026-11-08 | Ingress 접속 log의 운영 관측 저장소 필드와 host json-file의 예외 범위를 `OO-R1`로 정했다.          | #759 / #869               |
+| 날짜       | 변경 내용                                                                                                | 관련 범위                 |
+| ---------- | -------------------------------------------------------------------------------------------------------- | ------------------------- |
+| 2026-06-13 | 로그·metric 개인정보, 접근과 stress 실행 안전 경계를 신설했다.                                           | operational observability |
+| 2026-08-06 | Browser runtime error, BFF reliability와 Web Vitals의 수집 목적·privacy·fail-open 경계를 추가했다.       | Web observability         |
+| 2026-08-08 | Browser와 BFF 관측 owner를 분리하고 managed provider release evidence 경계를 추가했다.                   | provider responsibility   |
+| 2026-08-11 | 도구 topology, 서버 선택, 비용과 실행 절차를 architecture 및 release/rehearsal 문서로 분리했다.          | documentation ownership   |
+| 2026-11-08 | Ingress 접속 log의 운영 관측 저장소 필드와 host json-file의 예외 범위를 `OO-R1`로 정했다.                | #759 / #869               |
+| 2026-11-10 | Ingress가 referer를 남기지 않게 바꾸면서 옛 형식 rollback 동안의 referer를 host json-file 예외에 더했다. | #759 / #886               |

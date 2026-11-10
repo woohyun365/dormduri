@@ -6,7 +6,8 @@
 
 ## Required env
 
-Private `.env.api` 또는 Secrets Manager materialization 결과에는 아래 값이 있어야 한다.
+API env에는 아래 값이 있어야 한다. 비밀이 아니므로 secret 묶음에 넣지 않는다. Local은 private `.env.api`, user host는 API compose
+조각(`infra/deploy/user/api/compose.yml`, 값은 `infra/deploy/.env.api.lightsail.example`과 같음)이 준다.
 
 ```bash
 EMAIL_PROVIDER=ses

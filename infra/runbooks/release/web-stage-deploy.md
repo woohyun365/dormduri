@@ -21,10 +21,11 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 
 - Workflow 최상위 권한은 `contents: read`이고 write는 위 job에만 있다(`scripts/ci/contracts/github-workflow-trust.test.mjs`).
   Workflow 글의 신뢰 경계는 `scripts/infra/user-host/web-cd-contract.test.mjs`가 고정한다.
-- 모든 실행은 concurrency group `web-cd-production` 하나에 줄 선다(`cancel-in-progress: false`). 아래
-  [대기 실행](#대기-실행)을 따른다.
+- 모든 실행은 concurrency group `user-host-production` 하나에 줄 선다(`cancel-in-progress: false`). 아래
+  [대기 실행](#대기-실행)을 따른다. host의 두 document는 같은 host lock을 쓰므로 web 묶음과 API 묶음 배포가 host에서 겹치지
+  않는다(겹치면 늦은 쪽이 `RESULT=locked`, exit 75).
 - Web 배포 입력 경로(trigger의 `paths`)는 두 Dockerfile이 복사하는 경로, `.dockerignore`, `infra/deploy/web/**`,
-  `infra/deploy/user/**`와 이 workflow다. 그 밖의 merge는 build하지 않는다.
+  `infra/deploy/user/**`(API 묶음 입력 `infra/deploy/user/api/**`는 뺀다)와 이 workflow다. 그 밖의 merge는 build하지 않는다.
 - Image를 만드는 BuildKit과 SBOM scanner도 workflow `env`의 `BUILDKIT_IMAGE`·`SBOM_SCANNER_IMAGE`에 tag와 digest로 고정하고,
   Renovate custom regex manager가 갱신한다([image inventory](../../image-inventory.json)).
 - `web-tls-check.yml`이 매일 공개 인증서의 남은 기간과 apex·`www` 포함을 본다(아래 [경보 대응](#경보-대응)).

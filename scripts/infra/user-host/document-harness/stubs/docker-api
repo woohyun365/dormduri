@@ -1,0 +1,32 @@
+#!/bin/bash
+# API document harness의 가짜 docker. migrate one-off는 secret 파일 넷이 0400·10001일 때만 돌고(BAD_STEP 단계는 실패),
+# api up은 secret release 디렉터리가 0500·10001일 때만 뜬다(BAD_UP digest는 실패). exec web은 host 안 smoke다(BAD_SMOKE).
+. /work/common.sh
+echo "docker $*" >>/tmp/docker.log
+[ "$1" = login ] && cat >/dev/null
+docker_common "$@"
+[ "$1" = compose ] || exit 0
+compose_args "$@"
+require_fragments
+echo "${sub}:${services}" >>/tmp/services.log
+case "${sub}" in
+  run)
+    step=${!#}
+    for file in MIGRATION_DATABASE_URL DATABASE_URL RETENTION_WORKER_DATABASE_URL RETENTION_DISCLOSURE_DATABASE_URL; do
+      [ "$(stat -c '%u:%a' "${MIGRATE_SECRET_DIR:-/nonexistent}/${file}" 2>/dev/null)" = 10001:400 ] || exit 3
+    done
+    echo "${step}" >>/tmp/steps.log
+    [ "${BAD_STEP:-}" != "${step}" ]
+    ;;
+  stop) case " ${services} " in *" api "*) rm -f /tmp/running_api ;; esac ;;
+  up)
+    [ "$(stat -c '%u:%a' "${API_SECRET_RELEASE_DIR:-/nonexistent}" 2>/dev/null)" = 10001:500 ] || exit 4
+    api=${API_IMAGE##*@}
+    case " ${BAD_UP:-} " in *" ${api} "*) exit 1 ;; esac
+    printf '%s' "${api}" >/tmp/running_api
+    ;;
+  exec)
+    [ -f /tmp/running_api ] || exit 1
+    [ -z "${BAD_SMOKE:-}" ] || [ "$(cat /tmp/running_api)" != "${BAD_SMOKE}" ]
+    ;;
+esac

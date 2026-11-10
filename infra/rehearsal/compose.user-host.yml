@@ -3,6 +3,8 @@
 # - image: 저장소에서 local build(이름은 infra/rehearsal/user-host.rehearsal.env)
 # - host 경로: `/opt/dormduri/...` 대신 USER_HOST_REHEARSAL_ROOT 아래의 시험 인증서·ACME webroot·점검 flag 폴더
 # - publish: 80·443 대신 loopback의 높은 port
+# - API transit: host network 대신 이 project 안 network(로컬 docker에 운영 이름·subnet network를 만들지 않는다).
+#   Web transit의 고정 subnet·주소는 운영과 같다(ingress private listener가 그 Web 주소만 받는다).
 # 여러 파일을 합칠 때 상대 경로는 첫 파일(infra/deploy/user/compose.yml)의 폴더를 기준으로 한다.
 services:
   web:
@@ -32,3 +34,7 @@ services:
       - ${USER_HOST_REHEARSAL_ROOT:?USER_HOST_REHEARSAL_ROOT must name the local test directory}/acme-webroot:/var/www/acme:ro
       - ${USER_HOST_REHEARSAL_ROOT:?USER_HOST_REHEARSAL_ROOT must name the local test directory}/tls:/etc/dormduri-tls:ro
       - ${USER_HOST_REHEARSAL_ROOT:?USER_HOST_REHEARSAL_ROOT must name the local test directory}/mode:/run/dormduri-mode:ro
+
+networks:
+  api-transit: !override
+    name: dormduri-user-host-rehearsal_api-transit

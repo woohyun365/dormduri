@@ -46,7 +46,8 @@ planning budget)은
 - **PRS-R13** Release principal은 GitHub protected environment의 OIDC 임시 role이며, Lightsail host와 application
   container에는 장기 AWS access key를 저장하지 않는다.
 - **PRS-R14** `secret origin`(Secrets Manager), `application read source`(mounted files), `release principal`(OIDC
-  role)을 서로 다른 책임으로 유지한다.
+  role)을 서로 다른 책임으로 유지한다. Release plane 안에서 secret을 꺼내는 주체는 host role(SSM이 user host에 주는 1시간
+  임시 credential)이고, release principal은 배포 document를 부를 뿐 secret을 읽지 않는다.
 - **PRS-R15** Secret reader, parser와 domain consumer의 책임을 분리한다.
 - **PRS-R16** DB URL, token, HMAC material, verification code, raw provider error를 log나 evidence에 기록하지 않는다.
 - **PRS-R17** Secret rotation owner와 rollback 절차가 없으면 production release를 진행하지 않는다.
@@ -134,3 +135,4 @@ blocker로 승격한다.
 | 2026-08-12 | Lightsail production의 Secrets Manager origin, OIDC release principal, mounted-file application read source를 확정했다. | secret delivery           |
 | 2026-11-01 | 문서 범위 문장의 옛 제품 이름을 서비스 이름 돔두리로 바꿨다(불변 조건·범위 서술 변경 없음)                              | service name (#803)       |
 | 2026-11-02 | 규칙 id(`PRS-R1`~`PRS-R55`)를 붙이고 단계 배포 적용 범위와 넓힌 `PENDING_TARGET`, `docs/deploy/` 소유 나눔을 반영했다.  | stage rollout (#699·#700) |
+| 2026-11-10 | `PRS-R14`에 release plane 안의 secret reader가 host role이고 release principal은 secret을 읽지 않는다는 문장을 더했다.  | secret delivery (#886)    |

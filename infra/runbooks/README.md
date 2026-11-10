@@ -14,16 +14,18 @@ secret-free evidence 경계만 기록한다.
 
 ## 책임 구조
 
-| 디렉터리      | 책임                                                   | 상태/결과 소유 여부                     |
-| ------------- | ------------------------------------------------------ | --------------------------------------- |
-| `release/`    | 배포 준비 입력, component evidence, aggregate decision | 실제 release 결과 소유                  |
-| `operations/` | DB와 observability의 반복 운영 절차                    | 운영 기록 identifier만 연결             |
-| `incidents/`  | 장애 확인, 격리, 복구, rollback                        | incident record는 외부 운영 기록에 남김 |
-| `rehearsal/`  | account-free local 검증과 cleanup                      | local evidence만 소유                   |
+| 디렉터리      | 책임                                                   | 상태/결과 소유 여부                                                                            |
+| ------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `release/`    | 배포 준비 입력, component evidence, aggregate decision | 형식 소유, 실제 값은 [기록 위치](./release/production-release-evidence.md#실제-값의-기록-위치) |
+| `operations/` | DB와 observability의 반복 운영 절차                    | 운영 기록 identifier만 연결                                                                    |
+| `incidents/`  | 장애 확인, 격리, 복구, rollback                        | incident record는 외부 운영 기록에 남김                                                        |
+| `rehearsal/`  | account-free local 검증과 cleanup                      | local evidence만 소유                                                                          |
 
 ## 주요 진입점
 
 - Web 단계 배포·재배포·rollback·점검 mode: [`release/web-stage-deploy.md`](./release/web-stage-deploy.md)
+- API 묶음 배포 순서와 실패 처리: [`infra/db/README.md` Release order](../db/README.md#release-order), Web·API·DB 되돌림 경계:
+  [`incidents/release-rollback.md`](./incidents/release-rollback.md#user-host의-webapidb-경계)
 - DB backup·restore: [`operations/database/backup-restore.md`](./operations/database/backup-restore.md)
 - Production observability: [`operations/observability/production-stack.md`](./operations/observability/production-stack.md)
 - Slack delivery 설정: [`operations/observability/slack-delivery.md`](./operations/observability/slack-delivery.md)

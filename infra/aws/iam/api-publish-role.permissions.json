@@ -1,0 +1,28 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EcrLogin",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "PushAndRetagApiRepositories",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:PutImage",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": [
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/api",
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/api-migrate",
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/observability-config"
+      ]
+    }
+  ]
+}

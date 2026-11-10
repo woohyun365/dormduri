@@ -26,7 +26,8 @@ function fixture() {
   const promote = (path, text) => {
     git('checkout', '-q', '-B', 'dev');
     write(path, text);
-    git('commit', '-qam', `change ${path}`);
+    git('add', '-A');
+    git('commit', '-qm', `change ${path}`);
     git('checkout', '-q', 'main');
     git('merge', '-q', '--no-ff', 'dev', '-m', `promote ${path}`);
     return git('rev-parse', 'HEAD');
@@ -64,6 +65,21 @@ test('a newer promotion outside the deploy inputs keeps the older run current', 
     const older = promote('apps/web/page.tsx', 'b\n');
     promote('docs/readme.md', 'b\n');
     assert.equal(check(root, older).status, 0);
+  } finally {
+    cleanup();
+  }
+});
+
+// The shared library (infra/deploy/user/ssm/lib.sh) is a web bundle input; the API bundle inputs belong to api-cd.
+test('a newer API bundle change keeps the older web run current, and a web bundle change does not', () => {
+  const { root, promote, cleanup } = fixture();
+  try {
+    const older = promote('infra/deploy/user/compose.yml', 'a\n');
+    promote('infra/deploy/user/api/compose.yml', 'b\n');
+    promote('infra/deploy/user/api/ssm/deploy-api.sh', 'b\n');
+    assert.equal(check(root, older).status, 0);
+    promote('infra/deploy/user/ssm/lib.sh', 'b\n');
+    assert.equal(check(root, older).status, 1);
   } finally {
     cleanup();
   }

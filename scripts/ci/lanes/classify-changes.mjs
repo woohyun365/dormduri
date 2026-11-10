@@ -303,7 +303,12 @@ export function classifyChanges(paths) {
         path.startsWith('infra/deploy/api/') ||
         path.startsWith('infra/deploy/nginx/') ||
         path === 'infra/deploy/compose.api.yml' ||
-        path.startsWith('infra/deploy/scripts/')
+        path.startsWith('infra/deploy/scripts/') ||
+        // The API operation test secret-bundle-parity.spec.ts compares this host installer with the Node scripts.
+        path === 'infra/deploy/user/api/ssm/secret_bundle.py' ||
+        // deployment-infra.spec.ts reads the API env examples and role-grant-matrix.spec.ts ties their DB pool to the
+        // code default and the CONNECTION LIMIT of the bootstrap SQL.
+        /^infra\/deploy\/\.env\.api[^/]*\.example$/u.test(path)
       ) {
         result.api = true;
       }

@@ -1,8 +1,9 @@
 # Runtime container candidates
 
-`infra/deploy`는 app image(API·Web)와 host 묶음을 소유한다. 지금 운영에 올리는 것은 User App host 묶음 `user/`(Web
-단계: ingress와 Web)이다. API와 그 nginx(`compose.api.yml`, `nginx/`)는 API 개발 rehearsal(stress, full-stack)이 쓰는
-**production-neutral runtime candidate**이고, API 단계가 `user/` 묶음으로 옮긴다. 구조 원칙은
+`infra/deploy`는 app image(API·Web)와 host 묶음을 소유한다. User App host 묶음 `user/`는 Web 묶음(ingress와 Web)과 API
+묶음(`user/api/`: API와 migrate one-off)의 두 compose 조각이고, 조각마다 SSM document가 따로 배포한다. API와 그
+nginx(`compose.api.yml`, `nginx/`)는 API 개발 rehearsal(stress, full-stack)이 쓰는 **production-neutral runtime
+candidate**로 남는다. 구조 원칙은
 [Production runtime topology](../../docs/architecture/platform/production-runtime-topology.md#repository와-deploy-구조-목표)가
 소유한다. Local resource limit, disposable DB와 관측 network는 `infra/rehearsal/README.md`가 소유하며 이
 디렉터리에는 자동 합성하지 않는다.
@@ -18,17 +19,22 @@ SSM document가 정한다.
 ```text
 infra/deploy/
 ├── web/Dockerfile                   # Next.js standalone image
-├── user/                            # User App host 묶음(지금 운영: Web 단계)
-│   ├── compose.yml                  # web·ingress service와 hardening
+├── user/                            # User App host 묶음
+│   ├── compose.yml                  # Web 묶음 조각: web·ingress service와 hardening
 │   ├── ingress/                     # ingress image: nginx.conf, conf.d/, snippets/, html/(정적 안내 화면 넷)
-│   └── ssm/                         # deploy.sh(원본)와 dormduri-web-deploy.json(생성한 SSM Command document)
+│   ├── ssm/                         # lib.sh(두 document 공통), deploy.sh(원본)와 dormduri-web-deploy.json(생성본)
+│   └── api/
+│       ├── compose.yml              # API 묶음 조각: api service와 migrate one-off(profile migrate)
+│       └── ssm/                     # deploy-api.sh·secret_bundle.py(원본)와 dormduri-api-deploy.json(생성본)
 ├── compose.api.yml                  # API + nginx runtime candidate
 ├── .env.api.example                 # API runtime env projection
 ├── .env.api.lightsail.example       # Lightsail non-secret runtime projection
 ├── .env.api.migration.example       # deploy-time DB credential projection
 ├── .env.compose.example             # Compose interpolation projection
 ├── api/
-│   ├── Dockerfile                   # non-root API image
+│   ├── Dockerfile                   # non-root API image(target runtime)와 migrate image(target migrate)
+│   ├── migrate-entrypoint.sh        # migrate image의 one-off 단계(migrate·grant·smoke·outbox)
+│   ├── rds-ca-bundle.sha256         # image에 넣는 RDS CA 묶음과 단일 루트의 sha256
 │   ├── env.manifest.json            # API registry에서 생성한 value-free manifest
 │   ├── secret-mount.contract.json    # required secret-per-file inventory와 permission contract
 │   ├── entrypoint.sh                # runtime requirement fail-fast; migration 미실행
@@ -74,23 +80,54 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
 - Web 허용 목록과 준비 중 경로는 `apps/web/src/app`의 route 파일에서 유도해 대조한다(`scripts/infra/user-host/web-routes.mjs`,
   `ingress-config.test.mjs`). Web에 page를 더하면 이 test가 실패하므로 ingress 설정도 함께 고친다. Route 파일이 바뀌면 CI
   infra lane도 돈다.
-- Web의 `API_URL`은 ingress의 private listener `http://ingress:8081`이다. 지금은 health 경로 밖의 모든 요청에 503 JSON을
-  돌려준다. API 단계가 이 자리에 private BFF 경로를 넣는다.
+- 공개 `/api`와 그 아래는 JSON 503 준비 중이다(Web의 BFF 경로가 열리기 전). API는 공개 listener에 닿지 않는다.
+- Web의 `API_URL`은 ingress의 private listener `http://ingress:8081`이다. 이 listener는 Web 주소(Web transit의 고정 주소)와
+  loopback만 받고(`allow`·`deny all`), `/internal/` 아래(대소문자 무관)를 404 JSON으로 막은 뒤 나머지를 API(`api:4000`)로 넘긴다. API가
+  없거나 내려가 있으면 503 JSON(`{"status":"unavailable"}`)이다. Forwarding header는 비워 보낸다.
+- 접속 log는 client IP를 가린 값(IPv4 /24·IPv6 /48), query string을 뗀 경로, user agent, `X-Request-Id`만 남기고 referer를
+  남기지 않는다(`user/ingress/nginx.conf`, 정책은 `docs/policies/operational-observability.md` OO-R1). Error log는 nginx가 줄마다
+  원본 client 주소·요청 줄·referrer를 붙이므로 alert 이상만 쓴다. Web·API 실패 원인은 접속 log 상태와 각 service log로 본다.
+
+### Network와 host 경로
+
+- Compose project는 `dormduri-web` 하나다. 두 document는 지금 기록된 두 조각을 함께 넘겨 compose를 부르되 자기 묶음의
+  service만 `up`·`stop`·`rm`하고 project 전체 `down`은 쓰지 않는다. `--remove-orphans`는 두 조각을 다 넘긴 `up`에서만 쓴다.
+- Web transit(`web-transit`, Web과 ingress에 고정 주소)은 Web 조각이 만들고, API transit(`dormduri-api-transit`, external)은
+  두 document가 compose 전에 없을 때만 고정 subnet으로 만든다. 값은 `user/compose.yml`(Web)·`user/ssm/lib.sh`(API)에 있고
+  `scripts/infra/user-host/compose-contract.mjs`가 render 결과와 lib.sh 값을 계약과 대조하며, 두 대역이 서로·Docker 기본 주소
+  pool·AWS 기본 VPC 대역과 겹치지 않는지 본다. 이름은 같은데 subnet이 다르면 아무것도 바꾸지 않고 exit 2다.
+- Host 경로: `/opt/dormduri/state`(root 0700, 기록·lock·host log), `/opt/dormduri/releases/{web,api}/<release>`(release마다
+  쓴 compose 조각), `/opt/dormduri/secrets/api/releases/<release>`(API secret, `infra/aws/secrets-manager-checklist.md`),
+  `/opt/dormduri/{tls,acme-webroot,mode}`(Web 묶음).
 
 ### 배포 명령(SSM document)
 
-- `user/ssm/deploy.sh`가 원본이다. `node scripts/infra/user-host/ssm-document.mjs`가 이 파일과 `user/compose.yml`을 묶어
-  `user/ssm/dormduri-web-deploy.json`을 만든다. 생성본은 손으로 고치지 않고 prettier에서 제외한다(내용이 바뀌면 AWS
+- `user/ssm/deploy.sh`가 원본이다. `node scripts/infra/user-host/ssm-document.mjs`가 이 파일, 공통 `user/ssm/lib.sh`와
+  `user/compose.yml`을 묶어 `user/ssm/dormduri-web-deploy.json`을 만든다. 생성본은 손으로 고치지 않고 prettier에서 제외한다(내용이 바뀌면 AWS
   document version이 바뀐다). `--check`는 다시 쓰지 않고 원본과 같은지만 본다.
 - 입력은 `action`(`deploy`·`rollback`·`maintenance`)과 `webDigest`·`ingressDigest`(`sha256:` 뒤 64자)뿐이다. 형식이 틀리면
   Docker·AWS에 닿기 전에 exit 2, 다른 실행이 host lock을 잡고 있으면 exit 75로 끝난다. 표준 출력에는 `RESULT` 줄과
   digest만 쓰고 registry 주소가 든 출력은 root 전용 host log에만 남긴다.
 - `deploy`는 새 digest 쌍을 올리고 health와 경로별 smoke(`/`·`/privacy`·`/terms` 200, `/signup` 준비 중 503, 없는 경로
   404)를 본다. 실패하면 직전 쌍으로 되돌리고, 직전 쌍이 없으면(첫 배포) 점검 mode로 둔다. Host 상태는
-  `/opt/dormduri/state/{current,previous}`다.
+  `/opt/dormduri/state/{current,previous}`다. 기록마다 그 release의 조각 경로와 형식 표지(`recordFormat=2`)를 쓴다. 조각 경로가
+  없는 옛 기록은 처음 만났을 때 옛 compose 파일을 `releases/web/legacy-*`로 복사해 채택하고, 옛 형식으로 되돌린 동안은
+  표지 없이 둔다(API document가 이 표지로 Web 상태를 본다).
 - `rollback`은 입력 쌍이 host의 `previous`와 같을 때만 실행한다. 성공하면 `current`를 그 쌍으로 바꾸고 `previous`를
   비운다(되돌린 쌍을 다음 rollback 대상으로 두지 않는다. 다시 되돌리려면 새 배포가 필요하다). `maintenance`는 점검 flag를
   켜고 ingress만 남긴다.
+
+### API 배포 명령(SSM document)
+
+- `user/api/ssm/deploy-api.sh`가 원본이다. 같은 생성 script가 이 파일, 공통 `user/ssm/lib.sh`, `user/api/compose.yml`,
+  `secret_bundle.py`와 `api/secret-mount.contract.json`을 묶어 `user/api/ssm/dormduri-api-deploy.json`을 만든다. 두
+  document는 64 KB 한도 안이어야 하고, 생성 script가 넘으면 멈춘다.
+- 입력은 `action`(`deploy`·`rollback`·`maintenance`)과 `apiDigest`·`apiMigrateDigest`다. Web document와 같은 host lock을 쓴다.
+- `deploy` 순서: Web 기록 확인(옛 형식이거나 점검 mode면 exit 2) → secret 꺼내기·설치 → migrate image one-off
+  `migrate`·`grant`·`smoke`·`outbox` → 옛 API 정지 → 새 API 시작 → readiness → host 안 smoke(private listener를 거친 공개 열람
+  응답, `/internal/metrics` 404) → `current` 갱신. 실패 처리와 DB 경계는 `infra/db/README.md` Release order와
+  `infra/runbooks/incidents/release-rollback.md`가 소유한다.
+- `rollback`은 host의 `previous`와 같은 digest 쌍으로만, migrate 단계 없이 되돌린다. `maintenance`는 API를 내린다.
 
 ### Local rehearsal과 검사
 
@@ -104,7 +141,9 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
   요청하는 smoke, 일회용 container에서 document 실행(입력 거부와 host lock, 그리고 가짜 `docker`·`aws`·`curl` 위에서 배포
   성공·기동 실패와 smoke 실패의 자동 복귀·rollback 입력 대조·첫 배포 실패의 점검 mode, 그리고 rollback 대상 기동 실패·
   새 쌍과 현재 쌍이 모두 실패·점검 mode의 ingress 기동 실패를 exit code와 host 상태 파일로 판정).
-  같은 document 실행은 `node scripts/infra/user-host/ssm-document-runtime.mjs`로 따로 돌릴 수 있다.
+  API document도 같은 방식으로 Web 상태·입력 거부, secret 꺼내기·설치 실패, migrate·outbox 실패의 rollout 없음, 기동·smoke
+  실패의 되돌림, rollback, 단계 순서, 출력의 secret 값 없음과 두 묶음의 서로 건드리지 않음을 판정한다. 같은 document 실행은
+  `node scripts/infra/user-host/ssm-document-runtime.mjs`로 따로 돌릴 수 있다.
 - 실제 Web image로 같은 smoke를 돌릴 때: `node scripts/infra/user-host/ingress-smoke.mjs --web-image=<local image>`.
 
 ## 정적 안내 화면
@@ -135,7 +174,8 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
 
 ## 제공하지 않는 기능
 
-- API image의 build·publish와 배포(Web 단계 CD는 `web`·`ingress` image만 다룬다. registry 수명 정책 원본은 `infra/aws/ecr/`)
+- API image의 build·publish와 document 호출 workflow(Web 단계 CD는 `web`·`ingress` image만 다루고 `user/api/` 변경으로는 돌지
+  않는다. registry 수명 정책 원본은 `infra/aws/ecr/`)
 - provider/instance/network provisioning
 - production secret 생성 또는 credential rotation
 - API candidate의 traffic 전환과 automated rollback(user host 묶음의 되돌림은 SSM document가 한다)
@@ -170,10 +210,11 @@ pnpm infra:env:check
 Lightsail production 기본값이다. `SECRET_SOURCE=aws-secrets-manager`는 EC2/ECS처럼 안전한 AWS
 credential-provider chain을 제공하는 runtime용 호환 adapter다.
 
-Host release root는 `/var/lib/dormduri/secrets/api`, container mount는
-`/run/secrets/dormduri-api`, API runtime UID/GID는 `10001:10001`이다. Candidate는 검증 후 설치하고
-readiness 성공 뒤에만 `current` pointer를 atomic하게 전환한다. Secret bundle은 image, CI artifact,
-release evidence에 포함하지 않는다.
+User host의 secret root는 `/opt/dormduri/secrets/api`(root 0700)다. API document가 release마다
+`releases/<release>`(디렉터리 0500·파일 0400, 소유 `10001:10001`)에 설치·검사하고 그 디렉터리를 container의
+`/run/secrets/dormduri-api`에 read-only로 mount한다. API runtime UID/GID는 `10001:10001`이다. `current` symlink는 readiness와
+host 안 smoke가 통과한 뒤에만 atomic하게 바뀌고, current와 직전 성공 release 둘만 남는다
+(`infra/aws/secrets-manager-checklist.md`). Secret bundle은 image, CI artifact, release evidence에 포함하지 않는다.
 
 실제 `.env.api`, DB URL, token과 provider secret은 커밋하지 않는다. `HTTP_TRUST_PROXY_*`, REST와
 realtime origin처럼 target topology에 의존하는 key는 local 기본값을 production 결정으로 간주하지

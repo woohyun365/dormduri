@@ -29,6 +29,10 @@ const dryRuns = [
   },
   { path: 'infra/db/smoke-role-grants.sh', env: {} },
   { path: 'infra/db/restore-drill-smoke.sh', env: {} },
+  {
+    path: 'infra/db/check-auth-mail-outbox-empty.sh',
+    env: { MIGRATION_DATABASE_URL: migrationUrl },
+  },
 ];
 
 for (const dryRun of dryRuns) {

@@ -1,0 +1,158 @@
+# User host API 묶음 compose 조각(api·migrate one-off, 동작 설명: infra/deploy/README.md 'User host 묶음'). API 배포
+# document(ssm/deploy-api.sh)가 이 조각을 document 안에 담아 `/opt/dormduri/releases/api/<release>/compose.yml`에 쓰고,
+# 그 release의 기록이 이 조각을 가리킨다. web 묶음 조각(../compose.yml)과 같은 project(`dormduri-web`)로 함께 넘기므로
+# 이 조각은 top-level `name:`을 두지 않는다. 경로는 host 절대 경로만 쓴다.
+# image는 registry digest 참조만 받는다. secret은 document가 Secrets Manager에서 꺼내 host 파일로 쓴 것만 읽기 전용으로
+# 받는다(D-AB7): runtime 묶음은 release 디렉터리째, migration 묶음과 role smoke용 DB URL 셋은 one-off에만 파일 단위로.
+services:
+  api:
+    image: ${API_IMAGE:?API_IMAGE must be a registry digest reference}
+    # 비밀 아닌 env는 infra/deploy/.env.api.lightsail.example과 그 예시가 따르는 .env.api.example의 key·값 그대로다
+    # (scripts/infra/user-host/compose-contract.mjs가 대조한다). SES·CORS 값은 예시의 자리 값이다. API 단계에는 SES 발송
+    # credential과 브라우저 직접 호출이 없고, 실제 값은 가입·로그인을 여는 Auth 축이 정한다.
+    environment:
+      NODE_ENV: production
+      PORT: '4000'
+      SECRET_SOURCE: mounted-files
+      SECRET_MOUNT_DIRECTORY: /run/secrets/dormduri-api
+      DATABASE_POOL_MAX: '7'
+      RETENTION_WORKER_DATABASE_POOL_MAX: '3'
+      RETENTION_DISCLOSURE_DATABASE_POOL_MAX: '1'
+      DATABASE_POOL_MIN: '0'
+      DATABASE_ADAPTER_CONNECT_TIMEOUT_MS: '5000'
+      DATABASE_ADAPTER_IDLE_TIMEOUT_MS: '300000'
+      EMAIL_PROVIDER: ses
+      SES_REGION: ap-northeast-2
+      SES_FROM_EMAIL: no-reply@example.com
+      SES_FROM_NAME: 돔두리
+      SES_CONFIGURATION_SET: dormduri-production
+      SES_REPLY_TO_EMAIL: support@example.com
+      # forwarding trust는 끈다(D-AB1). 활성화와 실제 검증은 Auth 축이다.
+      HTTP_TRUST_PROXY_HOPS: '0'
+      HTTP_TRUST_PROXY_CIDRS: ''
+      HTTP_CORS_ALLOWED_ORIGINS: https://app.example.com
+      TZ: Asia/Seoul
+      LOG_LEVEL: info
+      LOG_PRETTY: 'false'
+      OBSERVABILITY_SERVICE_NAME: api
+      CHAT_REALTIME_ALLOWED_ORIGINS: https://app.example.com
+      CHAT_REALTIME_TRUST_PROXY: 'false'
+      LIFECYCLE_SWEEP_ENABLED: 'true'
+      METRICS_ENABLED: 'true'
+      AUTH_PERSISTENCE_HMAC_KEY_VERSION: v1
+      AUTH_MAIL_ENVELOPE_KEY_VERSION: v1
+      AUTH_MAIL_DISPATCHER_ENABLED: 'true'
+      AUTH_MAIL_DISPATCHER_INTERVAL_MS: '1000'
+      AUTH_MAIL_DISPATCHER_BATCH_SIZE: '20'
+      AUTH_MAIL_DISPATCHER_CLAIM_LEASE_MS: '30000'
+      AUTH_MAIL_SEND_TIMEOUT_MS: '5000'
+      AUTH_LOGIN_BURST_LIMIT: '30'
+      AUTH_PASSWORD_HASH_CONCURRENCY: '4'
+      AUTH_PASSWORD_HASH_QUEUE_LIMIT: '32'
+      AUTH_PASSWORD_HASH_WAIT_TIMEOUT_MS: '2000'
+      AUTH_LOGIN_BURST_WINDOW_SECONDS: '60'
+      AUTH_LOGIN_SUSTAINED_LIMIT: '120'
+      AUTH_LOGIN_SUSTAINED_WINDOW_SECONDS: '600'
+    # runtime secret release(파일 0400, 소유 10001, 디렉터리 0500). document가 이번 release 디렉터리를 정한다.
+    volumes:
+      - type: bind
+        source: ${API_SECRET_RELEASE_DIR:?API_SECRET_RELEASE_DIR must name the installed secret release}
+        target: /run/secrets/dormduri-api
+        read_only: true
+        bind:
+          create_host_path: false
+    # host에 publish하지 않는다. API transit에서 ingress만 닿는다.
+    expose:
+      - '4000'
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # 종료 때 진행 중 sweep 20초와 table 통계 읽기 5초를 기다린 뒤 Prisma 연결을 끊는다(#762). 그보다 길게 둔다.
+    stop_grace_period: 30s
+    healthcheck:
+      test: ['CMD', '/app/healthcheck.sh']
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      start_interval: 2s
+      retries: 3
+    networks:
+      api-transit: {}
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 1408M
+          pids: 512
+
+  # migrate·grant·role smoke·auth mail outbox 확인 one-off(D-AB10). 배포 document가 rollout 전에만 `run`으로 부른다.
+  migrate:
+    image: ${API_MIGRATE_IMAGE:?API_MIGRATE_IMAGE must be a registry digest reference}
+    profiles: ['migrate']
+    environment:
+      NODE_ENV: production
+      # Prisma CLI의 update 확인(외부 통신)을 끈다.
+      CHECKPOINT_DISABLE: '1'
+      MIGRATE_SECRET_DIRECTORY: /run/secrets/dormduri-migrate
+    # migration 묶음과 이번 runtime 묶음의 DB URL 셋. document가 root 전용 임시 디렉터리에 0400·10001 소유로 쓰고 단계가
+    # 끝나면 지운다. 파일 단위로만 mount한다(그 디렉터리와 runtime release 디렉터리는 mount하지 않는다).
+    volumes:
+      - type: bind
+        source: ${MIGRATE_SECRET_DIR:-/opt/dormduri/secrets/migrate-unset}/MIGRATION_DATABASE_URL
+        target: /run/secrets/dormduri-migrate/MIGRATION_DATABASE_URL
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${MIGRATE_SECRET_DIR:-/opt/dormduri/secrets/migrate-unset}/DATABASE_URL
+        target: /run/secrets/dormduri-migrate/DATABASE_URL
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${MIGRATE_SECRET_DIR:-/opt/dormduri/secrets/migrate-unset}/RETENTION_WORKER_DATABASE_URL
+        target: /run/secrets/dormduri-migrate/RETENTION_WORKER_DATABASE_URL
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${MIGRATE_SECRET_DIR:-/opt/dormduri/secrets/migrate-unset}/RETENTION_DISCLOSURE_DATABASE_URL
+        target: /run/secrets/dormduri-migrate/RETENTION_DISCLOSURE_DATABASE_URL
+        read_only: true
+        bind:
+          create_host_path: false
+    restart: 'no'
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      api-transit: {}
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          pids: 256
+
+networks:
+  api-transit:
+    external: true
+    name: dormduri-api-transit
