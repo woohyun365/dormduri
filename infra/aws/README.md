@@ -19,7 +19,7 @@ Web 단계 CD가 쓰는 계정 resource의 정책 원본도 여기 둔다. Accou
 - `iam/api-publish-role.*`·`iam/api-deploy-role.*`: API 묶음(`api-cd`)이 쓰는 같은 모양의 두 OIDC role. 세 API repository만
   다루고, deploy role은 environment `production-api`에서만 `dormduri-api-deploy` document를 부른다. 어느 OIDC role도 secret을
   읽지 않는다
-- `iam/github-oidc-sub-template.json`: 저장소의 GitHub OIDC `sub` claim 설정. 두 OIDC role trust가 이 형식으로 대조한다
+- `iam/github-oidc-sub-template.json`: 저장소의 GitHub OIDC `sub` claim 설정. 네 OIDC role trust가 이 형식으로 대조한다
 - `ecr/lifecycle-policy.json`: 다섯 ECR repository에 같이 쓰는 image 보존 규칙
 
 - `rds-setup-checklist.md`: PostgreSQL 18, private network, backup/PITR, SSL, connection budget

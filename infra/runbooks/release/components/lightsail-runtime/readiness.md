@@ -13,7 +13,7 @@
 | Lightsail bundle / region / instance | `PENDING_TARGET`                                                                                                                                                                                                                                                                                     |
 | Static IP / firewall                 | `PENDING_TARGET`                                                                                                                                                                                                                                                                                     |
 | 배포·operator 접근                   | SSM hybrid managed node(host role 원본 `infra/aws/iam/host-role.*`). 배포는 SSM Command document `dormduri-web-deploy`(원본 `infra/deploy/user/ssm/`)와 `dormduri-api-deploy`(원본 `infra/deploy/user/api/ssm/`)이고 CD가 보내기 전에 해시를 대조한다, operator는 Session Manager, SSH는 break-glass |
-| Secret release root                  | `/var/lib/dormduri/secrets/api`                                                                                                                                                                                                                                                                      |
+| Secret release root                  | `/opt/dormduri/secrets/api`(root 0700). Release마다 `releases/<release>`, `current`는 그중 하나를 가리키는 symlink                                                                                                                                                                                   |
 | Container mount root                 | `/run/secrets/dormduri-api`                                                                                                                                                                                                                                                                          |
 | API runtime UID/GID                  | `10001:10001`                                                                                                                                                                                                                                                                                        |
 | Snapshot / disk headroom / retention | `PENDING_TARGET`                                                                                                                                                                                                                                                                                     |
@@ -21,14 +21,15 @@
 
 ## 준비 절차
 
-1. Secret release root를 `root` 소유 `0750`으로 만들고 runtime GID `10001`만 읽게 한다.
-2. Version file은 `root:10001`, `0440`; `current`는 같은 filesystem의 version directory symlink다.
-3. Candidate를 설치·검증한 뒤 새 container readiness가 통과한 경우에만 `current`를 전환한다.
-4. Previous bundle과 previous safe image digest를 유지하고 rollback을 rehearsal한다.
-5. Secrets Manager 원문 bundle과 snapshot의 보존·삭제·접근 owner를 함께 결정한다.
-6. Snapshot restore 후에는 Secrets Manager에서 새 bundle을 materialize하고 노출 가능 credential을
+1. Secret root와 release 디렉터리는 API document가 만든다(미리 만들 것 없음). Release 디렉터리는 `0500`, 파일은 `0400`, 소유는
+   runtime UID/GID `10001:10001`이고, document가 설치 뒤 이름·mode·크기·symlink·소유를 검사한다
+   (`infra/aws/secrets-manager-checklist.md` Host 전달).
+2. `current`는 새 API의 readiness와 host 안 smoke가 통과한 뒤에만 바뀐다. Secret release는 current와 직전 성공 release 둘만 남는다.
+3. Host `previous`(직전 image digest 쌍)를 유지하고 rollback을 rehearsal한다. Rollback은 secret을 지금 값으로 다시 꺼낸다.
+4. Secrets Manager 원문 bundle과 snapshot의 보존·삭제·접근 owner를 함께 결정한다.
+5. Snapshot restore 후에는 Secrets Manager에서 새 bundle을 materialize하고 노출 가능 credential을
    rotation한 뒤에만 traffic을 연다.
-7. Public port는 ingress의 80·443만 연다. SSH(22)는 닫고 break-glass 때만 잠시 연다. Observability port는 private
+6. Public port는 ingress의 80·443만 연다. SSH(22)는 닫고 break-glass 때만 잠시 연다. Observability port는 private
    network에 둔다.
 
 ## 중단 조건

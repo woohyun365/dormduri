@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 import { WEB_TRANSIT } from './compose-contract.mjs';
+import { checkErrorLog } from './ingress-smoke.mjs';
 import { expectedIngressRoutes, readWebRoutes } from './web-routes.mjs';
 
 const repoRoot = process.cwd();
@@ -52,7 +53,7 @@ function serverFor(name, { tls }) {
 // location 줄: modifier(=, ^~, ~, 없음), 경로, 본문. 본문은 따옴표 안 중괄호(JSON 응답 본문)를 건너뛰며 끝을 찾는다.
 function locations(block) {
   const found = [];
-  const pattern = /location\s+(=|\^~|~)?\s*(\S+)\s*\{/gu;
+  const pattern = /location\s+(=|\^~|~\*|~)?\s*(\S+)\s*\{/gu;
   let match;
   while ((match = pattern.exec(block))) {
     let index = pattern.lastIndex;
@@ -323,7 +324,7 @@ test('unknown hosts are closed, HTTP only serves ACME and redirects, and the pri
   const privateListener = blocks.find((block) => /listen 8081;/u.test(block));
   assert.deepEqual(
     locations(privateListener).map((location) => location.path),
-    ['/__ingress/health', '/internal/', '/', '@api_unavailable'],
+    ['/__ingress/health', '^/internal(?:/|$)', '/', '@api_unavailable'],
   );
   // The private listener sends to API only, never to Web.
   assert.doesNotMatch(privateListener, /proxy-web|web_upstream/u);
@@ -349,8 +350,11 @@ test('the private listener accepts only the Web container and loopback and sends
     ),
     [`allow ${WEB_TRANSIT.web}`, 'allow 127.0.0.1', 'deny all'],
   );
-  const internal = locations(privateListener).find((location) => location.path === '/internal/');
-  assert.equal(internal.modifier, '^~');
+  // 대소문자를 구분하지 않는 regex라 `/INTERNAL/metrics`처럼 바꾼 경로도 닫힌다(API router는 대소문자를 구분하지 않는다).
+  const internal = locations(privateListener).find(
+    (location) => location.path === '^/internal(?:/|$)',
+  );
+  assert.equal(internal.modifier, '~*');
   assert.match(internal.body, /return 404 '\{"status":"not-found"\}';/u);
   assert.match(proxyApi, /^set \$api_upstream http:\/\/api:4000;$/mu);
   assert.match(proxyApi, /^proxy_pass \$api_upstream;$/mu);
@@ -404,7 +408,36 @@ test('the access log keeps a masked client prefix and the path without query str
     /map \$request_uri \$dormduri_log_path \{\s*~\^\(\?<path>\[\^\?\]\*\) \$path;\s*default -;\s*\}/u,
   );
   assert.equal([...nginx.matchAll(/^\s*access_log /gmu)].length, 1);
+  // error log 줄에는 nginx가 원본 client 주소·query가 붙은 요청 줄·referrer를 붙인다. 요청 문맥 오류(warn·error·crit)를 쓰지
+  // 않도록 alert 이상만 남긴다(Owner 2026-11-10). 다른 파일은 error_log를 다시 정하지 않는다.
+  assert.deepEqual(
+    [...nginx.matchAll(/^\s*error_log ([^;]+);/gmu)].map((match) => match[1]),
+    ['/dev/stderr alert'],
+  );
+  for (const source of [conf, proxyWeb, proxyApi, staticPage, headers])
+    assert.doesNotMatch(source, /error_log/u);
   assert.match(nginx, /^\s*access_log \/dev\/stdout main;$/mu);
   for (const source of [conf, proxyWeb, proxyApi, staticPage, headers])
     assert.doesNotMatch(source, /access_log (?!off;)/u);
+});
+
+// smoke의 error log 판정: nginx가 Web 무응답 때 쓰는 error 줄 모양(요청 문맥 포함)과 alert 미만 줄을 잡는다.
+test('the smoke error log check rejects request context and lines below alert', () => {
+  assert.deepEqual(checkErrorLog('').problems, []);
+  assert.deepEqual(
+    checkErrorLog('2026/11/10 15:10:17 [alert] 1#1: unknown process 47 exited on signal 13\n')
+      .problems,
+    [],
+  );
+  const upstream =
+    '2026/11/10 15:10:44 [error] 7#7: *3 web could not be resolved (3: Host not found), client: 192.0.2.10, ' +
+    'server: dormduri.com, request: "GET /privacy?probe=1 HTTP/2.0", host: "dormduri.com", ' +
+    'referrer: "https://referer.invalid/from?token=probe"';
+  const problems = checkErrorLog(`${upstream}\n`).problems;
+  assert.equal(problems.length, 3);
+  assert.ok(problems.every((problem) => !problem.includes('192.0.2.10')));
+  assert.match(
+    checkErrorLog('2026/11/10 [warn] 7#7: an upstream response is buffered\n').problems[0],
+    /below alert/u,
+  );
 });

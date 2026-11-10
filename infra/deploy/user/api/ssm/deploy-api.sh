@@ -59,6 +59,9 @@ runtime_uid=10001
 tools=${api_state}/tools
 install -d -m 0700 "${api_state}" "${tools}" "${base}/secrets"
 install -d -m 0700 "${secrets_root}" "${secret_releases}"
+# migrate 임시 디렉터리는 EXIT trap이 지운다. 실행이 강제로 끊기면(SSM timeout의 kill 등) trap 없이 남을 수 있으므로, host lock을
+# 잡은 지금 남아 있는 것은 모두 지난 실행의 것이라 먼저 지운다.
+rm -rf "${base}/secrets"/migrate.*
 
 # web 묶음 `current`가 옛 형식(형식 표지 없음)이면 그 ingress는 private listener를 API로 보내지 않는다. deploy·rollback은
 # secret을 꺼내기 전에 멈추고 maintenance만 받는다. 복구는 새 형식 web 재배포 뒤 다시 실행이다. web 묶음이 점검 mode면
@@ -216,8 +219,8 @@ activate_secret() {
   mv -T "${secrets_root}/.current.tmp" "${secrets_root}/current"
 }
 
-# secret release는 current와 그 직전 성공 release 둘만 남긴다(D-AB7, contract minimumRetainedReleases 2). previous 기록의
-# secret은 남기지 않는다(rollback은 secret을 다시 꺼낸다). release 기록 디렉터리와 image는 current·previous가 가리키는 것만 둔다.
+# secret release는 current와 그 직전 성공 release 둘만 남긴다(D-AB7, contract minimumRetainedReleases 2). rollback은 남은
+# secret release를 쓰지 않고 지금 값을 다시 꺼낸다. release 기록 디렉터리와 image는 current·previous가 가리키는 것만 둔다.
 finish_records() {
   local keep record digest name dir
   keep=" $(record_get "${api_state}/current" secretRelease || true) ${1:-} "

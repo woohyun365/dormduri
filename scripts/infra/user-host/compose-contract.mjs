@@ -13,8 +13,9 @@ export const USER_HOST_MEMORY_LIMITS = Object.freeze({
   api: 1408 * 1024 * 1024,
   migrate: 384 * 1024 * 1024,
 });
-// Web transit: web 조각이 정의한다. 고정 주소는 동적 할당 범위 밖이고, ingress private listener는 ingress 주소에만 listen하고
-// web 주소만 받는다(infra/deploy/user/ingress/conf.d/dormduri.conf). API transit: 두 document가 만들고 조각은 external로만 쓴다.
+// Web transit: web 조각이 정의한다. 고정 주소는 동적 할당 범위 밖이고, ingress private listener는 web 주소와 loopback만 받고
+// 그 밖의 peer에는 403을 낸다(infra/deploy/user/ingress/conf.d/dormduri.conf). API transit: 두 document가 lib.sh 값으로 만들고
+// 조각은 external로만 쓴다(transitSubnetProblems가 lib.sh 값과 대조한다).
 export const WEB_TRANSIT = Object.freeze({
   key: 'web-transit',
   subnet: '10.217.10.0/28',
@@ -30,6 +31,57 @@ export const API_TRANSIT = Object.freeze({
   ipRange: '10.217.11.8/29',
   gateway: '10.217.11.1',
 });
+// Docker 기본 주소 pool(172.17~31.0.0/16, 192.168.0.0/16)과 AWS 기본 VPC(default VPC·Lightsail VPC 대역)를 덮는 범위. transit이
+// 여기와 겹치면 RDS·Lightsail 경로가 bridge로 잘못 가거나 다른 docker network와 부딪친다(D-AB11).
+export const TRANSIT_RESERVED_RANGES = Object.freeze(['172.16.0.0/12', '192.168.0.0/16']);
+
+function cidrRange(cidr) {
+  const [address, bits] = cidr.split('/');
+  const octets = address.split('.').map(Number);
+  if (
+    octets.length !== 4 ||
+    octets.some((octet) => !(octet >= 0 && octet <= 255)) ||
+    !(Number(bits) >= 0)
+  )
+    return null;
+  const start = octets.reduce((value, octet) => value * 256 + octet, 0);
+  const size = 2 ** (32 - Number(bits));
+  const first = start - (start % size);
+  return [first, first + size - 1];
+}
+
+const overlaps = (a, b) => {
+  const [left, right] = [cidrRange(a), cidrRange(b)];
+  return Boolean(left && right && left[0] <= right[1] && right[0] <= left[1]);
+};
+
+// API transit 값의 원본은 lib.sh(두 document가 network를 없을 때 만든다)다. 조각은 external로만 써서 render로 대조할 수 없으므로
+// 그 값을 계약과 대조하고, 두 transit이 서로·예약 범위와 겹치지 않는지 본다.
+export function transitSubnetProblems(libText, api = API_TRANSIT, web = WEB_TRANSIT) {
+  const problems = [];
+  const expected = {
+    api_transit_name: api.name,
+    api_transit_subnet: api.subnet,
+    api_transit_range: api.ipRange,
+    api_transit_gateway: api.gateway,
+  };
+  for (const [key, value] of Object.entries(expected)) {
+    const match = new RegExp(`^${key}=(\\S+)$`, 'mu').exec(libText);
+    if (match?.[1] !== value)
+      problems.push(`lib.sh ${key} is ${match?.[1] ?? 'missing'}, not ${value}`);
+  }
+  if (overlaps(api.subnet, web.subnet))
+    problems.push(`API transit ${api.subnet} overlaps Web transit ${web.subnet}`);
+  for (const [name, subnet] of [
+    ['API transit', api.subnet],
+    ['Web transit', web.subnet],
+  ]) {
+    for (const reserved of TRANSIT_RESERVED_RANGES) {
+      if (overlaps(subnet, reserved)) problems.push(`${name} ${subnet} overlaps ${reserved}`);
+    }
+  }
+  return problems;
+}
 export const API_SECRET_TARGET = '/run/secrets/dormduri-api';
 export const MIGRATE_SECRET_TARGET = '/run/secrets/dormduri-migrate';
 export const MIGRATE_SECRET_FILES = Object.freeze([

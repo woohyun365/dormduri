@@ -11,6 +11,7 @@ import {
   fragmentTextProblems,
   MIGRATE_SECRET_FILES,
   rehearsalDifferenceProblems,
+  transitSubnetProblems,
   WEB_TRANSIT,
 } from './compose-contract.mjs';
 
@@ -288,6 +289,36 @@ test('each weakened API bundle boundary is rejected', () => {
     [(s) => (s.api.environment.EXTRA = 'x'), /api: env EXTRA is not in the Lightsail example/u],
     [(s) => delete s.migrate, /services must be exactly api, ingress, migrate and web/u],
   ]);
+});
+
+// API transit은 조각에서 external이라 render 결과로 대조할 수 없다. 값의 원본은 두 document가 network를 만드는 lib.sh다.
+test('the API transit values in lib.sh are the contract values and no transit overlaps Docker pools or AWS default VPCs', () => {
+  const lib = readFileSync(resolve(repoRoot, 'infra/deploy/user/ssm/lib.sh'), 'utf8');
+  assert.deepEqual(transitSubnetProblems(lib), []);
+  const changed = (from, to) => transitSubnetProblems(lib.replace(from, to));
+  assert.match(
+    changed('api_transit_subnet=10.217.11.0/28', 'api_transit_subnet=10.217.12.0/28').join('\n'),
+    /api_transit_subnet/u,
+  );
+  assert.match(
+    changed('api_transit_gateway=10.217.11.1', 'api_transit_gateway=10.217.11.2').join('\n'),
+    /api_transit_gateway/u,
+  );
+  assert.match(changed('api_transit_range=10.217.11.8/29', '').join('\n'), /api_transit_range/u);
+  // Docker 기본 주소 pool·AWS 기본 VPC(default VPC·Lightsail VPC)와 겹치는 대역은 계약 값이어도 거부한다.
+  for (const subnet of ['172.31.0.0/28', '172.26.4.0/28', '192.168.10.0/28', '172.16.0.0/12']) {
+    assert.match(
+      transitSubnetProblems(lib, { ...API_TRANSIT, subnet }).join('\n'),
+      /overlaps/u,
+      subnet,
+    );
+  }
+  assert.match(
+    transitSubnetProblems(lib, API_TRANSIT, { ...WEB_TRANSIT, subnet: '10.217.11.0/28' }).join(
+      '\n',
+    ),
+    /overlaps/u,
+  );
 });
 
 test('the fragments use host absolute paths only and only the web fragment names the project', () => {

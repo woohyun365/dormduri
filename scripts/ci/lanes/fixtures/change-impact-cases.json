@@ -273,6 +273,32 @@
     }
   },
   {
+    "name": "api-env-example-pool",
+    "paths": ["infra/deploy/.env.api.example"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "api-lightsail-env-example-pool",
+    "paths": ["infra/deploy/.env.api.lightsail.example"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
     "name": "api-deploy-script",
     "paths": ["infra/deploy/scripts/api-release-smoke.sh"],
     "expected": {

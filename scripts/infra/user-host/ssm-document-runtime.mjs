@@ -250,10 +250,14 @@ export const API_DEPLOY_PATH_CASES = Object.freeze([
   },
   beforeRollout('outbox-rows-stop-before-rollout', 'outbox', ALL_STEPS),
   beforeRollout('migrate-failure-stops-before-rollout', 'migrate', 'migrate'),
+  beforeRollout('grant-failure-stops-before-rollout', 'grant', 'migrate,grant'),
+  beforeRollout('smoke-failure-stops-before-rollout', 'smoke', 'migrate,grant,smoke'),
   beforeRollout('secret-invalid-stops-before-migrate', 'secret-invalid', 'none'),
   beforeRollout('secret-mode-violation-stops-before-migrate', 'secret-invalid', 'none'),
   beforeRollout('secret-fetch-failure', 'secret-fetch', 'none'),
   beforeRollout('migration-secret-failure', 'migration-secret', 'none'),
+  // 지난 실행이 남긴 migrate 임시 디렉터리는 lock 안에서 지운다(beforeRollout의 migratedir 0).
+  beforeRollout('leftover-migrate-dir-is-removed', 'secret-fetch', 'none'),
   {
     name: 'second-deploy',
     exit: 0,
@@ -314,7 +318,8 @@ export const API_DEPLOY_PATH_CASES = Object.freeze([
     secrets: '2',
     order: 'yes',
   },
-  // rollback은 migrate를 다시 돌지 않고, secret은 지금 값을 다시 꺼내며, 조각은 previous 기록의 것(첫 배포 release)이다.
+  // rollback은 migrate를 다시 돌지 않고, secret은 지금 값을 다시 꺼내며, 조각은 previous 기록의 것(첫 배포 release)을 내용
+  // 그대로 쓴다(harness가 rollback 전에 그 조각에 옛 document 표지를 더한다, fromprev).
   {
     name: 'rollback',
     exit: 0,
@@ -329,6 +334,7 @@ export const API_DEPLOY_PATH_CASES = Object.freeze([
     cfrag: '1',
     apidirs: '1',
     order: 'yes',
+    fromprev: 'yes',
   },
   {
     name: 'rollback-without-previous',
@@ -391,6 +397,16 @@ export const API_DEPLOY_PATH_CASES = Object.freeze([
     name: 'legacy-web-blocks-deploy',
     exit: 2,
     result: 'RESULT=failed action=deploy reason=web-record-legacy',
+    current: '8',
+    running: '8',
+    fetched: 'no',
+    steps: 'none',
+    stopped: 'no',
+  },
+  {
+    name: 'legacy-web-blocks-rollback',
+    exit: 2,
+    result: 'RESULT=failed action=rollback reason=web-record-legacy',
     current: '8',
     running: '8',
     fetched: 'no',

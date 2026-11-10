@@ -78,7 +78,7 @@ services:
       retries: 3
     networks:
       web-transit:
-        # private listener는 이 주소에만 listen한다. 다른 network의 peer는 연결 자체가 거부된다.
+        # ingress의 Web transit 고정 주소. private listener(8081)는 모든 주소에서 듣고 Web 주소·loopback만 받으며 그 밖의 peer는 403이다.
         ipv4_address: 10.217.10.3
       api-transit: {}
     logging:

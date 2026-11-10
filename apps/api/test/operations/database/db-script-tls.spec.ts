@@ -1,5 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -158,6 +166,83 @@ describe('infra/db psql TLS arguments (D-AB5 form C)', () => {
       expect(result.calls, url).toEqual([]);
       expect(result.output, url).not.toContain('pw@');
     }
+  });
+});
+
+// migrate image entrypoint(운영 one-off): local·CI용 "TLS 인자 없는 URL은 호출자 libpq env 그대로"를 쓰지 않는다. 네 URL이
+// 서버 인증서와 host 이름을 검증하는 형식인지 secret을 읽을 때 보고, migration URL은 Prisma CLI가 검증하는 형식 B만 받는다.
+function runEntrypoint(step: string, secrets: Record<string, string>) {
+  directory = mkdtempSync(join(tmpdir(), 'migrate-entrypoint-'));
+  const log = join(directory, 'psql.log');
+  const secretDirectory = join(directory, 'secrets');
+  writeFileSync(join(directory, 'psql'), FAKE_PSQL);
+  chmodSync(join(directory, 'psql'), 0o755);
+  writeFileSync(log, '');
+  mkdirSync(secretDirectory);
+  for (const [key, value] of Object.entries(secrets))
+    writeFileSync(join(secretDirectory, key), value);
+  const result = spawnSync('sh', [join(repoRoot, 'infra/deploy/api/migrate-entrypoint.sh'), step], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env: {
+      PATH: `${directory}:${process.env.PATH ?? ''}`,
+      FAKE_PSQL_LOG: log,
+      FAKE_LAST_MIGRATION: LAST_MIGRATION ?? '',
+      FAKE_PGAUDIT: 't',
+      MIGRATE_SECRET_DIRECTORY: secretDirectory,
+      MIGRATE_DB_SCRIPTS: dbRoot,
+    },
+  });
+  const calls = readFileSync(log, 'utf8').split('\n').filter(Boolean);
+  return { status: result.status, output: `${result.stdout}${result.stderr}`, calls };
+}
+
+describe('migrate image entrypoint TLS 강제 (D-AB5)', () => {
+  const local = (user: string) => `postgresql://${user}:pw@${HOST}`;
+
+  it('migration URL이 형식 B면 grant 단계가 verify-full로 psql을 부른다', () => {
+    const result = runEntrypoint('grant', { MIGRATION_DATABASE_URL: PRISMA_FORM_B });
+
+    expect(result.status, result.output).toBe(0);
+    expect(result.calls).toEqual([
+      `url=postgresql://dormduri_migrator:pw@${HOST} mode=verify-full root=${ROOT_CA}`,
+    ]);
+  });
+
+  it('TLS 인자가 없거나 Prisma가 검증하지 않는 형식의 migration URL은 어느 단계도 client를 부르지 않고 64로 끝난다', () => {
+    for (const step of ['migrate', 'grant', 'smoke', 'outbox']) {
+      for (const url of [
+        local('dormduri_migrator'),
+        `${local('dormduri_migrator')}?schema=public`,
+        runtimeUrl('dormduri_migrator'),
+        `${local('dormduri_migrator')}?sslmode=require`,
+      ]) {
+        const result = runEntrypoint(step, { MIGRATION_DATABASE_URL: url, ...RUNTIME_URLS });
+        expect(result.status, `${step} ${url}`).toBe(64);
+        expect(result.calls, `${step} ${url}`).toEqual([]);
+        expect(result.output).toContain('MIGRATION_DATABASE_URL');
+        expect(result.output).not.toContain('pw@');
+      }
+    }
+  });
+
+  it('role smoke는 runtime URL 셋도 검증 형식이어야 한다', () => {
+    const result = runEntrypoint('smoke', {
+      MIGRATION_DATABASE_URL: PRISMA_FORM_B,
+      ...RUNTIME_URLS,
+      RETENTION_WORKER_DATABASE_URL: local('dormduri_retention_worker'),
+    });
+
+    expect(result.status, result.output).toBe(64);
+    expect(result.calls).toEqual([]);
+    expect(result.output).toContain('RETENTION_WORKER_DATABASE_URL');
+    expect(result.output).not.toContain('pw@');
+
+    const verified = runEntrypoint('smoke', {
+      MIGRATION_DATABASE_URL: PRISMA_FORM_B,
+      ...RUNTIME_URLS,
+    });
+    expect(verified.status, verified.output).toBe(0);
   });
 });
 

@@ -5,8 +5,8 @@
 // smoke network는 운영 Web transit과 같은 고정 subnet·주소(compose-contract WEB_TRANSIT)라 private listener의 listen·allow
 // 주소를 그대로 시험한다. 같은 subnet을 쓰는 다른 local network(user host rehearsal)가 떠 있으면 network 생성이 실패한다.
 // private listener(stub Web에서만 확인): Web 주소만 받고, 같은 network의 다른 주소와 API network의 peer는 403,
-// API가 없으면 JSON 503, API stub이 있으면 forwarding header를 지우고 보내며 `/internal/`은 닫는다. 끝에 접속 log 행에
-// 원 client 주소·query string·referer가 없는지 본다.
+// API가 없으면 JSON 503, API stub이 있으면 forwarding header를 지우고 보내며 `/internal/`(대소문자 무관)은 닫는다. 끝에 접속
+// log 행에 원 client 주소·query string·referer가 없는지, error log(stderr)에 요청 문맥 줄이 없는지 본다.
 //
 // Web은 기본으로 stub(모든 경로 200, `X-Powered-By`를 붙임)이고, `--web-image=<로컬 image>`를 주면 그 Web image를
 // 운영 compose(infra/deploy/user/compose.yml)를 render한 Web environment 그대로 띄운다. node 내장 module만 쓴다(runtime gate에는 package 설치가 없다).
@@ -135,6 +135,13 @@ export const INGRESS_SMOKE_CASES = Object.freeze([
     expect: page(PAGE_TITLES.unavailable, 503, '60'),
   })),
   { mode: 'web-down', method: 'POST', path: '/', expect: page(PAGE_TITLES.unavailable, 503, '60') },
+  // Web 무응답은 nginx가 upstream 오류 줄을 쓰려는 자리다. query·referer를 붙여 error log 판정(checkErrorLog)의 입력으로 쓴다.
+  {
+    mode: 'web-down',
+    path: '/privacy?probe=1',
+    headers: { Referer: LOG_PROBE_REFERER },
+    expect: page(PAGE_TITLES.unavailable, 503, '60'),
+  },
   { mode: 'web-down', path: '/signup', expect: page(PAGE_TITLES.comingSoon, 503, '3600') },
   { mode: 'web-down', method: 'POST', path: '/api/auth/login', expect: jsonComingSoon() },
   { mode: 'web-down', path: '/abc', expect: page(PAGE_TITLES.notFound, 404, null) },
@@ -469,14 +476,12 @@ async function privateListenerChecks({ names, directories, nginxImage }) {
     response.status === 404 &&
     response.body === '{"status":"not-found"}' &&
     response.stubUri === null;
-  const internal = probePrivate(names.web, 'ingress', '/internal/metrics');
-  rows.push(
-    privateRow(
-      'web→:8081/internal/metrics',
-      internal,
-      internalClosed(internal) ? [] : [internal.raw],
-    ),
-  );
+  for (const path of ['/internal/metrics', '/INTERNAL/metrics']) {
+    const internal = probePrivate(names.web, 'ingress', path);
+    rows.push(
+      privateRow(`web→:8081${path}`, internal, internalClosed(internal) ? [] : [internal.raw]),
+    );
+  }
   // 같은 Web network의 다른 주소와 API network의 peer: 403(본문을 API로 보내지 않는다).
   const otherPeer = probePrivate(names.webPeer, WEB_TRANSIT.ingress, legal);
   rows.push(
@@ -524,14 +529,16 @@ async function privateListenerChecks({ names, directories, nginxImage }) {
   if (present.forwarded.length)
     presentProblems.push(`forwarding headers reached API: ${present.forwarded}`);
   rows.push(privateRow(`web→:8081${legal} (API stub)`, present, presentProblems));
-  const internalWithApi = probePrivate(names.web, 'ingress', '/internal/metrics');
-  rows.push(
-    privateRow(
-      'web→:8081/internal/metrics (API stub)',
-      internalWithApi,
-      internalClosed(internalWithApi) ? [] : [internalWithApi.raw],
-    ),
-  );
+  for (const path of ['/internal/metrics', '/Internal/Metrics']) {
+    const internalWithApi = probePrivate(names.web, 'ingress', path);
+    rows.push(
+      privateRow(
+        `web→:8081${path} (API stub)`,
+        internalWithApi,
+        internalClosed(internalWithApi) ? [] : [internalWithApi.raw],
+      ),
+    );
+  }
   // API를 내리면(API maintenance) 다시 JSON 503이다.
   docker(['rm', '-f', names.api], { allowFailure: true });
   const stopped = await probeUntil(names.web, 'ingress', legal, unavailable);
@@ -564,6 +571,22 @@ export function checkAccessLog(text) {
   for (const address of [WEB_TRANSIT.web, '203.0.113.9'])
     if (text.includes(address)) problems.push(`full address ${address} in the log`);
   return { rows: rows.length, problems };
+}
+
+// error log(stderr, OO-R1): nginx는 error 줄에 원본 client 주소·query가 붙은 요청 줄·referrer를 붙이므로 alert 미만 줄과 요청
+// 문맥(`client:`·`request:`·`referrer:`)이 없어야 한다. 문제 줄의 IPv4 숫자는 가려 적는다.
+export function checkErrorLog(text) {
+  const lines = text.split('\n').filter(Boolean);
+  const problems = [];
+  const masked = (line) => line.replace(/\d{1,3}(?:\.\d{1,3}){3}/gu, '<IPv4>');
+  for (const line of lines) {
+    if (/\[(?:debug|info|notice|warn|error|crit)\]/u.test(line))
+      problems.push(`error log line below alert: ${masked(line)}`);
+    if (/(?:^|[ ,])(?:client|request|referrer): /u.test(line))
+      problems.push(`request context in the error log: ${masked(line)}`);
+  }
+  if (text.includes('referer.invalid')) problems.push('referer in the error log');
+  return { lines: lines.length, problems };
 }
 
 // 운영 compose의 Web environment(registry digest 자리는 같은 형식의 placeholder).
@@ -765,7 +788,8 @@ export async function runIngressSmoke({
         }
       }
     }
-    const log = checkAccessLog(docker(['logs', names.ingress]).stdout);
+    const ingressLog = docker(['logs', names.ingress]);
+    const log = checkAccessLog(ingressLog.stdout);
     rows.push({
       mode: 'all',
       scheme: 'log',
@@ -774,6 +798,16 @@ export async function runIngressSmoke({
       status: log.rows,
       pass: log.problems.length === 0,
       problems: log.problems,
+    });
+    const errorLog = checkErrorLog(ingressLog.stderr);
+    rows.push({
+      mode: 'all',
+      scheme: 'log',
+      method: '—',
+      path: 'error log lines',
+      status: errorLog.lines,
+      pass: errorLog.problems.length === 0,
+      problems: errorLog.problems,
     });
   } finally {
     docker(['rm', '-f', names.ingress, names.web, names.webPeer, names.apiPeer, names.api], {

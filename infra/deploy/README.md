@@ -82,19 +82,20 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
   infra lane도 돈다.
 - 공개 `/api`와 그 아래는 JSON 503 준비 중이다(Web의 BFF 경로가 열리기 전). API는 공개 listener에 닿지 않는다.
 - Web의 `API_URL`은 ingress의 private listener `http://ingress:8081`이다. 이 listener는 Web 주소(Web transit의 고정 주소)와
-  loopback만 받고(`allow`·`deny all`), `/internal/` 아래를 404 JSON으로 막은 뒤 나머지를 API(`api:3000`)로 넘긴다. API가
+  loopback만 받고(`allow`·`deny all`), `/internal/` 아래(대소문자 무관)를 404 JSON으로 막은 뒤 나머지를 API(`api:4000`)로 넘긴다. API가
   없거나 내려가 있으면 503 JSON(`{"status":"unavailable"}`)이다. Forwarding header는 비워 보낸다.
 - 접속 log는 client IP를 가린 값(IPv4 /24·IPv6 /48), query string을 뗀 경로, user agent, `X-Request-Id`만 남기고 referer를
-  남기지 않는다(`user/ingress/nginx.conf`, 정책은 `docs/policies/operational-observability.md` OO-R1).
+  남기지 않는다(`user/ingress/nginx.conf`, 정책은 `docs/policies/operational-observability.md` OO-R1). Error log는 nginx가 줄마다
+  원본 client 주소·요청 줄·referrer를 붙이므로 alert 이상만 쓴다. Web·API 실패 원인은 접속 log 상태와 각 service log로 본다.
 
 ### Network와 host 경로
 
 - Compose project는 `dormduri-web` 하나다. 두 document는 지금 기록된 두 조각을 함께 넘겨 compose를 부르되 자기 묶음의
   service만 `up`·`stop`·`rm`하고 project 전체 `down`은 쓰지 않는다. `--remove-orphans`는 두 조각을 다 넘긴 `up`에서만 쓴다.
 - Web transit(`web-transit`, Web과 ingress에 고정 주소)은 Web 조각이 만들고, API transit(`dormduri-api-transit`, external)은
-  두 document가 compose 전에 없을 때만 고정 subnet으로 만든다. 값은 `user/compose.yml`·`user/ssm/lib.sh`에 있고
-  `scripts/infra/user-host/compose-contract.mjs`가 고정한다. 이름은 같은데 subnet이 다르면 아무것도 바꾸지 않고 exit 2다.
-  Subnet은 host의 다른 docker network·VPC 대역과 겹치지 않아야 한다.
+  두 document가 compose 전에 없을 때만 고정 subnet으로 만든다. 값은 `user/compose.yml`(Web)·`user/ssm/lib.sh`(API)에 있고
+  `scripts/infra/user-host/compose-contract.mjs`가 render 결과와 lib.sh 값을 계약과 대조하며, 두 대역이 서로·Docker 기본 주소
+  pool·AWS 기본 VPC 대역과 겹치지 않는지 본다. 이름은 같은데 subnet이 다르면 아무것도 바꾸지 않고 exit 2다.
 - Host 경로: `/opt/dormduri/state`(root 0700, 기록·lock·host log), `/opt/dormduri/releases/{web,api}/<release>`(release마다
   쓴 compose 조각), `/opt/dormduri/secrets/api/releases/<release>`(API secret, `infra/aws/secrets-manager-checklist.md`),
   `/opt/dormduri/{tls,acme-webroot,mode}`(Web 묶음).
@@ -209,10 +210,11 @@ pnpm infra:env:check
 Lightsail production 기본값이다. `SECRET_SOURCE=aws-secrets-manager`는 EC2/ECS처럼 안전한 AWS
 credential-provider chain을 제공하는 runtime용 호환 adapter다.
 
-Host release root는 `/var/lib/dormduri/secrets/api`, container mount는
-`/run/secrets/dormduri-api`, API runtime UID/GID는 `10001:10001`이다. Candidate는 검증 후 설치하고
-readiness 성공 뒤에만 `current` pointer를 atomic하게 전환한다. Secret bundle은 image, CI artifact,
-release evidence에 포함하지 않는다.
+User host의 secret root는 `/opt/dormduri/secrets/api`(root 0700)다. API document가 release마다
+`releases/<release>`(디렉터리 0500·파일 0400, 소유 `10001:10001`)에 설치·검사하고 그 디렉터리를 container의
+`/run/secrets/dormduri-api`에 read-only로 mount한다. API runtime UID/GID는 `10001:10001`이다. `current` symlink는 readiness와
+host 안 smoke가 통과한 뒤에만 atomic하게 바뀌고, current와 직전 성공 release 둘만 남는다
+(`infra/aws/secrets-manager-checklist.md`). Secret bundle은 image, CI artifact, release evidence에 포함하지 않는다.
 
 실제 `.env.api`, DB URL, token과 provider secret은 커밋하지 않는다. `HTTP_TRUST_PROXY_*`, REST와
 realtime origin처럼 target topology에 의존하는 key는 local 기본값을 production 결정으로 간주하지

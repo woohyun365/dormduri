@@ -268,7 +268,7 @@ Dry-run output도 secret value를 출력하지 않는다.
 
 RDS parameter group의 `rds.force_ssl = 1`이 평문 연결을 거부하고, 모든 client가 서버 인증서와 host 이름을 검증한다.
 
-- CA: API·migrate image가 AWS RDS 전역 CA 묶음에서 꺼낸 단일 루트를 `/etc/dormduri/rds-ca/root.pem`(0444)에 둔다.
+- CA: API·migrate image가 AWS RDS 서울 regional CA 묶음(`ap-northeast-2-bundle.pem`)에서 꺼낸 단일 루트를 `/etc/dormduri/rds-ca/root.pem`(0444)에 둔다.
   `infra/deploy/api/Dockerfile`의 `rds-ca` stage가 묶음을 받아 `infra/deploy/api/rds-ca-bundle.sha256`(묶음과 꺼낸
   루트)으로 대조하므로 묶음이 바뀌면 build가 멈춘다. CA 파일은 repo에 넣지 않는다. 여러 인증서 묶음은 Prisma CLI가
   읽지 못해 단일 루트를 쓴다.
@@ -285,6 +285,8 @@ RDS parameter group의 `rds.force_ssl = 1`이 평문 연결을 거부하고, 모
   `sslcert`를 client 인증서로 읽으므로 psql에는 `psql-tls.sh`가 형식을 바꿔 준다.
 - `psql-tls.sh`는 검증하지 않는 설정(CA 없는 `require`·`prefer`, `strict`가 아닌 `sslaccept`, client key)을 psql 실행
   전에 exit 64로 거부하고, libpq가 모르는 Prisma 전용 인자(`schema` 등)를 뗀다. CA 없는 `sslmode=require`는 쓰지 않는다.
+  TLS 인자가 없는 URL(local·CI)은 호출자 libpq env 그대로 넘기지만, migrate image entrypoint(운영 one-off)는 secret을 읽을 때
+  네 URL이 위 표의 검증 형식인지 보고(migration은 형식 B만) 아니면 어느 client도 부르지 않고 exit 64로 끝난다.
 - 노트북에서 SSM 포트 포워딩으로 붙을 때는 URL host를 RDS endpoint 그대로 두고 연결 주소만 바꾼다(psql은 libpq
   `hostaddr=127.0.0.1`, Prisma CLI는 Linux container의 `--add-host <endpoint>:host-gateway`). 이름 검증이 endpoint로
   이루어진다.

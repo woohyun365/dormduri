@@ -17,8 +17,12 @@ printf 'recordFormat=2\nrelease=web-recorded\nweb=%s\ningress=%s\nfragment=%s\n'
 M=$(pair f)
 count() { find "$1" -mindepth 1 -maxdepth 1 "${@:2}" 2>/dev/null | wc -l; }
 run() {
-  local name=$1 code current previous running steps link release fetched stopped cfrag dir order
+  local name=$1 code current previous running steps link release fetched stopped cfrag dir order prevfrag prevsum fromprev upline
   shift
+  # rollback 판별: 실행 전 previous 기록의 조각 경로와 내용 hash. 실행 뒤 current가 그 조각을 그대로(내용도 같게) 가리키고 마지막 api
+  # `up`이 그 조각을 넘겼을 때만 fromprev=yes다(새 document 조각을 쓰는 rollback이면 no).
+  prevfrag=$(sed -n 's/^fragment=//p' "${api_state}/previous" 2>/dev/null | tail -n 1)
+  prevsum=$( [ -n "${prevfrag}" ] && sha256sum "${prevfrag}" 2>/dev/null | cut -d' ' -f1)
   : >/tmp/docker.log
   : >/tmp/services.log
   : >/tmp/steps.log
@@ -53,24 +57,40 @@ run() {
     [ "$(fragment_kind "${api_state}/current")" = release ] || cfrag=missing
   fi
   order=$(stop_before_up)
-  printf 'case=%s exit=%s current=%s previous=%s running=%s steps=%s secrets=%s link=%s migratedir=%s fetched=%s stopped=%s cfrag=%s apidirs=%s order=%s out=%s\n' \
+  fromprev=none
+  if [ -n "${prevfrag}" ] && [ -f "${api_state}/current" ]; then
+    fromprev=no
+    upline=$(grep -E '^docker compose .* up .* api$' /tmp/docker.log | tail -n 1)
+    if [ "$(sed -n 's/^fragment=//p' "${api_state}/current" | tail -n 1)" = "${prevfrag}" ] \
+      && [ "$(sha256sum "${prevfrag}" 2>/dev/null | cut -d' ' -f1)" = "${prevsum}" ]; then
+      case "${upline} " in *" -f ${prevfrag} "*) fromprev=yes ;; esac
+    fi
+  fi
+  printf 'case=%s exit=%s current=%s previous=%s running=%s steps=%s secrets=%s link=%s migratedir=%s fetched=%s stopped=%s cfrag=%s apidirs=%s order=%s fromprev=%s out=%s\n' \
     "${name}" "${code}" "${current}" "${previous}" "${running}" "${steps:-none}" "$(count "${secrets}/releases" -type d)" \
     "${link}" "$(count /opt/dormduri/secrets -name 'migrate.*')" "${fetched}" "${stopped}" "${cfrag:-none}" \
-    "$(count /opt/dormduri/releases/api -type d)" "${order}" "$(result_line /tmp/out)"
+    "$(count /opt/dormduri/releases/api -type d)" "${order}" "${fromprev}" "$(result_line /tmp/out)"
 }
 deploy() { run "$1" "${@:3}" SSM_action=deploy SSM_apiDigest="$(pair "$2")" SSM_apiMigrateDigest="${M}"; }
 rollback() { run "$1" "${@:3}" SSM_action=rollback SSM_apiDigest="$(pair "$2")" SSM_apiMigrateDigest="${M}"; }
 deploy first-deploy 1
 deploy outbox-rows-stop-before-rollout 2 BAD_STEP=outbox
 deploy migrate-failure-stops-before-rollout 2 BAD_STEP=migrate
+deploy grant-failure-stops-before-rollout 2 BAD_STEP=grant
+deploy smoke-failure-stops-before-rollout 2 BAD_STEP=smoke
 deploy secret-invalid-stops-before-migrate 2 BAD_SECRET=1
 deploy secret-mode-violation-stops-before-migrate 2 MODE_VIOLATION=1
 deploy secret-fetch-failure 2 BAD_FETCH=/dormduri/production/api/runtime
 deploy migration-secret-failure 2 BAD_FETCH=/dormduri/production/api/migration
+# 강제 종료(SSM timeout)로 EXIT trap 없이 남은 migrate 임시 디렉터리는 다음 실행이 lock 안에서 지운다.
+install -d -m 0700 /opt/dormduri/secrets/migrate.leftover
+printf 'fakesecretvalue-leftover\n' >/opt/dormduri/secrets/migrate.leftover/MIGRATION_DATABASE_URL
+deploy leftover-migrate-dir-is-removed 2 BAD_FETCH=/dormduri/production/api/runtime
 deploy second-deploy 2
 deploy start-failure-rolls-back 3 BAD_UP="$(pair 3)"
 deploy smoke-failure-rolls-back 4 BAD_SMOKE="$(pair 4)"
 rollback rollback-mismatch 3
+printf '# fragment written by an older document\n' >>"$(sed -n 's/^fragment=//p' "${api_state}/previous" | tail -n 1)"
 rollback rollback-start-failure-keeps-current 1 BAD_UP="$(pair 1)"
 rollback rollback 1
 rollback rollback-without-previous 2
@@ -86,6 +106,7 @@ printf 'name: dormduri-web\nservices: {}\n' >/opt/dormduri/releases/web/legacy-r
 printf 'web=%s\ningress=%s\nfragment=%s\n' "$(pair a)" "$(pair b)" /opt/dormduri/releases/web/legacy-recorded/compose.yml \
   >"${state}/current"
 deploy legacy-web-blocks-deploy 9
+rollback legacy-web-blocks-rollback 7
 run legacy-web-allows-maintenance SSM_action=maintenance SSM_apiDigest="$(pair 8)" SSM_apiMigrateDigest="${M}"
 cat "${state}/deploy-api.log" >>/tmp/seen 2>/dev/null
 found=no

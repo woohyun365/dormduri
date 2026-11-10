@@ -12,6 +12,7 @@ import {
   checkUserHostCompose,
   fragmentTextProblems,
   rehearsalDifferenceProblems,
+  transitSubnetProblems,
   USER_HOST_RENDER_ENVIRONMENT,
 } from '../user-host/compose-contract.mjs';
 
@@ -136,6 +137,11 @@ if (userHostBundle) {
   )) {
     failures.push(`user-host-bundle: ${problem}`);
   }
+}
+for (const problem of transitSubnetProblems(
+  readFileSync(resolve(repoRoot, 'infra/deploy/user/ssm/lib.sh'), 'utf8'),
+)) {
+  failures.push(`user-host transit: ${problem}`);
 }
 for (const problem of fragmentTextProblems({
   web: readFileSync(resolve(repoRoot, 'infra/deploy/user/compose.yml'), 'utf8'),
