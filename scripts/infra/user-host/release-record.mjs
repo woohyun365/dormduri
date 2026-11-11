@@ -3,7 +3,8 @@
 // 실행은 source commit, dispatch 실행은 실행한 main commit)에 git tag `deploy-<stage>-<UTC YYYYMMDD>-<run number>`와 GitHub
 // Release를 만들고, 본문과 run 요약에 같은 단계 기록을 남긴다. 배포한 source commit은 본문 release_commit_sha다. 형식은
 // infra/runbooks/release/production-release-evidence.md "단계 배포 기록"의 YAML template이다.
-// stage는 web(web-cd: web·ingress)과 api(api-cd: api·api-migrate)다. CLI는 `--stage=<stage>`로 고르고 기본은 web이다.
+// stage는 web(web-cd: web·ingress)과 api(api-cd: api·api-migrate·observability-config)다. CLI는 `--stage=<stage>`로 고르고 기본은
+// web이다.
 // deploy job은 이 기록으로 host의 지금 쌍과 직전 안전 쌍을 알고(외부 smoke 실패 때 되돌릴 쌍), dispatch 입력 쌍이 그
 // source commit의 기록과 같은지 대조한다(D-WB3). 두 stage의 Release는 tag 이름으로 갈려 서로의 계산에 들지 않는다. 기록에는
 // registry host·ARN·node ID 자리가 없고 image는 `dormduri/<name>@sha256:…`로만 적는다(D-WB7).
@@ -27,8 +28,9 @@ const NOT_JUDGED = '미판정(operator가 이 run과 evidence를 확인한 뒤 �
 // DB를 들인 뒤에도 DB를 바꾸지 않는 실행(Web 배포, API rollback·maintenance)의 DB 항목(D-AB17). 최종 release는 전부 본다.
 const DB_UNCHANGED = '해당 없음(이 실행은 DB를 바꾸지 않음)';
 
-// 단계마다 올리는 image(배포 쌍), git tag, 그 Release를 만드는 workflow, 기록하는 component(D-WB9·D-WB12, D-AB2·D-AB17).
-// api는 아직 관측 component와 관측 설정 image를 담지 않는다(관측 stack이 그 image를 배포할 때 함께 더한다).
+// 단계마다 올리는 image(배포 묶음), git tag, 그 Release를 만드는 workflow, 기록하는 component(D-WB9·D-WB12, D-AB2·D-AB17).
+// api 묶음은 관측 설정 image를 함께 배포하므로(D-AB14) 관측 component를 적는다. 관측 단계는 fail-open이라 host RESULT 줄의
+// observability 값(ok·failed)은 operator가 옮겨 적는다(node별 결과를 읽지 않음, D-WB7).
 export const STAGES = Object.freeze({
   web: Object.freeze({
     title: 'Web 단계 배포 기록',
@@ -48,7 +50,7 @@ export const STAGES = Object.freeze({
   }),
   api: Object.freeze({
     title: 'API 단계 배포 기록',
-    images: Object.freeze(['api', 'api-migrate']),
+    images: Object.freeze(['api', 'api-migrate', 'observability-config']),
     gitTag: /^deploy-api-[0-9]{8}-[0-9]+$/u,
     workflow: '.github/workflows/api-cd.yml',
     // deploy만 migrate·grant·role smoke·auth mail outbox 확인을 돈다(rollback은 돌지 않고, maintenance는 API를 내린다).
@@ -67,6 +69,9 @@ export const STAGES = Object.freeze({
             `DB backup/restore: ${NOT_JUDGED}`,
           ]
         : [`DB migration·role grant·DB credential·backup/restore: ${DB_UNCHANGED}`]),
+      action === 'maintenance'
+        ? '관측 stack: 해당 없음(이 실행은 관측을 바꾸지 않음)'
+        : '관측 stack(Prometheus·Loki·Alloy·Alertmanager·Grafana)·Slack 경보·host 지표: 미판정(operator가 host RESULT 줄의 observability 값, Grafana·Slack 시험, Alloy Docker socket 위험 수용을 확인한 뒤 고친다)',
     ],
     // host 안 readiness·smoke는 deploy·rollback의 rollout만 돈다. maintenance는 API를 내리기만 한다.
     hostSmoke: (action) =>
@@ -99,7 +104,7 @@ export function gitDeployTag(date, runNumber, stage = 'web') {
   return `deploy-${stage}-${utcDay(date)}-${runNumber}`;
 }
 
-// 배포 쌍: 그 stage의 image 이름만 key로 갖고 값이 모두 digest다.
+// 배포 묶음(Web 둘, API 셋): 그 stage의 image 이름만 key로 갖고 값이 모두 digest다.
 const isPair = (pair, images) =>
   Boolean(pair) &&
   Object.keys(pair).length === images.length &&

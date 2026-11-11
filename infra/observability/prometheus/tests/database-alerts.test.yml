@@ -1,0 +1,33 @@
+# dead tuple 경보: 비율 20% 초과와 수 50 초과가 함께 24시간 이어질 때만. 기준과 같은 값(비율 0.2, 수 50)은 울리지 않고 바로 위
+# 값(0.21, 51)은 0분부터 참이라 24시간째 평가에서 울린다. 기준·`for`가 바뀌면 경계 앞뒤 평가의 기대가 깨진다.
+rule_files:
+  - ../rules/database-alerts.yml
+evaluation_interval: 5m
+tests:
+  - interval: 5m
+    input_series:
+      - series: 'api_db_table_dead_tuple_ratio{job="api",table="matchrequest"}'
+        values: '0.21x300'
+      - series: 'api_db_table_dead_tuples{job="api",table="matchrequest"}'
+        values: '51x300'
+      # 비율이 기준과 같다.
+      - series: 'api_db_table_dead_tuple_ratio{job="api",table="room"}'
+        values: '0.2x300'
+      - series: 'api_db_table_dead_tuples{job="api",table="room"}'
+        values: '5000x300'
+      # 수가 기준과 같다(행이 적은 table).
+      - series: 'api_db_table_dead_tuple_ratio{job="api",table="season"}'
+        values: '0.9x300'
+      - series: 'api_db_table_dead_tuples{job="api",table="season"}'
+        values: '50x300'
+    alert_rule_test:
+      - eval_time: 23h55m
+        alertname: DatabaseTableDeadTuplesHigh
+        exp_alerts: []
+      - eval_time: 24h
+        alertname: DatabaseTableDeadTuplesHigh
+        exp_alerts:
+          - exp_labels: { severity: warning, service: api, table: matchrequest }
+            exp_annotations:
+              summary: table dead tuple 비율이 24시간 넘게 20%를 넘었습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응

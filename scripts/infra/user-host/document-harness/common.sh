@@ -58,7 +58,7 @@ compose_args() {
   done
   while [ $# -gt 0 ]; do
     case "$1" in
-      --wait-timeout) shift 2 ;;
+      --wait-timeout | --policy | --pull) shift 2 ;;
       -*) shift ;;
       *)
         services="${services} $1"

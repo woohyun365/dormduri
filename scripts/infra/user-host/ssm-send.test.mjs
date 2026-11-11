@@ -92,10 +92,12 @@ test('an unknown action, a malformed digest or hash is refused before any AWS ca
   }
 });
 
-// The API document takes the API pair under its own parameter names (production-api-baseline D-AB12); the document name
-// decides the names, so a digest never reaches the other bundle's document.
-test('the API document gets the API pair parameters and an unknown document is refused before any AWS call', () => {
-  const api = run(valid, 'Success\t1\t1\t0', { document: 'dormduri-api-deploy' });
+// The API document takes the API bundle digests under its own parameter names (production-api-baseline D-AB12, the
+// observability config image from D-AB14); the document name decides the names, so a digest never reaches the other
+// bundle's document.
+const apiValid = [...valid.slice(0, 3), digest('d'), valid[3]];
+test('the API document gets the API bundle parameters and an unknown document is refused before any AWS call', () => {
+  const api = run(apiValid, 'Success\t1\t1\t0', { document: 'dormduri-api-deploy' });
   assert.equal(api.status, 0, api.stderr);
   assert.match(
     api.calls,
@@ -104,7 +106,7 @@ test('the API document gets the API pair parameters and an unknown document is r
   assert.match(
     api.calls,
     new RegExp(
-      `--parameters \\{"action":\\["deploy"\\],"apiDigest":\\["${digest('a')}"\\],"apiMigrateDigest":\\["${digest('b')}"\\]\\}`,
+      `--parameters \\{"action":\\["deploy"\\],"apiDigest":\\["${digest('a')}"\\],"apiMigrateDigest":\\["${digest('b')}"\\],"observabilityConfigDigest":\\["${digest('d')}"\\]\\}`,
       'u',
     ),
   );
@@ -112,7 +114,7 @@ test('the API document gets the API pair parameters and an unknown document is r
   assert.doesNotMatch(api.calls, /webDigest|ingressDigest/u);
   assert.match(
     api.stdout,
-    /^sent deploy dormduri\/api@sha256:a{64} dormduri\/api-migrate@sha256:b{64}$/mu,
+    /^sent deploy dormduri\/api@sha256:a{64} dormduri\/api-migrate@sha256:b{64} dormduri\/observability-config@sha256:d{64}$/mu,
   );
   const web = run(valid, 'Success\t1\t1\t0');
   assert.match(web.calls, /--comment web-cd 41573137218 deploy/u);
@@ -121,9 +123,18 @@ test('the API document gets the API pair parameters and an unknown document is r
     assert.equal(result.status, 2, document);
     assert.equal(result.calls, '');
   }
-  const extra = run([...valid.slice(0, 3), digest('d'), valid[3]], 'Success\t1\t1\t0', {
-    document: 'dormduri-api-deploy',
-  });
-  assert.equal(extra.status, 2, 'a digest count that differs from the document is refused');
-  assert.equal(extra.calls, '');
+  for (const args of [valid, [...apiValid.slice(0, 4), digest('e'), apiValid[4]]]) {
+    const wrong = run(args, 'Success\t1\t1\t0', { document: 'dormduri-api-deploy' });
+    assert.equal(wrong.status, 2, 'a digest count that differs from the document is refused');
+    assert.equal(wrong.calls, '');
+  }
+  const badObservability = run(
+    [...apiValid.slice(0, 3), 'sha256:short', apiValid[4]],
+    'Success\t1\t1\t0',
+    {
+      document: 'dormduri-api-deploy',
+    },
+  );
+  assert.equal(badObservability.status, 2, 'the observability config digest is checked too');
+  assert.equal(badObservability.calls, '');
 });

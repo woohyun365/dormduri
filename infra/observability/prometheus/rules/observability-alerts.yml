@@ -1,0 +1,47 @@
+# 수집·전달 경보(production-api-baseline D-AB16). scrape target이 5분 내려가 있거나, Alertmanager가 Slack에 보내지 못하거나,
+# Prometheus가 Alertmanager에 닿지 못할 때. Slack이 실패하면 이 경보도 Slack에 닿지 못하므로 Grafana·Alertmanager 화면에서 본다.
+groups:
+  - name: dormduri-observability
+    rules:
+      - alert: ApiMetricsTargetDown
+        expr: up{job="api"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: Prometheus가 API metrics를 5분 동안 읽지 못했습니다.
+          runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+
+      - alert: ObservabilityTargetDown
+        expr: up{job!="api"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: observability
+        annotations:
+          summary: 관측 구성요소 또는 host 지표 target을 5분 동안 읽지 못했습니다.
+          runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+
+      - alert: AlertmanagerNotificationsFailing
+        expr: sum(increase(alertmanager_notifications_failed_total[15m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: observability
+        annotations:
+          summary: Alertmanager가 경보를 Slack에 보내지 못했습니다.
+          runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+
+      - alert: PrometheusAlertmanagerUnreachable
+        expr: |
+          sum(increase(prometheus_notifications_errors_total[15m])) > 0
+          or
+          max(prometheus_notifications_alertmanagers_discovered) < 1
+        for: 5m
+        labels:
+          severity: warning
+          service: observability
+        annotations:
+          summary: Prometheus가 Alertmanager에 경보를 보내지 못합니다.
+          runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응

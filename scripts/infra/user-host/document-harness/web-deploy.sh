@@ -10,11 +10,12 @@ install -m 0755 /work/stubs/curl /usr/local/bin/curl
 install -m 0755 /work/stubs/docker-web /usr/local/bin/docker
 state=/opt/dormduri/state
 run() {
-  local name=$1 code current previous flag format cfrag pfrag apifrag orphans composed apisvc apivar
+  local name=$1 code current previous flag format cfrag pfrag apifrag orphans composed apisvc apivar obsvar
   shift
   : >/tmp/docker.log
   : >/tmp/services.log
   : >/tmp/apivars.log
+  : >/tmp/obsvars.log
   env "$@" bash /work/deploy.sh >/tmp/out 2>/tmp/err
   code=$?
   cat /tmp/out >>/tmp/stdout-all
@@ -38,9 +39,10 @@ run() {
   apisvc=no
   grep -Eq '^[a-z]+:(.* )?(api|migrate)( |$)' /tmp/services.log && apisvc=yes
   apivar=$(cut -c8 /tmp/apivars.log | sort -u | paste -sd, -)
-  printf 'case=%s exit=%s current=%s previous=%s flag=%s format=%s cfrag=%s pfrag=%s apifrag=%s orphans=%s composed=%s apisvc=%s apivar=%s out=%s\n' \
+  obsvar=$(cut -c1 /tmp/obsvars.log | sort -u | paste -sd, -)
+  printf 'case=%s exit=%s current=%s previous=%s flag=%s format=%s cfrag=%s pfrag=%s apifrag=%s orphans=%s composed=%s apisvc=%s apivar=%s obsvar=%s out=%s\n' \
     "${name}" "${code}" "${current}" "${previous}" "${flag}" "${format}" "${cfrag}" "${pfrag}" "${apifrag}" "${orphans}" \
-    "${composed}" "${apisvc}" "${apivar:-none}" "$(result_line /tmp/out)"
+    "${composed}" "${apisvc}" "${apivar:-none}" "${obsvar:-none}" "$(result_line /tmp/out)"
 }
 deploy() { run "$1" "${@:3}" SSM_action=deploy SSM_webDigest="$(pair "$2")" SSM_ingressDigest="${I}"; }
 rollback() { run "$1" "${@:3}" SSM_action=rollback SSM_webDigest="$(pair "$2")" SSM_ingressDigest="${I}"; }
@@ -75,8 +77,8 @@ rollback legacy-rollback 5
 # API 묶음 current가 있으면 web 배포가 그 기록의 조각을 함께 넘기되 web·ingress만 다룬다.
 install -d /opt/dormduri/releases/api/api-recorded "${state}/api"
 printf 'services: {}\n' >/opt/dormduri/releases/api/api-recorded/compose.yml
-printf 'recordFormat=2\nrelease=api-recorded\napi=%s\napi-migrate=%s\nfragment=%s\nsecretRelease=api-recorded\n' \
-  "$(pair c)" "$(pair d)" /opt/dormduri/releases/api/api-recorded/compose.yml >"${state}/api/current"
+printf 'recordFormat=2\nrelease=api-recorded\napi=%s\napi-migrate=%s\nobservability-config=%s\nfragment=%s\nsecretRelease=api-recorded\n' \
+  "$(pair c)" "$(pair d)" "$(pair e)" /opt/dormduri/releases/api/api-recorded/compose.yml >"${state}/api/current"
 deploy with-api-current 8
 # API current가 있을 때 옛 형식 web 기록으로의 rollback도 web 묶음 service만 띄우고 API 조각 변수는 그 기록 값이다.
 rollback legacy-rollback-with-api-current 5
@@ -84,4 +86,4 @@ rollback legacy-rollback-with-api-current 5
 # 같은 이름의 API transit network가 다른 subnet으로 있으면 compose 전에 멈춘다.
 printf '172.30.0.0/16' >/tmp/net
 deploy network-mismatch 9
-isolation_line 'api|migrate'
+isolation_line 'api|migrate|prometheus|loki|alloy|alertmanager|grafana'

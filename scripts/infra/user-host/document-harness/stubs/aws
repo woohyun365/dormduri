@@ -24,6 +24,9 @@ print(json.dumps({name: "fakesecretvalue-%s-%s" % (name, os.environ["GEN"]) for 
 ' /work/contract.json
         ;;
       /dormduri/production/api/migration) echo '{"MIGRATION_DATABASE_URL":"postgresql://fakesecretvalue-migration"}' ;;
+      /dormduri/production/observability)
+        echo '{"SLACK_ALERT_WEBHOOK_URL":"https://hooks.slack.invalid/fakesecretvalue-slack","GRAFANA_ADMIN_PASSWORD":"fakesecretvalue-grafana"}'
+        ;;
       *) exit 254 ;;
     esac
     ;;

@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
+import { loadImageInventory, resolveImageReference } from '../artifacts/image-inventory.mjs';
 import { buildComposeArgs, loadComposeInventory } from '../compose/profile.mjs';
 import {
   apiEnvironmentFromExamples,
@@ -131,9 +132,21 @@ if (userHost) {
   for (const problem of checkUserHostCompose(userHost)) failures.push(`user-host: ${problem}`);
 }
 if (userHostBundle) {
+  // 관측 image는 local 관측 compose(infra/observability/compose.base.yml)와 같은 pin이다(image inventory owner).
+  const images = loadImageInventory(repoRoot).images;
+  const pins = Object.fromEntries(
+    ['prometheus', 'loki', 'alloy', 'alertmanager', 'grafana'].map((name) => [
+      name,
+      resolveImageReference(
+        repoRoot,
+        images.find((image) => image.name === name),
+      ),
+    ]),
+  );
   for (const problem of checkUserHostBundleCompose(
     userHostBundle,
     apiEnvironmentFromExamples(repoRoot),
+    pins,
   )) {
     failures.push(`user-host-bundle: ${problem}`);
   }

@@ -3,6 +3,8 @@
   install <contract> <releases dir> <release id>   표준 입력의 묶음 JSON을 release 디렉터리에 key별 파일로 쓴다
   verify <contract> <bundle dir>                   기존 Node 검사(infra/deploy/scripts/verify-api-secret-bundle.sh)와 같은 판정
   extract <contract> <key> <file>                  표준 입력의 JSON object에서 key 하나만 있는지 보고 그 값을 0400 파일로 쓴다
+  observability <contract> <dir>                   표준 입력의 관측 묶음을 OBSERVABILITY_FILES의 파일로 쓴다(그 파일을 읽는
+                                                   container UID 소유 0400, compose 조각의 관측 secret mount와 같은 이름)
 
 판정 규칙은 secret-mount contract(infra/deploy/api/secret-mount.contract.json)가 소유한다: 파일 이름 = requiredFiles,
 일반 파일(symlink 아님), 크기 1..maximumFileBytes, mode는 allowedFileModes, 빈 값 아님. 설치 모양은 파일 0400, 디렉터리
@@ -17,6 +19,14 @@ import sys
 
 class BundleError(Exception):
     pass
+
+
+# 관측 secret 묶음(/dormduri/production/observability, D-AB6) key → (파일 이름, 소유 UID, GID). UID는 그 파일을 읽는 container의
+# 실행 user다(Alertmanager 65534, Grafana 472:0). scripts/infra/user-host/compose-contract.mjs가 compose 조각과 대조한다.
+OBSERVABILITY_FILES = {
+    "GRAFANA_ADMIN_PASSWORD": ("grafana-admin-password", 472, 0),
+    "SLACK_ALERT_WEBHOOK_URL": ("slack-webhook-url", 65534, 65534),
+}
 
 
 def read_contract(path):
@@ -129,6 +139,15 @@ def extract(contract, key, path):
     write_file(path, encoded_value(contract, bundle[key]), owner(contract))
 
 
+def observability(contract, directory):
+    bundle = read_object()
+    if sorted(bundle) != sorted(OBSERVABILITY_FILES):
+        raise BundleError("secret bundle keys differ from the observability keys")
+    files = {key: encoded_value(contract, bundle[key]) for key in OBSERVABILITY_FILES}
+    for key, (name, uid, gid) in OBSERVABILITY_FILES.items():
+        write_file(os.path.join(directory, name), files[key], (uid, gid) if os.geteuid() == 0 else None)
+
+
 def main(argv):
     try:
         if len(argv) == 5 and argv[1] == "install":
@@ -137,8 +156,10 @@ def main(argv):
             verify(read_contract(argv[2]), argv[3])
         elif len(argv) == 5 and argv[1] == "extract":
             extract(read_contract(argv[2]), argv[3], argv[4])
+        elif len(argv) == 4 and argv[1] == "observability":
+            observability(read_contract(argv[2]), argv[3])
         else:
-            print("usage: secret_bundle.py install|verify|extract ...", file=sys.stderr)
+            print("usage: secret_bundle.py install|verify|extract|observability ...", file=sys.stderr)
             return 64
     except BundleError as error:
         print(str(error), file=sys.stderr)

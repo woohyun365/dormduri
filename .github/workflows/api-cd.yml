@@ -1,16 +1,18 @@
 name: API CD
 
 # API 단계 배포(infra/runbooks/release/api-stage-deploy.md). main에서 API 배포 입력이 바뀌면 API·migrate image 둘을 같은
-# Dockerfile에서 build·검사·push하고, production-api 승인 뒤 provenance를 만들어 검증한 다음 SSM document로 host에 배포한다
-# (host가 secret을 꺼내고 migrate·grant·role smoke·outbox 확인 뒤 rollout한다. 이 workflow는 secret과 DB에 닿지 않는다).
+# Dockerfile에서, 관측 설정 image를 infra/observability/Dockerfile에서 build·검사·push하고, production-api 승인 뒤 provenance를
+# 만들어 검증한 다음 SSM document로 host에 배포한다(host가 secret을 꺼내고 migrate·grant·role smoke·outbox 확인 뒤 rollout하고,
+# 관측 설정을 펼쳐 관측 stack을 다시 띄운다. 이 workflow는 secret과 DB에 닿지 않는다).
 # workflow_dispatch는 기록된 묶음의 재배포·rollback·API 내림(maintenance)용이다. 공개 저장소라 account ID·registry host·ARN·
 # node ID·IP를 log와 기록에 남기지 않는다(D-WB7). 신뢰 구조는 web-cd.yml과 같다(production-api-baseline D-AB12).
 on:
   push:
     branches: [main]
-    # API·migrate image가 복사하는 입력, API 묶음 조각·document 원본, 두 document가 같이 담는 lib.sh와 이 workflow.
-    # scripts/infra/user-host/api-cd-contract.test.mjs가 Dockerfile COPY·.dockerignore·document 원본과 맞는지 고정한다.
-    # eslint-config는 package.json만 install 입력이다(lint 설정 파일은 image에 들지 않는다).
+    # API·migrate image가 복사하는 입력, 관측 설정 image가 복사하는 입력(infra/observability/Dockerfile COPY), API 묶음 조각·
+    # document 원본, 두 document가 같이 담는 lib.sh와 이 workflow. scripts/infra/user-host/api-cd-contract.test.mjs가 두
+    # Dockerfile COPY·.dockerignore·document 원본과 맞는지 고정한다. eslint-config는 package.json만 install 입력이고, local 관측
+    # 파일(compose·예시·README)은 설정 image에 들지 않는다.
     paths:
       - apps/api/**
       - packages/database/**
@@ -25,6 +27,17 @@ on:
       - infra/db/**
       - infra/deploy/user/api/**
       - infra/deploy/user/ssm/lib.sh
+      - infra/observability/Dockerfile
+      - infra/observability/alloy/config.alloy
+      - infra/observability/alloy/pipeline.alloy
+      - infra/observability/loki/loki.yml
+      - infra/observability/loki/rules/**
+      - infra/observability/prometheus/prometheus.production.yml
+      - infra/observability/prometheus/rules/**
+      - infra/observability/alertmanager/alertmanager.production.yml
+      - infra/observability/alertmanager/templates/**
+      - infra/observability/grafana/provisioning/**
+      - infra/observability/grafana/dashboards/**
       - .github/workflows/api-cd.yml
   workflow_dispatch:
     inputs:
@@ -39,6 +52,10 @@ on:
         type: string
       api_migrate_digest:
         description: dormduri/api-migrate image digest (sha256:...)
+        required: true
+        type: string
+      observability_config_digest:
+        description: dormduri/observability-config image digest (sha256:...)
         required: true
         type: string
 
@@ -66,7 +83,7 @@ defaults:
 
 jobs:
   build:
-    name: Build, scan and push the API image pair
+    name: Build, scan and push the API bundle images
     if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 60
@@ -76,6 +93,7 @@ jobs:
     outputs:
       api_digest: ${{ steps.push.outputs.api_digest }}
       api_migrate_digest: ${{ steps.push.outputs.api_migrate_digest }}
+      observability_config_digest: ${{ steps.push.outputs.observability_config_digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -87,9 +105,10 @@ jobs:
         with:
           node-version: '26'
 
-      # 같은 commit·builder에서 runtime·migrate target을 build한다. SBOM은 image index의 attestation manifest로만 남긴다(ECR
-      # 비공개, workflow artifact 없음). provenance는 승인 뒤 deploy job이 GitHub artifact attestation으로 만든다.
-      - name: Build both images as OCI layouts with an SBOM
+      # 같은 commit·builder에서 runtime·migrate target과 관측 설정 image(FROM scratch, build context infra/observability)를
+      # build한다. SBOM은 image index의 attestation manifest로만 남긴다(ECR 비공개, workflow artifact 없음). provenance는 승인 뒤
+      # deploy job이 GitHub artifact attestation으로 만든다.
+      - name: Build the three images as OCI layouts with an SBOM
         run: |
           docker buildx create --name api-cd --driver docker-container --driver-opt "image=$BUILDKIT_IMAGE" --use
           docker buildx build --builder api-cd --platform linux/amd64 \
@@ -100,9 +119,15 @@ jobs:
             --attest "type=sbom,generator=$SBOM_SCANNER_IMAGE" --provenance=false \
             --file infra/deploy/api/Dockerfile --target migrate \
             --output "type=oci,dest=$RUNNER_TEMP/api-migrate.oci,tar=false" .
+          docker buildx build --builder api-cd --platform linux/amd64 \
+            --attest "type=sbom,generator=$SBOM_SCANNER_IMAGE" --provenance=false \
+            --file infra/observability/Dockerfile \
+            --output "type=oci,dest=$RUNNER_TEMP/observability-config.oci,tar=false" infra/observability
 
       - name: Scan the image filesystems before push
-        run: node scripts/infra/user-host/image-secret-scan.mjs "$RUNNER_TEMP/api.oci" "$RUNNER_TEMP/api-migrate.oci"
+        run: |
+          node scripts/infra/user-host/image-secret-scan.mjs "$RUNNER_TEMP/api.oci" "$RUNNER_TEMP/api-migrate.oci" \
+            "$RUNNER_TEMP/observability-config.oci"
 
       # configure-aws-credentials는 assume한 role의 unique ID(AROA…)를 끌 수 없게 찍는다. 그 ID의 AROA 뒤 9자는 첫 bit,
       # account ID와 다음 임의 4bit로 정해진다. action이 찍기 전에 ARN secret의 account ID로 후보 32개를 만들어 가린다.
@@ -149,7 +174,7 @@ jobs:
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
         run: |
-          for name in api api-migrate; do
+          for name in api api-migrate observability-config; do
             skopeo copy --quiet --all --preserve-digests \
               "oci:$RUNNER_TEMP/$name.oci" "docker://$REGISTRY/dormduri/$name:sha-$GITHUB_SHA"
             digest=$(jq -r '.manifests[0].digest' "$RUNNER_TEMP/$name.oci/index.json")
@@ -174,11 +199,14 @@ jobs:
       action: ${{ steps.request.outputs.action }}
       api_digest: ${{ steps.request.outputs.api_digest }}
       api_migrate_digest: ${{ steps.request.outputs.api_migrate_digest }}
+      observability_config_digest: ${{ steps.request.outputs.observability_config_digest }}
       source_commit: ${{ steps.provenance.outputs.source_commit }}
       api_sbom: ${{ steps.sbom.outputs.api_sbom }}
       api_migrate_sbom: ${{ steps.sbom.outputs.api_migrate_sbom }}
+      observability_config_sbom: ${{ steps.sbom.outputs.observability_config_sbom }}
       previous_safe_api: ${{ steps.plan.outputs.previous_safe_api }}
       previous_safe_api_migrate: ${{ steps.plan.outputs.previous_safe_api_migrate }}
+      previous_safe_observability_config: ${{ steps.plan.outputs.previous_safe_observability_config }}
       smoke: ${{ steps.smoke.outputs.summary }}
       image_tag: ${{ steps.tags.outputs.image_tag }}
       git_tag: ${{ steps.tags.outputs.git_tag }}
@@ -201,24 +229,27 @@ jobs:
           INPUT_ACTION: ${{ inputs.action }}
           INPUT_API: ${{ inputs.api_digest }}
           INPUT_API_MIGRATE: ${{ inputs.api_migrate_digest }}
+          INPUT_OBSERVABILITY_CONFIG: ${{ inputs.observability_config_digest }}
           BUILT_API: ${{ needs.build.outputs.api_digest }}
           BUILT_API_MIGRATE: ${{ needs.build.outputs.api_migrate_digest }}
+          BUILT_OBSERVABILITY_CONFIG: ${{ needs.build.outputs.observability_config_digest }}
         run: |
           if [ "$EVENT" = push ]; then
-            action=deploy; api=$BUILT_API; migrate=$BUILT_API_MIGRATE
+            action=deploy; api=$BUILT_API; migrate=$BUILT_API_MIGRATE; obs=$BUILT_OBSERVABILITY_CONFIG
           else
-            action=$INPUT_ACTION; api=$INPUT_API; migrate=$INPUT_API_MIGRATE
+            action=$INPUT_ACTION; api=$INPUT_API; migrate=$INPUT_API_MIGRATE; obs=$INPUT_OBSERVABILITY_CONFIG
           fi
           case "$action" in deploy|rollback|maintenance) ;; *) echo "unknown action"; exit 1 ;; esac
-          for digest in "$api" "$migrate"; do
+          for digest in "$api" "$migrate" "$obs"; do
             [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "a digest is not sha256:<64 hex>"; exit 1; }
           done
           {
             echo "action=$action"
             echo "api_digest=$api"
             echo "api_migrate_digest=$migrate"
+            echo "observability_config_digest=$obs"
           } >> "$GITHUB_OUTPUT"
-          echo "$action dormduri/api@$api dormduri/api-migrate@$migrate"
+          echo "$action dormduri/api@$api dormduri/api-migrate@$migrate dormduri/observability-config@$obs"
 
       # 승인 대기 중 main의 API 배포 입력이 바뀌었으면 이 실행은 옛 묶음이다(runbook 대기 실행 규칙). main은 merge commit만
       # 받으므로 history가 아니라 배포 입력 tree를 비교한다.
@@ -244,6 +275,15 @@ jobs:
         with:
           subject-name: dormduri/api-migrate
           subject-digest: ${{ needs.build.outputs.api_migrate_digest }}
+          push-to-registry: false
+          show-summary: false
+
+      - name: Attest the observability config image
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: dormduri/observability-config
+          subject-digest: ${{ needs.build.outputs.observability_config_digest }}
           push-to-registry: false
           show-summary: false
 
@@ -281,9 +321,9 @@ jobs:
         with:
           mask-password: 'true'
 
-      # 두 digest가 main의 이 workflow가 만든 attestation을 갖는지 본다. push는 이 실행 commit이어야 하고, dispatch는 두
+      # 세 digest가 main의 이 workflow가 만든 attestation을 갖는지 본다. push는 이 실행 commit이어야 하고, dispatch는 세
       # source commit이 같고 그 commit의 API 배포 기록 묶음이 입력과 같아야 한다.
-      - name: Verify the provenance of both images
+      - name: Verify the provenance of the three images
         id: provenance
         env:
           GH_TOKEN: ${{ github.token }}
@@ -291,11 +331,13 @@ jobs:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
           API: ${{ steps.request.outputs.api_digest }}
           API_MIGRATE: ${{ steps.request.outputs.api_migrate_digest }}
+          OBSERVABILITY_CONFIG: ${{ steps.request.outputs.observability_config_digest }}
         run: |
           source_digest=()
           if [ "$EVENT" = push ]; then source_digest=(--source-digest "$GITHUB_SHA"); fi
-          for name in api api-migrate; do
-            digest=$API; [ "$name" = api-migrate ] && digest=$API_MIGRATE
+          declare -A digests=([api]=$API [api-migrate]=$API_MIGRATE [observability-config]=$OBSERVABILITY_CONFIG)
+          for name in api api-migrate observability-config; do
+            digest=${digests[$name]}
             gh attestation verify "oci://$REGISTRY/dormduri/$name@$digest" \
               --repo "$GITHUB_REPOSITORY" \
               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/api-cd.yml" \
@@ -309,22 +351,27 @@ jobs:
           done
           source=$(cat "$RUNNER_TEMP/api.source")
           [[ "$source" =~ ^[a-f0-9]{40}$ ]] || { echo "the attested source commit is malformed"; exit 1; }
-          [ "$source" = "$(cat "$RUNNER_TEMP/api-migrate.source")" ] || { echo "the two images come from different commits"; exit 1; }
+          for name in api-migrate observability-config; do
+            [ "$source" = "$(cat "$RUNNER_TEMP/$name.source")" ] || { echo "the images come from different commits"; exit 1; }
+          done
           if [ "$EVENT" = workflow_dispatch ]; then
-            node scripts/infra/user-host/release-record.mjs match --stage=api --source="$source" --api="$API" --api-migrate="$API_MIGRATE"
+            node scripts/infra/user-host/release-record.mjs match --stage=api --source="$source" --api="$API" --api-migrate="$API_MIGRATE" \
+              --observability-config="$OBSERVABILITY_CONFIG"
           fi
           echo "source_commit=$source" >> "$GITHUB_OUTPUT"
           echo "provenance verified: source $source"
 
       # SBOM은 build가 image index에 붙인 attestation manifest다(D-WB3). 그 manifest가 SPDX layer를 갖는지 본다.
-      - name: Confirm the SBOM attestation of both images
+      - name: Confirm the SBOM attestation of the three images
         id: sbom
         env:
           API: ${{ steps.request.outputs.api_digest }}
           API_MIGRATE: ${{ steps.request.outputs.api_migrate_digest }}
+          OBSERVABILITY_CONFIG: ${{ steps.request.outputs.observability_config_digest }}
         run: |
-          for name in api api-migrate; do
-            digest=$API; [ "$name" = api-migrate ] && digest=$API_MIGRATE
+          declare -A digests=([api]=$API [api-migrate]=$API_MIGRATE [observability-config]=$OBSERVABILITY_CONFIG)
+          for name in api api-migrate observability-config; do
+            digest=${digests[$name]}
             aws ecr batch-get-image --repository-name "dormduri/$name" --image-ids imageDigest="$digest" \
               --accepted-media-types application/vnd.oci.image.index.v1+json \
               --query 'images[0].imageManifest' --output text > "$RUNNER_TEMP/$name.index.json"
@@ -345,7 +392,10 @@ jobs:
           ACTION: ${{ steps.request.outputs.action }}
           API: ${{ steps.request.outputs.api_digest }}
           API_MIGRATE: ${{ steps.request.outputs.api_migrate_digest }}
-        run: node scripts/infra/user-host/release-record.mjs plan --stage=api --action="$ACTION" --api="$API" --api-migrate="$API_MIGRATE" >> "$GITHUB_OUTPUT"
+          OBSERVABILITY_CONFIG: ${{ steps.request.outputs.observability_config_digest }}
+        run: |
+          node scripts/infra/user-host/release-record.mjs plan --stage=api --action="$ACTION" --api="$API" --api-migrate="$API_MIGRATE" \
+            --observability-config="$OBSERVABILITY_CONFIG" >> "$GITHUB_OUTPUT"
 
       # document는 Owner가 저장소 생성본으로 console에서 만든다. 다르면 host에 아무것도 보내지 않는다.
       - name: Check the deploy document hash
@@ -361,15 +411,17 @@ jobs:
           echo "document hash matches ($expected)"
 
       # host가 secret 꺼내기 → migrate·grant·role smoke·auth mail outbox 확인 → 옛 API 정지 뒤 새 API 시작 → readiness·host 안
-      # smoke를 한다. rollout 전 실패면 rollout하지 않는다(document 원본 infra/deploy/user/api/ssm/deploy-api.sh).
+      # smoke → 관측 설정 펼침·관측 stack 다시 띄움을 한다. rollout 전 실패면 rollout하지 않고, 관측 단계 실패는 API 결과를 바꾸지
+      # 않는다(fail-open, document 원본 infra/deploy/user/api/ssm/deploy-api.sh).
       - name: Send the deploy command and wait for its command-level status
         id: send
         env:
           ACTION: ${{ steps.request.outputs.action }}
           API: ${{ steps.request.outputs.api_digest }}
           API_MIGRATE: ${{ steps.request.outputs.api_migrate_digest }}
+          OBSERVABILITY_CONFIG: ${{ steps.request.outputs.observability_config_digest }}
           HASH: ${{ steps.document.outputs.hash }}
-        run: bash scripts/infra/user-host/ssm-send.sh "$ACTION" "$API" "$API_MIGRATE" "$HASH"
+        run: bash scripts/infra/user-host/ssm-send.sh "$ACTION" "$API" "$API_MIGRATE" "$OBSERVABILITY_CONFIG" "$HASH"
 
       # 공개 API 주소가 없으므로(D-AB1) API를 내린 maintenance에서도 공개 경로는 serving과 같다(`/privacy`·`/terms`는 Web
       # fallback, `/api/**`는 JSON '준비 중').
@@ -388,18 +440,20 @@ jobs:
         env:
           ROLLBACK_API: ${{ steps.plan.outputs.rollback_api }}
           ROLLBACK_API_MIGRATE: ${{ steps.plan.outputs.rollback_api_migrate }}
+          ROLLBACK_OBSERVABILITY_CONFIG: ${{ steps.plan.outputs.rollback_observability_config }}
           API: ${{ steps.request.outputs.api_digest }}
           API_MIGRATE: ${{ steps.request.outputs.api_migrate_digest }}
+          OBSERVABILITY_CONFIG: ${{ steps.request.outputs.observability_config_digest }}
           HASH: ${{ steps.document.outputs.hash }}
         run: |
           if [ -n "$ROLLBACK_API" ]; then
-            if bash scripts/infra/user-host/ssm-send.sh rollback "$ROLLBACK_API" "$ROLLBACK_API_MIGRATE" "$HASH"; then
-              echo "recovered: rolled back to the previous API pair" >> "$GITHUB_STEP_SUMMARY"
+            if bash scripts/infra/user-host/ssm-send.sh rollback "$ROLLBACK_API" "$ROLLBACK_API_MIGRATE" "$ROLLBACK_OBSERVABILITY_CONFIG" "$HASH"; then
+              echo "recovered: rolled back to the previous API bundle" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             echo "the rollback was not applied; taking the API down instead"
           fi
-          bash scripts/infra/user-host/ssm-send.sh maintenance "$API" "$API_MIGRATE" "$HASH"
+          bash scripts/infra/user-host/ssm-send.sh maintenance "$API" "$API_MIGRATE" "$OBSERVABILITY_CONFIG" "$HASH"
           echo "recovered: entered maintenance (API down)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail when the external smoke failed
@@ -419,6 +473,7 @@ jobs:
           ACTION: ${{ steps.request.outputs.action }}
           API: ${{ steps.request.outputs.api_digest }}
           API_MIGRATE: ${{ steps.request.outputs.api_migrate_digest }}
+          OBSERVABILITY_CONFIG: ${{ steps.request.outputs.observability_config_digest }}
           FRESH: ${{ steps.fresh.outcome }}
           PROVENANCE: ${{ steps.provenance.outcome }}
           SBOM: ${{ steps.sbom.outcome }}
@@ -431,7 +486,7 @@ jobs:
           {
             echo "## API CD stopped"
             echo ""
-            echo "- action: ${ACTION:-unresolved}, pair: dormduri/api@${API:-none} dormduri/api-migrate@${API_MIGRATE:-none}"
+            echo "- action: ${ACTION:-unresolved}, bundle: dormduri/api@${API:-none} dormduri/api-migrate@${API_MIGRATE:-none} dormduri/observability-config@${OBSERVABILITY_CONFIG:-none}"
             echo "- newer change check: ${FRESH:-not run}, provenance: ${PROVENANCE:-not run}, SBOM: ${SBOM:-not run}"
             echo "- deploy records: ${PLAN:-not run}, document hash: ${DOCUMENT:-not run}"
             echo "- host command: ${SEND:-not run}, external smoke: ${SMOKE:-not run}"
@@ -440,10 +495,12 @@ jobs:
             echo "Read the host result (RESULT line) in the console before the next run. Input or state refusal (exit 2) and host"
             echo "lock (exit 75) leave the host as it was. A migrate step failure keeps the running API (no rollout) and may have"
             echo "applied part of the migration; read _prisma_migrations before the next deploy (runbook)."
+            echo "A host command that ends without a RESULT line (TimedOut, Cancelled) leaves the host state unknown: read the"
+            echo "host current record and the running api digest before the next run (runbook failure response)."
           } >> "$GITHUB_STEP_SUMMARY"
 
   tag:
-    name: Tag the deployed pair in the registry
+    name: Tag the deployed bundle in the registry
     needs: deploy
     # build를 건너뛴 dispatch에서도 돌도록 !cancelled()를 둔다(없으면 건너뛴 조상 job 때문에 함께 건너뛴다).
     if: ${{ !cancelled() && needs.deploy.result == 'success' && needs.deploy.outputs.action != 'maintenance' }}
@@ -477,14 +534,16 @@ jobs:
           mask-aws-account-id: true
 
       # 배포한 묶음에 deploy- tag를 더해 ECR lifecycle의 최근 배포 보존 규칙에 넣는다. 출력에는 registry 정보를 찍지 않는다.
-      - name: Add the deploy tag to both digests
+      - name: Add the deploy tag to the three digests
         env:
           IMAGE_TAG: ${{ needs.deploy.outputs.image_tag }}
           API: ${{ needs.deploy.outputs.api_digest }}
           API_MIGRATE: ${{ needs.deploy.outputs.api_migrate_digest }}
+          OBSERVABILITY_CONFIG: ${{ needs.deploy.outputs.observability_config_digest }}
         run: |
-          for name in api api-migrate; do
-            digest=$API; [ "$name" = api-migrate ] && digest=$API_MIGRATE
+          declare -A digests=([api]=$API [api-migrate]=$API_MIGRATE [observability-config]=$OBSERVABILITY_CONFIG)
+          for name in api api-migrate observability-config; do
+            digest=${digests[$name]}
             # 다시 실행한 job이 이미 붙인 tag에서 멈추지 않게, 같은 digest에 같은 tag가 있으면 건너뛴다(tag immutability).
             existing=$(aws ecr batch-get-image --repository-name "dormduri/$name" --image-ids imageTag="$IMAGE_TAG" \
               --accepted-media-types application/vnd.oci.image.index.v1+json \
@@ -535,8 +594,11 @@ jobs:
           API_MIGRATE: ${{ needs.deploy.outputs.api_migrate_digest }}
           API_SBOM: ${{ needs.deploy.outputs.api_sbom }}
           API_MIGRATE_SBOM: ${{ needs.deploy.outputs.api_migrate_sbom }}
+          OBSERVABILITY_CONFIG: ${{ needs.deploy.outputs.observability_config_digest }}
+          OBSERVABILITY_CONFIG_SBOM: ${{ needs.deploy.outputs.observability_config_sbom }}
           PREVIOUS_API: ${{ needs.deploy.outputs.previous_safe_api }}
           PREVIOUS_API_MIGRATE: ${{ needs.deploy.outputs.previous_safe_api_migrate }}
+          PREVIOUS_OBSERVABILITY_CONFIG: ${{ needs.deploy.outputs.previous_safe_observability_config }}
           SOURCE: ${{ needs.deploy.outputs.source_commit }}
           SMOKE: ${{ needs.deploy.outputs.smoke }}
           GIT_TAG: ${{ needs.deploy.outputs.git_tag }}
@@ -545,9 +607,11 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           node scripts/infra/user-host/release-record.mjs record --stage=api --action="$ACTION" --release-id="$GIT_TAG" \
-            --source="$SOURCE" --api="$API" --api-migrate="$API_MIGRATE" --api-sbom="$API_SBOM" \
-            --api-migrate-sbom="$API_MIGRATE_SBOM" --event="$EVENT" --run-url="$RUN_URL" --smoke="$SMOKE" \
-            --previous-api="$PREVIOUS_API" --previous-api-migrate="$PREVIOUS_API_MIGRATE" --operator="$OPERATOR" \
+            --source="$SOURCE" --api="$API" --api-migrate="$API_MIGRATE" --observability-config="$OBSERVABILITY_CONFIG" \
+            --api-sbom="$API_SBOM" --api-migrate-sbom="$API_MIGRATE_SBOM" --observability-config-sbom="$OBSERVABILITY_CONFIG_SBOM" \
+            --event="$EVENT" --run-url="$RUN_URL" --smoke="$SMOKE" --previous-api="$PREVIOUS_API" \
+            --previous-api-migrate="$PREVIOUS_API_MIGRATE" --previous-observability-config="$PREVIOUS_OBSERVABILITY_CONFIG" \
+            --operator="$OPERATOR" \
             > "$RUNNER_TEMP/record.md"
           node scripts/infra/user-host/public-record-scan.mjs "$RUNNER_TEMP/record.md"
           cat "$RUNNER_TEMP/record.md" >> "$GITHUB_STEP_SUMMARY"

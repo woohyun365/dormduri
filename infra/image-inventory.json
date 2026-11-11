@@ -1,7 +1,7 @@
 {
   "version": 2,
   "updatedAt": "2026-11-11",
-  "policy": "External images are pinned in their owner file with a readable exact tag and an immutable digest; Renovate updates that file, and readers resolve the reference from it. Internal stage images are built and pushed with the tag sha-<source commit> by their CD workflow: dormduri/web and dormduri/ingress by .github/workflows/web-cd.yml, dormduri/api and dormduri/api-migrate by .github/workflows/api-cd.yml. Each deploy Release records the digest pair of its stage.",
+  "policy": "External images are pinned in their owner file with a readable exact tag and an immutable digest; Renovate updates that file, and readers resolve the reference from it. Internal stage images are built and pushed with the tag sha-<source commit> by their CD workflow: dormduri/web and dormduri/ingress by .github/workflows/web-cd.yml, dormduri/api, dormduri/api-migrate and the observability config image dormduri/observability-config by .github/workflows/api-cd.yml. Each deploy Release records the image digests of its stage.",
   "images": [
     {
       "name": "api-build-node",
@@ -90,6 +90,36 @@
     {
       "name": "grafana",
       "ownerPath": "infra/observability/compose.base.yml",
+      "repository": "grafana/grafana",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "user-host-prometheus",
+      "ownerPath": "infra/deploy/user/api/compose.yml",
+      "repository": "prom/prometheus",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "user-host-loki",
+      "ownerPath": "infra/deploy/user/api/compose.yml",
+      "repository": "grafana/loki",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "user-host-alloy",
+      "ownerPath": "infra/deploy/user/api/compose.yml",
+      "repository": "grafana/alloy",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "user-host-alertmanager",
+      "ownerPath": "infra/deploy/user/api/compose.yml",
+      "repository": "prom/alertmanager",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "user-host-grafana",
+      "ownerPath": "infra/deploy/user/api/compose.yml",
       "repository": "grafana/grafana",
       "updateOwner": "renovate"
     },

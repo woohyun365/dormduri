@@ -151,19 +151,35 @@ test('every assumed role ID is masked by the web-cd mask script before the actio
   assert.doesNotMatch(workflow, /secrets\.(?!AWS_API_(?:PUBLISH|DEPLOY)_ROLE_ARN\b)/u);
 });
 
-test('the build job builds both targets of the API Dockerfile with a pinned SBOM generator and scans them before push', () => {
+// image마다 build 명령(Dockerfile·target·build context)과 OCI layout 이름. 관측 설정 image는 FROM scratch 한 stage다(D-AB14).
+const BUILDS = [
+  { name: 'api', file: 'infra/deploy/api/Dockerfile', target: 'runtime', context: '.' },
+  { name: 'api-migrate', file: 'infra/deploy/api/Dockerfile', target: 'migrate', context: '.' },
+  {
+    name: 'observability-config',
+    file: 'infra/observability/Dockerfile',
+    target: undefined,
+    context: 'infra/observability',
+  },
+];
+const loopOf = (names) => new RegExp(`for name in ${names.join(' ')}; do`, 'u');
+
+test('the build job builds the API bundle images with a pinned SBOM generator and scans them before push', () => {
+  assert.deepEqual(
+    BUILDS.map(({ name }) => name),
+    [...IMAGES],
+  );
   const list = steps(JOBS.build);
   const build = list[stepIndex(list, /docker buildx build/u)].body;
   const commands = build.split('docker buildx build').slice(1);
   assert.deepEqual(
     commands.map((command) => [
+      /--file (\S+)/u.exec(command)?.[1],
       /--target (\S+)/u.exec(command)?.[1],
       /dest=\$RUNNER_TEMP\/([a-z-]+)\.oci/u.exec(command)?.[1],
+      /,tar=false" (\S+)\n/u.exec(command)?.[1],
     ]),
-    [
-      ['runtime', 'api'],
-      ['migrate', 'api-migrate'],
-    ],
+    BUILDS.map(({ name, file, target, context }) => [file, target, name, context]),
   );
   for (const command of commands) {
     for (const flag of [
@@ -171,28 +187,35 @@ test('the build job builds both targets of the API Dockerfile with a pinned SBOM
       '--platform linux/amd64',
       '--attest "type=sbom,generator=$SBOM_SCANNER_IMAGE"',
       '--provenance=false',
-      '--file infra/deploy/api/Dockerfile',
     ])
       assert.ok(command.includes(flag), flag);
-    assert.match(command, /,tar=false" \.\n/u, 'the build context is the repository root');
   }
+  assert.match(read('infra/observability/Dockerfile'), /^FROM scratch$/mu);
+  assert.equal(
+    (read('infra/observability/Dockerfile').match(/^FROM /gmu) ?? []).length,
+    1,
+    'the config image carries files only',
+  );
   assert.match(build, /--driver-opt "image=\$BUILDKIT_IMAGE"/u);
   assert.doesNotMatch(build, /--sbom=|--build-arg|secret/u);
   const scan = stepIndex(list, /image-secret-scan\.mjs/u);
-  assert.match(
-    list[scan].body,
-    /image-secret-scan\.mjs "\$RUNNER_TEMP\/api\.oci" "\$RUNNER_TEMP\/api-migrate\.oci"/u,
+  assert.deepEqual(
+    [...list[scan].body.matchAll(/"\$RUNNER_TEMP\/([a-z-]+)\.oci"/gu)].map((match) => match[1]),
+    [...IMAGES],
+    'every pushed layout is scanned',
   );
   const push = stepIndex(list, /skopeo copy/u);
   const assume = stepIndex(list, /configure-aws-credentials@/u);
   assert.ok(stepIndex(list, /docker buildx build/u) < scan && scan < assume && assume < push);
-  assert.match(list[push].body, /for name in api api-migrate; do/u);
+  assert.match(list[push].body, loopOf(IMAGES));
   assert.match(list[push].body, /echo "\$\{name\/\/-\/_\}_digest=\$digest" >> "\$GITHUB_OUTPUT"/u);
-  assert.match(JOBS.build, /^ {6}api_digest: \$\{\{ steps\.push\.outputs\.api_digest \}\}$/mu);
-  assert.match(
-    JOBS.build,
-    /^ {6}api_migrate_digest: \$\{\{ steps\.push\.outputs\.api_migrate_digest \}\}$/mu,
-  );
+  for (const name of IMAGES) {
+    const key = `${name.replaceAll('-', '_')}_digest`;
+    assert.ok(
+      JOBS.build.includes(`      ${key}: \${{ steps.push.outputs.${key} }}\n`),
+      `build output ${key}`,
+    );
+  }
 });
 
 test('the build tools are the inventory pins web-cd uses', async () => {
@@ -250,10 +273,14 @@ test('provenance, SBOM, deploy records and the document hash are checked before 
   assert.match(body, /--source-ref refs\/heads\/main/u);
   assert.match(body, /--deny-self-hosted-runners/u);
   assert.match(body, /--source-digest "\$GITHUB_SHA"/u, 'a push run deploys only its own commit');
-  assert.match(body, /for name in api api-migrate; do/u);
+  assert.match(body, loopOf(IMAGES));
   assert.match(
     body,
-    /release-record\.mjs match --stage=api --source="\$source" --api="\$API" --api-migrate="\$API_MIGRATE"/u,
+    /release-record\.mjs match --stage=api --source="\$source" --api="\$API" --api-migrate="\$API_MIGRATE" \\\n\s+--observability-config="\$OBSERVABILITY_CONFIG"/u,
+  );
+  assert.match(
+    body,
+    /for name in api-migrate observability-config; do\n[^\n]*\$RUNNER_TEMP\/\$name\.source/u,
   );
   for (const [label, pattern] of [
     ['the newer change check', /deploy-inputs-current\.sh "\$GITHUB_SHA" origin\/main api$/mu],
@@ -301,12 +328,13 @@ test('every record helper call names the API stage and every deploy output it re
       );
 });
 
-test('the host command carries only the action and the API pair under the document parameter names', () => {
+test('the host command carries only the action and the API bundle digests under the document parameter names', () => {
   const document = JSON.parse(read(API_DOCUMENT_PATH));
   assert.deepEqual(Object.keys(document.parameters).sort(), [
     'action',
     'apiDigest',
     'apiMigrateDigest',
+    'observabilityConfigDigest',
   ]);
   // ssm-send의 API document 분기가 보내는 이름이 document parameter와 같다(동작은 ssm-send.test.mjs가 본다).
   const sender = read('scripts/infra/user-host/ssm-send.sh');
@@ -315,19 +343,26 @@ test('the host command carries only the action and the API pair under the docume
   const list = (name) =>
     new RegExp(`${name}=\\(([^)]*)\\)`, 'u').exec(branch)?.[1].trim().split(/\s+/u);
   assert.match(branch, /\bworkflow=api-cd\b/u);
-  assert.deepEqual(list('images'), ['api', 'api-migrate']);
+  assert.deepEqual(list('images'), [...IMAGES]);
   assert.deepEqual(
     list('names'),
     Object.keys(document.parameters).filter((name) => name !== 'action'),
   );
   const sends = [
-    ...workflow.matchAll(/ssm-send\.sh ([^\s;]+) ([^\s;]+) ([^\s;]+) ([^\s;]+)/gu),
+    ...workflow.matchAll(/ssm-send\.sh ([^\s;]+) ([^\s;]+) ([^\s;]+) ([^\s;]+) ([^\s;]+)/gu),
   ].map((m) => m.slice(1));
   assert.deepEqual(sends, [
-    ['"$ACTION"', '"$API"', '"$API_MIGRATE"', '"$HASH"'],
-    ['rollback', '"$ROLLBACK_API"', '"$ROLLBACK_API_MIGRATE"', '"$HASH"'],
-    ['maintenance', '"$API"', '"$API_MIGRATE"', '"$HASH"'],
+    ['"$ACTION"', '"$API"', '"$API_MIGRATE"', '"$OBSERVABILITY_CONFIG"', '"$HASH"'],
+    [
+      'rollback',
+      '"$ROLLBACK_API"',
+      '"$ROLLBACK_API_MIGRATE"',
+      '"$ROLLBACK_OBSERVABILITY_CONFIG"',
+      '"$HASH"',
+    ],
+    ['maintenance', '"$API"', '"$API_MIGRATE"', '"$OBSERVABILITY_CONFIG"', '"$HASH"'],
   ]);
+  assert.equal((workflow.match(/ssm-send\.sh /gu) ?? []).length, sends.length);
 });
 
 test('no workflow artifact is uploaded, no per-node SSM invocation is read and dispatch inputs reach shells only through env', () => {
@@ -337,8 +372,8 @@ test('no workflow artifact is uploaded, no per-node SSM invocation is read and d
     const run = /^ {8}run: ([\s\S]*)$/mu.exec(body)?.[1] ?? '';
     assert.doesNotMatch(run, /\$\{\{\s*(?:inputs|github\.event)\./u, name);
   }
-  assert.match(workflow, /^ {6}api_digest:\n/mu);
-  assert.match(workflow, /^ {6}api_migrate_digest:\n/mu);
+  for (const name of IMAGES)
+    assert.match(workflow, new RegExp(`^ {6}${name.replaceAll('-', '_')}_digest:\\n`, 'mu'));
 });
 
 test('the external smoke checks the public paths that stay the same with or without the API', () => {
@@ -356,7 +391,7 @@ function runRecover(script, { rollbackApi, codes }) {
     mkdirSync(join(root, 'scripts/infra/user-host'), { recursive: true });
     writeFileSync(
       join(root, 'scripts/infra/user-host/ssm-send.sh'),
-      `echo "$1 $2 $3 $4" >> "$CALLS"\ncase "$1" in rollback) exit ${codes.rollback ?? 0} ;; maintenance) exit ${codes.maintenance ?? 0} ;; esac\nexit 9\n`,
+      `echo "$1 $2 $3 $4 $5" >> "$CALLS"\ncase "$1" in rollback) exit ${codes.rollback ?? 0} ;; maintenance) exit ${codes.maintenance ?? 0} ;; esac\nexit 9\n`,
     );
     const env = {
       PATH: process.env.PATH,
@@ -364,8 +399,10 @@ function runRecover(script, { rollbackApi, codes }) {
       GITHUB_STEP_SUMMARY: join(root, 'summary'),
       ROLLBACK_API: rollbackApi,
       ROLLBACK_API_MIGRATE: rollbackApi ? 'sha256:previous-migrate' : '',
+      ROLLBACK_OBSERVABILITY_CONFIG: rollbackApi ? 'sha256:previous-config' : '',
       API: 'sha256:new-api',
       API_MIGRATE: 'sha256:new-migrate',
+      OBSERVABILITY_CONFIG: 'sha256:new-config',
       HASH: 'document-hash',
     };
     const result = spawnSync('bash', ['-eo', 'pipefail', '-c', script], {
@@ -415,8 +452,10 @@ test('a failed external smoke of a deploy rolls back to the previous API pair or
   assert.match(last.body, /_prisma_migrations/u, 'a migrate failure may leave a partial migration');
 
   const script = runScript(recover.body);
-  const rollback = 'rollback sha256:previous-api sha256:previous-migrate document-hash';
-  const maintenance = 'maintenance sha256:new-api sha256:new-migrate document-hash';
+  const rollback =
+    'rollback sha256:previous-api sha256:previous-migrate sha256:previous-config document-hash';
+  const maintenance =
+    'maintenance sha256:new-api sha256:new-migrate sha256:new-config document-hash';
   const accepted = runRecover(script, { rollbackApi: 'sha256:previous-api', codes: {} });
   assert.deepEqual([accepted.status, accepted.calls], [0, [rollback]]);
   assert.match(accepted.summary, /recovered: rolled back/u);
@@ -439,7 +478,7 @@ test('tag and record follow web-cd: they run after a successful deploy, skip wha
   const condition = (job) => /^ {4}if: (.+)$/mu.exec(job)?.[1];
   for (const name of ['tag', 'record'])
     assert.equal(condition(JOBS[name]), condition(WEB_JOBS[name]));
-  assert.match(JOBS.tag, /for name in api api-migrate; do/u);
+  assert.match(JOBS.tag, loopOf(IMAGES));
   assert.match(JOBS.tag, /already tagged \$IMAGE_TAG/u);
   assert.match(JOBS.record, /gh release view "\$GIT_TAG"/u);
   const record = steps(JOBS.record).at(-1).body;
@@ -500,7 +539,9 @@ const INPUTS = {
   ]),
   'api-cd': new Set([
     ...expand(copySources(repoRoot, 'infra/deploy/api/Dockerfile', '')),
+    ...expand(copySources(repoRoot, 'infra/observability/Dockerfile', 'infra/observability')),
     'infra/deploy/api/Dockerfile',
+    'infra/observability/Dockerfile',
     '.dockerignore',
     API_SCRIPT_PATH,
     LIB_PATH,
@@ -541,6 +582,13 @@ test('every deploy input triggers exactly the workflows that deploy it and the f
     ['packages/eslint-config/package.json', ['web-cd', 'api-cd']],
     ['pnpm-lock.yaml', ['web-cd', 'api-cd']],
     ['.dockerignore', ['web-cd', 'api-cd']],
+    ['infra/observability/prometheus/rules/host-alerts.yml', ['api-cd']],
+    ['infra/observability/alloy/pipeline.alloy', ['api-cd']],
+    ['infra/observability/Dockerfile', ['api-cd']],
+    ['infra/observability/compose.base.yml', []],
+    ['infra/observability/README.md', []],
+    ['infra/observability/prometheus/tests/host-alerts.test.yml', []],
+    ['infra/observability/alertmanager/alertmanager.yml.template', []],
     ['docs/README.md', []],
     ['scripts/infra/user-host/ssm-document.mjs', []],
   ]) {

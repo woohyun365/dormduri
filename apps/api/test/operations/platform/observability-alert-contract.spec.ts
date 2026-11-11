@@ -1,5 +1,21 @@
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { collectStrings, readDashboardFiles, readInfraFile } from './observability-test.support.js';
+import {
+  collectStrings,
+  observabilityRoot,
+  readDashboardFiles,
+  readInfraFile,
+} from './observability-test.support.js';
+
+// Prometheus rule 파일 전부(api·retention·background job·database·host·observability·smoke). 운영 설정 image도 이 디렉터리를
+// 통째로 담는다(infra/observability/Dockerfile).
+function readPrometheusRuleFiles(): string[] {
+  return readdirSync(join(observabilityRoot, 'prometheus/rules'))
+    .filter((name) => name.endsWith('.yml'))
+    .sort()
+    .map((name) => readInfraFile(`prometheus/rules/${name}`));
+}
 
 const forbiddenLabels = ['email', 'ip', 'requestId', 'sessionId', 'threadId', 'token', 'userId'];
 const trackedPrometheusQueryMetricFamilies = [
@@ -15,8 +31,12 @@ const trackedPrometheusQueryMetricFamilies = [
   'api_auth_session_renewals_total',
   'api_auth_signup_final_admission_total',
   'api_auth_signup_password_hash_total',
+  'api_background_job_failures_total',
+  'api_background_job_last_success_timestamp_seconds',
   'api_chat_realtime_connected_sockets',
   'api_chat_realtime_rejections_total',
+  'api_db_table_dead_tuple_ratio',
+  'api_db_table_dead_tuples',
   'api_exceptions_total',
   'api_http_request_duration_seconds_bucket',
   'api_http_request_in_flight',
@@ -32,7 +52,7 @@ const trackedPrometheusQueryMetricFamilies = [
 
 function collectPrometheusQueryMetricFamilies(): string[] {
   const querySources = [
-    readInfraFile('prometheus/rules/api-alerts.yml'),
+    ...readPrometheusRuleFiles(),
     ...readDashboardFiles().flatMap((file) => collectStrings(file.parsed)),
   ];
 
@@ -79,11 +99,41 @@ describe('observability alert contract', () => {
   it('does not use request-scoped labels in queries or alert rules', () => {
     const config = [
       readInfraFile('prometheus/prometheus.yml'),
-      readInfraFile('prometheus/rules/api-alerts.yml'),
+      readInfraFile('prometheus/prometheus.production.yml'),
+      ...readPrometheusRuleFiles(),
       ...readDashboardFiles().map((file) => file.source),
     ].join('\n');
     for (const label of forbiddenLabels) {
       expect(config).not.toMatch(new RegExp(`[,{]\\s*${label}\\s*=`));
+    }
+  });
+
+  // Slack template(alertmanager/templates/slack.tmpl)은 rule의 summary를 거르지 않고 출력하고 runbook은 저장소 경로 형식만 남긴다.
+  // 그래서 Prometheus·Loki rule 파일은 alert마다 한 줄 고정 문구 summary와 저장소 경로 runbook을 두고, template 치환
+  // ($labels·$value·{{ }})을 어디에도 쓰지 않는다(infra/observability/slack/slack-alert-payload.md).
+  it('keeps every alert summary and runbook annotation as fixed text', () => {
+    const ruleFiles = ['prometheus/rules', 'loki/rules'].flatMap((directory) =>
+      readdirSync(join(observabilityRoot, directory))
+        .filter((name) => name.endsWith('.yml'))
+        .sort()
+        .map((name) => `${directory}/${name}`),
+    );
+    expect(ruleFiles).toContain('loki/rules/web-bff-alerts.yml');
+    for (const file of ruleFiles) {
+      const source = readInfraFile(file);
+      expect(source, file).not.toMatch(/\{\{|\}\}|\$labels|\$value|\$externalLabels/u);
+      const alerts = source.match(/^\s*- alert:/gmu)?.length ?? 0;
+      const summaries = [...source.matchAll(/^\s+summary:\s*(.*)$/gmu)].map((match) => match[1]);
+      const runbooks = [...source.matchAll(/^\s+runbook:\s*(.*)$/gmu)].map((match) => match[1]);
+      expect(alerts, file).toBeGreaterThan(0);
+      expect(summaries, file).toHaveLength(alerts);
+      expect(runbooks, file).toHaveLength(alerts);
+      for (const summary of summaries) expect(summary, file).toMatch(/^[^\s|>'"][^{}$]*$/u);
+      for (const runbook of runbooks) {
+        expect(runbook, file).toMatch(
+          /^(?:infra|docs)\/[A-Za-z0-9/_.-]+(?:#[\p{Script=Hangul}A-Za-z0-9_-]+)?$/u,
+        );
+      }
     }
   });
 

@@ -21,13 +21,21 @@ test('production observability profile owns strict configuration and shared reso
   assert.match(read('infra/observability/compose.resources.yml'), /memory: 320M/u);
 });
 
-test('Alloy only collects approved product services and records the socket risk', () => {
+test('Alloy only collects approved product services of the user host project and records the socket risk', () => {
   const alloy = read('infra/observability/alloy/config.alloy');
   const operations = JSON.parse(read('infra/observability/production-operations.json'));
+  const allowlist = operations.alloyDockerSocket.serviceAllowlist;
 
-  assert.match(alloy, /regex\s+= "api\|nginx\|web"/u);
+  // ingress(user host 공개 edge)·api·web만 받는다(production-api-baseline D-AB14).
+  assert.deepEqual(allowlist, ['api', 'ingress', 'web']);
+  assert.match(alloy, new RegExp(`regex\\s+= "${allowlist.join('\\|')}"`, 'u'));
   assert.match(alloy, /action\s+= "keep"/u);
   assert.match(alloy, /sys\.env\("OBSERVABILITY_ENV"\)/u);
-  assert.deepEqual(operations.alloyDockerSocket.serviceAllowlist, ['api', 'nginx', 'web']);
+  assert.match(
+    alloy,
+    /__meta_docker_container_label_com_docker_compose_project"\]\n\s+regex\s+= coalesce\(sys\.env\("OBSERVABILITY_COMPOSE_PROJECT"\), "\.\+"\)/u,
+  );
+  assert.equal(operations.topology.composeProject, 'dormduri-web');
+  assert.equal(operations.topology.operatorAccess, 'loopback-via-ssm-port-forwarding');
   assert.equal(operations.alloyDockerSocket.readOnlyMountIsNotAuthorizationBoundary, true);
 });

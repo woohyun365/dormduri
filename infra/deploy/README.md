@@ -26,7 +26,7 @@ infra/deploy/
 │   ├── ingress/                     # ingress image: nginx.conf, conf.d/, snippets/, html/(정적 안내 화면 넷)
 │   ├── ssm/                         # lib.sh(두 document 공통), deploy.sh(원본)와 dormduri-web-deploy.json(생성본)
 │   └── api/
-│       ├── compose.yml              # API 묶음 조각: api service와 migrate one-off(profile migrate)
+│       ├── compose.yml              # API 묶음 조각: api service, migrate one-off(profile migrate), 관측 service 다섯
 │       └── ssm/                     # deploy-api.sh·secret_bundle.py(원본)와 dormduri-api-deploy.json(생성본)
 ├── compose.api.yml                  # API + nginx runtime candidate
 ├── .env.api.example                 # API runtime env projection
@@ -94,13 +94,19 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
 
 - Compose project는 `dormduri-web` 하나다. 두 document는 지금 기록된 두 조각을 함께 넘겨 compose를 부르되 자기 묶음의
   service만 `up`·`stop`·`rm`하고 project 전체 `down`은 쓰지 않는다. `--remove-orphans`는 두 조각을 다 넘긴 `up`에서만 쓴다.
+  관측 service 다섯(Prometheus·Loki·Alloy·Alertmanager·Grafana)은 API 조각에 있어 API 묶음 service다. Web document의 `up`에서도
+  orphan이 아니고, API document가 API rollout 뒤 따로 다시 띄운다(실패해도 API 결과는 그대로, fail-open).
 - Web transit(`web-transit`, Web과 ingress에 고정 주소)은 Web 조각이 만들고, API transit(`dormduri-api-transit`, external)은
   두 document가 compose 전에 없을 때만 고정 subnet으로 만든다. 값은 `user/compose.yml`(Web)·`user/ssm/lib.sh`(API)에 있고
   `scripts/infra/user-host/compose-contract.mjs`가 render 결과와 lib.sh 값을 계약과 대조하며, 두 대역이 서로·Docker 기본 주소
   pool·AWS 기본 VPC 대역과 겹치지 않는지 본다. 이름은 같은데 subnet이 다르면 아무것도 바꾸지 않고 exit 2다.
+- 관측 network(`observability`, 고정 subnet)는 API 조각이 정의하는 묶음 안 network다. Prometheus만 API transit에도 붙는다. 관측
+  UI(Prometheus·Alertmanager·Grafana)는 host `127.0.0.1`에만 publish한다.
 - Host 경로: `/opt/dormduri/state`(root 0700, 기록·lock·host log), `/opt/dormduri/releases/{web,api}/<release>`(release마다
   쓴 compose 조각), `/opt/dormduri/secrets/api/releases/<release>`(API secret, `infra/aws/secrets-manager-checklist.md`),
-  `/opt/dormduri/{tls,acme-webroot,mode}`(Web 묶음).
+  `/opt/dormduri/secrets/observability/`(관측 secret 파일 셋, 파일마다 읽는 container UID 소유 0400),
+  `/opt/dormduri/observability/config/<digest>/`(관측 설정 image에서 꺼낸 설정, root 소유), `/opt/dormduri/{tls,acme-webroot,mode}`
+  (Web 묶음). 운영 관측은 [운영 관측 runbook](../runbooks/operations/observability/production-stack.md)이 소유한다.
 
 ### 배포 명령(SSM document)
 
@@ -124,12 +130,18 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
 - `user/api/ssm/deploy-api.sh`가 원본이다. 같은 생성 script가 이 파일, 공통 `user/ssm/lib.sh`, `user/api/compose.yml`,
   `secret_bundle.py`와 `api/secret-mount.contract.json`을 묶어 `user/api/ssm/dormduri-api-deploy.json`을 만든다. 두
   document는 64 KB 한도 안이어야 하고, 생성 script가 넘으면 멈춘다.
-- 입력은 `action`(`deploy`·`rollback`·`maintenance`)과 `apiDigest`·`apiMigrateDigest`다. Web document와 같은 host lock을 쓴다.
+- 입력은 `action`(`deploy`·`rollback`·`maintenance`)과 digest 셋 `apiDigest`·`apiMigrateDigest`·`observabilityConfigDigest`다.
+  셋 중 하나라도 없거나 형식이 틀리면 `RESULT=rejected reason=digest`(exit 2)다. Web document와 같은 host lock을 쓴다.
 - `deploy` 순서: Web 기록 확인(옛 형식이거나 점검 mode면 exit 2) → secret 꺼내기·설치 → migrate image one-off
   `migrate`·`grant`·`smoke`·`outbox` → 옛 API 정지 → 새 API 시작 → readiness → host 안 smoke(private listener를 거친 공개 열람
-  응답, `/internal/metrics` 404) → `current` 갱신. 실패 처리와 DB 경계는 `infra/db/README.md` Release order와
-  `infra/runbooks/incidents/release-rollback.md`가 소유한다.
-- `rollback`은 host의 `previous`와 같은 digest 쌍으로만, migrate 단계 없이 되돌린다. `maintenance`는 API를 내린다.
+  응답, `/internal/metrics` 404) → `current` 갱신 → 관측 단계(설정 image를 digest 경로에 펼침, 관측 secret 파일 셋, upstream
+  관측 image 받기, 관측 다섯 다시 만들기). 세 digest 가운데 하나라도 다르면 지금 묶음을 `previous`로 남긴다(관측 설정만 바뀐
+  배포 포함). 관측 단계는 fail-open이라 실패가 exit code와 API 기록을 바꾸지 않고 `RESULT` 줄의 `observability=failed`로만
+  남는다. 관측 단계의 network 호출은 SSM step 상한(900초)보다 60초 이른 상한 안에서 끝나고 남은 시간이 없으면 건너뛴다.
+  실패 처리와 DB 경계는 `infra/db/README.md` Release order와 `infra/runbooks/incidents/release-rollback.md`가 소유한다.
+- `rollback`은 host의 `previous`와 세 digest가 모두 같을 때만, migrate 단계 없이 되돌리고 관측도 그 묶음의 설정으로 다시
+  만든다. `maintenance`는 API를 내리고 관측 stack은 건드리지 않는다. 관측 배치·접근·대응은
+  [운영 관측 runbook](../runbooks/operations/observability/production-stack.md)이 소유한다.
 
 ### Local rehearsal과 검사
 
@@ -144,7 +156,9 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
   성공·기동 실패와 smoke 실패의 자동 복귀·rollback 입력 대조·첫 배포 실패의 점검 mode, 그리고 rollback 대상 기동 실패·
   새 쌍과 현재 쌍이 모두 실패·점검 mode의 ingress 기동 실패를 exit code와 host 상태 파일로 판정).
   API document도 같은 방식으로 Web 상태·입력 거부, secret 꺼내기·설치 실패, migrate·outbox 실패의 rollout 없음, 기동·smoke
-  실패의 되돌림, rollback, 단계 순서, 출력의 secret 값 없음과 두 묶음의 서로 건드리지 않음을 판정한다. 같은 document 실행은
+  실패의 되돌림, rollback, 단계 순서, 출력의 secret 값 없음과 두 묶음의 서로 건드리지 않음을 판정한다. 관측 단계는 설정
+  digest 기록과 rollback의 설정 복원, 관측 설정만 바뀐 배포의 `previous`, 설정 펼침·관측 secret·image 받기·up 실패와 시간
+  상한·남은 시간 없음에도 API 결과가 그대로인지, 다시 만든 관측 container의 설정 경로가 정리에서 남는지를 판정한다. 같은 document 실행은
   `node scripts/infra/user-host/ssm-document-runtime.mjs`로 따로 돌릴 수 있다.
 - 실제 Web image로 같은 smoke를 돌릴 때: `node scripts/infra/user-host/ingress-smoke.mjs --web-image=<local image>`.
 

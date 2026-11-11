@@ -1,6 +1,6 @@
 # API 단계 배포
 
-API 단계(user host에 API 묶음 `api`·`migrate` one-off를 더한 단계)의 배포·재배포·rollback·API 내림 절차다. 실행은 GitHub
+API 단계(user host에 API 묶음 `api`·`migrate` one-off·관측 service 다섯과 관측 설정 image를 더한 단계)의 배포·재배포·rollback·API 내림 절차다. 실행은 GitHub
 Actions workflow [`api-cd.yml`](../../../.github/workflows/api-cd.yml)이 하고, host에서 할 일은 SSM Command document
 `dormduri-api-deploy`([API 배포 명령](../../deploy/README.md#api-배포-명령ssm-document))가 정한다. 신뢰 구조(승인 뒤 배포 전용
 job, OIDC 단기 role, provenance, mask, 단계 기록)는 [Web 단계 배포](./web-stage-deploy.md)와 같고, 이 문서는 다른 점과 API·DB
@@ -15,12 +15,12 @@ host의 one-off container가 한다.
 
 ## Workflow 구성
 
-| Job      | 실행 조건                                                | 권한·principal                                                               | 하는 일                                                                                                                                                                                     |
-| -------- | -------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `build`  | `main` push에서 API 배포 입력 경로가 바뀜                | `id-token: write`, API publish role(repository secret)                       | `infra/deploy/api/Dockerfile`의 `runtime`·`migrate` target을 SBOM과 함께 OCI layout으로 build, image filesystem secret scan, digest 그대로 ECR `dormduri/api`·`dormduri/api-migrate`에 push |
-| `deploy` | build 성공 또는 `main`의 dispatch, `production-api` 승인 | `id-token: write`·`attestations: write`, API deploy role(environment secret) | 더 새 변경 확인, provenance 생성(push만)·검증, SBOM 확인, 배포 기록으로 직전 묶음 계산, document 해시 대조, SendCommand, 외부 smoke, 실패 시 rollback 또는 API 내림                         |
-| `tag`    | deploy 성공, 동작이 `maintenance`가 아님                 | `id-token: write`, API publish role                                          | 배포한 묶음에 `deploy-<UTC YYYYMMDD>T<HHmm>-<run>` image tag를 더한다(ECR lifecycle의 최근 배포 보존)                                                                                       |
-| `record` | deploy 성공(tag 결과와 상관없이)                         | `contents: write`                                                            | 단계 기록을 만들어 공개 기록 scanner로 검사한 뒤 run 요약과 Release `deploy-api-<UTC YYYYMMDD>-<run>` 본문에 쓴다                                                                           |
+| Job      | 실행 조건                                                | 권한·principal                                                               | 하는 일                                                                                                                                                                                                                                                                         |
+| -------- | -------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `build`  | `main` push에서 API 배포 입력 경로가 바뀜                | `id-token: write`, API publish role(repository secret)                       | `infra/deploy/api/Dockerfile`의 `runtime`·`migrate` target과 관측 설정 image(`infra/observability/Dockerfile`)를 SBOM과 함께 OCI layout으로 build, image filesystem secret scan, digest 그대로 ECR `dormduri/api`·`dormduri/api-migrate`·`dormduri/observability-config`에 push |
+| `deploy` | build 성공 또는 `main`의 dispatch, `production-api` 승인 | `id-token: write`·`attestations: write`, API deploy role(environment secret) | 더 새 변경 확인, provenance 생성(push만)·검증, SBOM 확인, 배포 기록으로 직전 묶음 계산, document 해시 대조, SendCommand, 외부 smoke, 실패 시 rollback 또는 API 내림                                                                                                             |
+| `tag`    | deploy 성공, 동작이 `maintenance`가 아님                 | `id-token: write`, API publish role                                          | 배포한 묶음에 `deploy-<UTC YYYYMMDD>T<HHmm>-<run>` image tag를 더한다(ECR lifecycle의 최근 배포 보존)                                                                                                                                                                           |
+| `record` | deploy 성공(tag 결과와 상관없이)                         | `contents: write`                                                            | 단계 기록을 만들어 공개 기록 scanner로 검사한 뒤 run 요약과 Release `deploy-api-<UTC YYYYMMDD>-<run>` 본문에 쓴다                                                                                                                                                               |
 
 - Workflow 최상위 권한은 `contents: read`이고 write는 위 job에만 있다(`scripts/ci/contracts/github-workflow-trust.test.mjs`).
   Workflow 글의 신뢰 경계는 `scripts/infra/user-host/api-cd-contract.test.mjs`가 고정한다.
@@ -29,8 +29,9 @@ host의 one-off container가 한다.
   [`infra/aws/iam/`](../../aws/iam/)).
 - API 배포 입력 경로(trigger의 `paths`)는 API Dockerfile이 복사하는 경로(`apps/api/**`, `packages/database/**`,
   `packages/shared/**`, `packages/tsconfig/**`, `packages/eslint-config/package.json`, root lockfile·workspace 파일,
-  `infra/deploy/api/**`, `infra/db/**`), `.dockerignore`, API 묶음 조각·document 원본(`infra/deploy/user/api/**`), 두 document가
-  같이 담는 `infra/deploy/user/ssm/lib.sh`와 이 workflow다. 공유 package·lockfile·`.dockerignore`·`lib.sh`를 바꾼 merge는
+  `infra/deploy/api/**`, `infra/db/**`), `.dockerignore`, 관측 설정 image가 복사하는 운영 관측 설정(`infra/observability/Dockerfile`
+  `COPY` 원본, local compose·예시·README는 빠짐), API 묶음 조각·document 원본(`infra/deploy/user/api/**`), 두 document가 같이 담는
+  `infra/deploy/user/ssm/lib.sh`와 이 workflow다. 공유 package·lockfile·`.dockerignore`·`lib.sh`를 바꾼 merge는
   `web-cd`와 `api-cd`를 함께 시작한다.
 - Run log와 run 요약은 7일 뒤 지워진다. 남길 것(멈춘 실행의 멈춘 조건·복구 결과, host `RESULT=` 줄, 첫 실행의 공개 기록 검사
   결과)은 7일 안에 그 단계 이슈 댓글로 옮긴다. 단계 기록은 Release 본문이라 보존 기간과 상관없다.
@@ -39,8 +40,12 @@ host의 one-off container가 한다.
 
 `deploy`는 lock → Web 기록 확인 → secret 꺼내기·설치(0400 파일) → migrate image one-off `migrate`·`grant`·`smoke`·`outbox` → 옛
 API 정지 → 새 API 시작 → readiness(`/health/ready`) → host 안 smoke(ingress private listener를 거친 공개 열람 응답,
-`/internal/metrics` 닫힘) → `current` 갱신이다. 결과는 command 출력의 `RESULT=` 줄이고 성공한 `deploy`는 migrate 시작 시각
-`migrateStarted=<UTC>`를 함께 쓴다.
+`/internal/metrics` 닫힘) → `current` 갱신 → 관측 단계(설정 image 펼치기, 관측 secret 파일 쓰기, upstream 관측 image 받기,
+관측 다섯 다시 만들기)다. 관측 단계의 network 호출은 step 상한(900초)보다 60초 이른 840초 안에 끝나게 끊는다.
+결과는 command 출력의 `RESULT=` 줄이고 성공한 `deploy`는 migrate 시작 시각 `migrateStarted=<UTC>`를 함께 쓴다. 관측 단계는
+fail-open이라 그 실패가 exit code와 `RESULT`를 바꾸지 않는다. 대신 성공한 `deploy`·`rollback`의 `RESULT` 줄에 있는 `observability=ok|failed`가 관측 결과다
+([운영 관측 runbook](../operations/observability/production-stack.md#배포rollback과-fail-open)). `maintenance`는 관측 stack을
+건드리지 않는다.
 
 | 결과                                                                                                                    | 뜻                                                                                            | host 상태                                                                                                                              |
 | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
@@ -52,6 +57,7 @@ API 정지 → 새 API 시작 → readiness(`/health/ready`) → host 안 smoke(
 | exit 1 `reason=rolled-back-to-current`(`deploy`)                                                                        | 새 API가 readiness·host 안 smoke에서 실패                                                     | 지금 묶음을 다시 띄움                                                                                                                  |
 | exit 1 `reason=rollback-failed-kept-current`(`rollback`)                                                                | 직전 묶음이 readiness·host 안 smoke에서 실패                                                  | 지금 묶음을 다시 띄움. 기록은 그대로                                                                                                   |
 | exit 1 `reason=entered-maintenance`                                                                                     | 새 묶음(또는 rollback 대상)이 실패했고 지금 묶음이 없거나 다시 띄우지 못함                    | API를 내림(공개 경로는 Web fallback)                                                                                                   |
+| `RESULT` 줄 없음(command `TimedOut`·`Cancelled` 등)                                                                     | document가 step 상한 안에 끝나지 못하고 끊김                                                  | 알 수 없음. [실패 대응](#실패-대응)의 결과 줄 없는 command                                                                             |
 
 ## 첫 실행 전 Owner 확인
 
@@ -85,8 +91,8 @@ API 정지 → 새 API 시작 → readiness(`/health/ready`) → host 안 smoke(
    artifact가 없음을 본 뒤 승인한다.
 3. 승인하면 deploy job이 차례로 확인한다. 하나라도 실패하면 host에 아무것도 보내지 않는다.
    - 승인을 기다리는 동안 `main`의 API 배포 입력이 바뀌었는가(이 실행 commit과 `main` 끝의 API 배포 입력 경로 tree 비교)
-   - 두 digest의 attestation이 이 workflow·`refs/heads/main`·이 실행 commit에서 왔는가(`gh attestation verify`)
-   - 두 image index에 SPDX SBOM attestation manifest가 있는가
+   - 세 digest의 attestation이 이 workflow·`refs/heads/main`·이 실행 commit에서 왔는가(`gh attestation verify`)
+   - 세 image index에 SPDX SBOM attestation manifest가 있는가
    - document 해시가 저장소 생성본과 같은가
 4. SendCommand는 command 단위 상태만 기다린다(node별 결과는 조회하지 않는다). Host가 위 [Host가 하는 일](#host가-하는-일)을
    끝까지 통과하면 Success다.
@@ -125,9 +131,10 @@ API 정지 → 새 API 시작 → readiness(`/health/ready`) → host 안 smoke(
 
 ## 재배포, rollback, API 내림
 
-Actions > API CD > Run workflow에서 branch `main`을 고르고 `action`과 digest 묶음(`api_digest`·`api_migrate_digest`)을 넣는다.
-묶음은 `deploy-api-*` Release 단계 기록의 `images`나 `previous_safe`에서 복사한다. Dispatch는 build와 attestation 생성을 하지
-않고, 두 digest의 attestation source commit이 같고 그 commit의 API 배포 기록 묶음이 입력과 같을 때만 진행한다(대조 범위는
+Actions > API CD > Run workflow에서 branch `main`을 고르고 `action`과 digest 묶음(`api_digest`·`api_migrate_digest`·
+`observability_config_digest`)을 넣는다. 묶음은 `deploy-api-*` Release 단계 기록의 `images`나 `previous_safe`에서 복사한다.
+Dispatch는 build와 attestation 생성을 하지 않고, 세 digest의 attestation source commit이 같고 그 commit의 API 배포 기록 묶음이
+입력과 같을 때만 진행한다(대조 범위는
 `deploy-api-*` Release의 최근 100개. Web Release는 세지 않는다).
 
 | `action`      | 넣는 묶음                                                          | 결과                                                                                                                                                                                                                                                                                                                                               |
@@ -165,6 +172,11 @@ host가 exit 2로 거부하고 아무것도 바꾸지 않는다. 그때는 원�
   `maintenance`로 API를 내린다(공개 경로는 Web fallback). 결과는 run 요약의 `recovered:` 줄이다.
 - Host는 바뀌었는데 `tag`나 `record` job이 실패했거나 `record`가 403으로 실패했으면 Web 단계 배포의
   [실패 대응](./web-stage-deploy.md#실패-대응)과 같이 Re-run failed jobs, 그다음 실행 종류별 재전송으로 기록과 host를 맞춘다.
+- 결과 줄 없이 끝난 command(`TimedOut`·`Cancelled` 등): CD는 외부 smoke·자동 되돌림·단계 기록을 건너뛴다. 관측 단계는 상한 안에서
+  끊기므로 그 앞(secret 꺼내기, image 받기, migrate, rollout)에서 끊긴 경우다. Owner가 Session Manager로 host의
+  `/opt/dormduri/state/api/current`와 실행 중인 `api` container의 image digest를 읽고(digest만 기록), 외부 smoke를 직접 확인한 뒤
+  원하는 Release의 `images` 묶음을 `deploy`로 다시 올려 기록과 host를 맞춘다. migrate 중이었으면 위 migrate 실패처럼
+  `_prisma_migrations`를 읽는다.
 - Provenance·SBOM·기록 대조·document 해시에서 멈추면 host는 바뀌지 않았다. 다른 workflow나 로컬에서 만든 image, 기록이 없는
   묶음, document 갱신 누락이 흔한 원인이다.
 
