@@ -12,6 +12,9 @@ leaf module이다.
   호출부의 기존 log가 그대로 남는다. owner가 log를 남기고 이어 간 단계 실패는 `failed`로 돌려 실패 수만 올린다(chat
   realtime의 replay window prune). 일부러 일하지 않은 tick(이미 실행 중, publisher 미연결)은 `skipped`로 돌려 아무것도
   기록하지 않는다.
+- `drainBackgroundJob(work, timeoutMs)`: 종료 hook이 실행 중인 예약 작업을 `timeoutMs`까지 기다린다. 작업이 성공하든
+  실패하든 상한 안에 끝나면 `true`, 상한이 먼저 오면 `false`이고 작업 자체는 취소하지 않는다. 정리 sweep(20초)과 table
+  통계 읽기(5초)가 쓴다.
 
 ## Metric
 

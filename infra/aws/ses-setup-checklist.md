@@ -19,7 +19,7 @@ SES_CONFIGURATION_SET=dormduri-production
 ```
 
 - `SES_FROM_EMAIL`은 SES verified identity 범위에 포함되어야 한다.
-- Application config에서는 `SES_CONFIGURATION_SET`을 비워둘 수 있지만 production release에는 bounce·complaint·reject·delivery delay·rendering failure event destination과 Delivery CloudWatch event destination이 연결된 구성 세트를 둔다. delivery는 메일마다 생기므로 사람 메일함으로 보내지 않고 받는 사람 주소가 없는 CloudWatch 지표로 본다([Delivery 지표](#delivery-지표-cloudwatch-event-destination)).
+- Application config에서는 `SES_CONFIGURATION_SET` key를 뺄 수 있지만(key를 두고 값을 비우면 env schema가 거부한다) production release에는 bounce·complaint·reject·delivery delay·rendering failure event destination과 Delivery CloudWatch event destination이 연결된 구성 세트를 둔다. delivery는 메일마다 생기므로 사람 메일함으로 보내지 않고 받는 사람 주소가 없는 CloudWatch 지표로 본다([Delivery 지표](#delivery-지표-cloudwatch-event-destination)).
 - secret 값은 Git commit, Docker image layer, application log, metric label에 남기지 않는다.
 
 ## 요금 plan
