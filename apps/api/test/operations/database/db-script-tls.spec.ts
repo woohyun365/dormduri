@@ -210,7 +210,7 @@ describe('migrate image entrypoint TLS 강제 (D-AB5)', () => {
   });
 
   it('TLS 인자가 없거나 Prisma가 검증하지 않는 형식의 migration URL은 어느 단계도 client를 부르지 않고 64로 끝난다', () => {
-    for (const step of ['migrate', 'grant', 'smoke', 'outbox']) {
+    for (const step of ['migrate', 'grant', 'smoke', 'outbox', 'restore-drill']) {
       for (const url of [
         local('dormduri_migrator'),
         `${local('dormduri_migrator')}?schema=public`,
@@ -243,6 +243,32 @@ describe('migrate image entrypoint TLS 강제 (D-AB5)', () => {
       ...RUNTIME_URLS,
     });
     expect(verified.status, verified.output).toBe(0);
+  });
+
+  // restore drill(user host의 migrate image one-off): host role이 꺼낸 묶음의 URL 넷(host만 복원 endpoint)을 smoke와 같은
+  // 형식 검사로 읽어 RESTORE_DRILL_* 이름으로 restore-drill-smoke.sh에 넘긴다. 노트북에 production credential을 두지 않는다.
+  it('restore-drill 단계는 같은 URL 넷을 검증 형식으로 읽고 PostgreSQL major·마지막 migration·pgaudit 뒤 role smoke를 한다', () => {
+    const result = runEntrypoint('restore-drill', {
+      MIGRATION_DATABASE_URL: PRISMA_FORM_B,
+      ...RUNTIME_URLS,
+    });
+
+    expect(result.status, result.output).toBe(0);
+    expect(result.output).toContain(`restore drill last migration verified: ${LAST_MIGRATION}`);
+    expect(result.output).toContain('restore drill pgaudit verified');
+    expect(result.output).toContain('role grant smoke complete');
+    expect(result.output).not.toContain('pw@');
+    for (const call of result.calls)
+      expect(call).toMatch(/ mode=verify-full root=\/etc\/dormduri\/rds-ca\/root\.pem$/u);
+
+    const weakRuntime = runEntrypoint('restore-drill', {
+      MIGRATION_DATABASE_URL: PRISMA_FORM_B,
+      ...RUNTIME_URLS,
+      RETENTION_DISCLOSURE_DATABASE_URL: local('dormduri_api_disclosure'),
+    });
+    expect(weakRuntime.status).toBe(64);
+    expect(weakRuntime.calls).toEqual([]);
+    expect(weakRuntime.output).toContain('RETENTION_DISCLOSURE_DATABASE_URL');
   });
 });
 

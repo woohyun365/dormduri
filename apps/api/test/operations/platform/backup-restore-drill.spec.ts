@@ -117,8 +117,9 @@ describe('backup and restore drill readiness boundary', () => {
   });
 
   // The RDS security group admits the user host only (D-AB5), so a GitHub-hosted runner cannot reach a restored DB.
-  // The drill runs from the operator through the user host: SSM port forwarding for the DB smoke and a temporary API
-  // container on the user host for readiness.
+  // The drill runs from the operator through the user host: the migrate image one-off for the DB smoke, a temporary API
+  // container outside the compose project for readiness, and SSM port forwarding only for the operator's own read-only
+  // user. Production migration and runtime credentials stay with the host role.
   it('runs the restore drill through the user host and keeps no GitHub-hosted restore drill workflow', () => {
     expect(existsSync(join(workflowsRoot, 'api-restore-drill-manual.yml'))).toBe(false);
     const workflowsWithDrill = readdirSync(workflowsRoot)
@@ -133,16 +134,23 @@ describe('backup and restore drill readiness boundary', () => {
     for (const expected of [
       'GitHub-hosted runner',
       'SSM 포트 포워딩',
-      'user host',
       '임시 API container',
+      "'<migrate image digest>' restore-drill",
+      'host role만 꺼내',
+      '노트북·shell history',
+      'compose project 밖',
+      '디렉터리 0500·파일 0400, 소유 10001:10001',
+      '--cap-drop ALL',
+      '--memory 1408m',
+      'MemAvailable',
       'LIFECYCLE_SWEEP_ENABLED=false',
       'AUTH_MAIL_DISPATCHER_ENABLED=false',
       'CHAT_REALTIME_DISPATCHER_ENABLED=false',
       'http://127.0.0.1:',
+      '중간 단계 실패',
     ]) {
       expect(runbook).toContain(expected);
     }
-    expect(runbook).not.toContain('api-restore-drill.example.com');
   });
 
   it('connects restore drill evidence to its DB runbook and official readiness owner', () => {
@@ -160,7 +168,6 @@ describe('backup and restore drill readiness boundary', () => {
     expect(dbReadme).toContain('infra/runbooks/operations/database/backup-restore.md');
     expect(deployReadme).toContain('infra/db/README.md');
     expect(deployReadme).not.toContain('.github/workflows/api-restore-drill-manual.yml');
-    expect(policy).not.toContain('api-restore-drill-manual.yml');
     expect(policy).toMatch(/PRS-R32\*\*[^\n]*user host/u);
     expect(policy).toContain('backup restore 미검증');
   });

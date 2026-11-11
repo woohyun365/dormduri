@@ -217,7 +217,8 @@ Restore drill smoke는 migration 연결로 PostgreSQL major(기본 18), 마지�
 `RESTORE_DRILL_*` credential을 기존 role grant smoke의 `MIGRATION_DATABASE_URL`, `DATABASE_URL`,
 `RETENTION_WORKER_DATABASE_URL`, `RETENTION_DISCLOSURE_DATABASE_URL`로 매핑해 재사용한다. 이 smoke는 temporary restored DB에서
 실행하며 production source DB를 수정하지 않는다. 실제 실행 전에는 `infra/runbooks/operations/database/backup-restore.md`에
-따라 restore source와 cleanup evidence를 준비한다.
+따라 restore source와 cleanup evidence를 준비한다. Production drill은 user host에서 배포한 migrate image의 `restore-drill`
+명령으로 부른다. 그 명령이 host role이 쓴 secret 파일 넷을 읽어 아래 이름으로 넘긴다(`infra/deploy/api/migrate-entrypoint.sh`).
 
 Required env for real smoke:
 

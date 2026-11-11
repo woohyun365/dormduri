@@ -8,7 +8,8 @@ host credential로 꺼내 read-only 파일로 설치하는 운영 checklist다. 
 
 - **Secret origin**: 원본과 version을 소유하는 AWS Secrets Manager(아래 묶음 셋과 RDS가 관리하는 master secret).
 - **Secret reader**: user host의 host role. SSM이 hybrid managed node에 주는 1시간 임시 credential이며, release plane 안의
-  API 배포 document(`dormduri-api-deploy`)와 관측 배포가 묶음을 꺼낼 때만 쓴다.
+  API 배포 document(`dormduri-api-deploy`)와 관측 배포가 묶음을 꺼낼 때, 그리고 operator의 restore drill Run Command가 복원
+  DB용 secret을 user host 임시 파일로 쓸 때만 쓴다(`infra/runbooks/operations/database/backup-restore.md`).
 - **Release principal**: GitHub protected environment가 OIDC로 받는 짧은 수명의 AWS IAM role. SSM document를 부를 뿐 secret을
   읽지 않는다.
 - **Application read source**: API container에 read-only로 mount되는 release별 secret 파일.
@@ -28,12 +29,12 @@ Lightsail instance는 EC2 instance profile과 같은 workload service role을 �
 
 ## Secret 묶음
 
-| Secret 이름                          | Key                                                                  | 읽는 주체                    |
-| ------------------------------------ | -------------------------------------------------------------------- | ---------------------------- |
-| `/dormduri/production/api/runtime`   | `infra/deploy/api/secret-mount.contract.json`의 `requiredFiles` 13개 | host role(API 배포 document) |
-| `/dormduri/production/api/migration` | `MIGRATION_DATABASE_URL`                                             | host role(migrate one-off)   |
-| `/dormduri/production/observability` | `SLACK_ALERT_WEBHOOK_URL`, `GRAFANA_ADMIN_PASSWORD`                  | host role(관측 배포)         |
-| RDS 관리 master secret(이름은 RDS)   | master user                                                          | 사람(break-glass)만          |
+| Secret 이름                          | Key                                                                  | 읽는 주체                                   |
+| ------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------- |
+| `/dormduri/production/api/runtime`   | `infra/deploy/api/secret-mount.contract.json`의 `requiredFiles` 13개 | host role(API 배포 document, restore drill) |
+| `/dormduri/production/api/migration` | `MIGRATION_DATABASE_URL`                                             | host role(migrate one-off, restore drill)   |
+| `/dormduri/production/observability` | `SLACK_ALERT_WEBHOOK_URL`, `GRAFANA_ADMIN_PASSWORD`                  | host role(관측 배포)                        |
+| RDS 관리 master secret(이름은 RDS)   | master user                                                          | 사람(break-glass)만                         |
 
 - 각 묶음의 `SecretString`은 key를 이름으로 갖는 JSON object다. 값은 비어 있지 않은 문자열이다.
 - runtime 묶음의 key 목록은 contract가 원본이고, contract는 `apps/api/src/config/composition/api-config.registry.ts`의 production

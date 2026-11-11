@@ -4,6 +4,8 @@
 #   grant    grant 표 적용(MIGRATION_DATABASE_URL)
 #   smoke    LOGIN user별 role smoke(넷 모두)
 #   outbox   auth mail outbox 행이 상태와 관계없이 0건인지(MIGRATION_DATABASE_URL)
+# operator가 restore drill에서 user host의 임시 복원 DB에 부른다(infra/runbooks/operations/database/backup-restore.md):
+#   restore-drill  PostgreSQL major·마지막 migration·pgaudit 확인 뒤 LOGIN user별 role smoke(넷 모두, host는 복원 endpoint)
 # secret은 read-only로 mount된 파일(MIGRATE_SECRET_DIRECTORY 아래 key 이름)에서 읽어 같은 이름 env로만 넘긴다. 값은 출력하지 않는다.
 # 읽을 때 URL이 서버 인증서와 host 이름을 검증하는 형식인지 보고(migration은 Prisma CLI가 검증하는 형식 B만), 아니면 어느
 # client도 부르지 않고 64로 끝난다. local·CI의 "TLS 인자 없는 URL은 호출자 env 그대로"는 이 운영 one-off에 없다.
@@ -46,8 +48,20 @@ case "${1:-}" in
     read_secret MIGRATION_DATABASE_URL prisma
     exec sh "$db_scripts/check-auth-mail-outbox-empty.sh"
     ;;
+  restore-drill)
+    read_secret MIGRATION_DATABASE_URL prisma
+    read_secret DATABASE_URL any
+    read_secret RETENTION_WORKER_DATABASE_URL any
+    read_secret RETENTION_DISCLOSURE_DATABASE_URL any
+    export RESTORE_DRILL_MIGRATION_DATABASE_URL="$MIGRATION_DATABASE_URL" \
+      RESTORE_DRILL_DATABASE_URL="$DATABASE_URL" \
+      RESTORE_DRILL_RETENTION_WORKER_DATABASE_URL="$RETENTION_WORKER_DATABASE_URL" \
+      RESTORE_DRILL_RETENTION_DISCLOSURE_DATABASE_URL="$RETENTION_DISCLOSURE_DATABASE_URL"
+    unset MIGRATION_DATABASE_URL DATABASE_URL RETENTION_WORKER_DATABASE_URL RETENTION_DISCLOSURE_DATABASE_URL
+    exec sh "$db_scripts/restore-drill-smoke.sh"
+    ;;
   *)
-    echo 'usage: migrate-entrypoint.sh migrate|grant|smoke|outbox' >&2
+    echo 'usage: migrate-entrypoint.sh migrate|grant|smoke|outbox|restore-drill' >&2
     exit 64
     ;;
 esac

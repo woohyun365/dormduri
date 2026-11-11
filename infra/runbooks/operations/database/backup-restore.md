@@ -15,31 +15,30 @@
 복원 DB는 원본과 같은 DB subnet group과 security group으로 만든다. 그 security group은 user host 주소 하나에서 오는
 5432만 받으므로(`infra/aws/rds-setup-checklist.md` Security group) GitHub-hosted runner나 operator 노트북은 복원 DB에
 바로 닿지 않는다. 그래서 drill은 operator가 user host를 거쳐 수동으로 하고, GitHub Actions workflow는 두지 않는다.
-복원 instance의 생성·삭제는 Owner console에서 한다.
+복원 instance의 생성·삭제는 Owner console에서 한다. Production migration·runtime credential은 host role만 꺼내 user host의
+임시 파일에 두고, 노트북에는 자기 사람 조회 user 비밀번호만 둔다.
 
-| 단계                                 | 경로                                                                                                                                                                                                                                         |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 원본·복원 DB 읽기와 DB smoke(3·9~11) | operator 노트북 → SSM 포트 포워딩(`AWS-StartPortForwardingSessionToRemoteHost`, user host 경유) → DB. URL host는 그 DB endpoint 이름이고 `hostaddr=127.0.0.1`과 터널 port로 붙는다. 노트북 psql의 TLS 인자는 `infra/db/psql-tls.sh`가 바꾼다 |
-| API readiness(12·13)                 | user host의 임시 API container. 띄우기와 smoke는 SSM Run Command로 하고, 결과는 host 안 `http://127.0.0.1:<임시 port>`로 본다                                                                                                                |
+| 단계                         | 경로                                                                                                                                                                                                                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 사람 조회(3·9)               | operator 노트북 → SSM 포트 포워딩(`AWS-StartPortForwardingSessionToRemoteHost`, user host 경유) → DB. 자기 사람 조회 user(`dormduri_ro_<별칭>`)만 쓴다. URL host는 그 DB endpoint 이름이고 `hostaddr=127.0.0.1`과 터널 port로 붙으며 CA는 노트북의 RDS CA 파일이다(`infra/db/README.md` RDS SSL / CA bundle) |
+| Role grant와 DB smoke(10·11) | user host에서 배포한 migrate image의 one-off(`grant`·`restore-drill`, SSM Run Command). secret은 host role이 꺼내 파일 단위로 mount한다                                                                                                                                                                      |
+| API readiness(12·13)         | user host의 임시 API container(compose 밖 `docker run`, SSM Run Command). 결과는 host 안 `http://127.0.0.1:<임시 port>`로 본다                                                                                                                                                                               |
 
 ## Required inputs
 
-- Release commit SHA.
+- Release commit SHA: 지금 배포한 API 묶음의 commit.
 - Source DB identifier: 운영자가 console에서 확인만 하고 evidence에는 쓰지 않는다.
 - Restore source: automated backup/PITR timestamp(기본, 최근 migrate 시작 시각 또는 지정 시각) 또는 manual snapshot.
-- Temporary restored DB: 이름은 운영자가 정하고 evidence에는 쓰지 않는다.
+- Temporary restored DB: 이름은 운영자가 정하고 evidence에는 쓰지 않는다. 그 endpoint 이름은 Run Command 안에서만 쓴다.
 - Operator 별칭. 실행 경로는 위 [실행 경로](#실행-경로)다(host 이름·주소는 적지 않음).
 - Evidence output 위치.
-- Restored DB용 secret set(노트북 shell에만 두고 출력하지 않음. 지금 API 묶음의 URL에서 host만 복원 endpoint로 바꾼 값):
-  - `RESTORE_DRILL_MIGRATION_DATABASE_URL`
-  - `RESTORE_DRILL_DATABASE_URL`
-  - `RESTORE_DRILL_RETENTION_WORKER_DATABASE_URL`
-  - `RESTORE_DRILL_RETENTION_DISCLOSURE_DATABASE_URL`
-  - optional `DB_GRANT_SCHEMA`
-- 임시 API container 입력:
-  - 지금 배포한 API image digest(`deploy-api-*` 단계 기록 Release의 묶음)
-  - runtime secret 묶음 `/dormduri/production/api/runtime`. DB URL 셋(`DATABASE_URL`·`RETENTION_WORKER_DATABASE_URL`·
-    `RETENTION_DISCLOSURE_DATABASE_URL`)만 host를 복원 endpoint로 바꾸고 나머지 key와 `METRICS_BEARER_TOKEN`은 그대로 쓴다
+- 지금 배포한 API·migrate image digest(`deploy-api-*` 단계 기록 Release의 묶음). migrate image가 그 commit의 migration
+  디렉터리와 RDS CA(`/etc/dormduri/rds-ca/root.pem`)를 담으므로 smoke의 마지막 migration 대조와 TLS 검증이 배포한 commit
+  기준이 된다.
+- 복원 DB용 secret: host role이 runtime 묶음 `/dormduri/production/api/runtime`과 migration 묶음
+  `/dormduri/production/api/migration`을 꺼내 DB URL 넷(`MIGRATION_DATABASE_URL`·`DATABASE_URL`·`RETENTION_WORKER_DATABASE_URL`·
+  `RETENTION_DISCLOSURE_DATABASE_URL`)의 host만 복원 endpoint로 바꾼다. 나머지 runtime key와 `METRICS_BEARER_TOKEN`은 그대로
+  쓴다. optional `DB_GRANT_SCHEMA`.
 
 ## Safety rules
 
@@ -48,6 +47,10 @@
 - DB URL, password, bearer token, HMAC secret은 issue/report/log/evidence에 붙이지 않는다.
 - Restore drill evidence 없이 production ready로 표시하지 않는다.
 - Instance·snapshot·security group 식별자, endpoint, account는 evidence에 쓰지 않는다. 공개 저장소와 이슈에는 식별자 없는 판정만 남긴다.
+- Production migration·runtime credential은 host role이 꺼낸 user host 임시 파일에만 둔다. 노트북·shell history·Run Command
+  parameter·container env(`docker inspect`에 남음)에 넣지 않는다.
+- 임시 container는 compose project 밖에서 띄워(compose label 없음) production `api` container를 다시 만들지 않고 Alloy가
+  log를 모으지 않게 한다. API transit·관측 network와 production port에 붙이지 않는다.
 
 ## Procedure
 
@@ -67,50 +70,59 @@
    drill 때문에 inbound를 넓히지 않는다.
 8. Restored DB connection string이 서버 인증서와 host 이름을 검증하는지 확인한다(runtime `verify-full` + 단일 루트,
    migration은 Prisma 형식 `sslmode=require&sslcert=<루트>&sslaccept=strict`, psql은 `infra/db/psql-tls.sh`. 복원 DB는
-   endpoint 이름이 다르므로 URL host를 그 endpoint로 바꾼다. `infra/db/README.md` RDS SSL / CA bundle).
+   endpoint 이름이 다르므로 URL host를 그 endpoint로 바꾼다. `infra/db/README.md` RDS SSL / CA bundle). migrate entrypoint는
+   검증하지 않는 형식이면 client를 부르기 전에 64로 끝난다.
 9. Restored DB에 3과 같은 사람 조회 user로 접속해(복원 DB는 원본의 role을 그대로 가진다) 같은 읽기 전용 query로
    마지막 migration 이름과 주요 table 행 수가 3의 값과 같은지, `pgaudit` extension이 있는지(`pg_extension`) 본다.
-10. Role grant가 필요하면 restored DB에만 `pnpm api:db:deploy:role-grants`를 적용한다.
-11. Restored DB credential boundary smoke를 LOGIN user별로 실행한다. smoke는 먼저 PostgreSQL major, 마지막 적용 migration(저장소
-    마지막 migration 디렉터리와 같음), `pgaudit` extension·preload를 본다. 노트북 별도 terminal에서 user host를 거친 SSM 포트
-    포워딩을 복원 endpoint로 열어 둔 채 실행한다(URL은 `hostaddr=127.0.0.1`과 그 local port).
+10. User host에서 SSM Run Command(root)로 복원 DB용 secret을 준비한다. Host role로 두 묶음을 꺼내 URL 넷의 host만 복원
+    endpoint로 바꾸고 root 전용 임시 디렉터리(0700)에 key별 0400 파일(소유 10001)로 쓴다. 값은 출력하지 않는다. Role grant가
+    필요하면 restored DB에만 배포한 migrate image의 `grant`를 같은 파일로 부른다.
+11. 같은 파일로 migrate image의 `restore-drill`을 부른다. 먼저 PostgreSQL major, 마지막 적용 migration(image 안 migration
+    디렉터리의 마지막과 같음), `pgaudit` extension·preload를 본 뒤 LOGIN user별 credential boundary smoke를 한다. 배포
+    document의 migrate one-off와 같이 파일 단위로만 mount한다.
 
     ```bash
-    aws ssm start-session --target '<user host node>' \
-      --document-name AWS-StartPortForwardingSessionToRemoteHost \
-      --parameters '{"host":["<restored endpoint>"],"portNumber":["5432"],"localPortNumber":["15432"]}'
+    docker run --rm --read-only --tmpfs /tmp:size=64m,mode=1777 --cap-drop ALL --security-opt no-new-privileges:true \
+      --memory 384m --pids-limit 256 -e CHECKPOINT_DISABLE=1 -e MIGRATE_SECRET_DIRECTORY=/run/secrets/dormduri-migrate \
+      -v '<임시 migrate 디렉터리>/MIGRATION_DATABASE_URL:/run/secrets/dormduri-migrate/MIGRATION_DATABASE_URL:ro' \
+      -v '<임시 migrate 디렉터리>/DATABASE_URL:/run/secrets/dormduri-migrate/DATABASE_URL:ro' \
+      -v '<임시 migrate 디렉터리>/RETENTION_WORKER_DATABASE_URL:/run/secrets/dormduri-migrate/RETENTION_WORKER_DATABASE_URL:ro' \
+      -v '<임시 migrate 디렉터리>/RETENTION_DISCLOSURE_DATABASE_URL:/run/secrets/dormduri-migrate/RETENTION_DISCLOSURE_DATABASE_URL:ro' \
+      '<migrate image digest>' restore-drill
     ```
+
+12. User host에 임시 API container를 SSM Run Command로 띄운다. 띄우기 전 host `MemAvailable`이 그 memory 상한 + 512MiB보다
+    작으면 띄우지 않고 drill을 다른 때로 미룬다(production container를 멈추지 않는다).
+    - secret: runtime 묶음 13 key를 production release와 같은 형식(디렉터리 0500·파일 0400, 소유 10001:10001,
+      `infra/aws/secrets-manager-checklist.md` Host 전달)의 임시 디렉터리에 쓰고 DB URL 셋만 복원 endpoint로 바꾼다. 그 디렉터리를
+      `/run/secrets/dormduri-api`에 read-only로 mount한다(`SECRET_SOURCE=mounted-files`).
+    - env: 지금 돌고 있는 production `api` container의 env(`docker inspect`의 `Config.Env`. secret은 파일이라 값이 없다)를
+      root 전용 env 파일로 옮기고 예약 작업 셋을 `LIFECYCLE_SWEEP_ENABLED=false`, `AUTH_MAIL_DISPATCHER_ENABLED=false`,
+      `CHAT_REALTIME_DISPATCHER_ENABLED=false`(notification outbox dispatcher도 이 설정을 쓴다)로 바꾼다. 복원 DB의 데이터로
+      정리 작업이 돌거나 메일·알림이 나가지 않게 한다.
+    - 실행: API 조각 `api` service와 같은 image digest·hardening·상한으로, compose 밖에서 production과 다른 이름과 host
+      `127.0.0.1`의 임시 port로 띄운다(Docker 기본 bridge network).
 
     ```bash
-    RESTORE_DRILL_MIGRATION_DATABASE_URL='postgresql://redacted' \
-    RESTORE_DRILL_DATABASE_URL='postgresql://redacted' \
-    RESTORE_DRILL_RETENTION_WORKER_DATABASE_URL='postgresql://redacted' \
-    RESTORE_DRILL_RETENTION_DISCLOSURE_DATABASE_URL='postgresql://redacted' \
-      pnpm api:db:restore-drill:smoke
+    docker run -d --name dormduri-restore-drill-api --init --read-only --tmpfs /tmp:size=64m,mode=1777 \
+      --cap-drop ALL --security-opt no-new-privileges:true --memory 1408m --pids-limit 512 \
+      --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
+      --env-file '<임시 env 파일>' -v '<임시 API secret 디렉터리>:/run/secrets/dormduri-api:ro' \
+      -p '127.0.0.1:<임시 port>:4000' '<API image digest>'
     ```
 
-12. User host에 임시 API container를 SSM Run Command로 띄운다. API 조각(`infra/deploy/user/api/compose.yml`)의 `api`
-    service와 같은 image digest·env·secret mount 형식(`SECRET_SOURCE=mounted-files`, `/run/secrets/dormduri-api` read-only)을
-    쓰고 다음만 바꾼다.
-    - secret: runtime 묶음을 root 전용 임시 디렉터리(0700)에 key별 0400 파일(소유 10001)로 쓰고, DB URL 셋만 복원 endpoint로
-      바꾼다. 값은 출력하지 않는다.
-    - 이름·port: production API와 겹치지 않는 container 이름, host `127.0.0.1`의 임시 port에만 publish한다. API transit·관측
-      network에 붙이지 않아 ingress와 Prometheus가 이 container를 보지 않는다.
-    - 예약 작업: `LIFECYCLE_SWEEP_ENABLED=false`, `AUTH_MAIL_DISPATCHER_ENABLED=false`,
-      `CHAT_REALTIME_DISPATCHER_ENABLED=false`(notification outbox dispatcher도 이 설정을 쓴다). 복원 DB의 데이터로 정리
-      작업이 돌거나 메일·알림이 나가지 않게 한다.
 13. Host 안에서 API readiness와 metrics guard를 확인하고 smoke가 끝난 시각을 기록한다. 4의 요청 시각부터 이 시각까지가
     RTO다. Host에는 저장소가 없으므로 `infra/deploy/scripts/api-release-smoke.sh` 내용을 Run Command로 보내 실행한다.
 
     ```bash
     API_BASE_URL='http://127.0.0.1:<임시 port>' \
-    METRICS_BEARER_TOKEN="$(cat '<임시 secret 디렉터리>/METRICS_BEARER_TOKEN')" \
+    METRICS_BEARER_TOKEN="$(cat '<임시 API secret 디렉터리>/METRICS_BEARER_TOKEN')" \
       sh api-release-smoke.sh
     ```
 
 14. Evidence artifact에 아래 secret 없는 정보만 기록한다(식별자도 쓰지 않는다).
-15. 임시 API container와 임시 secret 디렉터리를 지우고, 노트북의 포트 포워딩·`RESTORE_DRILL_*` 값을 닫은 뒤 temporary
-    restored DB(과 drill 중 만든 snapshot)를 삭제하고 삭제를 확인한다.
+15. 임시 API container, 임시 secret 디렉터리 둘(migrate·API)과 임시 env 파일을 지우고, 노트북의 포트 포워딩을 닫은 뒤
+    temporary restored DB(과 drill 중 만든 snapshot)를 삭제하고 삭제를 확인한다.
 16. Cleanup 완료 시각과 담당자를 evidence에 기록한다.
 
 ## Evidence template
@@ -162,4 +174,6 @@ Dry-run은 command shape와 secret boundary만 확인한다. Release evidence로
 - 마지막 migration 이름이나 행 수 불일치: 복원 시각과 3의 기록 시각이 같은지 확인하고 다시 복원한다. 같아도 다르면 drill을 실패로 기록한다.
 - `pgaudit` extension 없음: 원본 parameter group·extension 상태를 `infra/aws/rds-setup-checklist.md` 기준으로 확인한다.
 - `/health/ready` 실패: restored DB 연결·migration baseline과 process bootstrap receipt를 확인한다. Secret origin/provider 상세는 public health가 아니라 component release evidence에서 확인한다.
+- 중간 단계 실패: 어느 단계에서 멈춰도 그 자리에서 임시 container, 임시 secret 디렉터리 둘과 임시 env 파일을 지운다(배포
+  document의 migrate 임시 디렉터리처럼 성공·실패와 관계없이). 복원 instance 삭제는 15를 따른다.
 - Cleanup 실패: temporary restored DB가 남아 있는 상태로 release ready를 표시하지 않는다.
