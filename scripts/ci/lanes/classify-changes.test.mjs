@@ -10,12 +10,14 @@ import { fileURLToPath } from 'node:url';
 import { discoverSuiteTests } from './repo-policy-test-files.mjs';
 import {
   AGENT_TEST_PRODUCT_INPUTS,
+  API_TEST_REPOSITORY_INPUTS,
   changedPathsForComparison,
   classifyChanges,
   classifyGithubEvent,
   eventComparisonHints,
   FORMATTING_CHANGED_PATH_LIMIT,
   formattingScope,
+  isApiTestFile,
   isIntendedFanOut,
   summarizeChangedPaths,
 } from './classify-changes.mjs';
@@ -506,6 +508,130 @@ test('scripts run or referenced by lane jobs and their imports select that lane'
     for (const path of new Set([...importClosure(run), ...named.filter((p) => tracked.has(p))]))
       if (!classifyChanges([path])[lane]) missing.push(`${lane}: ${path}`);
   assert.deepEqual(missing, []);
+});
+
+// Directories that API tests name and join a file name to (only the joined files are read). Every other directory they
+// name outside the API lane rules is listed (git ls-files, readdir) and must be a prefix of API_TEST_REPOSITORY_INPUTS.
+const JOINED_API_TEST_ROOTS = new Map([
+  ['docs/policies', 'pair-only-policy-boundary.spec.ts joins the policy documents it reads'],
+  ['infra/aws', 'backup-restore-drill.spec.ts joins the RDS checklist'],
+  ['infra/runbooks/operations/database', 'backup-restore-drill.spec.ts joins the backup runbook'],
+]);
+const PATH_LITERAL = /['"`]([^'"`\s$]+)['"`]/gu;
+const MARKDOWN_LINK = /\]\(([^)\s]+)\)/gu;
+
+function resolvedImport(fromPath, specifier) {
+  const target = repositoryPath(dirname(fromPath), specifier);
+  return [target, `${target}.ts`, target.replace(/\.js$/u, '.ts'), `${target}/index.ts`].find(
+    (path) => tracked.has(path),
+  );
+}
+
+// Repository files that API tests read: tracked files they name by repository path (a `#fragment` and leading `../`
+// segments dropped), files under the listed directories they name, file names joined to a named joined root (taken from
+// the naming file and the files that import it), and the local link targets of the documents named by a test that
+// parses markdown links (its source holds the `\]\(` of a link pattern): such a test checks that each target exists and
+// carries the linked heading. Link targets are not followed further, and a directory target only has to exist.
+function apiTestRepositoryReads() {
+  const directories = new Set();
+  for (const path of tracked)
+    for (let index = path.indexOf('/'); index > 0; index = path.indexOf('/', index + 1))
+      directories.add(path.slice(0, index));
+  const ownPath = (path) => path === 'apps/api' || path.startsWith('apps/api/');
+  const sources = [...tracked].filter(isApiTestFile);
+  const literals = new Map(
+    sources.map((path) => [
+      path,
+      [...readFileSync(`${repoRoot}${path}`, 'utf8').matchAll(PATH_LITERAL)].map(
+        (match) => match[1],
+      ),
+    ]),
+  );
+  const importers = new Map();
+  for (const path of sources)
+    for (const match of readFileSync(`${repoRoot}${path}`, 'utf8').matchAll(RELATIVE_IMPORT)) {
+      const target = resolvedImport(path, match[1]);
+      if (target) importers.set(target, [...(importers.get(target) ?? []), path]);
+    }
+  const files = new Set();
+  const named = new Map();
+  const documents = new Map(sources.map((path) => [path, new Set()]));
+  const read = (source, path) => {
+    files.add(path);
+    if (path.endsWith('.md')) documents.get(source).add(path);
+  };
+  for (const [source, values] of literals)
+    for (const value of values) {
+      const path = value
+        .replace(/#.*$/u, '')
+        .replace(/^(?:\.\.?\/)+/u, '')
+        .replace(/\/$/u, '');
+      if (!path || ownPath(path) || (!path.includes('/') && !directories.has(path))) continue;
+      if (tracked.has(path)) read(source, path);
+      else if (directories.has(path)) named.set(path, [...(named.get(path) ?? []), source]);
+    }
+  const listed = (directory) =>
+    API_TEST_REPOSITORY_INPUTS.prefixes.some((prefix) => `${directory}/`.startsWith(prefix));
+  const apiOnly = (directory) =>
+    [...tracked].every((path) => !path.startsWith(`${directory}/`) || classifyChanges([path]).api);
+  const problems = [];
+  for (const [directory, namedBy] of named) {
+    if (listed(directory) || apiOnly(directory)) continue;
+    if (!JOINED_API_TEST_ROOTS.has(directory)) {
+      problems.push(`${directory} (named by ${namedBy[0]}): add a listed prefix or a joined root`);
+      continue;
+    }
+    for (const source of new Set(namedBy.flatMap((path) => [path, ...(importers.get(path) ?? [])])))
+      for (const value of literals.get(source)) {
+        const path = `${directory}/${value.replace(/^\.\//u, '').replace(/\/$/u, '')}`;
+        if (tracked.has(path)) read(source, path);
+        else if (directories.has(path) && !listed(path) && !apiOnly(path))
+          problems.push(
+            `${path} (joined by ${source}): a joined directory must be a listed prefix`,
+          );
+      }
+  }
+  for (const [source, named] of documents) {
+    if (!readFileSync(`${repoRoot}${source}`, 'utf8').includes('\\]\\(')) continue;
+    for (const document of named)
+      for (const match of readFileSync(`${repoRoot}${document}`, 'utf8').matchAll(MARKDOWN_LINK)) {
+        if (/^(?:[a-z][a-z0-9+.-]*:|#)/iu.test(match[1])) continue;
+        const target = repositoryPath(dirname(document), match[1].replace(/#.*$/u, ''));
+        if (tracked.has(target)) files.add(target);
+      }
+  }
+  for (const directory of JOINED_API_TEST_ROOTS.keys())
+    if (!named.has(directory) || listed(directory))
+      problems.push(`${directory}: a joined root must be named by an API test and not listed`);
+  for (const prefix of API_TEST_REPOSITORY_INPUTS.prefixes)
+    if (!named.has(prefix.replace(/\/$/u, ''))) problems.push(`${prefix}: no API test names it`);
+  return { files, problems, sources };
+}
+
+test('repository files that API tests read select the API lane, and the input list has no stale entry', () => {
+  const { files, problems, sources } = apiTestRepositoryReads();
+  assert.ok(files.size > 0, 'the scan must find repository files that API tests read');
+  assert.deepEqual(
+    sources.filter((path) => !classifyChanges([path]).repoPolicy),
+    [],
+    'an API test file must select the repo-policy lane, which runs this check',
+  );
+  assert.deepEqual(problems, []);
+  const listed = (path) =>
+    API_TEST_REPOSITORY_INPUTS.prefixes.some((prefix) => path.startsWith(prefix));
+  assert.deepEqual(
+    [...files].filter((path) => !classifyChanges([path]).api).sort(),
+    [],
+    'add these files to API_TEST_REPOSITORY_INPUTS',
+  );
+  assert.deepEqual(
+    API_TEST_REPOSITORY_INPUTS.files.filter((path) => !files.has(path) || listed(path)),
+    [],
+    'remove these entries: no API test reads them, or a listed prefix covers them',
+  );
+  for (const prefix of API_TEST_REPOSITORY_INPUTS.prefixes)
+    for (const path of [...tracked].filter((candidate) => candidate.startsWith(prefix)))
+      assert.equal(classifyChanges([path]).api, true, path);
 });
 
 test('formatting configuration changes at any depth select the full formatting check', () => {

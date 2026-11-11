@@ -212,7 +212,7 @@
     "paths": [".github/PULL_REQUEST_TEMPLATE.md", ".github/SECURITY.md"],
     "expected": {
       "web": false,
-      "api": false,
+      "api": true,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -238,7 +238,7 @@
     "paths": ["infra/observability/loki/loki.yml"],
     "expected": {
       "web": false,
-      "api": false,
+      "api": true,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -329,7 +329,7 @@
     "paths": ["infra/deploy/web/Dockerfile"],
     "expected": {
       "web": true,
-      "api": false,
+      "api": true,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -342,7 +342,7 @@
     "paths": ["infra/deploy/user/compose.yml"],
     "expected": {
       "web": true,
-      "api": false,
+      "api": true,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -355,7 +355,7 @@
     "paths": ["infra/rehearsal/compose.web.yml"],
     "expected": {
       "web": true,
-      "api": false,
+      "api": true,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -368,7 +368,7 @@
     "paths": [".github/workflows/infra-ci.yml"],
     "expected": {
       "web": false,
-      "api": false,
+      "api": true,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -463,7 +463,7 @@
     "paths": [".github/ISSUE_TEMPLATE/work-item.yml", ".github/ISSUE_TEMPLATE/config.yml"],
     "expected": {
       "web": false,
-      "api": false,
+      "api": true,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -596,6 +596,110 @@
       "api": true,
       "shared": true,
       "storybook": true,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "api-test-read-policy-document",
+    "paths": ["docs/policies/production-runtime-safety.md"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "api-test-joined-policy-document",
+    "paths": ["docs/policies/matching-lifecycle.md"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "api-test-read-infra-runbook",
+    "paths": ["infra/runbooks/release/production-release-evidence.md"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "api-test-link-target-document",
+    "paths": ["docs/deploy/README.md"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "api-test-spec-selects-repo-policy",
+    "paths": ["apps/api/test/operations/platform/backup-restore-drill.spec.ts"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "api-colocated-spec-selects-repo-policy",
+    "paths": ["apps/api/src/platform/database/prisma.service.spec.ts"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "unread-policy-document",
+    "paths": ["docs/policies/chat-lifecycle.md"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "unread-infra-runbook",
+    "paths": ["infra/runbooks/incidents/auth-session.md"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "shared": false,
+      "storybook": false,
       "infra": true,
       "repoPolicy": true,
       "agentWorkflow": true

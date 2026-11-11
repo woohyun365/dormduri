@@ -93,6 +93,90 @@ const LANE_SCRIPT_PATHS = new Map([
   ['scripts/observability/sentry/check-build.mjs', ['web']],
 ]);
 
+// API test files: JS and TS files under apps/api/test (specs, helpers, the stress harness) and API spec or test files
+// elsewhere in apps/api. A change to one also runs the repo-policy lane, whose classify-changes.test.mjs checks the
+// repository files these tests read against API_TEST_REPOSITORY_INPUTS in the same pull request.
+export function isApiTestFile(path) {
+  return (
+    path.startsWith('apps/api/') &&
+    /\.[cm]?[jt]sx?$/u.test(path) &&
+    (path.startsWith('apps/api/test/') || /\.(?:spec|test)\.[cm]?[jt]sx?$/u.test(path))
+  );
+}
+
+// Repository files outside the API lane rules that API tests read: files they name by repository path or by a file name
+// joined to a directory they name, the local link targets of the documents named by a test that checks markdown links,
+// and directories they list or hand over whole (git ls-files, readdir, a compose project directory) as prefixes. A
+// change to one also runs the API lane. classify-changes.test.mjs derives these reads from the path literals of the API
+// test files and checks the list in both directions.
+export const API_TEST_REPOSITORY_INPUTS = {
+  files: [
+    'docs/README.md',
+    'docs/architecture/backend/runtime-composition-and-process-state.md',
+    'docs/architecture/decisions/security-privacy.md',
+    'docs/architecture/frontend/web-observability.md',
+    'docs/architecture/platform/observability-topology.md',
+    'docs/architecture/platform/production-runtime-topology.md',
+    'docs/deploy/README.md',
+    'docs/deploy/production-environment.md',
+    'docs/deploy/server-costs.md',
+    'docs/policies/README.md',
+    'docs/policies/account-authentication.md',
+    'docs/policies/data-retention.md',
+    'docs/policies/legal-basis.md',
+    'docs/policies/matching-lifecycle.md',
+    'docs/policies/operational-observability.md',
+    'docs/policies/production-runtime-safety.md',
+    'docs/policies/season-lifecycle.md',
+    'docs/runbooks/README.md',
+    'docs/runbooks/observability/api-stress-release-runbook.md',
+    'docs/runbooks/season-operation.md',
+    'infra/README.md',
+    'infra/aws/README.md',
+    'infra/aws/rds-setup-checklist.md',
+    'infra/aws/secrets-manager-checklist.md',
+    'infra/aws/ses-setup-checklist.md',
+    'infra/rehearsal/compose.api.runtime.yml',
+    'infra/rehearsal/compose.observability.yml',
+    'infra/rehearsal/compose.web.yml',
+    'infra/runbooks/README.md',
+    'infra/runbooks/incidents/observability-alert-delivery.md',
+    'infra/runbooks/incidents/observability-collector.md',
+    'infra/runbooks/incidents/release-rollback.md',
+    'infra/runbooks/operations/database/backup-restore.md',
+    'infra/runbooks/operations/observability/browser-sentry.md',
+    'infra/runbooks/operations/observability/production-stack.md',
+    'infra/runbooks/operations/observability/slack-delivery.md',
+    'infra/runbooks/operations/observability/web-bff.md',
+    'infra/runbooks/rehearsal/api-observability.md',
+    'infra/runbooks/rehearsal/full-stack.md',
+    'infra/runbooks/release/components/api-secrets-manager/evidence.md',
+    'infra/runbooks/release/components/api-secrets-manager/readiness.md',
+    'infra/runbooks/release/components/auth/password-reset-evidence.md',
+    'infra/runbooks/release/components/auth/registration-credential-evidence.md',
+    'infra/runbooks/release/components/backoffice/readiness.md',
+    'infra/runbooks/release/components/infrastructure-target/evidence.md',
+    'infra/runbooks/release/components/infrastructure-target/readiness.md',
+    'infra/runbooks/release/components/lightsail-runtime/evidence.md',
+    'infra/runbooks/release/components/lightsail-runtime/readiness.md',
+    'infra/runbooks/release/components/observability-collector/evidence.md',
+    'infra/runbooks/release/components/observability-collector/readiness.md',
+    'infra/runbooks/release/components/web-sentry/evidence.md',
+    'infra/runbooks/release/components/web-sentry/readiness.md',
+    'infra/runbooks/release/production-release-evidence.md',
+    'infra/runbooks/release/production-release-readiness.md',
+    'infra/runbooks/release/web-stage-deploy.md',
+  ],
+  prefixes: ['.github/', 'infra/deploy/', 'infra/observability/'],
+};
+
+function isApiTestRepositoryInput(path) {
+  return (
+    API_TEST_REPOSITORY_INPUTS.files.includes(path) ||
+    API_TEST_REPOSITORY_INPUTS.prefixes.some((prefix) => path.startsWith(prefix))
+  );
+}
+
 // Product files that agent workflow tests read (measured by tracing the agent suite's file reads). A change to one
 // re-runs the agent workflow lane next to its product lane. classify-changes.test.mjs checks that every product file
 // the agent tests or their fixtures name, or that a development document links, is listed here.
@@ -191,8 +275,9 @@ function isAgentTestProductInput(path) {
   );
 }
 
-// Surfaces checked by the repo-policy lane only. Agent workflow paths (host configuration, agent
-// scripts, tests and instructions) and repository support files never select product lanes.
+// Surfaces checked by the repo-policy lane. Agent workflow paths (host configuration, agent scripts, tests and
+// instructions) and repository support files select no product lane unless a rule above adds one (lane scripts, files
+// that API tests read).
 export const REPO_POLICY_PREFIXES = [
   'docs/',
   'scripts/agents/',
@@ -268,6 +353,7 @@ export function classifyChanges(paths) {
 
     if (path.startsWith('apps/api/')) {
       result.api = true;
+      result.repoPolicy ||= isApiTestFile(path);
       matched = true;
     }
 
@@ -283,6 +369,11 @@ export function classifyChanges(paths) {
     if (path.startsWith('packages/database/')) {
       result.api = true;
       matched = true;
+    }
+
+    // Only adds the API lane: the path's own rule below still selects its lanes and marks it as matched.
+    if (isApiTestRepositoryInput(path)) {
+      result.api = true;
     }
 
     if (isIntendedFanOut(path)) {
@@ -303,12 +394,7 @@ export function classifyChanges(paths) {
         path.startsWith('infra/deploy/api/') ||
         path.startsWith('infra/deploy/nginx/') ||
         path === 'infra/deploy/compose.api.yml' ||
-        path.startsWith('infra/deploy/scripts/') ||
-        // The API operation test secret-bundle-parity.spec.ts compares this host installer with the Node scripts.
-        path === 'infra/deploy/user/api/ssm/secret_bundle.py' ||
-        // deployment-infra.spec.ts reads the API env examples and role-grant-matrix.spec.ts ties their DB pool to the
-        // code default and the CONNECTION LIMIT of the bootstrap SQL.
-        /^infra\/deploy\/\.env\.api[^/]*\.example$/u.test(path)
+        path.startsWith('infra/deploy/scripts/')
       ) {
         result.api = true;
       }
