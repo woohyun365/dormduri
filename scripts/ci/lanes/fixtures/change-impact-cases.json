@@ -641,8 +641,47 @@
     }
   },
   {
+    "name": "api-test-link-target-document",
+    "paths": ["docs/deploy/README.md"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "api-test-spec-selects-repo-policy",
+    "paths": ["apps/api/test/operations/platform/backup-restore-drill.spec.ts"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "api-colocated-spec-selects-repo-policy",
+    "paths": ["apps/api/src/platform/database/prisma.service.spec.ts"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
     "name": "unread-policy-document",
-    "paths": ["docs/policies/operational-observability.md"],
+    "paths": ["docs/policies/chat-lifecycle.md"],
     "expected": {
       "web": false,
       "api": false,
@@ -655,7 +694,7 @@
   },
   {
     "name": "unread-infra-runbook",
-    "paths": ["infra/runbooks/release/web-stage-deploy.md"],
+    "paths": ["infra/runbooks/incidents/auth-session.md"],
     "expected": {
       "web": false,
       "api": false,
