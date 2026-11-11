@@ -10,23 +10,36 @@
 (`infra/aws/rds-setup-checklist.md` Initial RPO / RTO target). 같은 날 `infra/db/README.md` 유지보수 절의
 분기 점검을 한다.
 
+## 실행 경로
+
+복원 DB는 원본과 같은 DB subnet group과 security group으로 만든다. 그 security group은 user host 주소 하나에서 오는
+5432만 받으므로(`infra/aws/rds-setup-checklist.md` Security group) GitHub-hosted runner나 operator 노트북은 복원 DB에
+바로 닿지 않는다. 그래서 drill은 operator가 user host를 거쳐 수동으로 하고, GitHub Actions workflow는 두지 않는다.
+복원 instance의 생성·삭제는 Owner console에서 한다.
+
+| 단계                                 | 경로                                                                                                                                                                                                                                         |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 원본·복원 DB 읽기와 DB smoke(3·9~11) | operator 노트북 → SSM 포트 포워딩(`AWS-StartPortForwardingSessionToRemoteHost`, user host 경유) → DB. URL host는 그 DB endpoint 이름이고 `hostaddr=127.0.0.1`과 터널 port로 붙는다. 노트북 psql의 TLS 인자는 `infra/db/psql-tls.sh`가 바꾼다 |
+| API readiness(12·13)                 | user host의 임시 API container. 띄우기와 smoke는 SSM Run Command로 하고, 결과는 host 안 `http://127.0.0.1:<임시 port>`로 본다                                                                                                                |
+
 ## Required inputs
 
 - Release commit SHA.
 - Source DB identifier: 운영자가 console에서 확인만 하고 evidence에는 쓰지 않는다.
 - Restore source: automated backup/PITR timestamp(기본, 최근 migrate 시작 시각 또는 지정 시각) 또는 manual snapshot.
 - Temporary restored DB: 이름은 운영자가 정하고 evidence에는 쓰지 않는다.
-- Operator와 execution host 종류(이름·주소 없이).
+- Operator 별칭. 실행 경로는 위 [실행 경로](#실행-경로)다(host 이름·주소는 적지 않음).
 - Evidence output 위치.
-- Restored DB용 secret set:
+- Restored DB용 secret set(노트북 shell에만 두고 출력하지 않음. 지금 API 묶음의 URL에서 host만 복원 endpoint로 바꾼 값):
   - `RESTORE_DRILL_MIGRATION_DATABASE_URL`
   - `RESTORE_DRILL_DATABASE_URL`
   - `RESTORE_DRILL_RETENTION_WORKER_DATABASE_URL`
   - `RESTORE_DRILL_RETENTION_DISCLOSURE_DATABASE_URL`
   - optional `DB_GRANT_SCHEMA`
-- Disposable API/nginx smoke용 값:
-  - `API_BASE_URL`
-  - `METRICS_BEARER_TOKEN`
+- 임시 API container 입력:
+  - 지금 배포한 API image digest(`deploy-api-*` 단계 기록 Release의 묶음)
+  - runtime secret 묶음 `/dormduri/production/api/runtime`. DB URL 셋(`DATABASE_URL`·`RETENTION_WORKER_DATABASE_URL`·
+    `RETENTION_DISCLOSURE_DATABASE_URL`)만 host를 복원 endpoint로 바꾸고 나머지 key와 `METRICS_BEARER_TOKEN`은 그대로 쓴다
 
 ## Safety rules
 
@@ -50,7 +63,8 @@
    새 instance로 만든다. 복원 시각이 latest restorable time 안인지 기록한다.
 5. Temporary restored DB가 available이 된 시각을 기록한다.
 6. Temporary restored DB의 public access가 off인지 확인한다.
-7. Security group inbound가 API smoke host, migration/admin host, 필요한 operator 경로로만 제한되어 있는지 확인한다.
+7. Temporary restored DB가 원본과 같은 DB subnet group·security group(user host 주소 하나의 5432)을 쓰는지 확인한다.
+   drill 때문에 inbound를 넓히지 않는다.
 8. Restored DB connection string이 서버 인증서와 host 이름을 검증하는지 확인한다(runtime `verify-full` + 단일 루트,
    migration은 Prisma 형식 `sslmode=require&sslcert=<루트>&sslaccept=strict`, psql은 `infra/db/psql-tls.sh`. 복원 DB는
    endpoint 이름이 다르므로 URL host를 그 endpoint로 바꾼다. `infra/db/README.md` RDS SSL / CA bundle).
@@ -58,7 +72,14 @@
    마지막 migration 이름과 주요 table 행 수가 3의 값과 같은지, `pgaudit` extension이 있는지(`pg_extension`) 본다.
 10. Role grant가 필요하면 restored DB에만 `pnpm api:db:deploy:role-grants`를 적용한다.
 11. Restored DB credential boundary smoke를 LOGIN user별로 실행한다. smoke는 먼저 PostgreSQL major, 마지막 적용 migration(저장소
-    마지막 migration 디렉터리와 같음), `pgaudit` extension·preload를 본다.
+    마지막 migration 디렉터리와 같음), `pgaudit` extension·preload를 본다. 노트북 별도 terminal에서 user host를 거친 SSM 포트
+    포워딩을 복원 endpoint로 열어 둔 채 실행한다(URL은 `hostaddr=127.0.0.1`과 그 local port).
+
+    ```bash
+    aws ssm start-session --target '<user host node>' \
+      --document-name AWS-StartPortForwardingSessionToRemoteHost \
+      --parameters '{"host":["<restored endpoint>"],"portNumber":["5432"],"localPortNumber":["15432"]}'
+    ```
 
     ```bash
     RESTORE_DRILL_MIGRATION_DATABASE_URL='postgresql://redacted' \
@@ -68,17 +89,28 @@
       pnpm api:db:restore-drill:smoke
     ```
 
-12. Disposable API/nginx를 restored DB secret set으로 구동하거나, restored DB를 바라보는 staging-like API endpoint를 준비한다.
-13. API readiness와 metrics guard를 확인하고 smoke가 끝난 시각을 기록한다. 4의 요청 시각부터 이 시각까지가 RTO다.
+12. User host에 임시 API container를 SSM Run Command로 띄운다. API 조각(`infra/deploy/user/api/compose.yml`)의 `api`
+    service와 같은 image digest·env·secret mount 형식(`SECRET_SOURCE=mounted-files`, `/run/secrets/dormduri-api` read-only)을
+    쓰고 다음만 바꾼다.
+    - secret: runtime 묶음을 root 전용 임시 디렉터리(0700)에 key별 0400 파일(소유 10001)로 쓰고, DB URL 셋만 복원 endpoint로
+      바꾼다. 값은 출력하지 않는다.
+    - 이름·port: production API와 겹치지 않는 container 이름, host `127.0.0.1`의 임시 port에만 publish한다. API transit·관측
+      network에 붙이지 않아 ingress와 Prometheus가 이 container를 보지 않는다.
+    - 예약 작업: `LIFECYCLE_SWEEP_ENABLED=false`, `AUTH_MAIL_DISPATCHER_ENABLED=false`,
+      `CHAT_REALTIME_DISPATCHER_ENABLED=false`(notification outbox dispatcher도 이 설정을 쓴다). 복원 DB의 데이터로 정리
+      작업이 돌거나 메일·알림이 나가지 않게 한다.
+13. Host 안에서 API readiness와 metrics guard를 확인하고 smoke가 끝난 시각을 기록한다. 4의 요청 시각부터 이 시각까지가
+    RTO다. Host에는 저장소가 없으므로 `infra/deploy/scripts/api-release-smoke.sh` 내용을 Run Command로 보내 실행한다.
 
     ```bash
-    API_BASE_URL='https://api-restore-drill.example.com' \
-    METRICS_BEARER_TOKEN='<redacted>' \
-      infra/deploy/scripts/api-release-smoke.sh
+    API_BASE_URL='http://127.0.0.1:<임시 port>' \
+    METRICS_BEARER_TOKEN="$(cat '<임시 secret 디렉터리>/METRICS_BEARER_TOKEN')" \
+      sh api-release-smoke.sh
     ```
 
 14. Evidence artifact에 아래 secret 없는 정보만 기록한다(식별자도 쓰지 않는다).
-15. Temporary restored DB와 drill 전용 secret/security group 변경을 cleanup하고 삭제를 확인한다.
+15. 임시 API container와 임시 secret 디렉터리를 지우고, 노트북의 포트 포워딩·`RESTORE_DRILL_*` 값을 닫은 뒤 temporary
+    restored DB(과 drill 중 만든 snapshot)를 삭제하고 삭제를 확인한다.
 16. Cleanup 완료 시각과 담당자를 evidence에 기록한다.
 
 ## Evidence template

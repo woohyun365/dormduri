@@ -72,7 +72,9 @@ planning budget)은
 - **PRS-R30** Migration, role grant 또는 credential smoke 실패는 rollout blocker다.
 - **PRS-R31** Backup/restore drill은 release 전에 실행하고 restored DB의 migration baseline, grant와 readiness를 검증한다.
   단계 배포에는 DB를 들이는 단계부터 적용한다.
-- **PRS-R32** `.github/workflows/api-restore-drill-manual.yml`은 수동 dry-run-first 경계이며 RDS restore 자체를 자동 소유하지 않는다.
+- **PRS-R32** Restore drill은 operator가 user host를 거쳐 수동으로 실행한다(DB smoke는 SSM 포트 포워딩, API readiness는
+  user host의 임시 API container). RDS security group이 user host만 받으므로 GitHub-hosted runner workflow는 두지 않고,
+  복원 instance의 생성·삭제는 Owner console이 소유한다.
 
 ## Ingress·TLS·browser transport 경계
 
@@ -136,3 +138,4 @@ blocker로 승격한다.
 | 2026-11-01 | 문서 범위 문장의 옛 제품 이름을 서비스 이름 돔두리로 바꿨다(불변 조건·범위 서술 변경 없음)                              | service name (#803)       |
 | 2026-11-02 | 규칙 id(`PRS-R1`~`PRS-R55`)를 붙이고 단계 배포 적용 범위와 넓힌 `PENDING_TARGET`, `docs/deploy/` 소유 나눔을 반영했다.  | stage rollout (#699·#700) |
 | 2026-11-10 | `PRS-R14`에 release plane 안의 secret reader가 host role이고 release principal은 secret을 읽지 않는다는 문장을 더했다.  | secret delivery (#886)    |
+| 2026-11-11 | `PRS-R32`의 restore drill 경로를 GitHub-hosted runner workflow에서 user host 경유 수동 실행으로 바꿨다.                 | restore drill (#894)      |

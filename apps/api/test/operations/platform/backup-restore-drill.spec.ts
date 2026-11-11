@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -13,7 +13,6 @@ const requiredFiles = [
   'infra/aws/rds-setup-checklist.md',
   'infra/runbooks/operations/database/backup-restore.md',
   'infra/db/restore-drill-smoke.sh',
-  '.github/workflows/api-restore-drill-manual.yml',
 ];
 
 function readRepoFile(relativePath: string): string {
@@ -29,7 +28,7 @@ function readJson(relativePath: string): { scripts?: Record<string, string> } {
 }
 
 describe('backup and restore drill readiness boundary', () => {
-  it('keeps RDS checklist, restore drill runbook, helper, and manual workflow in expected locations', () => {
+  it('keeps RDS checklist, restore drill runbook, and helper in expected locations', () => {
     const missingFiles = requiredFiles.filter(
       (relativePath) => !existsSync(join(repoRoot, relativePath)),
     );
@@ -117,30 +116,33 @@ describe('backup and restore drill readiness boundary', () => {
     });
   });
 
-  it('keeps the manual restore drill workflow protected, manual, dry-run-first, and non-destructive', () => {
-    const workflow = readFileSync(join(workflowsRoot, 'api-restore-drill-manual.yml'), 'utf8');
+  // The RDS security group admits the user host only (D-AB5), so a GitHub-hosted runner cannot reach a restored DB.
+  // The drill runs from the operator through the user host: SSM port forwarding for the DB smoke and a temporary API
+  // container on the user host for readiness.
+  it('runs the restore drill through the user host and keeps no GitHub-hosted restore drill workflow', () => {
+    expect(existsSync(join(workflowsRoot, 'api-restore-drill-manual.yml'))).toBe(false);
+    const workflowsWithDrill = readdirSync(workflowsRoot)
+      .filter((name) => /\.ya?ml$/u.test(name))
+      .filter((name) => {
+        const workflow = readFileSync(join(workflowsRoot, name), 'utf8');
+        return workflow.includes('restore-drill') || workflow.includes('RESTORE_DRILL_');
+      });
+    expect(workflowsWithDrill).toEqual([]);
 
-    expect(workflow).toContain('workflow_dispatch:');
-    expect(workflow).toContain('dry_run:');
-    expect(workflow).toContain('default: true');
-    expect(workflow).toContain('environment: production');
-    expect(workflow).toContain('permissions:\n  contents: read');
-    expect(workflow).not.toContain('id-token: write');
-    expect(workflow).not.toContain('AWS_ACCESS_KEY_ID');
-    expect(workflow).not.toContain('AWS_SECRET_ACCESS_KEY');
-    expect(workflow).not.toContain('restore-db-instance-to-point-in-time');
-    expect(workflow).not.toContain('restore-db-instance-from-db-snapshot');
-    expect(workflow).toContain('pnpm api:db:restore-drill:smoke -- --dry-run');
-    expect(workflow).toContain('pnpm api:db:restore-drill:smoke');
-    expect(workflow).toContain('infra/deploy/scripts/api-release-smoke.sh --dry-run');
-    expect(workflow).toContain('- name: Upload restore drill evidence');
-    expect(workflow).toContain(
-      'name: api-restore-drill-evidence-${{ github.run_id }}-${{ github.run_attempt }}',
-    );
-    expect(workflow).toContain('path: restore-drill-evidence/');
-    expect(workflow).toContain('if-no-files-found: error');
-    expect(workflow).toContain('retention-days: 14');
-    expect(workflow).toContain('secret values are intentionally excluded');
+    const runbook = readFileSync(join(runbooksRoot, 'backup-restore.md'), 'utf8');
+    for (const expected of [
+      'GitHub-hosted runner',
+      'SSM 포트 포워딩',
+      'user host',
+      '임시 API container',
+      'LIFECYCLE_SWEEP_ENABLED=false',
+      'AUTH_MAIL_DISPATCHER_ENABLED=false',
+      'CHAT_REALTIME_DISPATCHER_ENABLED=false',
+      'http://127.0.0.1:',
+    ]) {
+      expect(runbook).toContain(expected);
+    }
+    expect(runbook).not.toContain('api-restore-drill.example.com');
   });
 
   it('connects restore drill evidence to its DB runbook and official readiness owner', () => {
@@ -158,7 +160,8 @@ describe('backup and restore drill readiness boundary', () => {
     expect(dbReadme).toContain('infra/runbooks/operations/database/backup-restore.md');
     expect(deployReadme).toContain('infra/db/README.md');
     expect(deployReadme).not.toContain('.github/workflows/api-restore-drill-manual.yml');
-    expect(policy).toContain('api-restore-drill-manual.yml');
+    expect(policy).not.toContain('api-restore-drill-manual.yml');
+    expect(policy).toMatch(/PRS-R32\*\*[^\n]*user host/u);
     expect(policy).toContain('backup restore 미검증');
   });
 });

@@ -459,13 +459,6 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
-    if (path === '.github/workflows/api-restore-drill-manual.yml') {
-      result.api = true;
-      result.infra = true;
-      result.repoPolicy = true;
-      matched = true;
-    }
-
     if (path.startsWith('.github/') && !matched) {
       markAll(result);
       matched = true;
