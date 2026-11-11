@@ -59,6 +59,19 @@ test('only the designated jobs hold write scopes and only deploy references the 
     assert.doesNotMatch(JOBS[name], /environment:/u, name);
 });
 
+// 권한 비교가 YAML에서 같은 값(따옴표, 줄 끝 주석)을 놓치지 않는다. 놓치면 위 비교가 추가된 write를 보지 못한다.
+test('the permissions reader keeps quoted values and lines with a trailing comment', () => {
+  const job = [
+    '    permissions:',
+    '      contents: read',
+    "      id-token: 'write'",
+    '      packages: write # ghcr',
+    '    steps:',
+    '',
+  ].join('\n');
+  assert.deepEqual(permissions(job), { contents: 'read', 'id-token': 'write', packages: 'write' });
+});
+
 test('api-cd and web-cd share one workflow-level concurrency group that never cancels a running deploy', () => {
   const block = (source) => /^concurrency:\n(?: {2}.+\n)+/mu.exec(source)?.[0];
   assert.equal(
@@ -295,13 +308,17 @@ test('the host command carries only the action and the API pair under the docume
     'apiDigest',
     'apiMigrateDigest',
   ]);
+  // ssm-send의 API document 분기가 보내는 이름이 document parameter와 같다(동작은 ssm-send.test.mjs가 본다).
   const sender = read('scripts/infra/user-host/ssm-send.sh');
-  assert.match(
-    sender,
-    new RegExp(
-      `^ {2}${API_DOCUMENT_NAME}\\) workflow=api-cd images=\\(api api-migrate\\) names=\\(apiDigest apiMigrateDigest\\) ;;$`,
-      'mu',
-    ),
+  const branch =
+    new RegExp(`^\\s*${API_DOCUMENT_NAME}\\)([\\s\\S]*?);;`, 'mu').exec(sender)?.[1] ?? '';
+  const list = (name) =>
+    new RegExp(`${name}=\\(([^)]*)\\)`, 'u').exec(branch)?.[1].trim().split(/\s+/u);
+  assert.match(branch, /\bworkflow=api-cd\b/u);
+  assert.deepEqual(list('images'), ['api', 'api-migrate']);
+  assert.deepEqual(
+    list('names'),
+    Object.keys(document.parameters).filter((name) => name !== 'action'),
   );
   const sends = [
     ...workflow.matchAll(/ssm-send\.sh ([^\s;]+) ([^\s;]+) ([^\s;]+) ([^\s;]+)/gu),

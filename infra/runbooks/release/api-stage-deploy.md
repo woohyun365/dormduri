@@ -42,14 +42,16 @@ API 정지 → 새 API 시작 → readiness(`/health/ready`) → host 안 smoke(
 `/internal/metrics` 닫힘) → `current` 갱신이다. 결과는 command 출력의 `RESULT=` 줄이고 성공한 `deploy`는 migrate 시작 시각
 `migrateStarted=<UTC>`를 함께 쓴다.
 
-| 결과                                                                                           | 뜻                                                                   | host 상태                                                 |
-| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------- |
-| exit 0 `RESULT=succeeded`                                                                      | 끝까지 통과                                                          | 새 묶음이 `current`, 이전 묶음이 `previous`               |
-| exit 2 `RESULT=failed reason=web-record-legacy`·`web-maintenance`                              | Web 기록이 옛 형식이거나 Web이 점검 mode라 secret을 꺼내기 전에 멈춤 | 바뀌지 않음                                               |
-| exit 2 `RESULT=rejected`(입력), `reason=no-previous`·`previous-mismatch`·`no-current` 등(상태) | 입력이나 host 기록 상태가 맞지 않아 거부                             | 바뀌지 않음                                               |
-| exit 75 `RESULT=locked`                                                                        | 다른 배포(Web 포함)가 host lock을 잡음                               | 바뀌지 않음                                               |
-| exit 1 `reason=migrate`·`grant`·`smoke`·`outbox`·`secret-*`·`pull`                             | rollout 전 실패                                                      | 이전 API가 계속 돈다. migrate 실패면 부분 적용을 가정한다 |
-| exit 1 `reason=rolled-back-to-current`·`entered-maintenance`                                   | 새 API가 readiness·host 안 smoke에서 실패                            | 직전 묶음으로 되돌렸거나, 직전이 없어 API를 내림          |
+| 결과                                                                                                                    | 뜻                                                                                            | host 상태                                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| exit 0 `RESULT=succeeded`                                                                                               | 끝까지 통과                                                                                   | `deploy`: 새 묶음이 `current`, 이전 묶음이 `previous`. `rollback`: 직전 묶음이 `current`, `previous`는 비움. `maintenance`: API를 내림 |
+| exit 2 `RESULT=failed reason=web-record-legacy`·`web-maintenance`·`web-record`                                          | Web 기록이 옛 형식이거나 Web이 점검 mode이거나 Web 기록을 읽지 못해 secret을 꺼내기 전에 멈춤 | 바뀌지 않음                                                                                                                            |
+| exit 2 `RESULT=rejected`(입력), `reason=no-previous`·`previous-mismatch`·`no-current`·`api-record`(상태)                | 입력이나 host 기록 상태가 맞지 않아 거부                                                      | 바뀌지 않음                                                                                                                            |
+| exit 75 `RESULT=locked`                                                                                                 | 다른 배포(Web 포함)가 host lock을 잡음                                                        | 바뀌지 않음                                                                                                                            |
+| exit 1 `reason=migrate`·`grant`·`smoke`·`outbox`·`secret-fetch`·`secret-invalid`·`migration-secret`·`pull`·`api-record` | rollout 전 실패                                                                               | 이전 API가 계속 돈다. migrate 실패면 부분 적용을 가정한다                                                                              |
+| exit 1 `reason=rolled-back-to-current`(`deploy`)                                                                        | 새 API가 readiness·host 안 smoke에서 실패                                                     | 지금 묶음을 다시 띄움                                                                                                                  |
+| exit 1 `reason=rollback-failed-kept-current`(`rollback`)                                                                | 직전 묶음이 readiness·host 안 smoke에서 실패                                                  | 지금 묶음을 다시 띄움. 기록은 그대로                                                                                                   |
+| exit 1 `reason=entered-maintenance`                                                                                     | 새 묶음(또는 rollback 대상)이 실패했고 지금 묶음이 없거나 다시 띄우지 못함                    | API를 내림(공개 경로는 Web fallback)                                                                                                   |
 
 ## 첫 실행 전 Owner 확인
 
@@ -63,7 +65,9 @@ API 정지 → 새 API 시작 → readiness(`/health/ready`) → host 안 smoke(
    [`host-role.secrets-read.json`](../../aws/iam/host-role.secrets-read.json)과 같다.
 3. GitHub: environment `production-api`(required reviewer Owner, deployment branch `main`만, admin bypass off), 그 environment
    secret `AWS_API_DEPLOY_ROLE_ARN`, repository secret `AWS_API_PUBLISH_ROLE_ARN`
-   ([원격 저장소 설정](../../../docs/development/github/remote-repository-settings.md)).
+   ([원격 저장소 설정](../../../docs/development/github/remote-repository-settings.md)). Environment는 `api-cd.yml`이 든 `main`
+   승격보다 먼저 만든다. 없는 environment를 job이 참조하면 GitHub가 보호 규칙 없이 만든다([Manage environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments))(그때도 environment secret이 없어
+   deploy job은 AWS 인증에서 멈춘다).
 4. AWS document `dormduri-api-deploy`가 `main`의 `infra/deploy/user/api/ssm/dormduri-api-deploy.json`과 같고,
    `dormduri-web-deploy`가 `main`의 `infra/deploy/user/ssm/dormduri-web-deploy.json`과 같다. 다르면 deploy job의 해시 대조가
    멈춘다. 고칠 때는 그 파일 내용으로 새 버전을 만들고 기본 버전으로 둔다(Systems Manager > Documents). `lib.sh`를 바꾼 PR은 두
@@ -101,13 +105,19 @@ API 정지 → 새 API 시작 → readiness(`/health/ready`) → host 안 smoke(
   대기 자리도 하나다. 새 run이 오면 GitHub가 대기 중인 run을 취소하고 새 run이 그 자리를 잡는다. 그래서 한 서비스의 대기 run이
   다른 서비스의 새 run에 취소될 수 있다. 대기 중에 취소된 run은 build 전이라 push한 image가 없으므로, 앞 run이 끝난 뒤 그 run을
   Re-run all jobs로 다시 돌린다.
-- Group은 FIFO로 처리하지만 GitHub는 순서를 보장하지 않는다. 승인을 기다리는 run도 끝나지 않은 run이라 group을 잡고 있다(공식
-  문서가 승인 대기를 직접 말하지 않아 "group 안 실행은 하나" 규칙에서 낸 판단이다. 첫 실행에서 관찰로 확인한다).
+- GitHub [workflow syntax의 `concurrency`](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)는
+  group 안 run을 들어온 순서(FIFO)로 처리하지만 실제 시작 시각이 달라 순서는 보장하지 않는다고 적는다. 승인을 기다리는 run도
+  끝나지 않은 run이라 group을 잡고 있다고 본다(그 문서와
+  [Control deployments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments)가
+  승인 대기를 직접 말하지 않아 "group 안 실행은 하나" 규칙에서 낸 판단이다. 첫 실행에서 관찰로 확인한다).
 - Web 먼저: 한 merge가 `web-cd`와 `api-cd`를 함께 시작했고 API 배포가 새 Web 묶음(ingress private listener)에 기대면 Web을
   먼저 끝낸다. `api-cd`가 먼저 group을 잡아 승인을 기다리면 그 승인을 거절(Reject)한다. 거절한 run은 실패로 끝나고 group이
   풀려 `web-cd`가 돈다. `web-cd` 완료와 Landing smoke를 본 뒤 거절한 `api-cd` run을 Re-run failed jobs로 다시 돌린다. 이
   재실행은 build를 다시 돌지 않고(같은 commit의 두 번째 push는 tag immutability로 거부된다) build job 출력 digest로 deploy부터
   다시 한다. 잘못 승인해도 Web 기록이 옛 형식이면 host가 exit 2로 멈추고 아무것도 바꾸지 않는다.
+- Rollback·`maintenance` dispatch가 급하면 승인 대기 중인 run(Web 포함)을 먼저 거절한다. 그렇지 않으면 dispatch가 그 뒤에서
+  기다리고, 그 사이 새 push run이 오면 대기 중인 dispatch가 취소된다([Web 단계 배포의 대기 실행](./web-stage-deploy.md#대기-실행)과
+  같은 규칙).
 - 승인 대기 중인 run보다 더 새 API 배포 입력 run이 있으면 옛 run을 거절한다. 잘못 승인해도 deploy job의 "더 새 변경" 확인이
   host에 보내기 전에 멈춘다. Web 배포 입력만 바뀐 새 run은 옛 API run을 낡게 만들지 않는다.
 - Job이나 run을 취소했으면 다음 run 전에 Systems Manager > Run Command > Command history에서 마지막 command가 끝났는지
@@ -118,13 +128,17 @@ API 정지 → 새 API 시작 → readiness(`/health/ready`) → host 안 smoke(
 Actions > API CD > Run workflow에서 branch `main`을 고르고 `action`과 digest 묶음(`api_digest`·`api_migrate_digest`)을 넣는다.
 묶음은 `deploy-api-*` Release 단계 기록의 `images`나 `previous_safe`에서 복사한다. Dispatch는 build와 attestation 생성을 하지
 않고, 두 digest의 attestation source commit이 같고 그 commit의 API 배포 기록 묶음이 입력과 같을 때만 진행한다(대조 범위는
-최근 Release 100개 안의 `deploy-api-*` 기록).
+`deploy-api-*` Release의 최근 100개. Web Release는 세지 않는다).
 
-| `action`      | 넣는 묶음                                                          | 결과                                                                                                                                                   |
-| ------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `rollback`    | 가장 최근 `deploy-api-*` deploy·rollback Release의 `previous_safe` | migrate 단계 없이 그 묶음으로 되돌린다. secret은 지금 값을 다시 꺼내 새 release로 설치한다. host와 기록 모두 직전 묶음을 비운다                        |
-| `deploy`      | 기록이 있는 아무 묶음                                              | 그 묶음을 다시 올린다. migrate one-off도 다시 돈다(적용할 migration이 없으면 그대로 통과). 지금 묶음과 다르면 지금 묶음이 새 `previous_safe`가 된다    |
-| `maintenance` | 기록이 있는 묶음(보통 지금 묶음)                                   | API container를 내린다. Ingress private listener는 JSON 503이고 `/privacy`·`/terms`는 Web fallback을 낸다. 끝내려면 지금 묶음을 `deploy`로 다시 올린다 |
+| `action`      | 넣는 묶음                                                          | 결과                                                                                                                                                                                                                                                                                                                                               |
+| ------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rollback`    | 가장 최근 `deploy-api-*` deploy·rollback Release의 `previous_safe` | migrate 단계 없이 그 묶음으로 되돌린다. secret은 지금 값을 다시 꺼내 새 release로 설치한다. host와 기록 모두 직전 묶음을 비운다                                                                                                                                                                                                                    |
+| `deploy`      | 기록이 있는 아무 묶음                                              | 그 묶음을 다시 올린다. migrate one-off도 다시 돈다(적용할 migration이 없으면 그대로 통과). 지금 묶음과 다르면 지금 묶음이 새 `previous_safe`가 된다. 그 묶음 뒤에 schema를 바꾼 migration이 있으면 옛 grant 표가 새 relation·column을 덮지 못해 `grant`에서 멈춘다(한 transaction이라 권한은 그대로, 이전 API가 계속 돈다). 그때는 forward-fix한다 |
+| `maintenance` | 기록이 있는 묶음(보통 지금 묶음)                                   | API container를 내린다. Ingress private listener는 JSON 503이고 `/privacy`·`/terms`는 Web fallback을 낸다. 끝내려면 지금 묶음을 `deploy`로 다시 올린다                                                                                                                                                                                             |
+
+Web이 점검 mode인 동안 `maintenance`를 보내면 host는 API를 내리지만, 외부 smoke(serving)가 Web 점검 화면(503)에서 실패해 run이
+실패로 끝나고 단계 기록이 남지 않는다. 그때는 host `RESULT=succeeded action=maintenance` 줄을 단계 이슈 댓글로 옮기고, Web 점검을
+끝낸 뒤 지금 묶음을 `deploy`로 다시 올린다.
 
 DB migration은 되돌리지 않는다(forward-fix). 옛 API image가 새 schema에서 깨지면 rollback 대신 고친 migration이나 코드로 다시
 배포한다. 데이터가 망가졌을 때만 기록한 `migrateStarted` 시각으로 PITR한다([Backup and restore drill runbook](../operations/database/backup-restore.md)).

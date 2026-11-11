@@ -72,7 +72,8 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 ## 대기 실행
 
 - 실행 중인 배포가 끝나기 전에 시작한 실행은 대기(`pending`)한다. 대기 실행이 이미 있으면 GitHub가 그것을 취소하고 새 실행이
-  자리를 잡는다. 승인을 기다리는 실행도 group을 잡고 있다.
+  자리를 잡는다. 승인을 기다리는 실행도 group을 잡고 있다고 본다(근거와 확인 방법은
+  [API 단계 배포의 대기 실행](./api-stage-deploy.md#대기-실행)).
 - 승인 대기 중인 실행보다 더 새 실행이 있으면 옛 실행을 거절(Reject)한다. 잘못 승인해도 deploy job의 "더 새 변경" 확인이
   host에 보내기 전에 멈춘다.
 - Rollback dispatch가 급하면 승인 대기 중인 실행을 먼저 거절한다. 그렇지 않으면 dispatch가 그 뒤에서 기다린다.
@@ -84,7 +85,7 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 Actions > Web CD > Run workflow에서 branch `main`을 고르고 `action`과 digest 쌍을 넣는다. 쌍은 Release 단계 기록의 `images`나
 `previous_safe`에서 복사한다. Dispatch는 build와 attestation 생성을 하지 않고, 두 digest의 attestation source commit이 같고 그
 commit의 배포 기록 쌍이 입력과 같을 때만 진행한다. 그래서 기록이 없는 쌍(로컬 build, 섞은 쌍)은 SendCommand 전에 거부된다.
-대조하는 기록은 최근 Release 100개 안에서 tag가 그 source commit을 가리키는 것, 곧 그 쌍을 만든 push 실행의 기록이다. Dispatch
+대조하는 기록은 `deploy-web-*` Release의 최근 100개(API Release는 세지 않는다) 안에서 tag가 그 source commit을 가리키는 것, 곧 그 쌍을 만든 push 실행의 기록이다. Dispatch
 기록의 tag는 실행한 `main` commit에 붙으므로 그 쌍을 보증하지 않는다.
 
 | `action`      | 넣는 쌍                                             | 결과                                                                                                                    |

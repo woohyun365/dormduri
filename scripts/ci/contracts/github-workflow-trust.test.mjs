@@ -86,15 +86,17 @@ export function writeScopeLines(source) {
     if (inPermissions && !/^ {6}\S/u.test(line)) inPermissions = false;
     // A one-line value: `permissions: write-all` grants every scope, and a flow mapping `{ contents: write }` grants
     // its write entries. A job-level line belongs to that job; any other line is outside a designated job.
-    const inline = /^( *)permissions:\s*(\S.*?)\s*$/u.exec(line);
+    const inline = /^( *)permissions:\s*([^\s#].*?)\s*$/u.exec(line);
     if (inline) {
       const owner = inJobs && inline[1].length === 4 ? job : '';
-      if (/^['"]?write-all['"]?$/u.test(inline[2])) found.push({ job: owner, scope: 'write-all' });
-      for (const entry of inline[2].matchAll(/([a-z-]+)\s*:\s*write\b/gu))
+      if (/^['"]?write-all['"]?(?:\s+#.*)?$/u.test(inline[2]))
+        found.push({ job: owner, scope: 'write-all' });
+      for (const entry of inline[2].matchAll(/([a-z-]+)\s*:\s*['"]?write\b/gu))
         found.push({ job: owner, scope: entry[1] });
       continue;
     }
-    const write = /^\s+([a-z-]+):\s+write\s*$/u.exec(line);
+    // A block entry: the value may be quoted and the line may end with a comment (YAML gives the same scope).
+    const write = /^\s+([a-z-]+):\s+(['"]?)write\2\s*(?:#.*)?$/u.exec(line);
     if (write) found.push({ job: inPermissions ? job : '', scope: write[1] });
   }
   return found;
@@ -266,6 +268,22 @@ test('a write scope outside the designated api-cd jobs is rejected', () => {
       'api-cd.yml',
       workflow(
         '  deploy:\n    runs-on: ubuntu-26.04\n    permissions: write-all\n    steps:\n      - run: true\n',
+      ),
+      1,
+    ],
+    // YAML gives the same write scope to a quoted value or a line with a trailing comment.
+    ['api-cd.yml', workflow(job('record', ['contents: write', 'packages: write # ghcr'])), 1],
+    ['api-cd.yml', workflow(job('record', ["contents: 'write'", 'packages: "write"'])), 1],
+    ['ci.yml', workflow(job('build', ['contents: write  # needed'])), 1],
+    [
+      'ci.yml',
+      `name: x\npermissions:\n  contents: read\n  id-token: write # x\njobs:\n${job('build', ['contents: read'])}`,
+      1,
+    ],
+    [
+      'ci.yml',
+      workflow(
+        '  build:\n    runs-on: ubuntu-26.04\n    permissions: { contents: "write" }\n    steps:\n      - run: true\n',
       ),
       1,
     ],

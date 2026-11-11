@@ -41,7 +41,8 @@ export const STAGES = Object.freeze({
       ),
       `DB·migration·role grant·DB credential·backup/restore: ${DB_UNCHANGED}`,
     ],
-    hostSmoke: 'host 내부 smoke 통과(SSM command Success)',
+    // Web document는 maintenance에서도 점검 화면 smoke를 host 안에서 돈다.
+    hostSmoke: () => 'host 내부 smoke 통과(SSM command Success)',
     rollbackCheck: (runUrl) => `이 실행이 host의 직전 쌍으로 되돌리고 외부 smoke 통과(${runUrl})`,
     maintenanceCheck: '해당 없음(점검 mode)',
   }),
@@ -67,8 +68,11 @@ export const STAGES = Object.freeze({
           ]
         : [`DB migration·role grant·DB credential·backup/restore: ${DB_UNCHANGED}`]),
     ],
-    hostSmoke:
-      'host 내부 smoke 통과(SSM command Success: readiness, private listener 공개 열람 응답, metrics 닫힘)',
+    // host 안 readiness·smoke는 deploy·rollback의 rollout만 돈다. maintenance는 API를 내리기만 한다.
+    hostSmoke: (action) =>
+      action === 'maintenance'
+        ? 'host 안 smoke 해당 없음(API를 내림. SSM command Success만 확인)'
+        : 'host 내부 smoke 통과(SSM command Success: readiness, private listener 공개 열람 응답, metrics 닫힘)',
     rollbackCheck: (runUrl) =>
       `이 실행이 host의 직전 API 묶음으로 되돌리고 외부 smoke 통과(${runUrl})`,
     maintenanceCheck: '해당 없음(API를 내림)',
@@ -188,7 +192,7 @@ export function renderStageRecord(input) {
     `  - run: ${runUrl}`,
     'components:',
     ...stage.components(action).map((line) => `  - ${line}`),
-    `smoke: ${smoke}, ${stage.hostSmoke}`,
+    `smoke: ${smoke}, ${stage.hostSmoke(action)}`,
     `rollback_check: ${rollbackCheck}`,
     ...previous,
     'aggregate_state: COLLECTING',
@@ -292,13 +296,33 @@ function gh(args) {
   return execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
 }
 
+// 한 단계가 보는 Release 수. 저장소 목록(최신순)에서 그 단계 tag만 세므로 다른 단계 Release가 창을 쓰지 않는다.
+export const STAGE_WINDOW = 100;
+// 저장소 전체를 한 번에 받는 목록 크기. 두 단계 Release를 합쳐도 이보다 많아지기 전에 다시 본다.
+const LIST_LIMIT = 1000;
+export function stageReleases(list, stage) {
+  const { gitTag } = stageOf(stage);
+  return list.filter((release) => gitTag.test(release.tagName)).slice(0, STAGE_WINDOW);
+}
+
 // 배포 tag의 Release를 읽는다(GH_TOKEN·GITHUB_REPOSITORY 환경). 공개 저장소라 contents: read로 충분하다.
 export function readReleases({ stage = 'web', withTagCommit = false } = {}) {
-  const { gitTag } = stageOf(stage);
   const repository = process.env.GITHUB_REPOSITORY;
-  const list = JSON.parse(
-    gh(['release', 'list', '--repo', repository, '--limit', '100', '--json', 'tagName,createdAt']),
-  ).filter((release) => gitTag.test(release.tagName));
+  const list = stageReleases(
+    JSON.parse(
+      gh([
+        'release',
+        'list',
+        '--repo',
+        repository,
+        '--limit',
+        String(LIST_LIMIT),
+        '--json',
+        'tagName,createdAt',
+      ]),
+    ),
+    stage,
+  );
   return list.map((release) => ({
     ...release,
     body: JSON.parse(

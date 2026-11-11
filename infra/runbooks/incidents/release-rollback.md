@@ -34,8 +34,10 @@ Evidence에는 secret value, DB URL, Authorization header, bearer token, raw pro
   secret을 꺼내기 전에 멈춘다(`web-record-legacy`·`web-maintenance`, exit 2). API `maintenance`는 된다. Web을 새 document로
   다시 배포하거나 점검 mode를 끝낸 뒤 API를 배포한다.
 - migrate·grant·role smoke·auth mail outbox 확인 가운데 하나라도 실패하면 rollout하지 않고 이전 API container가 계속 돈다
-  (exit 1). 새 API container가 readiness나 host 안 smoke를 통과하지 못하면 직전 release로 되돌리고(`rolled-back-to-current`),
-  직전 release가 없으면 API를 내린 채 끝낸다(`entered-maintenance`).
+  (exit 1). 새 API container가 readiness나 host 안 smoke를 통과하지 못하면 지금 release를 다시 띄우고(`rolled-back-to-current`),
+  지금 release가 없거나 다시 띄우지 못하면 API를 내린 채 끝낸다(`entered-maintenance`). API `rollback`의 대상이 실패하면 지금
+  release를 다시 띄우고(`rollback-failed-kept-current`), 그것도 실패하면 API를 내린다(`entered-maintenance`). 결과 줄 전체는
+  [API 단계 배포](../release/api-stage-deploy.md#host가-하는-일)의 표다.
 - migrate 시작 시각(UTC)은 root 전용 host log(`/opt/dormduri/state/deploy-api.log`)에 남는다. 데이터가 망가졌을 때만 그 시각으로
   [DB restore escalation](#db-restore-escalation)을 한다.
 

@@ -15,6 +15,8 @@ import {
   planRun,
   renderStageRecord,
   servingState,
+  STAGE_WINDOW,
+  stageReleases,
 } from './release-record.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
@@ -290,6 +292,18 @@ test('the API stage record keeps the template fields, names the API pair and pas
       assert.ok(yaml.split('\n').includes(line), `${action}: ${line}`);
     }
     assert.match(yaml, /signer \.github\/workflows\/api-cd\.yml, refs\/heads\/main/u);
+    // host 안 smoke는 deploy·rollback만 돈다. maintenance는 API를 내리기만 해 그 통과를 적지 않는다.
+    const smoke = yaml.split('\n').find((line) => line.startsWith('smoke: '));
+    if (action === 'maintenance') {
+      assert.match(smoke, /host 안 smoke 해당 없음\(API를 내림/u, action);
+      assert.doesNotMatch(smoke, /readiness|metrics 닫힘|smoke 통과/u, action);
+    } else {
+      assert.match(
+        smoke,
+        /host 내부 smoke 통과\(SSM command Success: readiness, private listener 공개 열람 응답, metrics 닫힘\)/u,
+        action,
+      );
+    }
     assert.doesNotMatch(yaml, /web-cd\.yml|dormduri\/(?:web|ingress)@/u, action);
     assert.doesNotMatch(yaml, /: PASS\b/u, 'the record job never judges a component');
     assert.match(body, /^API 단계 배포 기록\. 형식: /u);
@@ -346,17 +360,41 @@ test('API deploy records leave the DB components to the operator and other runs 
 });
 
 test('the API stage refuses the Web release ID, image names and SBOM keys', () => {
-  for (const overrides of [
-    { releaseId: 'deploy-web-20261111-7' },
-    { pair: pair('a', 'b') },
-    { pair: { api: digest('a') } },
-    { sbom: { web: digest('5'), ingress: digest('6') } },
-    { previousSafe: pair('d', 'e') },
-    { stage: 'backoffice' },
+  for (const [overrides, reason] of [
+    [{ releaseId: 'deploy-web-20261111-7' }, /release ID is not a deploy-api tag/u],
+    [{ pair: pair('a', 'b') }, /image pair is not api and api-migrate/u],
+    [{ pair: { api: digest('a') } }, /image pair is not api and api-migrate/u],
+    [{ sbom: { web: digest('5'), ingress: digest('6') } }, /SBOM manifest digest is missing/u],
+    [{ previousSafe: pair('d', 'e') }, /previous safe pair is malformed/u],
+    [{ stage: 'backoffice' }, /unknown stage: backoffice/u],
   ]) {
-    assert.throws(() => renderStageRecord(apiInput(overrides)), JSON.stringify(overrides));
+    assert.throws(() => renderStageRecord(apiInput(overrides)), reason, JSON.stringify(overrides));
   }
-  assert.throws(() => renderStageRecord(input({ releaseId: 'deploy-api-20261103-42' })));
+  assert.throws(
+    () => renderStageRecord(input({ releaseId: 'deploy-api-20261103-42' })),
+    /release ID is not a deploy-web tag/u,
+  );
+});
+
+// 두 단계의 Release가 저장소 목록 하나에 섞인다. 한 단계의 창(최근 STAGE_WINDOW개)은 그 단계 tag만 세므로 다른 단계 Release가
+// 많이 쌓여도 지금 묶음·직전 묶음과 dispatch 대조 기록을 잃지 않는다.
+test('a stage keeps its own recent Releases however many the other stage adds', () => {
+  const tag = (stage, n) => ({ tagName: `deploy-${stage}-20261111-${n}`, createdAt: '' });
+  const newestFirst = [
+    ...Array.from({ length: 150 }, (_, n) => tag('web', 300 - n)),
+    tag('api', 2),
+    tag('api', 1),
+    ...Array.from({ length: STAGE_WINDOW + 5 }, (_, n) => tag('web', 100 - n)),
+  ];
+  assert.deepEqual(
+    stageReleases(newestFirst, 'api').map((release) => release.tagName),
+    ['deploy-api-20261111-2', 'deploy-api-20261111-1'],
+  );
+  const web = stageReleases(newestFirst, 'web');
+  assert.equal(web.length, STAGE_WINDOW);
+  assert.equal(web[0].tagName, 'deploy-web-20261111-300');
+  assert.ok(web.every((release) => release.tagName.startsWith('deploy-web-')));
+  assert.throws(() => stageReleases(newestFirst, 'backoffice'), /unknown stage: backoffice/u);
 });
 
 test('each stage parses and plans only its own Releases', () => {

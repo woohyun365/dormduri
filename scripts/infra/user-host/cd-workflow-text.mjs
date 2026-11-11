@@ -18,10 +18,14 @@ export function steps(job) {
     .map((part) => ({ name: part.slice(0, part.indexOf('\n')), body: part }));
 }
 
+// job의 permissions block → { scope: 값 }. 값의 따옴표와 줄 끝 주석은 YAML에서 같은 값이라 떼고 읽는다.
 export function permissions(job) {
-  const block = /^ {4}permissions:\n((?: {6}[a-z-]+: [a-z]+\n)+)/mu.exec(job)?.[1] ?? '';
+  const block = /^ {4}permissions:\n((?: {6}[a-z-]+: .+\n)+)/mu.exec(job)?.[1] ?? '';
   return Object.fromEntries(
-    [...block.matchAll(/^ {6}([a-z-]+): ([a-z]+)$/gmu)].map((m) => [m[1], m[2]]),
+    [...block.matchAll(/^ {6}([a-z-]+): (['"]?)([a-z-]+)\2\s*(?:#.*)?$/gmu)].map((m) => [
+      m[1],
+      m[3],
+    ]),
   );
 }
 
