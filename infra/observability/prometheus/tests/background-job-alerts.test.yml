@@ -1,0 +1,39 @@
+# 정리 작업 경보: 마지막 성공이 주기 3배를 넘으면 멈춤, 주기 3배 안의 실패 셋이면 반복 실패. 성공을 이어 가는 작업은 울리지 않는다.
+rule_files:
+  - ../rules/background-job-alerts.yml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      # lifecycle_sweep: 60초에 성공한 뒤 멈춤(15분 = 900초 기준).
+      - series: 'api_background_job_last_success_timestamp_seconds{job="api",instance="api:4000",exported_job="lifecycle_sweep"}'
+        values: '60x30'
+      # auth mail dispatcher: 매분 성공(시각 = 그 분).
+      - series: 'api_background_job_last_success_timestamp_seconds{job="api",instance="api:4000",exported_job="auth_mail_dispatcher"}'
+        values: '0+60x30'
+      # database_table_stats: 0초 성공 뒤 멈춤(45분 기준이라 30분 안에는 울리지 않음).
+      - series: 'api_background_job_last_success_timestamp_seconds{job="api",instance="api:4000",exported_job="database_table_stats"}'
+        values: '0x30'
+      - series: 'api_background_job_failures_total{job="api",instance="api:4000",exported_job="lifecycle_sweep"}'
+        values: '0 0 0 0 0 1 1 1 1 1 2 2 2 2 2 3 3 3 3 3 3'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: BackgroundJobStalled
+        exp_alerts: []
+      - eval_time: 18m
+        alertname: BackgroundJobStalled
+        exp_alerts:
+          - exp_labels: { severity: warning, service: api, exported_job: lifecycle_sweep }
+            exp_annotations:
+              summary: 정리 작업의 마지막 성공이 작업 주기의 3배보다 오래됐습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 9m
+        alertname: BackgroundJobRepeatedFailures
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: BackgroundJobRepeatedFailures
+        exp_alerts:
+          - exp_labels: { severity: warning, service: api, exported_job: lifecycle_sweep }
+            exp_annotations:
+              summary: 정리 작업 실행이 작업 주기 3배 안에서 세 번 이상 실패했습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응

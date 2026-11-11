@@ -11,6 +11,7 @@ require_fragments
 echo "${sub}:${services}" >>/tmp/services.log
 # 다른 묶음 조각의 변수(API 묶음 current 기록 값)를 compose 호출 때 기록한다.
 [ -n "${API_IMAGE:-}" ] && echo "${API_IMAGE##*@}" >>/tmp/apivars.log
+[ -n "${OBSERVABILITY_CONFIG_DIR:-}" ] && echo "${OBSERVABILITY_CONFIG_DIR##*/}" >>/tmp/obsvars.log
 if [ "${sub}" = up ]; then
   case " $* " in *" --no-deps "*)
     [ -z "${BAD_INGRESS:-}" ]

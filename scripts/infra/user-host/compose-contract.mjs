@@ -1,17 +1,25 @@
 // User host compose 조각 둘(web 묶음 infra/deploy/user/compose.yml, API 묶음 infra/deploy/user/api/compose.yml)의 구조 계약.
 // `docker compose config --format json` 결과를 받아 어긋난 점의 목록을 돌려준다(빈 목록 = 통과). validate-compose가 실제
 // 파일에, test가 fixture에 쓴다.
-// 기준: web·API publish 없음(ingress 80·443만), read-only root·tmpfs·non-root image·no-new-privileges, memory는
-// infrastructure-target readiness의 시작값(nginx 96MiB·Web 320MiB·API 1408MiB), json-file 10MB × 3, network는 Web transit
-// (web·ingress, 고정 subnet·주소)과 묶음을 건너는 external API transit(ingress·api·migrate)뿐(D-AB11·D-AB13).
+// 기준: web·API publish 없음(ingress 80·443만, 관측 UI는 127.0.0.1만), read-only root·tmpfs·non-root(Docker socket을 읽는 Alloy만
+// 예외)·no-new-privileges, memory는 infrastructure-target readiness의 시작값(nginx 96MiB·Web 320MiB·API 1408MiB·관측 다섯),
+// json-file 10MB × 3, network는 Web transit(web·ingress, 고정 subnet·주소), 묶음을 건너는 external API transit(ingress·api·
+// migrate·prometheus), API 묶음 안 관측 network(관측 다섯, 고정 subnet)뿐(D-AB11·D-AB13·D-AB14). 관측 secret은 그 파일을 읽는
+// container에만 파일 단위로 들어간다(D-AB7).
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+const MiB = 1024 * 1024;
 export const USER_HOST_MEMORY_LIMITS = Object.freeze({
-  web: 320 * 1024 * 1024,
-  ingress: 96 * 1024 * 1024,
-  api: 1408 * 1024 * 1024,
-  migrate: 384 * 1024 * 1024,
+  web: 320 * MiB,
+  ingress: 96 * MiB,
+  api: 1408 * MiB,
+  migrate: 384 * MiB,
+  prometheus: 256 * MiB,
+  loki: 320 * MiB,
+  alloy: 160 * MiB,
+  alertmanager: 96 * MiB,
+  grafana: 320 * MiB,
 });
 // Web transit: web 조각이 정의한다. 고정 주소는 동적 할당 범위 밖이고, ingress private listener는 web 주소와 loopback만 받고
 // 그 밖의 peer에는 403을 낸다(infra/deploy/user/ingress/conf.d/dormduri.conf). API transit: 두 document가 lib.sh 값으로 만들고
@@ -34,6 +42,55 @@ export const API_TRANSIT = Object.freeze({
 // Docker 기본 주소 pool(172.17~31.0.0/16, 192.168.0.0/16)과 AWS 기본 VPC(default VPC·Lightsail VPC 대역)를 덮는 범위. transit이
 // 여기와 겹치면 RDS·Lightsail 경로가 bridge로 잘못 가거나 다른 docker network와 부딪친다(D-AB11).
 export const TRANSIT_RESERVED_RANGES = Object.freeze(['172.16.0.0/12', '192.168.0.0/16']);
+// API 묶음 안 관측 network. API 조각이 고정 subnet으로 정의한다(묶음을 건너지 않으므로 external이 아니다).
+export const OBSERVABILITY_NETWORK = Object.freeze({
+  key: 'observability',
+  subnet: '10.217.12.0/28',
+  gateway: '10.217.12.1',
+});
+// 관측 다섯(D-AB14): 실행 user(관측 secret 파일 소유 UID와 같아야 한다), 설정 경로(관측 설정 digest 경로 아래), 그 container만
+// 받는 관측 secret 파일, loopback publish, network. upstream image pin은 infra/observability/compose.base.yml(image inventory)과 같다.
+export const OBSERVABILITY_SERVICES = Object.freeze({
+  prometheus: {
+    user: '65534:65534',
+    config: ['prometheus'],
+    secrets: ['api-metrics-bearer-token'],
+    ports: ['127.0.0.1:9090:9090'],
+    networks: ['api-transit', 'observability'],
+  },
+  loki: {
+    user: '10001:10001',
+    config: ['loki/loki.yml', 'loki/rules'],
+    secrets: [],
+    ports: [],
+    networks: ['observability'],
+  },
+  alloy: { user: '0:473', config: ['alloy'], secrets: [], ports: [], networks: ['observability'] },
+  alertmanager: {
+    user: '65534:65534',
+    config: ['alertmanager'],
+    secrets: ['slack-webhook-url'],
+    ports: ['127.0.0.1:9093:9093'],
+    networks: ['observability'],
+  },
+  grafana: {
+    user: '472:0',
+    config: ['grafana/provisioning', 'grafana/dashboards'],
+    secrets: ['grafana-admin-password'],
+    ports: ['127.0.0.1:3001:3000'],
+    networks: ['observability'],
+  },
+});
+export const OBSERVABILITY_CONFIG_ROOT = '/opt/dormduri/observability/config';
+export const OBSERVABILITY_SECRET_DIRECTORY = '/opt/dormduri/secrets/observability';
+export const OBSERVABILITY_SECRET_TARGET = '/run/secrets/dormduri-observability';
+// Alloy만 host를 읽는다: compose project log(Docker socket)와 host 지표(`/`·`/proc`·`/sys`), 모두 읽기 전용.
+export const ALLOY_HOST_READS = Object.freeze({
+  '/var/run/docker.sock': '/var/run/docker.sock',
+  '/': '/host/root',
+  '/proc': '/host/proc',
+  '/sys': '/host/sys',
+});
 
 function cidrRange(cidr) {
   const [address, bits] = cidr.split('/');
@@ -57,7 +114,12 @@ const overlaps = (a, b) => {
 
 // API transit 값의 원본은 lib.sh(두 document가 network를 없을 때 만든다)다. 조각은 external로만 써서 render로 대조할 수 없으므로
 // 그 값을 계약과 대조하고, 두 transit이 서로·예약 범위와 겹치지 않는지 본다.
-export function transitSubnetProblems(libText, api = API_TRANSIT, web = WEB_TRANSIT) {
+export function transitSubnetProblems(
+  libText,
+  api = API_TRANSIT,
+  web = WEB_TRANSIT,
+  observability = OBSERVABILITY_NETWORK,
+) {
   const problems = [];
   const expected = {
     api_transit_name: api.name,
@@ -75,6 +137,14 @@ export function transitSubnetProblems(libText, api = API_TRANSIT, web = WEB_TRAN
   for (const [name, subnet] of [
     ['API transit', api.subnet],
     ['Web transit', web.subnet],
+  ]) {
+    if (overlaps(observability.subnet, subnet))
+      problems.push(`observability network ${observability.subnet} overlaps ${name} ${subnet}`);
+  }
+  for (const [name, subnet] of [
+    ['API transit', api.subnet],
+    ['Web transit', web.subnet],
+    ['observability network', observability.subnet],
   ]) {
     for (const reserved of TRANSIT_RESERVED_RANGES) {
       if (overlaps(subnet, reserved)) problems.push(`${name} ${subnet} overlaps ${reserved}`);
@@ -99,6 +169,7 @@ export const USER_HOST_RENDER_ENVIRONMENT = Object.freeze({
   API_MIGRATE_IMAGE: `dormduri/api-migrate@sha256:${'0'.repeat(64)}`,
   API_SECRET_RELEASE_DIR: '/opt/dormduri/secrets/api/releases/render',
   MIGRATE_SECRET_DIR: '/opt/dormduri/secrets/migrate.render',
+  OBSERVABILITY_CONFIG_DIR: `/opt/dormduri/observability/config/${'0'.repeat(64)}`,
 });
 export const INGRESS_PUBLISHED_PORTS = Object.freeze(['80:8080', '443:8443']);
 export const INGRESS_READ_ONLY_MOUNTS = Object.freeze([
@@ -111,6 +182,9 @@ const SERVICE_NETWORKS = Object.freeze({
   ingress: [API_TRANSIT.key, WEB_TRANSIT.key],
   api: [API_TRANSIT.key],
   migrate: [API_TRANSIT.key],
+  ...Object.fromEntries(
+    Object.entries(OBSERVABILITY_SERVICES).map(([name, { networks }]) => [name, networks]),
+  ),
 });
 
 const memory = (service) => Number(service.deploy?.resources?.limits?.memory);
@@ -119,7 +193,16 @@ const seconds = (value) => {
   return match ? Number(match[1] ?? 0) * 60 + Number(match[2] ?? 0) : Number.NaN;
 };
 
-function hardeningProblems(name, service, { restart = 'unless-stopped' } = {}) {
+function hardeningProblems(
+  name,
+  service,
+  {
+    restart = 'unless-stopped',
+    allowRoot = false,
+    allowSocket = false,
+    loopbackPorts = false,
+  } = {},
+) {
   const problems = [];
   if (service.read_only !== true) problems.push(`${name}: root filesystem is not read-only`);
   if (JSON.stringify(service.cap_drop ?? []) !== '["ALL"]')
@@ -131,7 +214,11 @@ function hardeningProblems(name, service, { restart = 'unless-stopped' } = {}) {
   if (service.privileged) problems.push(`${name}: runs privileged`);
   if (service.network_mode || service.pid || service.ipc)
     problems.push(`${name}: shares a host namespace`);
-  if (service.user !== undefined && /^(?:0|root)(?::|$)/u.test(String(service.user))) {
+  if (
+    !allowRoot &&
+    service.user !== undefined &&
+    /^(?:0|root)(?::|$)/u.test(String(service.user))
+  ) {
     problems.push(`${name}: overrides the image user with root`);
   }
   if (!(service.tmpfs ?? []).some((entry) => entry.startsWith('/tmp:')))
@@ -156,10 +243,105 @@ function hardeningProblems(name, service, { restart = 'unless-stopped' } = {}) {
     problems.push(`${name}: networks ${networks.join(', ')} differ from ${SERVICE_NETWORKS[name]}`);
   }
   for (const volume of service.volumes ?? []) {
-    if (/docker\.sock/u.test(volume.source ?? ''))
+    if (!allowSocket && /docker\.sock/u.test(volume.source ?? ''))
       problems.push(`${name}: mounts the Docker socket`);
   }
-  if (name !== 'ingress' && service.ports?.length) problems.push(`${name}: publishes a host port`);
+  if (loopbackPorts) {
+    for (const port of service.ports ?? []) {
+      if (port.host_ip !== '127.0.0.1')
+        problems.push(`${name}: publishes ${port.target} beyond loopback`);
+    }
+  } else if (name !== 'ingress' && service.ports?.length)
+    problems.push(`${name}: publishes a host port`);
+  return problems;
+}
+
+const portText = (port) => `${port.host_ip}:${port.published}:${port.target}`;
+
+// 관측 다섯. pins는 service 이름 → image 참조(infra/observability/compose.base.yml의 pin, validate-compose가 image inventory로 준다).
+export function observabilityProblems(config, pins = {}) {
+  const services = config.services ?? {};
+  const problems = [];
+  const network = config.networks?.[OBSERVABILITY_NETWORK.key];
+  const ipam = network?.ipam?.config ?? [];
+  if (
+    network?.external ||
+    ipam.length !== 1 ||
+    ipam[0].subnet !== OBSERVABILITY_NETWORK.subnet ||
+    ipam[0].gateway !== OBSERVABILITY_NETWORK.gateway
+  ) {
+    problems.push('networks: observability is not the fixed observability subnet');
+  }
+  for (const [name, expected] of Object.entries(OBSERVABILITY_SERVICES)) {
+    const service = services[name];
+    if (!service) {
+      problems.push(`${name}: missing observability service`);
+      continue;
+    }
+    problems.push(
+      ...hardeningProblems(name, service, {
+        allowRoot: name === 'alloy',
+        allowSocket: name === 'alloy',
+        loopbackPorts: true,
+      }),
+    );
+    if (pins[name] && service.image !== pins[name])
+      problems.push(`${name}: image differs from the observability pin`);
+    if (!/@sha256:[a-f0-9]{64}$/u.test(service.image ?? ''))
+      problems.push(`${name}: image is not pinned by digest`);
+    if (String(service.user ?? '') !== expected.user)
+      problems.push(`${name}: user is not ${expected.user}`);
+    if (!service.deploy?.resources?.limits?.cpus) problems.push(`${name}: no CPU limit`);
+    if (service.profiles?.length) problems.push(`${name}: is behind a profile`);
+    const ports = (service.ports ?? []).map(portText).sort();
+    if (JSON.stringify(ports) !== JSON.stringify([...expected.ports].sort()))
+      problems.push(`${name}: published ports ${ports.join(', ')} differ from ${expected.ports}`);
+    const config = [];
+    const secrets = [];
+    for (const volume of service.volumes ?? []) {
+      const source = volume.source ?? '';
+      if (volume.type === 'volume') continue;
+      const readOnlyBind = volume.type === 'bind' && volume.read_only === true;
+      if (source.startsWith(`${OBSERVABILITY_CONFIG_ROOT}/`)) {
+        const [digest, ...rest] = source.slice(OBSERVABILITY_CONFIG_ROOT.length + 1).split('/');
+        if (
+          !readOnlyBind ||
+          volume.bind?.create_host_path !== false ||
+          !/^[0-9a-f]{64}$/u.test(digest)
+        )
+          problems.push(
+            `${name}: ${volume.target} is not a read-only mount of a config digest path`,
+          );
+        config.push(rest.join('/'));
+      } else if (source.startsWith(`${OBSERVABILITY_SECRET_DIRECTORY}/`)) {
+        const file = source.slice(OBSERVABILITY_SECRET_DIRECTORY.length + 1);
+        if (
+          !readOnlyBind ||
+          volume.bind?.create_host_path !== false ||
+          file.includes('/') ||
+          volume.target !== `${OBSERVABILITY_SECRET_TARGET}/${file}`
+        ) {
+          problems.push(`${name}: ${volume.target} is not a read-only file mount of its secret`);
+        }
+        secrets.push(file);
+      } else if (name === 'alloy' && ALLOY_HOST_READS[source] === volume.target) {
+        if (!readOnlyBind) problems.push(`${name}: ${source} is writable`);
+      } else {
+        problems.push(`${name}: mounts ${source || volume.target} outside the observability paths`);
+      }
+    }
+    if (JSON.stringify(config.sort()) !== JSON.stringify([...expected.config].sort()))
+      problems.push(`${name}: config mounts ${config.join(', ')} differ from ${expected.config}`);
+    if (JSON.stringify(secrets.sort()) !== JSON.stringify([...expected.secrets].sort()))
+      problems.push(`${name}: secret mounts ${secrets.join(', ')} differ from ${expected.secrets}`);
+    if (name === 'alloy') {
+      const reads = (service.volumes ?? []).filter((volume) => ALLOY_HOST_READS[volume.source]);
+      if (reads.length !== Object.keys(ALLOY_HOST_READS).length)
+        problems.push('alloy: does not read the Docker socket and host paths read-only');
+      if (service.environment?.OBSERVABILITY_COMPOSE_PROJECT !== 'dormduri-web')
+        problems.push('alloy: collects beyond the dormduri-web compose project');
+    }
+  }
   return problems;
 }
 
@@ -232,11 +414,18 @@ export function checkUserHostCompose(config) {
 }
 
 // 두 조각을 한 project로 render한 결과. expectedEnvironment는 apiEnvironmentFromExamples()다.
-export function checkUserHostBundleCompose(config, expectedEnvironment) {
+const BUNDLE_SERVICES = [
+  'api',
+  'ingress',
+  'migrate',
+  'web',
+  ...Object.keys(OBSERVABILITY_SERVICES),
+].sort();
+export function checkUserHostBundleCompose(config, expectedEnvironment, pins = {}) {
   const services = config.services ?? {};
-  if (JSON.stringify(Object.keys(services).sort()) !== '["api","ingress","migrate","web"]') {
+  if (JSON.stringify(Object.keys(services).sort()) !== JSON.stringify(BUNDLE_SERVICES)) {
     return [
-      `services must be exactly api, ingress, migrate and web, got ${Object.keys(services).join(', ')}`,
+      `services must be exactly ${BUNDLE_SERVICES.join(', ')}, got ${Object.keys(services).join(', ')}`,
     ];
   }
   const webOnly = { ...config, services: { web: services.web, ingress: services.ingress } };
@@ -289,6 +478,13 @@ export function checkUserHostBundleCompose(config, expectedEnvironment) {
   for (const volume of apiVolumes) {
     if (/migrat/u.test(volume.source ?? '')) problems.push('api: mounts the migration secret');
   }
+  for (const [name, service] of Object.entries({ api, migrate })) {
+    for (const volume of service.volumes ?? []) {
+      if ((volume.source ?? '').startsWith(OBSERVABILITY_SECRET_DIRECTORY))
+        problems.push(`${name}: mounts an observability secret`);
+    }
+  }
+  problems.push(...observabilityProblems(config, pins));
   if (migrate.environment?.CHECKPOINT_DISABLE !== '1')
     problems.push('migrate: CHECKPOINT_DISABLE=1 is not set');
   if (migrate.environment?.MIGRATE_SECRET_DIRECTORY !== MIGRATE_SECRET_TARGET)

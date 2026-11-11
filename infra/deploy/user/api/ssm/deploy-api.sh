@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# dormduri-api-deploy 본문(API 묶음: api·migrate one-off). scripts/infra/user-host/ssm-document.mjs가 이 파일, web 묶음
+# dormduri-api-deploy 본문(API 묶음: api·migrate one-off·관측 다섯). scripts/infra/user-host/ssm-document.mjs가 이 파일, web 묶음
 # document와 같은 ../../ssm/lib.sh, ../compose.yml(API 묶음 조각), secret_bundle.py, secret-mount contract로 SSM Command
 # document(dormduri-api-deploy.json)를 만든다. 파라미터는 interpolationType ENV_VAR로 SSM_action·SSM_apiDigest·
-# SSM_apiMigrateDigest 환경 변수로만 받는다. 임의 명령을 받지 않는다.
+# SSM_apiMigrateDigest·SSM_observabilityConfigDigest 환경 변수로만 받는다. 임의 명령을 받지 않는다.
 # 표준 출력은 SSM 결과로 deploy role에 보이므로 RESULT·단계 줄과 digest만 쓴다. registry 주소·compose 출력은 root 전용
 # host log(/opt/dormduri/state/deploy-api.log)에만 남긴다. secret 값은 어디에도 쓰지 않는다(Secrets Manager → pipe → 0400 파일).
 # 순서(D-AB12): lock → secret 꺼내기·설치 → migrate·grant·role smoke·auth mail outbox 확인(one-off) → 옛 API 정지 →
-# 새 API 시작 → readiness → host 안 smoke → current 갱신. rollout 전 실패면 rollout하지 않는다. rollout 뒤 실패면 직전
-# API 묶음으로 되돌리고(migration은 되돌리지 않음), 직전이 없으면 API를 내린 채 둔다(private listener는 JSON 503).
+# 새 API 시작 → readiness → host 안 smoke → current 갱신 → 관측(설정 펼침·관측 secret·관측 container). rollout 전 실패면
+# rollout하지 않는다. rollout 뒤 실패면 직전 API 묶음으로 되돌리고(migration은 되돌리지 않음), 직전이 없으면 API를 내린 채
+# 둔다(private listener는 JSON 503). 관측 단계 실패는 API 결과를 바꾸지 않는다(fail-open, RESULT의 observability=failed).
 # 종료 코드: 0 성공, 1 실패(rollout 없음·되돌림·API 내림), 2 입력·상태 거부, 75 다른 배포가 실행 중(host lock).
 set -euo pipefail
 umask 022
@@ -28,12 +29,13 @@ digest_re='^sha256:[a-f0-9]{64}$'
 action=${SSM_action:-}
 api=${SSM_apiDigest:-}
 api_migrate=${SSM_apiMigrateDigest:-}
+obs=${SSM_observabilityConfigDigest:-}
 case "${action}" in deploy | rollback | maintenance) ;; *)
   echo "RESULT=rejected reason=action"
   exit 2
   ;;
 esac
-if ! [[ ${api} =~ ${digest_re} && ${api_migrate} =~ ${digest_re} ]]; then
+if ! [[ ${api} =~ ${digest_re} && ${api_migrate} =~ ${digest_re} && ${obs} =~ ${digest_re} ]]; then
   echo "RESULT=rejected reason=digest"
   exit 2
 fi
@@ -49,19 +51,24 @@ fi
 #__USER_HOST_LIB__
 
 rotate_log
-say "START action=${action} api=${api} apiMigrate=${api_migrate}"
+say "START action=${action} api=${api} apiMigrate=${api_migrate} observabilityConfig=${obs}"
 
 secrets_root=${base}/secrets/api
 secret_releases=${secrets_root}/releases
 runtime_secret=/dormduri/production/api/runtime
 migration_secret=/dormduri/production/api/migration
+obs_secret=/dormduri/production/observability
 runtime_uid=10001
 tools=${api_state}/tools
-install -d -m 0700 "${api_state}" "${tools}" "${base}/secrets"
+obs_root=${base}/observability/config
+obs_secrets=${base}/secrets/observability
+obs_services='prometheus loki alloy alertmanager grafana'
+install -d -m 0700 "${api_state}" "${tools}" "${base}/secrets" "${obs_secrets}"
 install -d -m 0700 "${secrets_root}" "${secret_releases}"
-# migrate 임시 디렉터리는 EXIT trap이 지운다. 실행이 강제로 끊기면(SSM timeout의 kill 등) trap 없이 남을 수 있으므로, host lock을
-# 잡은 지금 남아 있는 것은 모두 지난 실행의 것이라 먼저 지운다.
-rm -rf "${base}/secrets"/migrate.*
+install -d -m 0755 "${obs_root}"
+# migrate·관측 임시 디렉터리는 단계가 지운다. 실행이 강제로 끊기면(SSM timeout의 kill 등) 남을 수 있으므로, host lock을 잡은
+# 지금 남아 있는 것은 모두 지난 실행의 것이라 먼저 지운다.
+rm -rf "${base}/secrets"/migrate.* "${base}/secrets"/.obs.* "${obs_root}"/.incoming.*
 
 # web 묶음 `current`가 옛 형식(형식 표지 없음)이면 그 ingress는 private listener를 API로 보내지 않는다. deploy·rollback은
 # secret을 꺼내기 전에 멈추고 maintenance만 받는다. 복구는 새 형식 web 재배포 뒤 다시 실행이다. web 묶음이 점검 mode면
@@ -130,8 +137,8 @@ install_runtime_secret() {
 
 # release 기록(새 조각 + 이번 secret release)을 쓴다.
 write_api_record() {
-  printf 'recordFormat=2\nrelease=%s\napi=%s\napi-migrate=%s\nfragment=%s\nsecretRelease=%s\ndocument=%s\ndocumentSource=%s\n' \
-    "$2" "${api}" "${api_migrate}" "$3" "$4" "${document_name}" "${document_source}" >"$1"
+  printf 'recordFormat=2\nrelease=%s\napi=%s\napi-migrate=%s\nobservability-config=%s\nfragment=%s\nsecretRelease=%s\ndocument=%s\ndocumentSource=%s\n' \
+    "$2" "${api}" "${api_migrate}" "${obs}" "$3" "$4" "${document_name}" "${document_source}" >"$1"
 }
 
 # migrate one-off: migration 묶음과 이번 runtime 묶음의 DB URL 셋을 root 전용 임시 디렉터리에 0400·10001 소유로 쓰고, 단계가
@@ -214,6 +221,55 @@ stop_api() {
   run_compose rm -f api || true
 }
 
+# 관측(D-AB14, fail-open). 설정 image(FROM scratch, 설정 파일만)를 `docker create`·`docker cp`로 digest 경로에 펼치고(Owner
+# 2026-11-11), 관측 secret을 그 파일을 읽는 container UID 소유 0400 파일로 쓰고(D-AB7: Slack webhook·Grafana 비밀번호는 관측
+# 묶음, Prometheus scrape token은 이번 runtime release의 METRICS_BEARER_TOKEN), 관측 container를 다시 만든다. 이미 펼친 digest
+# 경로는 다시 쓰지 않는다. 실패하면 지금 관측 container와 그 경로는 그대로다. 관측 container가 실제로 쓰는 digest는
+# api state의 observability 파일이 기록하고, 정리는 그 경로를 지우지 않는다.
+fill_obs_config() {
+  local dir=${obs_root}/${1#sha256:} tmp cid status=0 file
+  [ -d "${dir}" ] && return 0
+  docker pull -q "$(ref observability-config "$1")" >>"${log}" 2>&1 || return 1
+  tmp=$(mktemp -d "${obs_root}/.incoming.XXXXXX") || return 1
+  cid=$(docker create "$(ref observability-config "$1")" /none 2>>"${log}") || status=1
+  if [ "${status}" = 0 ]; then
+    docker cp "${cid}:/dormduri-observability/." "${tmp}/" >>"${log}" 2>&1 || status=1
+    docker rm -f "${cid}" >>"${log}" 2>&1 || true
+  fi
+  for file in alloy/config.alloy alloy/pipeline.alloy loki/loki.yml prometheus/prometheus.production.yml \
+    alertmanager/alertmanager.production.yml grafana/provisioning/datasources/datasources.yml; do
+    [ -f "${tmp}/${file}" ] || status=1
+  done
+  if [ "${status}" != 0 ] || find "${tmp}" ! -type f ! -type d | grep -q .; then
+    rm -rf "${tmp}"
+    return 1
+  fi
+  chown -R 0:0 "${tmp}" && chmod -R u=rwX,go=rX "${tmp}" && mv -T "${tmp}" "${dir}"
+}
+write_obs_secrets() {
+  local tmp name status=0
+  tmp=$(mktemp -d "${base}/secrets/.obs.XXXXXX") || return 1
+  secret_json "${obs_secret}" | secret_py observability "${tools}/secret-mount.contract.json" "${tmp}" \
+    && install -m 0400 -o 65534 -g 65534 "${secret_releases}/$1/METRICS_BEARER_TOKEN" "${tmp}/api-metrics-bearer-token" \
+    || status=1
+  for name in slack-webhook-url grafana-admin-password api-metrics-bearer-token; do
+    [ "${status}" = 0 ] && mv -f "${tmp}/${name}" "${obs_secrets}/${name}" || status=1
+  done
+  rm -rf "${tmp}"
+  return "${status}"
+}
+observability_up() {
+  local digest
+  digest=$(record_get "${api_state}/current" observability-config)
+  obs_status=failed
+  fill_obs_config "${digest}" || return 0
+  write_obs_secrets "$1" || return 0
+  # shellcheck disable=SC2086
+  run_compose up -d --no-deps --force-recreate --wait --wait-timeout 120 ${obs_services} || return 0
+  printf '%s\n' "${digest}" >"${api_state}/observability"
+  obs_status=ok
+}
+
 activate_secret() {
   ln -sfn "releases/$1" "${secrets_root}/.current.tmp"
   mv -T "${secrets_root}/.current.tmp" "${secrets_root}/current"
@@ -231,12 +287,19 @@ finish_records() {
   prune_release_dirs api "${api_state}/current" "${api_state}/previous"
   keep=' '
   for record in "${api_state}/current" "${api_state}/previous"; do
-    for name in api api-migrate; do
+    for name in api api-migrate observability-config; do
       digest=$(record_get "${record}" "${name}" || true)
       [ -n "${digest}" ] && keep="${keep} $(ref "${name}" "${digest}")"
     done
   done
-  prune_repository_images 'api api-migrate' "${keep}"
+  digest=$(cat "${api_state}/observability" 2>/dev/null || true)
+  [ -n "${digest}" ] && keep="${keep} $(ref observability-config "${digest}")"
+  prune_repository_images 'api api-migrate observability-config' "${keep}"
+  # 관측 설정 경로도 current·previous 기록과 지금 관측 container의 digest만 남긴다.
+  for dir in "${obs_root}"/*; do
+    [ -d "${dir}" ] || continue
+    case "${keep}" in *"/observability-config@sha256:$(basename "${dir}")"*) ;; *) rm -rf "${dir}" ;; esac
+  done
 }
 
 pull_bundle() {
@@ -260,15 +323,18 @@ case "${action}" in
       old_secret=$(record_get "${api_state}/current" secretRelease || true)
     fi
     if rollout_record "${new_dir}/record"; then
+      # 세 digest 가운데 하나라도 다르면 다른 묶음이다(관측 설정만 바뀐 배포 포함, 단계 기록의 직전 묶음 계산과 같다).
       if [ "${had_current}" = 1 ] && { [ "$(record_get "${api_state}/.current-before" api)" != "${api}" ] \
-        || [ "$(record_get "${api_state}/.current-before" api-migrate)" != "${api_migrate}" ]; }; then
+        || [ "$(record_get "${api_state}/.current-before" api-migrate)" != "${api_migrate}" ] \
+        || [ "$(record_get "${api_state}/.current-before" observability-config)" != "${obs}" ]; }; then
         record_put "${api_state}/previous" "${api_state}/.current-before"
       fi
       record_put "${api_state}/current" "${new_dir}/record"
       rm -f "${api_state}/.current-before"
       activate_secret "${new_release}"
+      observability_up "${new_release}"
       finish_records "${old_secret}"
-      say "RESULT=succeeded action=deploy api=${api} apiMigrate=${api_migrate} migrateStarted=${migrate_started}"
+      say "RESULT=succeeded action=deploy api=${api} apiMigrate=${api_migrate} observabilityConfig=${obs} observability=${obs_status} migrateStarted=${migrate_started}"
       exit 0
     fi
     # 새 API가 readiness·host 안 smoke를 통과하지 못했다. migration은 되돌리지 않는다. 새 container를 멈춘 뒤에만 그
@@ -291,7 +357,8 @@ case "${action}" in
     rm -rf "${new_dir}"
     [ -f "${api_state}/previous" ] || fail no-previous 2
     [ "$(record_get "${api_state}/previous" api)" = "${api}" ] \
-      && [ "$(record_get "${api_state}/previous" api-migrate)" = "${api_migrate}" ] || fail previous-mismatch 2
+      && [ "$(record_get "${api_state}/previous" api-migrate)" = "${api_migrate}" ] \
+      && [ "$(record_get "${api_state}/previous" observability-config)" = "${obs}" ] || fail previous-mismatch 2
     [ -f "${api_state}/current" ] || fail no-current 2
     pull_bundle || abort pull
     install_runtime_secret "${new_release}"
@@ -303,8 +370,9 @@ case "${action}" in
       record_put "${api_state}/current" "${rollback_record}"
       rm -f "${rollback_record}" "${api_state}/previous"
       activate_secret "${new_release}"
+      observability_up "${new_release}"
       finish_records "${old_secret}"
-      say "RESULT=succeeded action=rollback api=${api} apiMigrate=${api_migrate}"
+      say "RESULT=succeeded action=rollback api=${api} apiMigrate=${api_migrate} observabilityConfig=${obs} observability=${obs_status}"
       exit 0
     fi
     rm -f "${rollback_record}"
@@ -317,7 +385,7 @@ case "${action}" in
     fail entered-maintenance
     ;;
   maintenance)
-    # API를 내린다. private listener는 JSON 503을 내고 web 묶음은 건드리지 않는다.
+    # API를 내린다. private listener는 JSON 503을 내고 web 묶음과 관측은 건드리지 않는다.
     if [ -f "${api_state}/current" ]; then
       use_api_record "${api_state}/current" || fail api-record 2
     else

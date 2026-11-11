@@ -50,8 +50,26 @@
 
 ## Alarms
 
-- CloudWatch: `FreeStorageSpace`(storage autoscaling 상한 근처), `CPUUtilization`, `CPUSurplusCreditsCharged`(T 계열의 CPU credit 초과 과금), `FreeableMemory`, `DatabaseConnections`(`max_connections` × 0.8. 계획 상한 × 0.6과의 관계는 `infra/db/README.md` Connection budget)에 경보를 둔다.
-- API 정리 작업: `api_background_job_last_success_timestamp_seconds{job}`가 그 작업 주기의 3배를 넘게 멈추거나 `api_background_job_failures_total{job}`이 연속해 늘면 경보한다(`apps/api/src/background-jobs/README.md`). 경보 규칙은 observability 경보 owner가 둔다.
+RDS instance 지표는 CloudWatch alarm(서울) → SNS 주제(서울)의 email 구독으로 받는다. DB 안의 상태(정리 작업·table)는 API metric으로
+Prometheus → Alertmanager → Slack이 받는다. 두 경로는 겹치지 않는다.
+
+| CloudWatch 지표            | 경보 조건                    | 비고                                                                                           |
+| -------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| `CPUUtilization`           | 80% 이상이 15분              |                                                                                                |
+| `CPUSurplusCreditsCharged` | 0 초과                       | T 계열의 CPU credit 초과 과금                                                                  |
+| `FreeStorageSpace`         | 할당 용량의 20% 미만         | storage autoscaling이 할당을 늘리면 기준 byte 값을 다시 본다(상한 50 GB 근처면 상한 조정 판단) |
+| `FreeableMemory`           | 128 MiB 미만                 |                                                                                                |
+| `DatabaseConnections`      | `max_connections` × 0.8 이상 | 계획 상한 × 0.6과의 관계는 [`infra/db/README.md`](../db/README.md) Connection budget           |
+
+- [ ] 다섯 alarm이 위 조건이고 action이 같은 SNS 주제(서울)다. 그 주제의 email 구독이 확인됨(Confirmed) 상태다. Alarm·주제 이름과
+      받는 주소는 Owner console에만 둔다.
+- [ ] 시험: alarm 하나를 `set-alarm-state`(또는 console의 상태 변경)로 `ALARM`에 두어 email이 오는지 보고 `OK`로 되돌린다. 결과(받음·
+      안 받음, 날짜)만 단계 기록에 적는다.
+- API 정리 작업과 table 상태: `api_background_job_last_success_timestamp_seconds{job}`가 그 작업 주기의 3배를 넘게 멈추거나
+  `api_background_job_failures_total{job}`이 연속해 늘면(`apps/api/src/background-jobs/README.md`), dead tuple 비율이 20%를 넘는
+  상태가 24시간 이어지면 Slack 경보다. 규칙은
+  [`background-job-alerts.yml`](../observability/prometheus/rules/background-job-alerts.yml)·
+  [`database-alerts.yml`](../observability/prometheus/rules/database-alerts.yml)이 소유한다.
 
 ## Initial RPO / RTO target
 

@@ -11,11 +11,12 @@ API application code는 Slack bot token이나 webhook secret을 직접 보유하
 | `alertmanager.yml.template`      | Slack receiver가 활성화된 실제 delivery template.                                                                           |
 | `alertmanager.noop.yml.template` | webhook이 없거나 `SLACK_ALERTMANAGER_ENABLED=false`일 때 쓰는 no-op receiver config.                                        |
 | `alertmanager.yml.example`       | secret 없는 committed example. 실제 webhook URL을 넣지 않는다.                                                              |
-| `templates/slack.tmpl`           | Slack message title/body template.                                                                                          |
+| `templates/slack.tmpl`           | Slack message title/body template. 운영과 local이 함께 쓴다.                                                                |
+| `alertmanager.production.yml`    | 운영 설정. 운영 설정 image에 들어가고 webhook URL을 `api_url_file`(관측 secret 파일)로 읽는다. 저장소에 URL이 없다.         |
 
 ## Secret policy
 
-- 실제 webhook URL은 `infra/observability/.env.observability`에만 둔다.
+- 실제 webhook URL은 local은 `infra/observability/.env.observability`, 운영은 Secrets Manager 관측 묶음에만 둔다.
 - `.env.observability`는 git ignore 대상이다.
 - `alertmanager.yml.example`과 `.env.observability.example`에는 실제 webhook URL을 넣지 않는다.
 - Slack payload에는 userId, email, threadId, messageId, raw request body, RRPD payload를 포함하지 않는다.

@@ -2,11 +2,11 @@
 # deploy.sh, API 묶음 ../api/ssm/deploy-api.sh)의 `#__USER_HOST_LIB__` 자리에 그대로 넣는다. 혼자 실행하지 않는다.
 # 부르는 쪽이 정하는 값: action, log, state, base, project, document_name, document_source.
 #
-# release 묶음(D-AB11): web 묶음(web·ingress)과 API 묶음(api·migrate one-off)은 같은 compose project의 조각 둘이다.
+# release 묶음(D-AB11): web 묶음(web·ingress)과 API 묶음(api·migrate one-off·관측 다섯)은 같은 compose project의 조각 둘이다.
 # 묶음마다 host 상태 `current`·`previous`는 release 기록(key=value 줄)이다.
 #   recordFormat=2              이 형식을 쓴 document가 남긴 기록(옛 web document가 쓴 기록에는 없다)
 #   release=<id>                release 이름(release 기록 디렉터리 이름)
-#   <image 이름>=sha256:...      service image digest 표(web 묶음: web·ingress, API 묶음: api·api-migrate)
+#   <image 이름>=sha256:...      service image digest 표(web 묶음: web·ingress, API 묶음: api·api-migrate·observability-config)
 #   fragment=<절대 경로>         그 release를 띄운 compose 조각 사본
 #   secretRelease=<id>          (API 묶음) runtime secret release
 #   document=<이름>, documentSource=<sha256>  그 release를 띄운 document와 원본 hash
@@ -118,24 +118,27 @@ use_web_record() {
   WEB_RELEASE=$(web_release_of "${web}")
 }
 
-# API 묶음 기록으로 compose 변수를 정한다. 기록이 없으면 API 조각을 넘기지 않는다.
+# API 묶음 기록으로 compose 변수를 정한다. 기록이 없으면 API 조각을 넘기지 않는다. 관측 설정은 digest 경로다(API document가
+# 설정 image를 그 경로에 펼친다).
 use_api_record() {
-  local api migrate fragment secret
+  local api migrate obs fragment secret
   if [ -z "$1" ] || [ ! -f "$1" ]; then
     api_fragment=''
     return 0
   fi
   api=$(record_get "$1" api)
   migrate=$(record_get "$1" api-migrate)
+  obs=$(record_get "$1" observability-config)
   fragment=$(record_get "$1" fragment)
   secret=$(record_get "$1" secretRelease)
-  [[ ${api} =~ ${digest_re} && ${migrate} =~ ${digest_re} ]] || return 1
+  [[ ${api} =~ ${digest_re} && ${migrate} =~ ${digest_re} && ${obs} =~ ${digest_re} ]] || return 1
   [ -n "${fragment}" ] && [ -s "${fragment}" ] && [ -n "${secret}" ] || return 1
   api_fragment=${fragment}
-  export API_IMAGE API_MIGRATE_IMAGE API_SECRET_RELEASE_DIR
+  export API_IMAGE API_MIGRATE_IMAGE API_SECRET_RELEASE_DIR OBSERVABILITY_CONFIG_DIR
   API_IMAGE=$(ref api "${api}")
   API_MIGRATE_IMAGE=$(ref api-migrate "${migrate}")
   API_SECRET_RELEASE_DIR=${base}/secrets/api/releases/${secret}
+  OBSERVABILITY_CONFIG_DIR=${base}/observability/config/${obs#sha256:}
 }
 
 # 옛 web document가 쓴 기록(조각 줄 없음)에 그 release가 쓴 compose 사본을 조각 기록으로 붙인다(형식 표지는 붙이지 않는다).

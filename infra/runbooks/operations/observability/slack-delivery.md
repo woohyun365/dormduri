@@ -1,6 +1,25 @@
 # Slack alert setup runbook
 
-이 runbook은 local/staging observability stack에서 Prometheus alert를 Slack channel로 전달하기 위한 절차다.
+이 runbook은 Prometheus alert를 Slack channel로 전달하는 절차다. 운영(user host API 묶음)은 [운영 전달](#운영-전달)을, local
+stack은 1~6절을 따른다. 본문 형식과 금지 값은 [payload 정책](../../../observability/slack/slack-alert-payload.md)이 소유한다.
+
+## 운영 전달
+
+1. Webhook URL은 Secrets Manager 관측 묶음(`/dormduri/production/observability`)의 `SLACK_ALERT_WEBHOOK_URL`에만 둔다. URL은
+   secret이라 저장소·기록·이슈에 쓰지 않는다. 받는 channel은 webhook을 만들 때 고른 channel이다(앱 webhook은 payload의 channel
+   값으로 바뀌지 않는다).
+2. API 배포 document가 그 값을 Alertmanager UID 소유 0400 파일로 쓰고 Alertmanager가 `api_url_file`로 읽는다. 값을 바꾸면 같은
+   API 묶음을 다시 배포한다(관측 단계가 파일을 다시 쓰고 Alertmanager를 다시 띄운다).
+3. 시험: Owner가 Alertmanager port forwarding(`portNumber=9093`,
+   [operator 접근](./production-stack.md#operator-접근))을 연 뒤 아래 smoke를 보낸다. Channel에 `SlackAlertSmoke`(info, mention
+   없음)가 오면 단계 기록의 관측 줄에 받은 날짜만 적는다.
+
+```bash
+OBSERVABILITY_ENV=production ./infra/observability/slack/send-alertmanager-smoke.sh
+```
+
+4. 전달 실패는 `AlertmanagerNotificationsFailing` 경보와 [alert delivery incident](../../incidents/observability-alert-delivery.md)를
+   따른다.
 
 ## 1. Slack 준비
 
@@ -32,7 +51,7 @@ SLACK_ALERT_CHANNEL=#dormduri-alerts-test
 
 ```bash
 cd infra/observability
-docker compose --env-file .env.observability -f compose.base.yml config >/tmp/knu-observability-compose.yml
+docker compose --env-file .env.observability -f compose.base.yml config >/tmp/dormduri-observability-compose.yml
 ```
 
 secret이 들어간 render 결과나 compose output을 이슈/PR에 붙이지 않는다.

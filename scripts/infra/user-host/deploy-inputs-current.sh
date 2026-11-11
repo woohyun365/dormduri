@@ -38,6 +38,17 @@ API_DEPLOY_INPUT_PATHS=(
   infra/db
   infra/deploy/user/api
   infra/deploy/user/ssm/lib.sh
+  infra/observability/Dockerfile
+  infra/observability/alloy/config.alloy
+  infra/observability/alloy/pipeline.alloy
+  infra/observability/loki/loki.yml
+  infra/observability/loki/rules
+  infra/observability/prometheus/prometheus.production.yml
+  infra/observability/prometheus/rules
+  infra/observability/alertmanager/alertmanager.production.yml
+  infra/observability/alertmanager/templates
+  infra/observability/grafana/provisioning
+  infra/observability/grafana/dashboards
   .github/workflows/api-cd.yml
 )
 

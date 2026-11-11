@@ -94,13 +94,19 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
 
 - Compose project는 `dormduri-web` 하나다. 두 document는 지금 기록된 두 조각을 함께 넘겨 compose를 부르되 자기 묶음의
   service만 `up`·`stop`·`rm`하고 project 전체 `down`은 쓰지 않는다. `--remove-orphans`는 두 조각을 다 넘긴 `up`에서만 쓴다.
+  관측 service 다섯(Prometheus·Loki·Alloy·Alertmanager·Grafana)은 API 조각에 있어 API 묶음 service다. Web document의 `up`에서도
+  orphan이 아니고, API document가 API rollout 뒤 따로 다시 띄운다(실패해도 API 결과는 그대로, fail-open).
 - Web transit(`web-transit`, Web과 ingress에 고정 주소)은 Web 조각이 만들고, API transit(`dormduri-api-transit`, external)은
   두 document가 compose 전에 없을 때만 고정 subnet으로 만든다. 값은 `user/compose.yml`(Web)·`user/ssm/lib.sh`(API)에 있고
   `scripts/infra/user-host/compose-contract.mjs`가 render 결과와 lib.sh 값을 계약과 대조하며, 두 대역이 서로·Docker 기본 주소
   pool·AWS 기본 VPC 대역과 겹치지 않는지 본다. 이름은 같은데 subnet이 다르면 아무것도 바꾸지 않고 exit 2다.
+- 관측 network(`observability`, 고정 subnet)는 API 조각이 정의하는 묶음 안 network다. Prometheus만 API transit에도 붙는다. 관측
+  UI(Prometheus·Alertmanager·Grafana)는 host `127.0.0.1`에만 publish한다.
 - Host 경로: `/opt/dormduri/state`(root 0700, 기록·lock·host log), `/opt/dormduri/releases/{web,api}/<release>`(release마다
   쓴 compose 조각), `/opt/dormduri/secrets/api/releases/<release>`(API secret, `infra/aws/secrets-manager-checklist.md`),
-  `/opt/dormduri/{tls,acme-webroot,mode}`(Web 묶음).
+  `/opt/dormduri/secrets/observability/`(관측 secret 파일 셋, 파일마다 읽는 container UID 소유 0400),
+  `/opt/dormduri/observability/config/<digest>/`(관측 설정 image에서 꺼낸 설정, root 소유), `/opt/dormduri/{tls,acme-webroot,mode}`
+  (Web 묶음). 운영 관측은 [운영 관측 runbook](../runbooks/operations/observability/production-stack.md)이 소유한다.
 
 ### 배포 명령(SSM document)
 

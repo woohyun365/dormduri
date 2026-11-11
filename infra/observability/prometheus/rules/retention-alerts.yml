@@ -1,0 +1,56 @@
+# RRPD 보존 처리 경보(#240, production-api-baseline D-AB16). 앱의 retention 상태 gauge(api_retention_backlog_total)가 원본이다.
+# summary·runbook은 고정 문구다(Slack template이 이 둘만 annotation에서 출력한다).
+groups:
+  - name: dormduri-retention
+    rules:
+      - alert: RetentionKeyUnavailable
+        expr: max(api_retention_backlog_total{target="key",state="unavailable"}) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: 보존 처리 암호화 key를 쓸 수 없습니다.
+          runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+
+      - alert: RetentionRetryExhausted
+        expr: max(api_retention_backlog_total{target=~"archive_jobs|review_jobs",state="retry_exhausted"}) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: 보존 처리 job이 재시도 한도를 다 썼습니다.
+          runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+
+      - alert: RetentionSweepFailed
+        expr: max(api_retention_backlog_total{target="sweep",state="failed"}) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: 보존 처리 sweep이 실패했습니다.
+          runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+
+      # review job의 수동 검토는 api-alerts.yml RetentionReviewBacklogHigh가 본다.
+      - alert: RetentionArchiveManualReviewPending
+        expr: max(api_retention_backlog_total{target="archive_jobs",state="manual_review"}) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 보존 archive job이 수동 검토를 기다립니다.
+          runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+
+      # 기준 100은 앱 RETENTION_BACKLOG_ALERT_THRESHOLD와 같다(apps/api/src/retention/observability/retention-alerts.ts).
+      - alert: RetentionBacklogAboveThreshold
+        expr: max by (target) (api_retention_backlog_total{state="due"}) > 100
+        for: 10m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 보존 처리 대기 건수가 운영 기준 100을 넘었습니다.
+          runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응

@@ -1,6 +1,6 @@
 # API document 배포 경로: 가짜 aws·docker와 실제 python3(secret 설치기) 위에서 migrate·rollout·자동 복귀·rollback·
-# maintenance와 rollout 전 실패(secret·migrate·outbox)를 차례로 실행한다. 마지막 줄은 가짜 secret 값이 SSM 출력·host
-# log·명령 인자에 나오지 않았는지다.
+# maintenance와 rollout 전 실패(secret·migrate·outbox), 관측 단계(설정 펼침·관측 secret·rollback의 설정 복원·fail-open)를 차례로
+# 실행한다. 마지막 줄은 가짜 secret 값이 SSM 출력·host log·명령 인자에 나오지 않았는지다.
 set -u
 . /work/common.sh
 install -m 0755 /work/stubs/aws /usr/local/bin/aws
@@ -15,9 +15,11 @@ printf 'services: {}\n' >/opt/dormduri/releases/web/web-recorded/compose.yml
 printf 'recordFormat=2\nrelease=web-recorded\nweb=%s\ningress=%s\nfragment=%s\n' "$(pair a)" "$(pair b)" \
   /opt/dormduri/releases/web/web-recorded/compose.yml >"${state}/current"
 M=$(pair f)
+O=$(pair c)
 count() { find "$1" -mindepth 1 -maxdepth 1 "${@:2}" 2>/dev/null | wc -l; }
 run() {
   local name=$1 code current previous running steps link release fetched stopped cfrag dir order prevfrag prevsum fromprev upline
+  local obs obsrec obssecret obsresult obsstopped
   shift
   # rollback 판별: 실행 전 previous 기록의 조각 경로와 내용 hash. 실행 뒤 current가 그 조각을 그대로(내용도 같게) 가리키고 마지막 api
   # `up`이 그 조각을 넘겼을 때만 fromprev=yes다(새 document 조각을 쓰는 rollback이면 no).
@@ -57,6 +59,19 @@ run() {
     [ "$(fragment_kind "${api_state}/current")" = release ] || cfrag=missing
   fi
   order=$(stop_before_up)
+  obs=none
+  [ -f /tmp/running_obs ] && obs=$(cat /tmp/running_obs)
+  obsrec=$(label observability-config "${api_state}/current")
+  obssecret=none
+  if [ -e /opt/dormduri/secrets/observability/slack-webhook-url ]; then
+    obssecret=no
+    [ "$(cd /opt/dormduri/secrets/observability && stat -c '%n:%u:%a' slack-webhook-url grafana-admin-password \
+      api-metrics-bearer-token | paste -sd' ')" = 'slack-webhook-url:65534:400 grafana-admin-password:472:400 api-metrics-bearer-token:65534:400' ] \
+      && obssecret=yes
+  fi
+  obsresult=$(result_line /tmp/out | sed -n 's/.* observability=\([a-z]*\).*/\1/p')
+  obsstopped=no
+  grep -Eq '^(stop|rm):(.* )?(prometheus|loki|alloy|alertmanager|grafana)( |$)' /tmp/services.log && obsstopped=yes
   fromprev=none
   if [ -n "${prevfrag}" ] && [ -f "${api_state}/current" ]; then
     fromprev=no
@@ -66,13 +81,17 @@ run() {
       case "${upline} " in *" -f ${prevfrag} "*) fromprev=yes ;; esac
     fi
   fi
-  printf 'case=%s exit=%s current=%s previous=%s running=%s steps=%s secrets=%s link=%s migratedir=%s fetched=%s stopped=%s cfrag=%s apidirs=%s order=%s fromprev=%s out=%s\n' \
+  printf 'case=%s exit=%s current=%s previous=%s running=%s steps=%s secrets=%s link=%s migratedir=%s fetched=%s stopped=%s cfrag=%s apidirs=%s order=%s fromprev=%s obs=%s obsrec=%s obsdirs=%s obssecret=%s obsresult=%s obsstopped=%s out=%s\n' \
     "${name}" "${code}" "${current}" "${previous}" "${running}" "${steps:-none}" "$(count "${secrets}/releases" -type d)" \
     "${link}" "$(count /opt/dormduri/secrets -name 'migrate.*')" "${fetched}" "${stopped}" "${cfrag:-none}" \
-    "$(count /opt/dormduri/releases/api -type d)" "${order}" "${fromprev}" "$(result_line /tmp/out)"
+    "$(count /opt/dormduri/releases/api -type d)" "${order}" "${fromprev}" "${obs}" "${obsrec}" \
+    "$(count /opt/dormduri/observability/config -type d)" "${obssecret}" "${obsresult:-none}" "${obsstopped}" "$(result_line /tmp/out)"
 }
-deploy() { run "$1" "${@:3}" SSM_action=deploy SSM_apiDigest="$(pair "$2")" SSM_apiMigrateDigest="${M}"; }
-rollback() { run "$1" "${@:3}" SSM_action=rollback SSM_apiDigest="$(pair "$2")" SSM_apiMigrateDigest="${M}"; }
+# 관측 설정 digest는 기본 c이고, 뒤에 붙인 SSM_observabilityConfigDigest가 이긴다(env는 마지막 값을 쓴다).
+deploy() { run "$1" SSM_action=deploy SSM_apiDigest="$(pair "$2")" SSM_apiMigrateDigest="${M}" SSM_observabilityConfigDigest="${O}" "${@:3}"; }
+rollback() { run "$1" SSM_action=rollback SSM_apiDigest="$(pair "$2")" SSM_apiMigrateDigest="${M}" SSM_observabilityConfigDigest="${O}" "${@:3}"; }
+maintenance() { run "$1" SSM_action=maintenance SSM_apiDigest="$(pair "$2")" SSM_apiMigrateDigest="${M}" SSM_observabilityConfigDigest="${O}"; }
+obs() { printf 'SSM_observabilityConfigDigest=%s' "$(pair "$1")"; }
 deploy first-deploy 1
 deploy outbox-rows-stop-before-rollout 2 BAD_STEP=outbox
 deploy migrate-failure-stops-before-rollout 2 BAD_STEP=migrate
@@ -98,7 +117,7 @@ deploy deploy-and-current-failure-stops-api 5 "BAD_UP=$(pair 5) $(pair 1)"
 rm -rf "${api_state}" "${secrets}" /opt/dormduri/releases/api /tmp/running_api
 deploy first-deploy-failure-stops-api 6 BAD_UP="$(pair 6)"
 deploy deploy-after-failure 7
-run maintenance SSM_action=maintenance SSM_apiDigest="$(pair 7)" SSM_apiMigrateDigest="${M}"
+maintenance maintenance 7
 # web current가 옛 형식(조각 기록은 복사됐지만 형식 표지 없음)이면 deploy는 secret·migrate·rollout 없이 멈추고 maintenance는 된다.
 deploy deploy-after-maintenance 8
 install -d /opt/dormduri/releases/web/legacy-recorded
@@ -107,7 +126,26 @@ printf 'web=%s\ningress=%s\nfragment=%s\n' "$(pair a)" "$(pair b)" /opt/dormduri
   >"${state}/current"
 deploy legacy-web-blocks-deploy 9
 rollback legacy-web-blocks-rollback 7
-run legacy-web-allows-maintenance SSM_action=maintenance SSM_apiDigest="$(pair 8)" SSM_apiMigrateDigest="${M}"
+maintenance legacy-web-allows-maintenance 8
+# 관측 단계: 새 형식 web current와 비운 API 상태에서 시작한다. 설정 digest를 바꾼 배포는 관측 container를 그 digest 경로로 다시
+# 만들고, rollback은 previous 기록의 digest 경로로 돌린다. 설정 펼침·관측 secret·관측 up이 실패해도 API rollout과 기록은 남는다.
+printf 'recordFormat=2\nrelease=web-recorded\nweb=%s\ningress=%s\nfragment=%s\n' "$(pair a)" "$(pair b)" \
+  /opt/dormduri/releases/web/web-recorded/compose.yml >"${state}/current"
+rm -rf "${api_state}" "${secrets}" /opt/dormduri/releases/api /opt/dormduri/observability /opt/dormduri/secrets/observability \
+  /tmp/running_api /tmp/running_obs
+deploy obs-first-deploy 1
+deploy obs-config-change 2 "$(obs d)"
+rollback obs-rollback-restores-config 1
+deploy obs-third-deploy 3 "$(obs e)"
+rollback obs-rollback-mismatch 1 "$(obs d)"
+deploy obs-fill-failure-keeps-api 4 "$(obs 4)" BAD_CONFIG=partial
+deploy obs-symlink-config-refused 5 "$(obs 5)" BAD_CONFIG=symlink
+deploy obs-secret-failure-keeps-api 6 "$(obs 6)" BAD_FETCH=/dormduri/production/observability
+deploy obs-up-failure-keeps-api 7 "$(obs 7)" BAD_OBS_UP=1
+maintenance obs-maintenance-keeps-observability 7
+# 관측 설정만 바뀐 배포도 다른 묶음이다: 지금 묶음이 previous가 되고 rollback이 그 설정으로 되돌린다(단계 기록의 직전 묶음과 같다).
+deploy obs-only-change 7 "$(obs f)"
+rollback obs-only-rollback 7 "$(obs 7)"
 cat "${state}/deploy-api.log" >>/tmp/seen 2>/dev/null
 found=no
 grep -q fakesecretvalue /tmp/seen && found=yes

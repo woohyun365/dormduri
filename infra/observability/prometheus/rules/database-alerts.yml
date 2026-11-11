@@ -1,0 +1,17 @@
+# DB table 상태 경보(db-operations-baseline §7.6, production-api-baseline D-AB16). API가 15분마다 pg_stat_user_tables를 읽어 낸
+# gauge다. 행이 적은 table에서 비율만으로 울리지 않게 dead tuple 수도 함께 본다(B3b Owner 결정).
+groups:
+  - name: dormduri-database
+    rules:
+      - alert: DatabaseTableDeadTuplesHigh
+        expr: |
+          max by (table) (api_db_table_dead_tuple_ratio) > 0.2
+          and
+          max by (table) (api_db_table_dead_tuples) > 50
+        for: 24h
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: table dead tuple 비율이 24시간 넘게 20%를 넘었습니다.
+          runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응

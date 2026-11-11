@@ -1,9 +1,22 @@
-# User host API 묶음 compose 조각(api·migrate one-off, 동작 설명: infra/deploy/README.md 'User host 묶음'). API 배포
+# User host API 묶음 compose 조각(api·migrate one-off·관측 다섯, 동작 설명: infra/deploy/README.md 'User host 묶음'). API 배포
 # document(ssm/deploy-api.sh)가 이 조각을 document 안에 담아 `/opt/dormduri/releases/api/<release>/compose.yml`에 쓰고,
 # 그 release의 기록이 이 조각을 가리킨다. web 묶음 조각(../compose.yml)과 같은 project(`dormduri-web`)로 함께 넘기므로
 # 이 조각은 top-level `name:`을 두지 않는다. 경로는 host 절대 경로만 쓴다.
 # image는 registry digest 참조만 받는다. secret은 document가 Secrets Manager에서 꺼내 host 파일로 쓴 것만 읽기 전용으로
-# 받는다(D-AB7): runtime 묶음은 release 디렉터리째, migration 묶음과 role smoke용 DB URL 셋은 one-off에만 파일 단위로.
+# 받는다(D-AB7): runtime 묶음은 release 디렉터리째, migration 묶음과 role smoke용 DB URL 셋은 one-off에만, 관측 secret은 그
+# 파일을 읽는 container에만 파일 단위로.
+x-obs: &obs
+  restart: unless-stopped
+  init: true
+  read_only: true
+  tmpfs: ['/tmp:size=32m,mode=1777']
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+  stop_grace_period: 30s
+  logging: { driver: json-file, options: { max-size: '10m', max-file: '3' } }
+  networks: { observability: {} }
+  environment: { TZ: Asia/Seoul }
+
 services:
   api:
     image: ${API_IMAGE:?API_IMAGE must be a registry digest reference}
@@ -152,7 +165,216 @@ services:
           memory: 384M
           pids: 256
 
+  # 관측 stack(D-AB14). upstream image는 infra/observability/compose.base.yml과 같은 pin이다(compose-contract가 대조). 설정은
+  # 관측 설정 image를 document가 펼친 OBSERVABILITY_CONFIG_DIR(release 기록의 digest 경로)를 읽기 전용으로 읽는다. 관측 port는
+  # 127.0.0.1에만 publish하고 Owner는 SSM 포트 포워딩으로 연다. 관측이 멈춰도 api·web 요청은 막히지 않는다(fail-open).
+  prometheus:
+    <<: *obs
+    image: prom/prometheus:v3.16.0@sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06
+    user: '65534:65534'
+    command:
+      [
+        --config.file=/etc/prometheus/prometheus.production.yml,
+        --storage.tsdb.path=/prometheus,
+        --storage.tsdb.retention.time=15d,
+        --web.listen-address=0.0.0.0:9090,
+      ]
+    volumes:
+      - {
+          type: bind,
+          source: '${OBSERVABILITY_CONFIG_DIR:?required}/prometheus',
+          target: /etc/prometheus,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - {
+          type: bind,
+          source: /opt/dormduri/secrets/observability/api-metrics-bearer-token,
+          target: /run/secrets/dormduri-observability/api-metrics-bearer-token,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - { type: volume, source: prometheus-data, target: /prometheus }
+    ports: ['127.0.0.1:9090:9090']
+    networks: { observability: {}, api-transit: {} }
+    healthcheck:
+      {
+        test: ['CMD', '/bin/wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:9090/-/ready'],
+        interval: 15s,
+        timeout: 5s,
+        retries: 5,
+        start_period: 15s,
+      }
+    deploy: { resources: { limits: { cpus: '0.35', memory: 256M, pids: 128 } } }
+
+  loki:
+    <<: *obs
+    image: grafana/loki:3.7.9@sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28
+    user: '10001:10001'
+    command: [-config.file=/etc/loki/loki.yml]
+    volumes:
+      - {
+          type: bind,
+          source: '${OBSERVABILITY_CONFIG_DIR:?required}/loki/loki.yml',
+          target: /etc/loki/loki.yml,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - {
+          type: bind,
+          source: '${OBSERVABILITY_CONFIG_DIR:?required}/loki/rules',
+          target: /loki/rules/fake,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - { type: volume, source: loki-data, target: /loki }
+    deploy: { resources: { limits: { cpus: '0.35', memory: 320M, pids: 128 } } }
+
+  # Docker socket(compose project dormduri-web의 api·ingress·web log)과 host `/`·`/proc`·`/sys`(host 지표)를 읽기 전용으로 읽는다.
+  # 같은 host 단일 신뢰 경계의 위험 수용과 제거 trigger는 production-stack runbook이다. socket 접근 때문에 root(0:473)로 돈다.
+  alloy:
+    <<: *obs
+    image: grafana/alloy:v1.21.3@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
+    user: '0:473'
+    command:
+      [
+        run,
+        --server.http.listen-addr=0.0.0.0:12345,
+        --storage.path=/var/lib/alloy/data,
+        /etc/alloy/config.alloy,
+      ]
+    environment:
+      {
+        TZ: Asia/Seoul,
+        OBSERVABILITY_ENV: production,
+        OBSERVABILITY_COMPOSE_PROJECT: dormduri-web,
+        HOST_ROOTFS_PATH: /host/root,
+        HOST_PROCFS_PATH: /host/proc,
+        HOST_SYSFS_PATH: /host/sys,
+      }
+    volumes:
+      - {
+          type: bind,
+          source: '${OBSERVABILITY_CONFIG_DIR:?required}/alloy',
+          target: /etc/alloy,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - { type: bind, source: /var/run/docker.sock, target: /var/run/docker.sock, read_only: true }
+      - {
+          type: bind,
+          source: /,
+          target: /host/root,
+          read_only: true,
+          bind: { propagation: rslave },
+        }
+      - { type: bind, source: /proc, target: /host/proc, read_only: true }
+      - { type: bind, source: /sys, target: /host/sys, read_only: true }
+      - { type: volume, source: alloy-data, target: /var/lib/alloy/data }
+    deploy: { resources: { limits: { cpus: '0.15', memory: 160M, pids: 128 } } }
+
+  alertmanager:
+    <<: *obs
+    image: prom/alertmanager:v0.34.2@sha256:39d8bb3966c694a124428a3a88fbcffd40bd069129ecd47c059f8a3f17c55f3b
+    user: '65534:65534'
+    command:
+      [
+        --config.file=/etc/alertmanager/alertmanager.production.yml,
+        --storage.path=/alertmanager,
+        --data.retention=120h,
+        --web.listen-address=0.0.0.0:9093,
+        --cluster.listen-address=,
+      ]
+    volumes:
+      - {
+          type: bind,
+          source: '${OBSERVABILITY_CONFIG_DIR:?required}/alertmanager',
+          target: /etc/alertmanager,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - {
+          type: bind,
+          source: /opt/dormduri/secrets/observability/slack-webhook-url,
+          target: /run/secrets/dormduri-observability/slack-webhook-url,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - { type: volume, source: alertmanager-data, target: /alertmanager }
+    ports: ['127.0.0.1:9093:9093']
+    healthcheck:
+      {
+        test: ['CMD', '/bin/wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:9093/-/ready'],
+        interval: 15s,
+        timeout: 5s,
+        retries: 5,
+        start_period: 10s,
+      }
+    deploy: { resources: { limits: { cpus: '0.10', memory: 96M, pids: 96 } } }
+
+  grafana:
+    <<: *obs
+    image: grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205
+    user: '472:0'
+    tmpfs: ['/tmp:size=64m,mode=1777']
+    environment:
+      {
+        TZ: Asia/Seoul,
+        GF_SECURITY_ADMIN_USER: dormduri-operator,
+        GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/dormduri-observability/grafana-admin-password,
+        GF_AUTH_ANONYMOUS_ENABLED: 'false',
+        GF_USERS_ALLOW_SIGN_UP: 'false',
+        GF_PATHS_PROVISIONING: /etc/grafana/provisioning,
+        GF_PLUGINS_PREINSTALL_DISABLED: 'true',
+        GF_ANALYTICS_REPORTING_ENABLED: 'false',
+        GF_ANALYTICS_CHECK_FOR_UPDATES: 'false',
+        GF_DATE_FORMATS_DEFAULT_TIMEZONE: Asia/Seoul,
+      }
+    volumes:
+      - {
+          type: bind,
+          source: '${OBSERVABILITY_CONFIG_DIR:?required}/grafana/provisioning',
+          target: /etc/grafana/provisioning,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - {
+          type: bind,
+          source: '${OBSERVABILITY_CONFIG_DIR:?required}/grafana/dashboards',
+          target: /var/lib/grafana/dashboards,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - {
+          type: bind,
+          source: /opt/dormduri/secrets/observability/grafana-admin-password,
+          target: /run/secrets/dormduri-observability/grafana-admin-password,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - { type: volume, source: grafana-data, target: /var/lib/grafana }
+    ports: ['127.0.0.1:3001:3000']
+    healthcheck:
+      {
+        test: ['CMD', '/usr/bin/wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/api/health'],
+        interval: 15s,
+        timeout: 5s,
+        retries: 8,
+        start_period: 20s,
+      }
+    deploy: { resources: { limits: { cpus: '0.20', memory: 320M, pids: 192 } } }
+
 networks:
   api-transit:
     external: true
     name: dormduri-api-transit
+  # 관측 stack 안 network(묶음 안이라 이 조각이 정의한다). Docker 기본 pool·AWS 기본 VPC와 겹치지 않는 고정 subnet이다(D-AB11).
+  observability:
+    ipam: { config: [{ subnet: 10.217.12.0/28, gateway: 10.217.12.1 }] }
+
+volumes:
+  prometheus-data: {}
+  loki-data: {}
+  alloy-data: {}
+  alertmanager-data: {}
+  grafana-data: {}

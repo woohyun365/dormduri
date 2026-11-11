@@ -16,6 +16,7 @@ import {
   readApiSources,
   readSources,
   sha256,
+  stripCommentLines,
 } from './ssm-document.mjs';
 import { PAGE_TITLES } from './ingress-smoke.mjs';
 
@@ -53,10 +54,11 @@ test('the committed documents are the generator output of their sources and fit 
   assert.equal(API_DOCUMENT_NAME, 'dormduri-api-deploy');
 });
 
-test('each document takes only the action and its digest pair, each validated by SSM before the script runs', () => {
+// API 묶음은 관측 설정 image digest를 함께 받는다(production-api-baseline D-AB14).
+test('each document takes only the action and its image digests, each validated by SSM before the script runs', () => {
   for (const [{ document }, digests] of [
     [web, ['ingressDigest', 'webDigest']],
-    [api, ['apiDigest', 'apiMigrateDigest']],
+    [api, ['apiDigest', 'apiMigrateDigest', 'observabilityConfigDigest']],
   ]) {
     assert.equal(document.schemaVersion, '2.2');
     assert.deepEqual(Object.keys(document.parameters).sort(), ['action', ...digests]);
@@ -87,7 +89,7 @@ test('each document takes only the action and its digest pair, each validated by
 test('each document runs one shell step on Linux and never takes free-form commands', () => {
   for (const [{ document, body }, inputs] of [
     [web, ['SSM_action', 'SSM_ingressDigest', 'SSM_webDigest']],
-    [api, ['SSM_action', 'SSM_apiDigest', 'SSM_apiMigrateDigest']],
+    [api, ['SSM_action', 'SSM_apiDigest', 'SSM_apiMigrateDigest', 'SSM_observabilityConfigDigest']],
   ]) {
     assert.equal(document.mainSteps.length, 1);
     assert.equal(document.mainSteps[0].action, 'aws:runShellScript');
@@ -109,7 +111,7 @@ test('each script rejects input and takes the shared host lock before it touches
     ],
     [
       api,
-      /^if ! \[\[ \$\{api\} =~ \$\{digest_re\} && \$\{api_migrate\} =~ \$\{digest_re\} \]\]; then$/u,
+      /^if ! \[\[ \$\{api\} =~ \$\{digest_re\} && \$\{api_migrate\} =~ \$\{digest_re\} && \$\{obs\} =~ \$\{digest_re\} \]\]; then$/u,
     ],
   ]) {
     const actionCheck = firstLine(lines, /^case "\$\{action\}" in deploy/u);
@@ -139,12 +141,14 @@ test('each script rejects input and takes the shared host lock before it touches
 test('the documents carry their fragments and the shared library, and keep registry output in the root-only host log', () => {
   const webSources = readSources(repoRoot);
   const apiSources = readApiSources(repoRoot);
-  assert.ok(web.body.includes(webSources.compose.trimEnd()), 'web fragment is embedded verbatim');
-  assert.ok(api.body.includes(apiSources.compose.trimEnd()), 'API fragment is embedded verbatim');
-  assert.ok(api.body.includes(apiSources.secretBundle.trimEnd()), 'secret installer is embedded');
+  // 원본은 주석 줄만 떼고 담는다(document 크기 한도, 주석 아닌 줄은 그대로).
+  const embedded = (text) => stripCommentLines(text).trimEnd();
+  assert.ok(web.body.includes(embedded(webSources.compose)), 'web fragment is embedded verbatim');
+  assert.ok(api.body.includes(embedded(apiSources.compose)), 'API fragment is embedded verbatim');
+  assert.ok(api.body.includes(embedded(apiSources.secretBundle)), 'secret installer is embedded');
   assert.ok(api.body.includes(apiSources.contract.trimEnd()), 'secret contract is embedded');
   for (const { body } of [web, api]) {
-    assert.ok(body.includes(webSources.lib.trimEnd()), 'the shared library is embedded verbatim');
+    assert.ok(body.includes(embedded(webSources.lib)), 'the shared library is embedded verbatim');
     assert.match(body, /^project=dormduri-web$/mu);
     // Every compose call goes through run_compose with the one project name.
     assert.match(body, /docker compose -p "\$\{project\}" "\$@" >>"\$\{log\}" 2>&1/u);
@@ -281,4 +285,41 @@ test('the API document guards the web record, fetches secrets only through a pip
   // The host smoke reaches the private listener from inside the Web container, not a container on the Web transit.
   assert.match(functionBody(api.body, 'host_smoke'), /run_compose exec -T web node -e /u);
   assert.doesNotMatch(api.body, /docker run\b/u);
+});
+
+// 주석 줄을 떼어도 뜻이 같아야 한다: shell heredoc 본문, Python 여러 줄 문자열, YAML block scalar 안에는 `#`로 시작하는 줄이 없다.
+// `#!`와 `#__X__` marker는 남긴다.
+test('stripping comment lines removes only comments from the embedded sources', () => {
+  assert.equal(
+    stripCommentLines(
+      '#!/bin/bash\n# note\n  # indented\n#__COMPOSE_YML__\necho "#kept"\nx=1 # tail\n',
+    ),
+    '#!/bin/bash\n#__COMPOSE_YML__\necho "#kept"\nx=1 # tail\n',
+  );
+  const webSources = readSources(repoRoot);
+  const apiSources = readApiSources(repoRoot);
+  const comment = /^\s*#(?!!|__[A-Z_]+__$)/u;
+  for (const [name, text] of [
+    ['web script', webSources.script],
+    ['API script', apiSources.script],
+    ['shared library', webSources.lib],
+  ]) {
+    let terminator = null;
+    for (const line of text.split('\n')) {
+      if (terminator) {
+        if (line === terminator) terminator = null;
+        else assert.doesNotMatch(line, comment, `${name}: a heredoc body line starts with #`);
+        continue;
+      }
+      terminator = /<<-?'?([A-Z_]+)'?\s*$/u.exec(line)?.[1] ?? null;
+    }
+    assert.equal(terminator, null, `${name}: heredoc is closed`);
+  }
+  let inString = false;
+  for (const line of apiSources.secretBundle.split('\n')) {
+    if (inString) assert.doesNotMatch(line, comment, 'a Python string line starts with #');
+    if ((line.match(/"""/gu) ?? []).length % 2 === 1) inString = !inString;
+  }
+  for (const compose of [webSources.compose, apiSources.compose])
+    assert.doesNotMatch(compose, /:\s*[|>][-+0-9]*\s*$/mu, 'no YAML block scalar');
 });

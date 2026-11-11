@@ -147,6 +147,8 @@ export const DEPLOY_PATH_CASES = Object.freeze([
     orphans: 'yes',
     apisvc: 'no',
     apivar: 'c',
+    // API 기록의 관측 설정 digest 경로도 넘긴다(관측 service가 API 조각에 있어 --remove-orphans가 지우지 않는다).
+    obsvar: 'e',
   }),
   webCase(
     'legacy-rollback-with-api-current',
@@ -161,6 +163,7 @@ export const DEPLOY_PATH_CASES = Object.freeze([
       apifrag: 'yes',
       apisvc: 'no',
       apivar: 'c',
+      obsvar: 'e',
     },
   ),
   webCase(
@@ -188,6 +191,7 @@ export const DEPLOY_PATH_CASES = Object.freeze([
 export const API_GUARD_CASES = Object.freeze([
   { name: 'action', exit: 2, aws: 'no', result: 'RESULT=rejected reason=action' },
   { name: 'digest', exit: 2, aws: 'no', result: 'RESULT=rejected reason=digest' },
+  { name: 'observability-digest', exit: 2, aws: 'no', result: 'RESULT=rejected reason=digest' },
   { name: 'locked', exit: 75, aws: 'no', result: 'RESULT=locked action=deploy' },
   {
     name: 'web-record-missing',
@@ -230,6 +234,29 @@ const beforeRollout = (name, reason, steps) => ({
   stopped: 'no',
   apidirs: '1',
   order: 'none',
+  obs: 'c',
+  obsresult: 'none',
+});
+// 관측 단계 case: [API current, previous, running], [관측 container 설정, 기록의 설정, 설정 경로 수, RESULT observability].
+const obsCase = (
+  name,
+  exit,
+  action,
+  [current, previous, running],
+  [obs, obsrec, obsdirs, obsresult],
+) => ({
+  name,
+  exit,
+  result: `RESULT=succeeded action=${action}`,
+  current,
+  previous,
+  running,
+  obs,
+  obsrec,
+  obsdirs,
+  obssecret: 'yes',
+  obsresult,
+  obsstopped: 'no',
 });
 export const API_DEPLOY_PATH_CASES = Object.freeze([
   {
@@ -247,6 +274,11 @@ export const API_DEPLOY_PATH_CASES = Object.freeze([
     cfrag: '1',
     apidirs: '1',
     order: 'yes',
+    obs: 'c',
+    obsrec: 'c',
+    obsdirs: '1',
+    obssecret: 'yes',
+    obsresult: 'ok',
   },
   beforeRollout('outbox-rows-stop-before-rollout', 'outbox', ALL_STEPS),
   beforeRollout('migrate-failure-stops-before-rollout', 'migrate', 'migrate'),
@@ -420,6 +452,42 @@ export const API_DEPLOY_PATH_CASES = Object.freeze([
     current: '8',
     running: 'none',
   },
+  // 관측 단계(D-AB14, fail-open): 설정 digest를 바꾼 배포는 관측 container를 그 digest 경로로 다시 만들고, rollback은 previous
+  // 기록의 digest로 돌린다. 펼침(파일 빠짐·symlink)·관측 secret·관측 up이 실패하면 API rollout과 기록은 그대로이고(exit 0,
+  // observability=failed) 관측 container는 지금 설정으로 남으며 그 설정 경로는 지우지 않는다.
+  obsCase('obs-first-deploy', 0, 'deploy', ['1', 'none', '1'], ['c', 'c', '1', 'ok']),
+  obsCase('obs-config-change', 0, 'deploy', ['2', '1', '2'], ['d', 'd', '2', 'ok']),
+  obsCase('obs-rollback-restores-config', 0, 'rollback', ['1', 'none', '1'], ['c', 'c', '1', 'ok']),
+  obsCase('obs-third-deploy', 0, 'deploy', ['3', '1', '3'], ['e', 'e', '2', 'ok']),
+  {
+    name: 'obs-rollback-mismatch',
+    exit: 2,
+    result: 'RESULT=failed action=rollback reason=previous-mismatch',
+    current: '3',
+    previous: '1',
+    running: '3',
+    obs: 'e',
+    obsdirs: '2',
+    fetched: 'no',
+  },
+  obsCase('obs-fill-failure-keeps-api', 0, 'deploy', ['4', '3', '4'], ['e', '4', '1', 'failed']),
+  obsCase('obs-symlink-config-refused', 0, 'deploy', ['5', '4', '5'], ['e', '5', '1', 'failed']),
+  obsCase('obs-secret-failure-keeps-api', 0, 'deploy', ['6', '5', '6'], ['e', '6', '2', 'failed']),
+  obsCase('obs-up-failure-keeps-api', 0, 'deploy', ['7', '6', '7'], ['e', '7', '3', 'failed']),
+  {
+    name: 'obs-maintenance-keeps-observability',
+    exit: 0,
+    result: 'RESULT=succeeded action=maintenance',
+    current: '7',
+    running: 'none',
+    obs: 'e',
+    obsdirs: '3',
+    obsstopped: 'no',
+  },
+  // 관측 설정만 바뀐 배포는 다른 묶음이다(release-record.mjs의 직전 안전 묶음과 같은 판단): 지금 묶음이 previous가 되고 rollback이
+  // 그 설정으로 되돌린다.
+  obsCase('obs-only-change', 0, 'deploy', ['7', '7', '7'], ['f', 'f', '2', 'ok']),
+  obsCase('obs-only-rollback', 0, 'rollback', ['7', 'none', '7'], ['7', '7', '1', 'ok']),
   { name: 'secret-values-stay-off-output', exit: 0, found: 'no', result: 'none' },
   {
     name: 'bundle-isolation',

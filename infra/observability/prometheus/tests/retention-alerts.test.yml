@@ -1,0 +1,71 @@
+# promtool test rules(scripts/infra/check/validate-runtime-configs.mjs). #240 보존 경보가 상태 gauge 값에 따라 울리고 그친다.
+rule_files:
+  - ../rules/retention-alerts.yml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'api_retention_backlog_total{job="api",instance="api:4000",service="api",env="production",target="key",state="unavailable"}'
+        values: '0 0 1 1 1 0 0'
+      - series: 'api_retention_backlog_total{job="api",instance="api:4000",service="api",env="production",target="review_jobs",state="retry_exhausted"}'
+        values: '0 0 0 2 2 2 2'
+      - series: 'api_retention_backlog_total{job="api",instance="api:4000",service="api",env="production",target="sweep",state="failed"}'
+        values: '0 1 1 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: RetentionKeyUnavailable
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: RetentionKeyUnavailable
+        exp_alerts:
+          - exp_labels: { severity: critical, service: api }
+            exp_annotations:
+              summary: 보존 처리 암호화 key를 쓸 수 없습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 6m
+        alertname: RetentionKeyUnavailable
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: RetentionRetryExhausted
+        exp_alerts:
+          - exp_labels: { severity: critical, service: api }
+            exp_annotations:
+              summary: 보존 처리 job이 재시도 한도를 다 썼습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 2m
+        alertname: RetentionSweepFailed
+        exp_alerts:
+          - exp_labels: { severity: critical, service: api }
+            exp_annotations:
+              summary: 보존 처리 sweep이 실패했습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 4m
+        alertname: RetentionSweepFailed
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'api_retention_backlog_total{job="api",target="archive_jobs",state="manual_review"}'
+        values: '1x15'
+      - series: 'api_retention_backlog_total{job="api",target="archive_jobs",state="due"}'
+        values: '100x15'
+      - series: 'api_retention_backlog_total{job="api",target="review_jobs",state="due"}'
+        values: '101x15'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: RetentionArchiveManualReviewPending
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: RetentionArchiveManualReviewPending
+        exp_alerts:
+          - exp_labels: { severity: warning, service: api }
+            exp_annotations:
+              summary: 보존 archive job이 수동 검토를 기다립니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 11m
+        alertname: RetentionBacklogAboveThreshold
+        exp_alerts:
+          - exp_labels: { severity: warning, service: api, target: review_jobs }
+            exp_annotations:
+              summary: 보존 처리 대기 건수가 운영 기준 100을 넘었습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응

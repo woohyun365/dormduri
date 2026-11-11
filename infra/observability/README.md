@@ -4,9 +4,10 @@
 Alloy, Alertmanager **configuration asset**을 소유한다. API product behavior, route, response code,
 auth/session semantics는 이 stack을 켜도 바뀌지 않는다.
 
-Production private stack의 strict profile, retention, volume, operator access, Docker socket 위험은
-`infra/runbooks/operations/observability/production-stack.md`를 기준으로 한다. Local example을 복사한
-설정은 production profile에서 거부된다.
+운영 stack은 user host API 묶음의 관측 service 다섯이고, 운영 설정은 아래 [운영 설정 image](#운영-설정-image)에 담겨 API와 함께
+배포된다. Retention, volume, operator access, 경보 대응, Docker socket 위험은
+`infra/runbooks/operations/observability/production-stack.md`를 기준으로 한다. Local example을 복사한 설정은 production profile에서
+거부된다.
 
 ## 책임 경계
 
@@ -18,6 +19,28 @@ Production private stack의 strict profile, retention, volume, operator access, 
 
 이 README의 명령은 configuration smoke를 위한 빠른 진입점이다. 실제 target 승인, release 판정,
 incident 기록은 여기서 소유하지 않는다.
+
+## 운영 설정 image
+
+[`Dockerfile`](./Dockerfile)은 운영 설정 파일만 담는 `FROM scratch` image `dormduri/observability-config`를 만든다. `api-cd`가
+API image와 같은 commit에서 build·검사·push하고, API 배포 document가 host의 `/opt/dormduri/observability/config/<digest>/`에
+펼친다. 각 관측 container는 그 경로를 읽기 전용으로 mount한다. Image에 드는 파일(Dockerfile `COPY` 원본)이 `api-cd`의 경로
+filter이고 `scripts/infra/user-host/api-cd-contract.test.mjs`가 둘을 대조한다.
+
+| 파일                                           | 운영에서의 역할                                                                         |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `alloy/config.alloy`                           | 수집 대상(compose project의 `api`·`ingress`·`web`), host 지표, Loki 전송                |
+| `alloy/pipeline.alloy`                         | log 처리 module: ingress 접속 log 다시 쓰기, IP 가림, label 정리(local과 공용)          |
+| `loki/loki.yml`, `loki/rules/`                 | Loki 설정(30일 보존)과 Web BFF log rule                                                 |
+| `prometheus/prometheus.production.yml`         | scrape(API·host·관측 자신)와 rule 경로                                                  |
+| `prometheus/rules/`                            | 경보 rule(API·retention·정리 작업·table·host·관측). promtool 시험은 `prometheus/tests/` |
+| `alertmanager/alertmanager.production.yml`     | Slack receiver(`api_url_file`로 secret 파일을 읽음)                                     |
+| `alertmanager/templates/`                      | Slack 본문 template(local과 공용)                                                       |
+| `grafana/provisioning/`, `grafana/dashboards/` | datasource와 dashboard                                                                  |
+
+Secret·webhook URL과 local 예시(`.env.observability.example`, `alertmanager.yml.example`, token 예시)는 image에 넣지 않는다.
+`pnpm infra:check:runtime`이 image를 build해 꺼낸 파일로 promtool·Loki·Alloy·amtool 검사, 실제 Alloy·Loki log 가림 시험, 실제
+Alertmanager Slack payload 시험을 돈다.
 
 ## 구성
 
@@ -110,7 +133,7 @@ Grafana Explore에서 datasource `Loki`를 선택하고 다음 query를 실행�
 {service="api", level="error"}
 ```
 
-Alloy는 Docker stdout log 중 `api`, `nginx`, `web` service만 수집하고 Docker compose service metadata를 Loki `service` label로 사용한다. 관측 stack 자체와 그 밖의 container log는 수집 대상이 아니다. API나 Web이 compose 밖의 host process로 실행되면 Docker log source가 아니므로 Loki에 structured log가 보이지 않는다. API는 같은 Docker daemon의 `api` service, Web BFF는 `web` service로 실행해야 각각의 dashboard query가 동작한다.
+Alloy는 Docker stdout log 중 `api`, `ingress`, `web` service만 수집하고 Docker compose service metadata를 Loki `service` label로 사용한다(운영은 compose project `dormduri-web`으로 한 번 더 좁힌다). 관측 stack 자체와 그 밖의 container log, local rehearsal의 `nginx` service log는 수집 대상이 아니다. 모든 행은 [`alloy/pipeline.alloy`](./alloy/pipeline.alloy)가 원본 IP를 가리고, ingress 접속 log는 query string·referer·경로 속 식별자도 뺀다. API나 Web이 compose 밖의 host process로 실행되면 Docker log source가 아니므로 Loki에 structured log가 보이지 않는다. API는 같은 Docker daemon의 `api` service, Web BFF는 `web` service로 실행해야 각각의 dashboard query가 동작한다.
 
 ## Rehearsal 진입점
 
@@ -150,9 +173,13 @@ Web BFF event의 Loki ingest와 장애 중 BFF 경로 응답은 지금 자동 �
 
 ## Alert rule / Slack delivery
 
-Prometheus rule은 Alertmanager로 route된다. Alertmanager는 기본적으로 no-op receiver로 기동하며, Slack delivery는 ignored local env에 webhook을 넣고 명시적으로 켠 경우에만 활성화된다.
+Prometheus rule은 Alertmanager로 route된다. Local Alertmanager는 기본적으로 no-op receiver로 기동하며, Slack delivery는 ignored local env에 webhook을 넣고 명시적으로 켠 경우에만 활성화된다. 운영 Alertmanager는 늘 Slack receiver이고 webhook은 관측 secret 파일에서 읽는다.
 
-현재 rule:
+운영 rule(`prometheus/rules/`의 `retention-`·`background-job-`·`database-`·`host-`·`observability-alerts.yml`)의 기준과 대응은
+[운영 관측 runbook의 경보 대응](../runbooks/operations/observability/production-stack.md#경보-대응)이 소유한다. 기준을 바꾸면 같은
+이름의 promtool 시험(`prometheus/tests/*.test.yml`)도 고친다.
+
+API rule(`api-alerts.yml`):
 
 - `ApiHigh5xxRate`
 - `ApiP95LatencyHigh`

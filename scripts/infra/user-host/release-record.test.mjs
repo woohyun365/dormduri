@@ -245,15 +245,20 @@ test('the SBOM check reads the BuildKit index and attestation manifest shapes', 
   );
 });
 
-// API 단계(production-api-baseline D-AB12·D-AB17). 같은 helper가 `--stage=api`로 API 묶음(api·api-migrate)의 기록을 쓰고
-// 읽는다. 두 단계의 Release는 tag 이름으로 갈려 서로의 지금 쌍·직전 쌍 계산에 들지 않는다.
-const apiPair = (api, migrate) => ({ api: digest(api), 'api-migrate': digest(migrate) });
+// API 단계(production-api-baseline D-AB12·D-AB14·D-AB17). 같은 helper가 `--stage=api`로 API 묶음(api·api-migrate·
+// observability-config)의 기록을 쓰고 읽는다. 두 단계의 Release는 tag 이름으로 갈려 서로의 지금 쌍·직전 쌍 계산에 들지 않는다.
+// 관측 설정 digest는 묶음마다 같은 값(9)으로 두고, 그 digest만 다른 묶음은 따로 본다.
+const apiPair = (api, migrate, observability = '9') => ({
+  api: digest(api),
+  'api-migrate': digest(migrate),
+  'observability-config': digest(observability),
+});
 const apiInput = (overrides = {}) =>
   input({
     stage: 'api',
     releaseId: 'deploy-api-20261111-7',
     pair: apiPair('a', 'b'),
-    sbom: { api: digest('5'), 'api-migrate': digest('6') },
+    sbom: { api: digest('5'), 'api-migrate': digest('6'), 'observability-config': digest('7') },
     previousSafe: apiPair('d', 'e'),
     ...overrides,
   });
@@ -285,6 +290,7 @@ test('the API stage record keeps the template fields, names the API pair and pas
       `release_id: deploy-api-20261111-7`,
       `  - dormduri/api@${digest('a')}`,
       `  - dormduri/api-migrate@${digest('b')}`,
+      `  - dormduri/observability-config@${digest('9')}`,
       `  - run: ${runUrl}`,
       'aggregate_state: COLLECTING',
       'final_decision: PENDING_TARGET',
@@ -349,6 +355,22 @@ test('API deploy records leave the DB components to the operator and other runs 
       action,
     );
   }
+  // 관측 component: deploy·rollback은 operator가 host RESULT 줄의 observability 값으로 판정하고, maintenance는 관측을 바꾸지 않는다.
+  for (const action of ['deploy', 'rollback']) {
+    const line = components(renderStageRecord(apiInput({ action }))).find((item) =>
+      item.startsWith('  - 관측 stack'),
+    );
+    assert.match(
+      line,
+      /^ {2}- 관측 stack\(Prometheus·Loki·Alloy·Alertmanager·Grafana\)·Slack 경보·host 지표: 미판정\(/u,
+    );
+    assert.match(line, /observability 값/u, action);
+  }
+  assert.ok(
+    components(renderStageRecord(apiInput({ action: 'maintenance' }))).includes(
+      '  - 관측 stack: 해당 없음(이 실행은 관측을 바꾸지 않음)',
+    ),
+  );
   // A Web deploy never changes the DB, also after the API stage brought it in.
   const web = components(renderStageRecord(input()));
   assert.deepEqual(
@@ -362,8 +384,19 @@ test('API deploy records leave the DB components to the operator and other runs 
 test('the API stage refuses the Web release ID, image names and SBOM keys', () => {
   for (const [overrides, reason] of [
     [{ releaseId: 'deploy-web-20261111-7' }, /release ID is not a deploy-api tag/u],
-    [{ pair: pair('a', 'b') }, /image pair is not api and api-migrate/u],
-    [{ pair: { api: digest('a') } }, /image pair is not api and api-migrate/u],
+    [{ pair: pair('a', 'b') }, /image pair is not api and api-migrate and observability-config/u],
+    [
+      { pair: { api: digest('a') } },
+      /image pair is not api and api-migrate and observability-config/u,
+    ],
+    [
+      { pair: { api: digest('a'), 'api-migrate': digest('b') } },
+      /image pair is not api and api-migrate and observability-config/u,
+    ],
+    [
+      { sbom: { api: digest('5'), 'api-migrate': digest('6') } },
+      /SBOM manifest digest is missing/u,
+    ],
     [{ sbom: { web: digest('5'), ingress: digest('6') } }, /SBOM manifest digest is missing/u],
     [{ previousSafe: pair('d', 'e') }, /previous safe pair is malformed/u],
     [{ stage: 'backoffice' }, /unknown stage: backoffice/u],
@@ -418,6 +451,11 @@ test('each stage parses and plans only its own Releases', () => {
     apiPair('a', 'b'),
   );
   assert.throws(() => planRun({ action: 'deploy', pair: pair('f', 'b') }, mixed, 'api'));
+  // 관측 설정 digest만 바뀐 배포도 다른 묶음이라 host current가 직전 안전 묶음이 된다(rollback이 그 설정으로 되돌린다).
+  assert.deepEqual(
+    planRun({ action: 'deploy', pair: apiPair('a', 'b', '8') }, mixed, 'api').rollbackTarget,
+    apiPair('a', 'b'),
+  );
   const second = apiRelease({ pair: apiPair('f', 'b'), previousSafe: apiPair('a', 'b') });
   assert.deepEqual(
     planRun({ action: 'rollback', pair: apiPair('a', 'b') }, [...mixed, second], 'api'),

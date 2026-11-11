@@ -155,7 +155,9 @@ evidence를 본 뒤 고친다.
 - `stage: api`(`api-cd.yml`, Release `deploy-api-*`): Infrastructure target(API 부분), API Secrets Manager, Lightsail
   runtime(API 묶음), Rollback. `deploy`는 DB migration·role grant·role smoke, DB credential, DB backup/restore를 따로 두고,
   migration 줄에 host 결과의 migrate 시작 시각(UTC)을 적는다. migrate 단계를 돌지 않는 `rollback`·`maintenance`의 DB 항목은
-  `해당 없음(이 실행은 DB를 바꾸지 않음)`이다.
+  `해당 없음(이 실행은 DB를 바꾸지 않음)`이다. API 묶음은 관측 설정 image도 담으므로 `deploy`·`rollback`은 관측 stack·Slack
+  경보·host 지표 줄을 두고 operator가 host 결과의 `observability` 값, Grafana·Slack 시험, Alloy Docker socket 위험 수용을 적는다
+  ([운영 관측 runbook](../operations/observability/production-stack.md)). `maintenance`는 관측을 바꾸지 않아 `해당 없음`이다.
 - 두 단계의 Release는 tag 이름으로 갈린다. 지금 묶음·직전 안전 묶음과 dispatch 대조는 그 단계의 Release만 읽는다.
 
 ## Secret-free 규칙

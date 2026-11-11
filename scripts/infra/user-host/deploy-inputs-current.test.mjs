@@ -108,6 +108,9 @@ test('an API run is stale only after a newer API deploy input change', () => {
       'apps/web/page.tsx',
       'infra/deploy/user/compose.yml',
       'infra/deploy/web/Dockerfile',
+      // 관측 설정 image에 들지 않는 local 관측 파일은 API 배포 입력이 아니다.
+      'infra/observability/compose.base.yml',
+      'infra/observability/README.md',
     ])
       promote(path, 'b\n');
     assert.equal(check(root, older, 'main', 'api').status, 0, 'Web-only changes');
@@ -118,6 +121,9 @@ test('an API run is stale only after a newer API deploy input change', () => {
       'infra/deploy/api/Dockerfile',
       'infra/deploy/user/api/compose.yml',
       'infra/deploy/user/ssm/lib.sh',
+      'infra/observability/Dockerfile',
+      'infra/observability/prometheus/rules/host-alerts.yml',
+      'infra/observability/alloy/pipeline.alloy',
       'packages/shared/index.ts',
       '.github/workflows/api-cd.yml',
     ]) {

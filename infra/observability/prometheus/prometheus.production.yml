@@ -1,0 +1,49 @@
+# User host 운영 Prometheus 설정(production-api-baseline D-AB14·D-AB16). 관측 설정 image(../Dockerfile)에 들어가고 API 묶음 조각의
+# prometheus가 /etc/prometheus/prometheus.production.yml로 읽는다. local은 prometheus.yml(render script)이다. 보존 15일은 command
+# 인자다(production-operations.json). 경보의 env는 target label이고, 없으면 external label `env`가 붙는다.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    env: production
+    observability_stack: dormduri
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  # API는 API transit으로 닿는다. token은 runtime secret 묶음의 METRICS_BEARER_TOKEN을 document가 이 container UID 소유 0400
+  # 파일로 한 번 더 쓴 것이다(D-AB7).
+  - job_name: api
+    metrics_path: /internal/metrics
+    scrape_timeout: 5s
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/dormduri-observability/api-metrics-bearer-token
+    static_configs:
+      - targets: [api:4000]
+        labels:
+          service: api
+          env: production
+
+  # host memory·disk·inode(Alloy prometheus.exporter.unix "host", config.alloy).
+  - job_name: host
+    metrics_path: /api/v0/component/prometheus.exporter.unix.host/metrics
+    static_configs:
+      - targets: [alloy:12345]
+        labels:
+          service: host
+          env: production
+
+  - job_name: observability
+    static_configs:
+      - targets: [localhost:9090, alertmanager:9093, loki:3100, alloy:12345, grafana:3000]
+        labels:
+          service: observability
+          env: production

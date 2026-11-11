@@ -1,13 +1,23 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { loadImageInventory, resolveImageReference } from '../artifacts/image-inventory.mjs';
 import { renderMarkdownTable, runIngressSmoke } from '../user-host/ingress-smoke.mjs';
 import { runAllDocumentChecks } from '../user-host/ssm-document-runtime.mjs';
+import { runAlertmanagerRenderCheck } from '../../observability/production/alertmanager-render.mjs';
+import { runAlloyPipelineCheck } from '../../observability/production/alloy-pipeline.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const outputArg = process.argv.find((argument) => argument.startsWith('--output='));
@@ -20,7 +30,7 @@ const images = new Map(
     resolveImageReference(repoRoot, image),
   ]),
 );
-const temporaryDirectory = mkdtempSync('/tmp/knu-runtime-configs-');
+const temporaryDirectory = mkdtempSync('/tmp/dormduri-runtime-configs-');
 const checks = [];
 
 try {
@@ -31,6 +41,10 @@ try {
   validateLoki();
   validateAlloy();
   validateAlertmanager();
+  // 운영 관측 설정은 host와 같이 관측 설정 image에서 꺼낸 파일로 시험한다(production-api-baseline D-AB14~D-AB16).
+  const observabilityConfig = extractObservabilityConfig();
+  validateProductionObservability(observabilityConfig);
+  await validateObservabilityRuntime(observabilityConfig);
 
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(
@@ -147,6 +161,186 @@ function validatePrometheus() {
   ]);
 }
 
+// 운영 rule의 promtool 시험(infra/observability/prometheus/tests). rule_files는 test 파일 기준 상대 경로다.
+function validatePrometheusRuleTests() {
+  const tests = readdirSync(resolve(repoRoot, 'infra/observability/prometheus/tests'))
+    .filter((name) => name.endsWith('.test.yml'))
+    .sort();
+  if (!tests.length) fail('no Prometheus rule tests');
+  runDocker('prometheus-rule-tests', [
+    '--volume',
+    `${resolve(repoRoot, 'infra/observability/prometheus')}:/etc/prometheus-src:ro`,
+    '--workdir',
+    '/etc/prometheus-src/tests',
+    '--entrypoint',
+    '/bin/promtool',
+    requiredImage('prometheus'),
+    'test',
+    'rules',
+    ...tests,
+  ]);
+}
+
+// 관측 설정 image(infra/observability/Dockerfile)를 build해 document와 같이 `docker create`·`docker cp`로 꺼낸다. 꺼낸 tree는
+// 일반 파일과 디렉터리뿐이고 Dockerfile COPY 원본과 같은 파일 목록이어야 한다.
+function extractObservabilityConfig() {
+  const source = resolve(repoRoot, 'infra/observability');
+  const build = spawnSync(
+    'docker',
+    ['build', '--quiet', '--file', join(source, 'Dockerfile'), source],
+    { cwd: repoRoot, encoding: 'utf8' },
+  );
+  if (build.status !== 0) {
+    process.stderr.write(build.stderr ?? '');
+    fail('observability config image build failed');
+  }
+  const image = build.stdout.trim();
+  const created = spawnSync('docker', ['create', image, '/none'], { encoding: 'utf8' });
+  if (created.status !== 0) fail('observability config image create failed');
+  const container = created.stdout.trim();
+  const directory = resolve(temporaryDirectory, 'observability-config');
+  mkdirSync(directory);
+  const copied = spawnSync(
+    'docker',
+    ['cp', `${container}:/dormduri-observability/.`, `${directory}/`],
+    {
+      encoding: 'utf8',
+    },
+  );
+  spawnSync('docker', ['rm', '-f', container], { encoding: 'utf8' });
+  spawnSync('docker', ['image', 'rm', image], { encoding: 'utf8' });
+  if (copied.status !== 0) fail('observability config copy failed');
+  const extracted = walk(directory);
+  const expected = [
+    'alloy/config.alloy',
+    'alloy/pipeline.alloy',
+    'loki/loki.yml',
+    'prometheus/prometheus.production.yml',
+    'alertmanager/alertmanager.production.yml',
+    ...[
+      'loki/rules',
+      'prometheus/rules',
+      'alertmanager/templates',
+      'grafana/provisioning',
+      'grafana/dashboards',
+    ].flatMap((path) => walk(join(source, path)).map((file) => `${path}/${file}`)),
+  ].sort();
+  if (JSON.stringify(extracted) !== JSON.stringify(expected)) {
+    console.error(`extracted: ${extracted.join(', ')}\nexpected: ${expected.join(', ')}`);
+    fail('observability config image files differ from the Dockerfile COPY sources');
+  }
+  checks.push({ name: 'observability-config-image', files: extracted.length });
+  return directory;
+}
+
+function walk(root) {
+  const files = [];
+  const visit = (path) => {
+    for (const name of readdirSync(path)) {
+      const child = join(path, name);
+      const stat = lstatSync(child);
+      if (stat.isDirectory()) visit(child);
+      else if (stat.isFile()) files.push(relative(root, child));
+      else fail(`observability config holds a non-regular file: ${relative(root, child)}`);
+    }
+  };
+  visit(root);
+  return files.sort();
+}
+
+// user host 관측 조각과 같은 경로로 mount해 운영 설정 다섯을 검사한다.
+function validateProductionObservability(config) {
+  const secrets = resolve(temporaryDirectory, 'observability-secrets');
+  mkdirSync(secrets);
+  writeFileSync(join(secrets, 'api-metrics-bearer-token'), 'ci-fixture-token');
+  writeFileSync(
+    join(secrets, 'slack-webhook-url'),
+    'https://hooks.slack.com/services/fixture/fixture/fixture',
+  );
+  const secret = (name) => [
+    '--volume',
+    `${join(secrets, name)}:/run/secrets/dormduri-observability/${name}:ro`,
+  ];
+  runDocker('prometheus-production', [
+    '--volume',
+    `${join(config, 'prometheus')}:/etc/prometheus:ro`,
+    ...secret('api-metrics-bearer-token'),
+    '--entrypoint',
+    '/bin/promtool',
+    requiredImage('prometheus'),
+    'check',
+    'config',
+    '/etc/prometheus/prometheus.production.yml',
+  ]);
+  validatePrometheusRuleTests();
+  runDocker('loki-production', [
+    '--volume',
+    `${join(config, 'loki/loki.yml')}:/etc/loki/loki.yml:ro`,
+    '--entrypoint',
+    '/usr/bin/loki',
+    requiredImage('loki'),
+    '-verify-config',
+    '-config.file=/etc/loki/loki.yml',
+  ]);
+  runDocker('alloy-production', [
+    '--env',
+    'OBSERVABILITY_ENV=production',
+    '--env',
+    'OBSERVABILITY_COMPOSE_PROJECT=dormduri-web',
+    '--volume',
+    `${join(config, 'alloy')}:/etc/alloy:ro`,
+    '--entrypoint',
+    '/bin/alloy',
+    requiredImage('alloy'),
+    'validate',
+    '/etc/alloy/config.alloy',
+  ]);
+  runDocker('alertmanager-production', [
+    '--volume',
+    `${join(config, 'alertmanager')}:/etc/alertmanager:ro`,
+    ...secret('slack-webhook-url'),
+    '--entrypoint',
+    '/bin/amtool',
+    requiredImage('alertmanager'),
+    'check-config',
+    '/etc/alertmanager/alertmanager.production.yml',
+  ]);
+}
+
+// 실제 Alloy·Loki로 log 가림, 실제 Alertmanager로 Slack payload를 확인한다.
+async function validateObservabilityRuntime(config) {
+  const alloy = await runAlloyPipelineCheck({
+    alloyDirectory: join(config, 'alloy'),
+    lokiConfig: join(config, 'loki/loki.yml'),
+    alloyImage: requiredImage('alloy'),
+    lokiImage: requiredImage('loki'),
+  });
+  if (alloy.problems.length) {
+    console.error(alloy.problems.join('\n'));
+    fail('Alloy log pipeline fixture check failed');
+  }
+  checks.push({
+    name: 'alloy-log-pipeline',
+    images: [requiredImage('alloy'), requiredImage('loki')],
+    stored: alloy.stored,
+  });
+  const alertmanager = await runAlertmanagerRenderCheck({
+    repoRoot,
+    configDirectory: join(config, 'alertmanager'),
+    alertmanagerImage: requiredImage('alertmanager'),
+    nodeImage: requiredImage('web-build-node'),
+  });
+  if (alertmanager.problems.length) {
+    console.error(alertmanager.problems.join('\n'));
+    fail('Alertmanager Slack payload check failed');
+  }
+  checks.push({
+    name: 'alertmanager-slack-payload',
+    image: requiredImage('alertmanager'),
+    payloads: alertmanager.payloads,
+  });
+}
+
 function validateLoki() {
   runDocker('loki', [
     '--volume',
@@ -166,7 +360,7 @@ function validateAlloy() {
     '--env',
     'OBSERVABILITY_ENV=ci',
     '--volume',
-    `${resolve(repoRoot, 'infra/observability/alloy/config.alloy')}:/etc/alloy/config.alloy:ro`,
+    `${resolve(repoRoot, 'infra/observability/alloy')}:/etc/alloy:ro`,
     '--entrypoint',
     '/bin/alloy',
     requiredImage('alloy'),

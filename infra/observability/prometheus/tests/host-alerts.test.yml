@@ -1,0 +1,154 @@
+# host 경보: disk·inode 80% warning(90% 미만), 90% critical, memory 10% 미만 critical.
+# 사용률은 경계 사이 값(75%·85%·92%)을 차례로 지나 기준 하나만 바뀌어도 어느 시점의 기대가 깨진다.
+rule_files:
+  - ../rules/host-alerts.yml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      # disk·inode: 0~14분 75%, 15~29분 85%, 30분부터 92%.
+      - series: 'node_filesystem_size_bytes{job="host",instance="alloy:12345",service="host",env="production",mountpoint="/",device="/dev/root",fstype="ext4"}'
+        values: '100x45'
+      - series: 'node_filesystem_avail_bytes{job="host",instance="alloy:12345",service="host",env="production",mountpoint="/",device="/dev/root",fstype="ext4"}'
+        values: '25x14 15x14 8x16'
+      - series: 'node_filesystem_files{job="host",instance="alloy:12345",service="host",env="production",mountpoint="/",device="/dev/root",fstype="ext4"}'
+        values: '1000x45'
+      - series: 'node_filesystem_files_free{job="host",instance="alloy:12345",service="host",env="production",mountpoint="/",device="/dev/root",fstype="ext4"}'
+        values: '250x14 150x14 80x16'
+      # memory: 0~12분 15%(경계 위), 13분부터 7.5%. 10분이 지나야 critical이다.
+      - series: 'node_memory_MemTotal_bytes{job="host",instance="alloy:12345",service="host",env="production"}'
+        values: '4000x45'
+      - series: 'node_memory_MemAvailable_bytes{job="host",instance="alloy:12345",service="host",env="production"}'
+        values: '600x12 300x32'
+    alert_rule_test:
+      - eval_time: 13m
+        alertname: HostDiskUsageHigh
+        exp_alerts: []
+      - eval_time: 13m
+        alertname: HostDiskUsageCritical
+        exp_alerts: []
+      - eval_time: 27m
+        alertname: HostDiskUsageHigh
+        exp_alerts:
+          - exp_labels:
+              {
+                severity: warning,
+                service: host,
+                job: host,
+                instance: 'alloy:12345',
+                env: production,
+                mountpoint: /,
+                device: /dev/root,
+                fstype: ext4,
+              }
+            exp_annotations:
+              summary: host 디스크 사용률이 80%를 넘었습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 27m
+        alertname: HostDiskUsageCritical
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: HostDiskUsageHigh
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: HostDiskUsageCritical
+        exp_alerts:
+          - exp_labels:
+              {
+                severity: critical,
+                service: host,
+                job: host,
+                instance: 'alloy:12345',
+                env: production,
+                mountpoint: /,
+                device: /dev/root,
+                fstype: ext4,
+              }
+            exp_annotations:
+              summary: host 디스크 사용률이 90%를 넘었습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 13m
+        alertname: HostInodeUsageHigh
+        exp_alerts: []
+      - eval_time: 13m
+        alertname: HostInodeUsageCritical
+        exp_alerts: []
+      - eval_time: 27m
+        alertname: HostInodeUsageHigh
+        exp_alerts:
+          - exp_labels:
+              {
+                severity: warning,
+                service: host,
+                job: host,
+                instance: 'alloy:12345',
+                env: production,
+                mountpoint: /,
+                device: /dev/root,
+                fstype: ext4,
+              }
+            exp_annotations:
+              summary: host inode 사용률이 80%를 넘었습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 27m
+        alertname: HostInodeUsageCritical
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: HostInodeUsageHigh
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: HostInodeUsageCritical
+        exp_alerts:
+          - exp_labels:
+              {
+                severity: critical,
+                service: host,
+                job: host,
+                instance: 'alloy:12345',
+                env: production,
+                mountpoint: /,
+                device: /dev/root,
+                fstype: ext4,
+              }
+            exp_annotations:
+              summary: host inode 사용률이 90%를 넘었습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 12m
+        alertname: HostMemoryAvailableLow
+        exp_alerts: []
+      - eval_time: 22m
+        alertname: HostMemoryAvailableLow
+        exp_alerts: []
+      - eval_time: 24m
+        alertname: HostMemoryAvailableLow
+        exp_alerts:
+          - exp_labels:
+              {
+                severity: critical,
+                service: host,
+                job: host,
+                instance: 'alloy:12345',
+                env: production,
+              }
+            exp_annotations:
+              summary: host 사용 가능 memory가 10% 미만입니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 40m
+        alertname: HostRootFilesystemMetricsMissing
+        exp_alerts: []
+  # root filesystem 지표가 없으면 15분 뒤 warning이다(그 전에는 없음).
+  - interval: 1m
+    input_series:
+      - series: 'node_memory_MemAvailable_bytes{job="host",instance="alloy:12345",service="host",env="production"}'
+        values: '2000x30'
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: HostRootFilesystemMetricsMissing
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: HostRootFilesystemMetricsMissing
+        exp_alerts:
+          - exp_labels: { severity: warning, service: host, job: host, mountpoint: / }
+            exp_annotations:
+              summary: host root filesystem 지표가 없어 disk·inode 경보가 동작하지 않습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응

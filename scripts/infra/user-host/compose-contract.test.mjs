@@ -4,14 +4,21 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 
 import {
+  ALLOY_HOST_READS,
   API_TRANSIT,
   apiEnvironmentFromExamples,
   checkUserHostBundleCompose,
   checkUserHostCompose,
   fragmentTextProblems,
   MIGRATE_SECRET_FILES,
+  OBSERVABILITY_CONFIG_ROOT,
+  OBSERVABILITY_NETWORK,
+  OBSERVABILITY_SECRET_DIRECTORY,
+  OBSERVABILITY_SECRET_TARGET,
+  OBSERVABILITY_SERVICES,
   rehearsalDifferenceProblems,
   transitSubnetProblems,
+  USER_HOST_MEMORY_LIMITS,
   WEB_TRANSIT,
 } from './compose-contract.mjs';
 
@@ -131,6 +138,58 @@ function validBundle() {
     },
     volumes: MIGRATE_SECRET_FILES.map(fileMount),
   };
+  config.networks[OBSERVABILITY_NETWORK.key] = {
+    name: `dormduri-web_${OBSERVABILITY_NETWORK.key}`,
+    ipam: {
+      config: [{ subnet: OBSERVABILITY_NETWORK.subnet, gateway: OBSERVABILITY_NETWORK.gateway }],
+    },
+  };
+  const digestDir = `${OBSERVABILITY_CONFIG_ROOT}/${'0'.repeat(64)}`;
+  const bind = (source, target) => ({
+    type: 'bind',
+    source,
+    target,
+    read_only: true,
+    bind: { create_host_path: false },
+  });
+  for (const [name, spec] of Object.entries(OBSERVABILITY_SERVICES)) {
+    config.services[name] = {
+      ...hardened(
+        USER_HOST_MEMORY_LIMITS[name],
+        128,
+        Object.fromEntries(spec.networks.map((key) => [key, {}])),
+      ),
+      image: `${name}@sha256:${'a'.repeat(64)}`,
+      user: spec.user,
+      tmpfs: ['/tmp:size=32m,mode=1777'],
+      ports: spec.ports.map((port) => {
+        const [host_ip, published, target] = port.split(':');
+        return { mode: 'ingress', host_ip, target: Number(target), published, protocol: 'tcp' };
+      }),
+      volumes: [
+        ...spec.config.map((path) => bind(`${digestDir}/${path}`, `/etc/${name}/${path}`)),
+        ...spec.secrets.map((file) =>
+          bind(
+            `${OBSERVABILITY_SECRET_DIRECTORY}/${file}`,
+            `${OBSERVABILITY_SECRET_TARGET}/${file}`,
+          ),
+        ),
+        ...(name === 'alloy'
+          ? Object.entries(ALLOY_HOST_READS).map(([source, target]) => ({
+              type: 'bind',
+              source,
+              target,
+              read_only: true,
+            }))
+          : []),
+        { type: 'volume', source: `${name}-data`, target: `/var/lib/${name}`, volume: {} },
+      ],
+      ...(name === 'alloy'
+        ? { environment: { OBSERVABILITY_COMPOSE_PROJECT: 'dormduri-web' } }
+        : {}),
+    };
+    config.services[name].deploy.resources.limits.cpus = 0.1;
+  }
   return config;
 }
 
@@ -287,7 +346,138 @@ test('each weakened API bundle boundary is rejected', () => {
     [(s) => (s.api.healthcheck = undefined), /api: healthcheck does not run the readiness probe/u],
     [(s) => (s.api.environment.DATABASE_POOL_MAX = '10'), /api: env DATABASE_POOL_MAX differs/u],
     [(s) => (s.api.environment.EXTRA = 'x'), /api: env EXTRA is not in the Lightsail example/u],
-    [(s) => delete s.migrate, /services must be exactly api, ingress, migrate and web/u],
+    [(s) => delete s.migrate, /services must be exactly alertmanager, alloy, api, grafana/u],
+  ]);
+});
+
+test('each weakened observability boundary is rejected', () => {
+  const secretMount = (file) => ({
+    type: 'bind',
+    source: `${OBSERVABILITY_SECRET_DIRECTORY}/${file}`,
+    target: `${OBSERVABILITY_SECRET_TARGET}/${file}`,
+    read_only: true,
+    bind: { create_host_path: false },
+  });
+  const pins = { grafana: `grafana@sha256:${'b'.repeat(64)}` };
+  assert.match(
+    checkUserHostBundleCompose(validBundle(), API_ENVIRONMENT, pins).join('\n'),
+    /grafana: image differs from the observability pin/u,
+  );
+  assertRejected(bundleWithChange, [
+    [(s) => delete s.loki, /services must be exactly/u],
+    [
+      (s) => (s.grafana.image = 'grafana/grafana:13.3.0'),
+      /grafana: image is not pinned by digest/u,
+    ],
+    [(s) => (s.prometheus.user = '0'), /prometheus: overrides the image user with root/u],
+    [(s) => (s.alertmanager.user = '65534'), /alertmanager: user is not 65534:65534/u],
+    [(s) => (s.loki.read_only = false), /loki: root filesystem is not read-only/u],
+    [(s) => (s.grafana.cap_drop = []), /grafana: capabilities are not all dropped/u],
+    [(s) => (s.alloy.privileged = true), /alloy: runs privileged/u],
+    [(s) => (s.alloy.pid = 'host'), /alloy: shares a host namespace/u],
+    [
+      (s) => (s.prometheus.deploy.resources.limits.memory = '536870912'),
+      /prometheus: memory limit differs/u,
+    ],
+    [(s) => delete s.loki.deploy.resources.limits.cpus, /loki: no CPU limit/u],
+    [(s) => (s.grafana.ports[0].host_ip = '0.0.0.0'), /grafana: publishes 3000 beyond loopback/u],
+    [
+      (s) => s.loki.ports.push({ host_ip: '127.0.0.1', target: 3100, published: '3100' }),
+      /loki: published ports .* differ/u,
+    ],
+    [(s) => (s.alloy.networks['api-transit'] = {}), /alloy: networks .* differ/u],
+    [(s) => delete s.prometheus.networks['api-transit'], /prometheus: networks .* differ/u],
+    [
+      (s) => (s.prometheus.volumes[0].read_only = false),
+      /prometheus: .* is not a read-only mount of a config digest path/u,
+    ],
+    [
+      (s) => (s.prometheus.volumes[0].source = `${OBSERVABILITY_CONFIG_ROOT}/current/prometheus`),
+      /prometheus: .* is not a read-only mount of a config digest path/u,
+    ],
+    // 각 관측 container는 자기가 읽는 관측 secret 파일만 받는다.
+    [
+      (s) => s.alertmanager.volumes.push(secretMount('grafana-admin-password')),
+      /alertmanager: secret mounts .* differ/u,
+    ],
+    [
+      (s) => s.loki.volumes.push(secretMount('api-metrics-bearer-token')),
+      /loki: secret mounts .* differ/u,
+    ],
+    [
+      (s) =>
+        (s.prometheus.volumes = s.prometheus.volumes.filter(
+          (v) => !v.source.startsWith(OBSERVABILITY_SECRET_DIRECTORY),
+        )),
+      /prometheus: secret mounts .* differ/u,
+    ],
+    // 관측 secret 디렉터리와 runtime release 디렉터리는 디렉터리째 mount하지 않는다.
+    [
+      (s) =>
+        s.grafana.volumes.push({
+          type: 'bind',
+          source: OBSERVABILITY_SECRET_DIRECTORY,
+          target: OBSERVABILITY_SECRET_TARGET,
+          read_only: true,
+        }),
+      /grafana: mounts \/opt\/dormduri\/secrets\/observability outside the observability paths/u,
+    ],
+    [
+      (s) =>
+        s.prometheus.volumes.push({
+          type: 'bind',
+          source: '/opt/dormduri/secrets/api/releases/render',
+          target: '/run/secrets/dormduri-api',
+          read_only: true,
+        }),
+      /prometheus: mounts \/opt\/dormduri\/secrets\/api\/releases\/render outside the observability paths/u,
+    ],
+    [
+      (s) =>
+        (s.alertmanager.volumes[1] = {
+          ...s.alertmanager.volumes[1],
+          target: '/etc/alertmanager/slack-webhook-url',
+        }),
+      /alertmanager: .* is not a read-only file mount of its secret/u,
+    ],
+    [
+      (s) => (s.grafana.volumes[2].read_only = false),
+      /grafana: .* is not a read-only file mount of its secret/u,
+    ],
+    [
+      (s) => s.api.volumes.push(secretMount('slack-webhook-url')),
+      /api: mounts an observability secret/u,
+    ],
+    [
+      (s) =>
+        s.prometheus.volumes.push({
+          type: 'bind',
+          source: '/var/run/docker.sock',
+          target: '/var/run/docker.sock',
+          read_only: true,
+        }),
+      /prometheus: mounts the Docker socket/u,
+    ],
+    [
+      (s) => (s.alloy.volumes.find((v) => v.source === '/').read_only = false),
+      /alloy: \/ is writable/u,
+    ],
+    [
+      (s) => (s.alloy.volumes = s.alloy.volumes.filter((v) => v.source !== '/proc')),
+      /alloy: does not read the Docker socket and host paths/u,
+    ],
+    [
+      (s) => delete s.alloy.environment.OBSERVABILITY_COMPOSE_PROJECT,
+      /alloy: collects beyond the dormduri-web compose project/u,
+    ],
+    [
+      (s, c) => (c.networks.observability.ipam.config[0].subnet = '172.31.0.0/28'),
+      /networks: observability is not the fixed observability subnet/u,
+    ],
+    [
+      (s, c) => (c.networks.observability.external = true),
+      /networks: observability is not the fixed/u,
+    ],
   ]);
 });
 
@@ -319,6 +509,51 @@ test('the API transit values in lib.sh are the contract values and no transit ov
     ),
     /overlaps/u,
   );
+  // 관측 network도 두 transit·Docker pool·AWS 기본 VPC와 겹치지 않는다.
+  for (const subnet of ['10.217.11.0/28', '10.217.10.8/29', '172.31.0.0/28']) {
+    assert.match(
+      transitSubnetProblems(lib, API_TRANSIT, WEB_TRANSIT, {
+        ...OBSERVABILITY_NETWORK,
+        subnet,
+      }).join('\n'),
+      /observability network .* overlaps/u,
+      subnet,
+    );
+  }
+});
+
+// 관측 secret 파일 소유 UID(document·secret 설치기)가 그 파일을 읽는 container의 실행 user와 같다(D-AB7).
+test('the observability secret files are owned by the UID of the one container that mounts each file', () => {
+  const bundle = readFileSync(
+    resolve(repoRoot, 'infra/deploy/user/api/ssm/secret_bundle.py'),
+    'utf8',
+  );
+  const script = readFileSync(resolve(repoRoot, 'infra/deploy/user/api/ssm/deploy-api.sh'), 'utf8');
+  const owners = Object.fromEntries(
+    [...bundle.matchAll(/^ {4}"[A-Z_]+": \("([a-z-]+)", (\d+), (\d+)\),$/gmu)].map((m) => [
+      m[1],
+      `${m[2]}:${m[3]}`,
+    ]),
+  );
+  const token =
+    /install -m 0400 -o (\d+) -g (\d+) "\$\{secret_releases\}\/\$1\/METRICS_BEARER_TOKEN" "\$\{tmp\}\/([a-z-]+)"/u.exec(
+      script,
+    );
+  assert.ok(token, 'the document writes the scrape token from the runtime release');
+  owners[token[3]] = `${token[1]}:${token[2]}`;
+  const readers = Object.fromEntries(
+    Object.entries(OBSERVABILITY_SERVICES).flatMap(([, spec]) =>
+      spec.secrets.map((file) => [file, spec.user]),
+    ),
+  );
+  assert.deepEqual(owners, readers);
+  assert.equal(Object.keys(readers).length, 3);
+  for (const file of Object.keys(readers))
+    assert.match(
+      script,
+      new RegExp(`for name in [a-z -]*\\b${file}\\b`, 'u'),
+      `${file} is moved into place`,
+    );
 });
 
 test('the fragments use host absolute paths only and only the web fragment names the project', () => {
