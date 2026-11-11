@@ -34,7 +34,10 @@ test('an unmasked line, a missing line, an extra label or a wrong service is rej
       /labels beyond the allowlist: service_name/u,
     ],
     [(entries) => (entries[7].labels.service = 'web'), /stored with service web/u],
-    [(entries) => entries.push({ ...entries[0] }), /Loki holds 10 fixture lines/u],
+    [
+      (entries) => entries.push({ ...entries[0] }),
+      new RegExp(`Loki holds ${FIXTURES.length + 1} fixture lines`, 'u'),
+    ],
   ];
   for (const [change, expected] of cases) {
     const entries = stored();

@@ -67,6 +67,14 @@ export const FIXTURES = Object.freeze([
     input: '{"level":"warn","case":"fixture-09","peer":"::1","addr":"fe80::1"}',
     expected: '{"level":"warn","case":"fixture-09","peer":"::/48","addr":"fe80::/48"}',
   },
+  // 붙은 식별자(`/123/456`)는 한 번의 치환이 뒤 조각의 앞 `/`를 소비하므로 두 번째 치환이 마저 가린다.
+  {
+    service: 'ingress',
+    input:
+      '192.0.2.130 - - [11/Nov/2026:10:00:07 +0900] "DELETE /api/rooms/123/456?x=1 HTTP/1.1" 204 0 "-" "fixture-agent-10" "fixture-request-0010"',
+    expected:
+      '192.0.2.0/24 - [11/Nov/2026:10:00:07 +0900] "DELETE /api/rooms/:id/:id HTTP/1.1" 204 0 "fixture-agent-10" "fixture-request-0010"',
+  },
 ]);
 
 // 입력에는 있고 Loki에는 없어야 하는 값(양성 대조: 입력에 실제로 있는지 judge가 먼저 본다).
@@ -95,6 +103,9 @@ export const SENSITIVE = Object.freeze([
   'https://a.example/',
   'https://b.example/',
   'y=1',
+  '192.0.2.130',
+  '/123/456',
+  'x=1',
 ]);
 const ALLOWED_LABELS = ['container', 'env', 'level', 'service'];
 // Loki가 스스로 붙이는 값(service label에서 온 service_name, 행에서 읽은 detected_level). Alloy가 보내지 않는다.
