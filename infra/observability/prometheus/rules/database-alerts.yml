@@ -1,5 +1,5 @@
 # DB table 상태 경보(db-operations-baseline §7.6, production-api-baseline D-AB16). API가 15분마다 pg_stat_user_tables를 읽어 낸
-# gauge다. 행이 적은 table에서 비율만으로 울리지 않게 dead tuple 수도 함께 본다(B3b Owner 결정).
+# gauge다. 행이 적은 table에서 비율만으로 울리지 않게 dead tuple 수 gauge(api_db_table_dead_tuples)도 함께 본다(PR #880 Owner 결정).
 groups:
   - name: dormduri-database
     rules:
