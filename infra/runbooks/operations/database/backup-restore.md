@@ -66,8 +66,9 @@
    새 instance로 만든다. 복원 시각이 latest restorable time 안인지 기록한다.
 5. Temporary restored DB가 available이 된 시각을 기록한다.
 6. Temporary restored DB의 public access가 off인지 확인한다.
-7. Temporary restored DB가 원본과 같은 DB subnet group·security group(user host 주소 하나의 5432)을 쓰는지 확인한다.
-   drill 때문에 inbound를 넓히지 않는다.
+7. Temporary restored DB가 원본과 같은 DB subnet group·security group(user host 주소 하나의 5432)·parameter group
+   (`infra/aws/rds-setup-checklist.md`, `pgaudit` preload)을 쓰는지 확인한다. 복원 화면의 기본 parameter group이면
+   `pgaudit`이 load되지 않아 11의 smoke가 실패한다. drill 때문에 inbound를 넓히지 않는다.
 8. Restored DB connection string이 서버 인증서와 host 이름을 검증하는지 확인한다(runtime `verify-full` + 단일 루트,
    migration은 Prisma 형식 `sslmode=require&sslcert=<루트>&sslaccept=strict`, psql은 `infra/db/psql-tls.sh`. 복원 DB는
    endpoint 이름이 다르므로 URL host를 그 endpoint로 바꾼다. `infra/db/README.md` RDS SSL / CA bundle). migrate entrypoint는
@@ -122,7 +123,8 @@
 
 14. Evidence artifact에 아래 secret 없는 정보만 기록한다(식별자도 쓰지 않는다).
 15. 임시 API container, 임시 secret 디렉터리 둘(migrate·API)과 임시 env 파일을 지우고, 노트북의 포트 포워딩을 닫은 뒤
-    temporary restored DB(과 drill 중 만든 snapshot)를 삭제하고 삭제를 확인한다.
+    temporary restored DB(과 drill 중 만든 snapshot)를 삭제하고 삭제를 확인한다. 삭제할 때 final snapshot을 만들지 않고
+    자동 백업 보존(retain automated backups)을 끈다. 남은 보존 백업이 있으면 지운다(복원 DB도 production 데이터 사본이다).
 16. Cleanup 완료 시각과 담당자를 evidence에 기록한다.
 
 ## Evidence template
