@@ -84,6 +84,7 @@ DB schema/data 영향이 의심되면 자동 down migration을 기본 경로로 
 2. 신규 write traffic을 중지하거나 이에 준하는 보호 조치를 적용한다.
 3. Backup/PITR 또는 snapshot restore 후보 시점을 선택한다.
 4. Temporary restored DB에 user host에서 배포한 migrate image의 `restore-drill`을 실행한다(credential은 host role이 꺼냄,
+   복원 endpoint와 원본 endpoint를 넘겨 URL 넷이 복원 DB를 가리키는지 먼저 확인,
    [Backup and restore drill runbook](../operations/database/backup-restore.md) 10·11단계).
 5. Restored DB가 release 전 safe state를 제공하는지 확인한다.
 6. DB 연결 전환 또는 replacement는 운영자 승인 뒤 수행한다.

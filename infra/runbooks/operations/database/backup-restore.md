@@ -29,7 +29,8 @@
 - Release commit SHA: 지금 배포한 API 묶음의 commit.
 - Source DB identifier: 운영자가 console에서 확인만 하고 evidence에는 쓰지 않는다.
 - Restore source: automated backup/PITR timestamp(기본, 최근 migrate 시작 시각 또는 지정 시각) 또는 manual snapshot.
-- Temporary restored DB: 이름은 운영자가 정하고 evidence에는 쓰지 않는다. 그 endpoint 이름은 Run Command 안에서만 쓴다.
+- Temporary restored DB: 이름은 운영자가 정하고 evidence에는 쓰지 않는다. 그 endpoint 이름은 Run Command parameter로만 넘기고
+  11의 기대 host(`RESTORE_DRILL_EXPECTED_HOST`)로 쓴다.
 - Operator 별칭. 실행 경로는 위 [실행 경로](#실행-경로)다(host 이름·주소는 적지 않음).
 - Evidence output 위치.
 - 지금 배포한 API·migrate image digest(`deploy-api-*` 단계 기록 Release의 묶음). migrate image가 그 commit의 migration
@@ -37,13 +38,14 @@
   기준이 된다.
 - 복원 DB용 secret: host role이 runtime 묶음 `/dormduri/production/api/runtime`과 migration 묶음
   `/dormduri/production/api/migration`을 꺼내 DB URL 넷(`MIGRATION_DATABASE_URL`·`DATABASE_URL`·`RETENTION_WORKER_DATABASE_URL`·
-  `RETENTION_DISCLOSURE_DATABASE_URL`)의 host만 복원 endpoint로 바꾼다. 나머지 runtime key와 `METRICS_BEARER_TOKEN`은 그대로
-  쓴다. optional `DB_GRANT_SCHEMA`.
+  `RETENTION_DISCLOSURE_DATABASE_URL`)의 host만 복원 endpoint로 바꾼다. 원본 endpoint는 바꾸기 전 migration 묶음 URL의 host다
+  (11의 `RESTORE_DRILL_SOURCE_HOST`). 나머지 runtime key와 `METRICS_BEARER_TOKEN`은 그대로 쓴다. optional `DB_GRANT_SCHEMA`.
 
 ## Safety rules
 
 - Production source DB에서 fixture seed, reset, destructive DDL/DML을 실행하지 않는다.
-- Restore target은 production DB가 아니라 temporary DB여야 한다.
+- Restore target은 production DB가 아니라 temporary DB여야 한다. 11의 `restore-drill`이 URL 넷의 host를 복원 endpoint와
+  대조해(원본 endpoint와 같거나 `hostaddr`를 두면 거부) 강제하고, role grant와 임시 API는 그 확인을 통과한 파일만 쓴다.
 - DB URL, password, bearer token, HMAC secret은 issue/report/log/evidence에 붙이지 않는다.
 - Restore drill evidence 없이 production ready로 표시하지 않는다.
 - Instance·snapshot·security group 식별자, endpoint, account는 evidence에 쓰지 않는다. 공개 저장소와 이슈에는 식별자 없는 판정만 남긴다.
@@ -75,16 +77,20 @@
    검증하지 않는 형식이면 client를 부르기 전에 64로 끝난다.
 9. Restored DB에 3과 같은 사람 조회 user로 접속해(복원 DB는 원본의 role을 그대로 가진다) 같은 읽기 전용 query로
    마지막 migration 이름과 주요 table 행 수가 3의 값과 같은지, `pgaudit` extension이 있는지(`pg_extension`) 본다.
-10. User host에서 SSM Run Command(root)로 복원 DB용 secret을 준비한다. Host role로 두 묶음을 꺼내 URL 넷의 host만 복원
-    endpoint로 바꾸고 root 전용 임시 디렉터리(0700)에 key별 0400 파일(소유 10001)로 쓴다. 값은 출력하지 않는다. Role grant가
-    필요하면 restored DB에만 배포한 migrate image의 `grant`를 같은 파일로 부른다.
-11. 같은 파일로 migrate image의 `restore-drill`을 부른다. 먼저 PostgreSQL major, 마지막 적용 migration(image 안 migration
-    디렉터리의 마지막과 같음), `pgaudit` extension·preload를 본 뒤 LOGIN user별 credential boundary smoke를 한다. 배포
-    document의 migrate one-off와 같이 파일 단위로만 mount한다.
+10. User host에서 SSM Run Command(root)로 복원 DB용 secret을 준비한다. 복원 endpoint는 parameter로 받는다. Host role로 두
+    묶음을 꺼내 migration 묶음 URL의 host를 원본 endpoint로 읽고, 복원 endpoint와 같으면 멈춘다. URL 넷의 host만 복원
+    endpoint로 바꿔 root 전용 임시 디렉터리(0700)에 key별 0400 파일(소유 10001)로 쓴다. 값은 출력하지 않는다.
+11. 같은 파일로 migrate image의 `restore-drill`을 부른다. entrypoint는 먼저 URL 넷이 TLS 검증 형식인지, 모두 host가 복원
+    endpoint(`RESTORE_DRILL_EXPECTED_HOST`)이고 `hostaddr`가 없는지, 원본 endpoint(`RESTORE_DRILL_SOURCE_HOST`)와 복원 endpoint가
+    다른지 보고, 하나라도 아니면 client를 부르기 전에 64로 끝난다. 그 뒤 PostgreSQL major, 마지막 적용 migration(image 안
+    migration 디렉터리의 마지막과 같음), `pgaudit` extension·preload를 보고 LOGIN user별 credential boundary smoke를 한다. 배포
+    document의 migrate one-off와 같이 파일 단위로만 mount한다. Role smoke만 실패하면(grant drift) 대상 확인을 통과한 같은
+    `MIGRATION_DATABASE_URL` 파일로 migrate image의 `grant`를 restored DB에 부르고 11을 다시 한다.
 
     ```bash
     docker run --rm --read-only --tmpfs /tmp:size=64m,mode=1777 --cap-drop ALL --security-opt no-new-privileges:true \
       --memory 384m --pids-limit 256 -e CHECKPOINT_DISABLE=1 -e MIGRATE_SECRET_DIRECTORY=/run/secrets/dormduri-migrate \
+      -e RESTORE_DRILL_EXPECTED_HOST='<복원 endpoint>' -e RESTORE_DRILL_SOURCE_HOST='<원본 endpoint>' \
       -v '<임시 migrate 디렉터리>/MIGRATION_DATABASE_URL:/run/secrets/dormduri-migrate/MIGRATION_DATABASE_URL:ro' \
       -v '<임시 migrate 디렉터리>/DATABASE_URL:/run/secrets/dormduri-migrate/DATABASE_URL:ro' \
       -v '<임시 migrate 디렉터리>/RETENTION_WORKER_DATABASE_URL:/run/secrets/dormduri-migrate/RETENTION_WORKER_DATABASE_URL:ro' \
@@ -95,8 +101,9 @@
 12. User host에 임시 API container를 SSM Run Command로 띄운다. 띄우기 전 host `MemAvailable`이 그 memory 상한 + 512MiB보다
     작으면 띄우지 않고 drill을 다른 때로 미룬다(production container를 멈추지 않는다).
     - secret: runtime 묶음 13 key를 production release와 같은 형식(디렉터리 0500·파일 0400, 소유 10001:10001,
-      `infra/aws/secrets-manager-checklist.md` Host 전달)의 임시 디렉터리에 쓰고 DB URL 셋만 복원 endpoint로 바꾼다. 그 디렉터리를
-      `/run/secrets/dormduri-api`에 read-only로 mount한다(`SECRET_SOURCE=mounted-files`).
+      `infra/aws/secrets-manager-checklist.md` Host 전달)의 임시 디렉터리에 쓴다. DB URL 셋은 11에서 대상 확인을 통과한 임시
+      migrate 디렉터리의 같은 key 파일을 복사하고 `cmp`로 같은지 확인한다(다르면 띄우지 않음). 나머지 10 key는 runtime 묶음
+      그대로다. 그 디렉터리를 `/run/secrets/dormduri-api`에 read-only로 mount한다(`SECRET_SOURCE=mounted-files`).
     - env: 지금 돌고 있는 production `api` container의 env(`docker inspect`의 `Config.Env`. secret은 파일이라 값이 없다)를
       root 전용 env 파일로 옮기고 예약 작업 셋을 `LIFECYCLE_SWEEP_ENABLED=false`, `AUTH_MAIL_DISPATCHER_ENABLED=false`,
       `CHAT_REALTIME_DISPATCHER_ENABLED=false`(notification outbox dispatcher도 이 설정을 쓴다)로 바꾼다. 복원 DB의 데이터로
@@ -138,6 +145,7 @@ rpo_target_minutes=10
 rto_target_minutes=120
 restore_requested_at=<iso8601>
 restore_available_at=<iso8601>
+restore_target_verified=pass|fail
 smoke_completed_at=<iso8601>
 rto_observed_minutes=<number>
 migration_baseline=pass|fail
@@ -172,7 +180,10 @@ Dry-run은 command shape와 secret boundary만 확인한다. Release evidence로
 ## Failure handling
 
 - Migration baseline 확인 실패: restore source timestamp/snapshot과 release commit의 migration compatibility를 확인하고 release를 중지한다.
-- Role grant smoke 실패: restored DB grant drift를 확인하고 `infra/db/README.md`의 role grant apply 순서를 반복한다.
+- 대상 확인 실패(11이 role smoke 전에 64로 끝남): role grant·임시 API로 넘어가지 않는다. 10의 host 치환과 두 endpoint
+  parameter를 다시 보고 임시 파일을 지운 뒤 10부터 다시 한다. `restore_target_verified=fail`이면 drill을 통과로 적지 않는다.
+- Role grant smoke 실패: restored DB grant drift를 확인하고 11의 grant 절차(대상 확인을 통과한 파일)로 `infra/db/README.md`의
+  role grant apply 순서를 반복한다.
 - 마지막 migration 이름이나 행 수 불일치: 복원 시각과 3의 기록 시각이 같은지 확인하고 다시 복원한다. 같아도 다르면 drill을 실패로 기록한다.
 - `pgaudit` extension 없음: 원본 parameter group·extension 상태를 `infra/aws/rds-setup-checklist.md` 기준으로 확인한다.
 - `/health/ready` 실패: restored DB 연결·migration baseline과 process bootstrap receipt를 확인한다. Secret origin/provider 상세는 public health가 아니라 component release evidence에서 확인한다.

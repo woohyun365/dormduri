@@ -148,6 +148,10 @@ describe('backup and restore drill readiness boundary', () => {
       'CHAT_REALTIME_DISPATCHER_ENABLED=false',
       'http://127.0.0.1:',
       '중간 단계 실패',
+      "RESTORE_DRILL_EXPECTED_HOST='<복원 endpoint>'",
+      "RESTORE_DRILL_SOURCE_HOST='<원본 endpoint>'",
+      'restore_target_verified=pass|fail',
+      '`cmp`로 같은지 확인한다',
     ]) {
       expect(runbook).toContain(expected);
     }

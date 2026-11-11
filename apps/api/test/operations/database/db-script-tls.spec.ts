@@ -171,7 +171,11 @@ describe('infra/db psql TLS arguments (D-AB5 form C)', () => {
 
 // migrate image entrypoint(운영 one-off): local·CI용 "TLS 인자 없는 URL은 호출자 libpq env 그대로"를 쓰지 않는다. 네 URL이
 // 서버 인증서와 host 이름을 검증하는 형식인지 secret을 읽을 때 보고, migration URL은 Prisma CLI가 검증하는 형식 B만 받는다.
-function runEntrypoint(step: string, secrets: Record<string, string>) {
+function runEntrypoint(
+  step: string,
+  secrets: Record<string, string>,
+  extraEnv: Record<string, string> = {},
+) {
   directory = mkdtempSync(join(tmpdir(), 'migrate-entrypoint-'));
   const log = join(directory, 'psql.log');
   const secretDirectory = join(directory, 'secrets');
@@ -191,6 +195,7 @@ function runEntrypoint(step: string, secrets: Record<string, string>) {
       FAKE_PGAUDIT: 't',
       MIGRATE_SECRET_DIRECTORY: secretDirectory,
       MIGRATE_DB_SCRIPTS: dbRoot,
+      ...extraEnv,
     },
   });
   const calls = readFileSync(log, 'utf8').split('\n').filter(Boolean);
@@ -247,28 +252,83 @@ describe('migrate image entrypoint TLS 강제 (D-AB5)', () => {
 
   // restore drill(user host의 migrate image one-off): host role이 꺼낸 묶음의 URL 넷(host만 복원 endpoint)을 smoke와 같은
   // 형식 검사로 읽어 RESTORE_DRILL_* 이름으로 restore-drill-smoke.sh에 넘긴다. 노트북에 production credential을 두지 않는다.
+  // 원본 묶음을 그대로 쓰면 production이 같은 검사를 통과하므로, 복원 endpoint(기대 host)와 원본 endpoint를 따로 받아
+  // URL 넷이 모두 복원 endpoint를 가리키는지 client를 부르기 전에 본다.
+  const RESTORED_HOST = 'db.invalid';
+  const target = {
+    RESTORE_DRILL_EXPECTED_HOST: RESTORED_HOST,
+    RESTORE_DRILL_SOURCE_HOST: 'source.invalid',
+  };
+  const allUrls = { MIGRATION_DATABASE_URL: PRISMA_FORM_B, ...RUNTIME_URLS };
+
   it('restore-drill 단계는 같은 URL 넷을 검증 형식으로 읽고 PostgreSQL major·마지막 migration·pgaudit 뒤 role smoke를 한다', () => {
-    const result = runEntrypoint('restore-drill', {
-      MIGRATION_DATABASE_URL: PRISMA_FORM_B,
-      ...RUNTIME_URLS,
-    });
+    const result = runEntrypoint('restore-drill', allUrls, target);
 
     expect(result.status, result.output).toBe(0);
     expect(result.output).toContain(`restore drill last migration verified: ${LAST_MIGRATION}`);
     expect(result.output).toContain('restore drill pgaudit verified');
     expect(result.output).toContain('role grant smoke complete');
     expect(result.output).not.toContain('pw@');
-    for (const call of result.calls)
+    for (const call of result.calls) {
       expect(call).toMatch(/ mode=verify-full root=\/etc\/dormduri\/rds-ca\/root\.pem$/u);
+      expect(call).toContain(`@${RESTORED_HOST}`);
+    }
 
-    const weakRuntime = runEntrypoint('restore-drill', {
-      MIGRATION_DATABASE_URL: PRISMA_FORM_B,
-      ...RUNTIME_URLS,
-      RETENTION_DISCLOSURE_DATABASE_URL: local('dormduri_api_disclosure'),
-    });
+    const weakRuntime = runEntrypoint(
+      'restore-drill',
+      { ...allUrls, RETENTION_DISCLOSURE_DATABASE_URL: local('dormduri_api_disclosure') },
+      target,
+    );
     expect(weakRuntime.status).toBe(64);
     expect(weakRuntime.calls).toEqual([]);
     expect(weakRuntime.output).toContain('RETENTION_DISCLOSURE_DATABASE_URL');
+  });
+
+  it('restore-drill 단계는 복원 endpoint를 가리키지 않는 URL이나 대상 입력이 없으면 client를 부르지 않고 64로 끝난다', () => {
+    const sourceUrl = runtimeUrl('dormduri_retention_worker').replace(
+      RESTORED_HOST,
+      'source.invalid',
+    );
+    const cases: Array<[string, Record<string, string>, Record<string, string>, string]> = [
+      [
+        '원본 host가 남은 URL',
+        { ...allUrls, RETENTION_WORKER_DATABASE_URL: sourceUrl },
+        target,
+        'RETENTION_WORKER_DATABASE_URL',
+      ],
+      [
+        'hostaddr로 다른 주소에 붙는 URL',
+        { ...allUrls, DATABASE_URL: `${RUNTIME_URLS.DATABASE_URL}&hostaddr=127.0.0.1` },
+        target,
+        'DATABASE_URL',
+      ],
+      [
+        '기대 host 없음',
+        allUrls,
+        { RESTORE_DRILL_SOURCE_HOST: 'source.invalid' },
+        'RESTORE_DRILL_EXPECTED_HOST',
+      ],
+      [
+        '원본 host 없음',
+        allUrls,
+        { RESTORE_DRILL_EXPECTED_HOST: RESTORED_HOST },
+        'RESTORE_DRILL_SOURCE_HOST',
+      ],
+      [
+        '기대 host가 원본 host와 같음',
+        allUrls,
+        { RESTORE_DRILL_EXPECTED_HOST: RESTORED_HOST, RESTORE_DRILL_SOURCE_HOST: RESTORED_HOST },
+        'RESTORE_DRILL_SOURCE_HOST',
+      ],
+    ];
+    for (const [name, secrets, env, key] of cases) {
+      const result = runEntrypoint('restore-drill', secrets, env);
+      expect(result.status, name).toBe(64);
+      expect(result.calls, name).toEqual([]);
+      expect(result.output, name).toContain(key);
+      expect(result.output, name).not.toContain('pw@');
+      expect(result.output, name).not.toContain('.invalid');
+    }
   });
 });
 

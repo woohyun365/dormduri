@@ -89,8 +89,10 @@ Restore drill은 단순 snapshot 존재 확인이 아니라 아래 smoke까지 �
 2. restored DB endpoint/security group 접근이 제한되어 있다.
 3. restored DB의 Prisma migration baseline을 읽을 수 있고 마지막 migration 이름이 원본과 같다.
 4. 주요 table 행 수가 drill 시작 때 기록한 원본 값과 같다.
-5. LOGIN user별 runtime/retention/disclosure credential smoke가 통과하고 `pgaudit` extension이 있다.
-6. user host의 임시 API container(복원 DB URL, 예약 작업 끔)에서 `/health/ready`와 metrics guard smoke가 통과한다.
+5. URL 넷이 복원 endpoint를 가리키는지(원본 endpoint 아님) 대상 확인을 통과한 뒤 LOGIN user별
+   runtime/retention/disclosure credential smoke가 통과하고 `pgaudit` extension이 있다.
+6. user host의 임시 API container(5의 대상 확인을 통과한 복원 DB URL, 예약 작업 끔)에서 `/health/ready`와 metrics guard
+   smoke가 통과한다.
 7. 측정한 RTO가 2시간 이하다.
 8. restored DB cleanup 상태가 evidence에 남아 있다.
 
