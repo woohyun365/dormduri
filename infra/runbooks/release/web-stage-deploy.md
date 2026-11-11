@@ -21,9 +21,10 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 
 - Workflow 최상위 권한은 `contents: read`이고 write는 위 job에만 있다(`scripts/ci/contracts/github-workflow-trust.test.mjs`).
   Workflow 글의 신뢰 경계는 `scripts/infra/user-host/web-cd-contract.test.mjs`가 고정한다.
-- 모든 실행은 concurrency group `user-host-production` 하나에 줄 선다(`cancel-in-progress: false`). 아래
-  [대기 실행](#대기-실행)을 따른다. host의 두 document는 같은 host lock을 쓰므로 web 묶음과 API 묶음 배포가 host에서 겹치지
-  않는다(겹치면 늦은 쪽이 `RESULT=locked`, exit 75).
+- 모든 실행은 concurrency group `user-host-production` 하나에 줄 선다(`cancel-in-progress: false`). `api-cd.yml`도 같은
+  group을 쓰므로 대기 자리 하나를 두 workflow가 나눈다. 아래 [대기 실행](#대기-실행)과
+  [API 단계 배포의 대기 실행](./api-stage-deploy.md#대기-실행)을 따른다. host의 두 document는 같은 host lock을 쓰므로 web 묶음과
+  API 묶음 배포가 host에서 겹치지 않는다(겹치면 늦은 쪽이 `RESULT=locked`, exit 75).
 - Web 배포 입력 경로(trigger의 `paths`)는 두 Dockerfile이 복사하는 경로, `.dockerignore`, `infra/deploy/web/**`,
   `infra/deploy/user/**`(API 묶음 입력 `infra/deploy/user/api/**`는 뺀다)와 이 workflow다. 그 밖의 merge는 build하지 않는다.
 - Image를 만드는 BuildKit과 SBOM scanner도 workflow `env`의 `BUILDKIT_IMAGE`·`SBOM_SCANNER_IMAGE`에 tag와 digest로 고정하고,
@@ -71,7 +72,8 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 ## 대기 실행
 
 - 실행 중인 배포가 끝나기 전에 시작한 실행은 대기(`pending`)한다. 대기 실행이 이미 있으면 GitHub가 그것을 취소하고 새 실행이
-  자리를 잡는다. 승인을 기다리는 실행도 group을 잡고 있다.
+  자리를 잡는다. 승인을 기다리는 실행도 group을 잡고 있다고 본다(근거와 확인 방법은
+  [API 단계 배포의 대기 실행](./api-stage-deploy.md#대기-실행)).
 - 승인 대기 중인 실행보다 더 새 실행이 있으면 옛 실행을 거절(Reject)한다. 잘못 승인해도 deploy job의 "더 새 변경" 확인이
   host에 보내기 전에 멈춘다.
 - Rollback dispatch가 급하면 승인 대기 중인 실행을 먼저 거절한다. 그렇지 않으면 dispatch가 그 뒤에서 기다린다.
@@ -83,7 +85,7 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
 Actions > Web CD > Run workflow에서 branch `main`을 고르고 `action`과 digest 쌍을 넣는다. 쌍은 Release 단계 기록의 `images`나
 `previous_safe`에서 복사한다. Dispatch는 build와 attestation 생성을 하지 않고, 두 digest의 attestation source commit이 같고 그
 commit의 배포 기록 쌍이 입력과 같을 때만 진행한다. 그래서 기록이 없는 쌍(로컬 build, 섞은 쌍)은 SendCommand 전에 거부된다.
-대조하는 기록은 최근 Release 100개 안에서 tag가 그 source commit을 가리키는 것, 곧 그 쌍을 만든 push 실행의 기록이다. Dispatch
+대조하는 기록은 `deploy-web-*` Release의 최근 100개(API Release는 세지 않는다) 안에서 tag가 그 source commit을 가리키는 것, 곧 그 쌍을 만든 push 실행의 기록이다. Dispatch
 기록의 tag는 실행한 `main` commit에 붙으므로 그 쌍을 보증하지 않는다.
 
 | `action`      | 넣는 쌍                                             | 결과                                                                                                                    |

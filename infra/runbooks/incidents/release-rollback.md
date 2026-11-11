@@ -1,6 +1,6 @@
 # API incident rollback decision guide
 
-이 문서는 API release 직후 장애에서 **app artifact rollback**과 **DB restore escalation**을 구분하는 의사결정 기준이다. User host의 API 묶음 rollout과 되돌림은 SSM document `dormduri-api-deploy`(본문 `infra/deploy/user/api/ssm/deploy-api.sh`, `deploy`·`rollback`·`maintenance`)가 한다. 그 document를 부르는 workflow와 승인 경로는 이 문서 범위 밖이다.
+이 문서는 API release 직후 장애에서 **app artifact rollback**과 **DB restore escalation**을 구분하는 의사결정 기준이다. User host의 API 묶음 rollout과 되돌림은 SSM document `dormduri-api-deploy`(본문 `infra/deploy/user/api/ssm/deploy-api.sh`, `deploy`·`rollback`·`maintenance`)가 한다. 그 document를 부르는 workflow(`api-cd.yml`)와 승인·dispatch 절차는 [API 단계 배포](../release/api-stage-deploy.md)가 소유한다.
 
 Web image(`dormduri/web`·`dormduri/ingress`)의 되돌림은 [Web 단계 배포](../release/web-stage-deploy.md)가 소유한다. 직전 digest 쌍으로 되돌리거나(자동·dispatch) 점검 mode로 둔다. Web·API·DB 사이의 경계는 아래 [User host의 Web·API·DB 경계](#user-host의-webapidb-경계)다.
 
@@ -34,8 +34,10 @@ Evidence에는 secret value, DB URL, Authorization header, bearer token, raw pro
   secret을 꺼내기 전에 멈춘다(`web-record-legacy`·`web-maintenance`, exit 2). API `maintenance`는 된다. Web을 새 document로
   다시 배포하거나 점검 mode를 끝낸 뒤 API를 배포한다.
 - migrate·grant·role smoke·auth mail outbox 확인 가운데 하나라도 실패하면 rollout하지 않고 이전 API container가 계속 돈다
-  (exit 1). 새 API container가 readiness나 host 안 smoke를 통과하지 못하면 직전 release로 되돌리고(`rolled-back-to-current`),
-  직전 release가 없으면 API를 내린 채 끝낸다(`entered-maintenance`).
+  (exit 1). 새 API container가 readiness나 host 안 smoke를 통과하지 못하면 지금 release를 다시 띄우고(`rolled-back-to-current`),
+  지금 release가 없거나 다시 띄우지 못하면 API를 내린 채 끝낸다(`entered-maintenance`). API `rollback`의 대상이 실패하면 지금
+  release를 다시 띄우고(`rollback-failed-kept-current`), 그것도 실패하면 API를 내린다(`entered-maintenance`). 결과 줄 전체는
+  [API 단계 배포](../release/api-stage-deploy.md#host가-하는-일)의 표다.
 - migrate 시작 시각(UTC)은 root 전용 host log(`/opt/dormduri/state/deploy-api.log`)에 남는다. 데이터가 망가졌을 때만 그 시각으로
   [DB restore escalation](#db-restore-escalation)을 한다.
 

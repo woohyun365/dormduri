@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "updatedAt": "2026-11-03",
-  "policy": "External images are pinned in their owner file with a readable exact tag and an immutable digest; Renovate updates that file, and readers resolve the reference from it. Internal Web-stage images (dormduri/web, dormduri/ingress) are built and pushed by .github/workflows/web-cd.yml with the tag sha-<source commit>, and each deploy Release records the digest pair; the API image has no published artifact yet.",
+  "updatedAt": "2026-11-11",
+  "policy": "External images are pinned in their owner file with a readable exact tag and an immutable digest; Renovate updates that file, and readers resolve the reference from it. Internal stage images are built and pushed with the tag sha-<source commit> by their CD workflow: dormduri/web and dormduri/ingress by .github/workflows/web-cd.yml, dormduri/api and dormduri/api-migrate by .github/workflows/api-cd.yml. Each deploy Release records the digest pair of its stage.",
   "images": [
     {
       "name": "api-build-node",
@@ -48,6 +48,18 @@
     {
       "name": "web-cd-sbom-scanner",
       "ownerPath": ".github/workflows/web-cd.yml",
+      "repository": "docker/buildkit-syft-scanner",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "api-cd-buildkit",
+      "ownerPath": ".github/workflows/api-cd.yml",
+      "repository": "moby/buildkit",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "api-cd-sbom-scanner",
+      "ownerPath": ".github/workflows/api-cd.yml",
       "repository": "docker/buildkit-syft-scanner",
       "updateOwner": "renovate"
     },

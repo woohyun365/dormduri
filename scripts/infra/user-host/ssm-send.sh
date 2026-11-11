@@ -1,23 +1,38 @@
 #!/usr/bin/env bash
-# Web CD deploy job이 SSM deploy document를 배포 대상 tag의 managed node에 보내고 command 단위 상태를 기다린다.
-# usage: ssm-send.sh <deploy|rollback|maintenance> <web digest> <ingress digest> <document sha256>
+# CD deploy job이 SSM deploy document를 배포 대상 tag의 managed node에 보내고 command 단위 상태를 기다린다.
+# usage: ssm-send.sh <deploy|rollback|maintenance> <digest>... <document sha256>
+# document(DEPLOY_DOCUMENT)가 digest parameter 이름과 수를 정한다(web-cd·api-cd):
+#   dormduri-web-deploy: <web digest> <ingress digest>
+#   dormduri-api-deploy: <api digest> <api-migrate digest>
 # 결과는 command 단위 집계 상태(ListCommands)로만 본다. node별 invocation 조회는 node ID를 내므로 하지 않는다(D-WB7).
 # 실패 원인(입력 거부 exit 2, host lock exit 75, 자동 복귀 exit 1)은 operator가 console에서 본다(runbook).
 set -euo pipefail
 
+document=${DEPLOY_DOCUMENT:-}
+case "$document" in
+  dormduri-web-deploy) workflow=web-cd images=(web ingress) names=(webDigest ingressDigest) ;;
+  dormduri-api-deploy) workflow=api-cd images=(api api-migrate) names=(apiDigest apiMigrateDigest) ;;
+  *) echo "DEPLOY_DOCUMENT names no known deploy document" >&2; exit 2 ;;
+esac
+[ "$#" -eq $((${#names[@]} + 2)) ] || { echo "expected an action, ${#names[@]} digests and the document hash" >&2; exit 2; }
+
 action=$1
-web=$2
-ingress=$3
-hash=$4
-document=${DEPLOY_DOCUMENT:?DEPLOY_DOCUMENT names the deploy document}
+digests=("${@:2:${#names[@]}}")
+hash=${!#}
 
 case "$action" in deploy | rollback | maintenance) ;; *) echo "unknown action" >&2; exit 2 ;; esac
-for value in "$web" "$ingress"; do
+for value in "${digests[@]}"; do
   [[ "$value" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "a digest is not sha256:<64 hex>" >&2; exit 2; }
 done
 [[ "$hash" =~ ^[a-f0-9]{64}$ ]] || { echo "the document hash is not a sha256 hex" >&2; exit 2; }
 
-parameters=$(printf '{"action":["%s"],"webDigest":["%s"],"ingressDigest":["%s"]}' "$action" "$web" "$ingress")
+parameters=$(printf '{"action":["%s"]' "$action")
+images_line=''
+for index in "${!names[@]}"; do
+  parameters+=$(printf ',"%s":["%s"]' "${names[$index]}" "${digests[$index]}")
+  images_line+=" dormduri/${images[$index]}@${digests[$index]}"
+done
+parameters+='}'
 command_id=$(aws ssm send-command \
   --document-name "$document" \
   --document-hash "$hash" \
@@ -25,11 +40,11 @@ command_id=$(aws ssm send-command \
   --targets Key=tag:dormduri-deploy-target,Values=user-app \
   --parameters "$parameters" \
   --timeout-seconds 900 \
-  --comment "web-cd ${GITHUB_RUN_ID:-local} $action" \
+  --comment "$workflow ${GITHUB_RUN_ID:-local} $action" \
   --query Command.CommandId --output text)
 # command ID는 UUID라 공개 기록 scanner의 activation ID 종류와 구분할 수 없다. log에 남기지 않는다.
 echo "::add-mask::$command_id"
-echo "sent $action dormduri/web@$web dormduri/ingress@$ingress"
+echo "sent $action${images_line}"
 
 deadline=$((SECONDS + ${SSM_WAIT_SECONDS:-1200}))
 while :; do

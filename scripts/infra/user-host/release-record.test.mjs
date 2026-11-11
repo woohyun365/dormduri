@@ -15,6 +15,8 @@ import {
   planRun,
   renderStageRecord,
   servingState,
+  STAGE_WINDOW,
+  stageReleases,
 } from './release-record.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
@@ -241,4 +243,201 @@ test('the SBOM check reads the BuildKit index and attestation manifest shapes', 
     }),
     false,
   );
+});
+
+// API 단계(production-api-baseline D-AB12·D-AB17). 같은 helper가 `--stage=api`로 API 묶음(api·api-migrate)의 기록을 쓰고
+// 읽는다. 두 단계의 Release는 tag 이름으로 갈려 서로의 지금 쌍·직전 쌍 계산에 들지 않는다.
+const apiPair = (api, migrate) => ({ api: digest(api), 'api-migrate': digest(migrate) });
+const apiInput = (overrides = {}) =>
+  input({
+    stage: 'api',
+    releaseId: 'deploy-api-20261111-7',
+    pair: apiPair('a', 'b'),
+    sbom: { api: digest('5'), 'api-migrate': digest('6') },
+    previousSafe: apiPair('d', 'e'),
+    ...overrides,
+  });
+let apiCreated = 0;
+const apiRelease = (overrides = {}, tagCommit = commit('c')) => {
+  apiCreated += 1;
+  return {
+    tagName: `deploy-api-20261111-${apiCreated}`,
+    createdAt: `2026-11-11T0${Math.min(apiCreated, 9)}:30:00Z`,
+    tagCommit,
+    body: renderStageRecord(apiInput(overrides)),
+  };
+};
+const yamlOf = (body) => /```yaml\n([\s\S]*?)```/u.exec(body)[1];
+
+test('the API stage record keeps the template fields, names the API pair and passes the public record scan', () => {
+  const evidence = readFileSync(
+    resolve(repoRoot, 'infra/runbooks/release/production-release-evidence.md'),
+    'utf8',
+  );
+  const template = /## 단계 배포 기록[\s\S]*?```yaml\n([\s\S]*?)```/u.exec(evidence)[1];
+  const fields = (yaml) => yaml.match(/^[a-z_]+(?=:)/gmu);
+  for (const action of ['deploy', 'rollback', 'maintenance']) {
+    const body = renderStageRecord(apiInput({ action }));
+    const yaml = yamlOf(body);
+    assert.deepEqual(fields(yaml), fields(template), action);
+    for (const line of [
+      'stage: api',
+      `release_id: deploy-api-20261111-7`,
+      `  - dormduri/api@${digest('a')}`,
+      `  - dormduri/api-migrate@${digest('b')}`,
+      `  - run: ${runUrl}`,
+      'aggregate_state: COLLECTING',
+      'final_decision: PENDING_TARGET',
+    ]) {
+      assert.ok(yaml.split('\n').includes(line), `${action}: ${line}`);
+    }
+    assert.match(yaml, /signer \.github\/workflows\/api-cd\.yml, refs\/heads\/main/u);
+    // host 안 smoke는 deploy·rollback만 돈다. maintenance는 API를 내리기만 해 그 통과를 적지 않는다.
+    const smoke = yaml.split('\n').find((line) => line.startsWith('smoke: '));
+    if (action === 'maintenance') {
+      assert.match(smoke, /host 안 smoke 해당 없음\(API를 내림/u, action);
+      assert.doesNotMatch(smoke, /readiness|metrics 닫힘|smoke 통과/u, action);
+    } else {
+      assert.match(
+        smoke,
+        /host 내부 smoke 통과\(SSM command Success: readiness, private listener 공개 열람 응답, metrics 닫힘\)/u,
+        action,
+      );
+    }
+    assert.doesNotMatch(yaml, /web-cd\.yml|dormduri\/(?:web|ingress)@/u, action);
+    assert.doesNotMatch(yaml, /: PASS\b/u, 'the record job never judges a component');
+    assert.match(body, /^API 단계 배포 기록\. 형식: /u);
+    assert.deepEqual(scanText(body), [], action);
+  }
+});
+
+test('API deploy records leave the DB components to the operator and other runs mark them unchanged (D-AB17)', () => {
+  const components = (body) => {
+    const yaml = yamlOf(body);
+    return yaml
+      .slice(yaml.indexOf('components:\n'), yaml.indexOf('\nsmoke: '))
+      .split('\n')
+      .slice(1);
+  };
+  const deploy = components(renderStageRecord(apiInput()));
+  for (const name of [
+    'Infrastructure target(API 부분)',
+    'API Secrets Manager',
+    'Lightsail runtime(API 묶음)',
+    'Rollback',
+    'DB migration·role grant·role smoke',
+    'DB credential',
+    'DB backup/restore',
+  ]) {
+    assert.ok(
+      deploy.some((line) => line.startsWith(`  - ${name}: 미판정`)),
+      `deploy: ${name} starts unjudged`,
+    );
+  }
+  assert.ok(
+    deploy.some((line) => /DB migration·role grant·role smoke: .*migrateStarted/u.test(line)),
+    'the operator copies the migrate start time (UTC) from the host RESULT line',
+  );
+  for (const action of ['rollback', 'maintenance']) {
+    const lines = components(renderStageRecord(apiInput({ action })));
+    const db = lines.filter((line) => /\bDB\b/u.test(line));
+    assert.deepEqual(
+      db,
+      [
+        '  - DB migration·role grant·DB credential·backup/restore: 해당 없음(이 실행은 DB를 바꾸지 않음)',
+      ],
+      action,
+    );
+  }
+  // A Web deploy never changes the DB, also after the API stage brought it in.
+  const web = components(renderStageRecord(input()));
+  assert.deepEqual(
+    web.filter((line) => /\bDB\b/u.test(line)),
+    [
+      '  - DB·migration·role grant·DB credential·backup/restore: 해당 없음(이 실행은 DB를 바꾸지 않음)',
+    ],
+  );
+});
+
+test('the API stage refuses the Web release ID, image names and SBOM keys', () => {
+  for (const [overrides, reason] of [
+    [{ releaseId: 'deploy-web-20261111-7' }, /release ID is not a deploy-api tag/u],
+    [{ pair: pair('a', 'b') }, /image pair is not api and api-migrate/u],
+    [{ pair: { api: digest('a') } }, /image pair is not api and api-migrate/u],
+    [{ sbom: { web: digest('5'), ingress: digest('6') } }, /SBOM manifest digest is missing/u],
+    [{ previousSafe: pair('d', 'e') }, /previous safe pair is malformed/u],
+    [{ stage: 'backoffice' }, /unknown stage: backoffice/u],
+  ]) {
+    assert.throws(() => renderStageRecord(apiInput(overrides)), reason, JSON.stringify(overrides));
+  }
+  assert.throws(
+    () => renderStageRecord(input({ releaseId: 'deploy-api-20261103-42' })),
+    /release ID is not a deploy-web tag/u,
+  );
+});
+
+// 두 단계의 Release가 저장소 목록 하나에 섞인다. 한 단계의 창(최근 STAGE_WINDOW개)은 그 단계 tag만 세므로 다른 단계 Release가
+// 많이 쌓여도 지금 묶음·직전 묶음과 dispatch 대조 기록을 잃지 않는다.
+test('a stage keeps its own recent Releases however many the other stage adds', () => {
+  const tag = (stage, n) => ({ tagName: `deploy-${stage}-20261111-${n}`, createdAt: '' });
+  const newestFirst = [
+    ...Array.from({ length: 150 }, (_, n) => tag('web', 300 - n)),
+    tag('api', 2),
+    tag('api', 1),
+    ...Array.from({ length: STAGE_WINDOW + 5 }, (_, n) => tag('web', 100 - n)),
+  ];
+  assert.deepEqual(
+    stageReleases(newestFirst, 'api').map((release) => release.tagName),
+    ['deploy-api-20261111-2', 'deploy-api-20261111-1'],
+  );
+  const web = stageReleases(newestFirst, 'web');
+  assert.equal(web.length, STAGE_WINDOW);
+  assert.equal(web[0].tagName, 'deploy-web-20261111-300');
+  assert.ok(web.every((release) => release.tagName.startsWith('deploy-web-')));
+  assert.throws(() => stageReleases(newestFirst, 'backoffice'), /unknown stage: backoffice/u);
+});
+
+test('each stage parses and plans only its own Releases', () => {
+  const apiFirst = apiRelease({ previousSafe: null });
+  const webFirst = release({ previousSafe: null });
+  const apiBody = apiFirst.body;
+  assert.deepEqual(parseStageRecord(apiBody, 'api'), {
+    action: 'deploy',
+    sourceCommit: commit('c'),
+    pair: apiPair('a', 'b'),
+    previousSafe: null,
+  });
+  assert.equal(parseStageRecord(apiBody, 'web'), null);
+  assert.equal(parseStageRecord(apiBody), null, 'the default stage is web');
+  assert.equal(parseStageRecord(webFirst.body, 'api'), null);
+  const mixed = [webFirst, apiFirst];
+  assert.deepEqual(servingState(mixed, 'api'), { current: apiPair('a', 'b'), previousSafe: null });
+  assert.deepEqual(servingState(mixed, 'web'), { current: pair('a', 'b'), previousSafe: null });
+  assert.deepEqual(
+    planRun({ action: 'deploy', pair: apiPair('f', 'b') }, mixed, 'api').rollbackTarget,
+    apiPair('a', 'b'),
+  );
+  assert.throws(() => planRun({ action: 'deploy', pair: pair('f', 'b') }, mixed, 'api'));
+  const second = apiRelease({ pair: apiPair('f', 'b'), previousSafe: apiPair('a', 'b') });
+  assert.deepEqual(
+    planRun({ action: 'rollback', pair: apiPair('a', 'b') }, [...mixed, second], 'api'),
+    {
+      previousSafe: null,
+      rollbackTarget: null,
+    },
+  );
+  // A Web Release with the same tag time never vouches for an API dispatch, and the other way round.
+  const dispatch = { sourceCommit: commit('c'), pair: apiPair('a', 'b') };
+  assert.equal(matchesRecord(mixed, dispatch, 'api'), true);
+  assert.equal(matchesRecord([webFirst], dispatch, 'api'), false);
+  assert.equal(
+    matchesRecord([apiFirst], {
+      sourceCommit: commit('c'),
+      web: digest('a'),
+      ingress: digest('b'),
+    }),
+    false,
+  );
+  assert.equal(gitDeployTag(new Date('2026-11-11T15:30:00Z'), 7, 'api'), 'deploy-api-20261111-7');
+  assert.throws(() => gitDeployTag(new Date('2026-11-11T15:30:00Z'), 7, 'backoffice'));
 });

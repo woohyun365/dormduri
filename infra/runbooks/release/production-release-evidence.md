@@ -128,7 +128,7 @@ redaction_confirmed: false
 
 | 필드                           | 적는 값                                                                                                                                                     |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stage`                        | 단계 이름(예: `web`)                                                                                                                                        |
+| `stage`                        | 단계 이름(`web`·`api`)                                                                                                                                      |
 | `action`                       | 그 실행의 동작(`deploy`·`rollback`·`maintenance`). `rollback`의 `images`는 되돌린 쌍이고, `maintenance`는 지금 쌍과 직전 안전 쌍을 바꾸지 않는다            |
 | `release_id`                   | 배포 tag 이름                                                                                                                                               |
 | `release_commit_sha`           | 배포한 source commit SHA                                                                                                                                    |
@@ -146,6 +146,17 @@ redaction_confirmed: false
 | `redaction_confirmed`          | 식별자 규칙과 아래 secret-free 규칙을 확인했으면 `true`                                                                                                     |
 
 `해당 없음(<이유>)`은 component result가 아니다. 최종 판정에는 그 component의 실제 결과가 필요하다.
+
+단계마다 기록 helper(`scripts/infra/user-host/release-record.mjs`)가 `components`를 `미판정`으로 시작해 쓰고, operator가
+evidence를 본 뒤 고친다.
+
+- `stage: web`(`web-cd.yml`, Release `deploy-web-*`): Infrastructure target(Web 부분), Rollback, TLS 만료 경보, 외부 가용성. DB
+  항목은 `해당 없음(이 실행은 DB를 바꾸지 않음)`이다. Web 배포는 DB를 들인 뒤에도 DB를 바꾸지 않는다.
+- `stage: api`(`api-cd.yml`, Release `deploy-api-*`): Infrastructure target(API 부분), API Secrets Manager, Lightsail
+  runtime(API 묶음), Rollback. `deploy`는 DB migration·role grant·role smoke, DB credential, DB backup/restore를 따로 두고,
+  migration 줄에 host 결과의 migrate 시작 시각(UTC)을 적는다. migrate 단계를 돌지 않는 `rollback`·`maintenance`의 DB 항목은
+  `해당 없음(이 실행은 DB를 바꾸지 않음)`이다.
+- 두 단계의 Release는 tag 이름으로 갈린다. 지금 묶음·직전 안전 묶음과 dispatch 대조는 그 단계의 Release만 읽는다.
 
 ## Secret-free 규칙
 

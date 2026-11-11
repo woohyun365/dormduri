@@ -34,8 +34,11 @@ function fixture() {
   };
   return { root, promote, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
-const check = (root, run, main = 'main') =>
-  spawnSync('bash', [script, run, main], { cwd: root, encoding: 'utf8' });
+const check = (root, run, main = 'main', stage) =>
+  spawnSync('bash', [script, run, main, ...(stage ? [stage] : [])], {
+    cwd: root,
+    encoding: 'utf8',
+  });
 
 test('a promotion merge commit at the main head is current', () => {
   const { root, promote, cleanup } = fixture();
@@ -90,6 +93,52 @@ test('an unknown commit is a comparison error, not a pass', () => {
   try {
     promote('apps/web/page.tsx', 'b\n');
     assert.equal(check(root, 'f'.repeat(40)).status, 2);
+  } finally {
+    cleanup();
+  }
+});
+
+// api-cd compares its own inputs (production-api-baseline D-AB12): the API image inputs, the API bundle, the shared
+// library both documents embed, and the shared packages. A Web-only change keeps an older API run current.
+test('an API run is stale only after a newer API deploy input change', () => {
+  const { root, promote, cleanup } = fixture();
+  try {
+    const older = promote('apps/api/src/main.ts', 'a\n');
+    for (const path of [
+      'apps/web/page.tsx',
+      'infra/deploy/user/compose.yml',
+      'infra/deploy/web/Dockerfile',
+    ])
+      promote(path, 'b\n');
+    assert.equal(check(root, older, 'main', 'api').status, 0, 'Web-only changes');
+    for (const path of [
+      'apps/api/src/main.ts',
+      'packages/database/prisma/schema.prisma',
+      'infra/db/migrate-deploy.sh',
+      'infra/deploy/api/Dockerfile',
+      'infra/deploy/user/api/compose.yml',
+      'infra/deploy/user/ssm/lib.sh',
+      'packages/shared/index.ts',
+      '.github/workflows/api-cd.yml',
+    ]) {
+      const run = promote('docs/readme.md', `${path}\n`);
+      promote(path, `${path} changed\n`);
+      assert.equal(check(root, run, 'main', 'api').status, 1, path);
+    }
+    const web = promote('apps/web/page.tsx', 'd\n');
+    promote('packages/database/prisma/schema.prisma', 'later\n');
+    assert.equal(check(root, web).status, 0, 'a DB package change keeps a Web run current');
+    assert.equal(check(root, web, 'main', 'web').status, 0);
+  } finally {
+    cleanup();
+  }
+});
+
+test('an unknown stage is refused before comparing', () => {
+  const { root, promote, cleanup } = fixture();
+  try {
+    const merge = promote('apps/api/src/main.ts', 'b\n');
+    assert.equal(check(root, merge, 'main', 'backoffice').status, 2);
   } finally {
     cleanup();
   }

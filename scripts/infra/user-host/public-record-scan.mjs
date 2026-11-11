@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 공개 기록(workflow log·run 요약·Release 본문·attestation 내용을 내려받은 text)에 D-WB7 기록 금지 값이 있는지 본다.
 // 종류마다 pattern 하나를 두고, 걸린 값은 출력하지 않고 종류·파일·줄만 적는다.
-// 허용 값(image digest, document 해시 같은 접두 없는 sha256 hex, commit SHA, workflow run·job URL, image·git 배포 tag,
+// 허용 값(image digest, document 해시 같은 접두 없는 sha256 hex, commit SHA, workflow run·job URL, image·git 배포 tag(web·api),
 // timestamp, GitHub runner 임시 경로(regexp escape 형태 포함)·worker UUID, script 원문의 registry host template)은 먼저 지운 뒤 검사한다. 그래서
 // run·job URL의 긴 숫자 ID와 digest 안의 숫자열은 account ID로 걸리지 않는다. GitHub 소유자·저장소 숫자 ID는 종류가 아니다
 // (숫자만으로는 다른 값과 구분할 수 없어 template placeholder test와 리뷰가 지킨다).
@@ -35,7 +35,8 @@ export const ALLOWED_VALUES = Object.freeze([
   ['sha256 hex hash', /\b[0-9a-f]{64}\b/gu],
   ['commit SHA', /\b[0-9a-f]{40}\b/gu],
   ['image deploy tag', /\bdeploy-[0-9]{8}T[0-9]{4}-[0-9]+\b/gu],
-  ['git deploy tag', /\bdeploy-web-[0-9]{8}-[0-9]+\b/gu],
+  // Release tag of each stage(release-record.mjs STAGES: web-cd, api-cd).
+  ['git deploy tag', /\bdeploy-(?:web|api)-[0-9]{8}-[0-9]+\b/gu],
   ['timestamp', /\b[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z\b/gu],
   // GitHub runner가 job마다 새로 만드는 임시 경로·worker UUID. activation ID와 형식이 같아 이 경로·문맥에 든 UUID만 지운다.
   [
