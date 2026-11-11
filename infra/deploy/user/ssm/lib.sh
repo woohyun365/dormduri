@@ -90,7 +90,10 @@ print(" ".join(item.get("Subnet", "") for net in networks for item in (net.get("
 run_compose() {
   if [ -n "${api_fragment}" ]; then set -- -f "${api_fragment}" "$@"; fi
   if [ -n "${web_fragment}" ]; then set -- -f "${web_fragment}" "$@"; fi
-  docker compose -p "${project}" "$@" >>"${log}" 2>&1
+  set -- docker compose -p "${project}" "$@"
+  # compose_limit(초)가 있으면 그 상한의 timeout 안에서 실행한다(API document 관측 단계의 SSM step 시간 상한).
+  if [ -n "${compose_limit:-}" ]; then set -- timeout -k 10 "${compose_limit}" "$@"; fi
+  "$@" >>"${log}" 2>&1
 }
 # `--remove-orphans`는 두 조각을 다 넘겼을 때만 붙인다.
 orphan_flag() {

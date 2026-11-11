@@ -223,13 +223,36 @@ stop_api() {
 
 # 관측(D-AB14, fail-open). 설정 image(FROM scratch, 설정 파일만)를 `docker create`·`docker cp`로 digest 경로에 펼치고(Owner
 # 2026-11-11), 관측 secret을 그 파일을 읽는 container UID 소유 0400 파일로 쓰고(D-AB7: Slack webhook·Grafana 비밀번호는 관측
-# 묶음, Prometheus scrape token은 이번 runtime release의 METRICS_BEARER_TOKEN), 관측 container를 다시 만든다. 이미 펼친 digest
-# 경로는 다시 쓰지 않는다. 실패하면 지금 관측 container와 그 경로는 그대로다. 관측 container가 실제로 쓰는 digest는
-# api state의 observability 파일이 기록하고, 정리는 그 경로를 지우지 않는다.
+# 묶음, Prometheus scrape token은 이번 runtime release의 METRICS_BEARER_TOKEN), upstream 관측 image를 받은 뒤 관측 container를 다시
+# 만든다. 이미 펼친 digest 경로는 다시 쓰지 않는다. 실패하면 RESULT 줄의 observability=failed로만 남고 실패 단계는 host log에 쓴다.
+# 관측 단계는 `current` 갱신 뒤 같은 SSM step(document timeoutSeconds 900) 안에서 돈다. step이 끊기면 RESULT 줄 없이 TimedOut이
+# 되어 CD가 외부 smoke·단계 기록을 건너뛰므로, network를 쓰는 호출은 shell 시작부터 obs_deadline초 안에 끝나게 timeout으로 감싸고
+# 남은 시간이 30초 미만이면 건너뛴다. 그 뒤 60초는 기록 정리와 RESULT 줄 몫이다.
+obs_deadline=840
+obs_note() { printf '%s observability %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >>"${log}"; }
+obs_budget() {
+  obs_left=$((obs_deadline - SECONDS))
+  [ "${obs_left}" -ge 30 ] && return 0
+  obs_note "$1 skipped: step time budget"
+  return 1
+}
+obs_within() {
+  obs_budget "$1" || return 1
+  shift
+  timeout -k 10 "${obs_left}" "$@"
+}
+obs_compose() {
+  obs_budget "$1" || return 1
+  shift
+  compose_limit=${obs_left} run_compose "$@"
+}
 fill_obs_config() {
   local dir=${obs_root}/${1#sha256:} tmp cid status=0 file
   [ -d "${dir}" ] && return 0
-  docker pull -q "$(ref observability-config "$1")" >>"${log}" 2>&1 || return 1
+  if ! obs_within config-pull docker pull -q "$(ref observability-config "$1")" >>"${log}" 2>&1; then
+    obs_note "config pull failed"
+    return 1
+  fi
   tmp=$(mktemp -d "${obs_root}/.incoming.XXXXXX") || return 1
   cid=$(docker create "$(ref observability-config "$1")" /none 2>>"${log}") || status=1
   if [ "${status}" = 0 ]; then
@@ -241,32 +264,52 @@ fill_obs_config() {
     [ -f "${tmp}/${file}" ] || status=1
   done
   if [ "${status}" != 0 ] || find "${tmp}" ! -type f ! -type d | grep -q .; then
+    obs_note "config refused: copy failed, a required file is missing or a non-regular file"
     rm -rf "${tmp}"
     return 1
   fi
   chown -R 0:0 "${tmp}" && chmod -R u=rwX,go=rX "${tmp}" && mv -T "${tmp}" "${dir}"
 }
+# 파일 셋을 하나씩 바꾼다. 중간에 실패하면 새 값과 옛 값이 섞일 수 있으나 container는 다시 만들지 않고, 다음 배포가 셋을 다시 쓴다.
 write_obs_secrets() {
   local tmp name status=0
   tmp=$(mktemp -d "${base}/secrets/.obs.XXXXXX") || return 1
-  secret_json "${obs_secret}" | secret_py observability "${tools}/secret-mount.contract.json" "${tmp}" \
+  obs_within secret-fetch aws secretsmanager get-secret-value --secret-id "${obs_secret}" --query SecretString \
+    --output text 2>>"${log}" | secret_py observability "${tools}/secret-mount.contract.json" "${tmp}" \
     && install -m 0400 -o 65534 -g 65534 "${secret_releases}/$1/METRICS_BEARER_TOKEN" "${tmp}/api-metrics-bearer-token" \
     || status=1
   for name in slack-webhook-url grafana-admin-password api-metrics-bearer-token; do
     [ "${status}" = 0 ] && mv -f "${tmp}/${name}" "${obs_secrets}/${name}" || status=1
   done
   rm -rf "${tmp}"
+  [ "${status}" = 0 ] || obs_note "secret write failed"
   return "${status}"
 }
+# api state의 observability 파일은 관측 container가 쓰고 있을 수 있는 설정 digest를 줄마다 적고, 정리는 그 경로를 지우지 않는다.
+# `up --force-recreate --wait`는 container를 먼저 다시 만든 뒤 healthy를 기다리므로, up 전에 지금 digest들과 새 digest를 함께 적고
+# 성공했을 때만 새 digest 하나로 줄인다.
 observability_up() {
-  local digest
+  local digest before
   digest=$(record_get "${api_state}/current" observability-config)
+  before=$(cat "${api_state}/observability" 2>/dev/null || true)
   obs_status=failed
   fill_obs_config "${digest}" || return 0
   write_obs_secrets "$1" || return 0
   # shellcheck disable=SC2086
-  run_compose up -d --no-deps --force-recreate --wait --wait-timeout 120 ${obs_services} || return 0
-  printf '%s\n' "${digest}" >"${api_state}/observability"
+  if ! obs_compose image-pull pull -q --policy missing ${obs_services}; then
+    obs_note "image pull failed"
+    return 0
+  fi
+  if ! printf '%s\n%s\n' "${before}" "${digest}" | grep -v '^$' | sort -u >"${api_state}/observability" 2>>"${log}"; then
+    obs_note "state write failed"
+    return 0
+  fi
+  # shellcheck disable=SC2086
+  if ! obs_compose up up -d --no-deps --force-recreate --pull never --wait --wait-timeout 120 ${obs_services}; then
+    obs_note "up failed"
+    return 0
+  fi
+  printf '%s\n' "${digest}" >"${api_state}/observability" 2>>"${log}" || obs_note "state write failed"
   obs_status=ok
 }
 
@@ -292,10 +335,13 @@ finish_records() {
       [ -n "${digest}" ] && keep="${keep} $(ref "${name}" "${digest}")"
     done
   done
-  digest=$(cat "${api_state}/observability" 2>/dev/null || true)
-  [ -n "${digest}" ] && keep="${keep} $(ref observability-config "${digest}")"
+  if [ -f "${api_state}/observability" ]; then
+    while IFS= read -r digest; do
+      [ -n "${digest}" ] && keep="${keep} $(ref observability-config "${digest}")"
+    done <"${api_state}/observability"
+  fi
   prune_repository_images 'api api-migrate observability-config' "${keep}"
-  # 관측 설정 경로도 current·previous 기록과 지금 관측 container의 digest만 남긴다.
+  # 관측 설정 경로도 current·previous 기록과 관측 container가 쓰고 있을 수 있는 digest만 남긴다.
   for dir in "${obs_root}"/*; do
     [ -d "${dir}" ] || continue
     case "${keep}" in *"/observability-config@sha256:$(basename "${dir}")"*) ;; *) rm -rf "${dir}" ;; esac

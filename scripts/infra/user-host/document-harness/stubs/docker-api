@@ -2,7 +2,8 @@
 # API document harness의 가짜 docker. migrate one-off는 secret 파일 넷이 0400·10001일 때만 돌고(BAD_STEP 단계는 실패),
 # api up은 secret release 디렉터리가 0500·10001일 때만 뜬다(BAD_UP digest는 실패). exec web은 host 안 smoke다(BAD_SMOKE).
 # 관측: create·cp는 설정 image를 흉내 내 fixture 설정을 펼치고(BAD_CONFIG=partial은 파일 하나를 빼고 symlink는 symlink를 더함),
-# 관측 up은 설정 경로와 관측 secret 파일 셋이 그 container UID 소유 0400일 때만 뜬다(BAD_OBS_UP은 실패).
+# 관측 up은 설정 경로와 관측 secret 파일 셋이 그 container UID 소유 0400일 때만 container를 다시 만든다. 실제 compose처럼
+# 다시 만든 뒤 healthy 대기에서 실패할 수 있다(BAD_OBS_UP: 새 설정으로 다시 만든 뒤 실패).
 . /work/common.sh
 echo "docker $*" >>/tmp/docker.log
 [ "$1" = login ] && cat >/dev/null
@@ -47,12 +48,12 @@ case "${sub}" in
   up)
     case " ${services} " in
       *" prometheus "*)
-        [ -z "${BAD_OBS_UP:-}" ] || exit 1
         [ -f "${OBSERVABILITY_CONFIG_DIR:-/nonexistent}/prometheus/prometheus.production.yml" ] || exit 5
         s=/opt/dormduri/secrets/observability
         [ "$(stat -c '%u:%g:%a' "${s}/slack-webhook-url" "${s}/grafana-admin-password" "${s}/api-metrics-bearer-token" 2>/dev/null | paste -sd' ')" \
           = '65534:65534:400 472:0:400 65534:65534:400' ] || exit 6
         basename "${OBSERVABILITY_CONFIG_DIR}" | cut -c1 >/tmp/running_obs
+        [ -z "${BAD_OBS_UP:-}" ] || exit 1
         exit 0
         ;;
     esac

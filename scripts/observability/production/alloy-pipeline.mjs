@@ -14,6 +14,7 @@ const CUID = 'ckq8z1x2y0000abcdefghijkl';
 const TOKEN = 'abcdefghijklmnopqrstuvwxyz0123';
 // ingress가 만드는 request id(32 hex). 형식이 맞아 그대로 남는다.
 const REQUEST_ID = '0f9e8d7c6b5a43218fedcba987654321';
+const JWT = 'eyJhbGciOi.eyJzdWIiOi.c2lnbmF0dXJl';
 
 // service, 입력 행, Loki에 남아야 하는 행. 입력의 원본 IP·query string·referer·경로 속 식별자는 sensitive에 적는다.
 export const FIXTURES = Object.freeze([
@@ -75,6 +76,36 @@ export const FIXTURES = Object.freeze([
     expected:
       '192.0.2.0/24 - [11/Nov/2026:10:00:07 +0900] "DELETE /api/rooms/:id/:id HTTP/1.1" 204 0 "fixture-agent-10" "fixture-request-0010"',
   },
+  // nginx는 $request_uri를 decode하지 않는다: percent 부호화한 email·한글 조각도 식별자다.
+  {
+    service: 'ingress',
+    input:
+      '203.0.113.0/24 - [11/Nov/2026:10:00:08 +0900] "GET /api/users/owner%40example.com/rooms/%EA%B9%80 HTTP/1.1" 200 3 "fixture-agent-11" "fixture-request-0011"',
+    expected:
+      '203.0.113.0/24 - [11/Nov/2026:10:00:08 +0900] "GET /api/users/:id/rooms/:id HTTP/1.1" 200 3 "fixture-agent-11" "fixture-request-0011"',
+  },
+  // nginx `\xHH` byte 표기 조각과 JWT 형태 token은 가리고, static asset 이름(점 하나)은 남긴다.
+  {
+    service: 'ingress',
+    input: `203.0.113.0/24 - [11/Nov/2026:10:00:09 +0900] "GET /auth/verify/${JWT}/\\xEA\\xB9\\x80/_next/main-abc123.js HTTP/1.1" 200 4 "fixture-agent-12" "fixture-request-0012"`,
+    expected:
+      '203.0.113.0/24 - [11/Nov/2026:10:00:09 +0900] "GET /auth/verify/:id/:id/_next/main-abc123.js HTTP/1.1" 200 4 "fixture-agent-12" "fixture-request-0012"',
+  },
+  // protocol 칸이 없는 옛 형식 요청 줄도 다시 쓴다.
+  {
+    service: 'ingress',
+    input:
+      '192.0.2.140 - - [11/Nov/2026:10:00:10 +0900] "GET /api/users/123456" 400 0 "-" "fixture-agent-13" "-"',
+    expected:
+      '192.0.2.0/24 - [11/Nov/2026:10:00:10 +0900] "GET /api/users/:id -" 400 0 "fixture-agent-13" "-"',
+  },
+  // 해석하지 못한 요청 줄(target 안 공백)은 요청 줄 칸을 통째로 지운다.
+  {
+    service: 'ingress',
+    input:
+      '192.0.2.150 - - [11/Nov/2026:10:00:11 +0900] "GET /a/owner2@example.com b HTTP/1.1" 400 0 "https://c.example/?q" "fixture-agent-14" "-"',
+    expected: '192.0.2.0/24 - - [11/Nov/2026:10:00:11 +0900] "-" 400 0 "-" "fixture-agent-14" "-"',
+  },
 ]);
 
 // 입력에는 있고 Loki에는 없어야 하는 값(양성 대조: 입력에 실제로 있는지 judge가 먼저 본다).
@@ -106,6 +137,15 @@ export const SENSITIVE = Object.freeze([
   '192.0.2.130',
   '/123/456',
   'x=1',
+  'owner%40example.com',
+  '%EA%B9%80',
+  JWT,
+  '\\xEA\\xB9\\x80',
+  '192.0.2.140',
+  '/users/123456',
+  '192.0.2.150',
+  'owner2@example.com',
+  'https://c.example/',
 ]);
 const ALLOWED_LABELS = ['container', 'env', 'level', 'service'];
 // Loki가 스스로 붙이는 값(service label에서 온 service_name, 행에서 읽은 detected_level). Alloy가 보내지 않는다.

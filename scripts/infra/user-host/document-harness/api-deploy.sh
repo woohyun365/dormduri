@@ -6,6 +6,7 @@ set -u
 install -m 0755 /work/stubs/aws /usr/local/bin/aws
 install -m 0755 /work/stubs/docker-api /usr/local/bin/docker
 install -m 0755 /work/stubs/python3-shim /usr/local/bin/python3
+install -m 0755 /work/stubs/timeout /usr/local/bin/timeout
 state=/opt/dormduri/state
 api_state=${state}/api
 secrets=/opt/dormduri/secrets/api
@@ -19,7 +20,7 @@ O=$(pair c)
 count() { find "$1" -mindepth 1 -maxdepth 1 "${@:2}" 2>/dev/null | wc -l; }
 run() {
   local name=$1 code current previous running steps link release fetched stopped cfrag dir order prevfrag prevsum fromprev upline
-  local obs obsrec obssecret obsresult obsstopped
+  local obs obsrec obssecret obsresult obsstopped obslimit obsup obsdir
   shift
   # rollback 판별: 실행 전 previous 기록의 조각 경로와 내용 hash. 실행 뒤 current가 그 조각을 그대로(내용도 같게) 가리키고 마지막 api
   # `up`이 그 조각을 넘겼을 때만 fromprev=yes다(새 document 조각을 쓰는 rollback이면 no).
@@ -29,6 +30,7 @@ run() {
   : >/tmp/services.log
   : >/tmp/steps.log
   : >/tmp/aws.log
+  : >/tmp/timeout.log
   env "$@" bash /work/deploy.sh >/tmp/out 2>/tmp/err
   code=$?
   cat /tmp/out /tmp/err /tmp/docker.log >>/tmp/seen
@@ -70,6 +72,20 @@ run() {
       && obssecret=yes
   fi
   obsresult=$(result_line /tmp/out | sed -n 's/.* observability=\([a-z]*\).*/\1/p')
+  # 관측의 network 호출 상한: 모두 1~840초(document의 obs_deadline)이면 ok다. 관측 container를 다시 만들려 했는지(obsup)와
+  # 관측 container가 쓰는 설정 경로가 남아 있는지(obsdir)도 본다.
+  obslimit=none
+  if [ -s /tmp/timeout.log ]; then
+    obslimit=ok
+    awk '$1 < 1 || $1 > 840 { bad = 1 } END { exit bad }' /tmp/timeout.log || obslimit=over
+  fi
+  obsup=no
+  grep -Eq '^up:(.* )?prometheus( |$)' /tmp/services.log && obsup=yes
+  obsdir=none
+  if [ -f /tmp/running_obs ]; then
+    obsdir=no
+    [ -d "/opt/dormduri/observability/config/$(printf '%64s' '' | tr ' ' "$(cat /tmp/running_obs)")" ] && obsdir=yes
+  fi
   obsstopped=no
   grep -Eq '^(stop|rm):(.* )?(prometheus|loki|alloy|alertmanager|grafana)( |$)' /tmp/services.log && obsstopped=yes
   fromprev=none
@@ -81,11 +97,12 @@ run() {
       case "${upline} " in *" -f ${prevfrag} "*) fromprev=yes ;; esac
     fi
   fi
-  printf 'case=%s exit=%s current=%s previous=%s running=%s steps=%s secrets=%s link=%s migratedir=%s fetched=%s stopped=%s cfrag=%s apidirs=%s order=%s fromprev=%s obs=%s obsrec=%s obsdirs=%s obssecret=%s obsresult=%s obsstopped=%s out=%s\n' \
+  printf 'case=%s exit=%s current=%s previous=%s running=%s steps=%s secrets=%s link=%s migratedir=%s fetched=%s stopped=%s cfrag=%s apidirs=%s order=%s fromprev=%s obs=%s obsrec=%s obsdirs=%s obssecret=%s obsresult=%s obsstopped=%s obslimit=%s obsup=%s obsdir=%s out=%s\n' \
     "${name}" "${code}" "${current}" "${previous}" "${running}" "${steps:-none}" "$(count "${secrets}/releases" -type d)" \
     "${link}" "$(count /opt/dormduri/secrets -name 'migrate.*')" "${fetched}" "${stopped}" "${cfrag:-none}" \
     "$(count /opt/dormduri/releases/api -type d)" "${order}" "${fromprev}" "${obs}" "${obsrec}" \
-    "$(count /opt/dormduri/observability/config -type d)" "${obssecret}" "${obsresult:-none}" "${obsstopped}" "$(result_line /tmp/out)"
+    "$(count /opt/dormduri/observability/config -type d)" "${obssecret}" "${obsresult:-none}" "${obsstopped}" "${obslimit}" "${obsup}" "${obsdir}" \
+    "$(result_line /tmp/out)"
 }
 # 관측 설정 digest는 기본 c이고, 뒤에 붙인 SSM_observabilityConfigDigest가 이긴다(env는 마지막 값을 쓴다).
 deploy() { run "$1" SSM_action=deploy SSM_apiDigest="$(pair "$2")" SSM_apiMigrateDigest="${M}" SSM_observabilityConfigDigest="${O}" "${@:3}"; }
@@ -146,6 +163,13 @@ maintenance obs-maintenance-keeps-observability 7
 # 관측 설정만 바뀐 배포도 다른 묶음이다: 지금 묶음이 previous가 되고 rollback이 그 설정으로 되돌린다(단계 기록의 직전 묶음과 같다).
 deploy obs-only-change 7 "$(obs f)"
 rollback obs-only-rollback 7 "$(obs 7)"
+# 관측 up이 다시 만든 뒤 시간 상한에 끊기면 지금 설정과 새 설정을 둘 다 남긴다. 그 뒤 설정 펼침이 두 번 실패해도 관측 container가
+# 쓰는 설정 경로는 지워지지 않는다. upstream image 받기가 끊기면 container를 다시 만들지 않고, 남은 시간이 없으면 건너뛴다.
+deploy obs-up-timeout-keeps-both-configs 8 "$(obs 9)" SLOW_OBS=up
+deploy obs-fill-failure-after-recreate 9 "$(obs a)" BAD_CONFIG=partial
+deploy obs-second-fill-failure-keeps-mounted 2 "$(obs b)" BAD_CONFIG=partial
+deploy obs-image-pull-timeout-keeps-containers 3 "$(obs a)" SLOW_OBS=pull
+deploy obs-step-budget-exhausted 4 "$(obs b)" SECONDS=830
 cat "${state}/deploy-api.log" >>/tmp/seen 2>/dev/null
 found=no
 grep -q fakesecretvalue /tmp/seen && found=yes

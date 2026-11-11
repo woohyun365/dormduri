@@ -230,6 +230,12 @@ test('each weakened web bundle boundary is rejected', () => {
     [(s) => (s.ingress.cap_drop = []), /ingress: capabilities are not all dropped/u],
     [(s) => (s.web.cap_add = ['NET_ADMIN']), /web: adds capabilities/u],
     [(s) => (s.ingress.security_opt = []), /ingress: no-new-privileges is not set/u],
+    [
+      (s) => s.ingress.security_opt.push('seccomp:unconfined'),
+      /ingress: relaxes a security option \(seccomp:unconfined\)/u,
+    ],
+    [(s) => (s.web.devices = ['/dev/fuse:/dev/fuse']), /web: sets devices/u],
+    [(s) => (s.web.sysctls = { 'net.core.somaxconn': 1024 }), /web: sets sysctls/u],
     [(s) => (s.web.privileged = true), /web: runs privileged/u],
     [(s) => (s.ingress.network_mode = 'host'), /ingress: shares a host namespace/u],
     [(s) => (s.web.user = '0:0'), /web: overrides the image user with root/u],
@@ -370,6 +376,14 @@ test('each weakened observability boundary is rejected', () => {
       /grafana: image is not pinned by digest/u,
     ],
     [(s) => (s.prometheus.user = '0'), /prometheus: overrides the image user with root/u],
+    // root·Docker socket·host `/`를 읽는 Alloy도 seccomp·AppArmor·host namespace를 풀지 않는다.
+    [
+      (s) => s.alloy.security_opt.push('apparmor:unconfined'),
+      /alloy: relaxes a security option \(apparmor:unconfined\)/u,
+    ],
+    [(s) => (s.alloy.userns_mode = 'host'), /alloy: sets userns_mode/u],
+    [(s) => (s.alloy.cgroup = 'host'), /alloy: sets cgroup/u],
+    [(s) => (s.alloy.device_cgroup_rules = ['c 1:3 mr']), /alloy: sets device_cgroup_rules/u],
     [(s) => (s.alertmanager.user = '65534'), /alertmanager: user is not 65534:65534/u],
     [(s) => (s.loki.read_only = false), /loki: root filesystem is not read-only/u],
     [(s) => (s.grafana.cap_drop = []), /grafana: capabilities are not all dropped/u],

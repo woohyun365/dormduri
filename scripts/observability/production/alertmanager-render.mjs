@@ -12,7 +12,7 @@ import { join, resolve } from 'node:path';
 export const FIXTURE_LABEL =
   'dormduri.local.created-by=scripts/observability/production/alertmanager-render.mjs';
 const FORBIDDEN_CLASSES = new Set(['secret', 'content', 'identifier']);
-// template이 출력하는 annotation. rule 파일이 고정 문구만 두는 두 값이라 fixture도 고정 문구다.
+// template이 출력하는 annotation. rule 파일이 고정 문구만 두는 두 값이라(API 경보 contract test가 고정) fixture도 고정 문구다.
 const PRINTED_ANNOTATIONS = new Set(['summary', 'runbook']);
 
 export function forbiddenColumnNames(csvText) {
@@ -63,7 +63,12 @@ export function buildFixtures(columns) {
       service: leaked[0],
       env: leaked[1],
     },
-    annotations: { summary: 'fixture warning summary', runbook: leaked[3], description: leaked[2] },
+    // runbook: 저장소 경로 뒤 anchor 자리에 URL·token을 넣는다. 경로 형식 밖이라 기본 runbook으로 바뀌어야 한다.
+    annotations: {
+      summary: 'fixture warning summary',
+      runbook: `infra/observability/README.md#${leaked[3]}`,
+      description: leaked[2],
+    },
   };
   const sentinels = [...Object.values(extraLabels), ...Object.values(extraAnnotations), ...leaked];
   return { alerts: [critical, warning], sentinels };

@@ -26,8 +26,8 @@ Evidence에는 secret value, DB URL, Authorization header, bearer token, raw pro
 
 - 두 묶음은 따로 배포하고 따로 되돌린다. Web document는 API container를, API document는 Web·ingress container를 멈추거나 바꾸지
   않는다. 두 document는 같은 host lock을 쓰므로 겹쳐 돌지 않는다(다른 실행 중이면 exit 75로 아무것도 바꾸지 않는다).
-- API `rollback`은 host가 기록한 직전 성공 digest 쌍(`api`·`api-migrate`)으로만 되돌린다. migrate 단계는 다시 돌지 않고
-  migration도 되돌리지 않는다. secret은 Secrets Manager의 지금 값(`AWSCURRENT`)을 다시 꺼내 새 release로 설치한다.
+- API `rollback`은 host가 기록한 직전 성공 묶음(`api`·`api-migrate`·`observability-config` digest 셋)으로만 되돌리고 관측
+  stack도 그 묶음의 설정으로 다시 만든다(실패해도 API 결과는 그대로). migrate 단계는 다시 돌지 않고 migration도 되돌리지 않는다. secret은 Secrets Manager의 지금 값(`AWSCURRENT`)을 다시 꺼내 새 release로 설치한다.
 - API `maintenance`는 API container를 내린다. ingress private listener는 JSON 503을 내고 Landing(`/`·`/privacy`·`/terms`)은
   Web이 계속 낸다.
 - Web 기록이 옛 형식인 동안(새 형식 이전 release로 Web을 되돌린 동안)과 Web 점검 mode 동안에는 API `deploy`·`rollback`이

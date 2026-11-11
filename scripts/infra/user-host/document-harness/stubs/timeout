@@ -1,0 +1,12 @@
+#!/bin/bash
+# API document harness의 가짜 timeout. 상한(초)과 명령을 /tmp/timeout.log에 적고 명령을 그대로 실행한다. SLOW_OBS가 compose 하위
+# 명령(pull·up)과 같으면 그 명령을 실행한 뒤 상한에 걸린 것처럼 124를 낸다(실제 compose up은 container를 다시 만든 뒤 healthy를
+# 기다리는 중에 끊긴다).
+[ "$1" = -k ] && shift 2
+seconds=$1
+shift
+echo "${seconds} $*" >>/tmp/timeout.log
+"$@"
+code=$?
+case " $* " in *" compose "*" ${SLOW_OBS:-none} "*) exit 124 ;; esac
+exit "${code}"

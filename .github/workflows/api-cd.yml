@@ -495,6 +495,8 @@ jobs:
             echo "Read the host result (RESULT line) in the console before the next run. Input or state refusal (exit 2) and host"
             echo "lock (exit 75) leave the host as it was. A migrate step failure keeps the running API (no rollout) and may have"
             echo "applied part of the migration; read _prisma_migrations before the next deploy (runbook)."
+            echo "A host command that ends without a RESULT line (TimedOut, Cancelled) leaves the host state unknown: read the"
+            echo "host current record and the running api digest before the next run (runbook failure response)."
           } >> "$GITHUB_STEP_SUMMARY"
 
   tag:

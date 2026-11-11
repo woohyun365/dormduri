@@ -104,7 +104,7 @@ export function gitDeployTag(date, runNumber, stage = 'web') {
   return `deploy-${stage}-${utcDay(date)}-${runNumber}`;
 }
 
-// 배포 쌍: 그 stage의 image 이름만 key로 갖고 값이 모두 digest다.
+// 배포 묶음(Web 둘, API 셋): 그 stage의 image 이름만 key로 갖고 값이 모두 digest다.
 const isPair = (pair, images) =>
   Boolean(pair) &&
   Object.keys(pair).length === images.length &&

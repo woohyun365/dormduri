@@ -25,7 +25,7 @@
    runtime UID/GID `10001:10001`이고, document가 설치 뒤 이름·mode·크기·symlink·소유를 검사한다
    (`infra/aws/secrets-manager-checklist.md` Host 전달).
 2. `current`는 새 API의 readiness와 host 안 smoke가 통과한 뒤에만 바뀐다. Secret release는 current와 직전 성공 release 둘만 남는다.
-3. Host `previous`(직전 image digest 쌍)를 유지하고 rollback을 rehearsal한다. Rollback은 secret을 지금 값으로 다시 꺼낸다.
+3. Host `previous`(직전 image digest 묶음: Web은 `web`·`ingress`, API는 `api`·`api-migrate`·`observability-config`)를 유지하고 rollback을 rehearsal한다. Rollback은 secret을 지금 값으로 다시 꺼낸다.
 4. Secrets Manager 원문 bundle과 snapshot의 보존·삭제·접근 owner를 함께 결정한다.
 5. Snapshot restore 후에는 Secrets Manager에서 새 bundle을 materialize하고 노출 가능 credential을
    rotation한 뒤에만 traffic을 연다.

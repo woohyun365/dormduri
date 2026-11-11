@@ -108,6 +108,35 @@ describe('observability alert contract', () => {
     }
   });
 
+  // Slack template(alertmanager/templates/slack.tmpl)은 rule의 summary를 거르지 않고 출력하고 runbook은 저장소 경로 형식만 남긴다.
+  // 그래서 Prometheus·Loki rule 파일은 alert마다 한 줄 고정 문구 summary와 저장소 경로 runbook을 두고, template 치환
+  // ($labels·$value·{{ }})을 어디에도 쓰지 않는다(infra/observability/slack/slack-alert-payload.md).
+  it('keeps every alert summary and runbook annotation as fixed text', () => {
+    const ruleFiles = ['prometheus/rules', 'loki/rules'].flatMap((directory) =>
+      readdirSync(join(observabilityRoot, directory))
+        .filter((name) => name.endsWith('.yml'))
+        .sort()
+        .map((name) => `${directory}/${name}`),
+    );
+    expect(ruleFiles).toContain('loki/rules/web-bff-alerts.yml');
+    for (const file of ruleFiles) {
+      const source = readInfraFile(file);
+      expect(source, file).not.toMatch(/\{\{|\}\}|\$labels|\$value|\$externalLabels/u);
+      const alerts = source.match(/^\s*- alert:/gmu)?.length ?? 0;
+      const summaries = [...source.matchAll(/^\s+summary:\s*(.*)$/gmu)].map((match) => match[1]);
+      const runbooks = [...source.matchAll(/^\s+runbook:\s*(.*)$/gmu)].map((match) => match[1]);
+      expect(alerts, file).toBeGreaterThan(0);
+      expect(summaries, file).toHaveLength(alerts);
+      expect(runbooks, file).toHaveLength(alerts);
+      for (const summary of summaries) expect(summary, file).toMatch(/^[^\s|>'"][^{}$]*$/u);
+      for (const runbook of runbooks) {
+        expect(runbook, file).toMatch(
+          /^(?:infra|docs)\/[A-Za-z0-9/_.-]+(?:#[\p{Script=Hangul}A-Za-z0-9_-]+)?$/u,
+        );
+      }
+    }
+  });
+
   it('locks the metric families referenced by Prometheus rules and Grafana queries', () => {
     expect(collectPrometheusQueryMetricFamilies()).toEqual([
       ...trackedPrometheusQueryMetricFamilies,

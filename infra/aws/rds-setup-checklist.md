@@ -65,9 +65,10 @@ Prometheus → Alertmanager → Slack이 받는다. 두 경로는 겹치지 않�
       받는 주소는 Owner console에만 둔다.
 - [ ] 시험: alarm 하나를 `set-alarm-state`(또는 console의 상태 변경)로 `ALARM`에 두어 email이 오는지 보고 `OK`로 되돌린다. 결과(받음·
       안 받음, 날짜)만 단계 기록에 적는다.
-- API 정리 작업과 table 상태: `api_background_job_last_success_timestamp_seconds{job}`가 그 작업 주기의 3배를 넘게 멈추거나
-  `api_background_job_failures_total{job}`이 연속해 늘면(`apps/api/src/background-jobs/README.md`), dead tuple 비율이 20%를 넘는
-  상태가 24시간 이어지면 Slack 경보다. 규칙은
+- API 정리 작업과 table 상태: 작업마다(앱 metric의 `job` label, 수집 뒤 경보 label `exported_job`)
+  `api_background_job_last_success_timestamp_seconds`가 그 작업 주기의 3배를 넘게 멈추거나 `api_background_job_failures_total`이
+  주기 3배 안에서 세 번 늘면(`apps/api/src/background-jobs/README.md`), dead tuple 비율 20% 초과와 수 50 초과가 함께 24시간
+  이어지면 Slack 경보다. 규칙은
   [`background-job-alerts.yml`](../observability/prometheus/rules/background-job-alerts.yml)·
   [`database-alerts.yml`](../observability/prometheus/rules/database-alerts.yml)이 소유한다.
 

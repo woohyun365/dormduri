@@ -38,17 +38,22 @@ Secret 파일과 원본:
 ## 배포·rollback과 fail-open
 
 API 배포 document는 API rollout과 host 안 smoke가 끝난 뒤 관측 단계를 돈다. 순서는 설정 image 받기·펼치기 → 관측 secret 파일
-쓰기 → 관측 다섯 다시 띄우기(`--wait`, 120초)다. 이 단계의 실패는 API 결과를 바꾸지 않는다(fail-open). 성공한 `deploy`·`rollback`의 host `RESULT`
-줄에 있는 `observability` 값이 결과다. 다른 결과 줄(rollout 전 실패·되돌림·`maintenance`)은 관측 단계에 닿지 않아 관측을 바꾸지 않는다.
+쓰기 → upstream 관측 image 받기 → 관측 다섯 다시 만들기(`--wait`, 120초)다. 이 단계의 실패는 API 결과를 바꾸지 않는다(fail-open).
+성공한 `deploy`·`rollback`의 host `RESULT` 줄에 있는 `observability` 값이 결과다. 다른 결과 줄(rollout 전 실패·되돌림·
+`maintenance`)은 관측 단계에 닿지 않아 관측을 바꾸지 않는다. 관측 단계는 API `current` 갱신 뒤 같은 SSM step(상한 900초) 안에서
+돌므로, network를 쓰는 호출(설정 image·upstream image 받기, 관측 secret 꺼내기, 다시 만들기)은 step 시작부터 840초 안에 끝나게
+끊고 남은 시간이 30초 미만이면 건너뛴다(`observability=failed`). 그래야 step이 끊겨 결과 줄 없이 끝나지 않는다.
 
-| `observability` | 뜻                                                      | 할 일                                                                                    |
-| --------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `ok`            | 설정·secret을 쓰고 다섯이 healthy                       | 단계 기록의 관측 줄에 옮겨 적고 Grafana·Slack 시험을 한다                                |
-| `failed`        | 설정 받기·펼치기, secret 쓰기, 다섯 기동 중 하나가 실패 | host 안 document log(root만 읽음)에서 실패 단계를 보고 고친 뒤 같은 묶음을 다시 배포한다 |
+| `observability` | 뜻                                                                                         | 할 일                                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `ok`            | 설정·secret을 쓰고 다섯이 healthy                                                          | 단계 기록의 관측 줄에 옮겨 적고 Grafana·Slack 시험을 한다                                                     |
+| `failed`        | 설정 받기·펼치기, secret 쓰기, image 받기, 다섯 기동 중 하나가 실패하거나 시간 상한에 걸림 | host 안 document log(root만 읽음)의 `observability` 줄에서 실패 단계를 보고 고친 뒤 같은 묶음을 다시 배포한다 |
 
 - 설정 digest는 API 묶음 release 기록에 들어간다. `rollback`은 직전 묶음의 설정 digest로 관측 설정을 되돌린다.
 - `maintenance`는 API만 내리고 관측 stack은 그대로 둔다.
-- 설정 디렉터리는 지금·직전 묶음의 digest만 남기고 정리한다.
+- 설정 디렉터리는 지금·직전 묶음의 digest와 관측 container가 쓰고 있을 수 있는 digest(api state의 `observability` 파일)만
+  남기고 정리한다. 다시 만들기가 실패하면 container가 어느 설정으로 다시 만들어졌는지 모르므로 이전 설정과 새 설정을 모두
+  남기고, 다음 성공에서 새 설정 하나로 줄인다.
 
 ## Operator 접근
 
@@ -71,8 +76,9 @@ Loki API에는 application-level 인증이 없으므로 public reverse proxy를 
 
 - Alloy는 compose project `dormduri-web`의 service `api|ingress|web` stdout만 받는다.
 - log 처리는 [`pipeline.alloy`](../../../observability/alloy/pipeline.alloy)가 소유한다. ingress 접속 log는 IPv4 /24·IPv6 /48
-  IP, query string과 경로 속 식별자를 뺀 경로, user agent·상태·시각, 형식이 맞는 request id만 남기고 referer는 버린다. 다른 ingress
-  줄은 요청 문맥·query string·URL 칸을 지운다. 모든 service 행은 원본 IP pattern을 한 번 더 가린다
+  IP, query string과 경로 속 식별자(숫자뿐인 조각, 24자 이상 영숫자 token, `@`·percent 부호화·nginx byte 표기가 든 조각, JWT
+  형태 token)를 `:id`로 바꾼 경로, user agent·상태·시각, 형식이 맞는 request id만 남기고 referer는 버린다. 다른 ingress 줄(해석하지
+  못한 요청 줄 포함)은 요청 문맥·요청 줄·query string·URL 칸을 지운다. 모든 service 행은 원본 IP pattern을 한 번 더 가린다
   ([OO-R1](../../../../docs/policies/operational-observability.md)).
 - Loki label은 `service`·`env`·`container`·`level`만이다(Loki가 `service`에서 `service_name`을 더한다).
 - host 지표는 Alloy `prometheus.exporter.unix`가 host `/`·`/proc`·`/sys`를 읽기 전용으로 읽어 내고 Prometheus job `host`가 긁는다.
@@ -98,18 +104,18 @@ API·Web·ingress는 관측 service에 의존하지 않는다(`depends_on` 없�
 고정 문구(summary·runbook)만 담는다([payload 형식](../../../observability/slack/slack-alert-payload.md)). RDS instance 지표는 이 경로가
 아니라 CloudWatch alarm → SNS email이다([RDS 경보](../../../aws/rds-setup-checklist.md#alarms)).
 
-| 경보                                                                       | 심각도             | 먼저 볼 것                                                                                                                      |
-| -------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `RetentionKeyUnavailable`·`RetentionRetryExhausted`·`RetentionSweepFailed` | critical           | Grafana retention dashboard와 API log(`service="api"`). 처리는 [retention README](../../../../apps/api/src/retention/README.md) |
-| `RetentionArchiveManualReviewPending`·`RetentionBacklogAboveThreshold`     | warning            | 같은 dashboard의 backlog. 보관 검토·적체 처리는 retention README                                                                |
-| `BackgroundJobStalled`·`BackgroundJobRepeatedFailures`                     | warning            | `job` label의 정리 작업과 API log. 주기·의미는 [background-jobs README](../../../../apps/api/src/background-jobs/README.md)     |
-| `DatabaseTableDeadTuplesHigh`                                              | warning            | `table` label의 dead tuple·autovacuum 시각. RDS Database Insights에서 vacuum 진행을 본다                                        |
-| `HostDiskUsageHigh`·`HostDiskUsageCritical`·`HostInodeUsage*`              | warning / critical | Grafana host 지표. Docker image·json-file log·관측 volume 증가를 보고, 보존 기간을 줄이기 전에 Owner와 정한다                   |
-| `HostRootFilesystemMetricsMissing`                                         | warning            | root filesystem(`mountpoint="/"`) 지표가 없어 disk·inode 경보가 꺼진 상태. Alloy의 host `/` mount와 fs type을 본다              |
-| `HostMemoryAvailableLow`                                                   | critical           | container별 memory(Grafana)와 limit. API 응답이 늦으면 API 단계 runbook의 rollback을 먼저 본다                                  |
-| `ApiMetricsTargetDown`                                                     | critical           | API readiness와 scrape token 파일(document가 API secret release에서 다시 씀). API가 내려갔으면 API 단계 runbook                 |
-| `ObservabilityTargetDown`·`PrometheusAlertmanagerUnreachable`              | warning            | 그 관측 container의 상태. 같은 묶음을 다시 배포하면 관측 단계가 다시 띄운다                                                     |
-| `AlertmanagerNotificationsFailing`                                         | warning            | Slack 전달 실패. [alert delivery incident](../../incidents/observability-alert-delivery.md)                                     |
+| 경보                                                                       | 심각도             | 먼저 볼 것                                                                                                                                                             |
+| -------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RetentionKeyUnavailable`·`RetentionRetryExhausted`·`RetentionSweepFailed` | critical           | Grafana retention dashboard와 API log(`service="api"`). 처리는 [retention README](../../../../apps/api/src/retention/README.md)                                        |
+| `RetentionArchiveManualReviewPending`·`RetentionBacklogAboveThreshold`     | warning            | 같은 dashboard의 backlog. 보관 검토·적체 처리는 retention README                                                                                                       |
+| `BackgroundJobStalled`·`BackgroundJobRepeatedFailures`                     | warning            | `exported_job` label의 정리 작업(수집 뒤 이름, scrape job은 `api`)과 API log. 주기·의미는 [background-jobs README](../../../../apps/api/src/background-jobs/README.md) |
+| `DatabaseTableDeadTuplesHigh`                                              | warning            | `table` label의 dead tuple 비율·수(비율 20%·수 50 초과가 24시간)와 autovacuum 시각. RDS Database Insights에서 vacuum 진행을 본다                                       |
+| `HostDiskUsageHigh`·`HostDiskUsageCritical`·`HostInodeUsage*`              | warning / critical | Grafana host 지표. Docker image·json-file log·관측 volume 증가를 보고, 보존 기간을 줄이기 전에 Owner와 정한다                                                          |
+| `HostRootFilesystemMetricsMissing`                                         | warning            | root filesystem(`mountpoint="/"`) 지표가 없어 disk·inode 경보가 꺼진 상태. Alloy의 host `/` mount와 fs type을 본다                                                     |
+| `HostMemoryAvailableLow`                                                   | critical           | container별 memory(Grafana)와 limit. API 응답이 늦으면 API 단계 runbook의 rollback을 먼저 본다                                                                         |
+| `ApiMetricsTargetDown`                                                     | critical           | API readiness와 scrape token 파일(document가 API secret release에서 다시 씀). API가 내려갔으면 API 단계 runbook                                                        |
+| `ObservabilityTargetDown`·`PrometheusAlertmanagerUnreachable`              | warning            | 그 관측 container의 상태. 같은 묶음을 다시 배포하면 관측 단계가 다시 띄운다                                                                                            |
+| `AlertmanagerNotificationsFailing`                                         | warning            | Slack 전달 실패. [alert delivery incident](../../incidents/observability-alert-delivery.md)                                                                            |
 
 경보를 끄거나 기준을 바꾸려면 rule 파일과 그 promtool test(`infra/observability/prometheus/tests`)를 같은 PR에서 고친다.
 

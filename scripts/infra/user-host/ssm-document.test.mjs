@@ -151,7 +151,8 @@ test('the documents carry their fragments and the shared library, and keep regis
     assert.ok(body.includes(embedded(webSources.lib)), 'the shared library is embedded verbatim');
     assert.match(body, /^project=dormduri-web$/mu);
     // Every compose call goes through run_compose with the one project name.
-    assert.match(body, /docker compose -p "\$\{project\}" "\$@" >>"\$\{log\}" 2>&1/u);
+    assert.match(body, /^  set -- docker compose -p "\$\{project\}" "\$@"\n/mu);
+    assert.match(body, /^  "\$@" >>"\$\{log\}" 2>&1\n\}$/mu);
     assert.equal(body.match(/docker compose /gu).length, 1, 'one compose call site');
     assert.doesNotMatch(body, /run_compose[^\n]* down\b/u, 'no project-wide down');
     const lines = body.split('\n');
@@ -285,6 +286,36 @@ test('the API document guards the web record, fetches secrets only through a pip
   // The host smoke reaches the private listener from inside the Web container, not a container on the Web transit.
   assert.match(functionBody(api.body, 'host_smoke'), /run_compose exec -T web node -e /u);
   assert.doesNotMatch(api.body, /docker run\b/u);
+});
+
+// 관측 단계는 current 갱신 뒤 같은 SSM step 안에서 돈다. network를 쓰는 호출(설정 image·upstream image 받기, 관측 secret, up)은
+// step 상한보다 60초 이른 obs_deadline 안의 timeout으로만 실행해 RESULT 줄과 기록 정리가 step 안에 끝난다.
+test('the API observability step bounds its network calls inside the document step timeout', () => {
+  const timeout = Number(api.document.mainSteps[0].inputs.timeoutSeconds);
+  const deadline = Number(/^obs_deadline=(\d+)$/mu.exec(api.body)?.[1]);
+  assert.ok(deadline > 0 && deadline + 60 <= timeout, 'obs_deadline leaves 60 seconds of the step');
+  assert.match(functionBody(api.body, 'obs_within'), /timeout -k 10 "\$\{obs_left\}" "\$@"/u);
+  assert.match(
+    functionBody(api.body, 'obs_compose'),
+    /compose_limit=\$\{obs_left\} run_compose "\$@"/u,
+  );
+  const fill = functionBody(api.body, 'fill_obs_config');
+  const secrets = functionBody(api.body, 'write_obs_secrets');
+  const up = functionBody(api.body, 'observability_up');
+  assert.match(fill, /obs_within config-pull docker pull -q /u);
+  assert.match(secrets, /obs_within secret-fetch aws secretsmanager get-secret-value /u);
+  assert.match(up, /obs_compose image-pull pull -q --policy missing \$\{obs_services\}/u);
+  assert.match(
+    up,
+    /obs_compose up up -d --no-deps --force-recreate --pull never --wait --wait-timeout 120 /u,
+  );
+  assert.doesNotMatch(
+    `${fill}\n${secrets}\n${up}`,
+    /\brun_compose\b|^\s*docker pull|secret_json/mu,
+  );
+  // compose_limit은 관측 단계만 쓴다(Web document와 API rollout은 상한 없이 run_compose를 부른다).
+  assert.equal(api.body.match(/compose_limit=/gu).length, 1);
+  assert.doesNotMatch(web.body, /compose_limit=/u);
 });
 
 // 주석 줄을 떼어도 뜻이 같아야 한다: shell heredoc 본문, Python 여러 줄 문자열, YAML block scalar 안에는 `#`로 시작하는 줄이 없다.

@@ -208,8 +208,24 @@ function hardeningProblems(
   if (JSON.stringify(service.cap_drop ?? []) !== '["ALL"]')
     problems.push(`${name}: capabilities are not all dropped`);
   if (service.cap_add?.length) problems.push(`${name}: adds capabilities`);
-  if (!(service.security_opt ?? []).includes('no-new-privileges:true')) {
+  const securityOptions = service.security_opt ?? [];
+  if (!securityOptions.includes('no-new-privileges:true')) {
     problems.push(`${name}: no-new-privileges is not set`);
+  }
+  // seccomp·AppArmor·SELinux label을 끄는 option, host device, kernel parameter, host user·cgroup namespace는 두지 않는다.
+  const relaxed = securityOptions.filter((option) => option !== 'no-new-privileges:true');
+  if (relaxed.length) problems.push(`${name}: relaxes a security option (${relaxed.join(', ')})`);
+  for (const field of [
+    'devices',
+    'device_cgroup_rules',
+    'sysctls',
+    'userns_mode',
+    'cgroup',
+    'cgroup_parent',
+  ]) {
+    const value = service[field];
+    if (value !== undefined && !(typeof value === 'object' && !Object.keys(value).length))
+      problems.push(`${name}: sets ${field}`);
   }
   if (service.privileged) problems.push(`${name}: runs privileged`);
   if (service.network_mode || service.pid || service.ipc)

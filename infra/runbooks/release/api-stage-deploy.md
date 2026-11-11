@@ -1,6 +1,6 @@
 # API 단계 배포
 
-API 단계(user host에 API 묶음 `api`·`migrate` one-off를 더한 단계)의 배포·재배포·rollback·API 내림 절차다. 실행은 GitHub
+API 단계(user host에 API 묶음 `api`·`migrate` one-off·관측 service 다섯과 관측 설정 image를 더한 단계)의 배포·재배포·rollback·API 내림 절차다. 실행은 GitHub
 Actions workflow [`api-cd.yml`](../../../.github/workflows/api-cd.yml)이 하고, host에서 할 일은 SSM Command document
 `dormduri-api-deploy`([API 배포 명령](../../deploy/README.md#api-배포-명령ssm-document))가 정한다. 신뢰 구조(승인 뒤 배포 전용
 job, OIDC 단기 role, provenance, mask, 단계 기록)는 [Web 단계 배포](./web-stage-deploy.md)와 같고, 이 문서는 다른 점과 API·DB
@@ -40,7 +40,8 @@ host의 one-off container가 한다.
 
 `deploy`는 lock → Web 기록 확인 → secret 꺼내기·설치(0400 파일) → migrate image one-off `migrate`·`grant`·`smoke`·`outbox` → 옛
 API 정지 → 새 API 시작 → readiness(`/health/ready`) → host 안 smoke(ingress private listener를 거친 공개 열람 응답,
-`/internal/metrics` 닫힘) → `current` 갱신 → 관측 단계(설정 image 펼치기, 관측 secret 파일 쓰기, 관측 다섯 다시 띄우기)다.
+`/internal/metrics` 닫힘) → `current` 갱신 → 관측 단계(설정 image 펼치기, 관측 secret 파일 쓰기, upstream 관측 image 받기,
+관측 다섯 다시 만들기)다. 관측 단계의 network 호출은 step 상한(900초)보다 60초 이른 840초 안에 끝나게 끊는다.
 결과는 command 출력의 `RESULT=` 줄이고 성공한 `deploy`는 migrate 시작 시각 `migrateStarted=<UTC>`를 함께 쓴다. 관측 단계는
 fail-open이라 그 실패가 exit code와 `RESULT`를 바꾸지 않는다. 대신 성공한 `deploy`·`rollback`의 `RESULT` 줄에 있는 `observability=ok|failed`가 관측 결과다
 ([운영 관측 runbook](../operations/observability/production-stack.md#배포rollback과-fail-open)). `maintenance`는 관측 stack을
@@ -56,6 +57,7 @@ fail-open이라 그 실패가 exit code와 `RESULT`를 바꾸지 않는다. 대�
 | exit 1 `reason=rolled-back-to-current`(`deploy`)                                                                        | 새 API가 readiness·host 안 smoke에서 실패                                                     | 지금 묶음을 다시 띄움                                                                                                                  |
 | exit 1 `reason=rollback-failed-kept-current`(`rollback`)                                                                | 직전 묶음이 readiness·host 안 smoke에서 실패                                                  | 지금 묶음을 다시 띄움. 기록은 그대로                                                                                                   |
 | exit 1 `reason=entered-maintenance`                                                                                     | 새 묶음(또는 rollback 대상)이 실패했고 지금 묶음이 없거나 다시 띄우지 못함                    | API를 내림(공개 경로는 Web fallback)                                                                                                   |
+| `RESULT` 줄 없음(command `TimedOut`·`Cancelled` 등)                                                                     | document가 step 상한 안에 끝나지 못하고 끊김                                                  | 알 수 없음. [실패 대응](#실패-대응)의 결과 줄 없는 command                                                                             |
 
 ## 첫 실행 전 Owner 확인
 
@@ -170,6 +172,11 @@ host가 exit 2로 거부하고 아무것도 바꾸지 않는다. 그때는 원�
   `maintenance`로 API를 내린다(공개 경로는 Web fallback). 결과는 run 요약의 `recovered:` 줄이다.
 - Host는 바뀌었는데 `tag`나 `record` job이 실패했거나 `record`가 403으로 실패했으면 Web 단계 배포의
   [실패 대응](./web-stage-deploy.md#실패-대응)과 같이 Re-run failed jobs, 그다음 실행 종류별 재전송으로 기록과 host를 맞춘다.
+- 결과 줄 없이 끝난 command(`TimedOut`·`Cancelled` 등): CD는 외부 smoke·자동 되돌림·단계 기록을 건너뛴다. 관측 단계는 상한 안에서
+  끊기므로 그 앞(secret 꺼내기, image 받기, migrate, rollout)에서 끊긴 경우다. Owner가 Session Manager로 host의
+  `/opt/dormduri/state/api/current`와 실행 중인 `api` container의 image digest를 읽고(digest만 기록), 외부 smoke를 직접 확인한 뒤
+  원하는 Release의 `images` 묶음을 `deploy`로 다시 올려 기록과 host를 맞춘다. migrate 중이었으면 위 migrate 실패처럼
+  `_prisma_migrations`를 읽는다.
 - Provenance·SBOM·기록 대조·document 해시에서 멈추면 host는 바뀌지 않았다. 다른 workflow나 로컬에서 만든 image, 기록이 없는
   묶음, document 갱신 누락이 흔한 원인이다.
 

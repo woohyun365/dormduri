@@ -41,8 +41,10 @@ Slack alert는 운영자가 바로 triage할 수 있는 최소 정보만 담는�
 
 - label은 닫힌 값만 출력한다. `alertname`은 대문자로 시작하는 영숫자, `severity`는 `critical|warning|info`, `service`는
   `api|web|ingress|host|observability`, `env`는 `production|local|ci|test`이고 그 밖의 값은 `redacted`(env는 `unknown`)다.
-- annotation은 `summary`와 `runbook`만 출력한다. rule 파일의 두 값은 template 치환이 없는 고정 문구다(API 경보 contract test).
-  `runbook`이 저장소 경로 형식이 아니면 `infra/observability/README.md`로 바꾼다.
+- annotation은 `summary`와 `runbook`만 출력하고 `summary`는 거르지 않는다. 그래서 Prometheus·Loki rule 파일은 alert마다 한 줄
+  고정 문구 `summary`와 저장소 경로 `runbook`을 두고 template 치환(`$labels`·`$value`·`{{ }}`)을 쓰지 않는다. API 경보 contract
+  test(`apps/api/test/operations/platform/observability-alert-contract.spec.ts`)가 두 디렉터리의 rule 파일 전부에서 이를 고정한다.
+- `runbook`이 저장소 경로(`infra/`·`docs/`)와 한글·영숫자·`_`·`-` anchor 형식이 아니면 `infra/observability/README.md`로 바꾼다.
 - Slack `fallback`(알림 미리보기)은 title과 같고 `title_link`는 비운다. Alertmanager 기본값은 공통 label 값을 모두 출력하기 때문이다.
 
 ## 검증
