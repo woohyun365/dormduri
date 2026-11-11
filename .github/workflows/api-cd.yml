@@ -1,0 +1,563 @@
+name: API CD
+
+# API 단계 배포(infra/runbooks/release/api-stage-deploy.md). main에서 API 배포 입력이 바뀌면 API·migrate image 둘을 같은
+# Dockerfile에서 build·검사·push하고, production-api 승인 뒤 provenance를 만들어 검증한 다음 SSM document로 host에 배포한다
+# (host가 secret을 꺼내고 migrate·grant·role smoke·outbox 확인 뒤 rollout한다. 이 workflow는 secret과 DB에 닿지 않는다).
+# workflow_dispatch는 기록된 묶음의 재배포·rollback·API 내림(maintenance)용이다. 공개 저장소라 account ID·registry host·ARN·
+# node ID·IP를 log와 기록에 남기지 않는다(D-WB7). 신뢰 구조는 web-cd.yml과 같다(production-api-baseline D-AB12).
+on:
+  push:
+    branches: [main]
+    # API·migrate image가 복사하는 입력, API 묶음 조각·document 원본, 두 document가 같이 담는 lib.sh와 이 workflow.
+    # scripts/infra/user-host/api-cd-contract.test.mjs가 Dockerfile COPY·.dockerignore·document 원본과 맞는지 고정한다.
+    # eslint-config는 package.json만 install 입력이다(lint 설정 파일은 image에 들지 않는다).
+    paths:
+      - apps/api/**
+      - packages/database/**
+      - packages/shared/**
+      - packages/tsconfig/**
+      - packages/eslint-config/package.json
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .dockerignore
+      - infra/deploy/api/**
+      - infra/db/**
+      - infra/deploy/user/api/**
+      - infra/deploy/user/ssm/lib.sh
+      - .github/workflows/api-cd.yml
+  workflow_dispatch:
+    inputs:
+      action:
+        description: deploy(기록된 묶음 재배포), rollback(host의 직전 묶음으로), maintenance(API 내림)
+        required: true
+        type: choice
+        options: [deploy, rollback, maintenance]
+      api_digest:
+        description: dormduri/api image digest (sha256:...)
+        required: true
+        type: string
+      api_migrate_digest:
+        description: dormduri/api-migrate image digest (sha256:...)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# web-cd와 같은 group에 workflow 단위로 줄 세운다(host의 두 document도 같은 host lock). 대기 자리는 하나라 다른 서비스의 새
+# 실행이 대기 실행을 대신할 수 있다(runbook 대기 실행 규칙).
+concurrency:
+  group: user-host-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  DEPLOY_DOCUMENT: dormduri-api-deploy
+  # image를 만드는 도구도 tag와 digest로 고정한다. Renovate custom regex manager가 workflow의 `*_IMAGE` 값을 갱신하고
+  # infra/image-inventory.json이 owner를 적는다.
+  BUILDKIT_IMAGE: moby/buildkit:v0.34.2@sha256:c5f8862f52499773af85bc07695b2379ef08e8002352b0df2c4864c91d78dabe
+  SBOM_SCANNER_IMAGE: docker/buildkit-syft-scanner:1.12.1@sha256:873a7458c3c8ac8e32c7b796c10e1600b07b963d2aa000a72a2d97aaaa2d6315
+
+# shell을 정하지 않은 run은 `bash -e`라 pipe 앞 명령의 실패를 놓친다(외부 smoke | tee). `bash`는 `-eo pipefail`이다.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build, scan and push the API image pair
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      api_digest: ${{ steps.push.outputs.api_digest }}
+      api_migrate_digest: ${{ steps.push.outputs.api_migrate_digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+
+      # 같은 commit·builder에서 runtime·migrate target을 build한다. SBOM은 image index의 attestation manifest로만 남긴다(ECR
+      # 비공개, workflow artifact 없음). provenance는 승인 뒤 deploy job이 GitHub artifact attestation으로 만든다.
+      - name: Build both images as OCI layouts with an SBOM
+        run: |
+          docker buildx create --name api-cd --driver docker-container --driver-opt "image=$BUILDKIT_IMAGE" --use
+          docker buildx build --builder api-cd --platform linux/amd64 \
+            --attest "type=sbom,generator=$SBOM_SCANNER_IMAGE" --provenance=false \
+            --file infra/deploy/api/Dockerfile --target runtime \
+            --output "type=oci,dest=$RUNNER_TEMP/api.oci,tar=false" .
+          docker buildx build --builder api-cd --platform linux/amd64 \
+            --attest "type=sbom,generator=$SBOM_SCANNER_IMAGE" --provenance=false \
+            --file infra/deploy/api/Dockerfile --target migrate \
+            --output "type=oci,dest=$RUNNER_TEMP/api-migrate.oci,tar=false" .
+
+      - name: Scan the image filesystems before push
+        run: node scripts/infra/user-host/image-secret-scan.mjs "$RUNNER_TEMP/api.oci" "$RUNNER_TEMP/api-migrate.oci"
+
+      # configure-aws-credentials는 assume한 role의 unique ID(AROA…)를 끌 수 없게 찍는다. 그 ID의 AROA 뒤 9자는 첫 bit,
+      # account ID와 다음 임의 4bit로 정해진다. action이 찍기 전에 ARN secret의 account ID로 후보 32개를 만들어 가린다.
+      # 남는 글자에는 account ID bit가 없다(D-WB7).
+      - name: Mask the account part of the role ID
+        env:
+          ROLE_ARN: ${{ secrets.AWS_API_PUBLISH_ROLE_ARN }}
+        run: |
+          IFS=: read -r _ _ _ _ account _ <<<"$ROLE_ARN"
+          [[ $account =~ ^[0-9]{12}$ ]] || { echo 'The role ARN secret holds no account ID.' >&2; exit 1; }
+          alphabet=ABCDEFGHIJKLMNOPQRSTUVWXYZ234567
+          for top in 0 1; do
+            for low in {0..15}; do
+              bits=$(( ((top << 47) | (10#$account << 7) | (low << 3)) >> 3 ))
+              prefix=AROA
+              for shift in 40 35 30 25 20 15 10 5 0; do prefix+=${alphabet:$(( (bits >> shift) & 31 )):1}; done
+              echo "::add-mask::$prefix"
+            done
+          done
+
+      - name: Assume the publish role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_API_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      # Registry host는 account ID를 담는다. login action이 그 주소를 찍기 전에 script 안에서 만들어 가린다(env로 받으면
+      # step 머리에 찍힌다).
+      - name: Mask the registry host
+        run: |
+          account=$(aws sts get-caller-identity --query Account --output text)
+          echo "::add-mask::$account.dkr.ecr.$AWS_REGION.amazonaws.com"
+
+      - name: Log in to the registry
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+        with:
+          mask-password: 'true'
+
+      # 검사한 layout을 digest 그대로 올린다. tag immutability라 같은 commit의 두 번째 push는 거부된다.
+      - name: Push the scanned layouts without changing their digests
+        id: push
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          for name in api api-migrate; do
+            skopeo copy --quiet --all --preserve-digests \
+              "oci:$RUNNER_TEMP/$name.oci" "docker://$REGISTRY/dormduri/$name:sha-$GITHUB_SHA"
+            digest=$(jq -r '.manifests[0].digest' "$RUNNER_TEMP/$name.oci/index.json")
+            echo "${name//-/_}_digest=$digest" >> "$GITHUB_OUTPUT"
+            echo "dormduri/$name@$digest"
+          done
+
+  deploy:
+    name: Verify and deploy to the user host
+    needs: build
+    # dispatch도 main에서만 받는다(environment 보호 규칙과 이중).
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || needs.build.result == 'success') }}
+    runs-on: ubuntu-26.04
+    # host command 셋(배포, 외부 smoke 실패 뒤 rollback, 그 실패 뒤 maintenance)이 각각 document 실행 상한 15분 안에 끝난다.
+    timeout-minutes: 60
+    environment: production-api
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      action: ${{ steps.request.outputs.action }}
+      api_digest: ${{ steps.request.outputs.api_digest }}
+      api_migrate_digest: ${{ steps.request.outputs.api_migrate_digest }}
+      source_commit: ${{ steps.provenance.outputs.source_commit }}
+      api_sbom: ${{ steps.sbom.outputs.api_sbom }}
+      api_migrate_sbom: ${{ steps.sbom.outputs.api_migrate_sbom }}
+      previous_safe_api: ${{ steps.plan.outputs.previous_safe_api }}
+      previous_safe_api_migrate: ${{ steps.plan.outputs.previous_safe_api_migrate }}
+      smoke: ${{ steps.smoke.outputs.summary }}
+      image_tag: ${{ steps.tags.outputs.image_tag }}
+      git_tag: ${{ steps.tags.outputs.git_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+
+      - name: Resolve the deploy request
+        id: request
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_ACTION: ${{ inputs.action }}
+          INPUT_API: ${{ inputs.api_digest }}
+          INPUT_API_MIGRATE: ${{ inputs.api_migrate_digest }}
+          BUILT_API: ${{ needs.build.outputs.api_digest }}
+          BUILT_API_MIGRATE: ${{ needs.build.outputs.api_migrate_digest }}
+        run: |
+          if [ "$EVENT" = push ]; then
+            action=deploy; api=$BUILT_API; migrate=$BUILT_API_MIGRATE
+          else
+            action=$INPUT_ACTION; api=$INPUT_API; migrate=$INPUT_API_MIGRATE
+          fi
+          case "$action" in deploy|rollback|maintenance) ;; *) echo "unknown action"; exit 1 ;; esac
+          for digest in "$api" "$migrate"; do
+            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "a digest is not sha256:<64 hex>"; exit 1; }
+          done
+          {
+            echo "action=$action"
+            echo "api_digest=$api"
+            echo "api_migrate_digest=$migrate"
+          } >> "$GITHUB_OUTPUT"
+          echo "$action dormduri/api@$api dormduri/api-migrate@$migrate"
+
+      # 승인 대기 중 main의 API 배포 입력이 바뀌었으면 이 실행은 옛 묶음이다(runbook 대기 실행 규칙). main은 merge commit만
+      # 받으므로 history가 아니라 배포 입력 tree를 비교한다.
+      - name: Reject a push run that a newer deploy input change superseded
+        id: fresh
+        if: ${{ github.event_name == 'push' }}
+        run: bash scripts/infra/user-host/deploy-inputs-current.sh "$GITHUB_SHA" origin/main api
+
+      # 승인 뒤 첫 단계에서 build job 출력 digest에 provenance를 만든다. subject 이름에 registry host를 넣지 않고,
+      # registry에 attestation을 올리지 않는다.
+      - name: Attest the API image
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: dormduri/api
+          subject-digest: ${{ needs.build.outputs.api_digest }}
+          push-to-registry: false
+          show-summary: false
+
+      - name: Attest the migrate image
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: dormduri/api-migrate
+          subject-digest: ${{ needs.build.outputs.api_migrate_digest }}
+          push-to-registry: false
+          show-summary: false
+
+      - name: Mask the account part of the role ID
+        env:
+          ROLE_ARN: ${{ secrets.AWS_API_DEPLOY_ROLE_ARN }}
+        run: |
+          IFS=: read -r _ _ _ _ account _ <<<"$ROLE_ARN"
+          [[ $account =~ ^[0-9]{12}$ ]] || { echo 'The role ARN secret holds no account ID.' >&2; exit 1; }
+          alphabet=ABCDEFGHIJKLMNOPQRSTUVWXYZ234567
+          for top in 0 1; do
+            for low in {0..15}; do
+              bits=$(( ((top << 47) | (10#$account << 7) | (low << 3)) >> 3 ))
+              prefix=AROA
+              for shift in 40 35 30 25 20 15 10 5 0; do prefix+=${alphabet:$(( (bits >> shift) & 31 )):1}; done
+              echo "::add-mask::$prefix"
+            done
+          done
+
+      - name: Assume the deploy role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_API_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Mask the registry host
+        run: |
+          account=$(aws sts get-caller-identity --query Account --output text)
+          echo "::add-mask::$account.dkr.ecr.$AWS_REGION.amazonaws.com"
+
+      - name: Log in to the registry
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+        with:
+          mask-password: 'true'
+
+      # 두 digest가 main의 이 workflow가 만든 attestation을 갖는지 본다. push는 이 실행 commit이어야 하고, dispatch는 두
+      # source commit이 같고 그 commit의 API 배포 기록 묶음이 입력과 같아야 한다.
+      - name: Verify the provenance of both images
+        id: provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          API: ${{ steps.request.outputs.api_digest }}
+          API_MIGRATE: ${{ steps.request.outputs.api_migrate_digest }}
+        run: |
+          source_digest=()
+          if [ "$EVENT" = push ]; then source_digest=(--source-digest "$GITHUB_SHA"); fi
+          for name in api api-migrate; do
+            digest=$API; [ "$name" = api-migrate ] && digest=$API_MIGRATE
+            gh attestation verify "oci://$REGISTRY/dormduri/$name@$digest" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/api-cd.yml" \
+              --source-ref refs/heads/main \
+              --deny-self-hosted-runners \
+              "${source_digest[@]}" \
+              --format json \
+              | jq -r '[.[].verificationResult.signature.certificate.sourceRepositoryDigest] | unique | .[]' \
+              > "$RUNNER_TEMP/$name.source"
+            [ "$(wc -l < "$RUNNER_TEMP/$name.source")" -eq 1 ] || { echo "$name: attestations name more than one source commit"; exit 1; }
+          done
+          source=$(cat "$RUNNER_TEMP/api.source")
+          [[ "$source" =~ ^[a-f0-9]{40}$ ]] || { echo "the attested source commit is malformed"; exit 1; }
+          [ "$source" = "$(cat "$RUNNER_TEMP/api-migrate.source")" ] || { echo "the two images come from different commits"; exit 1; }
+          if [ "$EVENT" = workflow_dispatch ]; then
+            node scripts/infra/user-host/release-record.mjs match --stage=api --source="$source" --api="$API" --api-migrate="$API_MIGRATE"
+          fi
+          echo "source_commit=$source" >> "$GITHUB_OUTPUT"
+          echo "provenance verified: source $source"
+
+      # SBOM은 build가 image index에 붙인 attestation manifest다(D-WB3). 그 manifest가 SPDX layer를 갖는지 본다.
+      - name: Confirm the SBOM attestation of both images
+        id: sbom
+        env:
+          API: ${{ steps.request.outputs.api_digest }}
+          API_MIGRATE: ${{ steps.request.outputs.api_migrate_digest }}
+        run: |
+          for name in api api-migrate; do
+            digest=$API; [ "$name" = api-migrate ] && digest=$API_MIGRATE
+            aws ecr batch-get-image --repository-name "dormduri/$name" --image-ids imageDigest="$digest" \
+              --accepted-media-types application/vnd.oci.image.index.v1+json \
+              --query 'images[0].imageManifest' --output text > "$RUNNER_TEMP/$name.index.json"
+            attestation=$(node scripts/infra/user-host/release-record.mjs attestation-manifest "$RUNNER_TEMP/$name.index.json")
+            aws ecr batch-get-image --repository-name "dormduri/$name" --image-ids imageDigest="$attestation" \
+              --accepted-media-types application/vnd.oci.image.manifest.v1+json \
+              --query 'images[0].imageManifest' --output text > "$RUNNER_TEMP/$name.attestation.json"
+            node scripts/infra/user-host/release-record.mjs check-sbom "$RUNNER_TEMP/$name.attestation.json"
+            echo "${name//-/_}_sbom=$attestation" >> "$GITHUB_OUTPUT"
+            echo "dormduri/$name SBOM attestation manifest $attestation"
+          done
+
+      # API 배포 기록으로 host의 지금 묶음과 직전 안전 묶음을 알아낸다. rollback은 마지막 기록의 previous_safe 묶음만 받는다.
+      - name: Plan the run from the deploy records
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTION: ${{ steps.request.outputs.action }}
+          API: ${{ steps.request.outputs.api_digest }}
+          API_MIGRATE: ${{ steps.request.outputs.api_migrate_digest }}
+        run: node scripts/infra/user-host/release-record.mjs plan --stage=api --action="$ACTION" --api="$API" --api-migrate="$API_MIGRATE" >> "$GITHUB_OUTPUT"
+
+      # document는 Owner가 저장소 생성본으로 console에서 만든다. 다르면 host에 아무것도 보내지 않는다.
+      - name: Check the deploy document hash
+        id: document
+        run: |
+          expected=$(sha256sum infra/deploy/user/api/ssm/dormduri-api-deploy.json | cut -d' ' -f1)
+          actual=$(aws ssm describe-document --name "$DEPLOY_DOCUMENT" --query Document.Hash --output text)
+          if [ "$actual" != "$expected" ]; then
+            echo "the AWS document differs from infra/deploy/user/api/ssm/dormduri-api-deploy.json"
+            exit 1
+          fi
+          echo "hash=$expected" >> "$GITHUB_OUTPUT"
+          echo "document hash matches ($expected)"
+
+      # host가 secret 꺼내기 → migrate·grant·role smoke·auth mail outbox 확인 → 옛 API 정지 뒤 새 API 시작 → readiness·host 안
+      # smoke를 한다. rollout 전 실패면 rollout하지 않는다(document 원본 infra/deploy/user/api/ssm/deploy-api.sh).
+      - name: Send the deploy command and wait for its command-level status
+        id: send
+        env:
+          ACTION: ${{ steps.request.outputs.action }}
+          API: ${{ steps.request.outputs.api_digest }}
+          API_MIGRATE: ${{ steps.request.outputs.api_migrate_digest }}
+          HASH: ${{ steps.document.outputs.hash }}
+        run: bash scripts/infra/user-host/ssm-send.sh "$ACTION" "$API" "$API_MIGRATE" "$HASH"
+
+      # 공개 API 주소가 없으므로(D-AB1) API를 내린 maintenance에서도 공개 경로는 serving과 같다(`/privacy`·`/terms`는 Web
+      # fallback, `/api/**`는 JSON '준비 중').
+      - name: Smoke the public host from outside
+        id: smoke
+        continue-on-error: true
+        run: |
+          node scripts/infra/user-host/external-smoke.mjs --mode=serving | tee "$RUNNER_TEMP/smoke.txt"
+          echo "summary=$(tail -n 1 "$RUNNER_TEMP/smoke.txt")" >> "$GITHUB_OUTPUT"
+
+      # 새 API 묶음이 host 안 검사는 통과했지만 밖에서 실패했다. 기록의 직전 묶음으로 되돌리고, 직전 묶음이 없거나 host가 그
+      # 되돌림을 받지 않으면 API를 내려(maintenance) 공개 경로를 Web fallback으로 둔다. migration은 되돌리지 않는다.
+      - name: Roll back after a failed external smoke
+        id: recover
+        if: ${{ steps.smoke.outcome == 'failure' && steps.request.outputs.action == 'deploy' }}
+        env:
+          ROLLBACK_API: ${{ steps.plan.outputs.rollback_api }}
+          ROLLBACK_API_MIGRATE: ${{ steps.plan.outputs.rollback_api_migrate }}
+          API: ${{ steps.request.outputs.api_digest }}
+          API_MIGRATE: ${{ steps.request.outputs.api_migrate_digest }}
+          HASH: ${{ steps.document.outputs.hash }}
+        run: |
+          if [ -n "$ROLLBACK_API" ]; then
+            if bash scripts/infra/user-host/ssm-send.sh rollback "$ROLLBACK_API" "$ROLLBACK_API_MIGRATE" "$HASH"; then
+              echo "recovered: rolled back to the previous API pair" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "the rollback was not applied; taking the API down instead"
+          fi
+          bash scripts/infra/user-host/ssm-send.sh maintenance "$API" "$API_MIGRATE" "$HASH"
+          echo "recovered: entered maintenance (API down)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail when the external smoke failed
+        if: ${{ steps.smoke.outcome == 'failure' }}
+        run: |
+          echo "external smoke failed; see the step above and the runbook."
+          exit 1
+
+      - name: Name the deploy tags
+        id: tags
+        run: node scripts/infra/user-host/release-record.mjs tags --stage=api --run-number="$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+
+      # 멈춘 실행은 단계 기록이 아니다. 멈춘 조건과 되돌림 결과를 run 요약에 남긴다(release evidence 단계 배포 기록).
+      - name: Write the stop condition to the run summary
+        if: ${{ failure() }}
+        env:
+          ACTION: ${{ steps.request.outputs.action }}
+          API: ${{ steps.request.outputs.api_digest }}
+          API_MIGRATE: ${{ steps.request.outputs.api_migrate_digest }}
+          FRESH: ${{ steps.fresh.outcome }}
+          PROVENANCE: ${{ steps.provenance.outcome }}
+          SBOM: ${{ steps.sbom.outcome }}
+          PLAN: ${{ steps.plan.outcome }}
+          DOCUMENT: ${{ steps.document.outcome }}
+          SEND: ${{ steps.send.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          RECOVER: ${{ steps.recover.outcome }}
+        run: |
+          {
+            echo "## API CD stopped"
+            echo ""
+            echo "- action: ${ACTION:-unresolved}, pair: dormduri/api@${API:-none} dormduri/api-migrate@${API_MIGRATE:-none}"
+            echo "- newer change check: ${FRESH:-not run}, provenance: ${PROVENANCE:-not run}, SBOM: ${SBOM:-not run}"
+            echo "- deploy records: ${PLAN:-not run}, document hash: ${DOCUMENT:-not run}"
+            echo "- host command: ${SEND:-not run}, external smoke: ${SMOKE:-not run}"
+            echo "- rollback or maintenance after the external smoke: ${RECOVER:-not run}"
+            echo ""
+            echo "Read the host result (RESULT line) in the console before the next run. Input or state refusal (exit 2) and host"
+            echo "lock (exit 75) leave the host as it was. A migrate step failure keeps the running API (no rollout) and may have"
+            echo "applied part of the migration; read _prisma_migrations before the next deploy (runbook)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  tag:
+    name: Tag the deployed pair in the registry
+    needs: deploy
+    # build를 건너뛴 dispatch에서도 돌도록 !cancelled()를 둔다(없으면 건너뛴 조상 job 때문에 함께 건너뛴다).
+    if: ${{ !cancelled() && needs.deploy.result == 'success' && needs.deploy.outputs.action != 'maintenance' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Mask the account part of the role ID
+        env:
+          ROLE_ARN: ${{ secrets.AWS_API_PUBLISH_ROLE_ARN }}
+        run: |
+          IFS=: read -r _ _ _ _ account _ <<<"$ROLE_ARN"
+          [[ $account =~ ^[0-9]{12}$ ]] || { echo 'The role ARN secret holds no account ID.' >&2; exit 1; }
+          alphabet=ABCDEFGHIJKLMNOPQRSTUVWXYZ234567
+          for top in 0 1; do
+            for low in {0..15}; do
+              bits=$(( ((top << 47) | (10#$account << 7) | (low << 3)) >> 3 ))
+              prefix=AROA
+              for shift in 40 35 30 25 20 15 10 5 0; do prefix+=${alphabet:$(( (bits >> shift) & 31 )):1}; done
+              echo "::add-mask::$prefix"
+            done
+          done
+
+      - name: Assume the publish role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_API_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      # 배포한 묶음에 deploy- tag를 더해 ECR lifecycle의 최근 배포 보존 규칙에 넣는다. 출력에는 registry 정보를 찍지 않는다.
+      - name: Add the deploy tag to both digests
+        env:
+          IMAGE_TAG: ${{ needs.deploy.outputs.image_tag }}
+          API: ${{ needs.deploy.outputs.api_digest }}
+          API_MIGRATE: ${{ needs.deploy.outputs.api_migrate_digest }}
+        run: |
+          for name in api api-migrate; do
+            digest=$API; [ "$name" = api-migrate ] && digest=$API_MIGRATE
+            # 다시 실행한 job이 이미 붙인 tag에서 멈추지 않게, 같은 digest에 같은 tag가 있으면 건너뛴다(tag immutability).
+            existing=$(aws ecr batch-get-image --repository-name "dormduri/$name" --image-ids imageTag="$IMAGE_TAG" \
+              --accepted-media-types application/vnd.oci.image.index.v1+json \
+              --query 'images[0].imageId.imageDigest' --output text)
+            if [ "$existing" = "$digest" ]; then
+              echo "dormduri/$name@$digest already tagged $IMAGE_TAG"
+              continue
+            fi
+            # 명령 치환이 끝 줄바꿈을 지워 manifest 원문 그대로 다시 올린다(바이트가 다르면 digest가 달라 거부된다).
+            manifest=$(aws ecr batch-get-image --repository-name "dormduri/$name" --image-ids imageDigest="$digest" \
+              --accepted-media-types application/vnd.oci.image.index.v1+json \
+              --query 'images[0].imageManifest' --output text)
+            tagged=$(aws ecr put-image --repository-name "dormduri/$name" --image-tag "$IMAGE_TAG" \
+              --image-manifest "$manifest" \
+              --image-manifest-media-type application/vnd.oci.image.index.v1+json --image-digest "$digest" \
+              --query image.imageId.imageDigest --output text)
+            [ "$tagged" = "$digest" ] || { echo "$name: tagged digest differs"; exit 1; }
+            echo "dormduri/$name@$digest tagged $IMAGE_TAG"
+          done
+
+  record:
+    name: Record the deploy tag and Release
+    needs: [deploy, tag]
+    # host가 바뀐 실행은 tag 결과와 상관없이 기록한다. 기록이 host보다 늦으면 다음 실행의 직전 묶음 계산이 어긋난다.
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+
+      # 단계 기록(infra/runbooks/release/production-release-evidence.md)을 만들고 공개 기록 scanner를 통과한 것만 run 요약과
+      # Release 본문에 쓴다.
+      - name: Create the deploy tag and Release with the stage record
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTION: ${{ needs.deploy.outputs.action }}
+          API: ${{ needs.deploy.outputs.api_digest }}
+          API_MIGRATE: ${{ needs.deploy.outputs.api_migrate_digest }}
+          API_SBOM: ${{ needs.deploy.outputs.api_sbom }}
+          API_MIGRATE_SBOM: ${{ needs.deploy.outputs.api_migrate_sbom }}
+          PREVIOUS_API: ${{ needs.deploy.outputs.previous_safe_api }}
+          PREVIOUS_API_MIGRATE: ${{ needs.deploy.outputs.previous_safe_api_migrate }}
+          SOURCE: ${{ needs.deploy.outputs.source_commit }}
+          SMOKE: ${{ needs.deploy.outputs.smoke }}
+          GIT_TAG: ${{ needs.deploy.outputs.git_tag }}
+          EVENT: ${{ github.event_name }}
+          OPERATOR: ${{ github.triggering_actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node scripts/infra/user-host/release-record.mjs record --stage=api --action="$ACTION" --release-id="$GIT_TAG" \
+            --source="$SOURCE" --api="$API" --api-migrate="$API_MIGRATE" --api-sbom="$API_SBOM" \
+            --api-migrate-sbom="$API_MIGRATE_SBOM" --event="$EVENT" --run-url="$RUN_URL" --smoke="$SMOKE" \
+            --previous-api="$PREVIOUS_API" --previous-api-migrate="$PREVIOUS_API_MIGRATE" --operator="$OPERATOR" \
+            > "$RUNNER_TEMP/record.md"
+          node scripts/infra/user-host/public-record-scan.mjs "$RUNNER_TEMP/record.md"
+          cat "$RUNNER_TEMP/record.md" >> "$GITHUB_STEP_SUMMARY"
+          # 다시 실행한 job은 이미 만든 Release를 그대로 둔다(같은 run number라 tag 이름이 같다).
+          if gh release view "$GIT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "$GIT_TAG already exists"
+            exit 0
+          fi
+          # tag는 이 실행의 commit(GITHUB_SHA)에 둔다. push 실행은 source commit과 같고 dispatch 실행은 실행한 main commit이다.
+          # workflow 파일이 default branch(main)와 다른 commit에 tag·Release를 만들려면 Workflows 권한이 필요한데 GITHUB_TOKEN에는
+          # 없어, 옛 source commit에는 만들지 못한다(403). 배포한 source는 본문 release_commit_sha가 적는다.
+          gh release create "$GIT_TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "$GIT_TAG ($ACTION)" --notes-file "$RUNNER_TEMP/record.md"

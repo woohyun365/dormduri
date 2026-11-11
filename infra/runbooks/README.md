@@ -24,6 +24,7 @@ secret-free evidence 경계만 기록한다.
 ## 주요 진입점
 
 - Web 단계 배포·재배포·rollback·점검 mode: [`release/web-stage-deploy.md`](./release/web-stage-deploy.md)
+- API 단계 배포·재배포·rollback·API 내림: [`release/api-stage-deploy.md`](./release/api-stage-deploy.md)
 - API 묶음 배포 순서와 실패 처리: [`infra/db/README.md` Release order](../db/README.md#release-order), Web·API·DB 되돌림 경계:
   [`incidents/release-rollback.md`](./incidents/release-rollback.md#user-host의-webapidb-경계)
 - DB backup·restore: [`operations/database/backup-restore.md`](./operations/database/backup-restore.md)

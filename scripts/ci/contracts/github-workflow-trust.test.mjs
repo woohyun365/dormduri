@@ -45,19 +45,23 @@ function checkoutPersistsCredentials(block) {
   return !/^\s+persist-credentials:\s+false\s*$/mu.test(block);
 }
 
+// A literal /tmp path with the repository prefix (dormduri, or the former knu) instead of $RUNNER_TEMP.
 function usesLiteralRepositoryTemporaryPath(source) {
-  return /\/tmp\/knu-[^\s'"`]+/u.test(source);
+  return /\/tmp\/(?:dormduri|knu)-[^\s'"`]+/u.test(source);
 }
 
-// Write scopes are allowed only in these jobs (production-web-baseline D-WB5): OIDC for the AWS roles, provenance
-// attestation after approval, and the deploy tag and Release. Every other job and workflow stays read-only.
+// Write scopes are allowed only in these jobs (production-web-baseline D-WB5, production-api-baseline D-AB12): OIDC for
+// the AWS roles, provenance attestation after approval, and the deploy tag and Release. The two CD workflows have the same
+// job shape. Every other job and workflow stays read-only.
+const CD_WRITE_SCOPES = Object.freeze({
+  build: Object.freeze(['id-token']),
+  deploy: Object.freeze(['id-token', 'attestations']),
+  tag: Object.freeze(['id-token']),
+  record: Object.freeze(['contents']),
+});
 export const DESIGNATED_WRITE_SCOPES = Object.freeze({
-  'web-cd.yml': {
-    build: ['id-token'],
-    deploy: ['id-token', 'attestations'],
-    tag: ['id-token'],
-    record: ['contents'],
-  },
+  'web-cd.yml': CD_WRITE_SCOPES,
+  'api-cd.yml': CD_WRITE_SCOPES,
 });
 
 // Every `<scope>: write` line with the job whose permissions block holds it ('' outside a job permissions block).
@@ -154,8 +158,12 @@ test('trust checks identify checkout credential persistence and literal temp pat
 
   assert.equal(checkoutPersistsCredentials(checkoutBlocks(unsafeCheckout)[0]), true);
   assert.equal(checkoutPersistsCredentials(checkoutBlocks(safeCheckout)[0]), false);
+  assert.equal(usesLiteralRepositoryTemporaryPath('output=/tmp/dormduri-result.json'), true);
   assert.equal(usesLiteralRepositoryTemporaryPath('output=/tmp/knu-result.json'), true);
-  assert.equal(usesLiteralRepositoryTemporaryPath('output=$RUNNER_TEMP/knu-result.json'), false);
+  assert.equal(
+    usesLiteralRepositoryTemporaryPath('output=$RUNNER_TEMP/dormduri-result.json'),
+    false,
+  );
 });
 
 test('checkout steps disable persisted credentials when workflows do not push', () => {
@@ -223,4 +231,55 @@ test('a write scope outside the designated web-cd jobs is rejected', () => {
       `${fileName}\n${source}`,
     );
   }
+});
+
+// api-cd has the same job shape and scopes as web-cd (production-api-baseline D-AB12). Its designation does not widen
+// web-cd, and neither designation lets another workflow or job hold a write scope.
+test('a write scope outside the designated api-cd jobs is rejected', () => {
+  const workflow = (jobs) => `name: x\npermissions:\n  contents: read\njobs:\n${jobs}`;
+  const job = (name, scopes) =>
+    `  ${name}:\n    runs-on: ubuntu-26.04\n    permissions:\n${scopes
+      .map((scope) => `      ${scope}\n`)
+      .join('')}    steps:\n      - run: true\n`;
+  const designated = workflow(
+    [
+      job('build', ['contents: read', 'id-token: write']),
+      job('deploy', ['contents: read', 'id-token: write', 'attestations: write']),
+      job('tag', ['contents: read', 'id-token: write']),
+      job('record', ['contents: write']),
+    ].join(''),
+  );
+  assert.deepEqual(undesignatedWriteScopes('api-cd.yml', designated), []);
+  for (const [fileName, source, expected] of [
+    ['infra-ci.yml', designated, 5],
+    ['api-ci.yml', designated, 5],
+    ['api-cd.yml', workflow(job('build', ['attestations: write'])), 1],
+    ['api-cd.yml', workflow(job('migrate', ['id-token: write'])), 1],
+    ['api-cd.yml', workflow(job('tag', ['contents: write'])), 1],
+    ['api-cd.yml', workflow(job('record', ['contents: write', 'id-token: write'])), 1],
+    [
+      'api-cd.yml',
+      `name: x\npermissions:\n  id-token: write\njobs:\n${job('deploy', ['id-token: write'])}`,
+      1,
+    ],
+    [
+      'api-cd.yml',
+      workflow(
+        '  deploy:\n    runs-on: ubuntu-26.04\n    permissions: write-all\n    steps:\n      - run: true\n',
+      ),
+      1,
+    ],
+  ]) {
+    assert.equal(
+      undesignatedWriteScopes(fileName, source).length,
+      expected,
+      `${fileName}\n${source}`,
+    );
+  }
+  assert.deepEqual(
+    Object.keys(DESIGNATED_WRITE_SCOPES).sort(),
+    ['api-cd.yml', 'web-cd.yml'],
+    'only the two CD workflows hold designated write scopes',
+  );
+  assert.deepEqual(DESIGNATED_WRITE_SCOPES['api-cd.yml'], DESIGNATED_WRITE_SCOPES['web-cd.yml']);
 });

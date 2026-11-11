@@ -26,6 +26,8 @@ test('the external smoke uses the local ingress smoke table for the public host 
   for (const expected of [
     'GET /',
     'GET /privacy',
+    'GET /terms',
+    'GET /api/health',
     'GET /signup',
     'GET /abc',
     'POST /api/auth/login',

@@ -11,7 +11,9 @@ candidate**로 남는다. 구조 원칙은
 Web 단계의 hosting target·registry·전달 경로는 [Production environment](../../docs/deploy/production-environment.md)가
 적는다. Web·ingress image를 build·publish하고 배포 명령을 부르는 것은 CD workflow
 [`web-cd.yml`](../../.github/workflows/web-cd.yml)이고, 그 실행 절차는
-[Web 단계 배포](../runbooks/release/web-stage-deploy.md)가 소유한다. Host에서 할 일은 아래 [User host 묶음](#user-host-묶음)의
+[Web 단계 배포](../runbooks/release/web-stage-deploy.md)가 소유한다. API·migrate image와 API 배포 명령은
+[`api-cd.yml`](../../.github/workflows/api-cd.yml)과 [API 단계 배포](../runbooks/release/api-stage-deploy.md)가 같은 방식으로
+맡는다. Host에서 할 일은 아래 [User host 묶음](#user-host-묶음)의
 SSM document가 정한다.
 
 ## 자산과 책임
@@ -174,8 +176,6 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
 
 ## 제공하지 않는 기능
 
-- API image의 build·publish와 document 호출 workflow(Web 단계 CD는 `web`·`ingress` image만 다루고 `user/api/` 변경으로는 돌지
-  않는다. registry 수명 정책 원본은 `infra/aws/ecr/`)
 - provider/instance/network provisioning
 - production secret 생성 또는 credential rotation
 - API candidate의 traffic 전환과 automated rollback(user host 묶음의 되돌림은 SSM document가 한다)
@@ -270,7 +270,9 @@ nginx는 다음 route만 API upstream으로 전달한다.
 
 REST CORS와 realtime origin은 각 explicit allowlist를 사용한다. Base candidate에 placeholder TLS
 certificate를 mount하지 않는다. API/Web image는 non-root user로 실행하며 `.env`, `.omx`, local
-stress·rehearsal secret surface를 포함하지 않는다.
+stress·rehearsal secret surface를 포함하지 않는다. API runtime image는 `pnpm deploy` 결과의 `package.json`·`node_modules`와 build한
+`dist`·`prisma`만 담고 `apps/api`의 source·test·개발 설정은 담지 않는다. migrate image는 npm cache와 `ssl-cert`의 snakeoil key를
+지운다. 두 image는 push 전에 image secret scan(`scripts/infra/user-host/image-secret-scan.mjs`)을 통과한다.
 
 ## Rehearsal과 release 경계
 

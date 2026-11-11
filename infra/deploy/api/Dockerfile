@@ -23,7 +23,9 @@ ENV PNPM_HOME=/pnpm
 ENV PATH=${PNPM_HOME}:${PATH}
 WORKDIR /workspace
 COPY package.json ./
-RUN npm install --global "$(node -p "require('./package.json').packageManager")"
+# npm cache는 migrate image(이 stage에서 시작)에 남지 않게 지운다(image secret scan이 cache의 예시 URL을 잡는다).
+RUN npm install --global "$(node -p "require('./package.json').packageManager")" \
+  && npm cache clean --force
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -57,12 +59,14 @@ ENV NODE_ENV=production
 ENV CHECKPOINT_DISABLE=1
 ENV TZ=Asia/Seoul
 WORKDIR /app
-# PostgreSQL 18 client(PGDG). 저장소 key는 Debian 서명 package postgresql-common 안의 것을 쓴다.
+# PostgreSQL 18 client(PGDG). 저장소 key는 Debian 서명 package postgresql-common 안의 것을 쓴다. postgresql-common이 끌어오는
+# ssl-cert가 설치 때 만드는 자체 서명 snakeoil key·인증서는 server를 띄우지 않는 이 image에 필요 없어 지운다.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates postgresql-common tzdata \
   && /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y \
   && apt-get install -y --no-install-recommends postgresql-client-18 \
   && rm -rf /var/lib/apt/lists/* \
+  && rm -f /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem \
   && groupadd --system --gid 10001 dormduri \
   && useradd --system --uid 10001 --gid dormduri --home-dir /app --shell /usr/sbin/nologin dormduri \
   && install -d -m 0755 /etc/dormduri/rds-ca
@@ -86,7 +90,9 @@ RUN apt-get update \
   && groupadd --system --gid 10001 dormduri \
   && useradd --system --uid 10001 --gid dormduri --home-dir /app --shell /usr/sbin/nologin dormduri \
   && install -d -m 0755 /etc/dormduri/rds-ca
-COPY --from=build --chown=dormduri:dormduri /workspace/runtime ./
+# pnpm deploy 결과에서는 실행에 쓰는 package.json과 node_modules만 가져온다(apps/api의 source·test·개발 설정은 넣지 않는다).
+COPY --from=build --chown=dormduri:dormduri /workspace/runtime/package.json ./package.json
+COPY --from=build --chown=dormduri:dormduri /workspace/runtime/node_modules ./node_modules
 COPY --from=build --chown=dormduri:dormduri /workspace/apps/api/dist ./dist
 COPY --from=build --chown=dormduri:dormduri /workspace/packages/database/prisma ./prisma
 COPY --from=build --chown=dormduri:dormduri /workspace/apps/api/prisma ./prisma

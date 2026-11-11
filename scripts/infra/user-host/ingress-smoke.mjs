@@ -90,11 +90,14 @@ export const INGRESS_SMOKE_CASES = Object.freeze([
   ...['/login', '/signup', '/password-reset', '/main', '/main/chat', '/notices/1', '/support'].map(
     (path) => ({ mode: 'serving', path, expect: page(PAGE_TITLES.comingSoon, 503, '3600') }),
   ),
-  ...['/api', '/api/legal/documents/active-bundle', '/api/auth/session?x=1'].map((path) => ({
-    mode: 'serving',
-    path,
-    expect: jsonComingSoon(),
-  })),
+  // API 단계에도 공개 API 주소는 없다(production-api-baseline D-AB1). api-cd 외부 smoke가 API health 경로도 본다(D-AB12).
+  ...['/api', '/api/health', '/api/legal/documents/active-bundle', '/api/auth/session?x=1'].map(
+    (path) => ({
+      mode: 'serving',
+      path,
+      expect: jsonComingSoon(),
+    }),
+  ),
   { mode: 'serving', method: 'POST', path: '/api/auth/login', expect: jsonComingSoon() },
   { mode: 'serving', path: '/apix', expect: page(PAGE_TITLES.notFound, 404, null) },
   {

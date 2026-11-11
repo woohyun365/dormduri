@@ -119,7 +119,7 @@ test('attestation manifests are not scanned and a clean image has no findings', 
   }
 });
 
-test('a credential inside a URL is reported, and only the npm URL parser comment is allowed', async () => {
+test('a credential inside a URL is reported, and the npm URL parser comment is allowed', async () => {
   const urlWithCredential = [
     'https://',
     'deploy',
@@ -167,6 +167,53 @@ test('the allow list is narrowed by kind and path together', async () => {
       'private key|usr/local/lib/node_modules/other/key.pem',
     ]);
     for (const rule of ALLOWED_FINDINGS) assert.ok(rule.reason);
+  } finally {
+    rmSync(layout, { recursive: true, force: true });
+  }
+});
+
+// API image(runtime·migrate)의 외부 package 예시, 저장소의 local 개발 DB 기본값, Debian perl 문서는 종류와 그 package·파일
+// 경로가 함께 맞을 때만 허용한다. 이름 앞부분만 같은 package, 허용 package의 다른 종류, `/app` 밖, image에서 지운 경로는 남는다.
+test('API image allowances hold only the listed package, file and kind together', async () => {
+  const url = ['postgresql://', 'user', ':', 'not-a-real-password', '@localhost/db'].join('');
+  const content = {
+    'credential in a URL': `const url = "${url}";\n`,
+    'AWS access key': `${fakeAwsKey}\n`,
+    'private key': `${fakeKey}\n`,
+  };
+  const store = (name, file) =>
+    `app/node_modules/.pnpm/${name.replace('/', '+')}@1.0.0/node_modules/${name}/${file}`;
+  const allowed = [
+    ['credential in a URL', store('fast-uri', 'test/parse.test.js')],
+    ['credential in a URL', store('@types/node', 'url.d.ts')],
+    [
+      'credential in a URL',
+      'app/packages/database/node_modules/.pnpm/prisma@7.10.1_x/node_modules/prisma/build/cli.js',
+    ],
+    ['AWS access key', store('@aws-sdk/nested-clients', 'sts.d.ts')],
+    ['private key', store('dotenv', 'README.md')],
+    ['credential in a URL', 'app/dist/platform/database/database.config.js'],
+    ['credential in a URL', 'app/dist/platform/database/database.config.js.map'],
+    ['credential in a URL', 'app/packages/database/prisma.config.ts'],
+    ['credential in a URL', 'usr/share/perl/5.40.1/HTTP/Tiny.pm'],
+  ];
+  const reported = [
+    ['credential in a URL', store('fast-uri-fork', 'index.js')],
+    ['private key', store('fast-uri', 'test/key.pem')],
+    ['credential in a URL', 'node_modules/.pnpm/fast-uri@1.0.0/node_modules/fast-uri/index.js'],
+    ['credential in a URL', 'app/dist/platform/database/other.js'],
+    ['credential in a URL', 'app/src/platform/database/database.config.ts'],
+    ['private key', 'etc/ssl/private/ssl-cert-snakeoil.key'],
+    ['credential in a URL', 'root/.npm/_cacache/content-v2/sha512/00/aa/blob'],
+  ];
+  const entries = [...allowed, ...reported];
+  for (const [, path] of entries) assert.ok(path.length <= 100, `ustar name fits: ${path}`);
+  const layout = writeLayout([
+    tar(...entries.map(([kind, path]) => tarEntry(path, content[kind]))),
+  ]);
+  try {
+    const found = (await scanLayout(layout)).findings.map(({ kind, path }) => `${kind}|${path}`);
+    assert.deepEqual(found.sort(), reported.map(([kind, path]) => `${kind}|${path}`).sort());
   } finally {
     rmSync(layout, { recursive: true, force: true });
   }

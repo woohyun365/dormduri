@@ -1,6 +1,6 @@
 # API incident rollback decision guide
 
-이 문서는 API release 직후 장애에서 **app artifact rollback**과 **DB restore escalation**을 구분하는 의사결정 기준이다. User host의 API 묶음 rollout과 되돌림은 SSM document `dormduri-api-deploy`(본문 `infra/deploy/user/api/ssm/deploy-api.sh`, `deploy`·`rollback`·`maintenance`)가 한다. 그 document를 부르는 workflow와 승인 경로는 이 문서 범위 밖이다.
+이 문서는 API release 직후 장애에서 **app artifact rollback**과 **DB restore escalation**을 구분하는 의사결정 기준이다. User host의 API 묶음 rollout과 되돌림은 SSM document `dormduri-api-deploy`(본문 `infra/deploy/user/api/ssm/deploy-api.sh`, `deploy`·`rollback`·`maintenance`)가 한다. 그 document를 부르는 workflow(`api-cd.yml`)와 승인·dispatch 절차는 [API 단계 배포](../release/api-stage-deploy.md)가 소유한다.
 
 Web image(`dormduri/web`·`dormduri/ingress`)의 되돌림은 [Web 단계 배포](../release/web-stage-deploy.md)가 소유한다. 직전 digest 쌍으로 되돌리거나(자동·dispatch) 점검 mode로 둔다. Web·API·DB 사이의 경계는 아래 [User host의 Web·API·DB 경계](#user-host의-webapidb-경계)다.
 

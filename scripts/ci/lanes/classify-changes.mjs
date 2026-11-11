@@ -150,6 +150,7 @@ export const API_TEST_REPOSITORY_INPUTS = {
     'infra/runbooks/operations/observability/web-bff.md',
     'infra/runbooks/rehearsal/api-observability.md',
     'infra/runbooks/rehearsal/full-stack.md',
+    'infra/runbooks/release/api-stage-deploy.md',
     'infra/runbooks/release/components/api-secrets-manager/evidence.md',
     'infra/runbooks/release/components/api-secrets-manager/readiness.md',
     'infra/runbooks/release/components/auth/password-reset-evidence.md',
@@ -446,9 +447,13 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
-    // Web CD and the daily TLS check run only from main or a schedule. A change to them is checked by the infra lane
-    // (user-host scripts they call) and the repo-policy lane (workflow trust and web-cd contract tests).
-    if (path === '.github/workflows/web-cd.yml' || path === '.github/workflows/web-tls-check.yml') {
+    // Web CD, API CD and the daily TLS check run only from main or a schedule. A change to them is checked by the infra
+    // lane (user-host scripts they call and their contract tests) and the repo-policy lane (workflow trust tests).
+    if (
+      path === '.github/workflows/web-cd.yml' ||
+      path === '.github/workflows/api-cd.yml' ||
+      path === '.github/workflows/web-tls-check.yml'
+    ) {
       result.infra = true;
       result.repoPolicy = true;
       matched = true;

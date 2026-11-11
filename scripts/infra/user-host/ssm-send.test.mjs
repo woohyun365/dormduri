@@ -11,7 +11,7 @@ const digest = (character) => `sha256:${character.repeat(64)}`;
 const commandId = '0f8fad5b-d9cb-469f-a165-70867728950e';
 
 // A fake aws CLI: send-command prints the command ID, list-commands prints the configured status row.
-function run(args, status, { failOnce = false } = {}) {
+function run(args, status, { failOnce = false, document = 'dormduri-web-deploy' } = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'ssm-send-'));
   if (failOnce) writeFileSync(join(directory, 'fail-once'), '');
   const log = join(directory, 'aws.log');
@@ -25,7 +25,7 @@ function run(args, status, { failOnce = false } = {}) {
     env: {
       ...process.env,
       PATH: `${directory}:${process.env.PATH}`,
-      DEPLOY_DOCUMENT: 'dormduri-web-deploy',
+      DEPLOY_DOCUMENT: document,
       GITHUB_RUN_ID: '41573137218',
       STUB_STATUS: status,
       SSM_POLL_SECONDS: '0',
@@ -90,4 +90,40 @@ test('an unknown action, a malformed digest or hash is refused before any AWS ca
     assert.equal(result.status, 2, args.join(' '));
     assert.equal(result.calls, '');
   }
+});
+
+// The API document takes the API pair under its own parameter names (production-api-baseline D-AB12); the document name
+// decides the names, so a digest never reaches the other bundle's document.
+test('the API document gets the API pair parameters and an unknown document is refused before any AWS call', () => {
+  const api = run(valid, 'Success\t1\t1\t0', { document: 'dormduri-api-deploy' });
+  assert.equal(api.status, 0, api.stderr);
+  assert.match(
+    api.calls,
+    /send-command --document-name dormduri-api-deploy --document-hash c{64} --document-hash-type Sha256 --targets Key=tag:dormduri-deploy-target,Values=user-app/u,
+  );
+  assert.match(
+    api.calls,
+    new RegExp(
+      `--parameters \\{"action":\\["deploy"\\],"apiDigest":\\["${digest('a')}"\\],"apiMigrateDigest":\\["${digest('b')}"\\]\\}`,
+      'u',
+    ),
+  );
+  assert.match(api.calls, /--comment api-cd 41573137218 deploy/u);
+  assert.doesNotMatch(api.calls, /webDigest|ingressDigest/u);
+  assert.match(
+    api.stdout,
+    /^sent deploy dormduri\/api@sha256:a{64} dormduri\/api-migrate@sha256:b{64}$/mu,
+  );
+  const web = run(valid, 'Success\t1\t1\t0');
+  assert.match(web.calls, /--comment web-cd 41573137218 deploy/u);
+  for (const document of ['dormduri-backoffice-deploy', '']) {
+    const result = run(valid, 'Success\t1\t1\t0', { document });
+    assert.equal(result.status, 2, document);
+    assert.equal(result.calls, '');
+  }
+  const extra = run([...valid.slice(0, 3), digest('d'), valid[3]], 'Success\t1\t1\t0', {
+    document: 'dormduri-api-deploy',
+  });
+  assert.equal(extra.status, 2, 'a digest count that differs from the document is refused');
+  assert.equal(extra.calls, '');
 });

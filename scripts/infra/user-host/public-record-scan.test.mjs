@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { FORBIDDEN_KINDS, scanText } from './public-record-scan.mjs';
+import { ALLOWED_VALUES, FORBIDDEN_KINDS, scanText } from './public-record-scan.mjs';
+import { STAGES, gitDeployTag, imageDeployTag } from './release-record.mjs';
 
 // actions/checkout src/regexp-helper.ts escape(): it prints `git config --unset` value arguments with a backslash before
 // every character outside [A-Za-z0-9_].
@@ -30,6 +31,10 @@ const NEGATIVE = [
   `document hash matches (ab${'210987654321'}cd${'e'.repeat(48)})`,
   'run: https://github.com/woohyun365/dormduri/actions/runs/41573137218/job/125710567034',
   'image tag deploy-20261027T1530-42 and git tag deploy-web-20261027-42',
+  'API stage: git tag deploy-api-20261111-7 (deploy)',
+  '  - dormduri/api-migrate@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606',
+  '  - DB migration·role grant·role smoke: 미판정(operator가 host RESULT 줄의 migrateStarted(UTC)를 이 줄에 적고 고친다)',
+  'RESULT=succeeded action=deploy migrateStarted=2026-11-20T05:16:21Z',
   '2026-11-03T03:42:19.1234567Z ##[group]Run node scripts/infra/user-host/external-smoke.mjs',
   'nginx:1.31.8-alpine Node 26.13.0 Docker-Buildx 0.38.1 skopeo 1.21.0-dev',
   'uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1',
@@ -118,4 +123,32 @@ test('a runner temp path or a registry host template does not hide a real value'
 test('findings carry the source and the line number', () => {
   const findings = scanText(['ok', POSITIVE['IPv4 address']].join('\n'), 'release.md');
   assert.deepEqual(findings, [{ kind: 'IPv4 address', source: 'release.md', line: 2 }]);
+});
+
+// The record helper's Release tags and image deploy tags are allowed values of their own (production-api-baseline D-AB12):
+// a new stage needs its tag in the scanner, and the allowance never hides a forbidden value next to it.
+test('every stage tag the record helper makes is an allowed value, and only that shape is', () => {
+  const date = new Date('2026-11-11T15:30:00Z');
+  const removed = (text) =>
+    ALLOWED_VALUES.reduce((cleaned, [, pattern]) => cleaned.replace(pattern, ''), text) === '';
+  assert.ok(Object.keys(STAGES).length >= 2);
+  for (const stage of Object.keys(STAGES)) {
+    const tag = gitDeployTag(date, 123, stage);
+    assert.equal(removed(tag), true, `${tag} is an allowed git deploy tag`);
+  }
+  assert.equal(removed(imageDeployTag(date, 123)), true);
+  for (const tag of [
+    'deploy-backoffice-20261111-7',
+    'deploy-api-2026111-7',
+    'deploy-api-20261111',
+  ]) {
+    assert.equal(removed(tag), false, `${tag} is not a stage tag`);
+  }
+  for (const line of [
+    'git tag deploy-api-20261111-7 in account 210987654321',
+    'git tag deploy-api-210987654321-7',
+    'dormduri/api@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606 at 203.0.113.17',
+  ]) {
+    assert.equal(scanText(line).length, 1, line);
+  }
 });

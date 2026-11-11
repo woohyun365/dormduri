@@ -1,9 +1,9 @@
 # Infra 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-10
-**확인 근거**: [#696](https://github.com/woohyun365/dormduri/issues/696)의 Web 단계 결정 기록 댓글(topology-runtime-config의 `infra.topo.runtime-platform`: Lightsail 4 GB host 하나, ci-cd의 `infra.ci.deploy-authority`: 승인 뒤 배포 전용 job), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`infra.topo.runtime-platform`의 managed PostgreSQL 위치, data-durability-recovery의 `infra.dr.backup-mode`)
-**근거**: [Production runtime topology](../platform/production-runtime-topology.md), [Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md), [Production environment](../../deploy/production-environment.md), [Domain/SWE/Web/infra pack](../../development/agent-workflows/domain/swe-web/infra.md)
+**확인일**: 2026-11-11
+**확인 근거**: [#696](https://github.com/woohyun365/dormduri/issues/696)의 Web 단계 결정 기록 댓글(topology-runtime-config의 `infra.topo.runtime-platform`: Lightsail 4 GB host 하나, ci-cd의 `infra.ci.deploy-authority`: 승인 뒤 배포 전용 job), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`infra.topo.runtime-platform`의 managed PostgreSQL 위치, data-durability-recovery의 `infra.dr.backup-mode`), [#890의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/890#issuecomment-6785250115)(ci-cd의 `infra.ci.deploy-authority` API 단계 재검토)
+**근거**: [Production runtime topology](../platform/production-runtime-topology.md), [Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md), [API 단계 배포](../../../infra/runbooks/release/api-stage-deploy.md), [Production environment](../../deploy/production-environment.md), [Domain/SWE/Web/infra pack](../../development/agent-workflows/domain/swe-web/infra.md)
 
 `Domain/SWE/Web/infra` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
 
@@ -58,20 +58,28 @@ RPO·RTO 목표는 [DB 결정 기록](./db.md#dbintegrityrecovery-target)이, �
 ## ci-cd
 
 CI와 CD의 책임 경계는 [Monorepo CI](../platform/monorepo-ci.md#책임)가, 실행 절차는
-[Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md)가 소유합니다.
+[Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md)와 [API 단계 배포](../../../infra/runbooks/release/api-stage-deploy.md)가
+소유합니다. CD는 서비스마다 workflow·경로 filter·environment·role·dispatch rollback을 따로 둡니다.
 
 #### infra.ci.deploy-authority
 
 - 판정: Ask
 - 상태: validated
 - 고른 선택지: 사람 승인 뒤 배포 전용 job. 규칙은 [Production runtime safety](../../policies/production-runtime-safety.md)
-  `PRS-R47`(CI는 production deploy 권한이 없다)·`PRS-R48`(단계 범위 CD)이다. Web 단계는 `web-cd.yml`의 deploy job이
-  environment `production`(required reviewer Owner, `main`만)의 승인 뒤에만 OIDC deploy role을 받고, build·tag job은 publish
-  role만, record job은 `contents: write`만 갖는다
-- 근거: 검증 권한과 배포 권한이 갈리고, 되돌릴 수 없는 적용 전에 Owner가 build log의 mask와 실행을 본다. 승인은 직무 분리가
-  아니라 의도적으로 멈추는 지점이라 self-approval을 허용한다. Long-lived access key 없이 OIDC 단기 credential만 쓴다
+  `PRS-R47`(CI는 production deploy 권한이 없다)·`PRS-R48`(단계 범위 CD)이다. 서비스마다 같은 job 구조다. Web 단계는
+  `web-cd.yml`의 deploy job이 environment `production`의, API 단계는 `api-cd.yml`의 deploy job이 environment
+  `production-api`의 승인(required reviewer Owner, `main`만) 뒤에만 그 서비스의 OIDC deploy role을 받는다. build·tag job은 그
+  서비스의 publish role만, record job은 `contents: write`만 갖는다. API 단계의 migrate·grant·role smoke는 승인 뒤 host의 SSM
+  document가 rollout 전에 one-off container로 돌리고, secret은 host role이 꺼내므로 workflow는 secret과 DB에 닿지 않는다
+- 근거: 검증 권한과 배포 권한이 갈리고, 되돌릴 수 없는 적용 전에 Owner가 build log의 mask와 실행을 본다. 승인 지점 하나가 image
+  rollout과 migration을 함께 지킨다. Migration은 앞으로만 가므로(forward-fix) 되돌리는 대신 승인 전에 변경을 본다. 승인은 직무
+  분리가 아니라 의도적으로 멈추는 지점이라 self-approval을 허용한다. Long-lived access key 없이 OIDC 단기 credential만 쓴다
 - 기각한 대안: 검증 job이 바로 배포(검증 단계가 운영 쓰기 권한을 갖는다), `main` push 자동 배포(승인 없이 적용된다), 모든
-  `main` merge마다 build(배포 입력이 바뀌지 않은 merge도 image를 만든다), release tag push trigger, 장기 key나 SSH로 배포
-- 재검토 조건: 배포하는 사람이 Owner 밖으로 늘어 직무 분리가 필요할 때, API 단계가 DB migration을 CD에 넣을 때
-- 출처: #696, Owner 확인 2026-10-27
+  `main` merge마다 build(배포 입력이 바뀌지 않은 merge도 image를 만든다), release tag push trigger, 장기 key나 SSH로 배포,
+  migrate만 따로 승인하는 job·environment(승인과 host 명령이 둘로 나뉜다), 서비스 사이 environment·role 공유(서비스별 승인과
+  최소 권한이 없다)
+- 재검토 조건: 배포하는 사람이 Owner 밖으로 늘어 직무 분리가 필요할 때, 다른 서비스 CD가 같은 DB schema를 쓰게 될 때(migrate
+  완료 확인과 순서), 사용자 release 선언 뒤 expand-contract가 한 배포를 여러 단계로 나눌 때
+- 출처: #696, #890(재검토 조건 "API 단계가 DB migration을 CD에 넣을 때"가 걸려 다시 보고 같은 선택지를 유지), Owner 확인
+  2026-10-27·2026-11-04(서비스별 workflow)·2026-11-11
 - pack 결정: [infra.ci.deploy-authority](../../development/agent-workflows/domain/swe-web/infra.md#infracideploy-authority)

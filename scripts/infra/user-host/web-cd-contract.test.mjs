@@ -9,31 +9,24 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import {
+  copySources as dockerfileCopySources,
+  jobs,
+  permissions,
+  pushPaths,
+  runScript,
+  stalePaths,
+  stepIndex,
+  steps,
+  triggers,
+} from './cd-workflow-text.mjs';
+
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
 const workflow = read('.github/workflows/web-cd.yml');
 const sender = read('scripts/infra/user-host/ssm-send.sh');
 
-// `jobs:` 아래 두 칸 들여쓴 이름마다 그 job의 글.
-function jobs(source) {
-  const body = source.slice(source.indexOf('\njobs:\n') + 7);
-  const parts = body.split(/^ {2}(?=[a-z][a-z0-9_-]*:$)/mu).filter(Boolean);
-  return Object.fromEntries(parts.map((part) => [part.slice(0, part.indexOf(':')), part]));
-}
-// job 글 → 이름 있는 step 목록(순서 유지).
-function steps(job) {
-  return job
-    .split(/^ {6}- name: /mu)
-    .slice(1)
-    .map((part) => ({ name: part.slice(0, part.indexOf('\n')), body: part }));
-}
-function permissions(job) {
-  const block = /^ {4}permissions:\n((?: {6}[a-z-]+: [a-z]+\n)+)/mu.exec(job)?.[1] ?? '';
-  return Object.fromEntries(
-    [...block.matchAll(/^ {6}([a-z-]+): ([a-z]+)$/gmu)].map((m) => [m[1], m[2]]),
-  );
-}
-const index = (list, pattern) => list.findIndex((step) => pattern.test(step.body));
+const index = stepIndex;
 
 const JOBS = jobs(workflow);
 
@@ -309,28 +302,11 @@ test('dispatch inputs reach shell steps only through the environment', () => {
   }
 });
 
-// Dockerfile의 COPY 원본 → 저장소 경로(build context 기준).
-function copySources(dockerfile, context) {
-  return [...read(dockerfile).matchAll(/^COPY (?!--from)(.+)$/gmu)].flatMap((match) => {
-    const parts = match[1].split(/\s+/u).filter((part) => !part.startsWith('--'));
-    return parts.slice(0, -1).map((source) => (context ? `${context}/${source}` : source));
-  });
-}
-const matches = (path, filter) =>
-  filter.endsWith('/**') ? `${path}/`.startsWith(filter.slice(0, -2)) : filter === path;
-// GitHub `paths`: 마지막으로 맞은 pattern이 정한다(`!`는 제외).
-const triggers = (path, filters) =>
-  filters.reduce((result, filter) => {
-    if (filter.startsWith('!')) return matches(path, filter.slice(1)) ? false : result;
-    return matches(path, filter) ? true : result;
-  }, false);
+const copySources = (dockerfile, context) => dockerfileCopySources(repoRoot, dockerfile, context);
 const covered = (path, filters) => triggers(path, filters);
 
 test('the push path filter covers every Dockerfile input and matches the stale-run check', () => {
-  const pathBlock = /^ {4}paths:\n((?: {6}- .+\n)+)/mu.exec(workflow)[1];
-  const paths = [...pathBlock.matchAll(/^ {6}- (\S+)$/gmu)].map((match) =>
-    match[1].replace(/^'(.*)'$/u, '$1'),
-  );
+  const paths = pushPaths(workflow);
   for (const source of [
     ...copySources('infra/deploy/web/Dockerfile', ''),
     ...copySources('infra/deploy/user/ingress/Dockerfile', 'infra/deploy/user/ingress'),
@@ -349,11 +325,7 @@ test('the push path filter covers every Dockerfile input and matches the stale-r
     assert.ok(paths.includes(required), required);
   }
   const script = read('scripts/infra/user-host/deploy-inputs-current.sh');
-  const stale = /^DEPLOY_INPUT_PATHS=\(\n([\s\S]+?)\n\)$/mu
-    .exec(script)[1]
-    .split(/\s+/u)
-    .filter(Boolean)
-    .map((path) => path.replace(/^'(.*)'$/u, '$1'));
+  const stale = stalePaths(script, 'WEB_DEPLOY_INPUT_PATHS');
   assert.deepEqual(
     stale.sort(),
     paths.map((path) => path.replace(/\/\*\*$/u, '').replace(/^!/u, ':(exclude)')).sort(),
@@ -367,10 +339,7 @@ test('the push path filter covers every Dockerfile input and matches the stale-r
 
 // web 묶음 입력은 web-cd를 걸고 API 묶음 입력(infra/deploy/user/api/**)은 걸지 않는다(api-cd 몫, D-AB11).
 test('the push path filter takes the web bundle inputs and leaves the API bundle inputs to api-cd', () => {
-  const pathBlock = /^ {4}paths:\n((?: {6}- .+\n)+)/mu.exec(workflow)[1];
-  const paths = [...pathBlock.matchAll(/^ {6}- (\S+)$/gmu)].map((match) =>
-    match[1].replace(/^'(.*)'$/u, '$1'),
-  );
+  const paths = pushPaths(workflow);
   for (const path of [
     'infra/deploy/user/compose.yml',
     'infra/deploy/user/ssm/deploy.sh',
@@ -386,16 +355,6 @@ test('the push path filter takes the web bundle inputs and leaves the API bundle
   ])
     assert.equal(triggers(path, paths), false, path);
 });
-
-// step 글의 `run: |` block을 들여쓰기 없이 꺼낸다.
-function runScript(body) {
-  const lines = body.slice(body.indexOf('run: |\n') + 'run: |\n'.length).split('\n');
-  const indent = /^ */u.exec(lines[0])[0].length;
-  return lines
-    .filter((line) => line.trim() === '' || line.length - line.trimStart().length >= indent)
-    .map((line) => line.slice(indent))
-    .join('\n');
-}
 
 // recover step의 script를 가짜 ssm-send.sh 위에서 돌린다. codes는 동작별 exit code, 결과는 보낸 동작 순서·exit·요약.
 function runRecover(script, { rollbackWeb, codes }) {
