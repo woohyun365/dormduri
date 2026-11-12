@@ -67,8 +67,8 @@ benchmark와 함께 검토해야 하므로 일반 dependency group에서 자동 
 version을 소유한다. CI의 `pnpm/action-setup` `version` 입력은 같은 exact version을 적고 test가 대조한다.
 `pnpm-package-manager` group은 두 표면의 모든 update type을 한 Dashboard 승인 줄·한 branch로 묶는다. 승인과 merge는
 사람이 한다. Provider-independent dry-run fixture는 root `packageManager`를 읽으므로 version을 따로 적지 않는다.
-Node 26에는 Corepack이 없으므로 Docker image와 restore drill은 root `packageManager` 값을 읽어 npm으로 설치하며
-version을 따로 적지 않는다.
+Node 26에는 Corepack이 없으므로 Docker image는 root `packageManager` 값을 읽어 npm으로 설치하며 version을 따로 적지
+않는다.
 
 pnpm pin은 업데이트 신규성만으로 고르지 않는다. 같은 workspace와 lockfile-only command를 isolated cache/store에서
 세 번씩 실행한 cold comparison(2026-10-30)에서 이전 pin 11.24.0은 median 1.94 GB, 12.x memory-fix floor 12.15.0은

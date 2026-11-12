@@ -35,7 +35,7 @@ infra/deploy/
 ├── .env.compose.example             # Compose interpolation projection
 ├── api/
 │   ├── Dockerfile                   # non-root API image(target runtime)와 migrate image(target migrate)
-│   ├── migrate-entrypoint.sh        # migrate image의 one-off 단계(migrate·grant·smoke·outbox)
+│   ├── migrate-entrypoint.sh        # migrate image의 one-off 단계(migrate·grant·smoke·outbox·restore-drill)
 │   ├── rds-ca-bundle.sha256         # image에 넣는 RDS CA 묶음과 단일 루트의 sha256
 │   ├── env.manifest.json            # API registry에서 생성한 value-free manifest
 │   ├── secret-mount.contract.json    # required secret-per-file inventory와 permission contract
