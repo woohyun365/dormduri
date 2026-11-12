@@ -34,8 +34,8 @@ async function waitForScrollToSettle(page: Page) {
 
 // The landing's own copy is not pinned here (src/screens/landing/README.md, 검증): the page is found by
 // landmark, link target and the policy notices' own words (the fixed disclaimers as written, the others
-// read from their policy copy), and other copy is read from the content constants, so a copy change
-// outside the notices keeps these tests green.
+// read from their policy copy) and the privacy policy link's legal name, and other copy is read from the
+// content constants, so a copy change outside those keeps these tests green.
 test.describe('Landing public experience', () => {
   test('공개 랜딩은 첫 화면 제목, 첫 화면 고지, 가입 행동을 렌더링한다', async ({ page }) => {
     await page.goto('/');
@@ -282,6 +282,23 @@ test.describe('Landing public experience', () => {
         ]),
       )
       .toEqual([frameBackground, frameBackground]);
+  });
+
+  test('footer의 처리방침 링크는 "개인정보 처리방침"이라는 이름이고 이용약관 링크보다 굵다', async ({
+    page,
+  }) => {
+    await page.goto('/');
+
+    // The name and the weight are the law's, not screen copy, so the name is pinned here
+    // (docs/policies/legal-basis.md LB-R1, 표준 개인정보 보호지침 제20조 ①). The name check is soft so
+    // one run reports both.
+    const footer = page.getByRole('contentinfo');
+    const privacy = footer.locator('a[href="/privacy"]');
+    const terms = footer.locator('a[href="/terms"]');
+    await expect.soft(privacy).toHaveAccessibleName('개인정보 처리방침');
+    const weightOf = (link: typeof privacy) =>
+      link.evaluate((element) => Number(getComputedStyle(element).fontWeight));
+    expect(await weightOf(privacy)).toBeGreaterThan(await weightOf(terms));
   });
 
   test('Landing에서 법적 문서로 가면 새 문서를 읽고 viewport·배경이 앱 기본값이다', async ({

@@ -1,8 +1,8 @@
 # FE 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-10-31
-**확인 근거**: [#659](https://github.com/woohyun365/dormduri/issues/659) 본문의 결정 요약(component-architecture의 renderer 중립 셋), [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(`fe.comp.route-entry-import-guard`, design-system), [#706](https://github.com/woohyun365/dormduri/issues/706)(`fe.ds.copy-style` 서비스 이름이 바뀔 때의 면책 문장), [#293](https://github.com/woohyun365/dormduri/issues/293)의 채택 판정 댓글(rendering-boundary의 `fe.render.react-compiler`)
+**확인일**: 2026-11-12
+**확인 근거**: [#659](https://github.com/woohyun365/dormduri/issues/659) 본문의 결정 요약(component-architecture의 renderer 중립 셋), [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(`fe.comp.route-entry-import-guard`, design-system), [#706](https://github.com/woohyun365/dormduri/issues/706)(`fe.ds.copy-style` 서비스 이름이 바뀔 때의 면책 문장), [#293](https://github.com/woohyun365/dormduri/issues/293)의 채택 판정 댓글(rendering-boundary의 `fe.render.react-compiler`), [#898](https://github.com/woohyun365/dormduri/issues/898)(`fe.ds.copy-authority` 처리방침 링크 명칭 예외)
 **근거**: [새 화면 계층](../../../apps/web/src/screens/README.md), [시각 값 token](../../../apps/web/src/styles/tokens/README.md), [Landing 화면](../../../apps/web/src/screens/landing/README.md), [Domain/SWE/Web/FE pack](../../development/agent-workflows/domain/swe-web/fe.md)
 
 `Domain/SWE/Web/FE` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
@@ -152,11 +152,12 @@ README가 소유하고, 여기에는 판정과 근거만 둔다.
 - 고른 선택지: 정책 고지는 정책 원본, 나머지는 화면의 content 상수. 고지 일곱 개는 `model/landingPolicyCopy.ts`가 문장과 원본 정책
   경로를 함께 소유하고, 고지 시점은 [서비스 책임 범위 정책의 면책 고지 시점](../../policies/service-boundary.md#면책-고지-시점)을
   따른다. 그 밖 화면 문구는 `model/landingCopy.ts`에 둔다
-- 근거: 화면이 정책과 다른 말을 하지 않게 하고, 고지 밖 문구는 test가 글자로 고정하지 않아 다시 다듬을 수 있다. 원본 정책 경로는
+- 근거: 화면이 정책과 다른 말을 하지 않게 하고, 고지와 법이 정한 처리방침 링크 명칭([legal-basis.md LB-R1](../../policies/legal-basis.md)) 밖
+  문구는 test가 글자로 고정하지 않아 다시 다듬을 수 있다. 원본 정책 경로는
   `scripts/ci/contracts/policy-source-links.test.mjs`가 확인한다. 새 정책 문서는 더하지 않는다. 되돌림은 `easy`
 - 기각한 대안: design 초안 문구를 그대로 쓰기, component 안에 문구를 직접 쓰기(둘 다 `web-fe-design-system.md F3` 결함)
 - 재검토 조건: 고지 시점·뜻을 바꾸는 정책 개정, 다른 화면이 같은 고지를 쓸 때(원본 위치)
-- 출처: #671, Owner 확인 2026-10-26
+- 출처: #671, Owner 확인 2026-10-26. 처리방침 링크 명칭 예외는 #898, Owner 확인 2026-11-12
 - pack 결정: [fe.ds.copy-authority](../../development/agent-workflows/domain/swe-web/fe.md#fedscopy-authority)
 
 #### fe.ds.copy-style

@@ -1,8 +1,8 @@
 # Landing
 
 **상태**: owner-confirmed
-**확인일**: 2026-10-28
-**확인 근거**: [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약, [#706](https://github.com/woohyun365/dormduri/issues/706)(서비스 이름이 바뀔 때의 면책 고지)
+**확인일**: 2026-11-12
+**확인 근거**: [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약, [#706](https://github.com/woohyun365/dormduri/issues/706)(서비스 이름이 바뀔 때의 면책 고지), [#898](https://github.com/woohyun365/dormduri/issues/898)(footer 처리방침 링크 명칭)
 **근거**: [Service boundary](../policies/service-boundary.md), [Support communication](../policies/support-communication.md), [Season lifecycle](../policies/season-lifecycle.md), [Landing 화면 README](../../apps/web/src/screens/landing/README.md)
 
 공개 랜딩(`/`)의 기능 영역 문서입니다. 영역의 invariant·품질 기준은 [Intent의 Landing 절](./intent.md#landing), 화면 구성·문구·고지
@@ -34,7 +34,7 @@
 
 - 정적 화면입니다. 시즌 설명은 학기마다 열리는 등록 기간과 시즌 중에만 열리는 기능을 문장으로 설명합니다.
 - 정책 고지 일곱 개를 정해진 자리(첫 화면, 시즌, 알아두세요, footer)에 둡니다.
-- 가입·로그인 행동, footer의 이용약관(`/terms`)·개인정보처리방침(`/privacy`) 링크, 서비스 외부 문의 주소(글)를 둡니다.
+- 가입·로그인 행동, footer의 이용약관(`/terms`)·개인정보 처리방침(`/privacy`) 링크, 서비스 외부 문의 주소(글)를 둡니다.
 - 예시 화면과 예시 답은 예시라고 표시합니다.
 - 320~1440px 폭에서 같은 URL과 같은 코드로 보입니다. 화면은 어두운 판으로 그리고 OS 색 설정을 따르지 않습니다.
 

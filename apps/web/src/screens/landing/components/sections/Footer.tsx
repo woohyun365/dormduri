@@ -7,8 +7,9 @@ import { container } from '../sectionStyles';
 const { footer } = landingCopy;
 
 // Footer: every column's items start on the column's left edge and on the same line under the
-// headings, all links in one style; the inquiry address is text, not a link, under its heading once;
-// the closing divider spans the content width only.
+// headings, all links in one style except the privacy policy link, bold to stand apart from the terms
+// link (docs/policies/legal-basis.md LB-R1); the inquiry address is text, not a link, under its
+// heading once; the closing divider spans the content width only.
 export function Footer({ logo }: { logo: BrandLogoTone }) {
   const link = 'underline underline-offset-4 focus-visible:focus-ring';
   return (
@@ -32,7 +33,7 @@ export function Footer({ logo }: { logo: BrandLogoTone }) {
             <a href="/terms" className={link}>
               {footer.termsLabel}
             </a>
-            <a href="/privacy" className={link}>
+            <a href="/privacy" className={`font-bold ${link}`}>
               {footer.privacyLabel}
             </a>
           </nav>

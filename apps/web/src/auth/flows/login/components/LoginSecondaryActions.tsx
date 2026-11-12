@@ -58,7 +58,7 @@ export function LoginLegalFooter() {
             href="/privacy"
             className="px-1 py-2 text-(--knu-text-tertiary) transition-colors hover:text-(--knu-primary)"
           >
-            개인정보처리방침
+            개인정보 처리방침
           </Link>
         </nav>
       </div>

@@ -1,8 +1,8 @@
 # Intent
 
 **상태**: owner-confirmed
-**확인일**: 2026-10-28
-**확인 근거**: [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(Landing), [#706](https://github.com/woohyun365/dormduri/issues/706)(서비스 이름이 바뀔 때의 면책 고지)
+**확인일**: 2026-11-12
+**확인 근거**: [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(Landing), [#706](https://github.com/woohyun365/dormduri/issues/706)(서비스 이름이 바뀔 때의 면책 고지), [#898](https://github.com/woohyun365/dormduri/issues/898)(test가 글자로 고정하는 처리방침 링크 명칭)
 **근거**: [Product documents](./README.md#intent-기록)
 
 제품 영역마다 PRD에 없는 invariant와 품질 기준을 둡니다. 목적·대상 사용자·흐름·비목표·완료 기준은 영역의 PRD 문서가 소유하고,
@@ -26,5 +26,5 @@ PRD: [Landing](./landing.md)
 - 글자 대비 4.5:1(큰 글자 3:1), 주 행동의 터치 타깃, 보이는 focus를 지킵니다.
 - 움직임은 motion 줄이기 설정에서 멈추거나 바로 끝나고, 스스로 반복하는 움직임은 멈출 수 있습니다.
 - 320px 폭에서 가로로 넘치지 않고 핵심 정보와 행동은 hover 없이 보입니다.
-- 시각 품질은 Owner가 판정합니다. Test는 정책 고지 밖 문구·섹션 순서·DOM 구조를 고정하지 않아 문구와 구성을 다시 다듬을 수
-  있습니다.
+- 시각 품질은 Owner가 판정합니다. Test는 정책 고지와 법이 정한 처리방침 링크 명칭([legal-basis.md LB-R1](../policies/legal-basis.md))
+  밖 문구·섹션 순서·DOM 구조를 고정하지 않아 문구와 구성을 다시 다듬을 수 있습니다.
