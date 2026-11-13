@@ -36,11 +36,11 @@ catalog:
   '@playwright/test': 1.65.0
   '@sentry/nextjs': 10.78.0
   '@tailwindcss/postcss': 4.3.5
-  '@storybook/addon-docs': 10.6.6
-  '@storybook/nextjs-vite': 10.6.6
+  '@storybook/addon-docs': 10.6.7
+  '@storybook/nextjs-vite': 10.6.7
   '@typescript-eslint/eslint-plugin': 8.72.2
   '@typescript-eslint/parser': 8.72.2
-  '@vitejs/plugin-react': 6.2.1
+  '@vitejs/plugin-react': 6.3.0
   '@vitest/coverage-v8': 5.1.0
   eslint: 9.39.5
   eslint-config-next: 16.4.6
@@ -49,11 +49,11 @@ catalog:
   prettier: 3.9.10
   react: 19.3.1
   react-dom: 19.3.1
-  storybook: 10.6.6
+  storybook: 10.6.7
   tailwindcss: 4.3.5
   typescript: 6.0.3
   typescript-eslint: 8.72.2
-  vite: 8.3.6
+  vite: 8.3.7
   vitest: 5.1.0
 
 # These exceptions are parent-scoped, dated compatibility contracts rather than
