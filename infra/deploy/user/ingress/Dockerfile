@@ -1,6 +1,6 @@
 # Web 단계 ingress image. 고정 nginx base 위에 Web 단계 설정과 정적 안내 화면을 담아 Web image와 쌍으로 배포한다.
 # base pin은 Renovate가 갱신한다(infra/image-inventory.json `user-host-ingress`).
-FROM nginx:1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+FROM nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
 
 RUN rm -f /etc/nginx/conf.d/*.conf
 COPY nginx.conf /etc/nginx/nginx.conf
