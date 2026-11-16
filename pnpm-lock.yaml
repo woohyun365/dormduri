@@ -281,10 +281,10 @@ importers:
     dependencies:
       '@aws-sdk/client-secrets-manager':
         specifier: ^3.1157.0
-        version: 3.1167.0
+        version: 3.1168.0
       '@aws-sdk/client-sesv2':
         specifier: ^3.1157.0
-        version: 3.1167.0
+        version: 3.1168.0
       '@nestjs/common':
         specifier: ^12.3.2
         version: 12.3.3(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
@@ -618,12 +618,12 @@ packages:
     resolution: {integrity: sha512-EgmJ7oEaGQECTn3H3wmnQpEy4hKY66VvM7VQndwPIQob3p877BgbyOUE3EX0LgXQCciF2H8KMdR+RznqjMNOLw==}
     engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
 
-  '@aws-sdk/client-secrets-manager@3.1167.0':
-    resolution: {integrity: sha512-ZfGw/VW2OwDMLl5z9lG7YF2u1VsvhyDqtvHh3Fwe5LEzSC6wXFhHru8wE5cBungRQ5vuH39yhyV3LFZgSmUvkQ==}
+  '@aws-sdk/client-secrets-manager@3.1168.0':
+    resolution: {integrity: sha512-oVrNv5Jsfv7/k+fbyIt3Ij2Ywh7p4fpsF2f8LamyVbe4es8RWys17Y7AXIBqQZfJ7vxomApucs6FNzSxWmHoZA==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-sesv2@3.1167.0':
-    resolution: {integrity: sha512-zSNRFf1gsQrxj7hCrqkBMtOyoWk/WdZuq/eYFADxfJFDU6iVwz4vWXupzfBDHMKEYHkclYK6APtLoV/R9N6ibw==}
+  '@aws-sdk/client-sesv2@3.1168.0':
+    resolution: {integrity: sha512-cQGqoBdDnzKDRoVyhnaO16JqO9lLk5sDxkS+4LJbtgvJvBLQbpCpOss+4YmK4xTA8QppzHKiG75NsL8mNOXPPw==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/core@3.981.0':
@@ -7003,7 +7003,7 @@ snapshots:
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.5.3
 
-  '@aws-sdk/client-secrets-manager@3.1167.0':
+  '@aws-sdk/client-secrets-manager@3.1168.0':
     dependencies:
       '@aws-sdk/core': 3.981.0
       '@aws-sdk/credential-provider-node': 3.972.97
@@ -7014,7 +7014,7 @@ snapshots:
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
-  '@aws-sdk/client-sesv2@3.1167.0':
+  '@aws-sdk/client-sesv2@3.1168.0':
     dependencies:
       '@aws-sdk/core': 3.981.0
       '@aws-sdk/credential-provider-node': 3.972.97
