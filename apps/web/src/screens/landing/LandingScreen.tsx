@@ -20,14 +20,14 @@ import { StepSection } from './components/sections/StepSection';
 // background (html and body take the frame's background while the landing is on screen).
 
 export function LandingScreen({
-  darkLogo = 'color',
+  logo = 'color',
 }: {
-  /** Mark on the dark header and footer. */
-  darkLogo?: BrandLogoTone;
+  /** Mark on the header and footer. */
+  logo?: BrandLogoTone;
 }) {
   return (
     <LandingFrame className="min-h-screen">
-      <Header logo={darkLogo} />
+      <Header logo={logo} />
       <main>
         <HeroSection />
         <BeforeSection />
@@ -40,7 +40,7 @@ export function LandingScreen({
         <FaqSection />
         <ClosingSection />
       </main>
-      <Footer logo={darkLogo} />
+      <Footer logo={logo} />
       <LandingVisitAnalytics />
       <LandingDocumentBackground />
     </LandingFrame>

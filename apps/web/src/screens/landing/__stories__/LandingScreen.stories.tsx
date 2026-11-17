@@ -13,13 +13,13 @@ const meta = {
     docs: {
       description: {
         component:
-          '랜딩 전체 화면(Glide 구조). 어두운 판 하나이고 OS 색 설정을 따르지 않습니다. darkLogo는 header·footer의 로고 색입니다.',
+          '랜딩 전체 화면(Glide 구조). 어두운 판 하나이고 OS 색 설정을 따르지 않습니다. logo는 header·footer의 로고 색입니다.',
       },
       story: { inline: false, height: '720px' },
     },
   },
   argTypes: {
-    darkLogo: { control: 'inline-radio', options: ['color', 'white'] },
+    logo: { control: 'inline-radio', options: ['color', 'white'] },
   },
 } satisfies Meta<typeof LandingScreen>;
 export default meta;
