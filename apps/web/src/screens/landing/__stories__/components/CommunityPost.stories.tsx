@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import type { ComponentProps } from 'react';
 import { CommunityPost, ServiceWindow } from '../../components/CommunityPost';
-import { frameArgTypes, inLandingPanel, type FrameArgs } from '../storyFrame';
+import { inLandingPanel } from '../storyFrame';
 
 const meta = {
   title: 'Landing/Components/CommunityPost',
@@ -17,9 +17,7 @@ const meta = {
     },
   },
   decorators: [inLandingPanel],
-  args: { scheme: 'dark' },
-  argTypes: { ...frameArgTypes },
-} satisfies Meta<ComponentProps<typeof CommunityPost> & FrameArgs>;
+} satisfies Meta<ComponentProps<typeof CommunityPost>>;
 export default meta;
 
 type Story = StoryObj<typeof meta>;

@@ -1,6 +1,6 @@
 import type { BrandLogoTone } from '@/screens/ui/brand';
 import { LandingDocumentBackground } from './components/LandingDocumentBackground';
-import { LandingFrame, type LandingScheme } from './components/LandingFrame';
+import { LandingFrame } from './components/LandingFrame';
 import { LandingVisitAnalytics } from './components/LandingVisitAnalytics';
 import { BeforeSection } from './components/sections/BeforeSection';
 import { ClosingSection } from './components/sections/ClosingSection';
@@ -13,24 +13,21 @@ import { NoticesSection } from './components/sections/NoticesSection';
 import { SeasonSection } from './components/sections/SeasonSection';
 import { StepSection } from './components/sections/StepSection';
 
-// The landing on the Glide structure (glideapps.com), dark first with a light variant. In page order: what the service is, how it differs from the old way, what
+// The landing on the Glide structure (glideapps.com), drawn dark only. In page order: what the service is, how it differs from the old way, what
 // it compares, the three steps, the season, the notices, questions, and sign-up again. The `/` route
 // renders it. Server render by default; the client parts are the page frame (scroll
 // entrance), the hero question box, the overlapping windows, the lifestyle cards and the document
 // background (html and body take the frame's background while the landing is on screen).
 
 export function LandingScreen({
-  scheme = 'dark',
   darkLogo = 'color',
 }: {
-  scheme?: LandingScheme;
-  /** Mark on the dark header and footer; the light scheme always shows the color mark. */
+  /** Mark on the dark header and footer. */
   darkLogo?: BrandLogoTone;
 }) {
-  const logo: BrandLogoTone = scheme === 'dark' ? darkLogo : 'color';
   return (
-    <LandingFrame scheme={scheme} className="min-h-screen">
-      <Header logo={logo} />
+    <LandingFrame className="min-h-screen">
+      <Header logo={darkLogo} />
       <main>
         <HeroSection />
         <BeforeSection />
@@ -43,9 +40,9 @@ export function LandingScreen({
         <FaqSection />
         <ClosingSection />
       </main>
-      <Footer logo={logo} />
+      <Footer logo={darkLogo} />
       <LandingVisitAnalytics />
-      <LandingDocumentBackground scheme={scheme} />
+      <LandingDocumentBackground />
     </LandingFrame>
   );
 }
