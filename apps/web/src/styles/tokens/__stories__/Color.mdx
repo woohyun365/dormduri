@@ -90,9 +90,8 @@ import * as TokenSamples from './Tokens.stories';
 색은 D 울트라마린 하나이고, 기본 값이 라이트입니다. 요소에 `data-palette="dark"`를 주면 그 안에서 색 역할의 값만 다크로 바뀌고
 이름은 그대로입니다.
 
-- 페이지 뿌리(`LandingFrame`)가 판에 따라 `dark` 또는 `light`를 겁니다.
-- 히어로와 마지막 그림 영역은 그림이 어두워 어느 판에서나 `dark`이고, 어두운 판 안의 게시판 창은 `light`입니다. 두 문맥 모두
-  겹쳐도 바깥 값이 남지 않습니다(nestable).
+- Landing은 어두운 판 하나라 페이지 뿌리(`LandingFrame`)가 `dark`를 겁니다.
+- 어두운 판 안의 게시판 창은 `light`입니다. 두 문맥 모두 겹쳐도 바깥 값이 남지 않습니다(nestable).
 - 다크가 바꾸지 않는 역할(주 행동 면과 글자, 형광펜 표시, 그림 위 글자)은 두 문맥에서 같습니다.
 
 <Canvas of={PaletteSamples.Contexts} />

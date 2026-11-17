@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import type { ComponentProps } from 'react';
 import { NoticeLines } from '../../components/NoticeLines';
-import { frameArgTypes, inLandingPanel, type FrameArgs } from '../storyFrame';
+import { inLandingPanel } from '../storyFrame';
 
 const meta = {
   title: 'Landing/Components/NoticeLines',
@@ -16,9 +16,7 @@ const meta = {
     },
   },
   decorators: [inLandingPanel],
-  args: { scheme: 'dark' },
-  argTypes: { ...frameArgTypes },
-} satisfies Meta<ComponentProps<typeof NoticeLines> & FrameArgs>;
+} satisfies Meta<ComponentProps<typeof NoticeLines>>;
 export default meta;
 
 type Story = StoryObj<typeof meta>;

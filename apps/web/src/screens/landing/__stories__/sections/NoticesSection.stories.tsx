@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import type { ComponentProps } from 'react';
 import { NoticesSection } from '../../components/sections/NoticesSection';
-import { frameArgTypes, inLandingFrame, type FrameArgs } from '../storyFrame';
+import { inLandingFrame } from '../storyFrame';
 
 const meta = {
   title: 'Landing/Sections/Notices',
@@ -17,11 +17,7 @@ const meta = {
     },
   },
   decorators: [inLandingFrame],
-  args: { scheme: 'dark' },
-  argTypes: {
-    ...frameArgTypes,
-  },
-} satisfies Meta<ComponentProps<typeof NoticesSection> & FrameArgs>;
+} satisfies Meta<ComponentProps<typeof NoticesSection>>;
 export default meta;
 
 type Story = StoryObj<typeof meta>;
