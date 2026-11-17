@@ -6,6 +6,9 @@ import { AuthSessionTransition } from '../AuthSessionTransition';
 vi.mock('next/image', () => ({
   // eslint-disable-next-line jsx-a11y/alt-text, @next/next/no-img-element
   default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => <img {...props} />,
+  getImageProps: ({ src, alt }: { src: string | { src: string }; alt: string }) => ({
+    props: { src: typeof src === 'string' ? src : src.src, alt },
+  }),
 }));
 
 vi.mock('next/link', () => ({

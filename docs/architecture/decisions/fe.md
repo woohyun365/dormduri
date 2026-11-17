@@ -1,8 +1,8 @@
 # FE 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-12
-**확인 근거**: [#659](https://github.com/woohyun365/dormduri/issues/659) 본문의 결정 요약(component-architecture의 renderer 중립 셋), [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(`fe.comp.route-entry-import-guard`, design-system), [#706](https://github.com/woohyun365/dormduri/issues/706)(`fe.ds.copy-style` 서비스 이름이 바뀔 때의 면책 문장), [#293](https://github.com/woohyun365/dormduri/issues/293)의 채택 판정 댓글(rendering-boundary의 `fe.render.react-compiler`), [#898](https://github.com/woohyun365/dormduri/issues/898)(`fe.ds.copy-authority` 처리방침 링크 명칭 예외)
+**확인일**: 2026-11-17
+**확인 근거**: [#659](https://github.com/woohyun365/dormduri/issues/659) 본문의 결정 요약(component-architecture의 renderer 중립 셋), [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(`fe.comp.route-entry-import-guard`, design-system)과 [#913](https://github.com/woohyun365/dormduri/issues/913)의 그 결정 재검토(두 번째 route), [#706](https://github.com/woohyun365/dormduri/issues/706)(`fe.ds.copy-style` 서비스 이름이 바뀔 때의 면책 문장), [#293](https://github.com/woohyun365/dormduri/issues/293)의 채택 판정 댓글(rendering-boundary의 `fe.render.react-compiler`), [#898](https://github.com/woohyun365/dormduri/issues/898)(`fe.ds.copy-authority` 처리방침 링크 명칭 예외)
 **근거**: [새 화면 계층](../../../apps/web/src/screens/README.md), [시각 값 token](../../../apps/web/src/styles/tokens/README.md), [Landing 화면](../../../apps/web/src/screens/landing/README.md), [Domain/SWE/Web/FE pack](../../development/agent-workflows/domain/swe-web/fe.md)
 
 `Domain/SWE/Web/FE` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
@@ -82,16 +82,18 @@
 - 판정: Ask
 - 상태: validated
 - 고른 선택지: 기능 내부 import를 막는 lint 블록은 `src/screens/**`에만 둔다. `src/app` route 파일은 공개 entry만 import하고, 이를
-  route test(`apps/web/src/app/__tests__/public-landing-route.test.ts`: `/`는 `@/screens/landing`의 `LandingScreen`만 렌더링)와
+  route test(`apps/web/src/app/__tests__/public-landing-route.test.ts`: `/`는 `@/screens/landing`의 `LandingScreen`만 렌더링,
+  `apps/web/src/app/__tests__/not-found-route.test.ts`: 없는 주소는 `@/screens/not-found`의 `NotFoundScreen`만 렌더링)와
   리뷰가 확인한다([새 화면 계층 import 규칙](../../../apps/web/src/screens/README.md#import-규칙))
-- 근거: 새 화면 계층을 쓰는 route는 `/` 하나다. `src/app/**`에 lint 블록을 더하면 앱 전체 블록의 `no-restricted-imports` option을 그
+- 근거: 새 화면 계층을 쓰는 route는 `/`와 없는 주소(`app/not-found.tsx`) 둘이고, 둘 다 공개 entry의 화면 하나만 그리는 짧은 파일이다.
+  `src/app/**`에 lint 블록을 더하면 앱 전체 블록의 `no-restricted-imports` option을 그
   블록에 다시 담아야 한다(flat config는 같은 규칙의 뒤 option이 앞 option을 바꾼다, `fe.comp.renderer-neutral-guard-tool` 근거).
   비가역이 아니고 test·설정 revert로 되돌린다
-- 기각한 대안: `src/app/**` route 파일의 screens 기능 내부 import를 lint error로 막기(2026-10-22 고른 것. route가 하나인 지금은 앱 전체
-  제한을 다시 담는 설정 비용이 막는 범위보다 크다)
-- 재검토 조건: 새 화면 계층을 쓰는 route가 둘 이상이 될 때(Auth·Legal·Main을 새 계층으로 만들 때), route 파일이 기능 내부 경로를
-  import한 사례가 리뷰에서 나올 때
-- 출처: #671, Owner 확인 2026-10-26
+- 기각한 대안: `src/app/**` route 파일의 screens 기능 내부 import를 lint error로 막기(2026-10-22 고른 것. 짧은 route 파일 둘인 지금은 앱
+  전체 제한을 다시 담는 설정 비용이 막는 범위보다 크다)
+- 재검토 조건: Auth·Legal·Main 중 하나를 새 계층으로 만들 때(새 화면 계층 route가 셋 이상), route 파일이 기능 내부 경로를 import한
+  사례가 리뷰에서 나올 때
+- 출처: #671, Owner 확인 2026-10-26. 두 번째 route(없는 주소)에서 결정 유지는 #913, Owner 확인 2026-11-17
 - pack 결정: 없음
 
 ## rendering-boundary
