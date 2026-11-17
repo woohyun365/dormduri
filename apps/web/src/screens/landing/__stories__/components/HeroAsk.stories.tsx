@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import type { ComponentProps } from 'react';
 import { fn } from 'storybook/test';
 import { HeroAsk } from '../../components/HeroAsk';
-import { frameArgTypes, inLandingPanel, type FrameArgs } from '../storyFrame';
+import { inLandingPanel } from '../storyFrame';
 
 const meta = {
   title: 'Landing/Components/HeroAsk',
@@ -17,9 +17,8 @@ const meta = {
     },
   },
   decorators: [inLandingPanel],
-  args: { scheme: 'dark', onGo: fn() },
-  argTypes: { ...frameArgTypes },
-} satisfies Meta<ComponentProps<typeof HeroAsk> & FrameArgs>;
+  args: { onGo: fn() },
+} satisfies Meta<ComponentProps<typeof HeroAsk>>;
 export default meta;
 
 type Story = StoryObj<typeof meta>;

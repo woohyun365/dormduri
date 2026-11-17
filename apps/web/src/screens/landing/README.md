@@ -52,7 +52,7 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 | 위치                   | 책임                                                                           |
 | ---------------------- | ------------------------------------------------------------------------------ |
 | `index.ts`             | 공개 entry. 기능 밖은 이 파일만 import합니다                                   |
-| `LandingScreen.tsx`    | 페이지 조합과 palette 판(어두운 판 기본)                                       |
+| `LandingScreen.tsx`    | 페이지 조합(어두운 판 하나, OS 색 설정을 따르지 않음)                          |
 | `components/sections/` | 섹션 하나씩                                                                    |
 | `components/`          | 섹션이 쓰는 부품, 페이지 frame(`LandingFrame`), hook, 그림(`art/`)             |
 | `model/`               | 문구(`landingCopy`), 고지 원본(`landingPolicyCopy`)과 배치, 예시 답. 순수 data |

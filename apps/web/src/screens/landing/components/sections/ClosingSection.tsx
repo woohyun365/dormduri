@@ -7,16 +7,15 @@ import { container } from '../sectionStyles';
 // The closing picture's 4:5 cut fills phones; from md the 21:9 cut, matching the section's own ratio.
 const wideClosingMedia = '(min-width: 48rem)';
 
-// Closing: the title and the sign-up action only, over the dawn picture. Like the hero, the picture
-// keeps the dark palette in both schemes. The section takes the picture's ratio (4:5 on a phone, 21:9
-// from md) and grows if the copy needs more. The title grows only from xl: below that its larger size
-// ran into the bears at the edges. With the title kept to the middle, the ellipse alone keeps it at
-// 3:1 in the contrast sweep, so no base scrim.
+// Closing: the title and the sign-up action only, over the dawn picture, in the page's dark palette.
+// The section takes the picture's ratio (4:5 on a phone, 21:9 from md) and grows if the copy needs
+// more. The title grows only from xl: below that its larger size ran into the bears at the edges. With
+// the title kept to the middle, the ellipse alone keeps it at 3:1 in the contrast sweep, so no base
+// scrim.
 export function ClosingSection() {
   return (
     <section
       aria-labelledby="tabs-closing-title"
-      data-palette="dark"
       className="relative isolate flex aspect-4/5 items-center overflow-hidden bg-layer-basement text-fg-neutral focus-on-media md:aspect-21/9"
     >
       <ScenePicture art={closingDawn} media={wideClosingMedia} />
