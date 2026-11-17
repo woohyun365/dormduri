@@ -10,7 +10,10 @@ import { quietButton } from './buttons';
 export function BackButton() {
   function onClick() {
     const [entry] = performance.getEntriesByType('navigation');
+    // The Navigation API is missing in some browsers even though the DOM types declare it.
+    const current = 'navigation' in window ? window.navigation.currentEntry : null;
     const back = goesBack({
+      sameSiteBefore: current ? current.index > 0 : null,
       firstUrl: entry?.name ?? null,
       referrer: document.referrer,
       currentUrl: window.location.href,
