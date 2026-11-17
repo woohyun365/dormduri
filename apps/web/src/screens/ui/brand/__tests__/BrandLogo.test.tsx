@@ -15,6 +15,9 @@ vi.mock('next/image', () => ({
     // eslint-disable-next-line @next/next/no-img-element
     <img src={srcOf(src)} alt={alt} className={className} />
   ),
+  getImageProps: ({ src, alt }: { src: ImageSource; alt: string }) => ({
+    props: { src: srcOf(src), alt },
+  }),
 }));
 
 describe('BrandLogo', () => {

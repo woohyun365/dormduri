@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import { getImageProps } from 'next/image';
 import logoMarkWhite from './art/logo-mark-white.png';
 import logoMark from './art/logo-mark.png';
 
@@ -31,9 +31,19 @@ export function BrandLogo({
   size?: BrandLogoSize;
 }) {
   const { mark, markClass, letteringClass } = sizes[size];
+  // The mark is a fixed small picture, so it is drawn from getImageProps (as ScenePicture draws the
+  // landing pictures) instead of the client Image component. The root not-found screen shows this logo
+  // and ships its client parts with every page; the Image component would add its code there.
+  const { props: markProps } = getImageProps({
+    src: logoMarks[tone],
+    alt: '',
+    width: mark,
+    height: mark,
+  });
   return (
     <span className="flex shrink-0 items-center gap-2">
-      <Image src={logoMarks[tone]} alt="" width={mark} height={mark} className={markClass} />
+      {/* eslint-disable-next-line @next/next/no-img-element -- getImageProps gives the optimized src and srcset; the Next image docs pass them to a plain img. */}
+      <img {...markProps} alt="" className={markClass} />
       <BrandLettering className={`${letteringClass} w-auto`} />
     </span>
   );

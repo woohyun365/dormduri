@@ -76,7 +76,7 @@ const preview: Preview = {
       storySort: {
         order: [
           // Foundations (token docs, then the samples), then the parts features share, then the
-          // Landing sections and parts in page order.
+          // Landing sections and parts in page order, then the not-found page.
           'Foundations',
           [
             'Overview',
@@ -118,6 +118,8 @@ const preview: Preview = {
               'FaqAccordion',
             ],
           ],
+          'NotFound',
+          ['Page'],
           'Auth',
           [
             '*',
