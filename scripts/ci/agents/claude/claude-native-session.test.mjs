@@ -1666,6 +1666,62 @@ test('registration names the concrete policy reason instead of only the generic 
   }
 });
 
+// Every profile is read-only, so a task with a write scope or a write owner never reaches the checks
+// behind the profile decision: registration refuses it with the `read-only` profile reason and writes
+// no task state. The dependency judgment of a registered task therefore never has a writer to judge.
+test('no profile registers a task with a write scope or a write owner', (t) => {
+  const profiles = policy.listClaudeSubagentProfiles();
+  assert.ok(profiles.length > 0);
+  assert.deepEqual(
+    profiles.map((profile) => profile.readOnly),
+    profiles.map(() => true),
+  );
+  const shapes = [
+    [
+      'write scope owned by the lane owner',
+      (f) => {
+        f.input.request = 'sample.txt 내용을 수정해줘.';
+        f.input.nativeRequest.task.writeScope = ['sample.txt'];
+        f.input.nativeRequest.task.writeOwner = f.input.directAssignment.owner;
+        f.input.directAssignment.writeOwnership = ['sample.txt'];
+      },
+    ],
+    [
+      'write scope owned by someone else',
+      (f) => {
+        f.input.request = 'sample.txt 내용을 수정해줘.';
+        f.input.nativeRequest.task.writeScope = ['sample.txt'];
+        f.input.nativeRequest.task.writeOwner = 'someone-else';
+        f.input.directAssignment.writeOwnership = ['sample.txt'];
+      },
+    ],
+    [
+      'write owner without a write scope',
+      (f) => {
+        f.input.nativeRequest.task.writeOwner = 'someone-else';
+      },
+    ],
+  ];
+  for (const profile of profiles)
+    for (const [shape, mutate] of shapes) {
+      const f = fixture(t);
+      writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
+      f.input.nativeRequest.profileId = profile.id;
+      mutate(f);
+      assert.throws(
+        () =>
+          registerClaudeNativeTask({
+            ...f.options,
+            workflowInput: f.input,
+            sessionId: randomUUID(),
+          }),
+        /workflow not ready: [^\n]*profile: [a-z,-]*\bread-only\b/u,
+        `${profile.id}: ${shape}`,
+      );
+      assert.equal(existsSync(join(f.root, '.artifacts')), false, `${profile.id}: ${shape}`);
+    }
+});
+
 // Registration-to-settlement changes cannot be told apart from a Parent edit. A read-only task depends
 // only on the files it was given or seen reading, so a change elsewhere (another session's edit or
 // commit) is recorded in its dependency judgment instead; the stored completion stays repository-wide.
