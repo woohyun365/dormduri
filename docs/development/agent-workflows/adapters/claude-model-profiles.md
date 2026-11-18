@@ -42,11 +42,13 @@ Effort 대조에서 빠지는 모델은 [model policy](../../../../scripts/agent
 
 공개하는 한계:
 
-- Intake가 보안·인증·migration·삭제 같은 keyword로 요청 risk를 `high`로 정하면 task impact를 낮출 수 없어 `knu_explorer`의 읽기
-  task는 impact `high`를 받는 `complex-critical`(Opus)에만 결속됩니다. 역할 effort는 그대로(high)입니다. 쓰기 범위가 빈
-  `knu_researcher`는 요청 risk를 min(intake, medium)으로 낮춰 비교하므로 같은 요청도 `bounded-standard`에 `medium`으로 등록되고,
-  Lead가 `high`를 적어 `complex-critical`을 고를 수 있습니다([공식 근거 조사](./claude-code.md#routine-operation)).
-  Codex는 keyword 하나로 effort를 올리지 않습니다. 이 차이는 Owner의 성능 우선 결정(2026-10-01)으로 받아들입니다.
+- Intake가 보안·인증·migration·삭제·배포 같은 keyword로 요청 risk를 `high`로 정해도 쓰기 범위가 빈 explorer·researcher의
+  `read`·`extract`는 Lead가 선언한 impact로 profile·모델·독립 QA가 정해지고, 요청 risk는 prepare 결과와 task 기록의 `requestRisk`에만
+  남습니다([DA-025](../agentic-architecture-decisions.md#read-delegation-risk-record)). 선언 `low` 추출은 독립 QA도 면제되므로 그 결과를
+  plan·PR evidence로 옮기는 산출물은 지금처럼 독립 리뷰를 받습니다. `high`를 적어 `complex-critical`(Opus)을 고르는 것은 Lead의
+  선택이고 역할 effort는 그대로입니다([공식 근거 조사](./claude-code.md#routine-operation)). `knu_reviewer`(kind `review`)와 쓰기 범위가
+  있는 task는 impact를 요청 risk 아래로 둘 수 없습니다(`risk-downgrade`). Codex는 위험 비교 없이 lane `impactRisk`가 없을 때만 envelope
+  위험을 씁니다.
 - 공식 권장은 xhigh를 측정된 향상이 있을 때 쓰는 것입니다. Reviewer의 xhigh는 같은 결정으로 측정 전에 채택했고 high 대비
   향상은 측정하지 않았습니다. 추출 역할 `knu_explorer_xhigh`의 xhigh는 Codex 추출 역할과 같은 형태로
   둔 Owner 결정(2026-10-12)이고 역시 high 대비 향상은 측정하지 않았습니다.

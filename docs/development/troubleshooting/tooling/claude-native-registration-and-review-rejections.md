@@ -124,8 +124,8 @@
   입력 필드 사유는 `binding-lifetime-exceeds-30m`입니다.
 - 선택 근거(`selectionBasisRef`)와 fact `sourceRef`는 영문자·숫자로 시작하고 `#`·`//`·`.`·`..` 경로 조각을 쓸 수 없습니다.
   숨김 디렉터리 경로처럼 `.`으로 시작하는 참조는 `unsafe-reference:<field>`입니다.
-- Task의 `impactRisk`가 intake가 판정한 요청 risk보다 낮으면 `risk-downgrade`입니다. 쓰기 범위가 빈 `knu_researcher`는 요청 risk
-  대신 min(intake, medium)과 비교합니다. `knu_explorer`와 쓰기 범위가 있는 task는 intake risk 그대로입니다.
+- `knu_reviewer`(kind `review`)와 쓰기 범위가 있는 task의 `impactRisk`가 intake가 판정한 요청 risk보다 낮으면 `risk-downgrade`입니다.
+  쓰기 범위가 빈 explorer·researcher의 `read`·`extract`는 비교하지 않고 등록하며, prepare 결과와 task 기록의 `requestRisk`에 두 위험을 남깁니다.
 - Task `readScope`가 빈 배열이면 model policy가 `invalid-input`으로 거부합니다.
 - Kind `build` spec은 `prepare`와 등록 모두 `implementation-retired`로 거부합니다. 구현 child 경로(build kind와 executor 역할)는
   철회됐습니다. Parent가 직접 구현하고 그 diff를 `/knu-review --parent-subject`로 리뷰받습니다.
@@ -237,8 +237,8 @@
   scope·acceptance·QA disposition·facts만 담고, helper는 수명(기본 15분, 최대 30분)·도구 목록·ID를 채워 register합니다.
   출력의 `dispatchAuthorized:false`는 host 권한이 아니라는 뜻입니다. 만료되면 새로 prepare합니다.
 - 참조는 `plan:<Plan ID>/<절>`·`owner-request:<ID>`처럼 영문자로 시작하는 형식을 씁니다.
-- `risk-downgrade`는 요청 risk를 낮추지 말고 task `impactRisk`를 요청 risk 이상으로 올리거나 요청을 나눕니다. 쓰기 범위가 빈
-  researcher는 min(intake, medium) 이상이면 됩니다.
+- `risk-downgrade`(reviewer·쓰기 범위 task)는 요청 risk를 낮추지 말고 task `impactRisk`를 요청 risk 이상으로 올리거나 요청을 나눕니다.
+  읽기 위임은 요청 문장을 바꿔 다시 등록하지 않습니다. 선언 위험으로 등록되고 `requestRisk`(`belowIntake:true`)가 남습니다.
 - `required-facts`·빈 `readScope`의 `invalid-input`은 원인 절의 kind별 필수 fact와 `readScope` 규칙대로 spec을 고칩니다.
 - `knu_explorer_xhigh`의 `effort-tier`는 Haiku 추출이면 `bounded-extraction`으로, Sonnet 추출·읽기면 `knu_explorer`로 다시
   prepare합니다. Effort 변형은 추출(`knu_explorer_xhigh`)에만 있습니다. `invalid-role-effort`는 역할 파일을 고치고 새 세션에서 관측한 뒤 위임합니다.

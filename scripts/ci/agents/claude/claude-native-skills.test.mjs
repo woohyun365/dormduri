@@ -613,23 +613,33 @@ test('the delegate skill routine table matches the adapter routine rows one to o
   );
 });
 
-// #776 Acceptance 4 (D-RET-7·8): the adapter routine, the delegate skill and the Codex delegation guide
-// carry one researcher rule: claims {url, quote, checkedAt}, the shared quote-check CLI for the claims that
-// move into evidence, and the request risk capped at medium for research with no write scope.
+// #776 Acceptance 4 (D-RET-7): the adapter routine, the delegate skill and the Codex delegation guide
+// carry one researcher rule: claims {url, quote, checkedAt} and the shared quote-check CLI for the claims
+// that move into evidence. The request risk is per host: the Claude read delegation is registered on its
+// declared risk and records requestRisk (DA-025, which replaced the D-RET-8 medium cap); the Codex lane
+// keeps its default impactRisk min(envelope risk, medium) (Codex unchanged).
 test('the researcher rule is the same in the routine, the delegate skill and the Codex guide', () => {
   const routine =
     read('docs/development/agent-workflows/adapters/claude-code.md')
       .split('## Routine operation')[1]
       ?.split('## Recovery')[0] ?? '';
+  const codex = read('docs/development/agent-workflows/adapters/codex-delegation.md');
   for (const [name, text] of [
     ['claude-code.md routine', routine],
     ['knu-delegate', skill('knu-delegate')],
-    ['codex-delegation.md', read('docs/development/agent-workflows/adapters/codex-delegation.md')],
+    ['codex-delegation.md', codex],
   ]) {
     assert.ok(text.includes('scripts/agents/common/quote-check.mjs'), `${name}: quote-check CLI`);
     assert.match(text, /\{url, quote, checkedAt\}/u, `${name}: claim fields`);
-    assert.match(text, /min\([^)\n]*, ?medium\)/u, `${name}: medium cap`);
   }
+  for (const [name, text] of [
+    ['claude-code.md routine', routine],
+    ['knu-delegate', skill('knu-delegate')],
+  ]) {
+    assert.match(text, /`requestRisk`/u, `${name}: recorded request risk`);
+    assert.doesNotMatch(text, /min\([^)\n]*, ?medium\)/u, `${name}: no medium cap`);
+  }
+  assert.match(codex, /min\([^)\n]*, ?medium\)/u, 'codex-delegation.md: medium default');
   assert.match(skill('knu-settle'), /`quoteCheck`/u);
   // A fact sourceRef starts with a letter or digit, so the delegate skill names the plan reference form.
   assert.ok(skill('knu-delegate').includes('plan:<Plan ID>/<절>'));
