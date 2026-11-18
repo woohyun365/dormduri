@@ -28,7 +28,7 @@ overrides:
   # and the Tailwind, Vite, Storybook, and Sentry ranges on a single patched
   # PostCSS instead of a Next-only duplicate. Remove it when every build parent
   # resolves 8.5.28+ without it.
-  postcss: 8.5.32
+  postcss: 8.5.33
 
 catalog:
   '@types/node': 26.6.6
