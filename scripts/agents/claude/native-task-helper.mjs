@@ -1320,14 +1320,54 @@ function workingTreeState(root) {
     ),
   };
 }
-// The file a finding location names (`path:line`, `path:line-line` or a bare path).
+// The file a finding location names: its first word without backticks, a trailing comma or a
+// `:line`, `:line-line` or `:line:column` suffix (`path:12 (helper)`, `path:10, 20`).
 const findingPath = (location) =>
-  typeof location === 'string' ? location.replace(/:\d+(?:-\d+)?(?::\d+)?$/u, '') : '';
+  typeof location === 'string'
+    ? (location.replaceAll('`', '').trim().split(/\s/u)[0] ?? '')
+        .replace(/[,;]$/u, '')
+        .replace(/:\d+(?:-\d+)?(?::\d+)?$/u, '')
+    : '';
 const BLOCKING = ['critical', 'high', 'medium'];
+// The ignored files under the previous subject paths that differ from the previous round. The tree
+// comparison never sees an ignored file, so the previous round's inputs manifest stands for the
+// tree: it holds the digest of every ignored input that round bound, by its original path.
+function ignoredSubjectChanges(root, previous, skip) {
+  const inSubject = (path) =>
+    previous.subjectPaths.some((p) => path === p || path.startsWith(`${p}/`)) && !skip(path);
+  let manifest = null;
+  try {
+    manifest = JSON.parse(
+      readFileSync(
+        join(root, reviewPacketPath(root, previous.reviewId, '.inputs.json').path),
+        'utf8',
+      ),
+    );
+  } catch {
+    // A round without ignored inputs wrote no manifest: every ignored subject file is new.
+    manifest = null;
+  }
+  const before = Object.fromEntries(
+    [
+      ...Object.entries(manifest?.files ?? {}),
+      ...Object.values(manifest?.copies ?? {}).map(({ original, digest }) => [original, digest]),
+    ].filter(([path]) => inSubject(path)),
+  );
+  const after = Object.fromEntries(
+    Object.entries(claudeReviewInputs(root, previous.subjectPaths)).filter(([path]) =>
+      inSubject(path),
+    ),
+  );
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .sort()
+    .filter((path) => before[path] !== after[path])
+    .map((path) => ({ path, before: before[path] ?? null }));
+}
 // The scope of a later round of a Parent subject. The delta is the files changed since the previous
 // round's tree, which must all lie inside the previous subject paths, and the files its blocking
-// findings name. A declared risk trigger, a new file or a change outside those paths reads the full
-// scope again; so does a previous round without a scope record (built before records were kept).
+// findings name. An ignored subject file follows the same rule as a tracked one. A declared risk
+// trigger, a new file or a change outside those paths reads the full scope again; so does a
+// previous round without a scope record (built before records were kept).
 function roundDeltaScope(root, { previousResults, riskTrigger, planFiles }) {
   if (typeof riskTrigger === 'string' && riskTrigger.trim())
     return { mode: 'full', reason: `risk-trigger: ${riskTrigger.trim()}` };
@@ -1339,7 +1379,7 @@ function roundDeltaScope(root, { previousResults, riskTrigger, planFiles }) {
         const record = JSON.parse(
           readFileSync(join(root, reviewPacketPath(root, reviewId, '.scope.json').path), 'utf8'),
         );
-        return record?.schema === SCOPE_SCHEMA ? record : null;
+        return record?.schema === SCOPE_SCHEMA ? { ...record, reviewId } : null;
       } catch {
         return null;
       }
@@ -1368,7 +1408,12 @@ function roundDeltaScope(root, { previousResults, riskTrigger, planFiles }) {
     .sort()
     .filter((path) => previous.plans?.[path] !== planFiles[path])
     .map((path) => ({ path, before: previous.plans?.[path] ?? null }));
-  const all = [...changed, ...plans];
+  const ignored = ignoredSubjectChanges(
+    root,
+    previous,
+    (path) => Object.hasOwn(planFiles ?? {}, path) || Object.hasOwn(previous.plans ?? {}, path),
+  );
+  const all = [...changed, ...plans, ...ignored];
   const created = all.find(({ before }) => before === null);
   if (created) return { mode: 'full', reason: `new-file: ${created.path}` };
   const covered = (path) =>
@@ -1938,11 +1983,25 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
   const { out, riskTrigger, planGrade, planDrafts, planView, planBaseline } = options;
   const boardCheckout = options.boardCheckout ?? 'main';
   const outPath = typeof out === 'string' && out.trim() ? relative(root, resolve(root, out)) : '';
+  // The run's files are no review record and no review input: not beside the packet files, not in
+  // a native task record and not under a path the reviewer is given.
+  const helperDir = relative(root, resolveArtifactPath(root, ['claude-review-packets'], {}));
+  const under = (path, directory) => path === directory || path.startsWith(`${directory}/`);
+  const outPlaced =
+    outPath &&
+    !outPath.startsWith('..') &&
+    !isAbsolute(outPath) &&
+    gitIgnored(root, outPath) &&
+    !under(outPath, helperDir) &&
+    !isClaudeNativeEvidencePath(root, outPath) &&
+    !(Array.isArray(options.parentSubject?.paths) ? options.parentSubject.paths : []).some(
+      (path) => typeof path === 'string' && under(outPath, path.replace(/\/+$/u, '')),
+    );
   fail('invalid review-run request', [
-    ...(outPath && !outPath.startsWith('..') && !isAbsolute(outPath) && gitIgnored(root, outPath)
+    ...(outPlaced
       ? []
       : [
-          'out-directory-required: --out is an ignored directory inside the repository (for example under the plan evidence directory), so its files stay out of the review snapshot',
+          'out-directory-required: --out is an ignored directory inside the repository (for example under the plan evidence directory), outside the review packet directory, the native task records and the subject paths, so its files stay out of the review snapshot and the review inputs',
         ]),
     ...(options.runnerEvidence === undefined ? ['runner-evidence-required'] : []),
     ...(BOARD_CHECKOUTS.includes(boardCheckout)
@@ -1972,18 +2031,21 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
       `${JSON.stringify({ schema: RUN_SCHEMA, ...record }, null, 2)}\n`,
     );
   // A request review or prepare refuses fails the run like a failed check: the reason goes to the
-  // record and to the one stdout line.
+  // record and to the one stdout line. Any other error (Git, the file system) fails it the same way
+  // and is marked unexpected, so a member registered before it is still named for release.
   const refused = (error, record, registered = []) => {
-    if (!(error instanceof TypeError)) throw error;
+    const unexpected = !(error instanceof TypeError);
+    const message = String(error?.message ?? error);
     write({
       ok: false,
       ...record,
-      error: error.message,
+      error: message,
+      ...(unexpected ? { unexpected: true } : {}),
       ...(registered.length ? { registered } : {}),
     });
     return {
       exitCode: 1,
-      stdout: `review-run failed refused=${JSON.stringify(oneLine(error.message).slice(0, 240))} registered=${registered.length} out=${recordPath}\n`,
+      stdout: `review-run failed ${unexpected ? 'error' : 'refused'}=${JSON.stringify(oneLine(message).slice(0, 240))} registered=${registered.length} out=${recordPath}\n`,
     };
   };
   // The round's snapshot and log header, and every refusal review has for the subject itself.
@@ -2037,6 +2099,66 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
       exit: manifestIssues.length ? 1 : 0,
       pass: manifestIssues.length === 0,
       outputPath: manifestOutput,
+    });
+    // The promote view is the baseline with the staged files laid over it and the moved originals
+    // removed, and the baseline holds the manifest originals. Without that the reference comparison
+    // below judges something other than the staged drafts (a view built before the last revision).
+    const viewBase = resolve(root, planView);
+    const baselineBase = resolve(root, planBaseline);
+    const bytesOf = (file) => {
+      try {
+        return readFileSync(file);
+      } catch {
+        return null;
+      }
+    };
+    const same = (a, b) => a !== null && b !== null && a.equals(b);
+    const planFilesUnder = (base) =>
+      markdownFilesUnder(join(base, PLAN_ROOT)).map((file) => relative(base, file));
+    const destinations = new Set(plans.staged.map((plan) => plan.destination));
+    const movedSources = new Set(
+      plans.rows.filter((row) => row.source !== row.destination).map((row) => row.source),
+    );
+    const viewFiles = planFilesUnder(viewBase);
+    const bindingIssues = [
+      ...plans.staged
+        .filter(
+          (plan) =>
+            !same(bytesOf(join(root, plan.path)), bytesOf(join(viewBase, plan.destination))),
+        )
+        .map((plan) => `${plan.destination}: the view does not hold the staged file`),
+      ...plans.rows
+        .filter((row) => {
+          const bytes = bytesOf(join(baselineBase, row.source));
+          return bytes === null || createHash('sha256').update(bytes).digest('hex') !== row.sha256;
+        })
+        .map((row) => `${row.source}: the baseline is not the manifest original`),
+      ...[...movedSources]
+        .filter((source) => !destinations.has(source) && existsSync(join(viewBase, source)))
+        .map((source) => `${source}: the view still holds a moved original`),
+      ...viewFiles
+        .filter(
+          (path) =>
+            !destinations.has(path) &&
+            !same(bytesOf(join(viewBase, path)), bytesOf(join(baselineBase, path))),
+        )
+        .map((path) => `${path}: the view differs from the baseline`),
+      ...planFilesUnder(baselineBase)
+        .filter(
+          (path) => !destinations.has(path) && !movedSources.has(path) && !viewFiles.includes(path),
+        )
+        .map((path) => `${path}: the view lacks a baseline plan`),
+    ];
+    const bindingOutput = file('plan-view-binding.txt');
+    writeFileSync(
+      join(root, bindingOutput),
+      `${bindingIssues.length ? bindingIssues.join('\n') : `view ${viewFiles.length} plan files, staged ${plans.staged.length}, manifest rows ${plans.rows.length} ok`}\n`,
+    );
+    checks.push({
+      name: 'plan-view-binding',
+      exit: bindingIssues.length ? 1 : 0,
+      pass: bindingIssues.length === 0,
+      outputPath: bindingOutput,
     });
     if (plans.staged.length) {
       tool(
@@ -2163,6 +2285,8 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
     : undefined;
   const parent = review.parentSubject !== undefined;
   const reviewers = [];
+  // Every member prepare registered, whether or not its files were written afterwards.
+  const registered = [];
   let built;
   try {
     let deltaScope;
@@ -2196,6 +2320,7 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
     );
     for (const [index, member] of (built.reviewers ?? [built]).entries()) {
       const prepared = prepareClaudeNativeTask(member.reviewerSpec, { root });
+      registered.push(prepared.taskId);
       const specFile = `${outPath}/reviewer-${index + 1}.spec.json`;
       const invocationFile = `${outPath}/reviewer-${index + 1}.invocation.json`;
       writeFileSync(join(root, specFile), `${JSON.stringify(member.reviewerSpec, null, 2)}\n`);
@@ -2221,11 +2346,7 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
   } catch (error) {
     // A member registered before a later one was refused stays registered: the record names it so
     // the Parent releases it (release --task <id> --not-dispatched).
-    return refused(
-      error,
-      base,
-      reviewers.map((entry) => entry.taskId),
-    );
+    return refused(error, base, registered);
   }
   const now = new Date();
   const two = (value) => String(value).padStart(2, '0');

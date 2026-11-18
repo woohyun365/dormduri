@@ -308,7 +308,8 @@ function reviewInputDigest(full, st = lstatSync(full)) {
 // the helper directory, keeping their repository-relative paths, and gives the reviewer that
 // directory instead of the originals. The manifest lists each copy with its original and digest:
 // a copy that changed, went missing or appeared is refused like a changed input, while an original
-// that changed is only reported, because the reviewer read the frozen copy.
+// that changed is only reported, because the reviewer read the frozen copy (currentObservation
+// refuses one the reviewer is seen reading by path).
 export const claudeReviewInputCopiesDirectory = (root, reviewId) =>
   `${claudeReviewInputsDirectory(root)}/${reviewId}.inputs`;
 const COPIES_DIRECTORY = /^([a-z0-9]{8}-[a-f0-9]{8})\.inputs$/u;
@@ -1038,7 +1039,9 @@ function childTranscriptDrifted(dir, observation) {
 // elsewhere and a HEAD change (another session's edit or commit) are recorded in the judgment. The
 // hand-back and web tools read nothing in the repository and are passed over. A transcript that cannot
 // be read, a search without a path or of the repository root or a directory above it, a target not
-// named in its stored case and any other tool fall back to the repository-wide judgment.
+// named in its stored case and any other tool fall back to the repository-wide judgment. When the
+// only causes are such searches, the paths the other calls name are still known (`paths` beside the
+// reason): the transcript shows what the task read by path, which judges its input originals below.
 const DEPENDENCY_IGNORED_TOOLS = new Set(['SubagentHandback', 'WebSearch', 'WebFetch']);
 const DEPENDENCY_SOURCE_GAPS = [
   'current-source-head-mismatch',
@@ -1081,29 +1084,59 @@ function transcriptDependencies(root, dir, record, observation) {
     return { reason: 'child-transcript-unreadable' };
   }
   const paths = [];
+  // The first cause in transcript order is the reason; `untold` marks a cause that hides the reads.
+  let reason = null;
+  let untold = false;
   for (const row of rows) {
     if (row?.type !== 'assistant' || !Array.isArray(row.message?.content)) continue;
     for (const use of row.message.content) {
       if (use?.type !== 'tool_use' || DEPENDENCY_IGNORED_TOOLS.has(use.name)) continue;
-      if (!['Read', 'Grep', 'Glob'].includes(use.name))
-        return { reason: `unattributable-tool:${use.name}` };
+      if (!['Read', 'Grep', 'Glob'].includes(use.name)) {
+        reason ??= `unattributable-tool:${use.name}`;
+        untold = true;
+        continue;
+      }
       const target = use.name === 'Read' ? use.input?.file_path : use.input?.path;
-      if (typeof target !== 'string' || !target) return { reason: `without-path:${use.name}` };
+      if (typeof target !== 'string' || !target) {
+        reason ??= `without-path:${use.name}`;
+        continue;
+      }
       const repository = dependencyPath(root, target);
-      if (repository === '') return { reason: `whole-repository:${use.name}` };
+      if (repository === '') {
+        reason ??= `whole-repository:${use.name}`;
+        continue;
+      }
       // On a case-insensitive filesystem a variant reads the file but matches no inventory path.
-      if (repository !== null && caseVariantOf(root, repository) !== null)
-        return { reason: `case-variant:${use.name}` };
+      if (repository !== null && caseVariantOf(root, repository) !== null) {
+        reason ??= `case-variant:${use.name}`;
+        untold = true;
+        continue;
+      }
       if (repository !== null) paths.push(repository);
     }
   }
-  return { paths };
+  if (reason === null) return { paths };
+  return untold ? { reason } : { reason, paths };
 }
 // The ignored files a reviewer prompt binds in its inputs manifest; claudeReviewInputErrors judges them.
 function boundInputFiles(root, prompt) {
   return Object.keys(reviewInputManifest(root, prompt)?.files ?? {});
 }
-function dependencyJudgment({ dir, record, invocation }, observation, finalFiles, current) {
+// What a read-only task was given and the paths its transcript names.
+function dependencyScope({ record, invocation }, paths) {
+  return [
+    ...new Set(
+      [
+        ...record.input.nativeRequest.task.readScope,
+        ...(record.independentReview?.packet?.boundaries?.allowedReadPaths ?? []),
+        ...boundInputFiles(record.root, invocation.prompt),
+        ...paths,
+      ].map((path) => path.replace(/\/+$/u, '')),
+    ),
+  ].sort();
+}
+function dependencyJudgment(task, observation, finalFiles, current, observed) {
+  const { record } = task;
   const changed = [
     ...new Set([
       ...delta(record.initialFiles, finalFiles),
@@ -1123,18 +1156,8 @@ function dependencyJudgment({ dir, record, invocation }, observation, finalFiles
     outside: [],
     headChanged,
   });
-  const observed = transcriptDependencies(record.root, dir, record, observation);
   if (observed.reason) return repository(observed.reason);
-  const scope = [
-    ...new Set(
-      [
-        ...record.input.nativeRequest.task.readScope,
-        ...(record.independentReview?.packet?.boundaries?.allowedReadPaths ?? []),
-        ...boundInputFiles(record.root, invocation.prompt),
-        ...observed.paths,
-      ].map((path) => path.replace(/\/+$/u, '')),
-    ),
-  ].sort();
+  const scope = dependencyScope(task, observed.paths);
   return {
     basis: 'dependency',
     reason: null,
@@ -1164,7 +1187,12 @@ function currentObservation(task, { dependency = true } = {}) {
   }
   const finalFiles = inventory(record.root, record.input.nativeRequest.task.readScope);
   const current = baseline(record.root);
-  const judgment = dependency ? dependencyJudgment(task, observation, finalFiles, current) : null;
+  const observed = dependency
+    ? transcriptDependencies(record.root, dir, record, observation)
+    : null;
+  const judgment = dependency
+    ? dependencyJudgment(task, observation, finalFiles, current, observed)
+    : null;
   const filtering = judgment?.basis === 'dependency';
   const outside = (path) => filtering && !covered(path, judgment.scope);
   const unattributed = (error) =>
@@ -1218,8 +1246,10 @@ function currentObservation(task, { dependency = true } = {}) {
     !(filtering && judgment.inside.length === 0)
   )
     errors.push('post-completion-source-drift');
-  // An original changed after its copy was made is reported only: the reviewer read the copy. One
-  // the reviewer is seen reading (or any, when its reads cannot be told) is refused as a changed input.
+  // An original changed after its copy was made is reported only: the reviewer read the copy. One a
+  // call of the reviewer names (the file or a directory above it) is refused as a changed input, and
+  // so is any when its reads cannot be told. A search without a path or of the repository root
+  // names no original, so under that repository-wide judgment the other calls still decide.
   let reviewInputOriginalsChanged = [];
   if (record.input.nativeRequest.task.role === 'knu_reviewer') {
     errors.push(
@@ -1230,7 +1260,12 @@ function currentObservation(task, { dependency = true } = {}) {
       ),
     );
     const originals = claudeReviewInputOriginalsChanged(record.root, invocation.prompt);
-    const read = originals.filter((path) => !filtering || covered(path, judgment.scope));
+    const named = filtering
+      ? judgment.scope
+      : observed?.paths
+        ? dependencyScope(task, observed.paths)
+        : null;
+    const read = originals.filter((path) => named === null || covered(path, named));
     errors.push(...read.map((path) => `review-input-changed:${path}`));
     reviewInputOriginalsChanged = originals.filter((path) => !read.includes(path));
   }

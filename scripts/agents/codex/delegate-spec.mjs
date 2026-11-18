@@ -3,9 +3,10 @@
 // model request (`defaultModelRequest`) unless the lane opts out or names its own, and composes the dispatches through
 // `prepareCodexWorkflow()`. The output file is what `codex:register` reads; the computed values are advice the Parent
 // still checks against the source, not a permission grant.
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildTaskEnvelope } from '../common/intake-policy.mjs';
 import { discoverContextPack } from '../common/domain-guide-registry.mjs';
@@ -241,7 +242,30 @@ export const REVIEW_RUN_SCHEMA = 'knu-codex-review-run/v1';
 // the review target paths, registers the reviewer dispatch and writes the criteria and context records beside the
 // registration. A failed choice registers nothing. The spawn arguments go to a file under --out and stdout is one
 // summary line. The Parent still spawns the reviewer; review and codex:register alone work as before.
+// An --out inside the repository must be a path Git ignores: the run's files would otherwise be new
+// working-tree files beside the subject under review. A directory outside the repository is not in
+// the tree.
+function outDirectoryIssue(root, out) {
+  const target = resolve(out);
+  const inside = [root, realpathSync(root)]
+    .map((base) => relative(base, target))
+    .find((path) => !path.startsWith('..') && !isAbsolute(path));
+  if (inside === undefined) return null;
+  const ignored =
+    inside !== '' &&
+    spawnSync('git', ['-C', root, 'check-ignore', '-q', '--', inside], { timeout: 5000 }).status ===
+      0;
+  return ignored
+    ? null
+    : `out-directory-not-ignored: --out ${inside || '.'} is inside the repository and Git does not ignore it`;
+}
 function runReview(options, round, { root, registryRoot, env }) {
+  const outIssue = outDirectoryIssue(root, options.out);
+  if (outIssue)
+    return {
+      exitCode: 1,
+      stdout: `review-run failed ${outIssue} registered=0 out=${options.out}\n`,
+    };
   const sessionId = options.session ?? env.CODEX_THREAD_ID;
   const paths = options.paths.split(',').filter(Boolean);
   const review = createReviewDispatch({
