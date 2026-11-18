@@ -205,7 +205,7 @@ function attributeChanges(paths, writeScope) {
 export const REVIEW_INPUT_RECORD_DIRS = ['.plans/', '.artifacts/', '.local-docs/'];
 export const REVIEW_INPUTS_LINE = 'KNU_REVIEW_INPUTS_FILE:';
 const REVIEW_INPUT_LIMITS = { file: 8 * 1024 * 1024, total: 32 * 1024 * 1024, count: 2000 };
-const gitIgnored = (root, path) => {
+export const gitIgnored = (root, path) => {
   const r = spawnSync('git', ['-C', root, 'check-ignore', '-q', '--', path], { timeout: 5000 });
   check(r.status === 0 || r.status === 1, 'git check-ignore failed');
   return r.status === 0;
@@ -281,7 +281,7 @@ export function claudeReviewInputs(root, readPaths) {
     const full = join(root, path);
     const st = lstatSync(full);
     if (st.isSymbolicLink()) {
-      files[path] = hash({ link: readlinkSync(full) });
+      files[path] = reviewInputDigest(full, st);
       continue;
     }
     if (st.size > REVIEW_INPUT_LIMITS.file)
@@ -293,11 +293,73 @@ export function claudeReviewInputs(root, readPaths) {
       throw new TypeError(
         `review-input-too-large: ignored inputs exceed ${REVIEW_INPUT_LIMITS.total} bytes`,
       );
-    files[path] = st.isFile()
-      ? hash({ mode: st.mode & 0o777, bytes: hash(readFileSync(full)) })
-      : 'not-a-file';
+    files[path] = reviewInputDigest(full, st);
   }
   return files;
+}
+// One bound input: a symlink by its link text, a regular file by its mode and bytes.
+function reviewInputDigest(full, st = lstatSync(full)) {
+  if (st.isSymbolicLink()) return hash({ link: readlinkSync(full) });
+  return st.isFile()
+    ? hash({ mode: st.mode & 0o777, bytes: hash(readFileSync(full)) })
+    : 'not-a-file';
+}
+// Input copies. review copies the bound inputs under an ignored read path to <reviewId>.inputs/ in
+// the helper directory, keeping their repository-relative paths, and gives the reviewer that
+// directory instead of the originals. The manifest lists each copy with its original and digest:
+// a copy that changed, went missing or appeared is refused like a changed input, while an original
+// that changed is only reported, because the reviewer read the frozen copy.
+export const claudeReviewInputCopiesDirectory = (root, reviewId) =>
+  `${claudeReviewInputsDirectory(root)}/${reviewId}.inputs`;
+const COPIES_DIRECTORY = /^([a-z0-9]{8}-[a-f0-9]{8})\.inputs$/u;
+const isCopiesDirectory = (root, path) => {
+  const dir = `${claudeReviewInputsDirectory(root)}/`;
+  return path.startsWith(dir) && COPIES_DIRECTORY.test(path.slice(dir.length));
+};
+// The files under one directory and their digests, by repository-relative path.
+function copiedInputs(root, directory) {
+  const files = {};
+  const walk = (dir) => {
+    for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+      const path = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) walk(path);
+      else files[path] = reviewInputDigest(join(root, path));
+    }
+  };
+  try {
+    walk(directory);
+  } catch {
+    /* A missing directory holds no copies; every listed copy is then reported as changed. */
+  }
+  return files;
+}
+function reviewInputManifest(root, prompt) {
+  const line = String(prompt)
+    .split('\n')
+    .find((l) => l.startsWith(REVIEW_INPUTS_LINE));
+  if (line === undefined) return null;
+  try {
+    return JSON.parse(
+      readFileSync(join(root, line.slice(REVIEW_INPUTS_LINE.length).split(' ')[0])),
+    );
+  } catch {
+    return null;
+  }
+}
+// The originals of a reviewer's input copies that no longer match their copy.
+export function claudeReviewInputOriginalsChanged(root, prompt) {
+  const copies = reviewInputManifest(root, prompt)?.copies;
+  if (!copies || typeof copies !== 'object') return [];
+  return Object.values(copies)
+    .filter(({ original, digest }) => {
+      try {
+        return reviewInputDigest(join(root, original)) !== digest;
+      } catch {
+        return true;
+      }
+    })
+    .map(({ original }) => original)
+    .sort();
 }
 // Judges a reviewer prompt against its read scope now. The expected set comes from the read scope,
 // not from the line: a prompt that lost the line, an older helper's prompt or a direct registration
@@ -314,7 +376,9 @@ export function claudeReviewInputErrors(root, prompt, readScope) {
     return [error.message];
   }
   if (line === undefined)
-    return Object.keys(expected).length ? ['review-input-manifest-missing'] : [];
+    return Object.keys(expected).length || readScope.some((path) => isCopiesDirectory(root, path))
+      ? ['review-input-manifest-missing']
+      : [];
   const dir = `${claudeReviewInputsDirectory(root)}/`;
   let bytes;
   let manifest;
@@ -334,14 +398,31 @@ export function claudeReviewInputErrors(root, prompt, readScope) {
       manifest?.files && typeof manifest.files === 'object' && !Array.isArray(manifest.files),
       'manifest files',
     );
+    check(
+      manifest.copies === undefined ||
+        (manifest.copies &&
+          typeof manifest.copies === 'object' &&
+          !Array.isArray(manifest.copies) &&
+          Object.values(manifest.copies).every(
+            (copy) => typeof copy?.original === 'string' && typeof copy.digest === 'string',
+          )),
+      'manifest copies',
+    );
   } catch {
     return ['review-input-manifest-invalid'];
   }
   const errors = hash(bytes) === digest ? [] : ['review-input-manifest-changed'];
-  for (const path of [
-    ...new Set([...Object.keys(manifest.files), ...Object.keys(expected)]),
-  ].sort())
-    if (manifest.files[path] !== expected[path]) errors.push(`review-input-changed:${path}`);
+  // The copies the manifest lists, against the files now under this review's copy directory.
+  const copies = Object.fromEntries(
+    Object.entries(manifest.copies ?? {}).map(([path, copy]) => [path, copy.digest]),
+  );
+  const copied = manifest.copies
+    ? copiedInputs(root, manifestPath.replace(/\.inputs\.json$/u, '.inputs'))
+    : {};
+  const bound = { ...manifest.files, ...copies };
+  const current = { ...expected, ...copied };
+  for (const path of [...new Set([...Object.keys(bound), ...Object.keys(current)])].sort())
+    if (bound[path] !== current[path]) errors.push(`review-input-changed:${path}`);
   return errors;
 }
 // Reviewer prompt records (G11). review writes the sha256 of each reviewer prompt it builds to
@@ -412,14 +493,50 @@ function responseErrors(record, r) {
   if (!Array.isArray(r?.content) || !r.content.length) errors.push('missing-child-content');
   return errors;
 }
+// Adapter identity source. The digest covers the static import closure of this registry and of the
+// task helper it loads on demand, wherever those modules live: the code that registers, observes
+// and settles a task. A script in the two agent directories outside that closure (a check the
+// Parent runs, a ledger tool) cannot change a settlement, so its change is reported by
+// identityOutsideChanges and refused nowhere.
+const IDENTITY_ENTRIES = ['native-session.mjs', 'native-task-helper.mjs'];
+const IDENTITY_OUTSIDE_DIRECTORIES = ['claude', 'common'];
+const STATIC_IMPORT =
+  /(?:^|\n)[ \t]*(?:import|export)\s(?:[^'"]*?\sfrom\s*)?['"](\.{1,2}\/[^'"]+)['"]/gu;
+const identityRoot = resolve(ownDirectory, '../../..');
+function identityClosureFiles() {
+  const files = new Map();
+  const visit = (file) => {
+    if (files.has(file)) return;
+    const bytes = readFileSync(file);
+    files.set(file, bytes);
+    for (const [, specifier] of bytes.toString('utf8').matchAll(STATIC_IMPORT))
+      visit(resolve(dirname(file), specifier));
+  };
+  for (const entry of IDENTITY_ENTRIES) visit(join(ownDirectory, entry));
+  return new Map(
+    [...files]
+      .map(([file, bytes]) => [relative(identityRoot, file), bytes])
+      .sort(([a], [b]) => (a < b ? -1 : 1)),
+  );
+}
+export const claudeIdentityClosure = () => [...identityClosureFiles().keys()];
+// The agent scripts outside the closure and their digests, by the same repository-relative paths.
+function identityOutsideFiles() {
+  const closure = identityClosureFiles();
+  return Object.fromEntries(
+    IDENTITY_OUTSIDE_DIRECTORIES.flatMap((owner) => {
+      const dir = resolve(ownDirectory, '..', owner);
+      return readdirSync(dir)
+        .filter((name) => name.endsWith('.mjs'))
+        .sort()
+        .map((name) => [relative(identityRoot, join(dir, name)), join(dir, name)]);
+    })
+      .filter(([path]) => !closure.has(path))
+      .map(([path, file]) => [path, hash(readFileSync(file))]),
+  );
+}
 function localIdentity(root, role) {
-  const source = ['claude', 'common'].flatMap((owner) => {
-    const dir = resolve(ownDirectory, '..', owner);
-    return readdirSync(dir)
-      .filter((p) => p.endsWith('.mjs'))
-      .sort()
-      .map((p) => [owner + '/' + p, hash(readFileSync(join(dir, p)))]);
-  });
+  const source = [...identityClosureFiles()].map(([path, bytes]) => [path, hash(bytes)]);
   const rolePath = join(root, '.claude/agents', role + '.md');
   check(realpathSync(rolePath) === rolePath, 'role symlink');
   const config = ['.claude/settings.json', '.claude/settings.local.json'].map((p) => [
@@ -431,16 +548,45 @@ function localIdentity(root, role) {
     configDigest: hash({ role: hash(readFileSync(rolePath)), config }),
   };
 }
-// A review built by the task helper binds its result template, including the runner records, into
-// the registered prompt on the line starting with this prefix.
+// A review built by the task helper binds its result template into the registered prompt on the
+// line starting with this prefix. The runner records a result must carry are in the runner file
+// (<reviewId>.runner.json in the helper directory) the prompt names with its digest; a prompt
+// without that line (an earlier helper's) carries them in the template itself.
 export const REVIEW_RESULT_TEMPLATE_PREFIX = 'Result template: ';
-function boundRunnerRecords(prompt) {
-  const line = prompt.split('\n').find((l) => l.startsWith(REVIEW_RESULT_TEMPLATE_PREFIX));
-  if (line === undefined) return undefined;
+export const REVIEW_RUNNER_LINE = 'KNU_REVIEW_RUNNER_FILE:';
+export const REVIEW_RUNNER_CHANGED = 'review-runner-file-changed';
+function boundRunnerRecords(root, prompt) {
+  const lines = prompt.split('\n');
+  const runner = lines.find((l) => l.startsWith(REVIEW_RUNNER_LINE));
+  if (runner !== undefined) {
+    const [path, digest, ...rest] = runner.slice(REVIEW_RUNNER_LINE.length).split(' ');
+    const dir = `${claudeReviewInputsDirectory(root)}/`;
+    try {
+      check(
+        !rest.length &&
+          path.startsWith(dir) &&
+          /^[a-z0-9]{8}-[a-f0-9]{8}\.runner\.json$/u.test(path.slice(dir.length)) &&
+          lstatSync(join(root, path)).isFile(),
+        'runner line',
+      );
+      const bytes = readFileSync(join(root, path));
+      check(hash(bytes) === digest, 'runner digest');
+      const records = JSON.parse(bytes).commandsActuallyRun;
+      check(Array.isArray(records), 'runner records');
+      return { records };
+    } catch {
+      return { records: null, changed: true };
+    }
+  }
+  const line = lines.find((l) => l.startsWith(REVIEW_RESULT_TEMPLATE_PREFIX));
+  if (line === undefined) return { records: undefined };
   try {
-    return JSON.parse(line.slice(REVIEW_RESULT_TEMPLATE_PREFIX.length)).commandsActuallyRun ?? null;
+    const records = JSON.parse(
+      line.slice(REVIEW_RESULT_TEMPLATE_PREFIX.length),
+    ).commandsActuallyRun;
+    return { records: Array.isArray(records) ? records : null };
   } catch {
-    return null;
+    return { records: null };
   }
 }
 // model-policy owns the decision and reports malformed input only as `invalid-input`. These checks
@@ -452,7 +598,7 @@ export const safeRef = (value) =>
   SAFE_REF.test(value) &&
   !value.includes('//') &&
   value.split('/').every((segment) => segment !== '.' && segment !== '..');
-const safePath = (value) =>
+export const safePath = (value) =>
   typeof value === 'string' &&
   !value.startsWith('/') &&
   !value.endsWith('/') &&
@@ -816,6 +962,7 @@ export function registerClaudeNativeTask({
     requestRisk: claudeRequestRisk(binding),
     independentReview: reviewBinding,
     initialFiles: inventory(root, binding.readScope),
+    identityOutside: identityOutsideFiles(),
   };
   const digest = hash(record);
   const invocation = {
@@ -954,18 +1101,7 @@ function transcriptDependencies(root, dir, record, observation) {
 }
 // The ignored files a reviewer prompt binds in its inputs manifest; claudeReviewInputErrors judges them.
 function boundInputFiles(root, prompt) {
-  const line = String(prompt)
-    .split('\n')
-    .find((l) => l.startsWith(REVIEW_INPUTS_LINE));
-  if (line === undefined) return [];
-  try {
-    const manifest = JSON.parse(
-      readFileSync(join(root, line.slice(REVIEW_INPUTS_LINE.length).split(' ')[0])),
-    );
-    return Object.keys(manifest?.files ?? {});
-  } catch {
-    return [];
-  }
+  return Object.keys(reviewInputManifest(root, prompt)?.files ?? {});
 }
 function dependencyJudgment({ dir, record, invocation }, observation, finalFiles, current) {
   const changed = [
@@ -1022,6 +1158,8 @@ function currentObservation(task, { dependency = true } = {}) {
       actualPaths: [],
       errors: ['no-completion-observation'],
       dependencyJudgment: null,
+      identityOutsideChanges: [],
+      reviewInputOriginalsChanged: [],
     };
   }
   const finalFiles = inventory(record.root, record.input.nativeRequest.task.readScope);
@@ -1080,7 +1218,10 @@ function currentObservation(task, { dependency = true } = {}) {
     !(filtering && judgment.inside.length === 0)
   )
     errors.push('post-completion-source-drift');
-  if (record.input.nativeRequest.task.role === 'knu_reviewer')
+  // An original changed after its copy was made is reported only: the reviewer read the copy. One
+  // the reviewer is seen reading (or any, when its reads cannot be told) is refused as a changed input.
+  let reviewInputOriginalsChanged = [];
+  if (record.input.nativeRequest.task.role === 'knu_reviewer') {
     errors.push(
       ...claudeReviewInputErrors(
         record.root,
@@ -1088,6 +1229,11 @@ function currentObservation(task, { dependency = true } = {}) {
         record.input.nativeRequest.task.readScope,
       ),
     );
+    const originals = claudeReviewInputOriginalsChanged(record.root, invocation.prompt);
+    const read = originals.filter((path) => !filtering || covered(path, judgment.scope));
+    errors.push(...read.map((path) => `review-input-changed:${path}`));
+    reviewInputOriginalsChanged = originals.filter((path) => !read.includes(path));
+  }
   const effort = effortObservation(task, { ...observation, valid });
   errors.push(...effort.errors);
   return {
@@ -1096,6 +1242,11 @@ function currentObservation(task, { dependency = true } = {}) {
     errors: [...new Set(errors)],
     observedEfforts: effort.observedEfforts,
     dependencyJudgment: judgment,
+    // A record made before the outside digests were kept has nothing to compare.
+    identityOutsideChanges: record.identityOutside
+      ? delta(record.identityOutside, identityOutsideFiles())
+      : [],
+    reviewInputOriginalsChanged,
   };
 }
 // The settled background transcript, or the location a foreground completion recorded.
@@ -1973,10 +2124,11 @@ export function completeClaudeNativeTask(
       errors.push(...qa.errors);
       if (delivered.status !== 'complete' || !['PASS', 'FAIL'].includes(delivered.verdict))
         errors.push('review result must be terminal complete PASS or FAIL');
-      const runnerRecords = boundRunnerRecords(invocation.prompt);
-      if (
-        runnerRecords !== undefined &&
-        !isDeepStrictEqual(delivered.commandsActuallyRun, runnerRecords)
+      const runner = boundRunnerRecords(root, invocation.prompt);
+      if (runner.changed) errors.push(REVIEW_RUNNER_CHANGED);
+      else if (
+        runner.records !== undefined &&
+        !isDeepStrictEqual(delivered.commandsActuallyRun, runner.records)
       )
         errors.push('review commandsActuallyRun differs from the bound runner records');
       for (const criterion of record.independentReview.subjectAcceptance) {
@@ -2256,6 +2408,8 @@ export function completeClaudeNativeTask(
     observation,
     observedEfforts: currentState.observedEfforts,
     dependencyJudgment: dependencyRecord,
+    identityOutsideChanges: currentState.identityOutsideChanges,
+    reviewInputOriginalsChanged: currentState.reviewInputOriginalsChanged,
     ...(quoteRecord ? { quoteCheck: quoteRecord } : {}),
     common,
     verificationClass: 'local-evidence-and-static-contract',
@@ -2277,6 +2431,8 @@ export function observeClaudeNativeTask(id, { root = process.cwd() } = {}) {
     changedPaths: state.actualPaths,
     observedEfforts: state.observedEfforts,
     dependencyJudgment: state.dependencyJudgment,
+    identityOutsideChanges: state.identityOutsideChanges,
+    reviewInputOriginalsChanged: state.reviewInputOriginalsChanged,
     errors: [...state.errors, ...settlement],
     evidenceDirectory: task.dir,
   };
@@ -2346,6 +2502,19 @@ const REVIEW_OPTIONS = {
   '--composition': 'composition',
   '--reviewers': 'reviewers',
 };
+// review-run takes the review options and these: where its result files go, the declared risk
+// trigger and plan grade, a plan subject's staging inputs and the checkout board line's session.
+const REVIEW_RUN_OPTIONS = {
+  ...REVIEW_OPTIONS,
+  '--out': 'out',
+  '--risk-trigger': 'riskTrigger',
+  '--plan-grade': 'planGrade',
+  '--plan-drafts': 'planDrafts',
+  '--plan-view': 'planView',
+  '--plan-baseline': 'planBaseline',
+  '--board-session': 'boardSession',
+  '--board-checkout': 'boardCheckout',
+};
 async function helperCommand(action, args) {
   // Loaded on demand: the helper consumes this module, and hooks never need it.
   const helper = await import('./native-task-helper.mjs');
@@ -2365,11 +2534,15 @@ async function helperCommand(action, args) {
     );
   }
   const options = {};
+  const run = action === 'review-run';
+  const known = run ? REVIEW_RUN_OPTIONS : REVIEW_OPTIONS;
   for (let i = 0; i < args.length; i += 2) {
-    const key = REVIEW_OPTIONS[args[i]];
+    const key = Object.hasOwn(known, args[i]) ? known[args[i]] : undefined;
     check(
       key && args[i + 1] && !Object.hasOwn(options, key),
-      'expected review --subject ID | --parent-subject FILE [--runner-evidence FILE --basis REF --reviewer-model ID --round N [--previous-result FILE] [--criteria ID,ID] [--composition e2|e3 --reviewers N] [--session ID]]',
+      run
+        ? 'expected review-run --subject ID | --parent-subject FILE --runner-evidence FILE --basis REF --reviewer-model ID --round N --out DIR [--previous-result FILE] [--criteria ID,ID] [--composition e2|e3 --reviewers N] [--session ID] [--risk-trigger ITEM] [--plan-grade P2|P3 --plan-drafts DIR --plan-view DIR --plan-baseline DIR] [--board-session NAME] [--board-checkout main|product-clone]'
+        : 'expected review --subject ID | --parent-subject FILE [--runner-evidence FILE --basis REF --reviewer-model ID --round N [--previous-result FILE] [--criteria ID,ID] [--composition e2|e3 --reviewers N] [--session ID]]',
     );
     const value = args[i + 1];
     options[key] = ['parentSubject', 'runnerEvidence'].includes(key)
@@ -2384,9 +2557,16 @@ async function helperCommand(action, args) {
             ? value.split(',')
             : value;
   }
-  return helper.buildClaudeNativeReview(options);
+  return run ? helper.runClaudeNativeReview(options) : helper.buildClaudeNativeReview(options);
 }
 async function main(args) {
+  if (args[0] === 'review-run') {
+    // The result is in the --out files; stdout is the one summary line.
+    const { exitCode, stdout } = await helperCommand(args[0], args.slice(1));
+    process.stdout.write(stdout);
+    process.exitCode = exitCode;
+    return;
+  }
   if (['prepare', 'review', 'settle'].includes(args[0])) {
     const result = await helperCommand(args[0], args.slice(1));
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
