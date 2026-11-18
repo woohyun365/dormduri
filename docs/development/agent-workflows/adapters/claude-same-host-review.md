@@ -111,7 +111,8 @@ result의 blocking finding 위치 파일입니다. `--risk-trigger <qa.md trigge
 보이지 않으므로 직전 회차 입력 manifest(`<reviewId>.inputs.json`)의 원본 digest와 지금 원본을 비교해 같은 규칙으로 판정합니다(바뀌거나
 사라지면 `delta`의 경로, 새로 생기면 `new-file`). `--plan-drafts`의 staged 계획 파일도 subject 파일로 봅니다. Read path와 기준 선택 경로는 줄이지 않고 prompt의 회차 줄이 범위를
 지시합니다. `delta`는 직전 result와 바뀐 경로를 읽고 다른 경로는 그 판정에 필요한 만큼만 읽게 하며(경로가 12개를 넘으면 나머지는
-read path에 넣은 범위 기록을 가리킴), `full`은 이유와 함께 전 범위를 다시 읽게 합니다. `deltaScope`는 출력과 prompt 기록, 범위
+read path에 넣은 범위 기록을 가리킴. Reviewer가 사본으로 읽는 ignored 경로는 회차 줄에 사본 경로로 적고, 범위 기록의 경로는 원본
+경로라 prompt의 사본 안내 줄을 따라 읽음), `full`은 이유와 함께 전 범위를 다시 읽게 합니다. `deltaScope`는 출력과 prompt 기록, 범위
 기록에 남습니다. `review`를 직접 부른 Parent subject의 2회차 이상은 `delta-scope-required`로 packet 파일을 쓰기 전에 거부합니다.
 Native subject의 회차 줄은 그대로입니다.
 

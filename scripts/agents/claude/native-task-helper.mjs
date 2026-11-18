@@ -1172,7 +1172,7 @@ function contextLines(context) {
 }
 
 // The round line. A later round of a Parent subject names its scope: the delta paths, or why the
-// full scope is read again.
+// full scope is read again. A delta path the reviewer reads through a copy is named by its copy.
 function roundLine(subject, shown) {
   if (subject.round === 1)
     return `- Review round 1: report broadly. Include lower-confidence blocking candidates with their evidence; list at most ${LOW_FINDING_LIMIT} low findings, most important first.`;
@@ -1184,7 +1184,7 @@ function roundLine(subject, shown) {
     return `- Review round ${subject.round}: read the full scope again ${scope ? `(${scope.reason}) ` : ''}but ${blocking} ${previous}`;
   const listed = scope.paths.slice(0, DELTA_PATH_LINE_LIMIT);
   const more = scope.paths.length - listed.length;
-  return `- Review round ${subject.round} (delta): read the previous result and the paths changed since round ${subject.round - 1}: ${listed.join(', ') || 'none'}${more > 0 ? ` and ${more} more listed in ${subject.scopePath}` : ''}. Read other paths only as far as judging those needs, and ${blocking} ${previous}`;
+  return `- Review round ${subject.round} (delta): read the previous result and the paths changed since round ${subject.round - 1}: ${listed.map(shown).join(', ') || 'none'}${more > 0 ? ` and ${more} more listed in ${subject.scopePath}` : ''}. Read other paths only as far as judging those needs, and ${blocking} ${previous}`;
 }
 function reviewerPrompt(
   logHeader,
