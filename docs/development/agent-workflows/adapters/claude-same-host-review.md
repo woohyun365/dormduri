@@ -183,8 +183,10 @@ source digest는 `native-session.mjs`와 그것이 동적 import하는 등록·�
 `scripts/ci/lifecycle`의 import된 module이 들고, 목록은 test가 고정합니다. 역할 파일과 `.claude/settings.json`·
 `.claude/settings.local.json`의 digest는 그대로 identity에 듭니다. `scripts/agents/claude`·`scripts/agents/common`의 `*.mjs` 가운데
 닫힘 밖 파일(dispatch 전 검사 도구, ledger 도구 등)은 등록·정산 판정에 쓰이지 않으므로, 등록 뒤 바뀌거나 생기거나 사라져도
-거부하지 않고 `settle`·`complete` 출력의 `identityOutsideChanges`에 경로를 기록합니다. 그래서 같은 checkout의 다른 세션이 리뷰 중
-그런 도구를 고쳐도 reviewer 결과는 유효합니다. 닫힘에 module을 더하는 변경은 닫힘 목록 test를 함께 고칩니다.
+identity drift로 거부하지 않고 `settle`·`complete` 출력의 `identityOutsideChanges`에 경로를 기록합니다. 그래서 같은 checkout의 다른
+세션이 리뷰 중 그런 도구를 고쳐도 identity 대조는 통과합니다. Reviewer 결과가 유효한지는 위의 의존 판정이 따로 정합니다. 고친 파일이
+reviewer의 의존 집합 밖이면 유효하고, 의존 집합 안이거나 저장소 전체로 판정하는 리뷰면 `unattributable-change:<경로>`로
+거부합니다([registry 8단계](./claude-native-registry.md)). 닫힘에 module을 더하는 변경은 닫힘 목록 test를 함께 고칩니다.
 
 Read-only reviewer는 명령을 실행하지 않습니다. Packet `authority.runnerOwner`가 실행하고 evidence로 제공한 검증은 result의
 `commandsActuallyRun`에 그 runner·exit·관측 결과·환경으로 기록하며 reviewer가 실행했다고 쓰지 않습니다. `notRun`은 누구도

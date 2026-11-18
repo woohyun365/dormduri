@@ -34,14 +34,16 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
   `review-packet-missing`이 `observationErrors`에 들어가므로 재리뷰합니다. 리뷰 입력 사본이나 그 manifest가 바뀌었거나
   빠졌으면 `review-input-*`가, runner 파일이 등록 뒤 바뀌었으면 `review-runner-file-changed`가 들어가므로 역시 결과를 쓰지 않고
   `review-run`을 다시 실행해 재리뷰합니다.
-- 기록만 남는 관측(결과는 유효): settle 결과의 `reviewInputOriginalsChanged`는 사본을 만든 뒤 바뀐 ignored 입력 원본 경로입니다.
-  Reviewer는 사본을 읽었으므로 거부하지 않습니다. 그 회차가 읽은 판은
+- 기록만 남는 관측(이 기록만으로는 거부하지 않음): settle 결과의 `reviewInputOriginalsChanged`는 사본을 만든 뒤 바뀐 ignored 입력
+  원본 경로입니다. Reviewer는 사본을 읽었으므로 거부하지 않습니다. 그 회차가 읽은 판은
   `.artifacts/tools/claude-review-packets/<reviewId>.inputs/<원본 경로>`에 있으니 finding을 재현하거나 다음 회차 입력을 만들 때
   지금 원본과 대조합니다. Reviewer의 Read·Grep·Glob이 바뀐 원본이나 그 상위 디렉터리를 path로 지목한 것이 관측되거나
   reviewer의 읽기를 가릴 수 없으면 기록이 아니라 `review-input-changed:<원본 경로>` 거부입니다(path 없는 검색과 저장소 root
   검색은 지목이 아님). `identityOutsideChanges`는 등록 뒤 바뀐 `scripts/agents/claude`·`scripts/agents/common` script 가운데 등록·정산
-  code의 정적 import 닫힘 밖 파일(dispatch 전 검사 도구 등)입니다. 정산 판정에 쓰이지 않아 거부하지 않습니다. 닫힘 안 module,
-  역할 파일, settings가 바뀌면 `adapter/role/settings drift`로 거부되고 그 task의 결과는 쓸 수 없으므로 다시 등록해 재리뷰합니다.
+  code의 정적 import 닫힘 밖 파일(dispatch 전 검사 도구 등)입니다. Identity 대조에 쓰이지 않아 이 기록만으로는 거부하지 않습니다. 그
+  파일이 reviewer의 의존 집합 안이거나 저장소 전체로 판정하는 리뷰면 같은 변경이 `unattributable-change:<경로>`로 `observationErrors`에
+  따로 들어가고, 그때는 결과를 쓰지 않습니다. 닫힘 안 module, 역할 파일, settings가 바뀌면 `adapter/role/settings drift`로 거부되고
+  그 task의 결과는 쓸 수 없으므로 다시 등록해 재리뷰합니다.
 - Coverage gap이 있는 단일 reviewer FAIL은 완료된 리뷰로 기록되지 않습니다. 재리뷰하거나 Parent가 교차 참조로 마감합니다.
   1회차 그룹 구성원은 아래 처분 기록 규칙만 따릅니다.
 
