@@ -48,7 +48,7 @@ Effort 대조에서 빠지는 모델은 [model policy](../../../../scripts/agent
   plan·PR evidence로 옮기는 산출물은 지금처럼 독립 리뷰를 받습니다. `high`를 적어 `complex-critical`(Opus)을 고르는 것은 Lead의
   선택이고 역할 effort는 그대로입니다([공식 근거 조사](./claude-code.md#routine-operation)). `knu_reviewer`(kind `review`)와 쓰기 범위가
   있는 task는 impact를 요청 risk 아래로 둘 수 없습니다(`risk-downgrade`). Codex는 위험 비교 없이 lane `impactRisk`가 없을 때만 envelope
-  위험을 씁니다.
+  위험을 씁니다. 이 차이는 Owner의 성능 우선 결정(2026-10-01)으로 받아들입니다.
 - 공식 권장은 xhigh를 측정된 향상이 있을 때 쓰는 것입니다. Reviewer의 xhigh는 같은 결정으로 측정 전에 채택했고 high 대비
   향상은 측정하지 않았습니다. 추출 역할 `knu_explorer_xhigh`의 xhigh는 Codex 추출 역할과 같은 형태로
   둔 Owner 결정(2026-10-12)이고 역시 high 대비 향상은 측정하지 않았습니다.

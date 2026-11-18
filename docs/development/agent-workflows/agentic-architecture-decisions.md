@@ -581,8 +581,9 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   `impactRisk`가 있습니다). (3) Profile 적격·모델, 추출 독립 QA 면제(선언 `low`·`bounded`·`resolved`), researcher 인용 대조 정산은
   선언 위험·kind로 정합니다.
 - **Trigger / non-trigger**: 쓰기 범위가 빈 explorer·researcher의 `extract`·`read` 등록 / reviewer, 쓰기 범위 task, intake 분류, Codex.
-- **기각**: explorer도 medium 상한(관측 둘 다 `low` 선언이라 계속 거부), 거부 안내만 개선(문장 우회가 남음), OSS-RL P3 때 함께(P3는
-  reviewer 선택 입력이고 위임 등록은 범위 밖), binding에 요청 위험 필드 추가(binding digest·검증 schema가 바뀌어 범위가 커짐).
+- **기각**: explorer도 medium 상한(관측 둘 다 `low` 선언이라 계속 거부), 거부 안내만 개선(문장 우회가 남음), reviewer 역할 선택의 위험
+  trigger 판정 입력을 정할 때 함께(그 입력은 reviewer 선택용이고 위임 등록은 범위 밖), binding에 요청 위험 필드 추가(binding
+  digest·검증 schema가 바뀌어 범위가 커짐).
 - **구현 영향**: Claude `model-policy.mjs`(`envelopeReasons` 읽기 위임 조건과 researcher 상한 분기 삭제, `claudeRequestRisk`, policy
   revision, 늘 `read-only`와 함께만 나오던 `profile-read-only` 사유 삭제), `native-session.mjs`(task 기록 `requestRisk`),
   `native-task-helper.mjs`(prepare 결과 `requestRisk`), adapter·profile·registry·troubleshooting 문서와 `/knu-delegate`.
@@ -590,8 +591,8 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
   무효 binding 거부)와 독립 clone 양성 대조 열둘. 선언 `low` 읽기 위임은 요청 위험이 기록만 되고 추출은 독립 QA도 면제되므로, 그 결과를
   plan·PR evidence로 옮기는 산출물은 지금처럼 독립 리뷰를 받습니다. `requestRisk`는 기록이고 판정에 쓰지 않습니다. `추출해줘` intent
   미인식(`intake-not-child-ready`)은 그대로입니다. 정적 회귀는 native 실행 증거가 아닙니다.
-- **재검토**: 기록된 `belowIntake:true` task의 결과가 evidence·plan에 잘못 옮겨진 사례가 나올 때, OSS-RL P3가 reviewer 위험 trigger의
-  기계 판정 입력을 정할 때(위임 등록 위험에도 쓸지), 읽기 역할의 도구·권한을 바꿀 때입니다.
+- **재검토**: 기록된 `belowIntake:true` task의 결과가 evidence·plan에 잘못 옮겨진 사례가 나올 때, reviewer 역할 선택의 위험
+  trigger 기계 판정 입력이 정해질 때(그 입력을 위임 등록 위험에도 쓸지), 읽기 역할의 도구·권한을 바꿀 때입니다.
 
 ## Evidence inventory
 
@@ -638,4 +639,4 @@ Parent 판단이나 handoff로 돌아가며, 같은 역할로 한 단계씩 올�
 | DA-022 | Claude 사전 고정 추출 cohort 8 task × 2 경로, 독립 QA               | 고정 입력 단일 추출 kind `extract` / `read`·구현·리뷰·Codex adapter              | routine 표 Haiku 행 `관측`·관측 버전 범위·skill 표·profile 문장·contract test, 정책·사다리 불변    | ID·alias 해석·effort·profile·사다리 변경, 추출 밖 확장, oracle 불일치·결속 재시도 관측, 시간·비용 비교 자료 |
 | DA-023 | 구현 위임 쓴 기록, writer 기간 guard·리뷰 분기 유지 비용            | 구현·디버깅·test 위임 요청 / 읽기 위임·독립 리뷰·`writeOwnership` 필드           | Claude `build` 거부·역할 넷, Codex `lead-task-kind`·역할 일곱, writer lease·Parent 쓰기 guard 삭제 | 구현 위임의 반복 필요, hook 범위·trust 변화                                                                 |
 | DA-024 | researcher 짝 리뷰 비용·`kind-role` 거부 관찰, 인용 대조 결정성     | 쓰기 범위 빈 researcher 조사 / explorer·`required:true`·쓰기 task·Codex 수락     | researcher `extract`·QA 생략·medium 상한, 정산 인용 대조 gate, `release --not-dispatched`          | researcher 도구 변경, 대조 거짓 양성·누락, evidence 오옮김, Codex 수락 gate 필요                            |
-| DA-025 | explorer 거부 2건의 문장만 바꾼 재등록, 거부가 바꾼 것은 기록뿐     | 쓰기 범위 빈 explorer·researcher 등록 / reviewer·쓰기 task·intake 분류·Codex     | 읽기 위임 위험 비교 생략, prepare·task 기록 `requestRisk`, policy revision                         | `belowIntake:true` 결과 오옮김, OSS-RL P3 위험 trigger 입력, 읽기 역할 도구·권한 변경                       |
+| DA-025 | explorer 거부 2건의 문장만 바꾼 재등록, 거부가 바꾼 것은 기록뿐     | 쓰기 범위 빈 explorer·researcher 등록 / reviewer·쓰기 task·intake 분류·Codex     | 읽기 위임 위험 비교 생략, prepare·task 기록 `requestRisk`, policy revision                         | `belowIntake:true` 결과 오옮김, reviewer 위험 trigger 판정 입력, 읽기 역할 도구·권한 변경                   |
