@@ -27,7 +27,8 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    선택 필드는 `lifetimeMinutes`·`independentReview`·`recovery`뿐이며 다른 필드는 `unknown-field`로 거부합니다.
    `recovery`는 [Recovery 결속](#recovery-결속)을 따릅니다. Helper는 수명(기본 15분, 최대 30분)·role 파일의 도구 목록·ID를 채워 같은 register를
    호출하고 거부 사유를 policy 사유와 입력 필드까지 그대로 보여 줍니다. Profile을 추론하거나 dispatch를 승인하지 않으며
-   출력은 `dispatchAuthorized:false`입니다.
+   출력은 `dispatchAuthorized:false`입니다. 출력과 task 기록(`task.json`의 `record`)의 `requestRisk`(`intake`·`declared`·`belowIntake`)는
+   요청 문장의 intake 위험과 선언 위험을 함께 남깁니다([DA-025](../agentic-architecture-decisions.md#read-delegation-risk-record)).
 4. 반환한 `agentInput` 객체 그대로 **현재 세션의 Agent 도구**를 호출합니다. `agentInput`은 등록 invocation과 같은 역할·model·description에
    prompt로 task marker 한 줄(`KNU_NATIVE_TASK:<taskId>:<digest>`)만 가집니다. 정상 PreToolUse는 전체 invocation과 같은 검사를 거친 뒤
    `updatedInput`으로 등록 invocation 전체를 child 입력에 주입합니다. 반환한 `invocation`을 그대로 호출해도 같은 검사로 동작합니다.
