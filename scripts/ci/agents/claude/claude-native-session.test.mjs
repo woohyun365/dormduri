@@ -4483,6 +4483,97 @@ test('a script outside the identity closure changes without refusing the call or
   ]);
 });
 
+// A live session runs the registry from the checkout it reviews, so the scripts are files of the
+// reviewed tree. A script outside the identity closure that changes there passes the identity check;
+// the dependency judgment then decides the settlement as it does for any other path.
+const OUTSIDE_SCRIPT = 'scripts/agents/common/runner-log-check.mjs';
+async function taskInScriptsCheckout(t) {
+  const f = fixture(t);
+  const root = realpathSync(f.root);
+  writeFileSync(join(root, '.git/info/exclude'), '.artifacts/\n');
+  for (const dir of ['agents', 'artifacts', 'ci/lifecycle'])
+    cpSync(join(SCRIPTS_ROOT, 'scripts', dir), join(root, 'scripts', dir), { recursive: true });
+  execFileSync('git', ['add', 'scripts'], { cwd: root });
+  execFileSync(
+    'git',
+    ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'scripts'],
+    { cwd: root },
+  );
+  const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+  Object.assign(f.input.currentSnapshot, { baseSHA: head, headSHA: head });
+  const module = await import(
+    pathToFileURL(join(root, 'scripts/agents/claude/native-session.mjs')).href
+  );
+  const sessionId = randomUUID();
+  const registered = module.registerClaudeNativeTask({
+    ...f.options,
+    workflowInput: f.input,
+    sessionId,
+  });
+  const event = {
+    hook_event_name: 'PreToolUse',
+    session_id: sessionId,
+    cwd: f.root,
+    permission_mode: 'auto',
+    tool_name: 'Agent',
+    tool_use_id: 'tool-1',
+    tool_input: registered.invocation,
+  };
+  return { ...f, module, registered, event };
+}
+for (const [kind, tools, expected] of [
+  ['outside the dependency set is recorded only', () => [], { valid: true, basis: 'dependency' }],
+  [
+    'under a searched directory is unattributable',
+    (root) => [{ name: 'Grep', input: { pattern: 'a', path: join(root, 'scripts/agents') } }],
+    { valid: false, basis: 'dependency' },
+  ],
+  [
+    'under a whole-repository judgment is unattributable',
+    (root) => [{ name: 'Grep', input: { pattern: 'a', path: root } }],
+    { valid: false, basis: 'repository' },
+  ],
+])
+  test(`a closure-outside script changed in the reviewed checkout ${kind}`, async (t) => {
+    const g = await taskInScriptsCheckout(t);
+    const handleIn = (event) => g.module.handleClaudeNativeSessionEvent(event, { root: g.root });
+    assert.deepEqual(handleIn(g.event), {}, 'the call is not refused');
+    // While the child runs: another session edits a tool the registry does not import.
+    appendFileSync(join(g.root, OUTSIDE_SCRIPT), '\n// edited\n');
+    handleIn({
+      ...g.event,
+      hook_event_name: 'PostToolUse',
+      transcript_path: writeChildTranscript(g.root, {
+        sessionId: g.event.session_id,
+        agentId: 'child-1',
+        prompt: g.registered.invocation.prompt,
+        model: g.options.expectedResolvedModel,
+        effort: ROLE_EFFORT[g.registered.invocation.subagent_type],
+        tools: tools(realpathSync(g.root)),
+      }),
+      tool_response: {
+        status: 'completed',
+        agentId: 'child-1',
+        resolvedModel: g.options.expectedResolvedModel,
+        content: [{ type: 'text', text: 'oracle' }],
+      },
+    });
+    const checked = g.module.completeClaudeNativeTask(g.registered.taskId, semanticResult(g), {
+      root: g.root,
+    });
+    // The identity check leaves the script alone in every case and records it.
+    assert.ok(!checked.errors.includes('adapter/role/settings drift'), checked.errors.join());
+    assert.deepEqual(checked.identityOutsideChanges, [OUTSIDE_SCRIPT]);
+    assert.equal(checked.dependencyJudgment.basis, expected.basis);
+    assert.equal(checked.valid, expected.valid, checked.errors.join());
+    if (expected.valid) assert.deepEqual(checked.dependencyJudgment.outside, [OUTSIDE_SCRIPT]);
+    else
+      assert.ok(
+        checked.errors.includes(`unattributable-change:${OUTSIDE_SCRIPT}`),
+        checked.errors.join(),
+      );
+  });
+
 for (const [kind, change] of [
   [
     'the task helper',

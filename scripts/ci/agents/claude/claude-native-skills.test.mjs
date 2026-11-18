@@ -685,6 +685,35 @@ test('knu-review tells how to write exit lines and to install after a lockfile c
   );
 });
 
+test('review documents tie a closure-outside script change to the dependency judgment', () => {
+  const flat = (path) => read(path).replace(/\s+/gu, ' ');
+  const adapter = flat('docs/development/agent-workflows/adapters/claude-same-host-review.md');
+  // The identity check passes; whether the reviewer result holds is the dependency judgment's call.
+  assert.ok(
+    !adapter.includes('그런 도구를 고쳐도 reviewer 결과는 유효합니다'),
+    'review adapter: older wording without a condition',
+  );
+  assert.ok(
+    adapter.includes('그런 도구를 고쳐도 identity 대조는 통과합니다'),
+    'review adapter: the identity check passes',
+  );
+  assert.match(
+    adapter,
+    /의존 집합 밖이면 유효하고, 의존 집합 안이거나 저장소 전체로 판정하는 리뷰면 `unattributable-change:<경로>`로 거부합니다/u,
+    'review adapter: the dependency judgment decides the settlement',
+  );
+  const settle = flat('.claude/skills/knu-settle/SKILL.md');
+  assert.ok(
+    !settle.includes('기록만 남는 관측(결과는 유효)'),
+    'settle skill: older heading without a condition',
+  );
+  assert.match(
+    settle,
+    /의존 집합 안이거나 저장소 전체로 판정하는 리뷰면 같은 변경이 `unattributable-change:<경로>`로/u,
+    'settle skill: an outside change can still be unattributable',
+  );
+});
+
 test('review documents state one rule for a changed input original and for ignored subject files', () => {
   const flat = (path) => read(path).replace(/\s+/gu, ' ');
   // The skills, the registry, the review adapter and the rejection guide give the same conditions.
