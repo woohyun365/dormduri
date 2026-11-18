@@ -3491,8 +3491,12 @@ function researchSpec(r, patch = {}) {
 }
 
 test('a researcher without a reviewer settles through the quote-check slot of its template (D-RET-4)', (t) => {
+  settlesThroughQuoteCheck(t);
+});
+
+function settlesThroughQuoteCheck(t, patch = {}) {
   const r = researchRepo(t);
-  const prepared = prepareClaudeNativeTask(researchSpec(r), { root: r.root });
+  const prepared = prepareClaudeNativeTask(researchSpec(r, patch), { root: r.root });
   dispatch(r, prepared, 'research-1', RESEARCH_TEXT);
   const status = settleClaudeNativeTask(prepared.taskId, undefined, { root: r.root });
   const template = templateIn(status);
@@ -3555,7 +3559,7 @@ test('a researcher without a reviewer settles through the quote-check slot of it
     [[RESEARCH_URL, RESEARCH_QUOTE]],
   );
   assert.deepEqual(settled.quoteCheck.excluded, []);
-});
+}
 
 test('a reviewer-paired researcher and an explorer keep their templates (D-RET-3)', (t) => {
   const r = researchRepo(t);
@@ -3670,4 +3674,110 @@ test('a changed response file and a quote-check slot that is not a path are name
   const again = settleClaudeNativeTask(prepared.taskId, undefined, { root: r.root });
   assert.ok(again.observationErrors.includes('quote-check-response-changed'));
   assert.equal(readFileSync(first.quoteCheckResponsePath, 'utf8'), '{"content":[]}\n');
+});
+
+// KNU-RISK (D-KRR-1·2·3): a read delegation (an explorer or researcher extract or read task with no write scope)
+// registers on its declared risk when the request words rate higher, and prepare and the task record name both
+// risks. The model and the independent QA still follow the declared risk and the kind.
+const READ_FACTS = ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'];
+const DEPLOY_RESEARCH = '배포 대상 Node 공식 문서의 지원 기간 근거를 분석해줘.';
+const taskRecordOf = (prepared) =>
+  JSON.parse(readFileSync(join(prepared.evidenceDirectory, 'task.json'), 'utf8')).record;
+function recordsRequestRisk(prepared, requestRisk) {
+  assert.deepEqual(prepared.requestRisk, requestRisk, 'prepare result');
+  assert.deepEqual(taskRecordOf(prepared).requestRisk, requestRisk, 'task record');
+}
+const below = (intake) => ({ intake, declared: 'low', belowIntake: true });
+
+test('a deploy-worded xhigh extraction registers at low on Haiku and records the request risk (KNU-RISK RED 1 (가))', (t) => {
+  const r = repo(t);
+  const prepared = prepareClaudeNativeTask(
+    explorerSpec(r, { request: 'sample.txt 배포 설정 값을 조사해줘.' }),
+    { root: r.root },
+  );
+  assert.equal(prepared.registerInput.workflowInput.reviewDisposition.required, false);
+  assert.equal(prepared.invocation.model, 'haiku');
+  recordsRequestRisk(prepared, below('high'));
+});
+
+test('a tidy-worded explorer extraction registers at low on Sonnet and records the request risk (KNU-RISK RED 1 (나))', (t) => {
+  const r = repo(t);
+  const prepared = prepareClaudeNativeTask(
+    explorerSpec(r, {
+      request: 'sample.txt 값을 표로 정리해줘.',
+      role: 'knu_explorer',
+      profileId: 'bounded-standard',
+      expectedResolvedModel: 'claude-sonnet-5-5',
+    }),
+    { root: r.root },
+  );
+  assert.equal(prepared.registerInput.workflowInput.reviewDisposition.required, false);
+  assert.equal(prepared.invocation.model, 'sonnet');
+  recordsRequestRisk(prepared, below('medium'));
+});
+
+test('a deploy-worded researcher read registers at low on Sonnet and records the request risk (KNU-RISK RED 1 (다))', (t) => {
+  const r = researchRepo(t);
+  const prepared = prepareClaudeNativeTask(
+    researchSpec(r, { request: DEPLOY_RESEARCH, kind: 'read', facts: facts(READ_FACTS) }),
+    { root: r.root },
+  );
+  assert.equal(prepared.registerInput.workflowInput.reviewDisposition.required, false);
+  assert.equal(prepared.invocation.model, 'sonnet');
+  recordsRequestRisk(prepared, below('high'));
+});
+
+test('a read declared at its request risk records belowIntake false (KNU-RISK RED 1 (라))', (t) => {
+  const r = repo(t);
+  const prepared = prepareClaudeNativeTask(
+    { ...subjectSpec(r), request: 'sample.txt 변경 내용을 분석해줘.' },
+    { root: r.root },
+  );
+  assert.equal(prepared.registerInput.workflowInput.reviewDisposition.required, true);
+  recordsRequestRisk(prepared, { intake: 'medium', declared: 'medium', belowIntake: false });
+});
+
+test('a deploy-worded explorer read at low still needs independent QA (KNU-RISK RED 1 (바))', (t) => {
+  const r = repo(t);
+  assert.throws(
+    () =>
+      prepareClaudeNativeTask(
+        {
+          ...subjectSpec(r),
+          request: 'sample.txt 배포 설정 값을 분석해줘.',
+          impactRisk: 'low',
+          reviewDisposition: { required: false, reason: 'no reviewer asked for this read' },
+        },
+        { root: r.root },
+      ),
+    /independent QA required for this profile/u,
+  );
+});
+
+test('a deploy-worded researcher read at low settles only through the quote check (KNU-RISK RED 1 (사))', (t) => {
+  settlesThroughQuoteCheck(t, {
+    request: DEPLOY_RESEARCH,
+    kind: 'read',
+    facts: facts(READ_FACTS),
+  });
+});
+
+test('the Parent-subject reviewer spec keeps its request, role, profile, kind and risk (KNU-RISK 회귀 4)', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const review = parentReview(r, SMALL_PARENT_SUBJECT);
+  const { request, role, profileId, kind, impactRisk, complexity, uncertainty } =
+    review.reviewerSpec;
+  assert.deepEqual(
+    { request, role, profileId, kind, impactRisk, complexity, uncertainty },
+    {
+      request: `Parent 작성 변경 ${review.snapshotDigest.slice(7, 15)} 결과를 독립 검토해줘.`,
+      role: 'knu_reviewer',
+      profileId: 'complex-critical',
+      kind: 'review',
+      impactRisk: 'medium',
+      complexity: 'bounded',
+      uncertainty: 'resolved',
+    },
+  );
 });
