@@ -20,7 +20,7 @@ const read = (path) => readFileSync(resolve(root, path), 'utf8');
 const SKILLS = ['knu-delegate', 'knu-review', 'knu-settle'];
 const REJECTIONS =
   'docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md';
-const ACTIONS = new Set(['prepare', 'review', 'settle', 'release']);
+const ACTIONS = new Set(['prepare', 'review', 'review-run', 'settle', 'release']);
 const FILE_FLAGS = new Set([
   '--spec',
   '--parent-subject',

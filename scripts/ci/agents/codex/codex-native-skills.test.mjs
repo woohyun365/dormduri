@@ -52,16 +52,24 @@ test('the repository skills are the four Parent procedures with Codex frontmatte
 const FLAG = /--[a-z]+(?:-[a-z]+)*/gu;
 const flagsOf = (text) => [...text.matchAll(FLAG)].map(([flag]) => flag);
 
-// The flags a command accepts: a CLI with subcommands lists each one's flags on its own `<subcommand>: [` or `{` line.
+// The flags a command accepts: a CLI with subcommands lists each one's flags in its own `<subcommand>: [` or `{` entry,
+// on one line or, for a longer entry, down to the line that closes it at the same indent.
 function acceptedFlags(script, rest) {
   const [, file, fixed] = /node (\S+\.mjs)(?: ([a-z]+))?/u.exec(scripts[script]);
   const source = read(file);
-  const subcommand = fixed ?? /^ -- ([a-z]+)\b/u.exec(rest)?.[1];
+  const subcommand = fixed ?? /^ -- ([a-z]+(?:-[a-z]+)*)(?= |$)/u.exec(rest)?.[1];
   if (subcommand === undefined) return source;
-  const flagLine = new RegExp(`^\\s*${subcommand}: [[{].*'--`, 'u');
-  const line = source.split('\n').find((text) => flagLine.test(text));
-  assert.ok(line, `${script}: subcommand ${subcommand}`);
-  return line;
+  const lines = source.split('\n');
+  const opening = new RegExp(`^(\\s*)'?${subcommand}'?: ([[{])`, 'u');
+  const at = lines.findIndex((text) => opening.test(text));
+  assert.ok(at >= 0, `${script}: subcommand ${subcommand}`);
+  const [, indent, bracket] = opening.exec(lines[at]);
+  const closing = `${indent}${bracket === '[' ? ']' : '}'},`;
+  const end = /[\]}],$/u.test(lines[at]) ? at : lines.indexOf(closing, at);
+  assert.ok(end >= at, `${script}: subcommand ${subcommand} entry end`);
+  const entry = lines.slice(at, end + 1).join('\n');
+  assert.ok(entry.includes("'--"), `${script}: subcommand ${subcommand} flags`);
+  return entry;
 }
 
 // codex.md owns the skill call rule: package scripts, plus the repository CLIs it names in that rule.
@@ -120,34 +128,27 @@ test('knu-review is the code review entry with automatic criteria and advisory h
   assert.ok(flat.includes('<reviewId>.criteria.json'), 'names the selection record');
   assert.ok(flat.includes('--criteria'), 'names the override');
   assert.ok(flat.includes('`review-child`'), 'a reviewer takes no follow-up');
-  // The selection runs the shared CLI with flags its source accepts.
-  const commands = [...review.matchAll(/`node (scripts\/agents\/common\/[^\s`]+\.mjs)([^`]*)`/gu)];
-  assert.ok(
-    commands.some(([, file]) => file === 'scripts/agents/common/review-criteria-selection.mjs'),
-    'the shared selection CLI',
-  );
+  // One command selects the criteria, collects the context inputs and registers; its flags are the delegate CLI's.
+  const [run] = [...review.matchAll(/`pnpm -s codex:delegate( -- review-run [^`]*)`/gu)];
+  assert.ok(run, 'the review-run command');
+  for (const flag of ['--lanes', '--token', '--round', '--paths', '--out'])
+    assert.ok(flagsOf(run[1]).includes(flag), `review-run command gives ${flag}`);
   assert.deepEqual(flagsOf(' --binding-out a --lifecycle-out b -- p'), [
     '--binding-out',
     '--lifecycle-out',
   ]);
-  for (const [command, file, rest] of commands) {
-    assert.ok(existsSync(resolve(root, file)), file);
-    for (const flag of flagsOf(rest))
-      assert.ok(read(file).includes(`'${flag}'`), `${command} flag ${flag}`);
+  const accepted = acceptedFlags('codex:delegate', run[1]);
+  for (const flag of ['--criteria', '--lifecycle-draft']) {
+    assert.ok(accepted.includes(`'${flag}'`), `review-run accepts ${flag}`);
+    assert.ok(flat.includes(`\`${flag} `), `the skill names ${flag}`);
   }
-  // The CLI reads every argument after `--` as a path, so the override shows --criteria before it.
-  const selection = commands.filter(
-    ([, file]) => file === 'scripts/agents/common/review-criteria-selection.mjs',
-  );
-  for (const [command, , rest] of selection)
-    assert.ok(!/(^|\s)--[a-z]/u.test(rest.split(' -- ')[1] ?? ''), `${command}: flag after --`);
+  // The shared selection and context input modules do the work, as in the Claude entry.
+  const delegate = read('scripts/agents/codex/delegate-spec.mjs');
+  for (const module of ['review-criteria-selection.mjs', 'review-context-inputs.mjs'])
+    assert.ok(delegate.includes(`'../common/${module}'`), `review-run imports ${module}`);
   assert.ok(
-    selection.some(([, , rest]) => rest.split(' -- ')[0].includes('--criteria')),
-    'override command puts --criteria before --',
-  );
-  assert.ok(
-    /`registered\[\]`의 `spawnArguments`/u.test(flat),
-    'spawn arguments come from the register output',
+    flat.includes('`spawn-arguments.json`의 내용(`review-run.json`의 `spawnArguments`)을 그대로'),
+    'spawn arguments come from the review-run output',
   );
   for (const path of [
     'docs/development/agent-workflows/adapters/codex-native-registry.md',
@@ -156,10 +157,9 @@ test('knu-review is the code review entry with automatic criteria and advisory h
     assert.ok(read(path).includes('`review-child`'), `${path}: review-child`);
 });
 
-// F5: step 3 saves the shared context input CLI's record and its two extracts under the session directory, step 4 puts
-// every `inputs[].path` in the reviewer read scope, and each input kind the module emits is named by both host
-// documents (this skill's step 3 and the Claude same-host-review input paragraph).
-const CONTEXT_CLI = 'scripts/agents/common/review-context-inputs.mjs';
+// F5: review-run saves the context input record and its two extracts under the session directory (step 2 names them),
+// step 3 puts every `inputs[].path` in the reviewer read scope, and each input kind the module emits is named by both
+// host documents (this skill's step 2 and the Claude same-host-review input paragraph).
 const SESSION_DIR = '.artifacts/tools/codex-native/<sessionId>/';
 // What each host document names for an input kind; a kind the module adds without a row here fails the test.
 const KIND_TEXT = {
@@ -177,35 +177,22 @@ test('knu-review saves the context inputs and both extracts and reads every inpu
   );
   const steps = read(skillPath('knu-review')).split(/\n(?=\d+\. )/u);
   const flat = (step) => step.replace(/\s+/gu, ' ');
+  const step1 = flat(steps.find((step) => step.startsWith('1. ')) ?? '');
+  const step2 = flat(steps.find((step) => step.startsWith('2. ')) ?? '');
   const step3 = flat(steps.find((step) => step.startsWith('3. ')) ?? '');
-  const step4 = flat(steps.find((step) => step.startsWith('4. ')) ?? '');
-  const commands = [
-    ...step3.matchAll(
-      new RegExp(`\`node ${CONTEXT_CLI.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}([^\`]*)\``, 'gu'),
-    ),
-  ].map(([, rest]) => rest);
-  assert.ok(commands.length, 'step 3 runs review-context-inputs.mjs');
-  for (const rest of commands) {
-    const [before, after = ''] = rest.split(' -- ');
+  assert.ok(step1.includes('`--lifecycle-draft <경로>`'), 'step 1 gives the draft to review-run');
+  // review-run writes each record where the skill says: the suffixes are the delegate CLI's.
+  const delegate = read('scripts/agents/codex/delegate-spec.mjs');
+  for (const suffix of ['.criteria.json', '.context.json', '.binding.md', '.lifecycle.md']) {
+    assert.ok(delegate.includes(`record('${suffix}')`), `review-run writes <reviewId>${suffix}`);
     assert.ok(
-      before.includes(`--binding-out ${SESSION_DIR}<reviewId>.binding.md`),
-      `step 3: --binding-out before --: ${rest}`,
+      step2.includes(`${SESSION_DIR}<reviewId>${suffix}`),
+      `step 2 names <reviewId>${suffix}`,
     );
-    assert.deepEqual(flagsOf(after), [], `step 3: no flag after --: ${rest}`);
   }
   assert.ok(
-    commands.some((rest) =>
-      rest
-        .split(' -- ')[0]
-        .includes(`--lifecycle-draft <경로> --lifecycle-out ${SESSION_DIR}<reviewId>.lifecycle.md`),
-    ),
-    'step 3: the draft command gives --lifecycle-out before --',
-  );
-  for (const record of ['<reviewId>.context.json', '<reviewId>.binding.md'])
-    assert.ok(step3.includes(`${SESSION_DIR}${record}`), `step 3 names ${record}`);
-  assert.ok(
-    step4.includes('`inputs[].path`를 읽기 범위에 넣고'),
-    'step 4 puts every inputs[].path in the read scope',
+    step3.includes('`inputs[].path`를 읽기 범위에 넣고'),
+    'step 3 puts every inputs[].path in the read scope',
   );
   const sameHost = read('docs/development/agent-workflows/adapters/claude-same-host-review.md');
   const inputParagraph = flat(
@@ -213,7 +200,7 @@ test('knu-review saves the context inputs and both extracts and reads every inpu
   );
   for (const kind of REVIEW_CONTEXT_KINDS) {
     assert.ok(KIND_TEXT[kind], `no host document text for input kind ${kind}`);
-    assert.ok(step3.includes(KIND_TEXT[kind]), `Codex knu-review step 3 names ${kind}`);
+    assert.ok(step2.includes(KIND_TEXT[kind]), `Codex knu-review step 2 names ${kind}`);
     assert.ok(
       inputParagraph.includes(KIND_TEXT[kind]),
       `same-host-review input paragraph names ${kind}`,
@@ -221,9 +208,9 @@ test('knu-review saves the context inputs and both extracts and reads every inpu
   }
 });
 
-test('knu-review step 4 points the plan review grade and the second-round delta at their rule documents', () => {
+test('knu-review step 3 points the plan review grade and the second-round delta at their rule documents', () => {
   const steps = read(skillPath('knu-review')).split(/\n(?=\d+\. )/u);
-  const step4 = (steps.find((step) => step.startsWith('4. ')) ?? '').replace(/\s+/gu, ' ');
+  const step3 = (steps.find((step) => step.startsWith('3. ')) ?? '').replace(/\s+/gu, ' ');
   for (const phrase of [
     'session-continuity.md#계획-초안-staging과-promote',
     'qa.md#리뷰-회차',
@@ -231,7 +218,7 @@ test('knu-review step 4 points the plan review grade and the second-round delta 
     '2회차부터 delta',
     '전 범위',
   ])
-    assert.ok(step4.includes(phrase), `plan review grade: Codex step 4 ${phrase}`);
+    assert.ok(step3.includes(phrase), `plan review grade: Codex step 3 ${phrase}`);
 });
 
 test('skills link the single source documents, and every link resolves', () => {
