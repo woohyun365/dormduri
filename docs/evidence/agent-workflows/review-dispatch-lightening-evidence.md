@@ -35,10 +35,10 @@ module로 좁히고, runner 기록을 prompt 밖 파일로 옮긴 변경(작업 
 - Prompt 글자 수(기록 모의): 두 checkout에 남은 reviewer prompt와 그 packet의 runner 기록으로 새 형식 prompt를 다시 지어 길이를 비교했습니다.
   실제 등록이 아니라 계산이고 로컬 기록이 원천입니다. 도구 작업용 801개 가운데 packet을 읽을 수 없는 68개는 뺐습니다(733개).
 - Identity 범위: 변경 전 digest 대상 파일 수와, 변경 뒤 registry가 export하는 닫힘 목록을 셌습니다.
-- 양성 대조: 저장소 밖 독립 clone(`node_modules` 없음)에서 구현을 한 곳씩 되돌리거나 넓힌 변이 71개를 적용하고 그 동작을 고정한 test만
-  이름으로 골라 실행했습니다. 변이 전에는 같은 clone에서 여섯 test 파일 372개가 모두 통과했습니다.
+- 양성 대조: 저장소 밖 독립 clone(`node_modules` 없음)에서 구현을 한 곳씩 되돌리거나 넓힌 변이 74개를 적용하고 그 동작을 고정한 test만
+  이름으로 골라 실행했습니다. 변이 전에는 같은 clone에서 여섯 test 파일 376개가 모두 통과했습니다.
 - Live: 새 세션에서 `review-run`으로 보낸 이 변경의 리뷰에서 reviewer가 실행 중일 때 ignored 원본 입력과 닫힘 밖 script를 바꾸고 정산 결과를
-  봅니다. 보낸 뒤 5분에 reviewer의 호출 기록을 읽어 바꿀지 정했습니다(6절, 수집 상태 표시).
+  봅니다. 보낸 뒤 5분에 reviewer의 호출 기록을 읽어 바꿀지 정했습니다(6절).
 
 ```bash
 # identity 닫힘 목록(변경 뒤)과 변경 전 digest 대상 수
@@ -120,27 +120,27 @@ prompt를 다시 지은 것이라 새 형식에서 실제로 거부될 수를 �
 
 ### 입력 사본과 identity
 
-| 항목                                         | 전(`3a361b0e`)              | 후(`f20f1848`)                                                                          |
-| -------------------------------------------- | --------------------------- | --------------------------------------------------------------------------------------- |
-| 리뷰 중 ignored 원본 입력을 고침             | 정산 `review-input-changed` | 정산 유효, `reviewInputOriginalsChanged`에 경로 기록                                    |
-| Reviewer가 바뀐 원본을 path로 지목해 읽음    | —                           | `review-input-changed:<원본>` 거부                                                      |
-| Path 없는·저장소 root 검색 뒤 원본을 고침    | 정산 `review-input-changed` | 정산 유효, `reviewInputOriginalsChanged`에 경로 기록(`b9508006`. `f20f1848`에서는 거부) |
-| 사본을 고침                                  | —                           | `review-input-changed:<사본>` 거부                                                      |
-| 등록이 거부하는 이름(한글 등)의 ignored 입력 | read path로 줄 수 없음      | 사본 디렉터리로 읽음                                                                    |
-| Identity source digest 대상                  | 두 디렉터리의 `.mjs` 33개   | 정적 import 닫힘 25개(그 디렉터리 20, `scripts/artifacts` 2, `scripts/ci/lifecycle` 3)  |
-| 닫힘 밖 agent script 13개 가운데 하나를 고침 | 호출·정산 거부              | 호출·정산 유효, `identityOutsideChanges`에 경로 기록                                    |
-| 닫힘 안 module(디렉터리 밖 5개 포함)을 고침  | 디렉터리 밖 5개는 잡지 못함 | `adapter/role/settings drift`                                                           |
+| 항목                                         | 전(`3a361b0e`)              | 후(`f20f1848`)                                                                                                                                                                      |
+| -------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 리뷰 중 ignored 원본 입력을 고침             | 정산 `review-input-changed` | 정산 유효, `reviewInputOriginalsChanged`에 경로 기록                                                                                                                                |
+| Reviewer가 바뀐 원본을 path로 지목해 읽음    | —                           | `review-input-changed:<원본>` 거부                                                                                                                                                  |
+| Path 없는·저장소 root 검색 뒤 원본을 고침    | 정산 `review-input-changed` | 정산 유효, `reviewInputOriginalsChanged`에 경로 기록(`b9508006`. `f20f1848`에서는 거부)                                                                                             |
+| 사본을 고침                                  | —                           | `review-input-changed:<사본>` 거부                                                                                                                                                  |
+| 등록이 거부하는 이름(한글 등)의 ignored 입력 | read path로 줄 수 없음      | 사본 디렉터리로 읽음                                                                                                                                                                |
+| Identity source digest 대상                  | 두 디렉터리의 `.mjs` 33개   | 정적 import 닫힘 25개(그 디렉터리 20, `scripts/artifacts` 2, `scripts/ci/lifecycle` 3)                                                                                              |
+| 닫힘 밖 agent script 13개 가운데 하나를 고침 | 호출·정산 거부              | Identity 대조 통과, `identityOutsideChanges`에 경로 기록. 정산은 그 파일이 reviewer 의존 집합 밖이면 유효(안이거나 저장소 전체 판정이면 의존 판정이 `unattributable-change`로 거부) |
+| 닫힘 안 module(디렉터리 밖 5개 포함)을 고침  | 디렉터리 밖 5개는 잡지 못함 | `adapter/role/settings drift`                                                                                                                                                       |
 
 ### 회귀 보호
 
-| 항목                     | 전(`3a361b0e`) | 후(`b9508006`)                                                                                              |
-| ------------------------ | -------------- | ----------------------------------------------------------------------------------------------------------- |
-| 여섯 test 파일의 test 수 | 325            | 372(helper 139, registry 184, runner-log-check 7, Codex delegate 12, skill 문장 21·9)                       |
-| 양성 대조 변이           | —              | 71개 모두 해당 test 실패(첫 실행 43/45, test 둘을 고친 뒤 45/45, 1회차 독립 리뷰 수정 뒤 26개를 더해 71/71) |
+| 항목                     | 전(`3a361b0e`) | 후(`e66c6bdb`)                                                                                                            |
+| ------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 여섯 test 파일의 test 수 | 325            | 376(helper 139, registry 187, runner-log-check 7, Codex delegate 12, skill 문장 22·9)                                     |
+| 양성 대조 변이           | —              | 74개 모두 해당 test 실패(첫 실행 43/45, test 둘을 고친 뒤 45/45, 1회차 독립 리뷰 수정 뒤 26개, 3회차 뒤 3개를 더해 74/74) |
 
-변이 71개는 입력 사본과 바뀐 원본의 처분 7, identity 3, runner 파일과 prompt 줄 4, 완전성 경고와 Verification 추출 6, runner 기록 검사 3,
+변이 74개는 입력 사본과 바뀐 원본의 처분 7, identity 3, 닫힘 밖 변경의 의존 판정 1, runner 파일과 prompt 줄 4, 완전성 경고와 Verification 추출 6, runner 기록 검사 3,
 경로 거부 2, `review-run`의 검사 판정·거부와 오류 기록·역할 선택 10, 계획 view 결속 7, `--out` 위치 3, 2회차 범위 19, Codex `review-run` 4,
-skill·문서 문장 3입니다. 첫 실행에서 살아남은 둘은 registry의 runner 파일 digest 대조를 빼도 prompt 기록 결속이 같은 사유를 내던 것과, delta
+skill·문서 문장 5입니다. 첫 실행에서 살아남은 둘은 registry의 runner 파일 digest 대조를 빼도 prompt 기록 결속이 같은 사유를 내던 것과, delta
 test의 low finding이 fixture에 없는 파일을 가리켜 severity 조건이 빠져도 통과하던 것입니다. 둘 다 test가 약했고 구현은 고치지 않았습니다.
 
 ### 독립 리뷰가 찾은 결함
@@ -155,28 +155,34 @@ test의 low finding이 fixture에 없는 파일을 가리켜 severity 조건이 
 | 계획 view·기준의 결속                 | 대조 없음. 옛 view로도 참조 검사 통과                                                    | `plan-view-binding` 검사(다섯 조건)                                                  |
 | 바뀐 원본의 처분을 적은 문서          | 세 가지로 다르게 서술                                                                    | 다섯 문서가 같은 조건, 문장 test로 고정                                              |
 
+2회차(단일 reviewer)는 finding 없이 PASS였습니다. Live 관측 결과를 이 문서에 적은 뒤의 3회차는 문서 결함 하나를 더 찾았습니다. Review
+adapter 문서가 "같은 checkout의 다른 세션이 리뷰 중 닫힘 밖 도구를 고쳐도 reviewer 결과는 유효"라고 조건 없이 적었는데, code는 identity
+대조만 통과시키고 정산은 의존 판정이 따로 정합니다. 문서 둘에 그 조건을 적었고(`e66c6bdb`), registry script가 리뷰 대상 tree 안에 있는
+fixture test 셋(의존 집합 밖은 유효, 검색한 디렉터리 아래와 저장소 전체 판정은 거부)과 문장 test로 고정했습니다.
+
 ### Live 관측
 
-새 세션에서 `review-run`으로 보낸 이 변경의 리뷰 세 건(1회차 reviewer 2명 `500b73b1`, 2회차 1명 `77258ba3`)에서 봤습니다. 수집 상태: 원본 입력
-표본 1/1, 닫힘 밖 script 표본 0/1.
+새 세션에서 `review-run`으로 보낸 이 변경의 리뷰 네 건(1회차 reviewer 2명 `500b73b1`, 2회차 1명 `77258ba3`, 3회차 1명 `f8f97a52`)에서
+봤습니다. 수집 상태: 원본 입력 표본 2, 닫힘 밖 script 표본 1(목표는 각 1).
 
-| 리뷰 중 바꾼 것                | 표본     | 관측                                                                                            |
-| ------------------------------ | -------- | ----------------------------------------------------------------------------------------------- |
-| Ignored 원본 입력에 한 줄 추가 | 1(2회차) | 정산 유효, `reviewInputOriginalsChanged`에 그 경로. Reviewer가 저장소 root 검색을 두 번 한 리뷰 |
-| 닫힘 밖 agent script 추가      | 0        | 적용하지 않음                                                                                   |
+| 리뷰 중 바꾼 것                              | 표본       | 관측                                                                                                              |
+| -------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------- |
+| Ignored 원본 입력에 한 줄 추가               | 2(2·3회차) | 두 정산 모두 유효, `reviewInputOriginalsChanged`에 그 경로. 2회차는 reviewer가 저장소 root 검색을 두 번 한 리뷰   |
+| 닫힘 밖 agent script 추가(untracked 새 파일) | 1(3회차)   | 정산 유효, `identityOutsideChanges`와 `dependencyJudgment.outside`에 그 경로. 의존 판정이 저장소 전체가 아닌 리뷰 |
 
-- 원본 입력: reviewer는 사본을 읽었고 원본이나 그 상위 디렉터리를 지목한 호출이 없었습니다. 의존 판정은 저장소 전체였습니다. 1회차 리뷰의
-  code(`500b73b1`)는 같은 상황을 `review-input-changed`로 거부합니다("독립 리뷰가 찾은 결함" 표의 첫 행).
-- 닫힘 밖 script: reviewer 세 명 모두 path 없는 검색이나 저장소 root 검색을 해서 적용하지 않았습니다. 그런 리뷰에서 추적·untracked 파일이
-  바뀌면 identity가 아니라 의존 판정이 `unattributable-change`로 정산을 거부합니다(이 변경이 바꾸지 않은 동작). 그래서 "입력 사본과 identity"
-  표의 닫힘 밖 script 행은 fixture test와 양성 대조의 관측입니다.
+- 원본 입력: 두 reviewer 모두 사본을 읽었고 원본이나 그 상위 디렉터리를 지목한 호출이 없었습니다. 2회차의 의존 판정은 저장소 전체였습니다.
+  1회차 리뷰의 code(`500b73b1`)는 같은 상황을 `review-input-changed`로 거부합니다("독립 리뷰가 찾은 결함" 표의 첫 행).
+- 닫힘 밖 script: 1·2회차 reviewer 세 명은 path 없는 검색이나 저장소 root 검색을 해서 적용하지 않았습니다. 그런 리뷰에서 추적·untracked
+  파일이 바뀌면 identity가 아니라 의존 판정이 `unattributable-change`로 정산을 거부합니다(이 변경이 바꾸지 않은 동작). 3회차 reviewer는
+  그런 검색이 없어 보낸 뒤 5분에 적용했고, 끝까지 그 파일이나 상위 디렉터리를 지목하지 않았습니다.
 
 ## 7. 한계와 재측정 조건
 
 - Prompt 글자 수의 기록 모의는 계산이고 원천이 로컬 registry 기록이라 공개 재현이 되지 않습니다. 다시 볼 수 있는 값은 fixture test입니다.
 - 한도 거부 수와 finding 없이 버려진 회차 수의 "후" 값은 아직 없습니다. 변경이 merge된 뒤 기간의 registry 기록으로 다시 셉니다.
-- 리뷰 중 닫힘 밖 script를 바꾼 live 표본은 없습니다(6절). 이 변경의 reviewer가 모두 저장소 전체 검색을 했기 때문이고, merge 뒤 기간의 재측정에서
-  정산 출력의 `identityOutsideChanges` 기록 수를 함께 셉니다.
+- 닫힘 밖 script의 live 표본은 하나이고 untracked 새 파일입니다(6절). 이 변경의 리뷰 네 건 가운데 세 건은 의존 판정이 저장소 전체라서,
+  그 리뷰 중 닫힘 밖 script를 고쳤다면 identity가 아니라 의존 판정이 거부했습니다. Identity를 좁힌 효과가 실제 리뷰에서 얼마나 되는지는
+  merge 뒤 기간의 재측정에서 정산 출력의 `identityOutsideChanges` 기록 수와 의존 판정 근거의 분포로 다시 봅니다.
 - Identity drift 거부는 변경 전에도 0건이었습니다. 줄어드는 것은 운영 규칙의 대기인데 변경 전 대기 시간을 재지 않아 전후 비교가 없습니다.
 - 버려진 회차 3건은 한 checkout의 한 달 기록이고, 정산 출력이 남지 않은 task 78개와 다른 checkout 기록은 세지 않았습니다.
 - 닫힘은 정적 import만 따라갑니다. 닫힘 module이 다른 script를 child process로 실행하거나 동적 import로 싣게 되면 그 script의 변경은
@@ -199,5 +205,5 @@ test의 low finding이 fixture에 없는 파일을 가리켜 severity 조건이 
   7절(정적 import 한계).
 - "prompt 한도는 어떻게 풀었나?" → 5절 대안(한도 상향 기각), 6절 fixture 17,039자 → 6,364자와 기록 모의, 길어지는 경우의 정직한 수치.
 - "한 명령으로 묶으면 무엇이 달라지나?" → 6절 첫 표: 검사 실패·거부 때 등록 0건, 2회차 범위와 이유가 기록에 남음.
-- "검증은 어떻게 했나?" → test 먼저, 독립 clone 양성 대조 71개(살아남은 둘로 test를 고침), 독립 리뷰가 찾은 결함 넷(6절),
-  live 관측(원본 입력 1/1, 닫힘 밖 script 0/1).
+- "검증은 어떻게 했나?" → test 먼저, 독립 clone 양성 대조 74개(살아남은 둘로 test를 고침), 독립 리뷰가 찾은 결함 다섯(6절),
+  live 관측(원본 입력 2, 닫힘 밖 script 1).
