@@ -4564,6 +4564,74 @@ test('a later round of a Parent subject gets its scope from review-run (RL-P2 RE
   }
 });
 
+test('a later round compares commits, staged plans and a missing scope record with the previous round', (t) => {
+  // A fix committed between the rounds is still the delta: the comparison spans the two HEADs.
+  const committed = roundTwo(t, (r) => {
+    writeFileSync(join(r.root, 'sample.txt'), 'fixed');
+    execFileSync('git', ['add', 'sample.txt'], { cwd: r.root });
+    execFileSync(
+      'git',
+      ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'fix'],
+      { cwd: r.root },
+    );
+  });
+  assert.equal(committed.second.result.status, 0, committed.second.result.stdout);
+  assert.deepEqual(committed.second.record.deltaScope, {
+    mode: 'delta',
+    reason: 'changed-within-previous-paths',
+    paths: ['sample.txt'],
+  });
+  // A committed file outside the previous subject paths reads the full scope again.
+  const outside = roundTwo(t, (r) => {
+    writeFileSync(join(r.root, 'other.txt'), 'changed outside');
+    execFileSync('git', ['add', 'other.txt'], { cwd: r.root });
+    execFileSync(
+      'git',
+      ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'outside'],
+      { cwd: r.root },
+    );
+  });
+  assert.equal(outside.second.record.deltaScope.reason, 'outside-previous-paths: other.txt');
+  // The previous round left no scope record (built before records were kept): the full scope, with the reason.
+  const missing = roundTwo(t, (r) => {
+    for (const file of readdirSync(join(r.root, PACKET_DIR)))
+      if (file.endsWith('.scope.json')) unlinkSync(join(r.root, PACKET_DIR, file));
+  });
+  assert.equal(missing.second.result.status, 0, missing.second.result.stdout);
+  assert.deepEqual(missing.second.record.deltaScope, {
+    mode: 'full',
+    reason: 'previous-scope-record-missing',
+  });
+  // A staged plan is ignored, so the tree never shows it: its revision between the rounds is the delta.
+  const plan = planFixture(t, 'A sentence added to the scope.');
+  const first = plan.run(1, PLAN_ARGS);
+  assert.equal(first.result.status, 0, first.result.stdout);
+  const reviewId = /([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(
+    first.record.reviewers[0].packetFile.path,
+  )[1];
+  const previous = plan.write('r1-result.json', {
+    packetId: `review-${reviewId}`,
+    verdict: 'FAIL',
+    findings: [],
+  });
+  const stagedPath = `${PLAN_STAGE}/plan-drafts/.plans/a.md`;
+  for (const path of [stagedPath, `${PLAN_STAGE}/review/promote-view/.plans/a.md`])
+    writeFileSync(
+      join(plan.r.root, path),
+      readFileSync(join(plan.r.root, path), 'utf8').replace(
+        'A sentence added to the scope.',
+        'A sentence revised after round one.',
+      ),
+    );
+  const second = plan.run(2, [...PLAN_ARGS, '--previous-result', previous]);
+  assert.equal(second.result.status, 0, second.result.stdout);
+  assert.deepEqual(second.record.deltaScope, {
+    mode: 'delta',
+    reason: 'changed-within-previous-paths',
+    paths: [stagedPath],
+  });
+});
+
 test('a delta round with more paths than its prompt line holds reads a bound scope record', (t) => {
   const r = repo(t);
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
