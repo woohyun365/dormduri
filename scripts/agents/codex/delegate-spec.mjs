@@ -4,11 +4,20 @@
 // `prepareCodexWorkflow()`. The output file is what `codex:register` reads; the computed values are advice the Parent
 // still checks against the source, not a permission grant.
 import { createHash } from 'node:crypto';
-import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildTaskEnvelope } from '../common/intake-policy.mjs';
 import { discoverContextPack } from '../common/domain-guide-registry.mjs';
+import {
+  collectReviewContext,
+  placeReviewContext,
+  writeReviewContextExtract,
+} from '../common/review-context-inputs.mjs';
+import {
+  loadReviewCriteriaCatalog,
+  selectReviewCriteria,
+} from '../common/review-criteria-selection.mjs';
 import { MODEL_PROFILE_IDS, getModelProfile } from './model-profiles.mjs';
 import {
   createSemanticEvidenceId,
@@ -17,7 +26,12 @@ import {
   defaultModelRequest,
 } from './routing-policy.mjs';
 import { isDispatchToken } from './subagent-hook-records.mjs';
-import { createReviewDispatch } from './task-registry.mjs';
+import {
+  createReviewDispatch,
+  readRegistration,
+  registerDispatch,
+  registryDirectory,
+} from './task-registry.mjs';
 import { prepareCodexWorkflow } from './workflow-entry.mjs';
 
 export const DELEGATION_SCHEMA = 'knu-codex-delegation/v1';
@@ -216,11 +230,95 @@ function pass2From(evidence, { root, contextPack }) {
 const COMMAND_OPTIONS = {
   lanes: { required: ['--spec', '--out'], optional: [] },
   review: { required: ['--lanes', '--token', '--out'], optional: ['--round'] },
+  'review-run': {
+    required: ['--lanes', '--token', '--out', '--paths'],
+    optional: ['--round', '--session', '--criteria', '--lifecycle-draft'],
+  },
 };
+export const REVIEW_RUN_SCHEMA = 'knu-codex-review-run/v1';
 
-export function runDelegateCommand(argv, { root }) {
+// review-run: one command for a review round. It chooses the criteria documents and collects the context inputs for
+// the review target paths, registers the reviewer dispatch and writes the criteria and context records beside the
+// registration. A failed choice registers nothing. The spawn arguments go to a file under --out and stdout is one
+// summary line. The Parent still spawns the reviewer; review and codex:register alone work as before.
+function runReview(options, round, { root, registryRoot, env }) {
+  const sessionId = options.session ?? env.CODEX_THREAD_ID;
+  const paths = options.paths.split(',').filter(Boolean);
+  const review = createReviewDispatch({
+    laneIds: options.lanes.split(','),
+    dispatchToken: options.token,
+    round,
+  });
+  // Where the registry keeps this session's records; the extracts are named by repository-relative paths.
+  const directory = registryDirectory(registryRoot, sessionId);
+  const record = (suffix) => `${relative(registryRoot, directory)}/${review.reviewId}${suffix}`;
+  mkdirSync(options.out, { recursive: true });
+  const outFile = join(options.out, 'review-run.json');
+  let criteria;
+  let collected;
+  let context;
+  try {
+    criteria = selectReviewCriteria({
+      paths,
+      catalog: loadReviewCriteriaCatalog(root),
+      ...(options.criteria === undefined ? {} : { criteria: options.criteria.split(',') }),
+    });
+    collected = collectReviewContext({ root, paths, lifecycleDraft: options['lifecycle-draft'] });
+    context = placeReviewContext(collected, {
+      'binding-values': record('.binding.md'),
+      'lifecycle-draft': record('.lifecycle.md'),
+    });
+  } catch (error) {
+    writeJson(outFile, { schema: REVIEW_RUN_SCHEMA, ok: false, error: error.message });
+    return {
+      exitCode: 1,
+      stdout: `review-run failed ${error.message.split('\n')[0]} registered=0 out=${outFile}\n`,
+    };
+  }
+  const { taskName, spawnArguments } = registerDispatch({
+    root: registryRoot,
+    sessionId,
+    dispatch: review,
+  });
+  const { digest } = readRegistration({ root: registryRoot, sessionId, taskName });
+  writeJson(join(registryRoot, record('.criteria.json')), criteria);
+  writeJson(join(registryRoot, record('.context.json')), context);
+  for (const input of context.inputs)
+    if (Object.hasOwn(collected.extracts, input.kind))
+      writeReviewContextExtract(registryRoot, input.path, collected.extracts[input.kind]);
+  writeJson(join(options.out, 'review.json'), review);
+  writeJson(join(options.out, 'spawn-arguments.json'), spawnArguments);
+  writeJson(outFile, {
+    schema: REVIEW_RUN_SCHEMA,
+    ok: true,
+    sessionId,
+    taskName,
+    reviewId: review.reviewId,
+    digest,
+    round,
+    reviewOf: review.reviewOf,
+    spawnArguments,
+    criteria: {
+      override: criteria.override,
+      documents: criteria.documents.map((document) => document.id),
+      documentCount: criteria.documentCount,
+      itemCount: criteria.itemCount,
+      unmatchedPaths: criteria.unmatchedPaths,
+    },
+    criteriaFile: record('.criteria.json'),
+    contextInputs: context.inputs.map((input) => input.path),
+    contextFile: record('.context.json'),
+  });
+  return {
+    exitCode: 0,
+    stdout: `review-run ok task=${taskName} review=${review.reviewId} criteria=${criteria.documentCount} out=${outFile}\n`,
+  };
+}
+
+export function runDelegateCommand(argv, { root, registryRoot = root, env = process.env }) {
   const [command, ...rest] = argv.filter((arg, index) => !(arg === '--' && index <= 1));
-  if (!Object.hasOwn(COMMAND_OPTIONS, command)) throw new TypeError('expected lanes or review');
+  if (!Object.hasOwn(COMMAND_OPTIONS, command))
+    throw new TypeError('expected lanes, review or review-run');
   const keys = COMMAND_OPTIONS[command];
   const options = {};
   for (let index = 0; index < rest.length; index += 1) {
@@ -241,6 +339,7 @@ export function runDelegateCommand(argv, { root }) {
   }
   const round = options.round === undefined ? 1 : Number(options.round);
   if (!Number.isInteger(round) || round < 1) throw new TypeError('--round is a positive integer');
+  if (command === 'review-run') return runReview(options, round, { root, registryRoot, env });
   const review = createReviewDispatch({
     laneIds: options.lanes.split(','),
     dispatchToken: options.token,
