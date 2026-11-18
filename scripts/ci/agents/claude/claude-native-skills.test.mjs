@@ -684,3 +684,40 @@ test('knu-review tells how to write exit lines and to install after a lockfile c
     'runner log friction: install after a lockfile change',
   );
 });
+
+test('review documents state one rule for a changed input original and for ignored subject files', () => {
+  const flat = (path) => read(path).replace(/\s+/gu, ' ');
+  // The skills, the registry, the review adapter and the rejection guide give the same conditions.
+  for (const path of [
+    '.claude/skills/knu-review/SKILL.md',
+    '.claude/skills/knu-settle/SKILL.md',
+    'docs/development/agent-workflows/adapters/claude-native-registry.md',
+    'docs/development/agent-workflows/adapters/claude-same-host-review.md',
+    REJECTIONS,
+  ]) {
+    const text = flat(path);
+    assert.ok(text.includes('path로 지목'), `${path}: refused when a call names the original`);
+    assert.match(
+      text,
+      /[Pp]ath 없는 검색과 저장소 root 검색/u,
+      `${path}: a wide search names none`,
+    );
+    for (const older of ['원본을 읽은 것이 관측되면', '고쳐도 거부되지 않습니다(기록만)'])
+      assert.ok(!text.includes(older), `${path}: older wording "${older}"`);
+  }
+  // A later round treats an ignored subject file like a tracked one.
+  for (const path of [
+    '.claude/skills/knu-review/SKILL.md',
+    'docs/development/agent-workflows/adapters/claude-same-host-review.md',
+  ]) {
+    const text = flat(path);
+    assert.ok(
+      text.includes('직전 회차 입력 manifest'),
+      `${path}: ignored subject files in a delta`,
+    );
+    assert.ok(
+      !text.includes('Ignored 증거의 변경은 범위를 넓히지 않고'),
+      `${path}: older delta rule`,
+    );
+  }
+});

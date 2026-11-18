@@ -31,10 +31,12 @@ review 필수 facts를 `--basis` 출처로 채운 초안이며, Lead가 확인�
 알 수 없으므로 `--session`이 필요합니다. Helper는 complete를 호출하지 않으며 정산은 아래 규칙을 따릅니다.
 
 `pnpm claude:native review-run`은 한 회차의 dispatch를 한 명령으로 묶습니다. `review`의 인자와 `--out <dir>`(저장소 안 ignored
-디렉터리)을 받아 결정적 검사, `review`, 역할 선택, 구성원마다 `prepare`를 이어 실행합니다. 검사는 runner evidence의
+디렉터리. Packet 디렉터리·native task 기록·subject `paths` 안이면 `out-directory-required`로 거부)을 받아 결정적 검사, `review`, 역할 선택, 구성원마다 `prepare`를 이어 실행합니다. 검사는 runner evidence의
 `runner-log-check.mjs`이고, 계획 subject(`--plan-grade <P2|P3> --plan-drafts <dir> --plan-view <dir> --plan-baseline <dir>`를 함께 줌)면
-SOURCE-MANIFEST 원본의 sha256 대조, `plan-shape-check.mjs --revision`, `plan-reference-check.mjs`, staged 계획의 `citation-check.mjs`를
-더합니다. 참조 검사는 [promote view와 그 view를 만든 `.plans` 사본](../session-continuity.md#계획-초안-staging과-promote)에 함께 돌려,
+SOURCE-MANIFEST 원본의 sha256 대조, view·기준 결속 대조(`plan-view-binding`), `plan-shape-check.mjs --revision`,
+`plan-reference-check.mjs`, staged 계획의 `citation-check.mjs`를 더합니다. 결속 대조는 view가 staged 파일을 그대로 담고 나머지 계획
+파일은 기준과 같으며(옮기는 문서의 원본은 view에 없음) 기준의 manifest 원본이 그 sha256인지 봅니다. 아니면 참조 검사가 staged
+계획이 아닌 것을 판정하므로 실패입니다. 참조 검사는 [promote view와 그 view를 만든 `.plans` 사본](../session-continuity.md#계획-초안-staging과-promote)에 함께 돌려,
 옮긴 계획의 위반을 목적지 경로로 맞춘 뒤 기준에 없던 위반이 0이고 새 unavailable 대상이 checkout에 있으면 통과입니다. 기존 위반 때문에
 둘 다 exit 1인 것은 실패가 아니고, 새 unavailable 목록은 `checks/plan-reference-check.json`에 남아 Parent가 항목마다 확인합니다.
 검사가 하나라도 실패하면 등록하지 않고 exit 1입니다. 결과는 `--out`에 씁니다. `review-run.json`은 `checks[]`(이름·exit·출력 경로),
@@ -43,7 +45,8 @@ SOURCE-MANIFEST 원본의 sha256 대조, `plan-shape-check.mjs --revision`, `pla
 `inputsFile`)를 담고, 검사 출력은 `checks/`에, P2 계획의 바뀐 절 입력은 `<plan>.scope.diff`(SOURCE-MANIFEST 원본과 staged 파일의
 diff, subject `paths`에 더함)에 둡니다. Stdout은 `review-run ok …` 또는 `review-run failed …` 한 줄이라 다른 출력이 섞여도 결과를
 파일로 읽습니다. `review`나 `prepare`가 거부한 요청도 exit 1이고 `review-run.json`의 `error`에 사유가, 먼저 등록된 구성원이 있으면
-`registered`에 그 task id가 남습니다. Agent 호출과 조율 기록 쓰기는 Parent가 하고, Agent는 `invocationFile`의 invocation 전체로
+`registered`에 그 task id가 남습니다. 예상하지 못한 오류(Git·파일 쓰기 실패)도 같은 기록에 `unexpected: true`로 남고 stdout은
+`review-run failed error=…`입니다. Agent 호출과 조율 기록 쓰기는 Parent가 하고, Agent는 `invocationFile`의 invocation 전체로
 호출합니다. 검사 도구는 child process로 실행하므로 아래 adapter identity 닫힘에 들지 않습니다. `review`와 `prepare`를 따로 실행하는
 경로는 그대로이고, Parent subject의 2회차 이상만 `review-run`이 필요합니다.
 
@@ -104,8 +107,9 @@ digest)을 남기고, 다음 회차의 `review-run`이 직전 result의 `packetI
 subject `paths` 안이면 `deltaScope`는 `{mode: "delta", reason: "changed-within-previous-paths", paths}`이고 `paths`는 바뀐 파일과 직전
 result의 blocking finding 위치 파일입니다. `--risk-trigger <qa.md trigger 항목>`을 선언했거나(`risk-trigger: <항목>`), 직전 범위 기록이
 없거나(`previous-scope-record-missing`), 새 파일이 있거나(`new-file: <path>`), 직전 `paths` 밖 파일이 바뀌었으면
-(`outside-previous-paths: <path>`) `{mode: "full", reason}`입니다(이 순서로 판정). Ignored 증거의 변경은 범위를 넓히지 않고,
-`--plan-drafts`의 staged 계획 파일은 subject 파일로 봅니다. Read path와 기준 선택 경로는 줄이지 않고 prompt의 회차 줄이 범위를
+(`outside-previous-paths: <path>`) `{mode: "full", reason}`입니다(이 순서로 판정). Subject `paths` 안 ignored 파일은 tree 비교에
+보이지 않으므로 직전 회차 입력 manifest(`<reviewId>.inputs.json`)의 원본 digest와 지금 원본을 비교해 같은 규칙으로 판정합니다(바뀌거나
+사라지면 `delta`의 경로, 새로 생기면 `new-file`). `--plan-drafts`의 staged 계획 파일도 subject 파일로 봅니다. Read path와 기준 선택 경로는 줄이지 않고 prompt의 회차 줄이 범위를
 지시합니다. `delta`는 직전 result와 바뀐 경로를 읽고 다른 경로는 그 판정에 필요한 만큼만 읽게 하며(경로가 12개를 넘으면 나머지는
 read path에 넣은 범위 기록을 가리킴), `full`은 이유와 함께 전 범위를 다시 읽게 합니다. `deltaScope`는 출력과 prompt 기록, 범위
 기록에 남습니다. `review`를 직접 부른 Parent subject의 2회차 이상은 `delta-scope-required`로 packet 파일을 쓰기 전에 거부합니다.
@@ -251,8 +255,11 @@ review를 만들지 않습니다. 1회차 그룹은 구성원마다 자기 manif
 줄이 없으면 `review-input-manifest-missing`, 줄·경로·파일이 틀리면 `review-input-manifest-invalid`, manifest 파일이 바뀌면
 `review-input-manifest-changed`, 사본이나 원본으로 결속한 파일이 생기거나 사라지거나 바뀌면 등록은 `review-input-stale: <path>`, 정산은
 `review-input-changed:<path>`입니다. 사본을 만든 뒤 원본이 바뀐 것은 거부하지 않고 `settle`·`complete` 출력의
-`reviewInputOriginalsChanged`에 원본 경로를 기록합니다. 다만 reviewer가 사본 대신 그 원본을 읽은 것이 transcript에 보이거나 읽은
-범위를 판정할 수 없어 저장소 전체로 판정하면 `review-input-changed:<원본 경로>`로 거부합니다. Read path가 저장된 이름과 대소문자만
+`reviewInputOriginalsChanged`에 원본 경로를 기록합니다. 다만 reviewer의 Read·Grep·Glob이 그 원본이나 그 상위 디렉터리를 path로
+지목한 것이 transcript에 보이면 `review-input-changed:<원본 경로>`로 거부합니다. Path 없는 검색과 저장소 root 검색은 원본을 지목한
+것으로 보지 않습니다. 그런 검색 때문에 저장소 전체로 판정한 정산도 나머지 호출의 경로로 원본을 판정합니다. Transcript를 읽을 수
+없거나 Read·Grep·Glob 밖 도구가 보이거나 대상 이름이 저장된 이름과 대소문자만 달라 reviewer의 읽기를 가릴 수 없으면 바뀐 원본을 모두
+거부합니다. Read path가 저장된 이름과 대소문자만
 다르면 Git이 아무 파일도 내지 않으므로 `review-input-path-case`로 거부합니다. Builder 완료는 연결 reviewer를 대조하고, 1회차 그룹의
 non-PASS 구성원을 처분 기록으로 마감할 때는 결과를 전달한 구성원마다 이 대조를 해 구성원 task id를 괄호로 붙입니다. 그래서 `review`
 생성부터 그 reviewer 정산·연결 builder 완료까지 사본 디렉터리와 원본으로 결속한 ignored 경로를 바꾸지 않고, 정산 뒤 쓰는 result·처분

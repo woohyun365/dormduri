@@ -78,7 +78,7 @@
   ```
 
 - `review-run`이 exit 1이고 stdout 한 줄이 `review-run failed`로 시작합니다. `checks=` 뒤는 실패한 결정적 검사, `refused=` 뒤는
-  `review`·`prepare`가 거부한 사유입니다.
+  `review`·`prepare`가 거부한 사유, `error=` 뒤는 예상하지 못한 오류(Git·파일 쓰기 실패)입니다.
 
   ```text
   review-run failed checks=runner-log-check registered=0 out=<out-dir>/review-run.json
@@ -113,7 +113,8 @@
 - Reviewer의 `settle --task` `observationErrors`나 그 reviewer를 연결한 builder 완료에 `review-input-changed:<path>`,
   `review-input-manifest-changed`, `review-input-manifest-missing`, `review-input-manifest-invalid` 중 하나가 있습니다. 그룹
   구성원이면 사유 뒤에 구성원 task id가 괄호로 붙습니다. `<path>`는 사본 경로
-  (`.artifacts/tools/claude-review-packets/<reviewId>.inputs/…`)이거나, reviewer가 읽은 것으로 관측된 바뀐 원본 경로입니다.
+  (`.artifacts/tools/claude-review-packets/<reviewId>.inputs/…`)이거나, reviewer가 path로 지목해 읽은 것으로 관측됐거나 읽기를 가릴
+  수 없는 정산의 바뀐 원본 경로입니다.
 - Parent reviewer의 `settle --task` `observationErrors`에 `review-requirements-changed`·`review-binding-changed`·
   `review-lifecycle-changed`·`review-verification-changed`·`review-scope-changed`·`review-runner-file-changed` 중 하나가 있습니다.
   Native subject reviewer는 `observationErrors`에 `review-binding-changed`나 `review-runner-file-changed`가 있고
@@ -210,8 +211,9 @@
   결속합니다. `prepare`·`settle`·builder 완료가 reviewer의 read 범위에서 대상을 다시 계산해 대조합니다.
   - `review-input-stale: <path>`(등록)·`review-input-changed:<path>`(정산): 사본이나 원본으로 결속한 파일이 생기거나 사라지거나
     바뀌었습니다. 사본을 만든 뒤 원본만 바뀐 것은 거부가 아니라 settle 결과 `reviewInputOriginalsChanged`의 기록입니다. 다만
-    reviewer가 사본 대신 그 원본을 읽은 것이 transcript에 보이거나, 읽은 범위를 판정할 수 없어 저장소 전체로 판정한 정산이면
-    `review-input-changed:<원본 경로>`입니다.
+    reviewer의 Read·Grep·Glob이 그 원본이나 상위 디렉터리를 path로 지목한 것이 transcript에 보이거나, reviewer의 읽기를 가릴 수
+    없는 정산(transcript를 읽을 수 없음, 그 밖 도구, 대소문자만 다른 대상)이면 `review-input-changed:<원본 경로>`입니다. Path 없는
+    검색과 저장소 root 검색은 원본을 지목한 것이 아니어서, 그런 검색만으로 저장소 전체 판정이 된 정산은 기록만 남깁니다.
   - `review-input-manifest-changed`: manifest 파일이 prompt의 digest와 다릅니다.
   - `review-input-manifest-missing`: 대상 ignored 입력이 있는데 prompt에 줄이 없습니다. Lead가 줄을 지운 spec, 줄을 쓰기 전 helper로
     만든 reviewer, `register --input` 직접 등록이 해당합니다. Native subject review는 runner 출력이 늘 대상이라 이전 helper로 만든
@@ -321,7 +323,7 @@
 - Parent review의 settle `observationErrors`에 `review-packet-unread`가 있으면 reviewer가 prompt의 packet 파일을 성공적으로
   읽지 않은 것입니다. `review-packet-changed`는 packet 파일이 prompt의 digest와 다른 것입니다. `review-packet-missing`은 Parent reviewer spec의
   prompt에서 packet 파일 줄이 빠진 것입니다. 그런 prompt는 지금 등록부터 `review-prompt-unbound`로 거부되므로, Helper가 packet 파일 줄을 쓰기 전 버전으로 등록한 Parent reviewer를 지금 정산할 때 나옵니다. 세 사유 모두 결과를 쓰지 말고 파일을
-  고치지 않은 채 `review`를 다시 실행해 새 reviewer로 재리뷰합니다. `review-requirements-changed`(requirement 추출이나 그 prompt 기록이
+  고치지 않은 채 `review-run`을 다시 실행해 새 reviewer로 재리뷰합니다(Parent subject의 2회차 이상은 `review` 단독을 받지 않음). `review-requirements-changed`(requirement 추출이나 그 prompt 기록이
   바뀌거나 사라짐)와 `review-binding-changed`·`review-lifecycle-changed`(binding 행 추출·초안 절 추출이나 그 prompt 기록이 바뀌거나
   사라짐, native subject reviewer 포함)도 같습니다.
 - `review-prompt-changed`·`review-prompt-unbound`는 prompt나 기록을 고쳐 맞추지 않습니다. `review` 출력의 `reviewerSpec`(그룹이면
@@ -341,7 +343,9 @@
   다시 실행해 재리뷰합니다. 같은 `command` 기록의 거부는 기록마다 `label`(두 실행의 차이)을 더합니다.
 - `review-run failed checks=…`는 `review-run.json`의 `checks[].outputPath` 출력을 읽고 원인을 고친 뒤 runner부터 다시 실행합니다.
   등록된 task가 없으므로 release할 것이 없습니다. `refused=…`는 `error`의 사유를 이 문서에서 찾아 해소하고, `registered`에 task id가
-  있으면 `release --task <taskId> --not-dispatched`로 닫은 뒤 다시 실행합니다.
+  있으면 `release --task <taskId> --not-dispatched`로 닫은 뒤 다시 실행합니다. `error=…`(`unexpected: true`)는 `error`의 Git·파일
+  오류를 해소하고 같은 방법으로 `registered`를 닫습니다. `checks=plan-view-binding`은 promote view를 지금 staged 파일로 다시 만들고
+  기준이 view를 만든 `.plans` 사본인지 확인합니다.
 - `exit-mismatch`는 record `exit`를 log의 끝 exit 줄과 맞추거나 log에 끝 exit 줄을 남깁니다. `repeated-step-exit-hidden`은 실패한
   실행과 통과한 실행을 record(와 log) 둘로 나누고, 수정 전 실패면 RED 기록(`purpose:"red"`·`expectedExit`)으로 둡니다. 검색의 0건
   exit를 줄 전체 `exit=1`로 적은 것이면 `rg exit=1`처럼 명령 이름을 붙여 적습니다.
@@ -363,10 +367,11 @@
 - 회차 입력 거부: `--round <N>`을 줍니다. 2회차부터는 직전 회차 result 파일이나 처분 기록을 `--previous-result`로 주고,
   1회차에는 빼고 `--criteria`의 빈 목록·중복·없는 id와 `none`을 다른 id와 섞은 목록을 고칩니다. 처분 기록이 가리키는 result 파일을 고쳐 맞추지 말고 기록의 경로를
   고칩니다.
-- `review-input-*`는 입력을 되돌려 맞추지 않습니다. 그 reviewer 결과를 쓰지 말고 `review`를 다시 만들어 새 reviewer로 재리뷰합니다.
+- `review-input-*`는 입력을 되돌려 맞추지 않습니다. 그 reviewer 결과를 쓰지 말고 `review-run`으로 review를 다시 만들어 새 reviewer로 재리뷰합니다.
   이전 helper로 만든 reviewer의 `review-input-manifest-missing`도 같습니다. 재발을 막으려면 `review` 생성부터 그 reviewer 정산과
   연결 builder 완료까지 사본 디렉터리(`<reviewId>.inputs/`)와 원본으로 결속한 ignored 경로를 바꾸지 않고, 정산 뒤 쓰는 result·처분
-  기록·재현 로그는 리뷰 read path 밖에 둡니다. Ignored read path의 원본은 리뷰 중 고쳐도 거부되지 않습니다(기록만).
+  기록·재현 로그는 리뷰 read path 밖에 둡니다. Ignored read path의 원본은 리뷰 중 고쳐도 기록만 남습니다. Reviewer가 그 원본이나 상위 디렉터리를 path로 지목해 읽었거나 읽기를
+  가릴 수 없는 정산이면 거부됩니다.
   `review-input-too-large`는 read path를 좁히고, `review-input-not-a-file`은 그 대상을 read path에서 빼고,
   `review-input-path-case`는 read path를 저장된 대소문자로 고칩니다.
 - 1회차 그룹 입력 거부: 구성은 1회차에만, 인원은 2·3명, `--composition`과 `--reviewers`는 함께, `e3`는 `--criteria`와 함께 줍니다.

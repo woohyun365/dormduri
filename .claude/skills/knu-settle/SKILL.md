@@ -37,8 +37,9 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
 - 기록만 남는 관측(결과는 유효): settle 결과의 `reviewInputOriginalsChanged`는 사본을 만든 뒤 바뀐 ignored 입력 원본 경로입니다.
   Reviewer는 사본을 읽었으므로 거부하지 않습니다. 그 회차가 읽은 판은
   `.artifacts/tools/claude-review-packets/<reviewId>.inputs/<원본 경로>`에 있으니 finding을 재현하거나 다음 회차 입력을 만들 때
-  지금 원본과 대조합니다. Reviewer가 사본 대신 바뀐 원본을 읽은 것이 관측되면 기록이 아니라 `review-input-changed:<원본 경로>`
-  거부입니다. `identityOutsideChanges`는 등록 뒤 바뀐 `scripts/agents/claude`·`scripts/agents/common` script 가운데 등록·정산
+  지금 원본과 대조합니다. Reviewer의 Read·Grep·Glob이 바뀐 원본이나 그 상위 디렉터리를 path로 지목한 것이 관측되거나
+  reviewer의 읽기를 가릴 수 없으면 기록이 아니라 `review-input-changed:<원본 경로>` 거부입니다(path 없는 검색과 저장소 root
+  검색은 지목이 아님). `identityOutsideChanges`는 등록 뒤 바뀐 `scripts/agents/claude`·`scripts/agents/common` script 가운데 등록·정산
   code의 정적 import 닫힘 밖 파일(dispatch 전 검사 도구 등)입니다. 정산 판정에 쓰이지 않아 거부하지 않습니다. 닫힘 안 module,
   역할 파일, settings가 바뀌면 `adapter/role/settings drift`로 거부되고 그 task의 결과는 쓸 수 없으므로 다시 등록해 재리뷰합니다.
 - Coverage gap이 있는 단일 reviewer FAIL은 완료된 리뷰로 기록되지 않습니다. 재리뷰하거나 Parent가 교차 참조로 마감합니다.
@@ -49,7 +50,7 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
 - 회차마다 계획 증거 위치에 reviewer가 전달한 result를 그대로 `r<N>-result.json`(그룹은 `r<N>-result-<i>.json`)으로 저장하고
   `r<N>-adjudication.json`(`review-adjudication/v1`)을 써서 `node scripts/agents/common/review-adjudication.mjs <파일>`이 exit 0인지
   확인합니다. 이 파일들과 재현 로그는 리뷰 read path(디렉터리 포함) 밖에 둡니다. Reviewer는 ignored 입력을 사본으로 읽으므로
-  원본 디렉터리에 쓴 파일은 정산을 막지 않지만, 사본 디렉터리(`<reviewId>.inputs/`)나 ignored가 아닌 read path 아래 ignored
+  원본 디렉터리에 쓴 새 파일은 정산을 막지 않지만(subject `paths` 안 디렉터리면 다음 회차가 `new-file`로 전 범위), 사본 디렉터리(`<reviewId>.inputs/`)나 ignored가 아닌 read path 아래 ignored
   파일을 바꾸면 그 reviewer의 `review-input-changed`로 정산과 연결 builder 완료가 거부됩니다(그룹은 마지막 구성원 정산과 builder
   완료까지). 다른 reviewer의 같은 결함은 `duplicateOf`로 묶습니다. 구성원이 id 접두를 어겨 `duplicate-result-id`가 나면 기록으로
   풀 수 없으므로 native 경로는 새 builder task와 새 review로 가고, Parent 경로는 구성원마다 기록을 하나씩 씁니다.

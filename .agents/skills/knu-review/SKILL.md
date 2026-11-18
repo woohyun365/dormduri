@@ -24,7 +24,8 @@ Reviewer에게 기대 결론을 주지 않습니다. QA packet의 요청·accept
    `--lifecycle-draft <경로>`를 더합니다. Stdout은 `review-run ok …` 또는 `review-run failed …` 한 줄이고 결과는
    `<출력 디렉터리>/review-run.json`(`sessionId`·`taskName`·`reviewId`·등록 `digest`·`spawnArguments`·`criteria`·`contextInputs`)과
    `<출력 디렉터리>/spawn-arguments.json`입니다. 기준 선택, 입력 추출, 등록 가운데 하나라도 거부되면 exit 1이고 등록하지 않으며
-   `review-run.json`의 `error`에 사유가 남습니다. `binding-values-invalid`·`context-output-*`는
+   `review-run.json`의 `error`에 사유가 남습니다. 출력 디렉터리가 저장소 안이면 Git이 ignore하는 경로여야 하고, 아니면
+   `out-directory-not-ignored`로 파일을 쓰지 않고 실패합니다(저장소 밖 디렉터리는 그대로 받음). `binding-values-invalid`·`context-output-*`는
    [등록·리뷰 거부 해소](../../../docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md#해결)를 따릅니다.
    `review`와 등록, 기준 선택·리뷰어 입력 CLI를 따로 실행하는 경로도 그대로 동작합니다.
 2. 기록을 확인합니다. 기준 문서 선택은 `.artifacts/tools/codex-native/<sessionId>/<reviewId>.criteria.json`에 남고, 선택 규칙은

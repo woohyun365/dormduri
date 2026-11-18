@@ -65,9 +65,11 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
 
 - Stdout은 `review-run ok …` 또는 `review-run failed …` 한 줄이고 결과는 `<out-dir>/review-run.json`입니다. 다른 출력(설치
   안내 등)이 stdout에 섞여도 그 파일로 결과를 읽습니다. `--out`은 저장소 안 ignored 디렉터리이고 리뷰 read path 밖(예: 계획 증거
-  위치의 `review/r<N>-run/`)에 둡니다. lockfile이 바뀐 직후에는 helper 전에 `pnpm install --frozen-lockfile`을 먼저 실행합니다.
+  위치의 `review/r<N>-run/`)에 둡니다. Packet 디렉터리(`.artifacts/tools/claude-review-packets/`), native task 기록, subject
+  `paths` 안이면 `out-directory-required`로 거부됩니다. lockfile이 바뀐 직후에는 helper 전에 `pnpm install --frozen-lockfile`을 먼저 실행합니다.
 - 검사(`checks[]`의 이름·exit·`outputPath`)가 하나라도 실패하면 exit 1이고 등록하지 않습니다. `review`나 `prepare`가 요청을
-  거부해도 exit 1이고 `error`에 사유가 남습니다. 구성원 일부만 등록된 뒤 거부됐으면 `registered`의 task를
+  거부해도 exit 1이고 `error`에 사유가 남습니다. 예상하지 못한 오류(Git·파일 쓰기 실패)도 같은 기록에 `unexpected: true`로
+  남고 stdout은 `error=`입니다. 구성원 일부만 등록된 뒤 실패했으면 `registered`의 task를
   `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native release --task <taskId> --not-dispatched`로 닫습니다.
 - 통과하면 `reviewers[]`에 구성원마다 `taskId`, 등록한 호출 전체인 `invocationFile`, `specFile`, `packetFile`·`promptFile`·
   `runnerFile`·`inputsFile`이 있습니다. Agent는 `invocationFile`의 JSON(`subagent_type`·`model`·`description`·`prompt`)을 그대로
@@ -103,7 +105,8 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
    [계획 리뷰 등급](../../../docs/development/agent-workflows/session-continuity.md#계획-초안-staging과-promote)). P2·P3면
    `plan-reference-check.mjs`도 그 절 3번의 기준 대비 판정으로 실행합니다. `review-run`에
    `--plan-grade <P2|P3> --plan-drafts <staging 디렉터리> --plan-view <promote view> --plan-baseline <view를 만든 .plans 사본>`을
-   함께 주면 이 검사들을 실행합니다. SOURCE-MANIFEST의 원본 sha256을 대조하고, 등급 검사를 선언 등급으로 돌리고, 참조 검사는
+   함께 주면 이 검사들을 실행합니다. SOURCE-MANIFEST의 원본 sha256을 대조하고, view와 기준의 결속을 대조하고
+   (`plan-view-binding`: view는 staged 파일을 그대로 담고 나머지 계획은 기준과 같으며 기준의 manifest 원본은 그 sha256), 등급 검사를 선언 등급으로 돌리고, 참조 검사는
    기준과 view에 함께 돌려 기준에 없던 위반이 0이고 새 unavailable 대상이 checkout에 있으면 통과로 판정하며(둘 다 exit 1인
    기존 위반은 실패가 아님. 새 unavailable 목록은 `checks/plan-reference-check.json`에 남으니 항목마다 확인), staged 계획에
    인용 검사를 돌립니다. P2의 바뀐 절 입력 `<plan>.scope.diff`(바뀐 절의 앞뒤)도 이 명령이 SOURCE-MANIFEST 원본과 staged
@@ -135,7 +138,9 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
 - 2회차 범위: Parent subject의 2회차부터는 `review-run`이 직전 회차 뒤 바뀐 파일로 범위를 정해 `deltaScope`에 남깁니다. 바뀐
   파일이 모두 직전 subject `paths` 안이면 `delta`(바뀐 파일과 직전 blocking finding 위치)이고, 새 파일(`new-file`), 직전
   `paths` 밖 변경(`outside-previous-paths`), `--risk-trigger <qa.md trigger 항목>` 선언(`risk-trigger`), 직전 회차의 범위 기록
-  없음(`previous-scope-record-missing`)이면 `full`과 그 이유입니다. Read path는 줄이지 않고 prompt의 회차 줄이 읽을 범위를
+  없음(`previous-scope-record-missing`)이면 `full`과 그 이유입니다. Subject `paths` 안 ignored 파일도 같은 규칙입니다. 직전
+  회차 입력 manifest의 원본 digest와 지금 원본을 비교해 바뀐 파일은 `delta`에 들고 새 파일은 `new-file`입니다. 그래서 회차마다
+  새로 생기는 runner 출력·재현 로그는 subject `paths` 밖에 둡니다. Read path는 줄이지 않고 prompt의 회차 줄이 읽을 범위를
   지시합니다. `review`를 직접 부른 Parent subject의 2회차 이상은 `delta-scope-required`로 거부됩니다. Runner 검사는 매 회차 전
   범위로 다시 실행합니다.
 - 기준 문서: `review`가 리뷰 대상 경로(Parent subject `paths`, native subject의 관측 변경 경로)로 고르고
@@ -168,8 +173,9 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
   `.artifacts/tools/claude-review-packets/<reviewId>.inputs/`에 원래 경로 그대로 복사해 그 디렉터리를 read path로 주고,
   `KNU_REVIEW_INPUTS_FILE:` manifest가 사본마다 원본 경로와 digest를 결속합니다. `review` 생성부터 그 reviewer 정산과 연결
   builder 완료까지 사본이 바뀌면 `review-input-stale`·`review-input-changed`로 거부됩니다. 원본을 고친 것은 거부하지 않고 정산
-  출력 `reviewInputOriginalsChanged`에 기록만 남습니다. 다만 reviewer가 사본 대신 바뀐 원본을 읽은 것이 관측되면
-  `review-input-changed:<원본 경로>`로 거부됩니다. Ignored가 아닌 read path 아래 `.plans/`·`.artifacts/`·`.local-docs/`의 ignored
+  출력 `reviewInputOriginalsChanged`에 기록만 남습니다. 다만 reviewer의 Read·Grep·Glob이 바뀐 원본이나 그 상위 디렉터리를
+  path로 지목한 것이 관측되거나 reviewer의 읽기를 가릴 수 없으면(transcript를 읽을 수 없음, 그 밖 도구)
+  `review-input-changed:<원본 경로>`로 거부됩니다. Path 없는 검색과 저장소 root 검색은 원본을 지목한 것이 아닙니다. Ignored가 아닌 read path 아래 `.plans/`·`.artifacts/`·`.local-docs/`의 ignored
   파일은 사본 없이 지금처럼 원본이 결속되므로 리뷰 중 바꾸지 않습니다. Tracked·비ignored 리뷰 대상은 snapshot이 결속하므로
   reviewer가 실행 중일 때 수정하지 않습니다.
 - 마지막 입력 수정 뒤 runner를 실행하고 바로 `review-run`을 실행합니다. Runner가 실행된 시점의 입력은 결속되지 않으므로 runner

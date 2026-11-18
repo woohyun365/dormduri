@@ -99,8 +99,9 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    Reviewer는 범위가 더 넓습니다. Helper가 ignored 리뷰 입력(ignored read path 아래와 `.plans/`·`.artifacts/`·`.local-docs/` 아래 ignored
    파일)을 manifest로 결속합니다. Ignored read path 아래 입력은 `.artifacts/tools/claude-review-packets/<reviewId>.inputs/`에 복사해
    reviewer가 사본을 읽으므로, `review` 생성부터 그 reviewer 정산과 연결 builder 완료까지 사본이 바뀌면 `review-input-stale`·
-   `review-input-changed`로 거부되고 원본이 바뀐 것은 정산 출력 `reviewInputOriginalsChanged`에 기록만 남습니다(reviewer가 바뀐
-   원본을 읽은 것이 관측되면 거부). 사본 없이 원본으로 결속한 입력(ignored가 아닌 read path 아래 ignored 파일)은 지금처럼 그 경로를
+   `review-input-changed`로 거부되고 원본이 바뀐 것은 정산 출력 `reviewInputOriginalsChanged`에 기록만 남습니다(reviewer의
+   Read·Grep·Glob이 그 원본이나 상위 디렉터리를 path로 지목한 것이 관측되거나 읽기를 가릴 수 없으면 거부. Path 없는 검색과 저장소
+   root 검색은 지목이 아님). 사본 없이 원본으로 결속한 입력(ignored가 아닌 read path 아래 ignored 파일)은 지금처럼 그 경로를
    바꾸면 같은 사유로 거부됩니다([리뷰 입력 사본](./claude-same-host-review.md#리뷰-입력-사본)). 정산 뒤 쓰는
    result·처분 기록·재현 로그는 리뷰 read path 밖에 둡니다.
 
