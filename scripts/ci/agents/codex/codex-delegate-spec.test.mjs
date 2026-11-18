@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -454,6 +454,39 @@ test('review-run refuses an --out inside the repository that Git does not ignore
     assert.match(run.stdout, /^review-run failed out-directory-not-ignored: /u);
     assert.equal(existsSync(out), false);
     assert.equal(existsSync(registryDirectory(registryRoot, session)), false);
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+    rmSync(registryRoot, { recursive: true, force: true });
+  }
+});
+
+test('review-run accepts an --out inside the repository that Git ignores', () => {
+  const registryRoot = mkdtempSync(join(tmpdir(), 'knu-review-run-'));
+  const session = 'rl-p2-review-run';
+  // The place the skill names for the run: an ignored directory of the checkout.
+  const base = join(root, '.artifacts/tools/test');
+  mkdirSync(base, { recursive: true });
+  const out = mkdtempSync(join(base, 'codex-review-run-out-'));
+  try {
+    const run = delegateSpec.runDelegateCommand(
+      [
+        'review-run',
+        '--lanes',
+        'legal-read',
+        '--token',
+        TOKEN,
+        '--session',
+        session,
+        '--out',
+        out,
+        '--paths',
+        SOURCE,
+      ],
+      { root, registryRoot },
+    );
+    assert.equal(run.exitCode, 0, run.stdout);
+    assert.match(run.stdout, /^review-run ok /u);
+    assert.ok(existsSync(join(out, 'review-run.json')));
   } finally {
     rmSync(out, { recursive: true, force: true });
     rmSync(registryRoot, { recursive: true, force: true });
