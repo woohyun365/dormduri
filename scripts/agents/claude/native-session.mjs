@@ -665,10 +665,6 @@ export function registerClaudeNativeTask({
     isDeepStrictEqual(input.directAssignment.writeOwnership, binding.writeScope),
     'lane/task ownership mismatch',
   );
-  check(
-    !binding.writeOwner || binding.writeOwner === input.directAssignment.owner,
-    'writer mismatch',
-  );
   let reviewBinding = null;
   if (independentReview !== undefined) {
     exact(
@@ -895,8 +891,7 @@ function childTranscriptDrifted(dir, observation) {
 // elsewhere and a HEAD change (another session's edit or commit) are recorded in the judgment. The
 // hand-back and web tools read nothing in the repository and are passed over. A transcript that cannot
 // be read, a search without a path or of the repository root or a directory above it, a target not
-// named in its stored case and any other tool fall back to the repository-wide judgment, as does
-// every writer.
+// named in its stored case and any other tool fall back to the repository-wide judgment.
 const DEPENDENCY_IGNORED_TOOLS = new Set(['SubagentHandback', 'WebSearch', 'WebFetch']);
 const DEPENDENCY_SOURCE_GAPS = [
   'current-source-head-mismatch',
@@ -992,7 +987,6 @@ function dependencyJudgment({ dir, record, invocation }, observation, finalFiles
     outside: [],
     headChanged,
   });
-  if (record.input.directAssignment.writeOwnership.length) return repository('write-scope');
   const observed = transcriptDependencies(record.root, dir, record, observation);
   if (observed.reason) return repository(observed.reason);
   const scope = [
@@ -2214,7 +2208,6 @@ export function completeClaudeNativeTask(
       errors.push(error.message);
     }
   }
-  // A writer's allowed changes are an output snapshot, not stale pre-dispatch input.
   // Common fan-in checks changedPaths against assignment; parent still reproduces findings.
   const common = validateClaudeWorkflowResults(
     { ...record.input, currentSnapshot: observation.finalSnapshot ?? record.input.currentSnapshot },
