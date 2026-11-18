@@ -4712,6 +4712,33 @@ test('review-run binds the promote view and the baseline to the staged drafts an
   const missing = planFixture(t, 'A sentence added to the scope.');
   rmSync(join(missing.r.root, `${PLAN_STAGE}/review/promote-view`), { recursive: true });
   failsBinding(missing, /a\.md: the view does not hold the staged file/u);
+  // A baseline plan the view lost is a reference target the comparison would never see.
+  const lost = planFixture(t, 'A sentence added to the scope.');
+  rmSync(join(lost.r.root, `${PLAN_STAGE}/review/promote-view/${PLANS}/b.md`));
+  failsBinding(lost, /b\.md: the view lacks a baseline plan/u);
+  // A plan promoted to another path leaves its original path in the view empty.
+  const movedFixture = (holdsOriginal) => {
+    const fixture = planFixture(t, 'A sentence added to the scope.');
+    const at = (path) => join(fixture.r.root, PLAN_STAGE, path);
+    const staged = readFileSync(at(`plan-drafts/${PLANS}/a.md`));
+    rmSync(at(`plan-drafts/${PLANS}/a.md`));
+    for (const base of ['plan-drafts', 'review/promote-view']) {
+      mkdirSync(at(`${base}/${PLANS}/moved`), { recursive: true });
+      writeFileSync(at(`${base}/${PLANS}/moved/a.md`), staged);
+    }
+    if (!holdsOriginal) rmSync(at(`review/promote-view/${PLANS}/a.md`));
+    writeFileSync(
+      at('plan-drafts/SOURCE-MANIFEST.tsv'),
+      `sha256\tsource\tdestination\n${createHash('sha256').update(PLAN_A).digest('hex')}\t${PLANS}/a.md\t${PLANS}/moved/a.md\n`,
+    );
+    return fixture;
+  };
+  failsBinding(movedFixture(true), /a\.md: the view still holds a moved original/u);
+  const moved = movedFixture(false);
+  const movedCheck = moved
+    .run(1, PLAN_ARGS)
+    .record.checks.find(({ name }) => name === 'plan-view-binding');
+  assert.equal(movedCheck.exit, 0, readFileSync(join(moved.r.root, movedCheck.outputPath), 'utf8'));
   // The view and the baseline of the fixture as built are bound.
   const bound = planFixture(t, 'A sentence added to the scope.').run(1, PLAN_ARGS);
   assert.equal(bound.result.status, 0, bound.result.stdout);
