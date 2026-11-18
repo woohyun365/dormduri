@@ -1759,10 +1759,10 @@ test('a Parent subject path into local state is refused before any review file i
   ])
     assert.throws(
       () => parentReview(r, { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', path] }),
-      // A home-relative or absolute path is outside the repository, which is its own reason.
+      // A home-relative or absolute path is not repository-relative, which is its own reason.
       (error) =>
         error.message.includes(
-          `${/^[~/]/u.test(path) ? 'path-outside-repository' : 'local-state-path'}:${path}`,
+          `${/^[~/]/u.test(path) ? 'path-not-repository-relative' : 'local-state-path'}:${path}`,
         ),
       path,
     );
@@ -4146,6 +4146,31 @@ test('review warns once for each incomplete input and still builds the review (R
   }
 });
 
+test('a policy file with a layout root of its own still warns about the policy history rule', (t) => {
+  const r = warningRepo(t);
+  // The path table has its own layout root under the policy root; its rule owner is the same README.
+  writeFileSync(
+    join(r.root, 'docs/policies/path-domains.json'),
+    `${JSON.stringify({
+      schema: 'lifecycle-path-domains/v1',
+      confirmedBy: { status: 'draft', date: null, basis: null },
+      productRoots: ['apps/**'],
+      entries: [],
+      noDomain: [],
+      irreversiblePaths: [],
+    })}\n`,
+  );
+  const review = parentReview(r, {
+    ...SMALL_PARENT_SUBJECT,
+    paths: ['sample.txt', 'docs/policies/path-domains.json'],
+  });
+  assert.deepEqual(
+    completenessWarnings(review),
+    ['policy-history-rule-not-in-read-paths'],
+    (review.warnings ?? []).join(' | '),
+  );
+});
+
 test('review gives no completeness warning when the inputs are complete (RL-P2 RED 6)', (t) => {
   const sections = [{ path: 'docs/plan.md', headings: ['Acceptance'] }];
   for (const subject of [
@@ -4220,12 +4245,12 @@ test('review refuses a read path registration would refuse before it writes any 
     'review refuses the unsafe read path',
   );
   assert.deepEqual(reviewFiles(r), []);
-  // A path outside the repository names its own reason, not host state.
+  // A path that is not repository-relative names its own reason, not host state.
   for (const path of ['/etc/hosts', '~/notes.md'])
     assert.throws(
       () => parentReview(r, { ...SMALL_PARENT_SUBJECT, lifecycleDraft: path }),
       (error) =>
-        error.message.includes(`path-outside-repository:${path}`) &&
+        error.message.includes(`path-not-repository-relative:${path}`) &&
         !error.message.includes('local-state-path'),
       path,
     );
@@ -4357,6 +4382,25 @@ test('review-run registers nothing when a check fails (RL-P2 RED 1)', (t) => {
   assert.deepEqual(
     record.checks.map(({ name, exit }) => [name, exit]),
     [['runner-log-check', 1]],
+  );
+  assert.equal(nativeTaskCount(r), 0);
+  assert.deepEqual(reviewFiles(r), []);
+});
+
+test('review-run records a request review refuses and registers nothing', (t) => {
+  const { r, run } = runFixture(t);
+  // A later round without its previous result: review refuses it, after the checks passed.
+  const { result, out, record } = run(2);
+  assert.equal(result.status, 1, result.stdout);
+  assert.equal(oneLine(result).length, 1, result.stdout);
+  assert.match(oneLine(result)[0], /^review-run failed refused=.*registered=0 /u);
+  assert.ok(oneLine(result)[0].includes(`${out}/review-run.json`), result.stdout);
+  assert.equal(result.stderr, '');
+  assert.equal(record.ok, false);
+  assert.match(record.error, /previous-result-required/u);
+  assert.deepEqual(
+    record.checks.map(({ name, exit }) => [name, exit]),
+    [['runner-log-check', 0]],
   );
   assert.equal(nativeTaskCount(r), 0);
   assert.deepEqual(reviewFiles(r), []);
@@ -4518,6 +4562,62 @@ test('a later round of a Parent subject gets its scope from review-run (RL-P2 RE
     ).prompt;
     assert.match(prompt, /^- Review round 2: read the full scope again \(/mu);
   }
+});
+
+test('a delta round with more paths than its prompt line holds reads a bound scope record', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const previous = writePreviousResult(r);
+  const paths = Array.from(
+    { length: 14 },
+    (_, index) => `many/f${String(index).padStart(2, '0')}.txt`,
+  );
+  const review = roundReview(r, {
+    reviewRound: 2,
+    previousResult: previous,
+    deltaScope: { mode: 'delta', reason: 'changed-within-previous-paths', paths },
+  });
+  const scopePath = `${PACKET_DIR}/${reviewIdOf(review)}.scope.json`;
+  assert.ok(review.reviewerSpec.readScope.includes(scopePath));
+  assert.match(
+    review.reviewerPrompt,
+    new RegExp(
+      `^- Review round 2 \\(delta\\): .*many/f11\\.txt and 2 more listed in ${scopePath.replaceAll('.', '\\.')}\\.`,
+      'mu',
+    ),
+  );
+  assert.ok(!review.reviewerPrompt.includes('many/f12.txt'));
+  const scope = JSON.parse(readFileSync(join(r.root, scopePath), 'utf8'));
+  assert.deepEqual(scope.deltaScope.paths, paths);
+  const record = JSON.parse(readFileSync(join(r.root, review.promptFile.path), 'utf8'));
+  assert.deepEqual(record.scope, {
+    path: scopePath,
+    digest: sha256(readFileSync(join(r.root, scopePath))),
+  });
+  const status = reviewedWhile(r, review, () =>
+    writeFileSync(join(r.root, scopePath), `${JSON.stringify({ ...scope, deltaScope: null })}\n`),
+  );
+  assert.ok(
+    status.observationErrors.includes('review-scope-changed'),
+    status.observationErrors.join(','),
+  );
+  // A shorter list stays on the prompt line and the scope record is not a read path.
+  const s = repo(t);
+  writeFileSync(join(s.root, 'sample.txt'), 'parent edit');
+  const short = roundReview(s, {
+    reviewRound: 2,
+    previousResult: writePreviousResult(s),
+    deltaScope: {
+      mode: 'delta',
+      reason: 'changed-within-previous-paths',
+      paths: paths.slice(0, 12),
+    },
+  });
+  assert.ok(!short.reviewerSpec.readScope.some((path) => path.endsWith('.scope.json')));
+  assert.equal(
+    JSON.parse(readFileSync(join(s.root, short.promptFile.path), 'utf8')).scope,
+    undefined,
+  );
 });
 
 test('review alone refuses a later round of a Parent subject and points at review-run (RL-P2 RED 8)', (t) => {

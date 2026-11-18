@@ -257,6 +257,9 @@ function runReview(options, round, { root, registryRoot, env }) {
   let criteria;
   let collected;
   let context;
+  let registration;
+  // The choice and the inputs come first and the registration last, so a refusal of any of them
+  // leaves nothing registered.
   try {
     criteria = selectReviewCriteria({
       paths,
@@ -268,6 +271,7 @@ function runReview(options, round, { root, registryRoot, env }) {
       'binding-values': record('.binding.md'),
       'lifecycle-draft': record('.lifecycle.md'),
     });
+    registration = registerDispatch({ root: registryRoot, sessionId, dispatch: review });
   } catch (error) {
     writeJson(outFile, { schema: REVIEW_RUN_SCHEMA, ok: false, error: error.message });
     return {
@@ -275,11 +279,7 @@ function runReview(options, round, { root, registryRoot, env }) {
       stdout: `review-run failed ${error.message.split('\n')[0]} registered=0 out=${outFile}\n`,
     };
   }
-  const { taskName, spawnArguments } = registerDispatch({
-    root: registryRoot,
-    sessionId,
-    dispatch: review,
-  });
+  const { taskName, spawnArguments } = registration;
   const { digest } = readRegistration({ root: registryRoot, sessionId, taskName });
   writeJson(join(registryRoot, record('.criteria.json')), criteria);
   writeJson(join(registryRoot, record('.context.json')), context);

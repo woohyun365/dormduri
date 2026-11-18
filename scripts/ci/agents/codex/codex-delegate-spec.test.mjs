@@ -426,3 +426,38 @@ test('review-run registers nothing when the criteria choice fails', () => {
     rmSync(registryRoot, { recursive: true, force: true });
   }
 });
+
+test('review-run reports a round that is already registered as a failed run', () => {
+  const registryRoot = mkdtempSync(join(tmpdir(), 'knu-review-run-'));
+  const session = 'rl-p2-review-run';
+  const run = (out) =>
+    delegateSpec.runDelegateCommand(
+      [
+        'review-run',
+        '--lanes',
+        'legal-read',
+        '--token',
+        TOKEN,
+        '--session',
+        session,
+        '--out',
+        join(registryRoot, out),
+        '--paths',
+        SOURCE,
+      ],
+      { root, registryRoot },
+    );
+  try {
+    assert.equal(run('first').exitCode, 0);
+    const again = run('again');
+    assert.equal(again.exitCode, 1);
+    assert.equal(again.stdout.split('\n').filter(Boolean).length, 1, again.stdout);
+    assert.match(again.stdout, /^review-run failed task already registered: /u);
+    const record = JSON.parse(readFileSync(join(registryRoot, 'again/review-run.json'), 'utf8'));
+    assert.equal(record.ok, false);
+    assert.match(record.error, /task already registered/u);
+    assert.equal(existsSync(join(registryRoot, 'again/spawn-arguments.json')), false);
+  } finally {
+    rmSync(registryRoot, { recursive: true, force: true });
+  }
+});

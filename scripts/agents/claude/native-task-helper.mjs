@@ -502,13 +502,14 @@ function validateRunnerEvidence(evidence, snapshotDigest, reviewerId, root) {
 // Parent subject inputs (OQ-REV-3). A path into host or session state is refused (G2); tracked
 // repository configuration under .claude/ (settings, skills, roles) is not local state.
 const LOCAL_STATE_DIRS = ['.omc', '.omx', '.codex/state', '.claude/projects'];
-// A home-relative or absolute path is outside the repository; it gets its own reason.
-const outsideRepository = (path) => path.startsWith('~') || isAbsolute(path);
+// A home-relative or absolute path is not a repository-relative path, whether or not it points
+// inside the repository; it gets its own reason instead of the local state one.
+const notRepositoryRelative = (path) => path.startsWith('~') || isAbsolute(path);
 const localStateIssues = (paths) => [
-  ...paths.filter(outsideRepository).map((path) => `path-outside-repository:${path}`),
+  ...paths.filter(notRepositoryRelative).map((path) => `path-not-repository-relative:${path}`),
   ...paths
     .filter((path) => {
-      if (outsideRepository(path)) return false;
+      if (notRepositoryRelative(path)) return false;
       const normal = normalize(path).toLowerCase();
       return LOCAL_STATE_DIRS.some((dir) => normal === dir || normal.startsWith(`${dir}/`));
     })
@@ -963,22 +964,28 @@ function completenessWarnings(root, subject, verification) {
     .split('\0')
     .filter(Boolean);
   const read = (path) => subject.readPaths.some((p) => path === p || path.startsWith(`${p}/`));
+  const under = (file, candidate) =>
+    file === candidate.path || file.startsWith(`${candidate.path}/`);
   const roots = loadWorkspaceLayout().roots.filter((candidate) => candidate.ruleOwner);
+  // The policy root's rule owner holds the change history rule of a policy document; a policy file
+  // with a narrower layout root of its own is still a policy document.
+  const policies = roots.find((candidate) => candidate.id === 'policies');
   const seen = new Set();
   for (const file of changed) {
-    const owner = roots
-      .filter((candidate) => file === candidate.path || file.startsWith(`${candidate.path}/`))
-      .sort((a, b) => b.path.length - a.path.length)[0];
+    const policy = policies && under(file, policies);
+    const owner = policy
+      ? policies
+      : roots
+          .filter((candidate) => under(file, candidate))
+          .sort((a, b) => b.path.length - a.path.length)[0];
     if (!owner || file === owner.ruleOwner || read(owner.ruleOwner)) continue;
-    // A policy document's rule owner holds the change history rule of that document kind.
-    const name =
-      owner.id === 'policies'
-        ? 'policy-history-rule-not-in-read-paths'
-        : 'layout-owner-not-in-read-paths';
+    const name = policy
+      ? 'policy-history-rule-not-in-read-paths'
+      : 'layout-owner-not-in-read-paths';
     if (seen.has(`${name}:${owner.ruleOwner}`)) continue;
     seen.add(`${name}:${owner.ruleOwner}`);
     warnings.push(
-      owner.id === 'policies'
+      policy
         ? `${name}: ${file} is a policy document and ${owner.ruleOwner}, which holds its change history rule, is not a read path`
         : `${name}: ${file} is under ${owner.path} and its rule owner ${owner.ruleOwner} is not a read path`,
     );
@@ -1140,6 +1147,9 @@ const BOUND_EXTRACTS = [
   },
   ...CONTEXT_EXTRACTS,
   VERIFICATION_EXTRACT,
+  // The round's scope record is a read path only when a delta round's path list is too long for the
+  // prompt line; then the prompt record binds it like the other extracts.
+  { suffix: '.scope.json', key: 'scope', error: 'review-scope-changed', status: 'reviewScope' },
   { suffix: '.runner.json', key: 'runner', error: REVIEW_RUNNER_CHANGED, status: 'reviewRunner' },
 ];
 
@@ -1707,21 +1717,6 @@ export function buildClaudeNativeReview(
           }
         : {}),
     };
-    // Registration takes only this prompt (G11); the record also binds the requirement and context
-    // extracts and the runner file, and keeps the role choice and the round's scope.
-    const promptBytes = Buffer.from(
-      `${JSON.stringify({
-        schema: REVIEW_PROMPT_SCHEMA,
-        reviewId,
-        promptDigest: packetDigest(Buffer.from(prompt)),
-        ...(requirementsFile ? { requirements: requirementsFile } : {}),
-        ...Object.fromEntries(extracts.map(({ key, file }) => [key, file])),
-        ...(verificationFile ? { [VERIFICATION_EXTRACT.key]: verificationFile } : {}),
-        runner: runnerFile,
-        reviewerRole,
-        ...(subject.deltaScope ? { deltaScope: subject.deltaScope } : {}),
-      })}\n`,
-    );
     // The round's scope record: what the next round's review-run compares the tree with.
     const scopeBytes = native
       ? null
@@ -1736,6 +1731,23 @@ export function buildClaudeNativeReview(
             ...(subject.deltaScope ? { deltaScope: subject.deltaScope } : {}),
           })}\n`,
         );
+    // Registration takes only this prompt (G11); the record also binds the requirement and context
+    // extracts, the runner file and a scope record the reviewer reads, and keeps the role choice and
+    // the round's scope.
+    const promptBytes = Buffer.from(
+      `${JSON.stringify({
+        schema: REVIEW_PROMPT_SCHEMA,
+        reviewId,
+        promptDigest: packetDigest(Buffer.from(prompt)),
+        ...(requirementsFile ? { requirements: requirementsFile } : {}),
+        ...Object.fromEntries(extracts.map(({ key, file }) => [key, file])),
+        ...(verificationFile ? { [VERIFICATION_EXTRACT.key]: verificationFile } : {}),
+        ...(scopeRead ? { scope: { path: scopePath, digest: packetDigest(scopeBytes) } } : {}),
+        runner: runnerFile,
+        reviewerRole,
+        ...(subject.deltaScope ? { deltaScope: subject.deltaScope } : {}),
+      })}\n`,
+    );
     const promptFile = {
       path: reviewPacketPath(root, reviewId, '.prompt.json').path,
       digest: packetDigest(promptBytes),
@@ -1950,13 +1962,41 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
   const review = Object.fromEntries(
     REVIEW_RUN_FIELDS.filter((key) => options[key] !== undefined).map((key) => [key, options[key]]),
   );
-  // The round's snapshot and log header, and every refusal review has for the subject itself.
-  const { snapshotDigest, logHeader } = buildClaudeNativeReview(
-    { subjectTaskId: review.subjectTaskId, parentSubject: review.parentSubject },
-    { root },
-  );
+  const round = review.reviewRound;
   const checksDir = join(root, outPath, 'checks');
   mkdirSync(checksDir, { recursive: true });
+  const recordPath = `${outPath}/review-run.json`;
+  const write = (record) =>
+    writeFileSync(
+      join(root, recordPath),
+      `${JSON.stringify({ schema: RUN_SCHEMA, ...record }, null, 2)}\n`,
+    );
+  // A request review or prepare refuses fails the run like a failed check: the reason goes to the
+  // record and to the one stdout line.
+  const refused = (error, record, registered = []) => {
+    if (!(error instanceof TypeError)) throw error;
+    write({
+      ok: false,
+      ...record,
+      error: error.message,
+      ...(registered.length ? { registered } : {}),
+    });
+    return {
+      exitCode: 1,
+      stdout: `review-run failed refused=${JSON.stringify(oneLine(error.message).slice(0, 240))} registered=${registered.length} out=${recordPath}\n`,
+    };
+  };
+  // The round's snapshot and log header, and every refusal review has for the subject itself.
+  let status;
+  try {
+    status = buildClaudeNativeReview(
+      { subjectTaskId: review.subjectTaskId, parentSubject: review.parentSubject },
+      { root },
+    );
+  } catch (error) {
+    return refused(error, { round });
+  }
+  const { snapshotDigest, logHeader } = status;
   const file = (name) => relative(root, join(checksDir, name));
   const checks = [];
   const tool = (name, script, args, output) => {
@@ -2074,13 +2114,6 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
       );
     }
   }
-  const recordPath = `${outPath}/review-run.json`;
-  const write = (record) =>
-    writeFileSync(
-      join(root, recordPath),
-      `${JSON.stringify({ schema: RUN_SCHEMA, ...record }, null, 2)}\n`,
-    );
-  const round = review.reviewRound;
   const base = {
     round,
     snapshotDigest,
@@ -2129,63 +2162,70 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
       )
     : undefined;
   const parent = review.parentSubject !== undefined;
-  let deltaScope;
-  if (parent && Number.isInteger(round) && round > 1 && review.previousResult !== undefined) {
-    const read = previousRound(root, review.previousResult);
-    // review reports an unreadable previous result with its own reason below.
-    if (!read.issue)
-      deltaScope = roundDeltaScope(root, { previousResults: read.values, riskTrigger, planFiles });
-  }
-  const built = buildClaudeNativeReview(
-    {
-      ...review,
-      ...(planScopeDiffs.length
-        ? {
-            parentSubject: {
-              ...review.parentSubject,
-              paths: [...new Set([...review.parentSubject.paths, ...planScopeDiffs])],
-            },
-          }
-        : {}),
-      ...(deltaScope ? { deltaScope } : {}),
-      planGrade,
-      riskTrigger,
-      planFiles,
-    },
-    { root },
-  );
   const reviewers = [];
-  for (const [index, member] of (built.reviewers ?? [built]).entries()) {
-    let prepared;
-    try {
-      prepared = prepareClaudeNativeTask(member.reviewerSpec, { root });
-    } catch (error) {
-      throw new TypeError(
-        `${error.message}${
-          reviewers.length
-            ? `; registered before this refusal: ${reviewers.map((entry) => entry.taskId).join(', ')} (release each with release --task <id> --not-dispatched)`
-            : ''
-        }`,
-      );
+  let built;
+  try {
+    let deltaScope;
+    if (parent && Number.isInteger(round) && round > 1 && review.previousResult !== undefined) {
+      const read = previousRound(root, review.previousResult);
+      // review reports an unreadable previous result with its own reason below.
+      if (!read.issue)
+        deltaScope = roundDeltaScope(root, {
+          previousResults: read.values,
+          riskTrigger,
+          planFiles,
+        });
     }
-    const specFile = `${outPath}/reviewer-${index + 1}.spec.json`;
-    const invocationFile = `${outPath}/reviewer-${index + 1}.invocation.json`;
-    writeFileSync(join(root, specFile), `${JSON.stringify(member.reviewerSpec, null, 2)}\n`);
-    writeFileSync(join(root, invocationFile), `${JSON.stringify(prepared.invocation, null, 2)}\n`);
-    reviewers.push({
-      taskId: prepared.taskId,
-      owner: member.reviewerSpec.owner,
-      // The whole registered call (invocationFile) is what the Parent hands to Agent; the short
-      // input stays for a caller that relies on the hook to inject the prompt.
-      invocationFile,
-      agentInput: prepared.agentInput,
-      specFile,
-      ...(member.packetFile ? { packetFile: member.packetFile } : {}),
-      promptFile: member.promptFile,
-      runnerFile: member.runnerFile,
-      ...(member.inputsFile ? { inputsFile: member.inputsFile } : {}),
-      lifetimeMinutes: prepared.lifetimeMinutes,
-    });
+    built = buildClaudeNativeReview(
+      {
+        ...review,
+        ...(planScopeDiffs.length
+          ? {
+              parentSubject: {
+                ...review.parentSubject,
+                paths: [...new Set([...review.parentSubject.paths, ...planScopeDiffs])],
+              },
+            }
+          : {}),
+        ...(deltaScope ? { deltaScope } : {}),
+        planGrade,
+        riskTrigger,
+        planFiles,
+      },
+      { root },
+    );
+    for (const [index, member] of (built.reviewers ?? [built]).entries()) {
+      const prepared = prepareClaudeNativeTask(member.reviewerSpec, { root });
+      const specFile = `${outPath}/reviewer-${index + 1}.spec.json`;
+      const invocationFile = `${outPath}/reviewer-${index + 1}.invocation.json`;
+      writeFileSync(join(root, specFile), `${JSON.stringify(member.reviewerSpec, null, 2)}\n`);
+      writeFileSync(
+        join(root, invocationFile),
+        `${JSON.stringify(prepared.invocation, null, 2)}\n`,
+      );
+      reviewers.push({
+        taskId: prepared.taskId,
+        owner: member.reviewerSpec.owner,
+        // The whole registered call (invocationFile) is what the Parent hands to Agent; the short
+        // input stays for a caller that relies on the hook to inject the prompt.
+        invocationFile,
+        agentInput: prepared.agentInput,
+        specFile,
+        ...(member.packetFile ? { packetFile: member.packetFile } : {}),
+        promptFile: member.promptFile,
+        runnerFile: member.runnerFile,
+        ...(member.inputsFile ? { inputsFile: member.inputsFile } : {}),
+        lifetimeMinutes: prepared.lifetimeMinutes,
+      });
+    }
+  } catch (error) {
+    // A member registered before a later one was refused stays registered: the record names it so
+    // the Parent releases it (release --task <id> --not-dispatched).
+    return refused(
+      error,
+      base,
+      reviewers.map((entry) => entry.taskId),
+    );
   }
   const now = new Date();
   const two = (value) => String(value).padStart(2, '0');
@@ -2312,7 +2352,8 @@ function reviewPacketStatus(state, root) {
     read: transcript !== null && readPacketInTranscript(transcript, resolve(root, path)),
   };
 }
-// For a review with a helper-directory extract (plan sections, binding rows, Lifecycle section): is the
+// For a review with a helper-directory extract (plan sections, binding rows, Lifecycle and Verification
+// sections, a scope record the reviewer reads, the runner file): is the
 // extract the one its prompt record binds? The registered prompt (bound to the record at registration) or
 // read scope says whether the review has one, so neither a lost record nor a narrowed read scope can skip
 // the check. A Parent subject's review id comes from its packet file line, a native subject's from its
