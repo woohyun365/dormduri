@@ -4087,6 +4087,26 @@ test('a runner file changed after registration fails the settlement (RL-P2 RED 5
   );
 });
 
+test('the registry refuses a result copied from a runner file that changed after registration', (t) => {
+  const s = settledSubject(t);
+  const native = reviewOf(s);
+  const reviewer = prepareClaudeNativeTask(native.reviewerSpec, { root: s.root });
+  // The result carries the array the changed file holds, so the copy matches the file: only the
+  // digest on the prompt line tells that the records are not the ones review bound.
+  const delivered = JSON.parse(passing(native));
+  delivered.commandsActuallyRun = [];
+  dispatch(s, reviewer, 'review-1', JSON.stringify(delivered));
+  writeFileSync(join(s.root, native.runnerFile.path), '{"commandsActuallyRun":[]}\n');
+  const completion = JSON.parse(readFileSync(join(reviewer.evidenceDirectory, 'completion.json')));
+  const checked = completeClaudeNativeTask(
+    reviewer.taskId,
+    { responseDigest: completion.responseDigest },
+    { root: s.root },
+  );
+  assert.equal(checked.valid, false);
+  assert.ok(checked.errors.includes('review-runner-file-changed'), checked.errors.join('; '));
+});
+
 // Completeness warnings name a likely missing review input and never stop the review.
 const COMPLETENESS_WARNINGS = [
   'acceptance-not-in-requirement-sections',
@@ -4650,7 +4670,7 @@ test('a delta names the files of the previous blocking findings beside the chang
     verdict: 'FAIL',
     findings: [
       { id: 'F1', severity: 'high', location: 'other.txt:2-5' },
-      { id: 'F2', severity: 'low', location: 'README.md:1' },
+      { id: 'F2', severity: 'low', location: '.claude/agents/knu_reviewer.md:1' },
       { id: 'F3', severity: 'medium', location: 'no/such/file.txt:9' },
     ],
   });
