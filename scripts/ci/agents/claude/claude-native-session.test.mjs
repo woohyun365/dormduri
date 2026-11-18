@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import {
+  appendFileSync,
+  cpSync,
   readFileSync,
   writeFileSync,
   mkdirSync,
@@ -11,7 +13,8 @@ import {
   truncateSync,
   existsSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -39,6 +42,8 @@ import {
   writeClaudeReviewPacket,
 } from '../../../agents/claude/native-task-helper.mjs';
 import * as policy from '../../../agents/claude/model-policy.mjs';
+// New exports are read through the namespace, so a missing one fails its own test and not the file.
+import * as sessionModule from '../../../agents/claude/native-session.mjs';
 
 function setup(t) {
   const f = fixture(t);
@@ -4357,3 +4362,157 @@ test('a quote-check output is refused for a task that is not a researcher settle
     errors.join(),
   );
 });
+
+// ---- Adapter identity follows the modules the registry loads (OSS-RL P2 RED 4). ----
+// The source digest covers the static import closure of the registry and the task helper, wherever
+// those modules live. A change to another script in the two agent directories is recorded at
+// settlement and refused nowhere.
+const SCRIPTS_ROOT = resolve(import.meta.dirname, '../../../..');
+const IDENTITY_CLOSURE = [
+  'scripts/agents/claude/model-policy.mjs',
+  'scripts/agents/claude/native-session-evidence.mjs',
+  'scripts/agents/claude/native-session.mjs',
+  'scripts/agents/claude/native-task-helper.mjs',
+  'scripts/agents/claude/session-preflight.mjs',
+  'scripts/agents/claude/workflow-entry.mjs',
+  'scripts/agents/common/adapter-contract.mjs',
+  'scripts/agents/common/cross-model-handoff.mjs',
+  'scripts/agents/common/discovery-questions.mjs',
+  'scripts/agents/common/domain-guide-registry.mjs',
+  'scripts/agents/common/index.mjs',
+  'scripts/agents/common/intake-policy.mjs',
+  'scripts/agents/common/markdown-links.mjs',
+  'scripts/agents/common/plan-readiness-policy.mjs',
+  'scripts/agents/common/plan-store.mjs',
+  'scripts/agents/common/quote-check.mjs',
+  'scripts/agents/common/review-adjudication.mjs',
+  'scripts/agents/common/review-context-inputs.mjs',
+  'scripts/agents/common/review-criteria-selection.mjs',
+  'scripts/agents/common/workflow-entry.mjs',
+  'scripts/artifacts/paths.mjs',
+  'scripts/artifacts/workspace-layout.mjs',
+  'scripts/ci/lifecycle/document-header.mjs',
+  'scripts/ci/lifecycle/lifecycle-section.mjs',
+  'scripts/ci/lifecycle/policy-first-check.mjs',
+];
+// A private copy of the scripts the registry loads, so a case can change a module without touching
+// this checkout. The copy computes its identity from its own files.
+async function scriptsCopy(t) {
+  const copy = realpathSync(mkdtempSync(join(tmpdir(), 'native-scripts-')));
+  t.after(() => rmSync(copy, { recursive: true, force: true }));
+  for (const dir of ['agents', 'artifacts', 'ci/lifecycle'])
+    cpSync(join(SCRIPTS_ROOT, 'scripts', dir), join(copy, 'scripts', dir), { recursive: true });
+  const module = await import(
+    pathToFileURL(join(copy, 'scripts/agents/claude/native-session.mjs')).href
+  );
+  return { copy, module };
+}
+// Registers the fixture task with the copied registry; `call` dispatches and finishes it.
+function copiedTask(t, module) {
+  const f = fixture(t);
+  writeFileSync(join(f.root, '.git/info/exclude'), '.artifacts/\n');
+  const sessionId = randomUUID();
+  const registered = module.registerClaudeNativeTask({
+    ...f.options,
+    workflowInput: f.input,
+    sessionId,
+  });
+  const event = {
+    hook_event_name: 'PreToolUse',
+    session_id: sessionId,
+    cwd: f.root,
+    permission_mode: 'auto',
+    tool_name: 'Agent',
+    tool_use_id: 'tool-1',
+    tool_input: registered.invocation,
+  };
+  const g = { ...f, registered, event };
+  const call = () => {
+    const before = module.handleClaudeNativeSessionEvent(event, { root: f.root });
+    if (before.hookSpecificOutput) return before;
+    module.handleClaudeNativeSessionEvent(
+      {
+        ...event,
+        hook_event_name: 'PostToolUse',
+        transcript_path: writeChildTranscript(f.root, {
+          sessionId,
+          agentId: 'child-1',
+          prompt: registered.invocation.prompt,
+          model: f.options.expectedResolvedModel,
+          effort: ROLE_EFFORT[registered.invocation.subagent_type],
+        }),
+        tool_response: {
+          status: 'completed',
+          agentId: 'child-1',
+          resolvedModel: f.options.expectedResolvedModel,
+          content: [{ type: 'text', text: 'oracle' }],
+        },
+      },
+      { root: f.root },
+    );
+    return before;
+  };
+  const complete = () =>
+    module.completeClaudeNativeTask(registered.taskId, semanticResult(g), { root: f.root });
+  return { ...g, call, complete };
+}
+
+test('the identity closure is the static imports of the registry and the task helper (RL-P2 RED 4)', () => {
+  assert.equal(
+    typeof sessionModule.claudeIdentityClosure,
+    'function',
+    'claudeIdentityClosure is not exported',
+  );
+  assert.deepEqual(sessionModule.claudeIdentityClosure(), IDENTITY_CLOSURE);
+});
+
+test('a script outside the identity closure changes without refusing the call or the settlement (RL-P2 RED 4)', async (t) => {
+  const { copy, module } = await scriptsCopy(t);
+  const task = copiedTask(t, module);
+  // Before the call: a new module in an agent directory and an edit to one outside the closure.
+  writeFileSync(join(copy, 'scripts/agents/common/new-outside.mjs'), 'export const x = 1;\n');
+  assert.deepEqual(task.call(), {}, 'a change outside the closure does not refuse the call');
+  // After the child stopped: another outside edit.
+  appendFileSync(join(copy, 'scripts/agents/common/runner-log-check.mjs'), '\n// edited\n');
+  const checked = task.complete();
+  assert.ok(!checked.errors.includes('adapter/role/settings drift'), checked.errors.join());
+  assert.equal(checked.valid, true, checked.errors.join());
+  assert.deepEqual(checked.identityOutsideChanges, [
+    'scripts/agents/common/new-outside.mjs',
+    'scripts/agents/common/runner-log-check.mjs',
+  ]);
+});
+
+for (const [kind, change] of [
+  [
+    'the task helper',
+    (copy) =>
+      appendFileSync(join(copy, 'scripts/agents/claude/native-task-helper.mjs'), '\n// edited\n'),
+  ],
+  [
+    'a closure module outside the agent directories',
+    (copy) => appendFileSync(join(copy, 'scripts/artifacts/paths.mjs'), '\n// edited\n'),
+  ],
+  [
+    'the role file',
+    (copy, f) =>
+      writeRole(f.root, f.registered.invocation.subagent_type, 'Read, Grep, Glob', 'Changed.'),
+  ],
+])
+  test(`a change to ${kind} is identity drift at the call and at settlement (RL-P2 RED 4)`, async (t) => {
+    const first = await scriptsCopy(t);
+    const stopped = copiedTask(t, first.module);
+    assert.deepEqual(stopped.call(), {});
+    change(first.copy, stopped);
+    const checked = stopped.complete();
+    assert.equal(checked.valid, false, `a change to ${kind} refuses the settlement`);
+    assert.ok(checked.errors.includes('adapter/role/settings drift'), checked.errors.join());
+    // The hook compares the same identity before the call.
+    const second = await scriptsCopy(t);
+    const waiting = copiedTask(t, second.module);
+    change(second.copy, waiting);
+    assert.match(
+      waiting.call().hookSpecificOutput?.permissionDecisionReason ?? '',
+      /adapter\/role\/settings drift/u,
+    );
+  });

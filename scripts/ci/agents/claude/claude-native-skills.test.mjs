@@ -667,3 +667,20 @@ test('the delegate researcher example passes prepare with its URL only in the pr
   const prepared = prepareClaudeNativeTask(spec, { root: realpathSync(f.root) });
   assert.equal(prepared.invocation.subagent_type, 'knu_researcher');
 });
+
+// Runner log friction (OSS-RL P2 RED 7): the skill says how to write exit lines so a repeated step cannot hide a
+// failure, and when to install before the helper.
+test('knu-review tells how to write exit lines and to install after a lockfile change (RL-P2 RED 7)', () => {
+  const step = dispatchStep(1);
+  for (const phrase of [
+    '검색 exit 줄은 명령 이름을 붙여 적습니다(`rg exit=1`)',
+    '줄 전체 `exit=` 줄은 묶음의 끝 exit에만 씁니다',
+    '`repeated-step-exit-hidden`',
+  ])
+    assert.ok(step.includes(phrase), `runner log friction: step 1 ${phrase}`);
+  const flat = skill('knu-review').replace(/\s+/gu, ' ');
+  assert.ok(
+    flat.includes('lockfile이 바뀐 직후에는 helper 전에 `pnpm install --frozen-lockfile`'),
+    'runner log friction: install after a lockfile change',
+  );
+});

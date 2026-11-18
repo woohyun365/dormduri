@@ -167,3 +167,48 @@ test('the command line exits 1 on violations and 0 on a matching record', () => 
     assert.equal(result.status, status, result.stderr);
   }
 });
+
+// A step that runs a command several times ends each run with a whole-line `exit=<n>`. The record's exit is compared
+// with the last one, so an earlier failing run would stay hidden behind a final exit=0.
+function logCheck(lines, recordFields = {}) {
+  const root = fixture({
+    runner: 'parent',
+    records: [
+      record({ outputPaths: ['logs/steps.log'], observedResult: 'steps ran', ...recordFields }),
+    ],
+  });
+  writeFileSync(resolve(root, 'logs/steps.log'), `${[HEADER, ...lines].join('\n')}\n`);
+  return run(['--json', '--evidence', 'evidence.json', '--header', HEADER], root);
+}
+
+test('an earlier whole-line exit that failed behind a final exit=0 is repeated-step-exit-hidden (RL-P2 RED 7)', () => {
+  const hidden = logCheck(['run 1', 'exit=1', 'run 2', 'exit=0']);
+  assert.equal(hidden.code, 1, 'a hidden failing step exit is a violation');
+  const [violation] = json(hidden.out).violations;
+  assert.equal(violation.kind, 'repeated-step-exit-hidden');
+  assert.equal(violation.path, 'logs/steps.log');
+  // The message points at the rule for writing exit lines.
+  assert.match(violation.detail, /rg exit=1/u);
+  // Every run passed, or the record itself carries the failure: nothing is hidden.
+  assert.equal(logCheck(['run 1', 'exit=0', 'run 2', 'exit=0']).code, 0);
+  assert.equal(
+    json(logCheck(['run 1', 'exit=1', 'run 2', 'exit=1'], { exit: 1 }).out).violations.length,
+    0,
+  );
+});
+
+test('a search exit written with its command name is not a step exit (RL-P2 RED 7)', () => {
+  // A self-consistency check log as the dispatch step asks for: search exits carry the command name, and the one
+  // whole-line exit is the end of the bundle.
+  const checked = logCheck([
+    '$ rg -n old-term docs',
+    'rg exit=1',
+    '$ node check.mjs',
+    'check ok',
+    'exit=0',
+  ]);
+  assert.equal(checked.code, 0, checked.out);
+  assert.deepEqual(json(checked.out).violations, []);
+  // Indented or prefixed lines are not whole-line exits either.
+  assert.equal(logCheck(['  note: exit=1 was expected here', 'exit=0']).code, 0);
+});
