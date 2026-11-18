@@ -4482,23 +4482,23 @@ const PLAN_A = [
 function planFixture(t, added) {
   return runFixture(t, {
     prepare: (r) => {
-      writeFileSync(join(r.root, '.git/info/exclude'), '.artifacts/\n.plans/\n');
+      writeFileSync(join(r.root, '.git/info/exclude'), `.artifacts/\n${PLANS}/\n`);
       const staged = PLAN_A.replace(
         'See [b](./b.md#missing-anchor).',
         `See [b](./b.md#missing-anchor).\n${added}`,
       );
       for (const [path, text] of [
-        ['.plans/a.md', PLAN_A],
-        ['.plans/b.md', '# Plan B\n\n- Plan ID: plan-b\n\n## 1. Body\n\ntext\n'],
-        [`${PLAN_STAGE}/plan-drafts/.plans/a.md`, staged],
-        [`${PLAN_STAGE}/review/baseline/.plans/a.md`, PLAN_A],
+        [`${PLANS}/a.md`, PLAN_A],
+        [`${PLANS}/b.md`, '# Plan B\n\n- Plan ID: plan-b\n\n## 1. Body\n\ntext\n'],
+        [`${PLAN_STAGE}/plan-drafts/${PLANS}/a.md`, staged],
+        [`${PLAN_STAGE}/review/baseline/${PLANS}/a.md`, PLAN_A],
         [
-          `${PLAN_STAGE}/review/baseline/.plans/b.md`,
+          `${PLAN_STAGE}/review/baseline/${PLANS}/b.md`,
           '# Plan B\n\n- Plan ID: plan-b\n\n## 1. Body\n\ntext\n',
         ],
-        [`${PLAN_STAGE}/review/promote-view/.plans/a.md`, staged],
+        [`${PLAN_STAGE}/review/promote-view/${PLANS}/a.md`, staged],
         [
-          `${PLAN_STAGE}/review/promote-view/.plans/b.md`,
+          `${PLAN_STAGE}/review/promote-view/${PLANS}/b.md`,
           '# Plan B\n\n- Plan ID: plan-b\n\n## 1. Body\n\ntext\n',
         ],
       ]) {
@@ -4508,7 +4508,7 @@ function planFixture(t, added) {
       const digest = createHash('sha256').update(PLAN_A).digest('hex');
       writeFileSync(
         join(r.root, PLAN_STAGE, 'plan-drafts/SOURCE-MANIFEST.tsv'),
-        `sha256\tsource\tdestination\n${digest}\t.plans/a.md\t.plans/a.md\n`,
+        `sha256\tsource\tdestination\n${digest}\t${PLANS}/a.md\t${PLANS}/a.md\n`,
       );
     },
   });
@@ -4574,7 +4574,7 @@ test('review-run passes a new unavailable target the checkout has and fails one 
 test('review-run refuses a staged plan whose original changed after it was staged', (t) => {
   const { r, run } = planFixture(t, 'A sentence added to the scope.');
   // The manifest row holds the sha256 the original had when the plan was staged.
-  writeFileSync(join(r.root, '.plans/a.md'), `${PLAN_A}\nAnother session edited the original.\n`);
+  writeFileSync(join(r.root, `${PLANS}/a.md`), `${PLAN_A}\nAnother session edited the original.\n`);
   const { result, record } = run(1, PLAN_ARGS);
   assert.equal(result.status, 1, result.stdout);
   assert.match(oneLine(result)[0], /^review-run failed checks=.*plan-source-manifest/u);
@@ -4734,8 +4734,8 @@ test('a later round compares commits, staged plans and a missing scope record wi
     verdict: 'FAIL',
     findings: [],
   });
-  const stagedPath = `${PLAN_STAGE}/plan-drafts/.plans/a.md`;
-  for (const path of [stagedPath, `${PLAN_STAGE}/review/promote-view/.plans/a.md`])
+  const stagedPath = `${PLAN_STAGE}/plan-drafts/${PLANS}/a.md`;
+  for (const path of [stagedPath, `${PLAN_STAGE}/review/promote-view/${PLANS}/a.md`])
     writeFileSync(
       join(plan.r.root, path),
       readFileSync(join(plan.r.root, path), 'utf8').replace(
