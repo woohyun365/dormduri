@@ -37,7 +37,8 @@ module로 좁히고, runner 기록을 prompt 밖 파일로 옮긴 변경(작업 
 - Identity 범위: 변경 전 digest 대상 파일 수와, 변경 뒤 registry가 export하는 닫힘 목록을 셌습니다.
 - 양성 대조: 저장소 밖 독립 clone(`node_modules` 없음)에서 구현을 한 곳씩 되돌리거나 넓힌 변이 71개를 적용하고 그 동작을 고정한 test만
   이름으로 골라 실행했습니다. 변이 전에는 같은 clone에서 여섯 test 파일 372개가 모두 통과했습니다.
-- Live: 새 세션에서 `review-run`으로 보낸 리뷰 1회 동안 닫힘 밖 script와 ignored 원본 입력을 바꾸고 정산 결과를 봅니다(6절, 수집 상태 표시).
+- Live: 새 세션에서 `review-run`으로 보낸 이 변경의 리뷰에서 reviewer가 실행 중일 때 ignored 원본 입력과 닫힘 밖 script를 바꾸고 정산 결과를
+  봅니다. 보낸 뒤 5분에 reviewer의 호출 기록을 읽어 바꿀지 정했습니다(6절, 수집 상태 표시).
 
 ```bash
 # identity 닫힘 목록(변경 뒤)과 변경 전 digest 대상 수
@@ -156,13 +157,26 @@ test의 low finding이 fixture에 없는 파일을 가리켜 severity 조건이 
 
 ### Live 관측
 
-수집 상태: 표본 0/1. 새 세션에서 `review-run`으로 보낸 리뷰 1회 동안 닫힘 밖 agent script와 ignored 원본 입력을 바꾼 뒤의 정산 결과를 이 절에
-더합니다. 그 전까지 위 두 표의 "후" 값은 fixture test의 관측입니다.
+새 세션에서 `review-run`으로 보낸 이 변경의 리뷰 세 건(1회차 reviewer 2명 `500b73b1`, 2회차 1명 `77258ba3`)에서 봤습니다. 수집 상태: 원본 입력
+표본 1/1, 닫힘 밖 script 표본 0/1.
+
+| 리뷰 중 바꾼 것                | 표본     | 관측                                                                                            |
+| ------------------------------ | -------- | ----------------------------------------------------------------------------------------------- |
+| Ignored 원본 입력에 한 줄 추가 | 1(2회차) | 정산 유효, `reviewInputOriginalsChanged`에 그 경로. Reviewer가 저장소 root 검색을 두 번 한 리뷰 |
+| 닫힘 밖 agent script 추가      | 0        | 적용하지 않음                                                                                   |
+
+- 원본 입력: reviewer는 사본을 읽었고 원본이나 그 상위 디렉터리를 지목한 호출이 없었습니다. 의존 판정은 저장소 전체였습니다. 1회차 리뷰의
+  code(`500b73b1`)는 같은 상황을 `review-input-changed`로 거부합니다("독립 리뷰가 찾은 결함" 표의 첫 행).
+- 닫힘 밖 script: reviewer 세 명 모두 path 없는 검색이나 저장소 root 검색을 해서 적용하지 않았습니다. 그런 리뷰에서 추적·untracked 파일이
+  바뀌면 identity가 아니라 의존 판정이 `unattributable-change`로 정산을 거부합니다(이 변경이 바꾸지 않은 동작). 그래서 "입력 사본과 identity"
+  표의 닫힘 밖 script 행은 fixture test와 양성 대조의 관측입니다.
 
 ## 7. 한계와 재측정 조건
 
 - Prompt 글자 수의 기록 모의는 계산이고 원천이 로컬 registry 기록이라 공개 재현이 되지 않습니다. 다시 볼 수 있는 값은 fixture test입니다.
 - 한도 거부 수와 finding 없이 버려진 회차 수의 "후" 값은 아직 없습니다. 변경이 merge된 뒤 기간의 registry 기록으로 다시 셉니다.
+- 리뷰 중 닫힘 밖 script를 바꾼 live 표본은 없습니다(6절). 이 변경의 reviewer가 모두 저장소 전체 검색을 했기 때문이고, merge 뒤 기간의 재측정에서
+  정산 출력의 `identityOutsideChanges` 기록 수를 함께 셉니다.
 - Identity drift 거부는 변경 전에도 0건이었습니다. 줄어드는 것은 운영 규칙의 대기인데 변경 전 대기 시간을 재지 않아 전후 비교가 없습니다.
 - 버려진 회차 3건은 한 checkout의 한 달 기록이고, 정산 출력이 남지 않은 task 78개와 다른 checkout 기록은 세지 않았습니다.
 - 닫힘은 정적 import만 따라갑니다. 닫힘 module이 다른 script를 child process로 실행하거나 동적 import로 싣게 되면 그 script의 변경은
@@ -186,4 +200,4 @@ test의 low finding이 fixture에 없는 파일을 가리켜 severity 조건이 
 - "prompt 한도는 어떻게 풀었나?" → 5절 대안(한도 상향 기각), 6절 fixture 17,039자 → 6,364자와 기록 모의, 길어지는 경우의 정직한 수치.
 - "한 명령으로 묶으면 무엇이 달라지나?" → 6절 첫 표: 검사 실패·거부 때 등록 0건, 2회차 범위와 이유가 기록에 남음.
 - "검증은 어떻게 했나?" → test 먼저, 독립 clone 양성 대조 71개(살아남은 둘로 test를 고침), 독립 리뷰가 찾은 결함 넷(6절),
-  live 관측 수집 상태.
+  live 관측(원본 입력 1/1, 닫힘 밖 script 0/1).
