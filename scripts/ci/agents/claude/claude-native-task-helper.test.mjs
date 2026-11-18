@@ -4198,6 +4198,37 @@ test('review gives no completeness warning when the inputs are complete (RL-P2 R
   assert.ok(review.reviewerPrompt.includes(review.verificationFile.path));
 });
 
+test('a Verification extract changed after registration fails the settlement', (t) => {
+  const r = warningRepo(t);
+  const review = parentReview(r, { ...SMALL_PARENT_SUBJECT, lifecycleDraft: 'docs/pr-full.md' });
+  const status = reviewedWhile(r, review, () =>
+    writeFileSync(join(r.root, review.verificationFile.path), '## Verification\n\n- edited\n'),
+  );
+  assert.ok(
+    status.observationErrors.includes('review-verification-changed'),
+    status.observationErrors.join(','),
+  );
+});
+
+test('an ignored input that is not a file is refused before any review file is written', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  // A repository nested under an ignored read path is listed as a directory, which has no copy.
+  const nested = '.artifacts/plans/helper-test/nested';
+  mkdirSync(join(r.root, nested), { recursive: true });
+  execFileSync('git', ['init', '-q'], { cwd: join(r.root, nested) });
+  writeFileSync(join(r.root, nested, 'note.md'), 'inside\n');
+  assert.throws(
+    () =>
+      parentReview(r, {
+        ...SMALL_PARENT_SUBJECT,
+        paths: ['sample.txt', '.artifacts/plans/helper-test'],
+      }),
+    /review-input-not-a-file: \.artifacts\/plans\/helper-test\/nested\/ cannot be copied/u,
+  );
+  assert.deepEqual(reviewFiles(r), []);
+});
+
 test('records that share a command are told apart by a label (RL-P2 RED 7)', (t) => {
   const r = repo(t);
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
