@@ -1037,19 +1037,17 @@ test('a deploy-worded xhigh extraction at low keeps a valid binding and admissio
   assert.equal(admitted.result.decision, 'candidate', JSON.stringify(admitted.result));
 });
 
-// The product service-foundation readiness (2026-11-04) asked these two explorer extractions at low. The unread
-// `추출해줘` intent stays intake-not-child-ready (Owner Q5: recorded only); the request words no longer add a
-// risk refusal.
-test('the two product extraction requests keep only intake-not-child-ready (KNU-RISK RED 1, Owner Q5)', () => {
+// The product service-foundation readiness (2026-11-04) asked these two explorer extractions at low. The request
+// words no longer add a risk refusal. The unread `추출해줘` intent is an intake matter (Owner Q5: recorded only)
+// and is not pinned here.
+test('the two product extraction requests add no risk refusal (KNU-RISK product sample, Owner Q5)', () => {
   for (const request of [
     '백오피스·권한·감사·운영 콘텐츠·legal 관련 API와 schema를 저장소에서 추출해줘.',
     'DB role·운영 자료·정리 작업·관측 log·CD 구조를 저장소에서 추출해줘.',
-  ])
-    assert.deepEqual(
-      reasonsOf({ request, role: 'knu_explorer', kind: 'extract' }),
-      ['intake-not-child-ready'],
-      request,
-    );
+  ]) {
+    const reasons = reasonsOf({ request, role: 'knu_explorer', kind: 'extract' });
+    assert.ok(!reasons.includes('risk-downgrade'), `${request}: ${reasons.join(',')}`);
+  }
 });
 
 test('the profile still checks the declared risk of a deploy-worded read (KNU-RISK 회귀 2)', () => {

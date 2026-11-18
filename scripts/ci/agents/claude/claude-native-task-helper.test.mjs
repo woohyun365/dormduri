@@ -3746,6 +3746,14 @@ test('a read declared at its request risk records belowIntake false (KNU-RISK RE
   recordsRequestRisk(prepared, { intake: 'medium', declared: 'medium', belowIntake: false });
 });
 
+// The plain read request rates low, so a medium declaration sits above it and is not recorded as below.
+test('a read declared above its request risk records belowIntake false (KNU-RISK D-KRR-2)', (t) => {
+  const r = repo(t);
+  const prepared = prepareClaudeNativeTask(subjectSpec(r), { root: r.root });
+  assert.equal(prepared.registerInput.workflowInput.reviewDisposition.required, true);
+  recordsRequestRisk(prepared, { intake: 'low', declared: 'medium', belowIntake: false });
+});
+
 test('a deploy-worded explorer read at low still needs independent QA (KNU-RISK RED 1 (바))', (t) => {
   const r = repo(t);
   assert.throws(
