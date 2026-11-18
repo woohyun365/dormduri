@@ -589,7 +589,6 @@ function eligibilityReasons(profile, task) {
   const xhighExtraction = profile.id === 'bounded-extraction' || ladderRetry(profile, task);
   if (task.role === 'knu_explorer_xhigh' && !xhighExtraction) reasons.push('effort-tier');
   if (writing || task.writeOwner !== null) reasons.push('read-only');
-  if (profile.readOnly && writing) reasons.push('profile-read-only');
   return reasons;
 }
 
