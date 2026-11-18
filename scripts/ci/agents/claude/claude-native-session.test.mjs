@@ -1644,9 +1644,12 @@ test('registration names the concrete policy reason instead of only the generic 
       },
       /unsafe-reference:nativeRequest\.selectionBasisRef/,
     ],
+    // A writing task keeps the intake comparison; a read delegation is registered (DA-025).
     [
       (f) => {
-        f.input.request = 'sample.txt 보안 정책 영향을 분석해줘.';
+        f.input.request = 'sample.txt 보안 설정을 수정해줘.';
+        f.input.nativeRequest.task.writeScope = ['sample.txt'];
+        f.input.directAssignment.writeOwnership = ['sample.txt'];
       },
       /risk-downgrade/,
     ],

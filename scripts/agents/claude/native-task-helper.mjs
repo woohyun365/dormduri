@@ -32,7 +32,7 @@ import {
 } from '../common/review-adjudication.mjs';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { prepareClaudeWorkflow } from './workflow-entry.mjs';
-import { IMPLEMENTATION_RETIRED, isRetiredClaudeTask } from './model-policy.mjs';
+import { IMPLEMENTATION_RETIRED, claudeRequestRisk, isRetiredClaudeTask } from './model-policy.mjs';
 import { CHILD_TRANSCRIPT_BYTE_LIMIT } from './native-session-evidence.mjs';
 import {
   registerClaudeNativeTask,
@@ -243,6 +243,7 @@ export function prepareClaudeNativeTask(spec, { root = process.cwd(), now = Date
       selectedBy: 'lead',
       selectionBasisRef: spec.selectionBasisRef,
     },
+    requestRisk: claudeRequestRisk(registered.workflow.native.binding),
     registerInput,
     dispatchAuthorized: false,
   };

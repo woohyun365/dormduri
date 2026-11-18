@@ -202,7 +202,13 @@ test('prepare names spec problems before registration and keeps policy reasons c
       }),
       /unsafe-reference:nativeRequest\.task\.facts\[0\]\.sourceRef/,
     ],
-    [explorerSpec(r, { request: 'sample.txt 보안 정책 영향을 분석해줘.' }), /risk-downgrade/],
+    [
+      explorerSpec(r, {
+        request: 'sample.txt 보안 설정을 수정해줘.',
+        writeScope: ['sample.txt'],
+      }),
+      /profile: (?=.*read-only)(?=.*risk-downgrade)/,
+    ],
     [
       explorerSpec(r, { facts: [{ key: 'source-bound', sourceRef: 'plan:helper-test' }] }),
       /fact-confidence-not-high:source-bound/,
@@ -211,6 +217,12 @@ test('prepare names spec problems before registration and keeps policy reasons c
     [explorerSpec(r, { writeScope: null }), /writeScope-array-required/],
   ])
     assert.throws(() => prepareClaudeNativeTask(spec, { root: r.root }), reason);
+  // The same request on the read-only extraction registers and records its risk (D-KRR-1·2).
+  const read = prepareClaudeNativeTask(
+    explorerSpec(r, { request: 'sample.txt 보안 정책 영향을 분석해줘.' }),
+    { root: r.root },
+  );
+  assert.deepEqual(read.requestRisk, { intake: 'high', declared: 'low', belowIntake: true });
 });
 
 // The retired knu-delegate build template: an executor writing its own scope.
@@ -3583,7 +3595,7 @@ test('a reviewer-paired researcher and an explorer keep their templates (D-RET-3
   assert.deepEqual(Object.keys(plain).sort(), ['acceptance', 'checks', 'responseDigest']);
 });
 
-test('prepare registers a deploy-worded researcher read at bounded-standard medium (D-RET-8)', (t) => {
+test('prepare registers a deploy-worded researcher or explorer read below its request risk (D-KRR-1)', (t) => {
   const r = researchRepo(t);
   const deploy = (patch) =>
     researchSpec(r, {
@@ -3596,28 +3608,25 @@ test('prepare registers a deploy-worded researcher read at bounded-standard medi
   const prepared = prepareClaudeNativeTask(deploy(), { root: r.root });
   assert.equal(prepared.invocation.model, 'sonnet');
   assert.equal(prepared.registerInput.workflowInput.nativeRequest.task.impactRisk, 'medium');
-  assert.throws(
-    () => prepareClaudeNativeTask(deploy({ impactRisk: 'low' }), { root: r.root }),
-    /risk-downgrade/u,
-  );
+  const low = prepareClaudeNativeTask(deploy({ impactRisk: 'low' }), { root: r.root });
+  assert.equal(low.invocation.model, 'sonnet');
+  assert.deepEqual(low.requestRisk, { intake: 'high', declared: 'low', belowIntake: true });
   assert.throws(
     () => prepareClaudeNativeTask(deploy({ impactRisk: 'high' }), { root: r.root }),
     /impact-risk/u,
   );
-  assert.throws(
-    () =>
-      prepareClaudeNativeTask(
-        deploy({
-          role: 'knu_explorer',
-          reviewDisposition: {
-            required: true,
-            reason: 'a repository read requires independent QA',
-          },
-        }),
-        { root: r.root },
-      ),
-    /risk-downgrade/u,
+  const explorer = prepareClaudeNativeTask(
+    deploy({
+      role: 'knu_explorer',
+      reviewDisposition: {
+        required: true,
+        reason: 'a repository read requires independent QA',
+      },
+    }),
+    { root: r.root },
   );
+  assert.equal(explorer.invocation.subagent_type, 'knu_explorer');
+  assert.deepEqual(explorer.requestRisk, { intake: 'high', declared: 'medium', belowIntake: true });
 });
 
 // D-RET-6 (Owner 2026-11-02 1.2): "a changed response artifact is refused" failed once when one preflight

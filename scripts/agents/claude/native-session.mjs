@@ -25,6 +25,7 @@ import {
   IMPLEMENTATION_RETIRED,
   claudeModelSupportsEffort,
   claudeRecoveryStep,
+  claudeRequestRisk,
   isRetiredClaudeTask,
 } from './model-policy.mjs';
 import {
@@ -815,6 +816,8 @@ export function registerClaudeNativeTask({
     bindingDigest: binding.bindingDigest,
     requestDigest: workflow.requestDigest,
     requestSummary: workflow.envelope.requestSummary,
+    // A read delegation may be declared below the request risk (DA-025); both stay readable here.
+    requestRisk: claudeRequestRisk(binding),
     independentReview: reviewBinding,
     initialFiles: inventory(root, binding.readScope),
   };
