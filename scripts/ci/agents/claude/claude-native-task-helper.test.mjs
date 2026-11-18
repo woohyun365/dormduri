@@ -4495,6 +4495,47 @@ test('review-run judges plan references against the baseline, not by exit code (
   assert.equal(nativeTaskCount(added.r), 0);
 });
 
+test('review-run passes a new unavailable target the checkout has and fails one it lacks', (t) => {
+  // The view lacks the ignored evidence file the staged plan links, so the reference check lists it as unavailable.
+  const present = planFixture(t, 'See [evidence](../.artifacts/plans/helper-test/present.md).');
+  writeFileSync(join(present.r.root, '.artifacts/plans/helper-test/present.md'), '# Evidence\n');
+  const ok = present.run(1, PLAN_ARGS);
+  assert.equal(ok.result.status, 0, ok.result.stdout);
+  assert.deepEqual(
+    ok.record.planReferences.newUnavailable.map(({ target, presentInCheckout }) => [
+      target,
+      presentInCheckout,
+    ]),
+    [['.artifacts/plans/helper-test/present.md', true]],
+  );
+  assert.deepEqual(ok.record.planReferences.newViolations, []);
+  const absent = planFixture(t, 'See [evidence](../.artifacts/plans/helper-test/absent.md).');
+  const refused = absent.run(1, PLAN_ARGS);
+  assert.equal(refused.result.status, 1, refused.result.stdout);
+  assert.match(oneLine(refused.result)[0], /^review-run failed checks=.*plan-reference-check/u);
+  assert.deepEqual(
+    refused.record.planReferences.newUnavailable.map(({ presentInCheckout }) => presentInCheckout),
+    [false],
+  );
+  assert.equal(nativeTaskCount(absent.r), 0);
+});
+
+test('review-run refuses a staged plan whose original changed after it was staged', (t) => {
+  const { r, run } = planFixture(t, 'A sentence added to the scope.');
+  // The manifest row holds the sha256 the original had when the plan was staged.
+  writeFileSync(join(r.root, '.plans/a.md'), `${PLAN_A}\nAnother session edited the original.\n`);
+  const { result, record } = run(1, PLAN_ARGS);
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(oneLine(result)[0], /^review-run failed checks=.*plan-source-manifest/u);
+  const manifest = record.checks.find(({ name }) => name === 'plan-source-manifest');
+  assert.equal(manifest.exit, 1);
+  assert.match(
+    readFileSync(join(r.root, manifest.outputPath), 'utf8'),
+    /^\.plans\/a\.md: sha256 /mu,
+  );
+  assert.equal(nativeTaskCount(r), 0);
+});
+
 test('review-run writes the changed sections of a P2 plan as its scope diff (RL-P2 RED 8)', (t) => {
   const { r, run } = planFixture(t, 'A sentence added to the scope.');
   const { result, out, record } = run(1, PLAN_ARGS);
@@ -4562,6 +4603,34 @@ test('a later round of a Parent subject gets its scope from review-run (RL-P2 RE
     ).prompt;
     assert.match(prompt, /^- Review round 2: read the full scope again \(/mu);
   }
+});
+
+test('a delta names the files of the previous blocking findings beside the changed files', (t) => {
+  const { r, run, write } = runFixture(t);
+  const subject = { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', 'other.txt'] };
+  const first = run(1, [], subject);
+  assert.equal(first.result.status, 0, first.result.stdout);
+  const reviewId = /([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(
+    first.record.reviewers[0].packetFile.path,
+  )[1];
+  // A blocking finding in a file the fix did not touch, a low one and one that names no file here.
+  const previous = write('r1-result.json', {
+    packetId: `review-${reviewId}`,
+    verdict: 'FAIL',
+    findings: [
+      { id: 'F1', severity: 'high', location: 'other.txt:2-5' },
+      { id: 'F2', severity: 'low', location: 'README.md:1' },
+      { id: 'F3', severity: 'medium', location: 'no/such/file.txt:9' },
+    ],
+  });
+  writeFileSync(join(r.root, 'sample.txt'), 'fixed');
+  const second = run(2, ['--previous-result', previous], subject);
+  assert.equal(second.result.status, 0, second.result.stdout);
+  assert.deepEqual(second.record.deltaScope, {
+    mode: 'delta',
+    reason: 'changed-within-previous-paths',
+    paths: ['other.txt', 'sample.txt'],
+  });
 });
 
 test('a later round compares commits, staged plans and a missing scope record with the previous round', (t) => {
