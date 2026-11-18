@@ -157,7 +157,8 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
   `KNU_REVIEW_RUNNER_FILE:<경로> <digest>` 한 줄과 기록마다 `command`·`exit`·`observedResult`만 남습니다. Reviewer는 그
   파일의 `commandsActuallyRun`을 결과에 그대로 옮기고, 등록 뒤 파일이 바뀌면 정산이 `review-runner-file-changed`로 거부합니다.
   남는 초과는 기록의 `command`·`observedResult`와 acceptance 문장 길이에서 옵니다. 그래서 runner 기록의 낱개 줄은 log에 두고
-  record에는 요약 조각만 둡니다. `e3`에서 넘으면 구성원 배정 줄이 없는 `e2`를 고려하고, native subject 경로는 acceptance·read
+  record에는 요약 조각만 둡니다. 긴 명령은 script 파일에 두고 record `command`에는 그 실행 한 줄을 적습니다(`command` 글자가
+  prompt에 그대로 실립니다). `e3`에서 넘으면 구성원 배정 줄이 없는 `e2`를 고려하고, native subject 경로는 acceptance·read
   path도 줄입니다.
 - `reviewerSpec`의 prompt는 고치지 않고 등록합니다. `review`가 reviewer마다 prompt digest를
   `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에 남기고, 등록은 다른 prompt를 `review-prompt-changed`로, 기록이
