@@ -427,6 +427,39 @@ test('review-run registers nothing when the criteria choice fails', () => {
   }
 });
 
+test('review-run refuses an --out inside the repository that Git does not ignore', () => {
+  const registryRoot = mkdtempSync(join(tmpdir(), 'knu-review-run-'));
+  const session = 'rl-p2-review-run';
+  // Result files there would be new working-tree files beside the subject under review.
+  const out = join(root, 'review-run-out-not-ignored');
+  try {
+    const run = delegateSpec.runDelegateCommand(
+      [
+        'review-run',
+        '--lanes',
+        'legal-read',
+        '--token',
+        TOKEN,
+        '--session',
+        session,
+        '--out',
+        out,
+        '--paths',
+        SOURCE,
+      ],
+      { root, registryRoot },
+    );
+    assert.equal(run.exitCode, 1);
+    assert.equal(run.stdout.split('\n').filter(Boolean).length, 1, run.stdout);
+    assert.match(run.stdout, /^review-run failed out-directory-not-ignored: /u);
+    assert.equal(existsSync(out), false);
+    assert.equal(existsSync(registryDirectory(registryRoot, session)), false);
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+    rmSync(registryRoot, { recursive: true, force: true });
+  }
+});
+
 test('review-run reports a round that is already registered as a failed run', () => {
   const registryRoot = mkdtempSync(join(tmpdir(), 'knu-review-run-'));
   const session = 'rl-p2-review-run';

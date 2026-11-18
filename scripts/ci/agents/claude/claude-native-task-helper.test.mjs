@@ -3188,8 +3188,40 @@ function ignoredInputReview(t) {
   const review = parentReview(r, { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', INPUT_DIR] });
   return { r, review };
 }
-// Dispatches a prepared reviewer, runs `during` while it works, then records its PASS result.
-function reviewedWhile(r, review, during = () => {}, reads = []) {
+// Adds tool calls ([name, input]) to a child transcript as the reviewer's own.
+function useRows(r, agentId, uses) {
+  const child = join(
+    r.root,
+    '.artifacts/transcripts',
+    r.sessionId,
+    'subagents',
+    `agent-${agentId}.jsonl`,
+  );
+  const row = (type, message, extra = {}) =>
+    JSON.stringify({ type, sessionId: r.sessionId, agentId, ...extra, message });
+  writeFileSync(
+    child,
+    readFileSync(child, 'utf8') +
+      uses
+        .map(
+          ([name, input], index) =>
+            `${row(
+              'assistant',
+              {
+                model: 'claude-opus-4-6',
+                content: [{ type: 'tool_use', id: `toolu_use_${index}`, name, input }],
+              },
+              { effort: ROLE_EFFORT.knu_reviewer },
+            )}\n${row('user', {
+              content: [{ type: 'tool_result', tool_use_id: `toolu_use_${index}`, content: '' }],
+            })}\n`,
+        )
+        .join(''),
+  );
+}
+// Dispatches a prepared reviewer, runs `during` while it works, then records its PASS result. `reads`
+// are files the reviewer is seen reading and `uses` any other tool calls of its transcript.
+function reviewedWhile(r, review, during = () => {}, reads = [], uses = []) {
   const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
   const event = {
     hook_event_name: 'PreToolUse',
@@ -3226,6 +3258,7 @@ function reviewedWhile(r, review, during = () => {}, reads = []) {
   );
   readRows(r, 'review-1-agent', review.packetFile.path);
   for (const path of reads) readRows(r, 'review-1-agent', path);
+  if (uses.length) useRows(r, 'review-1-agent', uses);
   return settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
 }
 
@@ -3971,6 +4004,66 @@ test('a reviewer reads ignored inputs from copies: a changed original is recorde
   );
 });
 
+test('a changed original is refused only when a call names it or a directory above it', (t) => {
+  // The original changes while the reviewer works; `uses` are the other calls of its transcript.
+  const changed = (uses) => {
+    const { r, review } = ignoredInputReview(t);
+    return reviewedWhile(
+      r,
+      review,
+      () => writeFileSync(join(r.root, INPUT_FILE), 'rev 2\n'),
+      [],
+      uses(r),
+    );
+  };
+  // A search without a path or of the repository root judges the whole repository, yet it names no
+  // original: the change is recorded only.
+  for (const uses of [
+    () => [['Glob', { pattern: '**/*' }]],
+    (r) => [['Grep', { pattern: 'rev', path: r.root }]],
+    (r) => [
+      ['Glob', { pattern: '**/*.md', path: r.root }],
+      ['Grep', { pattern: 'edit', path: join(r.root, 'sample.txt') }],
+    ],
+  ]) {
+    const status = changed(uses);
+    assert.equal(status.dependencyJudgment.basis, 'repository');
+    assert.deepEqual(status.observationErrors, []);
+    assert.deepEqual(status.reviewInputOriginalsChanged, [INPUT_FILE]);
+  }
+  // Beside such a search, a call that names the original or a directory above it read it.
+  for (const uses of [
+    (r) => [
+      ['Glob', { pattern: '**/*' }],
+      ['Read', { file_path: join(r.root, INPUT_FILE) }],
+    ],
+    (r) => [
+      ['Glob', { pattern: '**/*' }],
+      ['Grep', { pattern: 'rev', path: join(r.root, INPUT_DIR) }],
+    ],
+    (r) => [
+      ['Grep', { pattern: 'rev', path: r.root }],
+      ['Glob', { pattern: '*.md', path: join(r.root, '.artifacts') }],
+    ],
+  ]) {
+    const status = changed(uses);
+    assert.ok(
+      status.observationErrors.includes(`review-input-changed:${INPUT_FILE}`),
+      status.observationErrors.join(','),
+    );
+    assert.deepEqual(status.reviewInputOriginalsChanged, []);
+  }
+  // Another tool leaves the reads untold: refused as before.
+  const untold = changed(() => [
+    ['Glob', { pattern: '**/*' }],
+    ['Bash', { command: 'cat plan.md' }],
+  ]);
+  assert.ok(
+    untold.observationErrors.includes(`review-input-changed:${INPUT_FILE}`),
+    untold.observationErrors.join(','),
+  );
+});
+
 test('an ignored input with a name registration refuses is read through its copy (RL-P2 RED 3)', (t) => {
   const r = repo(t);
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
@@ -4347,8 +4440,12 @@ function runFixture(t, { exitLine = 'exit=0', prepare = () => {} } = {}) {
       ],
     });
   };
-  const run = (round, args = [], subject = SMALL_PARENT_SUBJECT) => {
-    const out = `${RUN_DIR}/r${round}-out`;
+  const run = (
+    round,
+    args = [],
+    subject = SMALL_PARENT_SUBJECT,
+    out = `${RUN_DIR}/r${round}-out`,
+  ) => {
     const result = spawnSync(
       process.execPath,
       [
@@ -4457,6 +4554,39 @@ test('review-run records a request review refuses and registers nothing', (t) =>
   assert.deepEqual(reviewFiles(r), []);
 });
 
+test('review-run records a member registered before an unexpected error', (t) => {
+  const { r, run } = runFixture(t);
+  // The spec file of the first member cannot be written: the member is registered by then.
+  mkdirSync(join(r.root, RUN_DIR, 'r1-out/reviewer-1.spec.json'), { recursive: true });
+  const { result, record } = run(1);
+  assert.equal(result.status, 1, result.stdout);
+  assert.equal(oneLine(result).length, 1, result.stdout);
+  assert.match(oneLine(result)[0], /^review-run failed error=.*registered=1 /u);
+  assert.equal(record.ok, false);
+  assert.equal(record.unexpected, true);
+  assert.equal(record.registered.length, 1);
+  assert.equal(nativeTaskCount(r), 1);
+});
+
+test('review-run refuses an --out inside the packet directory, a native task record or a subject path', (t) => {
+  const { r, run } = runFixture(t);
+  const sub = '.artifacts/plans/helper-test/sub';
+  mkdirSync(join(r.root, sub), { recursive: true });
+  writeFileSync(join(r.root, sub, 'a.md'), 'rev 1\n');
+  const subject = { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', sub] };
+  for (const out of [
+    `${PACKET_DIR}/run-out`,
+    '.artifacts/tools/claude-native/run-out',
+    `${sub}/out`,
+  ]) {
+    const { result } = run(1, [], subject, out);
+    assert.equal(result.status, 1, `${out}: ${result.stdout}`);
+    assert.match(result.stderr, /out-directory-required/u, out);
+    assert.ok(!existsSync(join(r.root, out)), `${out} is not created`);
+  }
+  assert.equal(nativeTaskCount(r), 0);
+});
+
 // A plan subject: the original under the plan root, a staged revision beside its manifest, and the
 // promote view and its baseline, both with a violation the plan already has.
 const PLAN_STAGE = '.artifacts/plans/helper-test/stage';
@@ -4544,6 +4674,48 @@ test('review-run judges plan references against the baseline, not by exit code (
   assert.match(oneLine(refused.result)[0], /^review-run failed .*plan-reference-check/u);
   assert.equal(refused.record.planReferences.newViolations.length, 1);
   assert.equal(nativeTaskCount(added.r), 0);
+});
+
+test('review-run binds the promote view and the baseline to the staged drafts and the manifest originals', (t) => {
+  const NEW_REFERENCE = 'See [b again](./b.md#another-missing-anchor).';
+  const failsBinding = (fixture, detail) => {
+    const got = fixture.run(1, PLAN_ARGS);
+    assert.equal(got.result.status, 1, got.result.stdout);
+    assert.match(oneLine(got.result)[0], /^review-run failed checks=.*plan-view-binding/u);
+    const check = got.record.checks.find(({ name }) => name === 'plan-view-binding');
+    assert.equal(check.exit, 1);
+    assert.match(readFileSync(join(fixture.r.root, check.outputPath), 'utf8'), detail);
+    assert.equal(nativeTaskCount(fixture.r), 0);
+  };
+  // A view built before the staged revision: the reference check alone would find nothing new.
+  const stale = planFixture(t, NEW_REFERENCE);
+  writeFileSync(join(stale.r.root, `${PLAN_STAGE}/review/promote-view/${PLANS}/a.md`), PLAN_A);
+  failsBinding(stale, /a\.md: the view does not hold the staged file/u);
+  // A baseline that is not the manifest original hides what the revision adds.
+  const hidden = planFixture(t, NEW_REFERENCE);
+  writeFileSync(
+    join(hidden.r.root, `${PLAN_STAGE}/review/baseline/${PLANS}/a.md`),
+    PLAN_A.replace(
+      'See [b](./b.md#missing-anchor).',
+      `See [b](./b.md#missing-anchor).\n${NEW_REFERENCE}`,
+    ),
+  );
+  failsBinding(hidden, /a\.md: the baseline is not the manifest original/u);
+  // A plan the view holds beside the staged ones is the baseline's.
+  const drifted = planFixture(t, 'A sentence added to the scope.');
+  writeFileSync(
+    join(drifted.r.root, `${PLAN_STAGE}/review/promote-view/${PLANS}/b.md`),
+    '# Plan B\n\n- Plan ID: plan-b\n\n## 1. Body\n\nchanged\n',
+  );
+  failsBinding(drifted, /b\.md: the view differs from the baseline/u);
+  // A view directory without the plans passes nothing.
+  const missing = planFixture(t, 'A sentence added to the scope.');
+  rmSync(join(missing.r.root, `${PLAN_STAGE}/review/promote-view`), { recursive: true });
+  failsBinding(missing, /a\.md: the view does not hold the staged file/u);
+  // The view and the baseline of the fixture as built are bound.
+  const bound = planFixture(t, 'A sentence added to the scope.').run(1, PLAN_ARGS);
+  assert.equal(bound.result.status, 0, bound.result.stdout);
+  assert.equal(bound.record.checks.find(({ name }) => name === 'plan-view-binding').exit, 0);
 });
 
 test('review-run passes a new unavailable target the checkout has and fails one it lacks', (t) => {
@@ -4682,6 +4854,90 @@ test('a delta names the files of the previous blocking findings beside the chang
     reason: 'changed-within-previous-paths',
     paths: ['other.txt', 'sample.txt'],
   });
+});
+
+test('a delta finds the file of a blocking finding whose location says more than a line', (t) => {
+  const { r, run, write } = runFixture(t);
+  writeFileSync(join(r.root, 'third.txt'), 'a third subject file\n');
+  writeFileSync(join(r.root, 'fourth.txt'), 'a fourth subject file\n');
+  const subject = {
+    ...SMALL_PARENT_SUBJECT,
+    paths: ['sample.txt', 'other.txt', 'third.txt', 'fourth.txt'],
+  };
+  const first = run(1, [], subject);
+  assert.equal(first.result.status, 0, first.result.stdout);
+  const reviewId = /([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(
+    first.record.reviewers[0].packetFile.path,
+  )[1];
+  const previous = write('r1-result.json', {
+    packetId: `review-${reviewId}`,
+    verdict: 'FAIL',
+    findings: [
+      { id: 'F1', severity: 'high', location: 'other.txt:2 (helper)' },
+      { id: 'F2', severity: 'medium', location: '`third.txt:7-9`' },
+      { id: 'F3', severity: 'medium', location: 'fourth.txt:10, 20' },
+    ],
+  });
+  writeFileSync(join(r.root, 'sample.txt'), 'fixed');
+  const second = run(2, ['--previous-result', previous], subject);
+  assert.equal(second.result.status, 0, second.result.stdout);
+  assert.deepEqual(second.record.deltaScope.paths, [
+    'fourth.txt',
+    'other.txt',
+    'sample.txt',
+    'third.txt',
+  ]);
+});
+
+test('an ignored subject file follows the rule of a tracked one between rounds', (t) => {
+  const sub = '.artifacts/plans/helper-test/sub';
+  const subject = { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', sub] };
+  const rounds = (change) => {
+    const { r, run, write } = runFixture(t, {
+      prepare: (repository) => {
+        mkdirSync(join(repository.root, sub), { recursive: true });
+        writeFileSync(join(repository.root, sub, 'a.md'), 'rev 1\n');
+        writeFileSync(join(repository.root, sub, 'b.md'), 'kept\n');
+      },
+    });
+    const first = run(1, [], subject);
+    assert.equal(first.result.status, 0, first.result.stdout);
+    const reviewId = /([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(
+      first.record.reviewers[0].packetFile.path,
+    )[1];
+    const previous = write('r1-result.json', {
+      packetId: `review-${reviewId}`,
+      verdict: 'FAIL',
+      findings: [{ id: 'F1', severity: 'medium', location: 'sample.txt:1' }],
+    });
+    change(r);
+    const second = run(2, ['--previous-result', previous], subject);
+    assert.equal(second.result.status, 0, second.result.stdout);
+    return { r, second };
+  };
+  // Changed between the rounds: the delta names it beside the finding's file.
+  const changed = rounds((r) => writeFileSync(join(r.root, sub, 'a.md'), 'rev 2\n'));
+  assert.deepEqual(changed.second.record.deltaScope, {
+    mode: 'delta',
+    reason: 'changed-within-previous-paths',
+    paths: [`${sub}/a.md`, 'sample.txt'],
+  });
+  const prompt = JSON.parse(
+    readFileSync(join(changed.r.root, changed.second.record.reviewers[0].invocationFile), 'utf8'),
+  ).prompt;
+  assert.match(prompt, /^- Review round 2 \(delta\): .*helper-test\/sub\/a\.md/mu);
+  // Removed: a change like one of a tracked file.
+  const removed = rounds((r) => rmSync(join(r.root, sub, 'b.md')));
+  assert.deepEqual(removed.second.record.deltaScope.paths, [`${sub}/b.md`, 'sample.txt']);
+  // Created inside the previous subject paths: the full scope, like a new tracked file.
+  const created = rounds((r) => writeFileSync(join(r.root, sub, 'new.md'), 'new\n'));
+  assert.deepEqual(created.second.record.deltaScope, {
+    mode: 'full',
+    reason: `new-file: ${sub}/new.md`,
+  });
+  // Left as it was: only the finding's file.
+  const same = rounds(() => {});
+  assert.deepEqual(same.second.record.deltaScope.paths, ['sample.txt']);
 });
 
 test('a later round compares commits, staged plans and a missing scope record with the previous round', (t) => {
