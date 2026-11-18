@@ -4952,7 +4952,17 @@ test('an ignored subject file follows the rule of a tracked one between rounds',
   const prompt = JSON.parse(
     readFileSync(join(changed.r.root, changed.second.record.reviewers[0].invocationFile), 'utf8'),
   ).prompt;
-  assert.match(prompt, /^- Review round 2 \(delta\): .*helper-test\/sub\/a\.md/mu);
+  // The reviewer is given the copy, so the round line names the copy; a tracked file keeps its path.
+  const roundLine = prompt
+    .split('\n')
+    .find((line) => line.startsWith('- Review round 2 (delta): '));
+  const listed = /since round 1: (.*?)\. Read other paths/u.exec(roundLine)[1].split(', ');
+  const secondId = /([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(
+    changed.second.record.reviewers[0].packetFile.path,
+  )[1];
+  const copy = `${PACKET_DIR}/${secondId}.inputs/${sub}/a.md`;
+  assert.ok(existsSync(join(changed.r.root, copy)), `${copy} is the copy the reviewer reads`);
+  assert.deepEqual(listed, [copy, 'sample.txt']);
   // Removed: a change like one of a tracked file.
   const removed = rounds((r) => rmSync(join(r.root, sub, 'b.md')));
   assert.deepEqual(removed.second.record.deltaScope.paths, [`${sub}/b.md`, 'sample.txt']);
