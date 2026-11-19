@@ -123,7 +123,8 @@ owner preference: not-collected, not implied by this example
 
 1. 모든 후보를 같은 콘텐츠·[대표 상태 묶음](./visual-brief.md#verification)·viewport로 렌더합니다.
 2. Owner에게 보이기 전에 지킬 것(고지·대비·접근성)을 결정적 검사로 확인합니다. 방향이 맞아도 고지 누락이나 대비 실패가
-   있으면 Owner의 방향 판단이 흐려집니다.
+   있으면 Owner의 방향 판단이 흐려집니다. 자동 접근성 검사가 보지 않는 지킬 것(이동 뒤 고정 요소가 대상을 가리는지, DOM 순서와
+   시각 순서가 같은지)은 따로 측정합니다.
 3. Owner가 방향을 고릅니다(select/revise/reject).
 4. 고른 후보에만 `isolated critique → adopt/reject/defer → authorized patch → recapture → keep/revert`를 사용합니다.
    [공통 maker-checker](../orchestration.md#pattern-selector)를 따라 기본 최대 두 번의 critique→revision cycle로 제한합니다.
