@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
-import { dirname, relative, resolve } from 'node:path';
+import { dirname, relative, resolve, sep } from 'node:path';
 import test from 'node:test';
 import { anchors, links as markdownLinks, prose } from '../../../agents/common/markdown-links.mjs';
 import { matchPathGlob } from '../../../agents/common/review-criteria-selection.mjs';
@@ -521,7 +521,10 @@ function executionPointViolations(command, repo) {
 }
 const SENSOR_HEADER = ['키', '대상', '명령', '실행 시점', '지점과 상한'];
 const SENSOR_TIMINGS = ['편집', 'commit', 'CI', '리뷰', '운영'];
+// 대상 names what the check covers: binding path keys (`repo-structure.*`) that exist, or globs. 지점과 상한 is
+// written only by a row that runs at 편집 and is `-` otherwise.
 function sensorTableViolations(binding, repo) {
+  const keys = bindingKeys(binding);
   const section = prose(binding)
     .split(/^(?=## )/mu)
     .find((block) => block.startsWith('## 센서\n'));
@@ -532,7 +535,7 @@ function sensorTableViolations(binding, repo) {
   const violations = [];
   const seen = new Set();
   for (const row of rows) {
-    const [key, target, command, timing] = cells(row);
+    const [key, target, command, timing, limit] = cells(row);
     const id = key.match(/^`(sensor\.[a-z0-9-]+)`$/u)?.[1];
     if (!id || cells(row).length !== SENSOR_HEADER.length) {
       violations.push(`malformed sensor row ${key}`);
@@ -540,9 +543,22 @@ function sensorTableViolations(binding, repo) {
     }
     if (seen.has(id)) violations.push(`${id} appears twice`);
     seen.add(id);
-    if (!target) violations.push(`${id}: 대상 is empty`);
+    const targets = [...target.matchAll(/`([^`]+)`/gu)].map(([, code]) => code);
+    if (targets.length === 0) violations.push(`${id}: 대상 names no binding path key or glob`);
+    for (const code of targets) {
+      const kind = code.match(/^([a-z-]+)\.[a-z0-9-]+$/u)?.[1];
+      if (!kind || !BINDING_KINDS.has(kind)) continue;
+      if (kind !== 'repo-structure') violations.push(`${id}: 대상 cannot reference ${code}`);
+      else if (!keys.has(code))
+        violations.push(`${id}: 대상 key ${code} is not in the binding document`);
+    }
     if (!timing || timing.split(', ').some((value) => !SENSOR_TIMINGS.includes(value)))
       violations.push(`${id}: 실행 시점 must be among ${SENSOR_TIMINGS.join('·')}`);
+    const edit = timing.split(', ').includes('편집');
+    if (!edit && limit !== '-')
+      violations.push(`${id}: 지점과 상한 must be - unless 실행 시점 has 편집`);
+    if (edit && (!limit || limit === '-'))
+      violations.push(`${id}: 지점과 상한 is required when 실행 시점 has 편집`);
     violations.push(
       ...executionPointViolations(command, repo).map((violation) => `${id}: ${violation}`),
     );
@@ -555,7 +571,9 @@ const repository = {
   hasScript: (name) =>
     Object.hasOwn(JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).scripts, name),
   resolveLink: (target) =>
-    relative(root, resolve(root, dirname(BINDING_DOC), target.split('#')[0])),
+    relative(root, resolve(root, dirname(BINDING_DOC), target.split('#')[0]))
+      .split(sep)
+      .join('/'),
   hasFile: (path) => !path.startsWith('..') && existsSync(resolve(root, path)),
   hasStep: (path, name) =>
     readFileSync(resolve(root, path), 'utf8')
