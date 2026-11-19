@@ -91,6 +91,8 @@ Native read-only smoke는 실제 UI 품질 검증과 별개입니다. 별도 승
 캡처·회차 기록·Owner 원문을 두고, 시안을 제품 route로 올리는 일은 [시각 탐색 branch](#시각-탐색-branch)의 확정과 정리 뒤에
 합니다. 추가 asset/font/dependency는 [명시적 experiment 범위](./visual-brief.md#bounded-dependency-and-font-experiments)와
 license·성능을 확인하며 임의로 설치하지 않습니다. Synthetic content만으로 실제 긴 문구를 다룰 수 있다고 보고하지 않습니다.
+반대로 실제 원본만으로 그 화면이 그릴 내용 종류를 모두 덮지 못하면 판정용(실제 원본)과 범위용(시험 표시를 붙인 내용) fixture를
+나누고, 무엇으로 무엇을 판정했는지 보고에 적습니다.
 
 작업 순서의 기본값은 layout을 먼저 정하고([레퍼런스 골격](./reference-content-contract.md#reference에서-가져올-부분만-추출하기))
 token은 화면을 고른 뒤 그 화면에 맞춰 줄이는 것입니다. 기본값이므로 brief가 다른 순서를 정하면 그 순서를 따릅니다.
@@ -122,6 +124,9 @@ Owner에게는 후보별 이미지와 의도·핵심 차이·검증 결과·남�
 [실제 수정 루프](./design-review-and-acceptance.md#실제-수정-루프), Owner 질문의 형식은
 [decision packet](../owner-lead-collaboration.md#짧은-협의-decision-packet)을 따릅니다.
 
+- **시작 회차:** 탐색을 시작하는 회차의 보고는 시안보다 먼저
+  [화면 역할 분석](./visual-brief.md#target-and-user-job)을 보입니다.
+- **이전 Owner 답 다시 읽기:** 시안을 만들기 전에 같은 surface의 이전 Owner 답 원문을 다시 읽습니다.
 - **회차 기록 단위:** 회차마다 `.artifacts`의 회차 디렉터리에 보고·검사 로그·비교 이미지를 둡니다. 보고 첫 줄에는 Owner 답을
   어떻게 읽었는지 적고, Owner 질문·답 원문은 회차 절로 남깁니다. 보고하는 화면 수치는 렌더한 화면에서 잰 값만 씁니다.
 - **plan의 탐색 기록:** 시각 plan의 탐색 기록 절은 `## 탐색 회차 기록`처럼 heading에 `탐색 회차`를 담고, 같은 heading에
@@ -156,6 +161,16 @@ Owner에게는 후보별 이미지와 의도·핵심 차이·검증 결과·남�
 branch의 검사에서야 드러나며, 구현 branch의 첫 상태가 검증되지 않은 조합이 되기 때문입니다. explore에서 정리 commit을 먼저
 만들면 구현 branch로의 이동은 검증된 tree의 복사가 됩니다. [screens README](../../../../apps/web/src/screens/README.md)가 고른 뒤
 고르지 않은 시안을 지우라는 "같은 변경"은 explore 흐름에서는 이 정리 commit입니다.
+
+탐색 중 다음 경우에는 위 단계에 더해 이렇게 합니다.
+
+- **처음 필요한 token 역할:** 탐색에서 처음 필요한 token 역할은 임시 token으로 두고 회차 기록에 적습니다. token 원본에 정식으로
+  더하는 일은 구현 branch에서 [token 변경 packet](./web-semantic-token-contract.md#변경할-때의-packet)으로 하고, 탐색 중 token
+  원본을 고쳐야 하면 `W-DESIGN` override로 기록합니다.
+- **실제 app 이동이 기준인 동작:** 실제 app 이동(history·referrer·hash)이 기준인 동작이 지킬 것에 있으면 확정 전에 explore
+  branch의 임시 route 미리보기로 한 번 확인합니다. 그 route 연결은 `W-DESIGN` override로 기록하고 정리 commit에서 되돌립니다.
+- **다른 기능을 가리키는 탐색 story:** 다른 기능의 story id·이름을 가리키는 탐색 story는 그 기능이 바뀌면 깨집니다. 그런 이름을
+  바꾸거나 지우는 정리는 저장소 검색 대상에 진행 중인 explore branch를 넣고, 이동 전에 explore tree의 그 참조를 다시 확인합니다.
 
 ## Evidence와 기능의 한계
 

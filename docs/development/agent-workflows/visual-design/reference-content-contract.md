@@ -59,6 +59,8 @@ Unavailable/loading/consent 상태도 해당 route에서 실제 존재하는지 
 Prototype에는 허용된 stub과 제한을 명시합니다. 인쇄·clipboard·history·consent·analytics를 실제 호출하지 않는다면
 그 intent만 검증했다고 보고합니다. Production 변경 시에는 해당 실제 code/test owner의 검증이 추가로 필요합니다.
 
+문서 화면의 레퍼런스는 첫 화면과 함께 문서 끝(변경·이전 판 조항이 놓이는 곳)을 캡처합니다.
+
 ## Reference에서 가져올 부분만 추출하기
 
 URL/file/node, 권한, 관찰 시점, viewport/state와 실제 사용한 도구를 기록합니다. 이후 다음 aspect map을 만듭니다. layout 칸을
@@ -89,6 +91,8 @@ layout·인터랙션만 핵심으로 올립니다.
   일부만 막혔는지를 나눠 회차 기록에 적습니다.
 - **이미지 자산 출처:** 사진은 원본 license를 기계로 확인할 수 있는 출처만 씁니다. 생성 이미지는 도구·모델·프롬프트 위치·날짜를
   받습니다. 둘 다 코드 옆 출처, 회차 기록, 원본·사본 sha256을 남기고 받은 직후 크기·알파를 잽니다.
+- **글자 값 측정:** 레퍼런스의 글자 크기·굵기는 한 문단의 계산 값이 아니라 본문 text node를 글자 수로 가중한 최다값으로 잽니다.
+  한 문단만 재면 다른 역할의 글자 값을 집을 수 있습니다.
 - Figma 파일을 레퍼런스로 볼 때의 호출 예산은 [Figma MCP evidence](./figma-mcp-evidence.md#5-effective-rate-limit-evidence)를 따릅니다.
 
 현재 token·Storybook도 reimagine/new-surface에서 숨은 스타일 지시문이 아닙니다. 내용/behavior부터 확인한 뒤 재사용 가능한

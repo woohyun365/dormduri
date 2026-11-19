@@ -638,3 +638,44 @@ test('recommended exploration record headings grade an appended round as P0', ()
     `${orchestrationPath}: plan revision grade owner link`,
   );
 });
+
+// Section-scoped owner links: the rule sentence lives in one owner document and the section that applies it links there.
+// A link elsewhere in the same file does not count. Link target and anchor only, not the wording.
+function sectionLinks(path, heading) {
+  const source = read(path);
+  const start = source.indexOf(`\n## ${heading}\n`);
+  assert.ok(start >= 0, `${path}: ## ${heading}`);
+  const end = source.indexOf('\n## ', start + 1);
+  return markdownLinks(repoRoot, path, source.slice(start, end === -1 ? undefined : end));
+}
+
+test('exploration round loop links the screen role analysis owner section in the visual brief', () => {
+  const briefPath = `${visualRoot}/visual-brief.md`;
+  const fragment = 'target-and-user-job';
+  assert.ok(
+    sectionLinks(orchestrationPath, '탐색 회차 루프').some(
+      (link) => link.path === briefPath && link.fragment === fragment,
+    ),
+    `${orchestrationPath}: 탐색 회차 루프 section link to ${briefPath}#${fragment}`,
+  );
+  assert.ok(anchors(read(briefPath)).has(fragment), `${briefPath}: anchor ${fragment}`);
+});
+
+test('visual exploration branch section links the token contract that owns formal token additions', () => {
+  const tokenPath = `${visualRoot}/web-semantic-token-contract.md`;
+  assert.ok(
+    sectionLinks(orchestrationPath, '시각 탐색 branch').some(({ path }) => path === tokenPath),
+    `${orchestrationPath}: 시각 탐색 branch section link to ${tokenPath}`,
+  );
+});
+
+test('decision packet section links the host adapter index that owns the question tool', () => {
+  const collaborationPath = `${workflowRoot}/owner-lead-collaboration.md`;
+  const adapterIndex = `${workflowRoot}/adapters/README.md`;
+  assert.ok(
+    sectionLinks(collaborationPath, '짧은 협의: decision packet').some(
+      ({ path }) => path === adapterIndex,
+    ),
+    `${collaborationPath}: 짧은 협의: decision packet section link to ${adapterIndex}`,
+  );
+});

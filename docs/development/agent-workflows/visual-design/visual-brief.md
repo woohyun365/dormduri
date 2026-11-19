@@ -26,6 +26,9 @@ VisualBrief는 한 UI 작업의 방향을 정리하는 task-scoped artifact입�
 - requested output: analysis, direction proposal, plan, implementation 또는 review
 - `surfaceId`, `mode`: `maintain | reimagine | new-surface`; mode 자체는 수정 권한이 아님
 - 이 작업의 허용된 source와 output/write scope, 완료 기준과 제외 항목
+- 화면 역할 분석: 탐색을 시작하는 회차에 읽는 사람, 들어오는 길(코드의 link·route 근거), 그때 묻는 것, 화면이 답할 곳을 표로
+  적고 화면 역할을 한 문장으로 씁니다. 표의 축은 화면 종류에 맞춥니다(권유하는 화면은 묻는 순서, 문서 화면은 들어오는 길과
+  찾는 것처럼).
 
 ### Scoped inheritance and constraint provenance
 

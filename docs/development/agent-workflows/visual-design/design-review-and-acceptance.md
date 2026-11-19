@@ -123,7 +123,8 @@ owner preference: not-collected, not implied by this example
 
 1. 모든 후보를 같은 콘텐츠·[대표 상태 묶음](./visual-brief.md#verification)·viewport로 렌더합니다.
 2. Owner에게 보이기 전에 지킬 것(고지·대비·접근성)을 결정적 검사로 확인합니다. 방향이 맞아도 고지 누락이나 대비 실패가
-   있으면 Owner의 방향 판단이 흐려집니다.
+   있으면 Owner의 방향 판단이 흐려집니다. 자동 접근성 검사가 보지 않는 지킬 것(이동 뒤 고정 요소가 대상을 가리는지, DOM 순서와
+   시각 순서가 같은지)은 따로 측정합니다.
 3. Owner가 방향을 고릅니다(select/revise/reject).
 4. 고른 후보에만 `isolated critique → adopt/reject/defer → authorized patch → recapture → keep/revert`를 사용합니다.
    [공통 maker-checker](../orchestration.md#pattern-selector)를 따라 기본 최대 두 번의 critique→revision cycle로 제한합니다.
@@ -144,7 +145,8 @@ owner preference: not-collected, not implied by this example
 - **probe 양성·음성 대조:** probe는 고치기 전 build에서 실패를 재현하고, 일부러 깨뜨린 입력을 잡는지 확인한 뒤 근거로 씁니다.
   값을 바꿔도 결과가 같으면 story arg 연결부터 의심합니다.
 - **원인 먼저:** 시각 결함은 고치기 전에 CSS를 덧씌운 캡처 한 쌍으로 원인을 확인합니다. 측정 실패는 전환 중간 프레임 때문인지
-  따로 재고, 선택지를 쓰기 전에 그 동작이 이미 있는지 확인합니다.
+  따로 재고, 선택지를 쓰기 전에 그 동작이 이미 있는지 확인합니다. 질문 전 동작 사실 확인은
+  [decision packet](../owner-lead-collaboration.md#짧은-협의-decision-packet)이 소유합니다.
 - **접근 경로 함께 정하기:** hover로만 동작하는 요청은 키보드·터치 경로를 먼저 정합니다. 기능을 지우거나 끄면 그 기능의
   키보드·터치 경로와 안내 문구를 다시 확인하고, 계속 움직이는 요소는 멈춤 수단을 함께 제안합니다.
 
