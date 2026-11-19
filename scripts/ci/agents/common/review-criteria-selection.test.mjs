@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -356,6 +356,24 @@ test('the repository catalog loads and picks documents by the Owner overlap rule
   const lockfile = pick('pnpm-lock.yaml');
   assert.ok(lockfile.includes('web-infra-capacity-cost-supply-chain'), lockfile.join());
   assert.deepEqual(pick('apps/web/example/README.md'), ['documents']);
+});
+
+// Selection reads item headings and `repo-structure.*` rows only: lines added under an item and other
+// binding tables change no choice, and the release artifact key keeps the scripts that remain tracked.
+test('the repository catalog reads items by heading and keeps the release artifact scripts', () => {
+  const catalog = loadReviewCriteriaCatalog(root);
+  const pick = (path) => ids(selectReviewCriteria({ paths: [path], catalog }));
+  for (const document of Object.values(catalog.documents)) {
+    const headings = [
+      ...readFileSync(resolve(root, document.path), 'utf8').matchAll(/^### ([A-Z]+[0-9]+)\. /gmu),
+    ].map(([, item]) => `${document.id}.md ${item}`);
+    assert.ok(headings.length > 0, document.path);
+    assert.deepEqual(document.items, headings, document.path);
+  }
+  for (const key of Object.keys(catalog.keys)) assert.match(key, /^repo-structure\./u);
+  const artifact = pick('scripts/infra/artifacts/example.mjs');
+  assert.ok(artifact.includes('web-operations-release-release-gate'), artifact.join());
+  assert.ok(artifact.includes('swe'), artifact.join());
 });
 
 test('a path the registry cannot judge is recorded apart from a missing layer signal', () => {

@@ -19,6 +19,7 @@ severity가 높은 항목으로 판정합니다.
 - PASS 근거: 바뀐 control을 역할과 이름으로 찾아 그 동작(누름·입력·링크 목적지)과 상태별 분기를 확인하는 test가 있고, 자동 접근성 검사가 있으면 위반이 없다
 - 지침: 동작에 맞는 native 요소를 먼저 쓰고 모든 control에 보이는 label이나 접근 가능한 이름을 준다. ARIA는 native 요소로 표현할 수 없을 때만 쓴다. test도 control을 역할과 접근 가능한 이름으로 찾는다
 - 피함: 일반 요소에 click만 붙이기, 불필요한 ARIA, 이름 없는 icon button, test에서 control을 역할 없이 보이는 문자열·DOM 위치·class로 찾기
+- 센서: {{binding:sensor.lint}}, {{binding:sensor.web-story-check}}
 
 ### F2. keyboard와 focus
 
@@ -29,6 +30,7 @@ severity가 높은 항목으로 판정합니다.
 - PASS 근거: keyboard만으로 바뀐 흐름을 끝내는 test가 있고, overlay의 focus 이동·가둠·복귀를 확인하는 test가 있다
 - 지침: 상호작용마다 keyboard 동작을 정하고 focus를 보이게 둔다. overlay는 열 때 focus를 옮겨 안에 가두고 닫을 때 원래 위치로 돌린다
 - 피함: focus 윤곽선 제거, 양수 tab 순서 값, mouse 전용 동작
+- 센서: {{binding:sensor.lint}}
 
 ### F3. 상태 알림과 비활성 이유
 
