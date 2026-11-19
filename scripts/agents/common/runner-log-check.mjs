@@ -1,6 +1,9 @@
 // Runner log check: each record of a runner evidence file must point at outputs that exist, `.log`/`.txt` outputs must
 // start with the review header and their last `exit=<n>` line, when present, must match the record's exit, and
-// backtick fragments in `observedResult` must appear on a result line of those logs.
+// backtick fragments in `observedResult` must appear on a result line of those logs. A log with several whole-line
+// `exit=<n>` lines where an earlier one is not 0 while the record has exit 0 is `repeated-step-exit-hidden`: the last
+// exit would hide a failed run of a repeated step. A search exit carries its command name (`rg exit=1`) and is not
+// such a line.
 // Rules and usage: docs/development/agent-workflows/review-criteria/README.md
 //
 // Usage: node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header <first line> [--root <repo>] [--json]
@@ -102,13 +105,22 @@ function checkRecord(root, header, digest, record, index) {
       }
       if (lines[0] !== header)
         add('header-mismatch', `first line is ${JSON.stringify(lines[0])}`, { path });
-      const exitLine = lines.findLast((line) => EXIT_LINE.test(line.trim()));
-      const logged =
-        exitLine === undefined ? null : Number(EXIT_LINE.exec(exitLine.trim()).groups.exit);
+      const exits = lines.flatMap((line, at) => {
+        const exit = EXIT_LINE.exec(line.trim())?.groups.exit;
+        return exit === undefined ? [] : [{ line: at + 1, exit: Number(exit) }];
+      });
+      const logged = exits.length ? exits.at(-1).exit : null;
       if (exitValid && logged !== null && logged !== record.exit)
         add('exit-mismatch', `log ends with exit=${logged}, record has exit ${record.exit}`, {
           path,
         });
+      const hidden = exits.slice(0, -1).find(({ exit }) => exit !== 0);
+      if (record.exit === 0 && hidden)
+        add(
+          'repeated-step-exit-hidden',
+          `line ${hidden.line} is exit=${hidden.exit} but the record has exit 0: a whole-line exit= line is the end exit of one bundle; write a search exit with its command name (rg exit=1) or give each run its own record`,
+          { path },
+        );
       resultLines.push(
         ...lines.slice(1).filter((line) => !DIGEST_LINE.some((pattern) => pattern.test(line))),
       );

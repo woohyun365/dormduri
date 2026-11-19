@@ -97,8 +97,12 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    같은 guard는 subagent가 native evidence(`.artifacts/tools/claude-native/**`)를 쓰는 것을 deny합니다. 완료 알림이 오면 편집 전에 먼저
    정산합니다. `--resume`한 세션의 완료 알림은 행 `sessionId`가 등록 세션이면 새 process `session_id`와 관계없이 대조합니다.
    Reviewer는 범위가 더 넓습니다. Helper가 ignored 리뷰 입력(ignored read path 아래와 `.plans/`·`.artifacts/`·`.local-docs/` 아래 ignored
-   파일)을 manifest로 결속하므로 `review` 생성부터 그 reviewer 정산과 연결 builder 완료까지 그 ignored 경로를 바꾸면
-   `review-input-stale`·`review-input-changed`로 거부됩니다([same-host 독립 review](./claude-same-host-review.md)). 정산 뒤 쓰는
+   파일)을 manifest로 결속합니다. Ignored read path 아래 입력은 `.artifacts/tools/claude-review-packets/<reviewId>.inputs/`에 복사해
+   reviewer가 사본을 읽으므로, `review` 생성부터 그 reviewer 정산과 연결 builder 완료까지 사본이 바뀌면 `review-input-stale`·
+   `review-input-changed`로 거부되고 원본이 바뀐 것은 정산 출력 `reviewInputOriginalsChanged`에 기록만 남습니다(reviewer의
+   Read·Grep·Glob이 그 원본이나 상위 디렉터리를 path로 지목한 것이 관측되거나 읽기를 가릴 수 없으면 거부. Path 없는 검색과 저장소
+   root 검색은 지목이 아님). 사본 없이 원본으로 결속한 입력(ignored가 아닌 read path 아래 ignored 파일)은 지금처럼 그 경로를
+   바꾸면 같은 사유로 거부됩니다([리뷰 입력 사본](./claude-same-host-review.md#리뷰-입력-사본)). 정산 뒤 쓰는
    result·처분 기록·재현 로그는 리뷰 read path 밖에 둡니다.
 
 ### 운영 보장과 제한
@@ -120,7 +124,10 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
 - FORCE 환경변수의 명시적 충돌은 hook에서 거부하지만 Home/managed/provider의 모든 모델 대체를 사전에 인증하는
   것은 아닙니다. 정상 환경을 scrub하지 않고 실행 후 모델을 확인합니다. 정상 설정 출처/role precedence와 충돌을
   관측하고 owner와 수정하며 Home/managed 설정을 자동으로 삭제·덮어쓰지 않습니다.
-- Project hook/role/settings와 task source의 변경은 재등록이 필요합니다. Hook 장애 이후에도 prompt가 알아서
+- Project hook/role/settings와 task source의 변경은 재등록이 필요합니다. 등록·정산 code의 변경(`adapter/role/settings drift`)은
+  `native-session.mjs`와 `native-task-helper.mjs`에서 시작하는 정적 import 닫힘의 파일, 역할 파일, settings로 판정하고, 닫힘 밖
+  `scripts/agents/claude`·`scripts/agents/common` script의 변경은 정산 출력 `identityOutsideChanges`에 기록만 남습니다
+  ([same-host 독립 review](./claude-same-host-review.md#same-host-independent-review)). Hook 장애 이후에도 prompt가 알아서
   준수했을 것이라 가정하지 않습니다. 새로운 설정·CLI 버전·역할·OMC 조합의 실제 지원은 해당 조합의 증거로 판단합니다.
 - Auto mode 판정이 서버에서 누락되면 명령은 실행되지 않습니다. 연속 재시도, 권한 설정 자가 수정, tracked settings의 permission 규칙으로
   해결하지 않고 [classifier no verdict 대응](../../troubleshooting/tooling/claude-auto-classifier-no-verdict.md)을 따릅니다.

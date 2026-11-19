@@ -20,7 +20,7 @@ const read = (path) => readFileSync(resolve(root, path), 'utf8');
 const SKILLS = ['knu-delegate', 'knu-review', 'knu-settle'];
 const REJECTIONS =
   'docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md';
-const ACTIONS = new Set(['prepare', 'review', 'settle', 'release']);
+const ACTIONS = new Set(['prepare', 'review', 'review-run', 'settle', 'release']);
 const FILE_FLAGS = new Set([
   '--spec',
   '--parent-subject',
@@ -666,4 +666,87 @@ test('the delegate researcher example passes prepare with its URL only in the pr
   execFileSync('git', ['add', '.'], { cwd: f.root });
   const prepared = prepareClaudeNativeTask(spec, { root: realpathSync(f.root) });
   assert.equal(prepared.invocation.subagent_type, 'knu_researcher');
+});
+
+// Runner log friction (OSS-RL P2 RED 7): the skill says how to write exit lines so a repeated step cannot hide a
+// failure, and when to install before the helper.
+test('knu-review tells how to write exit lines and to install after a lockfile change (RL-P2 RED 7)', () => {
+  const step = dispatchStep(1);
+  for (const phrase of [
+    '검색 exit 줄은 명령 이름을 붙여 적습니다(`rg exit=1`)',
+    '줄 전체 `exit=` 줄은 묶음의 끝 exit에만 씁니다',
+    '`repeated-step-exit-hidden`',
+  ])
+    assert.ok(step.includes(phrase), `runner log friction: step 1 ${phrase}`);
+  const flat = skill('knu-review').replace(/\s+/gu, ' ');
+  assert.ok(
+    flat.includes('lockfile이 바뀐 직후에는 helper 전에 `pnpm install --frozen-lockfile`'),
+    'runner log friction: install after a lockfile change',
+  );
+});
+
+test('review documents tie a closure-outside script change to the dependency judgment', () => {
+  const flat = (path) => read(path).replace(/\s+/gu, ' ');
+  const adapter = flat('docs/development/agent-workflows/adapters/claude-same-host-review.md');
+  // The identity check passes; whether the reviewer result holds is the dependency judgment's call.
+  assert.ok(
+    !adapter.includes('그런 도구를 고쳐도 reviewer 결과는 유효합니다'),
+    'review adapter: older wording without a condition',
+  );
+  assert.ok(
+    adapter.includes('그런 도구를 고쳐도 identity 대조는 통과합니다'),
+    'review adapter: the identity check passes',
+  );
+  assert.match(
+    adapter,
+    /의존 집합 밖이면 유효하고, 의존 집합 안이거나 저장소 전체로 판정하는 리뷰면 `unattributable-change:<경로>`로 거부합니다/u,
+    'review adapter: the dependency judgment decides the settlement',
+  );
+  const settle = flat('.claude/skills/knu-settle/SKILL.md');
+  assert.ok(
+    !settle.includes('기록만 남는 관측(결과는 유효)'),
+    'settle skill: older heading without a condition',
+  );
+  assert.match(
+    settle,
+    /의존 집합 안이거나 저장소 전체로 판정하는 리뷰면 같은 변경이 `unattributable-change:<경로>`로/u,
+    'settle skill: an outside change can still be unattributable',
+  );
+});
+
+test('review documents state one rule for a changed input original and for ignored subject files', () => {
+  const flat = (path) => read(path).replace(/\s+/gu, ' ');
+  // The skills, the registry, the review adapter and the rejection guide give the same conditions.
+  for (const path of [
+    '.claude/skills/knu-review/SKILL.md',
+    '.claude/skills/knu-settle/SKILL.md',
+    'docs/development/agent-workflows/adapters/claude-native-registry.md',
+    'docs/development/agent-workflows/adapters/claude-same-host-review.md',
+    REJECTIONS,
+  ]) {
+    const text = flat(path);
+    assert.ok(text.includes('path로 지목'), `${path}: refused when a call names the original`);
+    assert.match(
+      text,
+      /[Pp]ath 없는 검색과 저장소 root 검색/u,
+      `${path}: a wide search names none`,
+    );
+    for (const older of ['원본을 읽은 것이 관측되면', '고쳐도 거부되지 않습니다(기록만)'])
+      assert.ok(!text.includes(older), `${path}: older wording "${older}"`);
+  }
+  // A later round treats an ignored subject file like a tracked one.
+  for (const path of [
+    '.claude/skills/knu-review/SKILL.md',
+    'docs/development/agent-workflows/adapters/claude-same-host-review.md',
+  ]) {
+    const text = flat(path);
+    assert.ok(
+      text.includes('직전 회차 입력 manifest'),
+      `${path}: ignored subject files in a delta`,
+    );
+    assert.ok(
+      !text.includes('Ignored 증거의 변경은 범위를 넓히지 않고'),
+      `${path}: older delta rule`,
+    );
+  }
 });
