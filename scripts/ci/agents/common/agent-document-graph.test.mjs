@@ -578,7 +578,9 @@ const fixtureSensorRow = ({
   key = '`sensor.lint`',
   command = '`pnpm lint`, [`Static checks`](../../../../.github/workflows/example.yml)',
   timing = 'commit, CI',
-} = {}) => `| ${key} | \`repo-structure.example\` | ${command} | ${timing} | - |`;
+  target = '`repo-structure.example`',
+  limit = '-',
+} = {}) => `| ${key} | ${target} | ${command} | ${timing} | ${limit} |`;
 const fixtureBinding = (...rows) =>
   [
     '| 키 | 값 |',
@@ -679,6 +681,53 @@ test('a sensor row whose command names no execution point that exists is refused
   assert.deepEqual(sensorRowViolations(fixtureSensorRow({ command: '저장소 lint' })), [
     'sensor.lint: 명령 names no execution point',
   ]);
+});
+test('a sensor row target that names no binding path key or glob is refused', () => {
+  const violations = (target) => sensorRowViolations(fixtureSensorRow({ target }));
+  assert.deepEqual(violations('`example/**`, `repo-structure.example`(예시 설명)'), []);
+  assert.deepEqual(violations('`repo-structure.missing`'), [
+    'sensor.lint: 대상 key repo-structure.missing is not in the binding document',
+  ]);
+  assert.deepEqual(violations('`sensor.lint`'), ['sensor.lint: 대상 cannot reference sensor.lint']);
+  assert.deepEqual(violations('예시 화면'), [
+    'sensor.lint: 대상 names no binding path key or glob',
+  ]);
+});
+test('a sensor row writes its point and limit only when it runs at 편집', () => {
+  const violations = (timing, limit) => sensorRowViolations(fixtureSensorRow({ timing, limit }));
+  assert.deepEqual(violations('편집, CI', '직후'), []);
+  assert.deepEqual(violations('commit, CI', '직후'), [
+    'sensor.lint: 지점과 상한 must be - unless 실행 시점 has 편집',
+  ]);
+  assert.deepEqual(violations('편집, CI', '-'), [
+    'sensor.lint: 지점과 상한 is required when 실행 시점 has 편집',
+  ]);
+});
+// The fixture repository above answers by name only. This test runs the adapter that reads the repository
+// itself against the binding rows, so a script, file or step the rows name cannot go missing unnoticed.
+test('the repository adapter refuses a script, file or workflow step the binding rows do not have', () => {
+  const binding = readFileSync(resolve(root, BINDING_DOC), 'utf8');
+  const section = binding.slice(binding.indexOf('\n## 센서\n'));
+  const script = section.match(/`pnpm ([a-z0-9:-]+)`/u);
+  const step = section.match(/\[`([^`\]]+)`\]\(([^)\s]*\.github\/workflows\/([^)\s/]+))\)/u);
+  assert.ok(script && step, 'the 센서 table must name a package script and a workflow step');
+  const changed = (from, to) => {
+    const text = binding.replace(from, to);
+    assert.notEqual(text, binding, from);
+    return sensorTableViolations(text, repository);
+  };
+  assert.match(
+    changed(script[0], '`pnpm no-such-script`').join('\n'),
+    /^sensor\.[a-z0-9-]+: package script no-such-script is missing$/u,
+  );
+  assert.match(
+    changed(step[0], step[0].replace(step[1], 'No such step')).join('\n'),
+    /^sensor\.[a-z0-9-]+: \.github\/workflows\/\S+ has no step named No such step$/u,
+  );
+  assert.match(
+    changed(step[0], step[0].replace(step[3], 'no-such-workflow.yml')).join('\n'),
+    /^sensor\.[a-z0-9-]+: \.github\/workflows\/no-such-workflow\.yml is missing$/u,
+  );
 });
 test('a sensor table with a malformed key, a repeated key or another header is refused', () => {
   assert.deepEqual(sensorRowViolations(fixtureSensorRow({ key: '`lint`' })), [
