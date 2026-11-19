@@ -20,6 +20,7 @@ severity가 높은 항목으로 판정합니다.
 - PASS 근거: 바뀐 style이 semantic token만 참조하고 새 token은 token 원본에 의미 이름으로 있다. raw 값 금지 검사가 있으면 통과한다
 - 지침: style은 semantic token으로만 쓰고, 필요한 의미가 없으면 token 원본에 의미 이름으로 먼저 더한다. 값은 token 원본 한 곳에서 정한다
 - 피함: 화면에서 raw 값 쓰기, 값 이름의 token, 화면별 theme 분기
+- 센서: {{binding:sensor.lint}}
 
 ### F2. 부품 재사용과 승격
 

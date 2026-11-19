@@ -7,6 +7,7 @@ binding 키에 주는 값입니다. pack과 기준 문서는 저장소 값을 �
 - 키 표는 사실(경로·도구·정책 원본의 위치)만 둡니다. `framework-pattern`·`code-pattern` 결정에서 이 저장소가 고른 값은
   [고른 값](#고른-값) 절이 두고, 다른 수준의 원본은 [Decision records의 고른 값의 원본](../../../architecture/decisions/README.md#고른-값의-원본)입니다.
 - 기준 항목이 "저장소 공통 envelope"처럼 일반어로 가리키는 이 저장소의 규칙과 사실은 [저장소 규약](#저장소-규약) 절이 원본 위치를 둡니다.
+- 기준 항목의 `- 센서:` 선택 줄이 가리키는 결정적 검사의 대상·명령·실행 시점은 [센서](#센서) 절이 둡니다.
 - 값이 바뀌면(경로 이동, 도구 교체) 이 표를 같은 변경에서 고칩니다.
 - `repo-structure.*` 값은 리뷰 기준 자동 선택이 경로 glob으로 읽습니다. 해석 규칙은
   [review criteria의 자동 선택](../review-criteria/README.md#자동-선택)이 소유합니다. `repo-structure.review-<기준 id>`는 layer가
@@ -28,7 +29,7 @@ binding 키에 주는 값입니다. pack과 기준 문서는 저장소 값을 �
 | `repo-structure.be-privacy`                    | `apps/api/src/privacy/**`, `apps/api/src/retention/**`, `apps/api/src/platform/observability/**`(개인정보 처리·보존 실행과 관측 정제)                                                                                                                 |
 | `repo-structure.secret-delivery`               | `infra/deploy/scripts/**`, `infra/deploy/api/**`(배포 때 비밀값·설정 주입)                                                                                                                                                                            |
 | `repo-structure.release-runbooks`              | `infra/runbooks/**`, `docs/runbooks/**`                                                                                                                                                                                                               |
-| `repo-structure.release-artifacts`             | `infra/artifacts/**`, `scripts/infra/artifacts/**`                                                                                                                                                                                                    |
+| `repo-structure.release-artifacts`             | `scripts/infra/artifacts/**`                                                                                                                                                                                                                          |
 | `repo-structure.be-health`                     | `apps/api/src/health/**`                                                                                                                                                                                                                              |
 | `repo-structure.obs-config`                    | `infra/observability/**`, `scripts/observability/**`                                                                                                                                                                                                  |
 | `repo-structure.be-src`                        | `apps/api/src/**`(API server code 전체)                                                                                                                                                                                                               |
@@ -176,10 +177,34 @@ CI `Lifecycle gate`의 검사 `W-AREA`는 PR이 바꾼 제품 경로마다 영�
 - 행의 경로에 영역 키가 생기면 그 PR이 행을 지웁니다. 제품 경로를 바꾸는 PR에서 `W-AREA`는 추적 파일에 맞지 않는 glob과 영역 있는
   경로도 덮는 glob을 경고합니다.
 
-| 제외 경로                                                                                                                                                                                         | 이유                                                                           |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `apps/web/e2e/**`, `apps/web/type-tests/**`, `apps/web/src/test-setup.ts`, `apps/web/src/proxy.test.ts`                                                                                           | 검증 코드. 현재 기준 없음(영역 기준은 같은 변경의 제품 code 경로가 고른다)     |
-| `apps/web/tsconfig*.json`, `apps/web/eslint.config.mjs`, `apps/web/vitest.config.ts`, `apps/web/postcss.config.mjs`, `apps/web/playwright*.ts`, `apps/web/.storybook/**`, `apps/web/.env.example` | build·lint·test 설정. 현재 기준 없음                                           |
-| `apps/web/README.md`                                                                                                                                                                              | 안내 문서. 현재 기준 없음                                                      |
-| `apps/web/public/**`                                                                                                                                                                              | 정적 asset. 현재 기준 없음                                                     |
-| `apps/web/next.config.ts`, `apps/web/src/instrumentation.ts`, `apps/web/src/instrumentation-client.ts`                                                                                            | framework 진입·build 설정. 현재 기준 없음(여러 영역이 섞여 리뷰가 기준을 고름) |
+| 제외 경로                                                                                                                                                                                                                              | 이유                                                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `apps/web/e2e/**`, `apps/web/type-tests/**`, `apps/web/src/test-setup.ts`, `apps/web/src/proxy.test.ts`                                                                                                                                | 검증 코드. 현재 기준 없음(영역 기준은 같은 변경의 제품 code 경로가 고른다)     |
+| `apps/web/tsconfig*.json`, `apps/web/eslint.config.mjs`, `apps/web/vitest.config.ts`, `apps/web/react-compiler.config.ts`, `apps/web/postcss.config.mjs`, `apps/web/playwright*.ts`, `apps/web/.storybook/**`, `apps/web/.env.example` | build·lint·test 설정. 현재 기준 없음                                           |
+| `apps/web/README.md`                                                                                                                                                                                                                   | 안내 문서. 현재 기준 없음                                                      |
+| `apps/web/public/**`                                                                                                                                                                                                                   | 정적 asset. 현재 기준 없음                                                     |
+| `apps/web/next.config.ts`, `apps/web/src/instrumentation.ts`, `apps/web/src/instrumentation-client.ts`                                                                                                                                 | framework 진입·build 설정. 현재 기준 없음(여러 영역이 섞여 리뷰가 기준을 고름) |
+
+## 센서
+
+기준 항목의 결함 패턴을 결정적으로 잡는 이 저장소의 검사입니다. 기준 항목은 `- 센서:` 선택 줄에서 이 표의 키만 가리키고
+([항목 형식](../review-criteria/README.md#항목-형식)), 대상·명령·실행 시점은 이 표가 소유합니다. 문서 graph test가 키 표기, 실행
+시점 값, 명령이 가리키는 실행 지점이 있는지를 검사합니다.
+
+- 대상: 그 검사가 보는 변경 범위입니다. 위 키 표의 경로 키나 backtick glob으로 적습니다.
+- 명령: 검사가 도는 실행 지점입니다. root package script는 `pnpm <script>` code span으로, 파일은 링크로 적습니다. CI workflow
+  step은 그 workflow 파일 링크의 글자를 step 이름으로 적습니다.
+- 실행 시점: `편집`·`commit`·`CI`·`리뷰`·`운영` 가운데 지금 그 검사가 도는 시점입니다.
+- 지점과 상한: 실행 시점에 `편집`이 있는 행만 지점(`직후`·`끝`)과 상한을 적고, 없으면 `-`입니다.
+
+| 키                          | 대상                                                                                                                     | 명령                                                                                                                                                                                                                                    | 실행 시점  | 지점과 상한 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ----------- |
+| `sensor.format`             | `**/*`(Prettier가 parser를 가진 파일)                                                                                    | `pnpm check:fast`([pre-commit hook](../../../../.husky/pre-commit)이 staged 파일을 고쳐 씀), [`Verify repository formatting`](../../../../.github/workflows/ci.yml)                                                                     | commit, CI | -           |
+| `sensor.lint`               | `apps/**`, `packages/**`                                                                                                 | `pnpm lint`, [`Web static checks`](../../../../.github/workflows/web-ci.yml), [`API static checks`](../../../../.github/workflows/api-ci.yml), [`Verify Shared contract and public surface`](../../../../.github/workflows/ci.yml)      | CI         | -           |
+| `sensor.typecheck`          | `apps/**`, `packages/**`                                                                                                 | `pnpm typecheck`, [`Web static checks`](../../../../.github/workflows/web-ci.yml), [`API static checks`](../../../../.github/workflows/api-ci.yml), [`Verify Shared contract and public surface`](../../../../.github/workflows/ci.yml) | CI         | -           |
+| `sensor.web-story-check`    | `repo-structure.fe-screens`, `repo-structure.fe-styles`(새 화면·token story의 렌더·접근성 검사)                          | [`Check new Storybook stories`](../../../../.github/workflows/web-ci.yml)                                                                                                                                                               | CI         | -           |
+| `sensor.api-unit-test`      | `repo-structure.be-src`, `repo-structure.db-migrations`, `repo-structure.db-role-grants`(architecture·DB 운영 test 포함) | `pnpm api:test`, [`API unit tests`](../../../../.github/workflows/api-ci.yml)                                                                                                                                                           | CI         | -           |
+| `sensor.infra-static-check` | `repo-structure.infra-runtime`, `repo-structure.supply-chain`                                                            | `pnpm infra:check:static`, [`Run canonical static infrastructure gate`](../../../../.github/workflows/infra-ci.yml)                                                                                                                     | CI         | -           |
+| `sensor.repo-policy-test`   | `repo-structure.ci-workflows`                                                                                            | `pnpm test:repo-policy`, [`Verify repository policy scripts`](../../../../.github/workflows/ci.yml)                                                                                                                                     | CI         | -           |
+
+값이 바뀌면(script·step 이름 변경, 검사 이동) 같은 변경에서 그 행을 고칩니다.

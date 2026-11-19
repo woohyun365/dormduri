@@ -41,3 +41,4 @@ severity가 높은 항목으로 판정합니다.
 - PASS 근거: 계정별 grant 정의가 저장소에 있고, app 계정에 schema 변경 권한과 쓰지 않는 권한이 없다는 grant 확인(smoke test나 정의 대조)이 있으며, 운영 쓰기 자격 증명이 agent·개발 환경 설정에 없어 운영 DB의 grant·data 변경이 자격 증명을 가진 사람의 승인 뒤에 실행된다
 - 지침: app 실행 계정과 migration 계정을 나누고, app 계정에는 쓰는 table에 필요한 권한만 준다. 운영 쓰기 자격 증명은 agent·개발 환경에 두지 않고, 운영 DB의 grant·data를 바꾸는 작업은 agent가 계획·diff까지 만들고 자격 증명을 가진 사람이 승인해 실행한다
 - 피함: app이 schema 변경 권한 계정으로 접속하기, 쓰지 않는 권한 주기, agent·개발 환경에 운영 쓰기 자격 증명 두기
+- 센서: {{binding:sensor.api-unit-test}}

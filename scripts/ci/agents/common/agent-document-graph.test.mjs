@@ -116,6 +116,7 @@ test('review criteria documents are registered owners with complete items and no
   const readme = `${CRITERIA_DIR}/README.md`;
   // Every criteria document the helper can select is checked, not only the ones that exist today.
   const criteria = criteriaDocuments();
+  const keys = bindingKeys(readFileSync(resolve(root, BINDING_DOC), 'utf8'));
   for (const path of [
     `${CRITERIA_DIR}/agent-workflow-tooling.md`,
     `${CRITERIA_DIR}/documents.md`,
@@ -169,15 +170,11 @@ test('review criteria documents are registered owners with complete items and no
           `${path} ${item.split('\n')[0]}: ${field.source} out of order`,
         );
       }
-      // Exactly the seven fields: no unknown or repeated field line. Indented lines continue a field.
-      const fieldLines = item
-        .split('\n')
-        .slice(1)
-        .filter((line) => line.trim() && !/^\s/u.test(line));
+      // Exactly the seven fields and then the optional selection lines: no unknown or repeated line.
       assert.deepEqual(
-        fieldLines.map((line) => line.match(/^- ([^:]+):/u)?.[1] ?? line),
-        CRITERIA_LABELS,
-        `${path} ${item.split('\n')[0]}: fields must be exactly the seven lines`,
+        criteriaItemViolations(item, keys),
+        [],
+        `${path} ${item.split('\n')[0]}: field lines`,
       );
     }
     assert.doesNotMatch(
@@ -408,6 +405,7 @@ const BINDING_KINDS = new Set([
   'product',
   'command',
   'policy',
+  'sensor',
 ]);
 const REPOSITORY_VALUE =
   /apps\/|packages\/|\bpnpm\b|Next\.js|\bReact\b|NestJS|Prisma|Tailwind|Storybook|Vitest|Playwright|Sentry|\bKNU\b|PostgreSQL|Postgres|Docker|\bnginx\b|Lightsail|GitHub Actions|Grafana|Prometheus|\bLoki\b|\bAlloy\b|Alertmanager|\bk6\b|\bZod\b|TypedSQL|Dependabot|Renovate/u;
@@ -460,11 +458,39 @@ function itemFields(item) {
   }
   return fields;
 }
-function criteriaItemViolations(item) {
-  const labels = itemFields(item).map((field) => field.label);
-  return labels.join('|') === CRITERIA_LABELS.join('|')
-    ? []
-    : ['fields must be exactly the seven lines'];
+const SELECTION_LABELS = ['trigger', '센서'];
+const SELECTION_KINDS = { trigger: ['repo-structure'], 센서: ['sensor'] };
+const BINDING_REFERENCES =
+  /^\{\{binding:[a-z-]+\.[a-z0-9-]+\}\}(?:, \{\{binding:[a-z-]+\.[a-z0-9-]+\}\})*$/u;
+function criteriaItemViolations(item, keys) {
+  const fields = itemFields(item);
+  const labels = fields.map((field) => field.label);
+  const selected = (label) => SELECTION_LABELS.includes(label);
+  const violations = [];
+  if (labels.filter((label) => !selected(label)).join('|') !== CRITERIA_LABELS.join('|'))
+    violations.push('fields must be exactly the seven lines');
+  const selection = labels.filter(selected);
+  if (new Set(selection).size !== selection.length)
+    violations.push('a selection line appears twice');
+  const first = labels.findIndex(selected);
+  const order = [...new Set(selection)].map((label) => SELECTION_LABELS.indexOf(label));
+  if (
+    (first >= 0 && !labels.slice(first).every(selected)) ||
+    order.some((at, index) => index > 0 && at < order[index - 1])
+  )
+    violations.push('selection lines must follow the seven lines as trigger then 센서');
+  for (const { label, value } of fields.filter((field) => selected(field.label))) {
+    if (!BINDING_REFERENCES.test(value)) {
+      violations.push(`${label} value must be binding references only`);
+      continue;
+    }
+    for (const [, key] of value.matchAll(/\{\{binding:([^}]+)\}\}/gu)) {
+      if (!SELECTION_KINDS[label].includes(key.split('.')[0]))
+        violations.push(`${label} cannot reference ${key}`);
+      else if (!keys.has(key)) violations.push(`${key} is not in the binding document`);
+    }
+  }
+  return violations;
 }
 const criteriaDocumentViolations = (text, keys) =>
   criteriaItemBlocks(text).flatMap((item) =>
@@ -472,8 +498,56 @@ const criteriaDocumentViolations = (text, keys) =>
       (violation) => `${item.match(/^### ([A-Z]\d+)\. /u)[1]}: ${violation}`,
     ),
   );
-function sensorTableViolations() {
-  return [];
+// A command cell names where the check runs: a root package script as a `pnpm <script>` code span, or a
+// link to a file. A link to a workflow file carries one of its step names as the link text.
+function executionPointViolations(command, repo) {
+  const link = /\[`?([^\]`]+)`?\]\(([^)\s]+)\)/gu;
+  const links = [...command.matchAll(link)].map(([, text, target]) => ({ text, target }));
+  const spans = [...command.replace(link, '').matchAll(/`([^`]+)`/gu)].map(([, code]) => code);
+  const violations = [];
+  if (links.length + spans.length === 0) violations.push('명령 names no execution point');
+  for (const code of spans) {
+    const script = code.match(/^pnpm ([a-z0-9:-]+)$/u)?.[1];
+    if (!script) violations.push(`\`${code}\` is not a root package script call`);
+    else if (!repo.hasScript(script)) violations.push(`package script ${script} is missing`);
+  }
+  for (const { text, target } of links) {
+    const path = repo.resolveLink(target);
+    if (!repo.hasFile(path)) violations.push(`${path} is missing`);
+    else if (path.startsWith('.github/workflows/') && !repo.hasStep(path, text))
+      violations.push(`${path} has no step named ${text}`);
+  }
+  return violations;
+}
+const SENSOR_HEADER = ['키', '대상', '명령', '실행 시점', '지점과 상한'];
+const SENSOR_TIMINGS = ['편집', 'commit', 'CI', '리뷰', '운영'];
+function sensorTableViolations(binding, repo) {
+  const section = prose(binding)
+    .split(/^(?=## )/mu)
+    .find((block) => block.startsWith('## 센서\n'));
+  if (!section) return [];
+  const [header, , ...rows] = section.split('\n').filter((line) => line.startsWith('|'));
+  if (cells(header ?? '||').join('|') !== SENSOR_HEADER.join('|'))
+    return [`센서 table header must be ${SENSOR_HEADER.join('|')}`];
+  const violations = [];
+  const seen = new Set();
+  for (const row of rows) {
+    const [key, target, command, timing] = cells(row);
+    const id = key.match(/^`(sensor\.[a-z0-9-]+)`$/u)?.[1];
+    if (!id || cells(row).length !== SENSOR_HEADER.length) {
+      violations.push(`malformed sensor row ${key}`);
+      continue;
+    }
+    if (seen.has(id)) violations.push(`${id} appears twice`);
+    seen.add(id);
+    if (!target) violations.push(`${id}: 대상 is empty`);
+    if (!timing || timing.split(', ').some((value) => !SENSOR_TIMINGS.includes(value)))
+      violations.push(`${id}: 실행 시점 must be among ${SENSOR_TIMINGS.join('·')}`);
+    violations.push(
+      ...executionPointViolations(command, repo).map((violation) => `${id}: ${violation}`),
+    );
+  }
+  return violations;
 }
 // Where a sensor row's command runs: the root package scripts, files by link from the binding document
 // and the step names of a workflow file.

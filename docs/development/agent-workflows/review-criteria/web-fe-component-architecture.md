@@ -51,6 +51,7 @@ severity가 높은 항목으로 판정합니다.
 - PASS 근거: 바뀐 기능의 파일이 그 기능 디렉터리 안에 있고, 기능 밖 import가 공개 entry만 쓰며, import 경계 검사가 있으면 통과한다
 - 지침: 함께 바뀌는 파일은 기능 디렉터리에 함께 두고 앱 공통만 종류별로 둔다. 다른 기능은 그 기능의 공개 entry로만 쓴다
 - 피함: 기능 내부 경로를 직접 import하기, 한 기능의 파일을 종류별 디렉터리에 흩기
+- 센서: {{binding:sensor.lint}}
 
 ### F5. 예시 렌더 표면의 우회 금지
 
@@ -71,3 +72,4 @@ severity가 높은 항목으로 판정합니다.
 - PASS 근거: 공유 model 경로에 renderer 의존 import가 없다는 검사나 검색 결과가 있고, 규칙 test가 renderer 없이 실행된다
 - 지침: 공유할 규칙과 model은 renderer 의존이 없는 module에 두고 표현 component는 그것을 소비만 한다. 규칙 test는 상태와 조건의 조합을 표로 두고 renderer 없이 실행한다
 - 피함: 공유 model에서 DOM·style을 import하기, 규칙을 표현 component에 숨기기, 규칙 분기를 component를 render해서만 검사하기
+- 센서: {{binding:sensor.lint}}

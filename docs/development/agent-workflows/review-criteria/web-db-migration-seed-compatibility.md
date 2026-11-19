@@ -31,6 +31,7 @@ severity가 높은 항목으로 판정합니다.
 - PASS 근거: 빈 DB 적용 test와 현재 schema·대표 data가 있는 DB 적용 test(또는 적용 확인 기록)가 있고, 배포된 migration 파일이 바뀌지 않았으며, 변경 설명에 되돌림 경로가 있다
 - 지침: 빈 DB와 현재 DB 양쪽에 적용해 본다. 배포된 migration은 고치지 않고 새 migration으로 고친다. 되돌림 경로를 미리 정하고, 들어온 data를 잃지 않는 forward-fix를 기본으로 하며 backup restore는 마지막 수단으로 둔다
 - 피함: 빈 DB에서만 확인하기, 배포된 migration 고치기, 되돌림 경로 없이 배포하기
+- 센서: {{binding:sensor.api-unit-test}}
 
 ### T3. seed 멱등·결정적 key·production 안전
 

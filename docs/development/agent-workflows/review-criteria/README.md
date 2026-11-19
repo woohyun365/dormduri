@@ -144,8 +144,20 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 - 피함: 구현할 때 피할 것
 ```
 
+일곱 줄 뒤에는 아래 선택 줄 둘을 이 순서로 각각 0~1줄 둘 수 있습니다.
+
+```text
+- trigger: 편집 중 이 항목을 떠올릴 변경 범위(binding 참조 목록)
+- 센서: 이 항목의 결함 패턴을 잡는 결정적 검사(binding 참조 목록)
+```
+
 - 한 항목이 두 보기를 함께 가집니다. 지침·피함은 구현할 때 보는 구현 보기이고, 질문·기본 severity·결함 패턴·PASS 근거는 리뷰할
   때 보는 리뷰 보기입니다. 적용 조건은 두 보기가 함께 씁니다. 두 보기를 같은 블록에 두어 한쪽만 바뀌는 일이 diff에 보이게 합니다.
+- 선택 줄의 값은 binding 참조(`{{binding:<kind>.<key>}}`)를 `, `로 이은 목록이고 저장소 값(명령·경로)을 직접 쓰지 않습니다.
+  `센서`는 그 항목의 결함 패턴 가운데 하나 이상을 결정적으로 잡는 검사가 있을 때만 적고
+  [KNU domain binding의 센서 절](../domain/knu-binding.md#센서)의 `sensor.<id>` 행을 가리킵니다. 그 검사의 대상·명령·실행
+  시점(`편집`·`commit`·`CI`·`리뷰`·`운영`)은 그 행이 가집니다. `trigger`는 편집 중 이 항목을 떠올릴 범위가 그 문서의 경로 키보다
+  좁을 때만 적고 `repo-structure.*` 경로 키를 가리킵니다. 센서가 없는 항목은 리뷰 보기로만 씁니다.
 - 문서마다 항목 문자 하나를 씁니다(`documents` D, `agent-workflow-tooling` W, `swe` S, 영역 문서는 FE `F`·BFF `B`·BE `E`·DB
   `T`·infra `I`·security-privacy `P`·operations-release `O`). 영역 문서는 첫 항목 앞 머리말에 상속하는 문서·항목과 강화 관계를 적습니다. 영역 문서의 항목은
   상속한 항목보다 좁은 조건을 더 보는 별도 항목이고 기본 severity는 자기 값입니다. 상속한 항목은 영역 문서를 골라도 자기 기본
@@ -323,7 +335,8 @@ layer마다 모읍니다. 점검과 판정은 Parent가 하고(`model-mediated`)
 ## 갱신
 
 리뷰가 놓쳐 merge 뒤 발견된 결함과 Parent가 재현으로 기각한 finding은 기준 항목 갱신의 입력입니다. 갱신은 이 디렉터리의 문서
-변경이며 다른 문서와 같은 독립 리뷰 규칙을 따릅니다. 문서 graph test가 항목 제목·일곱 줄의 형식·순서(다른 필드·중복 없음),
+변경이며 다른 문서와 같은 독립 리뷰 규칙을 따릅니다. 문서 graph test가 항목 제목·일곱 줄과 선택 줄의 형식·순서(다른 필드·중복 없음), 선택 줄 값의 binding 참조와 센서 행의 실행
+시점·실행 지점,
 README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·pack 인용(해석, 인용되지 않은 항목, pack 하위 layer 절의 항목
 인용과 id 목록), pack 결정의 필드 순서와 먼저 정할 결정 해석, binding 키의 표기와 해석, 저장소 값 이름 목록 부재를
 검사합니다.
@@ -358,17 +371,42 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
 - 구성: 지금 held-out set(첫 교체 전에는 교정 때 지정한 사본 subject 셋, 그 뒤는 사용 기록이 정한 셋)의 subject마다
   `claude:native review`를 `--criteria <id>`(그 사본이 대응하는 실제 경로의 자동 선택 id)와 `--composition e3 --reviewers 2`로
   2회 돌립니다(reviewer 12회). Claude reviewer 모델을 바꾸는 변경은 기준 없음
-  arm(`--criteria none --composition e2 --reviewers 2`)도 같은 수로 돌려 기준선을 다시 잽니다.
-- 판정: 그 set의 결함×반복을 모두 찾으면 통과입니다(교정 때 기준선 10/10). 하나라도 놓치면 `실패`이고 merge 전 Owner가 판단합니다.
+  arm(`--criteria none --composition e2 --reviewers 2`)도 같은 수로 돌려 기준 없는 리뷰의 값을 다시 잽니다(아래 subject
+  기준선과 다른 값입니다).
+- 기준선: subject마다 결함별 기준선 재발견 수를 둡니다. 교정 때 지정한 subject의 기준선은 교정 값(모든 칸 재발견, 교정 때
+  10/10)입니다. 교체 subject의 기준선은 그 subject를 넣는 재채점에서 정합니다. PR head run에서 그 subject의 결함×반복을 모두
+  재발견하면 기준선은 모든 칸 재발견이고 base run을 하지 않습니다. 하나라도 재발견이 아니면 그 subject만 PR base에서 같은
+  구성(`e3` reviewer 2명 × 2회, reviewer 4회)으로 돌려 그 결과를 기준선으로 합니다. 이 규칙 전에 들어온 subject `r13`의
+  기준선은 그 앞 재채점(`ho-003`) 값입니다. 기준선은 사용 기록에 적고 그 subject가 set에 있는 동안 그대로 씁니다.
+- 판정: 결함마다 head 재발견 수가 기준선 재발견 수보다 적으면 그 차이가 더 놓친 칸입니다. 더 놓친 칸이 0이면 통과이고, 하나라도
+  있으면 `실패`이며 merge 전 Owner가 판단합니다. 사용 기록과 PR에 주는 놓친 수는 더 놓친 칸 수입니다(`ho-001`~`ho-003`의 놓친
+  수는 재발견이 아닌 칸 수였고 `ho-004`부터 이 뜻입니다).
+- 칸 분류: 칸은 결함 하나의 반복 한 번이고 분류는 교정과 같습니다. `medium` 이상 finding이 있으면 재발견, `low` finding이나
+  coverage gap만 있으면 부분, 없으면 놓침입니다. 부분은 재발견으로 세지 않습니다. 결함이 결과의 `unjudgedBehaviors`에만 있고 그
+  결함을 짚은 finding·gap이 없는 칸은 놓침으로 세고, 채점 기록에 "미판정에만 듦" 표시를 남깁니다.
+- 부분 감소: 기준선에서 부분이던 칸이 head에서 놓침으로 내려간 수(부분 감소 칸 수)는 실패로 세지 않고, 사용 기록 줄과 PR 본문
+  Review evidence 한 줄에 적으며 merge 전 Owner가 확인합니다. 결함마다 기준선의 재발견·부분 칸 수 합에서 head의 그 합을 뺀 값이
+  양수이면, 거기서 그 결함의 더 놓친 칸 수를 뺀 나머지(양수일 때)를 셉니다.
 - 실행과 채점: 기준을 고친 writer가 아니고 쓰기 작업을 맡지 않은 reader 세션이 writer branch HEAD에서 실행·채점하고, 그동안
-  writer branch를 merge하지 않습니다. writer와 PR에는 통과/실패와 놓친 수만 주고, 결함별 채점은 ignored 증거 위치에만 둡니다. 결함별 결과는 기준 문구·prompt·모델 수정의 근거로 쓰지 않습니다.
-- 사용 기록: 재채점마다 held-out 지정 기록 옆 사용 기록 파일에 한 줄(id·날짜·PR·trigger·set·통과/실패·놓친 수)을 더하고, 그
-  사용의 기록에 run의 리뷰어 입력(`docs/product/intent.md` sha256 포함)을 남깁니다. PR 본문 `재채점` 줄은 그 id를 씁니다.
+  writer branch를 merge하지 않습니다. writer와 PR에는 통과/실패와 놓친 수, 부분 감소 칸 수만 주고, 결함별 채점은 ignored 증거 위치에만 둡니다. 결함별 결과는 기준 문구·prompt·모델 수정의 근거로 쓰지 않습니다.
+- base run: 교체 subject의 base 기준선 run은 PR base commit의 저장소 밖 독립 clone을 작업 디렉터리로 연 별도 Claude 세션이
+  등록·호출·정산합니다. hook과 task 등록부가 저장소 root별이고 head code는 base 형식 prompt 등록을 거부하므로 PR head checkout의
+  세션은 base 형식 prompt를 등록할 수 없습니다. clone은 Claude 임시 디렉터리 밖에 두고(CLI 2.1.328에서 그 아래를 작업 디렉터리로
+  열면 project 지침이 실리지 않았습니다. CLI 버전이 달라도 이 위치 규칙과 아래 감사는 그대로 둡니다) local branch를 만들며, 그
+  subject와 실행 script만 복사하고 정답표·채점·head run 기록은 넣지 않습니다. 새 디렉터리의 trust 승인은 Owner가 합니다. 읽기
+  감사에서 base reviewer가 project 지침 파일을 받았는지 확인하고, 받지 않은 run은 기준선으로 쓰지 않습니다.
+- 사용 기록: 재채점마다 held-out 지정 기록 옆 사용 기록 파일에 한 줄(id·날짜·PR·trigger·set·통과/실패·놓친 수·부분 감소 칸
+  수·`MEMORY.md` sha256)을 더하고, 그 사용의 기록에 run의 리뷰어 입력(`docs/product/intent.md` sha256 포함)을 남깁니다. 끝의 두
+  칸은 줄 끝에 더한 칸이고 머리 줄에 칸 이름을 두며, 앞 줄의 값은 고치지 않습니다. set 칸에는 subject별 기준선과 그 출처(교정, 그
+  재채점의 head run·base run, 앞 재채점)를 적습니다. `MEMORY.md` sha256은 그 재채점 run 때 auto-memory 색인의 값이고, run 사이에
+  달라졌으면 값마다 적으며 run별 값은 그 사용의 기록에 리뷰어 입력과 함께 둡니다. PR 본문 `재채점` 줄은 그 id를 씁니다.
 - 다시 돌리면 `실패` 줄을 지우지 않고 새 사용 기록 id로 줄을 더합니다. `실패` 줄 경고는 남고, Owner 판단은 PR 본문 Review
   evidence에 한 줄로 적습니다.
 - 측정 범위: Claude 진입점만 잽니다(교정과 같은 범위). 사본은 ignored 증거 경로라 결정 기록·정책 문서 입력이 붙지 않고 등급
   기록(`lifecycleDraft`)도 주지 않습니다. 사본 run에 늘 나오는 prompt 줄은 intent 입력 줄(`docs/product/intent.md`가 없으면 입력
-  "없음" 줄)과 "등급 기록 없음" 줄입니다. `docs/product/intent.md` 내용 변경은 trigger가 아닙니다.
+  "없음" 줄)과 "등급 기록 없음" 줄입니다. `docs/product/intent.md` 내용 변경은 trigger가 아닙니다. 메인 checkout의 reviewer
+  문맥에는 auto-memory 색인(`MEMORY.md`)이 자동으로 실리고 base clone 세션의 reviewer에게는 없습니다. 이 차이는 측정 범위의
+  한계입니다.
 - 재채점이 그 변경을 재지 않으면 `재채점: 해당 없음 — <이유>`로 닫습니다.
   - Codex 진입점 파일만 바꾼 변경: `해당 없음 — Codex 진입점은 측정 범위 밖(교정 한계)`. Codex 기준선은 Codex 교정이 생길 때까지
     열린 한계이고, Codex reviewer 모델을 바꾸는 변경은 재채점이 품질 근거가 아니므로 merge 전 Owner가 판단합니다.
@@ -377,13 +415,16 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
   - 등급 기록이 있을 때만 들어가는 초안 표시 문장만 바꾼 변경: `해당 없음 — 재채점 사본에 등급 기록이 없음`.
   - 그 밖에 사본 run이 지나지 않는 trigger 파일 변경(절차 문장, reviewer 입력에 들어가지 않는 helper 분기 등)은 그 이유를 적어
     닫습니다.
-- subject 교체: 사용 3회마다 또는 놓친 결함 사례(`원인 PR`로 찾은 결함) 2건이 쌓이면, 가장 오래 쓴 subject 하나를 그 사례로 만든
-  놓친 결함 subject(고친 commit 부모 판의 사본)로 바꾸고 subject 셋을 유지합니다. 동률이면 seeded subject를 놓친 결함 subject보다
+- subject 교체: 사용 3회마다 또는 놓친 결함 사례(`원인 PR`로 찾은 결함) 2건이 쌓이면, subject 하나를 그 사례로 만든 놓친 결함
+  subject(고친 commit 부모 판의 사본)로 바꾸고 subject 셋을 유지합니다. 기준선 재발견이 0인 subject(결함×반복 어느 칸도 재발견이
+  아님)가 있으면 가장 오래 쓴 subject보다 먼저 바꾸고, 여럿이면 그 가운데 오래 쓴 순입니다. 그런 subject가 없으면 가장 오래 쓴
+  subject를 바꿉니다. 동률이면 seeded subject를 놓친 결함 subject보다
   먼저, seeded끼리는 사본 id(`r03`처럼 사본 디렉터리 이름) 순으로 고릅니다. 사례가 없으면 seeded 방식(그 뒤 merge된 실제 제품 변경의 사본에 결함 둘을 심고,
   정답표는 run이 끝날 때까지 저장소와 세션 작업 디렉터리 밖에 둠)으로 새 subject를 만듭니다. 교체 subject는 그 재채점을 맡은
   세션이 만들고, 바꾼 subject와 이유는 다음 사용 기록 줄의 set 칸에 적습니다.
 - 오염: run마다 reviewer의 읽기(Read·Grep·Glob 입력)를 감사합니다. 저장소 밖 경로, 사본이 대응하는 실제 저장소 경로, 놓친 결함을
   고친 commit이 바꾼 경로와 그 commit·PR·issue를 인용하는 추적 파일, 계획 디렉터리, run 입력 밖 ignored 증거(교정·재채점 원자료와
-  정답표 포함), [교정 evidence](../../../evidence/agent-workflows/review-criteria-calibration.md)를 읽거나 그 범위를 덮게 검색한 run은
-  오염이고 같은 조건으로 한 번 다시 돌립니다. 다시 돈 run도 오염이면 멈추고 Owner에게 묻습니다.
+  정답표 포함), [교정 evidence](../../../evidence/agent-workflows/review-criteria-calibration.md), auto-memory 디렉터리의 파일을 읽거나 그
+  범위를 덮게 검색한 run은 오염이고 같은 조건으로 한 번 다시 돌립니다. 다시 돈 run도 오염이면 멈추고 Owner에게 묻습니다. 재채점
+  세션은 정답표·결함 내용을 memory에 쓰지 않습니다.
 - 재채점 set은 공개 주장의 근거로 쓰지 않습니다.

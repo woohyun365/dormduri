@@ -40,6 +40,7 @@ severity가 높은 항목으로 판정합니다.
 - PASS 근거: 갱신 설정이나 점검 절차에 owner와 주기가 있고, 자동 merge 규칙이 있으면 필수 CI 검사 통과를 조건으로 하며, image·action 참조가 version이나 digest를 담고, image·action의 출처와 구성 목록을 확인할 수 있으며, 취약점 예외마다 근거와 만료일이 있다
 - 지침: 갱신은 owner와 주기를 정해 자동 갱신 PR로 받거나 정해진 주기에 점검한다. 자동 merge는 CI 검증을 통과한 갱신에만 쓰고, 주기·대기 기간 같은 값은 dependency 정책을 따른다. image·CI action은 version이나 digest로 고정하고, 내용이 바뀌지 않아야 하면 digest를 쓴다. 출처와 구성 목록(SBOM)을 남기고, 취약점 예외는 근거와 만료를 함께 둔다
 - 피함: owner·주기 없는 갱신, 검증 없이 자동 merge하기, latest처럼 고정 없는 image·action 참조, 만료 없는 취약점 예외
+- 센서: {{binding:sensor.infra-static-check}}, {{binding:sensor.repo-policy-test}}
 
 ### I4. upgrade·deprecation owner
 
