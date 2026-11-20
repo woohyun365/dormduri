@@ -30,7 +30,7 @@ read_secret() {
   unset value
 }
 
-# url_host <url>: postgresql://user:password@host:port/db?... 의 host. password의 '@'를 건너도록 마지막 '@' 뒤를 본다.
+# url_host <url>: DB URL의 host. password에 '@'가 있어도 건너도록 마지막 '@' 뒤를 본다.
 url_host() {
   authority=${1#*://}
   authority=${authority%%[/?]*}
