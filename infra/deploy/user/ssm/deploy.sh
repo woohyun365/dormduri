@@ -96,12 +96,12 @@ page_ok() {
 
 smoke_serving() {
   page_ok / 200 && page_ok /privacy 200 && page_ok /terms 200 \
-    && page_ok /signup 503 '돔두리 — 준비 중' \
-    && page_ok /__smoke_not_allowed 404 '돔두리 — 페이지를 찾을 수 없어요'
+    && page_ok /signup 503 '돔두리 | 준비 중' \
+    && page_ok /__smoke_not_allowed 404 '돔두리 | 페이지를 찾을 수 없어요'
 }
 
 smoke_maintenance() {
-  page_ok / 503 '돔두리 — 점검 중' && page_ok /privacy 503 '돔두리 — 점검 중'
+  page_ok / 503 '돔두리 | 점검 중' && page_ok /privacy 503 '돔두리 | 점검 중'
 }
 
 # 기록 하나의 web 묶음을 띄운다(API 묶음은 기록된 current 조각을 함께 넘기기만 한다).
