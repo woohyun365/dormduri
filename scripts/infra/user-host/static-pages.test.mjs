@@ -129,7 +129,8 @@ for (const [name, expected] of Object.entries(pages)) {
     assert.match(html, /<meta charset="utf-8"/iu);
     assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1"/u);
     assert.match(html, /<meta name="robots" content="noindex"/u);
-    assert.match(html, /<title>돔두리 — [^<]+<\/title>/u);
+    // Web 화면과 같은 `돔두리 | <화면>` 탭 제목(apps/web root layout의 title template, #707).
+    assert.match(html, /<title>돔두리 \| [^<]+<\/title>/u);
     assert.equal(styleOf(html).length, 1, 'one <style> block');
     assert.equal([...html.matchAll(/<h1\b/giu)].length, 1, 'one heading');
     assert.match(html, /<img\b[^>]*\bsrc="data:image\/png;base64,[^"]+"[^>]*\balt=""/u);
@@ -155,4 +156,15 @@ test('the coming-soon page says sign-up and login open soon', () => {
   const text = visibleText(read('coming-soon.html'));
   assert.match(text, /가입/u);
   assert.match(text, /로그인/u);
+});
+
+// ingress가 허용 목록 밖 주소에 내보내는 404 화면은 production에서 Web의 404 화면을 대신하므로 탭 제목이 같아야 한다.
+test('not-found.html has the tab title of the Web 404 screen', () => {
+  const copy = readFileSync(
+    resolve(import.meta.dirname, '../../../apps/web/src/screens/not-found/model/notFoundCopy.ts'),
+    'utf8',
+  );
+  const title = /^\s*title: '([^']+)',$/mu.exec(copy)?.[1];
+  assert.ok(title, 'the Web 404 copy has a title');
+  assert.match(read('not-found.html'), new RegExp(`<title>돔두리 \\| ${title}</title>`, 'u'));
 });
