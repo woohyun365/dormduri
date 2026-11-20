@@ -218,6 +218,198 @@ test('the build job builds the API bundle images with a pinned SBOM generator an
   }
 });
 
+// 생성 client는 Git 밖이고 TypedSQL 생성은 migration을 적용한 PostgreSQL이 필요하다(packages/database/README.md). build job은
+// 일회용 DB service를 두고, 의존성 설치·migrate·generate를 container에서 한 뒤 image를 build한다(#934). 그 container는 runner
+// 환경변수(OIDC 요청 token 포함)를 받지 않고, workspace가 아닌 설치 입력 사본만 받아 뒤 step이 runner에서 실행하는 파일을 고칠
+// 수 없다. 생성본은 사본 안의 일반 파일·디렉터리일 때만 workspace로 복사한다. 아래 검사는 허용 목록이고, 음성 대조가 그 검사가
+// 막아야 할 변형을 실제로 막는지 본다.
+const GENERATE_STEP = 'Generate the Prisma client and TypedSQL in an isolated container';
+const THROWAWAY_DB_URL =
+  'postgresql://dormduri_dev:dormduri_dev_password@127.0.0.1:5432/dormduri?schema=public';
+const GENERATE_LINES = {
+  pinGuard:
+    /^\[\[ \$node_image =~ \^node:\[\^@\[:space:\]\]\+@sha256:\[0-9a-f\]\{64\}\$ \]\] \|\| \{ .+ exit 1; \}$/u,
+  work: 'work="$RUNNER_TEMP/prisma-generate"',
+  mkdir: 'mkdir "$work"',
+  copy: 'tar -cf - package.json pnpm-lock.yaml pnpm-workspace.yaml packages/database packages/tsconfig | tar -xf - -C "$work"',
+  container: [
+    'docker',
+    'run',
+    '--rm',
+    '--network',
+    'host',
+    '--volume',
+    '"$work:/workspace"',
+    '--workdir',
+    '/workspace',
+    '--env',
+    `DATABASE_URL=${THROWAWAY_DB_URL}`,
+    '--env',
+    `DIRECT_URL=${THROWAWAY_DB_URL}`,
+    '"$node_image"',
+    'sh',
+    '-euc',
+  ],
+  inContainer: [
+    'npm install --global --no-audit --no-fund "$(node -p "require(\\"./package.json\\").packageManager")"',
+    'pnpm install --frozen-lockfile --filter @repo/database',
+    'pnpm --dir packages/database exec prisma migrate deploy --schema prisma/schema.prisma',
+    'pnpm --dir packages/database prisma:generate',
+  ],
+  afterContainer: [
+    /^generated=packages\/database\/src\/generated\/prisma$/u,
+    /^\[ "\$\(cd "\$work\/\$generated" && pwd -P\)" = "\$\(cd "\$work" && pwd -P\)\/\$generated" \] \|\| \{ .+ exit 1; \}$/u,
+    /^\[ -z "\$\(find "\$work\/\$generated" ! -type f ! -type d -print -quit\)" \] \|\| \{ .+ exit 1; \}$/u,
+    /^mkdir -p packages\/database\/src\/generated$/u,
+    /^cp -R "\$work\/\$generated" packages\/database\/src\/generated\/$/u,
+    /^test -f packages\/database\/src\/generated\/prisma\/client\.ts$/u,
+    /^test -f packages\/database\/src\/generated\/prisma\/sql\.ts$/u,
+  ],
+};
+
+// build job 글 → 생성 step의 위반 목록(빈 배열이면 통과).
+function generateStepProblems(job) {
+  const problems = [];
+  const list = steps(job);
+  const position = list.findIndex(({ name }) => name === GENERATE_STEP);
+  if (position < 0) return [`no "${GENERATE_STEP}" step`];
+  if (!(position < stepIndex(list, /docker buildx build/u)))
+    problems.push('generate step is not before the image build');
+  if (/^ {8}env:/mu.test(list[position].body)) problems.push('generate step has a step env');
+  // 주석 줄은 다음 step 설명이 앞 step 본문에 붙은 것이라 뺀다.
+  for (const [index, step] of list.entries()) {
+    const code = step.body
+      .split('\n')
+      .filter((line) => !/^\s*#/u.test(line))
+      .join('\n');
+    if (index !== position && /\b(?:pnpm|npx|npm)\s|node_modules/u.test(code))
+      problems.push(`${step.name} runs package code on the runner`);
+  }
+
+  const lines = runScript(list[position].body)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const take = () => lines.shift() ?? '';
+  const nodeImage = take();
+  if (!nodeImage.startsWith('node_image=')) problems.push('first line does not set node_image');
+  else {
+    const value = execFileSync('bash', ['-c', `${nodeImage}\nprintf %s "$node_image"`], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    const expected = /^ARG NODE_IMAGE=(\S+)$/mu.exec(read('infra/deploy/api/Dockerfile'))?.[1];
+    if (!expected || value !== expected)
+      problems.push('node_image is not the API Dockerfile NODE_IMAGE');
+  }
+  if (!GENERATE_LINES.pinGuard.test(take())) problems.push('no NODE_IMAGE pin guard');
+  for (const key of ['work', 'mkdir', 'copy'])
+    if (take() !== GENERATE_LINES[key]) problems.push(`${key} line differs`);
+
+  const command = [];
+  while (lines.length && !command.join(' ').includes("sh -euc '"))
+    command.push(take().replace(/ \\$/u, ''));
+  const tokens = command.join(' ').split(/\s+/u);
+  const quote = tokens.pop();
+  if (quote !== "'" || JSON.stringify(tokens) !== JSON.stringify(GENERATE_LINES.container))
+    problems.push(`container command differs: ${tokens.join(' ')}`);
+  const inside = [];
+  while (lines.length && !inside.at(-1)?.endsWith("'")) inside.push(take());
+  if (inside.length) inside[inside.length - 1] = inside.at(-1).slice(0, -1);
+  if (JSON.stringify(inside) !== JSON.stringify(GENERATE_LINES.inContainer))
+    problems.push(`container commands differ: ${inside.join(' | ')}`);
+  for (const pattern of GENERATE_LINES.afterContainer)
+    if (!pattern.test(take())) problems.push(`after-container line differs from ${pattern}`);
+  if (lines.length) problems.push(`unexpected lines: ${lines.join(' | ')}`);
+  return problems;
+}
+
+test('the build job generates the Prisma client and TypedSQL in an isolated container before the image build', async () => {
+  const serviceImage = (source) =>
+    /^ {4}services:\n {6}postgres:\n {8}image: (\S+)\n/mu.exec(source)?.[1];
+  assert.ok(serviceImage(JOBS.build), 'the build job has a throwaway postgres service');
+  assert.equal(
+    serviceImage(JOBS.build),
+    serviceImage(jobs(read('.github/workflows/api-ci.yml')).api),
+    'the API CI database pin',
+  );
+  assert.ok(
+    JOBS.build.includes(`          POSTGRES_PASSWORD: dormduri_dev_password\n`),
+    'the container URLs use the service credentials',
+  );
+  const { loadImageInventory, resolveImageReference } =
+    await import('../artifacts/image-inventory.mjs');
+  const pin = loadImageInventory(repoRoot).images.find(({ name }) => name === 'api-cd-postgres');
+  assert.equal(pin?.ownerPath, '.github/workflows/api-cd.yml');
+  assert.equal(resolveImageReference(repoRoot, pin), serviceImage(JOBS.build));
+  const problems = generateStepProblems(JOBS.build);
+  assert.deepEqual(problems, [], `the generate step matches the allowlist: ${problems.join('; ')}`);
+});
+
+test('the generate step check rejects variants that reach the runner or skip a guard', () => {
+  const swap = (from, to) => {
+    assert.equal(JOBS.build.split(from).length, 2, `fixture anchor: ${from}`);
+    return JOBS.build.replace(from, to);
+  };
+  const image = `            "$node_image" sh -euc '`;
+  const variants = {
+    'name-only env': swap(image, `            --env ACTIONS_ID_TOKEN_REQUEST_TOKEN \\\n${image}`),
+    '--env= form': swap(image, `            --env=ACTIONS_ID_TOKEN_REQUEST_URL \\\n${image}`),
+    '-e form': swap(image, `            -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \\\n${image}`),
+    'env file': swap(image, `            --env-file "$GITHUB_ENV" \\\n${image}`),
+    'pid host': swap(
+      'docker run --rm --network host ',
+      'docker run --rm --pid host --network host ',
+    ),
+    'quoted runner temp volume': swap(
+      '--volume "$work:/workspace"',
+      '--volume "$work:/workspace" --volume "$RUNNER_TEMP:/x"',
+    ),
+    '-v mount': swap('--volume "$work:/workspace"', '--volume "$work:/workspace" -v /:/host'),
+    '--mount': swap(
+      '--volume "$work:/workspace"',
+      '--volume "$work:/workspace" --mount type=bind,src=/,dst=/host',
+    ),
+    'docker socket': swap(
+      '--volume "$work:/workspace"',
+      '--volume "$work:/workspace" --volume /var/run/docker.sock:/var/run/docker.sock',
+    ),
+    'workspace mount': swap(
+      '--volume "$work:/workspace"',
+      '--volume "$GITHUB_WORKSPACE:/workspace"',
+    ),
+    privileged: swap('docker run --rm ', 'docker run --rm --privileged '),
+    'other image': swap(image, `            node:26 sh -euc '`),
+    'whole workspace copied': swap(
+      'packages/database packages/tsconfig |',
+      'packages/database packages/tsconfig . |',
+    ),
+    'extra container command': swap(
+      "              pnpm --dir packages/database prisma:generate'",
+      "              pnpm --dir packages/database prisma:generate\n              cp -R /workspace /tmp/x'",
+    ),
+    'no sql.ts check': swap(
+      '\n          test -f packages/database/src/generated/prisma/sql.ts',
+      '',
+    ),
+    'no file type guard': swap(/\n {10}\[ -z "\$\(find .*\n/u.exec(JOBS.build)[0], '\n'),
+    'node_image from elsewhere': swap(
+      "node_image=$(sed -n 's/^ARG NODE_IMAGE=//p' infra/deploy/api/Dockerfile)",
+      'node_image=node:26@sha256:' + '0'.repeat(64),
+    ),
+    'step env': swap(
+      `      - name: ${GENERATE_STEP}\n`,
+      `      - name: ${GENERATE_STEP}\n        env:\n          TOKEN: \${{ secrets.AWS_API_PUBLISH_ROLE_ARN }}\n`,
+    ),
+    'package code on the runner': swap(
+      '      - name: Scan the image filesystems before push\n',
+      '      - name: Prepare\n        run: pnpm install --frozen-lockfile\n\n      - name: Scan the image filesystems before push\n',
+    ),
+  };
+  for (const [name, job] of Object.entries(variants))
+    assert.notDeepEqual(generateStepProblems(job), [], `${name} is rejected`);
+});
+
 test('the build tools are the inventory pins web-cd uses', async () => {
   const { loadImageInventory, resolveImageReference } =
     await import('../artifacts/image-inventory.mjs');
