@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -26,9 +27,7 @@ interface Contract {
   readonly requiredFiles: string[];
   readonly maximumFileBytes: number;
 }
-const contract = JSON.parse(
-  spawnSync('cat', [contractPath], { encoding: 'utf8' }).stdout,
-) as Contract;
+const contract = JSON.parse(readFileSync(contractPath, 'utf8')) as Contract;
 const root = mkdtempSync(join(tmpdir(), 'dormduri-secret-parity-'));
 // Installed release directories are 0500, so give the owner write access back before removing the fixtures.
 const writable = (directory: string): void => {
