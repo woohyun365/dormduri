@@ -1,6 +1,7 @@
 #!/bin/bash
 # 실제 ingress의 경로별 응답을 흉내 낸다: 점검 flag면 모든 경로 점검 중 503, 아니면 허용 경로 200·준비 중 503·404.
 # PREVIOUS_TITLE_FORMAT(공백으로 나눈 web digest)에 든 쌍이 떠 있으면 정적 page 제목을 이전 형식으로 낸다(옛 ingress image).
+# WRONG_SCREEN·NO_TITLE에 든 쌍이 떠 있으면 정적 page가 status는 그대로, 제목은 다른 화면(점검 중)이거나 없이 나온다.
 . /work/titles.env
 out=/dev/null
 url=
@@ -48,5 +49,14 @@ else
       ;;
   esac
 fi
-printf '<title>%s</title>' "${title}" >"${out}"
+no_title=0
+if [ -n "${running}" ] && [ -n "${title}" ]; then
+  case " ${WRONG_SCREEN:-} " in *" ${running} "*) title=${TITLE_MAINTENANCE} ;; esac
+  case " ${NO_TITLE:-} " in *" ${running} "*) no_title=1 ;; esac
+fi
+if [ "${no_title}" = 1 ]; then
+  printf '<html></html>' >"${out}"
+else
+  printf '<title>%s</title>' "${title}" >"${out}"
+fi
 printf '%s' "${code}"

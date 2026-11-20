@@ -56,10 +56,16 @@ rollback rollback-start-failure-keeps-current 1 BAD_UP="$(pair 1)"
 deploy deploy-and-current-failure-enters-maintenance 3 "BAD_UP=$(pair 3) $(pair 2)"
 rollback rollback 1
 rollback rollback-without-previous 2
-# 이전 제목 형식의 쌍(pair 1)으로 되돌리기와, 새 쌍 실패 뒤 그 쌍으로의 자동 되돌림.
+# 이전 제목 형식의 쌍(pair 1)으로 되돌리기.
 deploy title-format-setup-deploy 2
 rollback rollback-to-previous-title-format 1 PREVIOUS_TITLE_FORMAT="$(pair 1)"
+# 새 쌍 실패 뒤 이전 제목 형식 쌍으로의 자동 되돌림. 앞 case의 결과에 기대지 않게 새로 시작해 pair 1을 current로 둔다.
+rm -rf "${state}" /opt/dormduri/mode /opt/dormduri/releases /tmp/running_web
+deploy title-format-auto-rollback-setup 1
 deploy smoke-failure-rolls-back-to-previous-title-format 3 BAD_SMOKE="$(pair 3)" PREVIOUS_TITLE_FORMAT="$(pair 1)"
+# status는 맞지만 다른 화면 제목이거나 제목이 없는 새 쌍은 내부 smoke에서 실패해 current로 되돌아간다.
+deploy wrong-screen-rolls-back 3 WRONG_SCREEN="$(pair 3)"
+deploy missing-title-rolls-back 3 NO_TITLE="$(pair 3)"
 rm -rf "${state}" /opt/dormduri/mode /opt/dormduri/releases /tmp/running_web
 deploy first-deploy-failure-enters-maintenance 3 BAD_UP="$(pair 3)"
 run maintenance SSM_action=maintenance SSM_webDigest="$(pair 1)" SSM_ingressDigest="${I}"

@@ -137,6 +137,24 @@ test('the external smoke takes the previous static page title form of an older p
     const rows = staticRows(await run(titleOf));
     assert.ok(rows.every((row) => row.problems.some((problem) => problem.startsWith('title '))));
   }
+  // An allowed path that answers 200 with a static page body in either form is still a static page.
+  const webCase = cases.find((testCase) => testCase.expect.web && testCase.path === '/');
+  assert.ok(webCase);
+  const webResponse = (title) => ({
+    closed: false,
+    status: 200,
+    headers: { 'x-robots-tag': 'noindex', 'strict-transport-security': 'max-age=300' },
+    body: '',
+    title,
+  });
+  for (const title of [PAGE_TITLES.unavailable, previousTitleFormat(PAGE_TITLES.unavailable)]) {
+    assert.ok(
+      checkResponse(webCase, webResponse(title), { previousTitleForm: true }).includes(
+        'allowed path returned a static page',
+      ),
+      title,
+    );
+  }
   // The local smoke keeps the exact title of the repository page.
   const [first] = staticCases;
   assert.ok(
@@ -145,4 +163,32 @@ test('the external smoke takes the previous static page title form of an older p
     ),
   );
   assert.deepEqual(checkResponse(first, staticResponse(first, first.expect.title)), []);
+});
+
+// The previous form is the one the ingress images recorded before the `돔두리 | <화면>` titles carry: the static page
+// titles up to that change, with the same screen names. A renamed screen or another title form breaks rollback to those
+// images, so change this list only together with a way back to the recorded older pairs.
+test('the previous static page title form is the one the recorded older ingress images carry', () => {
+  assert.deepEqual(
+    [
+      PAGE_TITLES.comingSoon,
+      PAGE_TITLES.maintenance,
+      PAGE_TITLES.notFound,
+      PAGE_TITLES.unavailable,
+    ].map(previousTitleFormat),
+    [
+      '돔두리 — 준비 중',
+      '돔두리 — 점검 중',
+      '돔두리 — 페이지를 찾을 수 없어요',
+      '돔두리 — 잠시 문제가 있어요',
+    ],
+  );
+  assert.throws(
+    () => previousTitleFormat('돔두리 — 점검 중'),
+    /is not in the "돔두리 \| <화면>" form/u,
+  );
+  assert.throws(
+    () => previousTitleFormat('점검 중 | 돔두리'),
+    /is not in the "돔두리 \| <화면>" form/u,
+  );
 });

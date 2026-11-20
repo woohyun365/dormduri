@@ -115,7 +115,32 @@ export const DEPLOY_PATH_CASES = Object.freeze([
     'no',
   ),
   webCase(
+    'title-format-auto-rollback-setup',
+    0,
+    'RESULT=succeeded action=deploy',
+    '1',
+    'none',
+    'no',
+  ),
+  webCase(
     'smoke-failure-rolls-back-to-previous-title-format',
+    1,
+    'RESULT=failed action=deploy reason=rolled-back-to-current',
+    '1',
+    'none',
+    'no',
+  ),
+  // 내부 smoke는 status가 맞아도 다른 화면 제목이나 제목 없는 정적 page를 거부한다.
+  webCase(
+    'wrong-screen-rolls-back',
+    1,
+    'RESULT=failed action=deploy reason=rolled-back-to-current',
+    '1',
+    'none',
+    'no',
+  ),
+  webCase(
+    'missing-title-rolls-back',
     1,
     'RESULT=failed action=deploy reason=rolled-back-to-current',
     '1',

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // CD deploy job이 SendCommand 성공 뒤 밖에서 공개 host를 요청해 D-WB10 경로별 응답을 본다. 경로 표와 판정은 local ingress
-// smoke(ingress-smoke.mjs)와 같다. 이 host로 가는 경로만 고르고(모르는 host·ACME 시험 token 제외), 인증서를 검증한다.
+// smoke(ingress-smoke.mjs)와 같고, 정적 page 제목만 이전 형식도 받는다(rollback 뒤에는 이전 쌍이 떠 있을 수 있다). 이 host로
+// 가는 경로만 고르고(모르는 host·ACME 시험 token 제외), 인증서를 검증한다.
 // 출력에는 method·path·status·title만 쓴다. 연결 주소(IP)와 header 원문을 찍지 않는다(D-WB7).
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
