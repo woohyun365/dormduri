@@ -218,6 +218,69 @@ test('the build job builds the API bundle images with a pinned SBOM generator an
   }
 });
 
+// 생성 client는 Git 밖이고 TypedSQL 생성은 migration을 적용한 PostgreSQL이 필요하다(packages/database/README.md). build job은
+// 일회용 DB service를 두고, 의존성 설치·migrate·generate를 runner 환경변수(OIDC 요청 token 포함)를 받지 않는 container에서 한
+// 뒤 image를 build한다. 그 container image는 API Dockerfile의 NODE_IMAGE를 그대로 읽어 새 pin을 만들지 않는다(#934).
+const GENERATE_STEP = 'Generate the Prisma client and TypedSQL in an isolated container';
+
+test('the build job generates the Prisma client and TypedSQL in an isolated container before the image build', async () => {
+  const serviceImage = (source) =>
+    /^ {4}services:\n {6}postgres:\n {8}image: (\S+)\n/mu.exec(source)?.[1];
+  assert.ok(serviceImage(JOBS.build), 'the build job has a throwaway postgres service');
+  assert.equal(
+    serviceImage(JOBS.build),
+    serviceImage(jobs(read('.github/workflows/api-ci.yml')).api),
+    'the API CI database pin',
+  );
+  const { loadImageInventory, resolveImageReference } =
+    await import('../artifacts/image-inventory.mjs');
+  const pin = loadImageInventory(repoRoot).images.find(({ name }) => name === 'api-cd-postgres');
+  assert.equal(pin?.ownerPath, '.github/workflows/api-cd.yml');
+  assert.equal(resolveImageReference(repoRoot, pin), serviceImage(JOBS.build));
+
+  const list = steps(JOBS.build);
+  const generate = list.findIndex(({ name }) => name === GENERATE_STEP);
+  assert.ok(generate >= 0, GENERATE_STEP);
+  assert.ok(
+    generate < stepIndex(list, /docker buildx build/u),
+    'generated files exist before the build',
+  );
+  const script = runScript(list[generate].body);
+  assert.match(
+    script,
+    /^node_image=\$\(sed -n 's\/\^ARG NODE_IMAGE=\/\/p' infra\/deploy\/api\/Dockerfile\)$/mu,
+  );
+  assert.match(script, /^docker run --rm --network host /mu);
+  assert.deepEqual(
+    [...script.matchAll(/--env ([A-Z_]+)=/gu)].map((match) => match[1]),
+    ['DATABASE_URL', 'DIRECT_URL'],
+    'only the throwaway database URLs go into the container',
+  );
+  assert.doesNotMatch(
+    script,
+    /--env-file|(?:^|\s)-e\s|\$\{\{|docker\.sock|--privileged|--volume \$RUNNER_TEMP/mu,
+  );
+  assert.doesNotMatch(
+    list[generate].body,
+    /^ {8}env:/mu,
+    'no step env reaches the container either',
+  );
+  for (const command of [
+    'pnpm install --frozen-lockfile --filter @repo/database',
+    'pnpm --dir packages/database exec prisma migrate deploy --schema prisma/schema.prisma',
+    'pnpm --dir packages/database prisma:generate',
+    'test -f packages/database/src/generated/prisma/client.ts',
+  ])
+    assert.ok(script.includes(command), command);
+  for (const [position, step] of list.entries())
+    if (position !== generate)
+      assert.doesNotMatch(
+        step.body,
+        /\b(?:pnpm|npx)\s|npm (?:ci|install)/u,
+        `${step.name} runs no package code on the runner`,
+      );
+});
+
 test('the build tools are the inventory pins web-cd uses', async () => {
   const { loadImageInventory, resolveImageReference } =
     await import('../artifacts/image-inventory.mjs');

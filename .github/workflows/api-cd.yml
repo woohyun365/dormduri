@@ -94,6 +94,22 @@ jobs:
       api_digest: ${{ steps.push.outputs.api_digest }}
       api_migrate_digest: ${{ steps.push.outputs.api_migrate_digest }}
       observability_config_digest: ${{ steps.push.outputs.observability_config_digest }}
+    # TypedSQL 생성(`prisma generate --sql`)이 migration을 적용한 PostgreSQL에 결과 type을 묻는다. 이 job 안에서만 쓰고 버리는
+    # DB이며 production과 닿지 않는다(값은 API CI와 같은 공개 개발 값).
+    services:
+      postgres:
+        image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+        env:
+          POSTGRES_USER: dormduri_dev
+          POSTGRES_PASSWORD: dormduri_dev_password
+          POSTGRES_DB: dormduri
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dormduri_dev -d dormduri"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -104,6 +120,25 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '26'
+
+      # 생성 client(`packages/database/src/generated/prisma/`)는 Git 밖이라 Dockerfile이 build context에서 찾는다. 의존성
+      # 설치·migrate·generate는 API Dockerfile의 NODE_IMAGE container에서 돈다. 그 container는 workspace와 일회용 DB URL만 받고
+      # runner 환경변수(OIDC 요청 token 포함)는 받지 않아 의존성 code가 publish 출입증과 떨어져 돈다(#934). node_modules는
+      # `.dockerignore`가 build context에서 뺀다.
+      - name: Generate the Prisma client and TypedSQL in an isolated container
+        run: |
+          node_image=$(sed -n 's/^ARG NODE_IMAGE=//p' infra/deploy/api/Dockerfile)
+          [[ $node_image =~ ^node:[^@[:space:]]+@sha256:[0-9a-f]{64}$ ]] || { echo 'The API Dockerfile has no pinned NODE_IMAGE.' >&2; exit 1; }
+          docker run --rm --network host --volume "$GITHUB_WORKSPACE:/workspace" --workdir /workspace \
+            --env DATABASE_URL=postgresql://dormduri_dev:dormduri_dev_password@127.0.0.1:5432/dormduri?schema=public \
+            --env DIRECT_URL=postgresql://dormduri_dev:dormduri_dev_password@127.0.0.1:5432/dormduri?schema=public \
+            "$node_image" sh -euc '
+              npm install --global --no-audit --no-fund "$(node -p "require(\"./package.json\").packageManager")"
+              pnpm install --frozen-lockfile --filter @repo/database
+              pnpm --dir packages/database exec prisma migrate deploy --schema prisma/schema.prisma
+              pnpm --dir packages/database prisma:generate
+              test -f packages/database/src/generated/prisma/client.ts
+              test -f packages/database/src/generated/prisma/sql.ts'
 
       # 같은 commit·builder에서 runtime·migrate target과 관측 설정 image(FROM scratch, build context infra/observability)를
       # build한다. SBOM은 image index의 attestation manifest로만 남긴다(ECR 비공개, workflow artifact 없음). provenance는 승인 뒤

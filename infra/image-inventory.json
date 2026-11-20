@@ -64,6 +64,12 @@
       "updateOwner": "renovate"
     },
     {
+      "name": "api-cd-postgres",
+      "ownerPath": ".github/workflows/api-cd.yml",
+      "repository": "postgres",
+      "updateOwner": "renovate"
+    },
+    {
       "name": "prometheus",
       "ownerPath": "infra/observability/compose.base.yml",
       "repository": "prom/prometheus",
