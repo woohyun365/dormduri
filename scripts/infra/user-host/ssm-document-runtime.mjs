@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { PAGE_TITLES } from './ingress-smoke.mjs';
+import { PAGE_TITLES, previousTitleFormat } from './ingress-smoke.mjs';
 import { API_DOCUMENT_PATH, DOCUMENT_PATH, SECRET_CONTRACT_PATH } from './ssm-document.mjs';
 
 const HARNESS_DIRECTORY = fileURLToPath(new URL('./document-harness', import.meta.url));
@@ -99,6 +99,50 @@ export const DEPLOY_PATH_CASES = Object.freeze([
     'rollback-without-previous',
     2,
     'RESULT=failed action=rollback reason=no-previous',
+    '1',
+    'none',
+    'no',
+  ),
+  // 되돌릴 쌍의 정적 page는 그 쌍의 ingress image가 담으므로 제목 형식이 지금 document의 page와 다를 수 있다. 그 쌍으로의
+  // rollback과 자동 되돌림도 내부 smoke를 통과해야 한다(가짜 curl이 PREVIOUS_TITLE_FORMAT 쌍에는 이전 형식 제목을 낸다).
+  webCase('title-format-setup-deploy', 0, 'RESULT=succeeded action=deploy', '2', '1', 'no'),
+  webCase(
+    'rollback-to-previous-title-format',
+    0,
+    'RESULT=succeeded action=rollback',
+    '1',
+    'none',
+    'no',
+  ),
+  webCase(
+    'title-format-auto-rollback-setup',
+    0,
+    'RESULT=succeeded action=deploy',
+    '1',
+    'none',
+    'no',
+  ),
+  webCase(
+    'smoke-failure-rolls-back-to-previous-title-format',
+    1,
+    'RESULT=failed action=deploy reason=rolled-back-to-current',
+    '1',
+    'none',
+    'no',
+  ),
+  // 내부 smoke는 status가 맞아도 다른 화면 제목이나 제목 없는 정적 page를 거부한다.
+  webCase(
+    'wrong-screen-rolls-back',
+    1,
+    'RESULT=failed action=deploy reason=rolled-back-to-current',
+    '1',
+    'none',
+    'no',
+  ),
+  webCase(
+    'missing-title-rolls-back',
+    1,
+    'RESULT=failed action=deploy reason=rolled-back-to-current',
     '1',
     'none',
     'no',
@@ -658,6 +702,9 @@ function runHarness({ repoRoot, image, documentPath, harness, judge }) {
         `TITLE_MAINTENANCE=${shellQuote(PAGE_TITLES.maintenance)}`,
         `TITLE_COMING_SOON=${shellQuote(PAGE_TITLES.comingSoon)}`,
         `TITLE_NOT_FOUND=${shellQuote(PAGE_TITLES.notFound)}`,
+        `TITLE_MAINTENANCE_PREVIOUS=${shellQuote(previousTitleFormat(PAGE_TITLES.maintenance))}`,
+        `TITLE_COMING_SOON_PREVIOUS=${shellQuote(previousTitleFormat(PAGE_TITLES.comingSoon))}`,
+        `TITLE_NOT_FOUND_PREVIOUS=${shellQuote(previousTitleFormat(PAGE_TITLES.notFound))}`,
         '',
       ].join('\n'),
     );

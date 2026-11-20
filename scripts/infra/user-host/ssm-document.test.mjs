@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
@@ -18,7 +19,7 @@ import {
   sha256,
   stripCommentLines,
 } from './ssm-document.mjs';
-import { PAGE_TITLES } from './ingress-smoke.mjs';
+import { PAGE_TITLES, previousTitleFormat } from './ingress-smoke.mjs';
 
 const repoRoot = process.cwd();
 const load = (path) => {
@@ -198,26 +199,84 @@ test('the generator refuses bodies that would change meaning inside SSM or a her
   assert.match(buildDocument({ ...ok, lib: 'echo "$\'" "$&"' }), /echo \\"\$'\\" \\"\$&\\"/u);
 });
 
-// The host smoke inside the web document greps the static page titles. Their source is the page files, so a changed
-// <title> must fail here, not on the host after the document is created.
-test('the web host smoke expects the page titles of the static page files', () => {
+// The host smoke inside the web document checks the screen name inside the static page titles. Their source is the
+// page files, so a changed screen name must fail here, not on the host after the document is created. The smoke must
+// not expect the brand or separator: a rollback starts an older pair whose ingress image carries its own title form
+// (the deploy path harness rolls back to a pair with the previous form).
+test('the web host smoke expects the screen names of the static page files, not their title form', () => {
   const calls = (source) =>
-    [...source.matchAll(/page_ok (\S+) (\d{3})(?: '([^']*)')?/gu)].map(([, path, code, title]) => ({
-      path,
-      code,
-      title: title ?? null,
-    }));
+    [...source.matchAll(/page_ok (\S+) (\d{3})(?: '([^']*)')?/gu)].map(
+      ([, path, code, screen]) => ({
+        path,
+        code,
+        screen: screen ?? null,
+      }),
+    );
+  const screenOf = (title) => {
+    const match = /^돔두리 \| (.+)$/u.exec(title);
+    assert.ok(match, title);
+    return match[1];
+  };
   assert.deepEqual(calls(functionBody(web.body, 'smoke_serving')), [
-    { path: '/', code: '200', title: null },
-    { path: '/privacy', code: '200', title: null },
-    { path: '/terms', code: '200', title: null },
-    { path: '/signup', code: '503', title: PAGE_TITLES.comingSoon },
-    { path: '/__smoke_not_allowed', code: '404', title: PAGE_TITLES.notFound },
+    { path: '/', code: '200', screen: null },
+    { path: '/privacy', code: '200', screen: null },
+    { path: '/terms', code: '200', screen: null },
+    { path: '/signup', code: '503', screen: screenOf(PAGE_TITLES.comingSoon) },
+    { path: '/__smoke_not_allowed', code: '404', screen: screenOf(PAGE_TITLES.notFound) },
   ]);
   assert.deepEqual(calls(functionBody(web.body, 'smoke_maintenance')), [
-    { path: '/', code: '503', title: PAGE_TITLES.maintenance },
-    { path: '/privacy', code: '503', title: PAGE_TITLES.maintenance },
+    { path: '/', code: '503', screen: screenOf(PAGE_TITLES.maintenance) },
+    { path: '/privacy', code: '503', screen: screenOf(PAGE_TITLES.maintenance) },
   ]);
+  for (const title of [PAGE_TITLES.comingSoon, PAGE_TITLES.notFound, PAGE_TITLES.maintenance]) {
+    assert.ok(previousTitleFormat(title).includes(screenOf(title)), title);
+  }
+});
+
+// The page check itself, run from the generated document with a stand-in curl: the expected screen name passes in the
+// current and the previous title form, and another screen's title, a page without a title or another status fails.
+test('the host smoke page check takes the screen name in either title form and rejects anything else', () => {
+  const pageOk = `page_ok() {\n${functionBody(web.body, 'page_ok')}}`;
+  const script = [
+    'set -u',
+    'host=dormduri.com',
+    'curl() {',
+    '  local out=/dev/null',
+    '  while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift 2 ;; *) shift ;; esac; done',
+    '  printf "%s" "${STUB_BODY}" >"${out}"',
+    '  printf "%s" "${STUB_STATUS}"',
+    '}',
+    pageOk,
+    'page_ok "$@"',
+  ].join('\n');
+  const run = (status, body, args) =>
+    spawnSync('bash', ['-c', script, 'page_ok', ...args], {
+      env: { PATH: process.env.PATH, STUB_STATUS: status, STUB_BODY: body },
+      encoding: 'utf8',
+    }).status;
+  const page = (title) => `<!doctype html><html><head><title>${title}</title></head></html>`;
+  const comingSoon = ['/signup', '503', '준비 중'];
+  assert.equal(run('503', page(PAGE_TITLES.comingSoon), comingSoon), 0, 'current form');
+  assert.equal(
+    run('503', page(previousTitleFormat(PAGE_TITLES.comingSoon)), comingSoon),
+    0,
+    'previous form',
+  );
+  assert.equal(
+    run('503', page(previousTitleFormat(PAGE_TITLES.maintenance)), ['/', '503', '점검 중']),
+    0,
+    'previous form of the maintenance page',
+  );
+  assert.equal(run('503', page(PAGE_TITLES.maintenance), comingSoon), 1, "another screen's title");
+  assert.equal(
+    run('503', page(PAGE_TITLES.unavailable), comingSoon),
+    1,
+    "another 503 screen's title",
+  );
+  assert.equal(run('503', '<!doctype html><html><head></head></html>', comingSoon), 1, 'no title');
+  assert.equal(run('404', page(PAGE_TITLES.comingSoon), comingSoon), 1, 'another status');
+  assert.equal(run('200', '<!doctype html>', ['/', '200']), 0, 'status only');
+  assert.equal(run('500', '<!doctype html>', ['/', '200']), 1, 'status only, another status');
 });
 
 // A successful rollback must not leave the release it rolled away from as the next rollback target.
