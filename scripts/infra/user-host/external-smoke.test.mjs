@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { externalSmokeCases, runExternalSmoke } from './external-smoke.mjs';
-import { CANONICAL_HOST, INGRESS_SMOKE_CASES, PAGE_TITLES } from './ingress-smoke.mjs';
+import {
+  CANONICAL_HOST,
+  INGRESS_SMOKE_CASES,
+  PAGE_TITLES,
+  checkResponse,
+  previousTitleFormat,
+} from './ingress-smoke.mjs';
 
 test('the external smoke uses the local ingress smoke table for the public host only', () => {
   for (const mode of ['serving', 'maintenance']) {
@@ -73,4 +79,70 @@ test('the external smoke connects to the public host name with certificate verif
     rows.every((row) => !('address' in row)),
     'rows carry no connection address',
   );
+});
+
+// After a rollback dispatch the CD runs this smoke against the older pair, whose ingress image carries the title form
+// it was built with. The external smoke takes that previous form for static pages; the local smoke (which serves the
+// repository pages) does not, and a page with another screen name still fails.
+test('the external smoke takes the previous static page title form of an older pair', async () => {
+  const cases = externalSmokeCases('serving');
+  const staticCases = cases.filter((testCase) => testCase.expect.staticPage);
+  assert.ok(staticCases.length > 0);
+  const staticResponse = (testCase, title) => ({
+    closed: false,
+    status: testCase.expect.status,
+    headers: {
+      'x-robots-tag': 'noindex',
+      'strict-transport-security': 'max-age=300',
+      ...(testCase.expect.retryAfter ? { 'retry-after': testCase.expect.retryAfter } : {}),
+      'cache-control': 'no-store',
+      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'",
+      'content-type': 'text/html; charset=utf-8',
+    },
+    body: '',
+    title,
+  });
+  const run = (titleOf) =>
+    runExternalSmoke({
+      mode: 'serving',
+      send: async (options) => {
+        const testCase = cases.find(
+          (candidate) =>
+            candidate.path === options.path &&
+            (candidate.method ?? 'GET') === (options.method ?? 'GET'),
+        );
+        return testCase?.expect.staticPage
+          ? staticResponse(testCase, titleOf(testCase.expect.title))
+          : { closed: true, error: 'not a static page case' };
+      },
+    });
+  const staticRows = (rows) =>
+    rows.filter((row) =>
+      staticCases.some(
+        (testCase) => testCase.path === row.path && (testCase.method ?? 'GET') === row.method,
+      ),
+    );
+
+  for (const titleOf of [(title) => title, previousTitleFormat]) {
+    const rows = staticRows(await run(titleOf));
+    assert.equal(rows.length, staticCases.length);
+    assert.deepEqual(
+      rows.filter((row) => row.problems.length),
+      [],
+    );
+  }
+  const otherScreen = (title) =>
+    title === PAGE_TITLES.maintenance ? PAGE_TITLES.notFound : PAGE_TITLES.maintenance;
+  for (const titleOf of [otherScreen, (title) => previousTitleFormat(otherScreen(title))]) {
+    const rows = staticRows(await run(titleOf));
+    assert.ok(rows.every((row) => row.problems.some((problem) => problem.startsWith('title '))));
+  }
+  // The local smoke keeps the exact title of the repository page.
+  const [first] = staticCases;
+  assert.ok(
+    checkResponse(first, staticResponse(first, previousTitleFormat(first.expect.title))).some(
+      (problem) => problem.startsWith('title '),
+    ),
+  );
+  assert.deepEqual(checkResponse(first, staticResponse(first, first.expect.title)), []);
 });

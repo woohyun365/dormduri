@@ -31,7 +31,8 @@ export async function runExternalSmoke({ mode, send = request }) {
       ports: { http: 80, https: 443 },
       verify: true,
     });
-    const problems = checkResponse(testCase, response);
+    // CD는 rollback dispatch 뒤에도 이 smoke를 돈다. 그때 떠 있는 이전 쌍의 ingress image는 이전 제목 형식을 담을 수 있다.
+    const problems = checkResponse(testCase, response, { previousTitleForm: true });
     rows.push({
       method: testCase.method ?? 'GET',
       scheme: testCase.scheme ?? 'https',

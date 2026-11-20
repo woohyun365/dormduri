@@ -18,7 +18,7 @@ import {
   sha256,
   stripCommentLines,
 } from './ssm-document.mjs';
-import { PAGE_TITLES } from './ingress-smoke.mjs';
+import { PAGE_TITLES, previousTitleFormat } from './ingress-smoke.mjs';
 
 const repoRoot = process.cwd();
 const load = (path) => {
@@ -198,26 +198,38 @@ test('the generator refuses bodies that would change meaning inside SSM or a her
   assert.match(buildDocument({ ...ok, lib: 'echo "$\'" "$&"' }), /echo \\"\$'\\" \\"\$&\\"/u);
 });
 
-// The host smoke inside the web document greps the static page titles. Their source is the page files, so a changed
-// <title> must fail here, not on the host after the document is created.
-test('the web host smoke expects the page titles of the static page files', () => {
+// The host smoke inside the web document checks the screen name inside the static page titles. Their source is the
+// page files, so a changed screen name must fail here, not on the host after the document is created. The smoke must
+// not expect the brand or separator: a rollback starts an older pair whose ingress image carries its own title form
+// (the deploy path harness rolls back to a pair with the previous form).
+test('the web host smoke expects the screen names of the static page files, not their title form', () => {
   const calls = (source) =>
-    [...source.matchAll(/page_ok (\S+) (\d{3})(?: '([^']*)')?/gu)].map(([, path, code, title]) => ({
-      path,
-      code,
-      title: title ?? null,
-    }));
+    [...source.matchAll(/page_ok (\S+) (\d{3})(?: '([^']*)')?/gu)].map(
+      ([, path, code, screen]) => ({
+        path,
+        code,
+        screen: screen ?? null,
+      }),
+    );
+  const screenOf = (title) => {
+    const match = /^돔두리 \| (.+)$/u.exec(title);
+    assert.ok(match, title);
+    return match[1];
+  };
   assert.deepEqual(calls(functionBody(web.body, 'smoke_serving')), [
-    { path: '/', code: '200', title: null },
-    { path: '/privacy', code: '200', title: null },
-    { path: '/terms', code: '200', title: null },
-    { path: '/signup', code: '503', title: PAGE_TITLES.comingSoon },
-    { path: '/__smoke_not_allowed', code: '404', title: PAGE_TITLES.notFound },
+    { path: '/', code: '200', screen: null },
+    { path: '/privacy', code: '200', screen: null },
+    { path: '/terms', code: '200', screen: null },
+    { path: '/signup', code: '503', screen: screenOf(PAGE_TITLES.comingSoon) },
+    { path: '/__smoke_not_allowed', code: '404', screen: screenOf(PAGE_TITLES.notFound) },
   ]);
   assert.deepEqual(calls(functionBody(web.body, 'smoke_maintenance')), [
-    { path: '/', code: '503', title: PAGE_TITLES.maintenance },
-    { path: '/privacy', code: '503', title: PAGE_TITLES.maintenance },
+    { path: '/', code: '503', screen: screenOf(PAGE_TITLES.maintenance) },
+    { path: '/privacy', code: '503', screen: screenOf(PAGE_TITLES.maintenance) },
   ]);
+  for (const title of [PAGE_TITLES.comingSoon, PAGE_TITLES.notFound, PAGE_TITLES.maintenance]) {
+    assert.ok(previousTitleFormat(title).includes(screenOf(title)), title);
+  }
 });
 
 // A successful rollback must not leave the release it rolled away from as the next rollback target.

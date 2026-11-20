@@ -56,6 +56,10 @@ rollback rollback-start-failure-keeps-current 1 BAD_UP="$(pair 1)"
 deploy deploy-and-current-failure-enters-maintenance 3 "BAD_UP=$(pair 3) $(pair 2)"
 rollback rollback 1
 rollback rollback-without-previous 2
+# 이전 제목 형식의 쌍(pair 1)으로 되돌리기와, 새 쌍 실패 뒤 그 쌍으로의 자동 되돌림.
+deploy title-format-setup-deploy 2
+rollback rollback-to-previous-title-format 1 PREVIOUS_TITLE_FORMAT="$(pair 1)"
+deploy smoke-failure-rolls-back-to-previous-title-format 3 BAD_SMOKE="$(pair 3)" PREVIOUS_TITLE_FORMAT="$(pair 1)"
 rm -rf "${state}" /opt/dormduri/mode /opt/dormduri/releases /tmp/running_web
 deploy first-deploy-failure-enters-maintenance 3 BAD_UP="$(pair 3)"
 run maintenance SSM_action=maintenance SSM_webDigest="$(pair 1)" SSM_ingressDigest="${I}"

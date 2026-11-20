@@ -49,6 +49,13 @@ export function readPageTitles(repoRoot = defaultRepoRoot) {
   );
 }
 export const PAGE_TITLES = readPageTitles();
+// 지금 정적 page 제목(`돔두리 | <화면>`) 앞의 형식(`돔두리 — <화면>`). production에 기록된 이전 쌍의 ingress image가 이 형식을
+// 담는다. 지금 형식이 바뀌면 여기서 멈춰, 새 형식으로 바꾼 뒤에도 이전 쌍으로 되돌릴 수 있는지 다시 보게 한다.
+export function previousTitleFormat(title) {
+  const match = /^돔두리 \| (.+)$/u.exec(title);
+  if (!match) throw new Error(`static page title is not in the "돔두리 | <화면>" form: ${title}`);
+  return `돔두리 — ${match[1]}`;
+}
 const STUB_TITLE = 'stub web';
 const LABEL = 'dormduri.local.created-by=user-host-ingress-smoke';
 
@@ -167,8 +174,12 @@ export const INGRESS_SMOKE_CASES = Object.freeze([
   },
 ]);
 
-export function checkResponse(testCase, response) {
+// previousTitleForm: 정적 page 제목을 지금 형식과 이전 형식(previousTitleFormat) 둘 다 받는다. 이전 쌍이 떠 있을 수 있는
+// production 외부 smoke만 켠다. local smoke는 지금 저장소의 page를 띄우므로 지금 형식만 받는다.
+export function checkResponse(testCase, response, { previousTitleForm = false } = {}) {
   const expect = testCase.expect;
+  const staticTitles = (title) =>
+    previousTitleForm ? [title, previousTitleFormat(title)] : [title];
   const problems = [];
   if (expect.closed) {
     if (!response.closed) problems.push(`expected a closed connection, got ${response.status}`);
@@ -202,7 +213,7 @@ export function checkResponse(testCase, response) {
     if (headers['x-stub-uri'] !== undefined) problems.push('request reached Web');
   }
   if (expect.web && response.title === null) problems.push('Web response has no <title>');
-  if (expect.web && Object.values(PAGE_TITLES).includes(response.title)) {
+  if (expect.web && Object.values(PAGE_TITLES).flatMap(staticTitles).includes(response.title)) {
     problems.push('allowed path returned a static page');
   }
   if (expect.notWeb && headers['x-stub-uri'] !== undefined) problems.push('request reached Web');
@@ -214,7 +225,7 @@ export function checkResponse(testCase, response) {
     problems.push(`Web received ${headers['x-stub-uri']} instead of ${expect.sameAs}`);
   }
   if (expect.staticPage) {
-    if (response.title !== expect.title)
+    if (!staticTitles(expect.title).includes(response.title))
       problems.push(`title ${response.title} != ${expect.title}`);
     if ((headers['retry-after'] ?? null) !== expect.retryAfter) {
       problems.push(`Retry-After ${headers['retry-after']} != ${expect.retryAfter}`);
