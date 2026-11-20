@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -11,7 +11,9 @@ import {
 } from '../../../agents/codex/routing-policy.mjs';
 import {
   createReviewDispatch,
+  readRegistration,
   registerDispatch,
+  registryDirectory,
   runRegistryCommand,
 } from '../../../agents/codex/task-registry.mjs';
 
@@ -317,5 +319,211 @@ test('the CLI writes the delegation and the review dispatch files codex:register
       );
   } finally {
     rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+// review-run: the criteria choice, the context inputs and the registration of one review round in one command, with
+// the spawn arguments in a file and one summary line on stdout (OSS-RL P2 RED 1).
+test('review-run selects criteria, saves the context inputs, registers and writes the spawn arguments', () => {
+  const registryRoot = mkdtempSync(join(tmpdir(), 'knu-review-run-'));
+  const out = join(registryRoot, 'out');
+  const session = 'rl-p2-review-run';
+  try {
+    let run;
+    assert.doesNotThrow(() => {
+      run = delegateSpec.runDelegateCommand(
+        [
+          'review-run',
+          '--lanes',
+          'legal-read',
+          '--token',
+          TOKEN,
+          '--round',
+          '2',
+          '--session',
+          session,
+          '--out',
+          out,
+          '--paths',
+          SOURCE,
+        ],
+        { root, registryRoot },
+      );
+    }, 'review-run is a delegate command');
+    assert.equal(run.exitCode, 0);
+    assert.equal(run.stdout.split('\n').filter(Boolean).length, 1, run.stdout);
+    assert.match(run.stdout, /^review-run ok /u);
+    const record = JSON.parse(readFileSync(join(out, 'review-run.json'), 'utf8'));
+    const dispatch = createReviewDispatch({
+      laneIds: ['legal-read'],
+      dispatchToken: TOKEN,
+      round: 2,
+    });
+    assert.equal(record.taskName, `review_${TOKEN}_2`);
+    assert.deepEqual(record.spawnArguments, dispatch.spawnArguments);
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(out, 'spawn-arguments.json'), 'utf8')),
+      dispatch.spawnArguments,
+    );
+    // Registered under the session, with the criteria and context records beside the registration.
+    const registration = readRegistration({
+      root: registryRoot,
+      sessionId: session,
+      taskName: record.taskName,
+    });
+    assert.equal(registration.digest, record.digest);
+    const directory = registryDirectory(registryRoot, session);
+    const criteria = JSON.parse(
+      readFileSync(join(directory, `${record.reviewId}.criteria.json`), 'utf8'),
+    );
+    assert.ok(criteria.documentCount >= 1);
+    assert.deepEqual(
+      record.criteria.documents,
+      criteria.documents.map((document) => document.id),
+    );
+    const context = JSON.parse(
+      readFileSync(join(directory, `${record.reviewId}.context.json`), 'utf8'),
+    );
+    assert.ok(Array.isArray(context.inputs));
+    assert.deepEqual(
+      record.contextInputs,
+      context.inputs.map((input) => input.path),
+    );
+  } finally {
+    rmSync(registryRoot, { recursive: true, force: true });
+  }
+});
+
+test('review-run registers nothing when the criteria choice fails', () => {
+  const registryRoot = mkdtempSync(join(tmpdir(), 'knu-review-run-'));
+  const session = 'rl-p2-review-run';
+  try {
+    let run;
+    assert.doesNotThrow(() => {
+      run = delegateSpec.runDelegateCommand(
+        [
+          'review-run',
+          '--lanes',
+          'legal-read',
+          '--token',
+          TOKEN,
+          '--session',
+          session,
+          '--out',
+          join(registryRoot, 'out'),
+          '--criteria',
+          'no-such-criteria',
+          '--paths',
+          SOURCE,
+        ],
+        { root, registryRoot },
+      );
+    }, 'review-run reports a failed check as a result');
+    assert.equal(run.exitCode, 1);
+    assert.match(run.stdout, /^review-run failed /u);
+    assert.equal(existsSync(registryDirectory(registryRoot, session)), false);
+  } finally {
+    rmSync(registryRoot, { recursive: true, force: true });
+  }
+});
+
+test('review-run refuses an --out inside the repository that Git does not ignore', () => {
+  const registryRoot = mkdtempSync(join(tmpdir(), 'knu-review-run-'));
+  const session = 'rl-p2-review-run';
+  // Result files there would be new working-tree files beside the subject under review.
+  const out = join(root, 'review-run-out-not-ignored');
+  try {
+    const run = delegateSpec.runDelegateCommand(
+      [
+        'review-run',
+        '--lanes',
+        'legal-read',
+        '--token',
+        TOKEN,
+        '--session',
+        session,
+        '--out',
+        out,
+        '--paths',
+        SOURCE,
+      ],
+      { root, registryRoot },
+    );
+    assert.equal(run.exitCode, 1);
+    assert.equal(run.stdout.split('\n').filter(Boolean).length, 1, run.stdout);
+    assert.match(run.stdout, /^review-run failed out-directory-not-ignored: /u);
+    assert.equal(existsSync(out), false);
+    assert.equal(existsSync(registryDirectory(registryRoot, session)), false);
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+    rmSync(registryRoot, { recursive: true, force: true });
+  }
+});
+
+test('review-run accepts an --out inside the repository that Git ignores', () => {
+  const registryRoot = mkdtempSync(join(tmpdir(), 'knu-review-run-'));
+  const session = 'rl-p2-review-run';
+  // The place the skill names for the run: an ignored directory of the checkout.
+  const base = join(root, '.artifacts/tools/test');
+  mkdirSync(base, { recursive: true });
+  const out = mkdtempSync(join(base, 'codex-review-run-out-'));
+  try {
+    const run = delegateSpec.runDelegateCommand(
+      [
+        'review-run',
+        '--lanes',
+        'legal-read',
+        '--token',
+        TOKEN,
+        '--session',
+        session,
+        '--out',
+        out,
+        '--paths',
+        SOURCE,
+      ],
+      { root, registryRoot },
+    );
+    assert.equal(run.exitCode, 0, run.stdout);
+    assert.match(run.stdout, /^review-run ok /u);
+    assert.ok(existsSync(join(out, 'review-run.json')));
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+    rmSync(registryRoot, { recursive: true, force: true });
+  }
+});
+
+test('review-run reports a round that is already registered as a failed run', () => {
+  const registryRoot = mkdtempSync(join(tmpdir(), 'knu-review-run-'));
+  const session = 'rl-p2-review-run';
+  const run = (out) =>
+    delegateSpec.runDelegateCommand(
+      [
+        'review-run',
+        '--lanes',
+        'legal-read',
+        '--token',
+        TOKEN,
+        '--session',
+        session,
+        '--out',
+        join(registryRoot, out),
+        '--paths',
+        SOURCE,
+      ],
+      { root, registryRoot },
+    );
+  try {
+    assert.equal(run('first').exitCode, 0);
+    const again = run('again');
+    assert.equal(again.exitCode, 1);
+    assert.equal(again.stdout.split('\n').filter(Boolean).length, 1, again.stdout);
+    assert.match(again.stdout, /^review-run failed task already registered: /u);
+    const record = JSON.parse(readFileSync(join(registryRoot, 'again/review-run.json'), 'utf8'));
+    assert.equal(record.ok, false);
+    assert.match(record.error, /task already registered/u);
+    assert.equal(existsSync(join(registryRoot, 'again/spawn-arguments.json')), false);
+  } finally {
+    rmSync(registryRoot, { recursive: true, force: true });
   }
 });

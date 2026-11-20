@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, relative, resolve, sep } from 'node:path';
 import test from 'node:test';
 import { anchors, links as markdownLinks, prose } from '../../../agents/common/markdown-links.mjs';
+import { matchPathGlob } from '../../../agents/common/review-criteria-selection.mjs';
 import { workflowGraph, validateWorkflowGraph } from '../../../agents/common/workflow-entry.mjs';
+import { parseExemptionTable } from '../../lifecycle/area-criteria-check.mjs';
 const root = resolve(import.meta.dirname, '../../../..');
 const corpus = JSON.parse(
   readFileSync(
@@ -114,6 +116,7 @@ test('review criteria documents are registered owners with complete items and no
   const readme = `${CRITERIA_DIR}/README.md`;
   // Every criteria document the helper can select is checked, not only the ones that exist today.
   const criteria = criteriaDocuments();
+  const keys = bindingKeys(readFileSync(resolve(root, BINDING_DOC), 'utf8'));
   for (const path of [
     `${CRITERIA_DIR}/agent-workflow-tooling.md`,
     `${CRITERIA_DIR}/documents.md`,
@@ -167,15 +170,11 @@ test('review criteria documents are registered owners with complete items and no
           `${path} ${item.split('\n')[0]}: ${field.source} out of order`,
         );
       }
-      // Exactly the seven fields: no unknown or repeated field line. Indented lines continue a field.
-      const fieldLines = item
-        .split('\n')
-        .slice(1)
-        .filter((line) => line.trim() && !/^\s/u.test(line));
+      // Exactly the seven fields and then the optional selection lines: no unknown or repeated line.
       assert.deepEqual(
-        fieldLines.map((line) => line.match(/^- ([^:]+):/u)?.[1] ?? line),
-        CRITERIA_LABELS,
-        `${path} ${item.split('\n')[0]}: fields must be exactly the seven lines`,
+        criteriaItemViolations(item, keys),
+        [],
+        `${path} ${item.split('\n')[0]}: field lines`,
       );
     }
     assert.doesNotMatch(
@@ -406,6 +405,7 @@ const BINDING_KINDS = new Set([
   'product',
   'command',
   'policy',
+  'sensor',
 ]);
 const REPOSITORY_VALUE =
   /apps\/|packages\/|\bpnpm\b|Next\.js|\bReact\b|NestJS|Prisma|Tailwind|Storybook|Vitest|Playwright|Sentry|\bKNU\b|PostgreSQL|Postgres|Docker|\bnginx\b|Lightsail|GitHub Actions|Grafana|Prometheus|\bLoki\b|\bAlloy\b|Alertmanager|\bk6\b|\bZod\b|TypedSQL|Dependabot|Renovate/u;
@@ -435,6 +435,393 @@ test('pack and criteria documents reference repository values only through resol
     }
     assert.doesNotMatch(text, REPOSITORY_VALUE, `${path} names a repository value`);
   }
+});
+// An item may end with two selection lines after the seven fields: `- trigger:` then `- 센서:`, each at
+// most once. Their values are binding references only. A sensor reference names a row of the binding
+// document's `## 센서` table, which owns the target, the command and the timing of that check.
+const bindingKeys = (text) =>
+  new Set([...text.matchAll(/^\| `([^`]+)` +\|/gmu)].map((match) => match[1]));
+const criteriaItemBlocks = (text) =>
+  prose(text)
+    .split(/^(?=### [A-Z]\d+\. )/mu)
+    .slice(1);
+// Top-level field lines of one item; an indented line continues the field above it.
+function itemFields(item) {
+  const fields = [];
+  for (const line of item.split('\n').slice(1)) {
+    if (!line.trim()) continue;
+    if (/^\s/u.test(line) && fields.length) fields.at(-1).value += ` ${line.trim()}`;
+    else {
+      const field = line.match(/^- ([^:]+): ?(.*)$/u);
+      fields.push({ label: field?.[1] ?? line, value: field?.[2] ?? '' });
+    }
+  }
+  return fields;
+}
+const SELECTION_LABELS = ['trigger', '센서'];
+const SELECTION_KINDS = { trigger: ['repo-structure'], 센서: ['sensor'] };
+const BINDING_REFERENCES =
+  /^\{\{binding:[a-z-]+\.[a-z0-9-]+\}\}(?:, \{\{binding:[a-z-]+\.[a-z0-9-]+\}\})*$/u;
+function criteriaItemViolations(item, keys) {
+  const fields = itemFields(item);
+  const labels = fields.map((field) => field.label);
+  const selected = (label) => SELECTION_LABELS.includes(label);
+  const violations = [];
+  if (labels.filter((label) => !selected(label)).join('|') !== CRITERIA_LABELS.join('|'))
+    violations.push('fields must be exactly the seven lines');
+  const selection = labels.filter(selected);
+  if (new Set(selection).size !== selection.length)
+    violations.push('a selection line appears twice');
+  const first = labels.findIndex(selected);
+  const order = [...new Set(selection)].map((label) => SELECTION_LABELS.indexOf(label));
+  if (
+    (first >= 0 && !labels.slice(first).every(selected)) ||
+    order.some((at, index) => index > 0 && at < order[index - 1])
+  )
+    violations.push('selection lines must follow the seven lines as trigger then 센서');
+  for (const { label, value } of fields.filter((field) => selected(field.label))) {
+    if (!BINDING_REFERENCES.test(value)) {
+      violations.push(`${label} value must be binding references only`);
+      continue;
+    }
+    for (const [, key] of value.matchAll(/\{\{binding:([^}]+)\}\}/gu)) {
+      if (!SELECTION_KINDS[label].includes(key.split('.')[0]))
+        violations.push(`${label} cannot reference ${key}`);
+      else if (!keys.has(key)) violations.push(`${key} is not in the binding document`);
+    }
+  }
+  return violations;
+}
+const criteriaDocumentViolations = (text, keys) =>
+  criteriaItemBlocks(text).flatMap((item) =>
+    criteriaItemViolations(item, keys).map(
+      (violation) => `${item.match(/^### ([A-Z]\d+)\. /u)[1]}: ${violation}`,
+    ),
+  );
+// A command cell names where the check runs: a root package script as a `pnpm <script>` code span, or a
+// link to a file. A link to a workflow file carries one of its step names as the link text.
+function executionPointViolations(command, repo) {
+  const link = /\[`?([^\]`]+)`?\]\(([^)\s]+)\)/gu;
+  const links = [...command.matchAll(link)].map(([, text, target]) => ({ text, target }));
+  const spans = [...command.replace(link, '').matchAll(/`([^`]+)`/gu)].map(([, code]) => code);
+  const violations = [];
+  if (links.length + spans.length === 0) violations.push('명령 names no execution point');
+  for (const code of spans) {
+    const script = code.match(/^pnpm ([a-z0-9:-]+)$/u)?.[1];
+    if (!script) violations.push(`\`${code}\` is not a root package script call`);
+    else if (!repo.hasScript(script)) violations.push(`package script ${script} is missing`);
+  }
+  for (const { text, target } of links) {
+    const path = repo.resolveLink(target);
+    if (!repo.hasFile(path)) violations.push(`${path} is missing`);
+    else if (path.startsWith('.github/workflows/') && !repo.hasStep(path, text))
+      violations.push(`${path} has no step named ${text}`);
+  }
+  return violations;
+}
+const SENSOR_HEADER = ['키', '대상', '명령', '실행 시점', '지점과 상한'];
+const SENSOR_TIMINGS = ['편집', 'commit', 'CI', '리뷰', '운영'];
+// 대상 names what the check covers: binding path keys (`repo-structure.*`) that exist, or globs. 지점과 상한 is
+// written only by a row that runs at 편집 and is `-` otherwise.
+function sensorTableViolations(binding, repo) {
+  const keys = bindingKeys(binding);
+  const section = prose(binding)
+    .split(/^(?=## )/mu)
+    .find((block) => block.startsWith('## 센서\n'));
+  if (!section) return [];
+  const [header, , ...rows] = section.split('\n').filter((line) => line.startsWith('|'));
+  if (cells(header ?? '||').join('|') !== SENSOR_HEADER.join('|'))
+    return [`센서 table header must be ${SENSOR_HEADER.join('|')}`];
+  const violations = [];
+  const seen = new Set();
+  for (const row of rows) {
+    const [key, target, command, timing, limit] = cells(row);
+    const id = key.match(/^`(sensor\.[a-z0-9-]+)`$/u)?.[1];
+    if (!id || cells(row).length !== SENSOR_HEADER.length) {
+      violations.push(`malformed sensor row ${key}`);
+      continue;
+    }
+    if (seen.has(id)) violations.push(`${id} appears twice`);
+    seen.add(id);
+    const targets = [...target.matchAll(/`([^`]+)`/gu)].map(([, code]) => code);
+    if (targets.length === 0) violations.push(`${id}: 대상 names no binding path key or glob`);
+    for (const code of targets) {
+      const kind = code.match(/^([a-z-]+)\.[a-z0-9-]+$/u)?.[1];
+      if (!kind || !BINDING_KINDS.has(kind)) continue;
+      if (kind !== 'repo-structure') violations.push(`${id}: 대상 cannot reference ${code}`);
+      else if (!keys.has(code))
+        violations.push(`${id}: 대상 key ${code} is not in the binding document`);
+    }
+    if (!timing || timing.split(', ').some((value) => !SENSOR_TIMINGS.includes(value)))
+      violations.push(`${id}: 실행 시점 must be among ${SENSOR_TIMINGS.join('·')}`);
+    const edit = timing.split(', ').includes('편집');
+    if (!edit && limit !== '-')
+      violations.push(`${id}: 지점과 상한 must be - unless 실행 시점 has 편집`);
+    if (edit && (!limit || limit === '-'))
+      violations.push(`${id}: 지점과 상한 is required when 실행 시점 has 편집`);
+    violations.push(
+      ...executionPointViolations(command, repo).map((violation) => `${id}: ${violation}`),
+    );
+  }
+  return violations;
+}
+// Where a sensor row's command runs: the root package scripts, files by link from the binding document
+// and the step names of a workflow file.
+const repository = {
+  hasScript: (name) =>
+    Object.hasOwn(JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).scripts, name),
+  resolveLink: (target) =>
+    relative(root, resolve(root, dirname(BINDING_DOC), target.split('#')[0]))
+      .split(sep)
+      .join('/'),
+  hasFile: (path) => !path.startsWith('..') && existsSync(resolve(root, path)),
+  hasStep: (path, name) =>
+    readFileSync(resolve(root, path), 'utf8')
+      .split('\n')
+      .some((line) => line.trim() === `- name: ${name}`),
+};
+const FIXTURE_ITEM = [
+  '### X1. 예시 항목',
+  '',
+  '- 질문: 예시 변경이 예시 규칙을 지키는가?',
+  '- 기본 severity: `medium`',
+  '- 적용 조건: 예시 변경',
+  '- 결함 패턴: 예시 결함',
+  '- PASS 근거: 예시 관측',
+  '- 지침: 예시 지침',
+  '- 피함: 예시 피함',
+];
+const fixtureItem = (...selection) => [...FIXTURE_ITEM, ...selection].join('\n');
+const fixtureSensorRow = ({
+  key = '`sensor.lint`',
+  command = '`pnpm lint`, [`Static checks`](../../../../.github/workflows/example.yml)',
+  timing = 'commit, CI',
+  target = '`repo-structure.example`',
+  limit = '-',
+} = {}) => `| ${key} | ${target} | ${command} | ${timing} | ${limit} |`;
+const fixtureBinding = (...rows) =>
+  [
+    '| 키 | 값 |',
+    '| --- | --- |',
+    '| `repo-structure.example` | `example/**` |',
+    '',
+    '## 센서',
+    '',
+    '| 키 | 대상 | 명령 | 실행 시점 | 지점과 상한 |',
+    '| --- | --- | --- | --- | --- |',
+    ...(rows.length ? rows : [fixtureSensorRow()]),
+    '',
+  ].join('\n');
+const fixtureRepository = {
+  hasScript: (name) => name === 'lint',
+  resolveLink: (target) => target.replace(/^(?:\.\.\/)+/u, ''),
+  hasFile: (path) => ['.github/workflows/example.yml', '.husky/pre-commit'].includes(path),
+  hasStep: (path, name) => name === 'Static checks',
+};
+const fixtureKeys = bindingKeys(fixtureBinding());
+const TRIGGER_LINE = '- trigger: {{binding:repo-structure.example}}';
+const SENSOR_LINE = '- 센서: {{binding:sensor.lint}}';
+test('an item accepts selection lines after the seven fields, trigger before 센서', () => {
+  for (const lines of [[TRIGGER_LINE, SENSOR_LINE], [TRIGGER_LINE], [SENSOR_LINE]])
+    assert.deepEqual(criteriaItemViolations(fixtureItem(...lines), fixtureKeys), [], lines.join());
+});
+test('a selection line before a field or 센서 before trigger is out of order', () => {
+  const order = ['selection lines must follow the seven lines as trigger then 센서'];
+  assert.deepEqual(
+    criteriaItemViolations(fixtureItem(SENSOR_LINE, TRIGGER_LINE), fixtureKeys),
+    order,
+  );
+  const early = [...FIXTURE_ITEM.slice(0, -1), SENSOR_LINE, FIXTURE_ITEM.at(-1)].join('\n');
+  assert.deepEqual(criteriaItemViolations(early, fixtureKeys), order);
+});
+test('a repeated selection line is refused apart from an unknown field', () => {
+  assert.deepEqual(criteriaItemViolations(fixtureItem(SENSOR_LINE, SENSOR_LINE), fixtureKeys), [
+    'a selection line appears twice',
+  ]);
+  assert.deepEqual(criteriaItemViolations(fixtureItem('- 메모: 다른 필드'), fixtureKeys), [
+    'fields must be exactly the seven lines',
+  ]);
+});
+test('a selection value that writes a repository value instead of a binding reference is refused', () => {
+  const violations = (line) => criteriaItemViolations(fixtureItem(line), fixtureKeys);
+  assert.deepEqual(violations('- 센서: `pnpm lint`'), [
+    '센서 value must be binding references only',
+  ]);
+  assert.deepEqual(violations('- trigger: `example/**`'), [
+    'trigger value must be binding references only',
+  ]);
+  assert.deepEqual(violations(`${SENSOR_LINE},\n  \`pnpm lint\``), [
+    '센서 value must be binding references only',
+  ]);
+});
+test('a selection value must name a binding row of its own kind', () => {
+  const violations = (line) => criteriaItemViolations(fixtureItem(line), fixtureKeys);
+  assert.deepEqual(violations('- 센서: {{binding:sensor.typecheck}}'), [
+    'sensor.typecheck is not in the binding document',
+  ]);
+  assert.deepEqual(violations('- trigger: {{binding:repo-structure.missing}}'), [
+    'repo-structure.missing is not in the binding document',
+  ]);
+  assert.deepEqual(violations('- 센서: {{binding:repo-structure.example}}'), [
+    '센서 cannot reference repo-structure.example',
+  ]);
+  assert.deepEqual(violations('- trigger: {{binding:sensor.lint}}'), [
+    'trigger cannot reference sensor.lint',
+  ]);
+});
+const sensorRowViolations = (row) => sensorTableViolations(fixtureBinding(row), fixtureRepository);
+test('a sensor row timing outside the five values is refused', () => {
+  assert.deepEqual(sensorTableViolations(fixtureBinding(), fixtureRepository), []);
+  assert.deepEqual(sensorRowViolations(fixtureSensorRow({ timing: 'commit, 배포' })), [
+    'sensor.lint: 실행 시점 must be among 편집·commit·CI·리뷰·운영',
+  ]);
+  assert.deepEqual(sensorRowViolations(fixtureSensorRow({ timing: '' })), [
+    'sensor.lint: 실행 시점 must be among 편집·commit·CI·리뷰·운영',
+  ]);
+});
+test('a sensor row whose command names no execution point that exists is refused', () => {
+  assert.deepEqual(sensorRowViolations(fixtureSensorRow({ command: '`pnpm missing`' })), [
+    'sensor.lint: package script missing is missing',
+  ]);
+  assert.deepEqual(sensorRowViolations(fixtureSensorRow({ command: '`npx eslint .`' })), [
+    'sensor.lint: `npx eslint .` is not a root package script call',
+  ]);
+  assert.deepEqual(
+    sensorRowViolations(fixtureSensorRow({ command: '[hook](../../../../.husky/missing)' })),
+    ['sensor.lint: .husky/missing is missing'],
+  );
+  assert.deepEqual(
+    sensorRowViolations(
+      fixtureSensorRow({ command: '[`Renamed step`](../../../../.github/workflows/example.yml)' }),
+    ),
+    ['sensor.lint: .github/workflows/example.yml has no step named Renamed step'],
+  );
+  assert.deepEqual(sensorRowViolations(fixtureSensorRow({ command: '저장소 lint' })), [
+    'sensor.lint: 명령 names no execution point',
+  ]);
+});
+test('a sensor row target that names no binding path key or glob is refused', () => {
+  const violations = (target) => sensorRowViolations(fixtureSensorRow({ target }));
+  assert.deepEqual(violations('`example/**`, `repo-structure.example`(예시 설명)'), []);
+  assert.deepEqual(violations('`repo-structure.missing`'), [
+    'sensor.lint: 대상 key repo-structure.missing is not in the binding document',
+  ]);
+  assert.deepEqual(violations('`sensor.lint`'), ['sensor.lint: 대상 cannot reference sensor.lint']);
+  assert.deepEqual(violations('예시 화면'), [
+    'sensor.lint: 대상 names no binding path key or glob',
+  ]);
+});
+test('a sensor row writes its point and limit only when it runs at 편집', () => {
+  const violations = (timing, limit) => sensorRowViolations(fixtureSensorRow({ timing, limit }));
+  assert.deepEqual(violations('편집, CI', '직후'), []);
+  assert.deepEqual(violations('commit, CI', '직후'), [
+    'sensor.lint: 지점과 상한 must be - unless 실행 시점 has 편집',
+  ]);
+  assert.deepEqual(violations('편집, CI', '-'), [
+    'sensor.lint: 지점과 상한 is required when 실행 시점 has 편집',
+  ]);
+});
+// The fixture repository above answers by name only. This test runs the adapter that reads the repository
+// itself against the binding rows, so a script, file or step the rows name cannot go missing unnoticed.
+test('the repository adapter refuses a script, file or workflow step the binding rows do not have', () => {
+  const binding = readFileSync(resolve(root, BINDING_DOC), 'utf8');
+  const section = binding.slice(binding.indexOf('\n## 센서\n'));
+  const script = section.match(/`pnpm ([a-z0-9:-]+)`/u);
+  const step = section.match(/\[`([^`\]]+)`\]\(([^)\s]*\.github\/workflows\/([^)\s/]+))\)/u);
+  assert.ok(script && step, 'the 센서 table must name a package script and a workflow step');
+  const changed = (from, to) => {
+    const text = binding.replace(from, to);
+    assert.notEqual(text, binding, from);
+    return sensorTableViolations(text, repository);
+  };
+  assert.match(
+    changed(script[0], '`pnpm no-such-script`').join('\n'),
+    /^sensor\.[a-z0-9-]+: package script no-such-script is missing$/u,
+  );
+  assert.match(
+    changed(step[0], step[0].replace(step[1], 'No such step')).join('\n'),
+    /^sensor\.[a-z0-9-]+: \.github\/workflows\/\S+ has no step named No such step$/u,
+  );
+  assert.match(
+    changed(step[0], step[0].replace(step[3], 'no-such-workflow.yml')).join('\n'),
+    /^sensor\.[a-z0-9-]+: \.github\/workflows\/no-such-workflow\.yml is missing$/u,
+  );
+});
+test('a sensor table with a malformed key, a repeated key or another header is refused', () => {
+  assert.deepEqual(sensorRowViolations(fixtureSensorRow({ key: '`lint`' })), [
+    'malformed sensor row `lint`',
+  ]);
+  assert.deepEqual(
+    sensorTableViolations(
+      fixtureBinding(fixtureSensorRow(), fixtureSensorRow()),
+      fixtureRepository,
+    ),
+    ['sensor.lint appears twice'],
+  );
+  assert.deepEqual(
+    sensorTableViolations(fixtureBinding().replace('| 지점과 상한 |', '|'), fixtureRepository),
+    ['센서 table header must be 키|대상|명령|실행 시점|지점과 상한'],
+  );
+});
+test('every criteria document is checked for selection lines, documents.md included', () => {
+  const documents = criteriaDocuments();
+  for (const id of ['documents', 'agent-workflow-tooling', 'swe'])
+    assert.ok(documents.includes(`${CRITERIA_DIR}/${id}.md`), id);
+  const text = readFileSync(resolve(root, `${CRITERIA_DIR}/documents.md`), 'utf8');
+  const first = criteriaItemBlocks(text)[0];
+  const id = first.match(/^### ([A-Z]\d+)\. /u)[1];
+  const changed = text.replace(
+    first.trimEnd(),
+    `${first.trimEnd()}\n- 센서: {{binding:sensor.no-such-row}}`,
+  );
+  assert.notEqual(changed, text);
+  assert.deepEqual(criteriaDocumentViolations(changed, fixtureKeys), [
+    `${id}: sensor.no-such-row is not in the binding document`,
+  ]);
+});
+test('items without selection lines and the repository documents pass the selection line checks', () => {
+  assert.deepEqual(criteriaItemViolations(fixtureItem(), fixtureKeys), []);
+  const binding = readFileSync(resolve(root, BINDING_DOC), 'utf8');
+  assert.deepEqual(sensorTableViolations(binding, repository), []);
+  const keys = bindingKeys(binding);
+  let items = 0;
+  for (const path of criteriaDocuments()) {
+    const text = readFileSync(resolve(root, path), 'utf8');
+    items += criteriaItemBlocks(text).length;
+    assert.deepEqual(criteriaDocumentViolations(text, keys), [], path);
+  }
+  assert.ok(items > 0, 'the criteria documents must have items');
+});
+test('the binding document has a 센서 table whose rows criteria items reference', () => {
+  const binding = readFileSync(resolve(root, BINDING_DOC), 'utf8');
+  assert.match(prose(binding), /^## 센서$/mu, `${BINDING_DOC}: '## 센서' section is missing`);
+  const referenced = new Set(
+    criteriaDocuments().flatMap((path) =>
+      criteriaItemBlocks(readFileSync(resolve(root, path), 'utf8')).flatMap((item) =>
+        itemFields(item)
+          .filter((field) => field.label === '센서')
+          .flatMap((field) => [...field.value.matchAll(/\{\{binding:([^}]+)\}\}/gu)])
+          .map((match) => match[1]),
+      ),
+    ),
+  );
+  assert.ok(referenced.size > 0, 'no criteria item references a sensor row');
+  for (const key of referenced) assert.ok(bindingKeys(binding).has(key), key);
+});
+// #778: the Web build·lint·test configuration row of the area exemption table also covers the React
+// Compiler configuration that sits next to the Vitest configuration it already lists.
+test('the configuration exemption row covers the React Compiler configuration', () => {
+  const rows = parseExemptionTable(readFileSync(resolve(root, BINDING_DOC), 'utf8'), BINDING_DOC);
+  const row = rows.find((candidate) => candidate.reason.startsWith('build·lint·test 설정'));
+  assert.ok(row, `${BINDING_DOC}: build·lint·test 설정 exemption row is missing`);
+  const vitest = row.include.find((glob) => glob.endsWith('/vitest.config.ts'));
+  assert.ok(vitest, 'the row must list the Vitest configuration');
+  const path = `${dirname(vitest)}/react-compiler.config.ts`;
+  assert.ok(
+    row.include.some((glob) => matchPathGlob(path, glob)) &&
+      !row.exclude.some((glob) => matchPathGlob(path, glob)),
+    `no glob of the build·lint·test 설정 row matches ${path}`,
+  );
 });
 // The binding document records the value the repository chose for every `framework-pattern` and
 // `code-pattern` pack decision; other levels keep theirs in the decision record or a policy document.

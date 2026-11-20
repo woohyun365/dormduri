@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 set -eu
+# psql TLS form C (infra/db/psql-tls.sh).
+. "$(dirname -- "$0")/psql-tls.sh"
 
 usage() {
   cat <<'USAGE'
@@ -94,7 +96,7 @@ if ! command -v psql >/dev/null 2>&1; then
 fi
 
 echo "bootstrapping DB roles for schema $schema using BOOTSTRAP_DATABASE_URL"
-psql "$BOOTSTRAP_DATABASE_URL" \
+db_psql "$BOOTSTRAP_DATABASE_URL" \
   -X -q \
   -v ON_ERROR_STOP=1 \
   --single-transaction \

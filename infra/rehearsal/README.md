@@ -24,7 +24,8 @@ Lightsail secret delivery의 AWS-account-free candidate/activation/rollback faul
 | `observability-rehearsal`  | rehearsal-only       | `observability-base` → rehearsal network                            | constrained observability와 external local network                                                               |
 | `full-stack-api-rehearsal` | rehearsal-only       | `api-rehearsal` → `compose.postgres.yml`(disposable PostgreSQL 18)  | Full-stack API/nginx/DB rehearsal only                                                                           |
 | `full-stack-web-rehearsal` | rehearsal-only       | `observability-rehearsal` → `compose.web.yml`                       | 실제 API에 연결한 Web rehearsal                                                                                  |
-| `user-host`                | production-candidate | `infra/deploy/user/compose.yml`                                     | Web 단계 User App host(ingress·Web) 운영 compose                                                                 |
+| `user-host`                | production-candidate | `infra/deploy/user/compose.yml`                                     | User App host의 Web 묶음 조각(ingress·Web) 운영 compose                                                          |
+| `user-host-bundle`         | production-candidate | `user-host` → `infra/deploy/user/api/compose.yml`                   | Web 묶음과 API 묶음(api·migrate one-off) 조각을 합친 운영 compose. 두 SSM document가 이 순서로 넘긴다            |
 | `user-host-rehearsal`      | rehearsal-only       | `user-host` → `compose.user-host.yml`                               | 운영 compose에 local build image·시험 인증서·loopback port만 덮은 rehearsal                                      |
 
 `infra/compose-profiles.json`이 파일 순서의 source of truth다. 직접 `-f` 순서를 재작성하지 않고 다음 entry를 사용한다.

@@ -43,6 +43,9 @@ describe('Platform metric definition ownership', () => {
 
   it('keeps platform-owned definitions limited to database infrastructure', () => {
     expect(PRISMA_METRIC_DEFINITIONS.map(({ name }) => name).sort()).toEqual([
+      'api_db_table_dead_tuple_ratio',
+      'api_db_table_dead_tuples',
+      'api_db_table_last_autovacuum_timestamp_seconds',
       'api_prisma_pool_connections',
       'api_prisma_transaction_retries_total',
     ]);

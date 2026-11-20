@@ -7,12 +7,14 @@ export type RetentionMetricName =
   | 'retention.archive.jobs.retry_exhausted'
   | 'retention.review.jobs.due'
   | 'retention.review.jobs.manual_review'
+  | 'retention.review.jobs.retry_exhausted'
   | 'retention.vault.objects.retained'
   | 'retention.vault.objects.disposed'
   | 'retention.identity.disposal.due'
   | 'retention.access_log.disposal.due'
   | 'retention.access_log.disposed'
   | 'retention.sweep.duration_ms'
+  | 'retention.sweep.failed'
   | 'retention.key.unavailable';
 
 export type RetentionOperationalAlertType =
@@ -45,6 +47,7 @@ export interface RetentionBacklogSnapshot {
   archiveRetryExhaustedCount: number;
   retentionReviewDueCount: number;
   retentionReviewManualReviewCount: number;
+  retentionReviewRetryExhaustedCount: number;
   retainedVaultObjectCount: number;
   disposedVaultObjectCount: number;
   retainedIdentityDisposalDueCount: number;

@@ -24,7 +24,51 @@ export const IMAGE_SECRET_PATTERNS = Object.freeze([
   ['Sentry auth token', /\bsntry[su]_[A-Za-z0-9+/=_-]{20,}/u],
   ['credential in a URL', /\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:[^\s/@]+@/iu],
 ]);
-// 알려진 오탐. 종류와 image 안 경로를 함께 좁힌다(경로만으로 넓게 빼지 않는다).
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+// API image의 pnpm store 안 외부 package(`/app`과 migrate image의 `/app/packages/database` 아래
+// `node_modules/.pnpm/<이름의 /를 +로>@<version>/node_modules/<이름>/`). version은 열어 두고 이름은 정확히 맞춘다.
+const apiImagePackage = (name) =>
+  new RegExp(
+    `^app/(?:packages/database/)?node_modules/\\.pnpm/${escapeRegExp(name.replace('/', '+'))}@[^/]+/node_modules/${escapeRegExp(name)}/`,
+    'u',
+  );
+const API_IMAGE_PACKAGE_EXAMPLES = [
+  [
+    'AWS access key',
+    '@aws-sdk/nested-clients',
+    'STS 명령 type 문서가 AWS 공식 예시 access key(`EXAMPLE` 접미)를 적는다',
+  ],
+  ['private key', 'dotenv', 'README가 여러 줄 값 예시로 PEM header를 적는다'],
+  [
+    'credential in a URL',
+    '@electric-sql/pglite-socket',
+    'README·server script 도움말·test가 local PostgreSQL 연결 예시를 적는다',
+  ],
+  [
+    'credential in a URL',
+    '@prisma/dev',
+    'local 개발 DB의 `localhost` 연결 문자열을 template으로 만든다',
+  ],
+  [
+    'credential in a URL',
+    '@prisma/query-plan-executor',
+    '연결 문자열 형식 설명(`<user>`·`<host>` 자리표시)을 적는다',
+  ],
+  ['credential in a URL', '@types/node', 'URL type 문서 주석이 example host 예시를 적는다'],
+  ['credential in a URL', 'fast-uri', 'URI parser 문서·test가 example host 예시를 적는다'],
+  ['credential in a URL', 'pg-connection-string', 'README가 연결 문자열 형식 예시를 적는다'],
+  ['credential in a URL', 'pg-pool', 'README가 연결 문자열 예시를 적는다'],
+  ['credential in a URL', 'pino', 'transport 문서가 `localhost` 연결 예시를 적는다'],
+  ['credential in a URL', 'postgres', 'README가 연결 문자열 예시를 적는다'],
+  [
+    'credential in a URL',
+    'prisma',
+    'CLI bundle이 도움말·오류 문구에 `localhost` 연결 예시를 적는다',
+  ],
+  ['credential in a URL', 'zod', 'URL 검사 test가 예시 URL을 적는다'],
+];
+// 알려진 오탐. 종류와 image 안 경로를 함께 좁힌다(경로만으로 넓게 빼지 않는다). API image에서 실행에 쓰지 않는 저장소
+// source·test·npm cache·snakeoil key는 허용하지 않고 image에서 뺀다(infra/deploy/api/Dockerfile).
 export const ALLOWED_FINDINGS = Object.freeze([
   {
     kind: 'private key',
@@ -36,6 +80,22 @@ export const ALLOWED_FINDINGS = Object.freeze([
     path: /^usr\/local\/lib\/node_modules\/npm\/node_modules\/hosted-git-info\/lib\/parse-url\.js$/u,
     reason:
       'Node base image의 npm hosted-git-info가 주석에 `proto://user:pass@host` 형식의 URL 예시를 적는다',
+  },
+  ...API_IMAGE_PACKAGE_EXAMPLES.map(([kind, name, reason]) => ({
+    kind,
+    path: apiImagePackage(name),
+    reason: `API image의 ${name}: ${reason}`,
+  })),
+  {
+    kind: 'credential in a URL',
+    path: /^app\/(?:dist\/platform\/database\/database\.config\.js(?:\.map)?|prisma\/seed\.js|prisma\/seeds\/reference\/common\/reference-seed-runner\.js|packages\/database\/prisma\.config\.ts)$/u,
+    reason:
+      'API image의 저장소 code가 쓰는 local 개발 DB 기본값(`localhost`)이다. 운영 연결 값은 runtime secret mount로 받는다',
+  },
+  {
+    kind: 'credential in a URL',
+    path: /^usr\/share\/perl\/[0-9.]+\/HTTP\/Tiny\.pm$/u,
+    reason: 'migrate image의 Debian perl HTTP::Tiny 문서가 example host proxy 예시를 적는다',
   },
 ]);
 const allowed = (finding) =>

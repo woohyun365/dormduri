@@ -5,10 +5,15 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
+import { loadImageInventory, resolveImageReference } from '../artifacts/image-inventory.mjs';
 import { buildComposeArgs, loadComposeInventory } from '../compose/profile.mjs';
 import {
+  apiEnvironmentFromExamples,
+  checkUserHostBundleCompose,
   checkUserHostCompose,
+  fragmentTextProblems,
   rehearsalDifferenceProblems,
+  transitSubnetProblems,
   USER_HOST_RENDER_ENVIRONMENT,
 } from '../user-host/compose-contract.mjs';
 
@@ -104,10 +109,16 @@ for (const [profileName, expectation] of Object.entries({
   }
 }
 
-function renderUserHost(profileName) {
+// The bundle render enables the migrate profile so the one-off service is checked too.
+function renderUserHost(profileName, profiles = []) {
   const result = spawnSync(
     'docker',
-    buildComposeArgs(inventory, profileName, ['config', '--format', 'json'], { repoRoot }),
+    buildComposeArgs(
+      inventory,
+      profileName,
+      [...profiles.flatMap((name) => ['--profile', name]), 'config', '--format', 'json'],
+      { repoRoot },
+    ),
     { cwd: repoRoot, encoding: 'utf8', env: { ...process.env, ...userHostEnvironment } },
   );
   if (result.status === 0) return JSON.parse(result.stdout);
@@ -115,9 +126,41 @@ function renderUserHost(profileName) {
   return null;
 }
 const userHost = renderUserHost('user-host');
+const userHostBundle = renderUserHost('user-host-bundle', ['migrate']);
 const userHostRehearsal = renderUserHost('user-host-rehearsal');
 if (userHost) {
   for (const problem of checkUserHostCompose(userHost)) failures.push(`user-host: ${problem}`);
+}
+if (userHostBundle) {
+  // 관측 image는 local 관측 compose(infra/observability/compose.base.yml)와 같은 pin이다(image inventory owner).
+  const images = loadImageInventory(repoRoot).images;
+  const pins = Object.fromEntries(
+    ['prometheus', 'loki', 'alloy', 'alertmanager', 'grafana'].map((name) => [
+      name,
+      resolveImageReference(
+        repoRoot,
+        images.find((image) => image.name === name),
+      ),
+    ]),
+  );
+  for (const problem of checkUserHostBundleCompose(
+    userHostBundle,
+    apiEnvironmentFromExamples(repoRoot),
+    pins,
+  )) {
+    failures.push(`user-host-bundle: ${problem}`);
+  }
+}
+for (const problem of transitSubnetProblems(
+  readFileSync(resolve(repoRoot, 'infra/deploy/user/ssm/lib.sh'), 'utf8'),
+)) {
+  failures.push(`user-host transit: ${problem}`);
+}
+for (const problem of fragmentTextProblems({
+  web: readFileSync(resolve(repoRoot, 'infra/deploy/user/compose.yml'), 'utf8'),
+  api: readFileSync(resolve(repoRoot, 'infra/deploy/user/api/compose.yml'), 'utf8'),
+})) {
+  failures.push(`user-host fragments: ${problem}`);
 }
 if (userHost && userHostRehearsal) {
   for (const problem of rehearsalDifferenceProblems(userHost, userHostRehearsal)) {

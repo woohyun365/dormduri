@@ -143,4 +143,5 @@ RetainedVaultObjectHold,retention_disclosure,SELECT,
 ArchiveJob,retention_worker,SELECT INSERT UPDATE DELETE,
 RetentionReviewJob,retention_worker,SELECT INSERT UPDATE DELETE,
 RetentionReviewJob,retention_disclosure,SELECT INSERT UPDATE,
+_prisma_migrations,app_runtime,SELECT,finished_at rolled_back_at
 _prisma_migrations,app_readonly,SELECT,

@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthMailDispatcherService } from '../../../src/auth/mail/auth-mail-dispatcher.service.js';
 import { ChatRealtimeDispatcherService } from '../../../src/chat/realtime/chat-realtime-dispatcher.service.js';
 import { LifecycleSweepService } from '../../../src/lifecycle/lifecycle-sweep.service.js';
 import { NotificationOutboxDispatcherService } from '../../../src/notifications/outbox/notification-dispatcher.service.js';
+import { DatabaseTableStatsService } from '../../../src/platform/database/database-table-stats.service.js';
 import { ManagedPrismaClient } from '../../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from '../_support/integration-app.js';
 import { createIntegrationDatabaseSandbox } from '../_support/integration-db.js';
@@ -16,6 +17,7 @@ const WORKERS = [
   ChatRealtimeDispatcherService,
   NotificationOutboxDispatcherService,
   LifecycleSweepService,
+  DatabaseTableStatsService,
 ] as const;
 
 const restores: Array<() => void> = [];
@@ -79,6 +81,47 @@ describe('API lifecycle hook order', () => {
     );
     expect(Math.max(...indices(events, 'onModuleDestroy:end', workers))).toBeLessThan(
       Math.min(...indices(events, 'onModuleDestroy:begin', prismaClients)),
+    );
+  });
+
+  it('waits for an in-progress scheduled sweep before any Prisma client disconnects', async () => {
+    const events: string[] = [];
+    recordHook(ManagedPrismaClient.prototype, 'onModuleDestroy', 'prisma', events);
+
+    const sandbox = await createIntegrationDatabaseSandbox('lifecycle_shutdown_drain');
+    const { app } = await createIntegrationApp().catch(async (error: unknown) => {
+      await sandbox.cleanup();
+      throw error;
+    });
+    const sweepService = app.get(LifecycleSweepService, { strict: false });
+    let finishSweep!: () => void;
+    const pendingSweep = new Promise<void>((resolve) => {
+      finishSweep = resolve;
+    });
+    vi.spyOn(sweepService, 'refreshBoundarySchedules').mockResolvedValue(undefined);
+    vi.spyOn(sweepService, 'runPeriodicSweep').mockImplementation(async () => {
+      await pendingSweep;
+      events.push('sweep:end');
+      return {} as Awaited<ReturnType<LifecycleSweepService['runPeriodicSweep']>>;
+    });
+    void (
+      sweepService as unknown as { runScheduledSweep(mode: 'periodic'): Promise<void> }
+    ).runScheduledSweep('periodic');
+
+    const closed = cleanupIntegrationTestResources({
+      closeApp: () => app.close(),
+      cleanupDatabase: () => sandbox.cleanup(),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(events.filter((event) => event.endsWith('onModuleDestroy:begin'))).toEqual([]);
+
+    finishSweep();
+    await closed;
+
+    const sweepEnd = events.indexOf('sweep:end');
+    expect(sweepEnd).toBeGreaterThanOrEqual(0);
+    expect(sweepEnd).toBeLessThan(
+      events.findIndex((event) => event.endsWith('onModuleDestroy:begin')),
     );
   });
 });

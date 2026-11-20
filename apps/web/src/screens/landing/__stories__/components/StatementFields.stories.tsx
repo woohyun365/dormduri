@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import type { ComponentProps } from 'react';
 import { StatementFields } from '../../components/StatementFields';
 import { comparePairs } from '../../model/demoData';
-import { frameArgTypes, inLandingFrame, type FrameArgs } from '../storyFrame';
+import { inLandingFrame } from '../storyFrame';
 
 const meta = {
   title: 'Landing/Components/StatementFields',
@@ -18,9 +18,9 @@ const meta = {
     },
   },
   decorators: [inLandingFrame],
-  args: { scheme: 'dark', pairs: comparePairs },
-  argTypes: { ...frameArgTypes, pairs: { control: false } },
-} satisfies Meta<ComponentProps<typeof StatementFields> & FrameArgs>;
+  args: { pairs: comparePairs },
+  argTypes: { pairs: { control: false } },
+} satisfies Meta<ComponentProps<typeof StatementFields>>;
 export default meta;
 
 type Story = StoryObj<typeof meta>;

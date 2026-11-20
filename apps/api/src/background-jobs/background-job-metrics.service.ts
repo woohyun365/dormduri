@@ -10,7 +10,8 @@ export type BackgroundJobName =
   | 'lifecycle_sweep'
   | 'auth_mail_dispatcher'
   | 'notification_dispatcher'
-  | 'chat_realtime_dispatcher';
+  | 'chat_realtime_dispatcher'
+  | 'database_table_stats';
 
 /**
  * `skipped`: the tick did no work on purpose (already running, publisher unbound).
@@ -43,6 +44,28 @@ export class BackgroundJobMetricsService {
       }),
     );
   }
+}
+
+/**
+ * Waits for scheduled work that shutdown should not cut off, up to `timeoutMs`. Returns
+ * false when the limit passed first; the work itself is not cancelled.
+ */
+export async function drainBackgroundJob(
+  work: Promise<unknown>,
+  timeoutMs: number,
+): Promise<boolean> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const drained = await Promise.race([
+    work.then(
+      () => true,
+      () => true,
+    ),
+    new Promise<boolean>((resolve) => {
+      timeout = setTimeout(() => resolve(false), timeoutMs);
+    }),
+  ]);
+  clearTimeout(timeout);
+  return drained;
 }
 
 /**

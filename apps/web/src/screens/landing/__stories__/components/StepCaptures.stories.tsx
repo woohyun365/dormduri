@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import type { ComponentProps } from 'react';
 import { StepCaptures } from '../../components/StepCaptures';
 import { stepCaptures } from '../../model/landingCopy';
-import { frameArgTypes, inLandingPanel, type FrameArgs } from '../storyFrame';
+import { inLandingPanel } from '../storyFrame';
 
 const meta = {
   title: 'Landing/Components/StepCaptures',
@@ -17,9 +17,9 @@ const meta = {
     },
   },
   decorators: [inLandingPanel],
-  args: { scheme: 'dark', screens: stepCaptures.search },
-  argTypes: { ...frameArgTypes, screens: { control: false } },
-} satisfies Meta<ComponentProps<typeof StepCaptures> & FrameArgs>;
+  args: { screens: stepCaptures.search },
+  argTypes: { screens: { control: false } },
+} satisfies Meta<ComponentProps<typeof StepCaptures>>;
 export default meta;
 
 type Story = StoryObj<typeof meta>;

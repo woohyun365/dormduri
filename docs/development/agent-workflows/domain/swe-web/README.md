@@ -82,7 +82,7 @@ Domain/<field>/<subdomain>/<layer>/<하위 layer>
 
 ```text
 {{binding:<kind>.<key>}}
-kind = scope | stack | tool | repo-structure | product | command | policy
+kind = scope | stack | tool | repo-structure | product | command | policy | sensor
 ```
 
 - 값은 pack을 쓰는 저장소의 binding 문서가 key → 값 표로 가집니다. pack 문서와 기준 문서는 값을 쓰지 않습니다.

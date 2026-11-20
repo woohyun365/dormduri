@@ -26,15 +26,19 @@ function fixture() {
   const promote = (path, text) => {
     git('checkout', '-q', '-B', 'dev');
     write(path, text);
-    git('commit', '-qam', `change ${path}`);
+    git('add', '-A');
+    git('commit', '-qm', `change ${path}`);
     git('checkout', '-q', 'main');
     git('merge', '-q', '--no-ff', 'dev', '-m', `promote ${path}`);
     return git('rev-parse', 'HEAD');
   };
   return { root, promote, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
-const check = (root, run, main = 'main') =>
-  spawnSync('bash', [script, run, main], { cwd: root, encoding: 'utf8' });
+const check = (root, run, main = 'main', stage) =>
+  spawnSync('bash', [script, run, main, ...(stage ? [stage] : [])], {
+    cwd: root,
+    encoding: 'utf8',
+  });
 
 test('a promotion merge commit at the main head is current', () => {
   const { root, promote, cleanup } = fixture();
@@ -69,11 +73,78 @@ test('a newer promotion outside the deploy inputs keeps the older run current', 
   }
 });
 
+// The shared library (infra/deploy/user/ssm/lib.sh) is a web bundle input; the API bundle inputs belong to api-cd.
+test('a newer API bundle change keeps the older web run current, and a web bundle change does not', () => {
+  const { root, promote, cleanup } = fixture();
+  try {
+    const older = promote('infra/deploy/user/compose.yml', 'a\n');
+    promote('infra/deploy/user/api/compose.yml', 'b\n');
+    promote('infra/deploy/user/api/ssm/deploy-api.sh', 'b\n');
+    assert.equal(check(root, older).status, 0);
+    promote('infra/deploy/user/ssm/lib.sh', 'b\n');
+    assert.equal(check(root, older).status, 1);
+  } finally {
+    cleanup();
+  }
+});
+
 test('an unknown commit is a comparison error, not a pass', () => {
   const { root, promote, cleanup } = fixture();
   try {
     promote('apps/web/page.tsx', 'b\n');
     assert.equal(check(root, 'f'.repeat(40)).status, 2);
+  } finally {
+    cleanup();
+  }
+});
+
+// api-cd compares its own inputs (production-api-baseline D-AB12): the API image inputs, the API bundle, the shared
+// library both documents embed, and the shared packages. A Web-only change keeps an older API run current.
+test('an API run is stale only after a newer API deploy input change', () => {
+  const { root, promote, cleanup } = fixture();
+  try {
+    const older = promote('apps/api/src/main.ts', 'a\n');
+    for (const path of [
+      'apps/web/page.tsx',
+      'infra/deploy/user/compose.yml',
+      'infra/deploy/web/Dockerfile',
+      // 관측 설정 image에 들지 않는 local 관측 파일은 API 배포 입력이 아니다.
+      'infra/observability/compose.base.yml',
+      'infra/observability/README.md',
+    ])
+      promote(path, 'b\n');
+    assert.equal(check(root, older, 'main', 'api').status, 0, 'Web-only changes');
+    for (const path of [
+      'apps/api/src/main.ts',
+      'packages/database/prisma/schema.prisma',
+      'infra/db/migrate-deploy.sh',
+      'infra/deploy/api/Dockerfile',
+      'infra/deploy/user/api/compose.yml',
+      'infra/deploy/user/ssm/lib.sh',
+      'infra/observability/Dockerfile',
+      'infra/observability/prometheus/rules/host-alerts.yml',
+      'infra/observability/alloy/pipeline.alloy',
+      'packages/shared/index.ts',
+      '.github/workflows/api-cd.yml',
+    ]) {
+      const run = promote('docs/readme.md', `${path}\n`);
+      promote(path, `${path} changed\n`);
+      assert.equal(check(root, run, 'main', 'api').status, 1, path);
+    }
+    const web = promote('apps/web/page.tsx', 'd\n');
+    promote('packages/database/prisma/schema.prisma', 'later\n');
+    assert.equal(check(root, web).status, 0, 'a DB package change keeps a Web run current');
+    assert.equal(check(root, web, 'main', 'web').status, 0);
+  } finally {
+    cleanup();
+  }
+});
+
+test('an unknown stage is refused before comparing', () => {
+  const { root, promote, cleanup } = fixture();
+  try {
+    const merge = promote('apps/api/src/main.ts', 'b\n');
+    assert.equal(check(root, merge, 'main', 'backoffice').status, 2);
   } finally {
     cleanup();
   }

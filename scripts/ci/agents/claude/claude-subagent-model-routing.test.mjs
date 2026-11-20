@@ -256,10 +256,20 @@ test('neutral intake authority and risk cannot be expanded or downgraded', () =>
   analysis.envelope = buildTaskEnvelope({ request: '현재 코드를 분석해줘.' });
   assert.equal(analysis.envelope.authorizedAction, 'produce-analysis');
   assert.deepEqual(evaluateClaudeProfileEligibility(analysis).reasons, ['review-not-authorized']);
-  const risky = inputFor('bounded-extraction');
-  risky.envelope = buildTaskEnvelope({ request: '보안 로그를 분석해줘.' });
+  // A reviewer keeps the intake risk; a read delegation is registered on its declared risk (DA-025).
+  const risky = inputFor('complex-critical');
+  risky.envelope = buildTaskEnvelope({ request: '보안 설정 변경을 리뷰해줘.' });
+  risky.task.impactRisk = 'medium';
+  assert.equal(risky.envelope.intent, 'review');
   assert.equal(risky.envelope.risk, 'high');
-  assert.equal(evaluateClaudeProfileEligibility(risky).eligible, false);
+  assert.deepEqual(evaluateClaudeProfileEligibility(risky), {
+    eligible: false,
+    reasons: ['risk-downgrade'],
+  });
+  const riskyExtraction = inputFor('bounded-extraction');
+  riskyExtraction.envelope = buildTaskEnvelope({ request: '보안 로그를 분석해줘.' });
+  assert.equal(riskyExtraction.envelope.risk, 'high');
+  assert.equal(evaluateClaudeProfileEligibility(riskyExtraction).eligible, true);
   const safeExtraction = inputFor('bounded-extraction');
   safeExtraction.envelope = buildTaskEnvelope({ request: '현재 코드를 분석해줘.' });
   assert.equal(evaluateClaudeProfileEligibility(safeExtraction).eligible, true);
@@ -884,9 +894,9 @@ test('a step-1 recovery binding passes admission and observation; static exchang
   );
 });
 
-// OSS-RETIRE PR ② (D-RET-3·8): the researcher is the light official-source research role. It takes
-// read and extract on bounded-standard, and with no write scope its request-risk comparison is capped at
-// medium. Explorer and writing tasks keep the intake risk.
+// OSS-RETIRE PR ② (D-RET-3): the researcher is the light official-source research role. It takes read
+// and extract on bounded-standard. KNU-RISK (D-KRR-1, DA-025) replaced the D-RET-8 medium cap: a researcher
+// or explorer with no write scope is not compared with the request risk; writing tasks keep it.
 const DEPLOY_REQUEST = '배포 대상 Node 공식 문서의 지원 기간 근거를 분석해줘.';
 const PRICE_REQUEST = 'AWS 공식 가격 페이지의 Lightsail 월 요금 근거를 조사해줘.';
 const KIND_FACTS = {
@@ -960,22 +970,136 @@ test('the extraction roles, the fact reference rule and the explorer kinds stay 
   assert.ok(reasonsOf({ kind: 'extract', role: 'knu_reviewer' }).includes('kind-role'));
 });
 
-test('research with no write scope compares the request risk capped at medium (D-RET-8)', () => {
+test('research and exploration with no write scope register below the request risk (D-KRR-1)', () => {
   const deploy = (patch) => reasonsOf({ request: DEPLOY_REQUEST, kind: 'read', ...patch });
   assert.equal(buildTaskEnvelope({ request: DEPLOY_REQUEST }).risk, 'high');
   assert.equal(buildTaskEnvelope({ request: DEPLOY_REQUEST }).intent, 'analyze');
   assert.deepEqual(deploy({ impactRisk: 'medium' }), []);
-  assert.deepEqual(deploy({ impactRisk: 'low' }), ['risk-downgrade']);
+  assert.deepEqual(deploy({ impactRisk: 'low' }), []);
   assert.deepEqual(deploy({ impactRisk: 'high' }), ['impact-risk']);
   assert.deepEqual(deploy({ impactRisk: 'high', profileId: 'complex-critical' }), []);
   assert.deepEqual(deploy({ kind: 'extract', impactRisk: 'medium' }), []);
-  // The explorer keeps the intake risk.
-  assert.deepEqual(deploy({ role: 'knu_explorer', impactRisk: 'medium' }), ['risk-downgrade']);
-  // A binding made under the cap still validates, so admission keeps it a candidate.
-  const capped = candidate(
-    researchInput({ request: DEPLOY_REQUEST, kind: 'read', impactRisk: 'medium' }),
+  // The explorer is a read delegation too.
+  assert.deepEqual(deploy({ role: 'knu_explorer', impactRisk: 'medium' }), []);
+  // A binding below the request risk still validates, so admission keeps it a candidate.
+  const below = candidate(
+    researchInput({ request: DEPLOY_REQUEST, kind: 'read', impactRisk: 'low' }),
   );
-  assert.equal(capped.binding.envelopeRisk, 'high');
-  assert.equal(capped.binding.impactRisk, 'medium');
-  assert.equal(capped.result.decision, 'candidate', JSON.stringify(capped.result));
+  assert.equal(below.binding.envelopeRisk, 'high');
+  assert.equal(below.binding.impactRisk, 'low');
+  assert.equal(below.result.decision, 'candidate', JSON.stringify(below.result));
+});
+
+// KNU-RISK (D-KRR-1·3): a read delegation — an explorer or researcher extract or read task with no write scope —
+// is registered on its declared risk even when the request words rate higher. A reviewer and a writing task keep
+// the intake comparison, the profile still checks the declared risk, and an envelope risk outside low, medium and
+// high is refused for every task.
+const DEPLOY_LOOKUP = '배포 설정 파일의 값을 조사해줘.';
+const CHANGE_READ = 'scripts/agents/claude 변경 내용을 분석해줘.';
+const xhighExtraction = (patch) =>
+  researchInput({
+    request: DEPLOY_LOOKUP,
+    role: 'knu_explorer_xhigh',
+    profileId: 'bounded-extraction',
+    ...patch,
+  });
+// The binding with only envelopeRisk replaced and its digest recomputed, as a caller could forge it.
+function withEnvelopeRisk(binding, envelopeRisk) {
+  const { bindingDigest: _old, ...data } = structuredClone(binding);
+  data.envelopeRisk = envelopeRisk;
+  return { ...data, bindingDigest: digestObject(data) };
+}
+function admissionOf(binding, admission, runtime) {
+  return assessClaudeSubagentAdmission({
+    binding,
+    admission: { ...admission, bindingDigest: binding.bindingDigest },
+    runtime,
+    current: {
+      requestId: binding.requestId,
+      taskId: binding.taskId,
+      sourceDigest: binding.sourceDigest,
+      configDigest: binding.configDigest,
+      scopeDigest: binding.scopeDigest,
+      envelopeDigest: binding.envelopeDigest,
+      writerInventory: { status: 'current-turn', evidenceRef: 'fixture:writer-state', active: [] },
+      now,
+    },
+  });
+}
+
+test('a deploy-worded xhigh extraction at low keeps a valid binding and admission (KNU-RISK RED 1 (마))', () => {
+  assert.equal(buildTaskEnvelope({ request: DEPLOY_LOOKUP }).risk, 'high');
+  assert.equal(buildTaskEnvelope({ request: DEPLOY_LOOKUP }).intent, 'analyze');
+  const admitted = candidate(xhighExtraction());
+  assert.equal(admitted.binding.envelopeRisk, 'high');
+  assert.equal(admitted.binding.impactRisk, 'low');
+  assert.equal(admitted.binding.requestedModelAlias, 'haiku');
+  assert.equal(admitted.result.decision, 'candidate', JSON.stringify(admitted.result));
+});
+
+// The product service-foundation readiness (2026-11-04) asked these two explorer extractions at low. The request
+// words no longer add a risk refusal. The unread `추출해줘` intent is an intake matter (Owner Q5: recorded only)
+// and is not pinned here.
+test('the two product extraction requests add no risk refusal (KNU-RISK product sample, Owner Q5)', () => {
+  for (const request of [
+    '백오피스·권한·감사·운영 콘텐츠·legal 관련 API와 schema를 저장소에서 추출해줘.',
+    'DB role·운영 자료·정리 작업·관측 log·CD 구조를 저장소에서 추출해줘.',
+  ]) {
+    const reasons = reasonsOf({ request, role: 'knu_explorer', kind: 'extract' });
+    assert.ok(!reasons.includes('risk-downgrade'), `${request}: ${reasons.join(',')}`);
+  }
+});
+
+test('the profile still checks the declared risk of a deploy-worded read (KNU-RISK 회귀 2)', () => {
+  for (const role of ['knu_researcher', 'knu_explorer']) {
+    const read = (patch) => reasonsOf({ request: DEPLOY_REQUEST, kind: 'read', role, ...patch });
+    assert.deepEqual(read({ impactRisk: 'high' }), ['impact-risk'], role);
+    assert.deepEqual(read({ impactRisk: 'high', profileId: 'complex-critical' }), [], role);
+  }
+});
+
+test('a writing explorer extraction keeps read-only and the intake comparison (KNU-RISK 회귀 3)', () => {
+  const writing = xhighExtraction();
+  writing.task.writeScope = ['scripts/agents/claude'];
+  const reasons = evaluateClaudeProfileEligibility(writing).reasons;
+  assert.ok(reasons.includes('read-only'), reasons.join());
+  assert.ok(reasons.includes('risk-downgrade'), reasons.join());
+});
+
+test('a reviewer below a review-intent deploy request keeps risk-downgrade alone (KNU-RISK 회귀 4)', () => {
+  const review = inputFor('complex-critical');
+  review.envelope = buildTaskEnvelope({ request: '배포 설정 변경을 리뷰해줘.' });
+  assert.equal(review.envelope.intent, 'review');
+  assert.equal(review.envelope.risk, 'high');
+  review.task.impactRisk = 'medium';
+  assert.deepEqual(evaluateClaudeProfileEligibility(review).reasons, ['risk-downgrade']);
+  review.task.impactRisk = 'high';
+  assert.deepEqual(evaluateClaudeProfileEligibility(review).reasons, []);
+});
+
+test('a read binding whose envelope risk is no rank is refused at admission (KNU-RISK 회귀 6)', () => {
+  assert.equal(buildTaskEnvelope({ request: CHANGE_READ }).risk, 'medium');
+  const read = candidate(
+    researchInput({
+      request: CHANGE_READ,
+      role: 'knu_explorer',
+      kind: 'read',
+      impactRisk: 'medium',
+    }),
+  );
+  assert.equal(read.result.decision, 'candidate', JSON.stringify(read.result));
+  const unchanged = withEnvelopeRisk(read.binding, 'medium');
+  assert.equal(
+    admissionOf(unchanged, read.admission, read.runtime).decision,
+    'candidate',
+    'the recomputed digest alone is admitted',
+  );
+  for (const envelopeRisk of ['critical', 'none', 'toString']) {
+    const forged = withEnvelopeRisk(read.binding, envelopeRisk);
+    assert.deepEqual(admissionOf(forged, read.admission, read.runtime), {
+      decision: 'refuse',
+      reason: 'invalid-input',
+      descriptor: null,
+    });
+  }
 });

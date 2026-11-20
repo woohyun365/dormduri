@@ -12,6 +12,9 @@ leaf module이다.
   호출부의 기존 log가 그대로 남는다. owner가 log를 남기고 이어 간 단계 실패는 `failed`로 돌려 실패 수만 올린다(chat
   realtime의 replay window prune). 일부러 일하지 않은 tick(이미 실행 중, publisher 미연결)은 `skipped`로 돌려 아무것도
   기록하지 않는다.
+- `drainBackgroundJob(work, timeoutMs)`: 종료 hook이 실행 중인 예약 작업을 `timeoutMs`까지 기다린다. 작업이 성공하든
+  실패하든 상한 안에 끝나면 `true`, 상한이 먼저 오면 `false`이고 작업 자체는 취소하지 않는다. 정리 sweep(20초)과 table
+  통계 읽기(5초)가 쓴다.
 
 ## Metric
 
@@ -20,7 +23,7 @@ leaf module이다.
 | `api_background_job_last_success_timestamp_seconds` | gauge   | `job` | 마지막으로 성공한 예약 실행의 Unix 초 |
 | `api_background_job_failures_total`                 | counter | `job` | 실패한 예약 실행 수                   |
 
-`job` 값은 고정된 넷이다.
+`job` 값은 고정된 다섯이다.
 
 | `job`                      | owner                                                     | 한 번의 실행                                           |
 | -------------------------- | --------------------------------------------------------- | ------------------------------------------------------ |
@@ -28,6 +31,7 @@ leaf module이다.
 | `auth_mail_dispatcher`     | `auth/mail/auth-mail-dispatcher.service.ts`               | dispatch tick 한 번                                    |
 | `notification_dispatcher`  | `notifications/outbox/notification-dispatcher.service.ts` | dispatch tick 한 번                                    |
 | `chat_realtime_dispatcher` | `chat/realtime/chat-realtime-dispatcher.service.ts`       | dispatch와 replay window prune tick(prune 실패도 실패) |
+| `database_table_stats`     | `platform/database/database-table-stats.service.ts`       | watched table 통계 읽기와 gauge 갱신 한 번             |
 
 경보 규칙(마지막 성공이 작업 주기보다 오래 멈춤, 실패 수 증가)은 observability 경보 owner가 이 두 metric으로 만든다.
 작업별 결과 metric(처리 건수, lag, dispatch outcome)은 각 owner에 남는다. 실행 안 항목 하나의 실패(RRPD 검토 job 하나가

@@ -7,8 +7,9 @@
 [실제 값의 기록 위치](../../production-release-evidence.md#실제-값의-기록-위치)에 남긴다. 현재 상태는 `PENDING_TARGET`다.
 `PENDING_TARGET`는 실패가 아니다. 실제 host trust boundary가 아직 없다는 뜻이다.
 
-초기 전용 single-tenant VPS에서는 Alloy container와 Docker socket을 제한적으로 유지할 수 있다.
-`/var/run/docker.sock:ro`는 쓰기 mount를 줄일 뿐 Docker API authorization boundary가 아니다.
+운영 collector는 user host API 묶음의 Alloy다([운영 관측 runbook](../../../operations/observability/production-stack.md)). 돔두리
+전용 single-tenant host에서는 Alloy container와 Docker socket을 제한적으로 유지할 수 있다. `/var/run/docker.sock:ro`는 쓰기
+mount를 줄일 뿐 Docker API authorization boundary가 아니다.
 
 ## Socket 유지 조건
 
@@ -17,10 +18,11 @@
 - host가 돔두리 전용 single-tenant workload만 실행한다.
 - host/operator 접근자가 제한되고 최소 권한·감사 경계가 있다.
 - Alloy image는 immutable digest로 고정하고 supply-chain 검증을 통과한다.
-- discovery allowlist가 Compose service `api|nginx|web`으로 제한된다.
+- discovery가 compose project `dormduri-web`의 service `api|ingress|web`으로 제한된다.
 - 관측 port는 private이며 collector 장애가 제품 readiness와 요청을 막지 않는다.
 - resource limit, log rotation, retention, disk/inode alert와 incident owner가 있다.
-- socket 제거 trigger와 대체 경로를 release evidence에 승인한다.
+- Owner가 socket 유지와 아래 제거 trigger·대체 경로를 API 단계 배포 기록의 관측 component 줄에 적는다
+  ([단계 배포 기록](../../production-release-evidence.md#단계-배포-기록)).
 
 ## Socket 제거 trigger
 
@@ -44,13 +46,13 @@
 
 ```bash
 pnpm observability:check:production
-pnpm infra:compose -- observability-production config
+pnpm infra:check:runtime
 pnpm infra:rehearsal:full-stack
 ```
 
-Target에서는 다음을 추가로 확인한다.
+`infra:check:runtime`은 실제 Alloy·Loki로 fixture log의 가림을 확인한다. Target에서는 다음을 추가로 확인한다.
 
-1. Compose render와 `docker inspect`로 실제 socket mount, image digest, resource limit를 확인한다.
+1. `docker inspect`로 Alloy의 socket·host 경로 mount(모두 읽기 전용), image digest, resource limit를 확인한다.
 2. Alloy discovery 결과에 허용 service 외 container가 없는지 확인한다.
 3. Collector 중단·Loki 중단 중 API/Web 요청이 유지되는지 확인한다.
 4. Log rotation, disk 증가량, retention, recovery time을 확인한다.

@@ -7,6 +7,9 @@ import { LoginLayout } from '../LoginLayout';
 vi.mock('next/image', () => ({
   // eslint-disable-next-line jsx-a11y/alt-text, @next/next/no-img-element
   default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => <img {...props} />,
+  getImageProps: ({ src, alt }: { src: string | { src: string }; alt: string }) => ({
+    props: { src: typeof src === 'string' ? src : src.src, alt },
+  }),
 }));
 
 vi.mock('next/link', () => ({
@@ -21,7 +24,7 @@ vi.mock('next/link', () => ({
 describe('LoginLayout', () => {
   it('로그인 shell, children, footer를 렌더링한다', () => {
     render(
-      <LoginLayout footer={<a href="/privacy">개인정보처리방침</a>}>
+      <LoginLayout footer={<a href="/privacy">개인정보 처리방침</a>}>
         <h1 id="login-title">로그인</h1>
         <button type="button">로그인 폼 자리</button>
       </LoginLayout>,
@@ -35,7 +38,7 @@ describe('LoginLayout', () => {
       'whitespace-nowrap',
       'md:hidden',
     );
-    expect(screen.getByRole('link', { name: '개인정보처리방침' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '개인정보 처리방침' })).toHaveAttribute(
       'href',
       '/privacy',
     );

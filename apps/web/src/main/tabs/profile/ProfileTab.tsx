@@ -263,7 +263,7 @@ export default function ProfileTab({
               <div className="flex items-center gap-3">
                 <FileText className="w-5 h-5 text-(--knu-text-tertiary)" />
                 <span className="text-sm font-semibold text-(--knu-text-primary)">
-                  개인정보처리방침
+                  개인정보 처리방침
                 </span>
               </div>
               <ChevronRight className="w-5 h-5 text-(--knu-text-tertiary)" />

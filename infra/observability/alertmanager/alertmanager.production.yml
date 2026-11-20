@@ -1,0 +1,48 @@
+# User host 운영 Alertmanager 설정(production-api-baseline D-AB3·D-AB16). 관측 설정 image에 들어가고 API 묶음 조각의
+# alertmanager가 /etc/alertmanager/alertmanager.production.yml로 읽는다. Slack Incoming Webhook URL은 관측 secret 묶음에만 있고
+# document가 이 container UID 소유 0400 파일로 쓴다(D-AB7). 이 파일과 저장소에는 URL이 없다. local은 render script다.
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: slack-alerts
+  group_by:
+    - alertname
+    - service
+    - severity
+    - env
+  group_wait: 15s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - receiver: slack-alerts
+      matchers:
+        - severity="critical"
+      repeat_interval: 1h
+    - receiver: slack-alerts
+      matchers:
+        - severity="warning"
+      repeat_interval: 4h
+    - receiver: slack-alerts
+      matchers:
+        - severity="info"
+      repeat_interval: 24h
+
+receivers:
+  - name: slack-alerts
+    slack_configs:
+      - api_url_file: /run/secrets/dormduri-observability/slack-webhook-url
+        channel: '#dormduri-alerts'
+        username: '돔두리 Alerts'
+        icon_emoji: ':rotating_light:'
+        send_resolved: true
+        title: '{{ template "dormduri.slack.title" . }}'
+        text: '{{ template "dormduri.slack.text" . }}'
+        # Alertmanager 기본 fallback은 공통 label 값을 모두 출력하고 기본 title_link는 내부 주소다. 둘 다 고정해 가림을 우회하지
+        # 않게 한다(scripts/observability/production/alertmanager-render.mjs가 실제 payload로 확인한다).
+        fallback: '{{ template "dormduri.slack.title" . }}'
+        title_link: ''
+        footer: '돔두리 observability'
+
+templates:
+  - /etc/alertmanager/templates/*.tmpl

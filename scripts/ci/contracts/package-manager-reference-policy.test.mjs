@@ -7,7 +7,7 @@ const manifest = JSON.parse(readFileSync(resolve('package.json'), 'utf8'));
 const expectedVersion = manifest.packageManager?.match(/^pnpm@(\d+\.\d+\.\d+)$/u)?.[1];
 
 // Renovate's pnpm-package-manager group moves the root packageManager and these setup inputs on one branch.
-// The restore drill installs the root packageManager itself, so it carries no version to compare.
+// The Docker images install the root packageManager themselves, so they carry no version to compare.
 const workflowPaths = [
   '.github/workflows/api-ci.yml',
   '.github/workflows/ci.yml',
@@ -25,13 +25,9 @@ test('CI pnpm setup references match the exact root pnpm version', () => {
   }
 });
 
-test('the restore drill and Docker images install pnpm from the root packageManager', () => {
+test('the Docker images install pnpm from the root packageManager', () => {
   const installCommand = `npm install --global "$(node -p "require('./package.json').packageManager")"`;
-  for (const path of [
-    '.github/workflows/api-restore-drill-manual.yml',
-    'infra/deploy/api/Dockerfile',
-    'infra/deploy/web/Dockerfile',
-  ]) {
+  for (const path of ['infra/deploy/api/Dockerfile', 'infra/deploy/web/Dockerfile']) {
     const source = readFileSync(resolve(path), 'utf8');
     assert.ok(source.includes(installCommand), `${path} must install the root packageManager`);
     assert.doesNotMatch(source, /pnpm@\d|corepack/iu, `${path} must not pin pnpm separately`);

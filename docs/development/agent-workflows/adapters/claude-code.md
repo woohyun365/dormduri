@@ -99,9 +99,11 @@ Child는 주장을 `{url, quote, checkedAt}` 목록으로 답합니다. Parent�
 `node scripts/agents/common/quote-check.mjs --task <taskId> --response <정산이 만든 response.json> --select <선택 JSON> --out <출력>`으로
 대조하고, 그 출력 경로를 판정의 `quoteCheck`에 적습니다. 출력 파일은 저장소 안이면서 native task evidence(`.artifacts/tools/claude-native/`) 밖인 ignored 경로(예: 그 작업의 계획 증거 경로 `.artifacts/plans/<umbrella Plan ID>/<bounded Plan ID>/`. `.artifacts` 바로 아래 새 디렉터리는 layout guard가 `artifacts-unknown-child`로 막습니다)에 둡니다. 저장소 밖(scratchpad 포함)이나 task evidence 안 파일은 정산이 `quote-check-output-unreadable`로 거부합니다. 정산은 출력이 이 task와 이 응답을 가리키고 대조한 주장이 모두 응답에
 있을 때만 받으며, `found`만 evidence 후보로 남기고 나머지는 사유와 함께 제외로 기록합니다. 인용이 질문의 답인지와 acceptance는
-Parent가 판단해 판정에 남깁니다. 이 researcher의 `impactRisk`는 요청 문장의
-intake 위험 대신 min(intake, medium) 이상이면 됩니다. `high`를 적고 `complex-critical`을 고르는 것은 Lead의 선택입니다. `knu_explorer`의
-읽기와 쓰기 범위가 있는 task는 intake 위험 그대로이고, reviewer를 짝지은 researcher(`required:true`)는 reviewer 연결 정산을 그대로 따릅니다.
+Parent가 판단해 판정에 남깁니다. 쓰기 범위가 빈 researcher와 explorer의 `read`·`extract`(읽기 위임)는 선언 `impactRisk`가
+요청 문장의 intake 위험보다 낮아도 등록되고, prepare 결과와 task 기록의 `requestRisk`(`intake`·`declared`·`belowIntake`)에 두 위험이
+남습니다([DA-025](../agentic-architecture-decisions.md#read-delegation-risk-record)). Profile·모델과 독립 QA는 선언 위험·kind로 정합니다.
+`high`를 적고 `complex-critical`을 고르는 것은 Lead의 선택입니다. Reviewer와 쓰기 범위가 있는 task는 intake 위험 그대로이고,
+reviewer를 짝지은 researcher(`required:true`)는 reviewer 연결 정산을 그대로 따릅니다.
 
 ## Recovery
 

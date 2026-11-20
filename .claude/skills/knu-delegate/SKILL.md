@@ -63,9 +63,10 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
 
 - `reviewDisposition.required:false`는 explorer 추출이면 impact `low`·complexity `bounded`·uncertainty `resolved`에서만, 쓰기 범위가 빈
   `knu_researcher`면 kind `read`·`extract` 모두 쓸 수 있습니다. Researcher는 아래 인용 대조로 정산합니다.
-- kind별 필수 fact, 빈 `readScope` 금지, `impactRisk` 하향 금지는
+- kind별 필수 fact와 빈 `readScope` 금지는
   [등록 거부 원인](../../../docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md#원인)을
-  따릅니다. 요청 문장은 intake가 인식하는 동사로 씁니다.
+  따릅니다. 요청 문장은 intake가 인식하는 동사로 씁니다. 읽기 위임은 선언 `impactRisk`가 요청 문장의 intake 위험보다 낮아도
+  등록되고 prepare 결과의 `requestRisk`(`belowIntake:true`)에 두 위험이 남으니, 요청 문장을 바꿔 다시 등록하지 않습니다.
 
 ### 공식 근거 조사(researcher)
 
@@ -98,8 +99,8 @@ session ID입니다. 새 세션이나 `--resume` 뒤에는 이 skill을 다시 �
   `plan:<Plan ID>/<절>` 같은 참조입니다(`//`가 든 URL은 `invalid-input`). 자유 검색은 kind `read`(필수 fact는
   [등록 거부 원인](../../../docs/development/troubleshooting/tooling/claude-native-registration-and-review-rejections.md#원인))로 씁니다.
 - Child 결과는 주장마다 `{url, quote, checkedAt}`(원문 URL, 원문 그대로의 인용, 확인 날짜)입니다.
-- `impactRisk`는 요청 문장의 intake 위험 대신 min(intake, medium) 이상이면 됩니다. 요청에 `배포`가 있어도 `bounded-standard`에
-  `medium`으로 등록됩니다. `high`를 적고 `complex-critical`을 고를 수 있습니다. Explorer 읽기는 intake 위험 그대로입니다.
+- `impactRisk`는 요청 문장의 intake 위험과 비교하지 않습니다. 요청에 `배포`가 있어도 `bounded-standard`에 선언 위험으로
+  등록되고 `requestRisk`에 두 위험이 남습니다. `high`를 적고 `complex-critical`을 고를 수 있습니다. Explorer 읽기·추출도 같습니다.
 - 정산 전에 Parent는 evidence로 옮길 주장만 골라 그 URL 원문(raw, `curl` 등. WebFetch 요약이 아님)을 직접 받고,
   `node scripts/agents/common/quote-check.mjs --task <taskId> --response <response.json> --select <선택 JSON> --out <출력 JSON>`으로
   대조합니다. 선택 JSON은 `[{ "url", "quote", "raw": <원문 파일> }]`이고 `response.json`은 첫 `settle` 결과의

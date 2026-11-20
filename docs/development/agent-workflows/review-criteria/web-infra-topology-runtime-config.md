@@ -32,6 +32,7 @@ severity가 높은 항목으로 판정합니다.
 - PASS 근거: build 한 번에서 나온 artifact 식별자(digest나 다시 쓰지 않는 tag)가 환경마다 같고, 공개 설정과 secret이 다른 파일·저장소에 있으며, production 배포 전에 자리표시 값이 남았는지 검사하는 단계와 그 test가 있다
 - 지침: source → build → 불변 artifact → 설정·secret 주입 → 실행 → 증거 흐름을 적는다. artifact는 한 번 build해 내용 식별자로 환경 사이에 옮기고, 환경 차이는 설정 주입으로만 둔다. 공개 설정과 secret을 나누고, secret은 배포할 때 secret 저장소나 읽기 권한을 좁힌 host 환경 파일에서 넣는다. 생성 artifact는 정해진 위치와 schema·검증기를 갖는다
 - 피함: 같은 tag에 다른 build를 다시 올리기, 환경마다 다시 build하기, 공개 설정과 secret을 한 파일에 두기, 자리표시 값을 그대로 배포하기
+- 센서: {{binding:sensor.infra-static-check}}
 
 ### I3. runtime 강화
 

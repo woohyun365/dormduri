@@ -5,43 +5,74 @@ import test from 'node:test';
 
 import {
   ACTIONS,
+  API_DOCUMENT_NAME,
+  API_DOCUMENT_PATH,
+  buildApiDocument,
   buildDocument,
   DIGEST_PATTERN,
+  DOCUMENT_NAME,
   DOCUMENT_PATH,
+  DOCUMENT_SIZE_LIMIT,
+  readApiSources,
   readSources,
+  sha256,
+  stripCommentLines,
 } from './ssm-document.mjs';
 import { PAGE_TITLES } from './ingress-smoke.mjs';
 
 const repoRoot = process.cwd();
-const committed = readFileSync(resolve(repoRoot, DOCUMENT_PATH), 'utf8');
-const document = JSON.parse(committed);
-const lines = document.mainSteps[0].inputs.runCommand;
+const load = (path) => {
+  const committed = readFileSync(resolve(repoRoot, path), 'utf8');
+  const document = JSON.parse(committed);
+  const lines = document.mainSteps[0].inputs.runCommand;
+  return { committed, document, lines, body: lines.join('\n') };
+};
+const web = load(DOCUMENT_PATH);
+const api = load(API_DOCUMENT_PATH);
 // The first non-comment line matching a pattern.
-const firstLine = (pattern) =>
+const firstLine = (lines, pattern) =>
   lines.findIndex((line) => !/^\s*#/u.test(line) && pattern.test(line));
+const functionBody = (body, name) => {
+  const match = new RegExp(`^${name}\\(\\) \\{\\n([\\s\\S]*?)^\\}`, 'mu').exec(body);
+  assert.ok(match, `${name} is defined`);
+  return match[1];
+};
+const caseBody = (body, name) => {
+  const match = new RegExp(`^  ${name}\\)\\n([\\s\\S]*?)^    ;;`, 'mu').exec(body);
+  assert.ok(match, `${name} case`);
+  return match[1];
+};
 
-test('the committed document is the generator output of deploy.sh and the host compose', () => {
-  assert.equal(committed, buildDocument(readSources(repoRoot)));
+test('the committed documents are the generator output of their sources and fit the SSM size limit', () => {
+  assert.equal(web.committed, buildDocument(readSources(repoRoot)));
+  assert.equal(api.committed, buildApiDocument(readApiSources(repoRoot)));
+  // Systems Manager quotas, Documents: "Document size 64 KB per document".
+  assert.equal(DOCUMENT_SIZE_LIMIT, 65536);
+  for (const { committed } of [web, api])
+    assert.ok(Buffer.byteLength(committed) <= DOCUMENT_SIZE_LIMIT);
+  assert.equal(DOCUMENT_NAME, 'dormduri-web-deploy');
+  assert.equal(API_DOCUMENT_NAME, 'dormduri-api-deploy');
 });
 
-test('the document takes only the action and a digest pair, each validated by SSM before the script runs', () => {
-  assert.equal(document.schemaVersion, '2.2');
-  assert.deepEqual(Object.keys(document.parameters).sort(), [
-    'action',
-    'ingressDigest',
-    'webDigest',
-  ]);
-  for (const parameter of Object.values(document.parameters)) {
-    assert.equal(parameter.type, 'String');
-    // ENV_VAR keeps parameter values out of the script text, so a value cannot become shell syntax.
-    assert.equal(parameter.interpolationType, 'ENV_VAR');
-    assert.equal(parameter.default, undefined);
+// API 묶음은 관측 설정 image digest를 함께 받는다(production-api-baseline D-AB14).
+test('each document takes only the action and its image digests, each validated by SSM before the script runs', () => {
+  for (const [{ document }, digests] of [
+    [web, ['ingressDigest', 'webDigest']],
+    [api, ['apiDigest', 'apiMigrateDigest', 'observabilityConfigDigest']],
+  ]) {
+    assert.equal(document.schemaVersion, '2.2');
+    assert.deepEqual(Object.keys(document.parameters).sort(), ['action', ...digests]);
+    for (const parameter of Object.values(document.parameters)) {
+      assert.equal(parameter.type, 'String');
+      // ENV_VAR keeps parameter values out of the script text, so a value cannot become shell syntax.
+      assert.equal(parameter.interpolationType, 'ENV_VAR');
+      assert.equal(parameter.default, undefined);
+    }
+    assert.deepEqual(document.parameters.action.allowedValues, [...ACTIONS]);
+    for (const name of digests)
+      assert.equal(document.parameters[name].allowedPattern, DIGEST_PATTERN);
   }
-  assert.deepEqual(document.parameters.action.allowedValues, [...ACTIONS]);
   assert.deepEqual(ACTIONS, ['deploy', 'rollback', 'maintenance']);
-  for (const name of ['webDigest', 'ingressDigest']) {
-    assert.equal(document.parameters[name].allowedPattern, DIGEST_PATTERN);
-  }
   assert.equal(DIGEST_PATTERN, '^sha256:[a-f0-9]{64}$');
   const pattern = new RegExp(DIGEST_PATTERN, 'u');
   assert.ok(pattern.test(`sha256:${'a'.repeat(64)}`));
@@ -55,119 +86,271 @@ test('the document takes only the action and a digest pair, each validated by SS
   }
 });
 
-test('the document runs one shell step on Linux and never takes free-form commands', () => {
-  assert.equal(document.mainSteps.length, 1);
-  assert.equal(document.mainSteps[0].action, 'aws:runShellScript');
-  assert.deepEqual(document.mainSteps[0].precondition, { StringEquals: ['platformType', 'Linux'] });
-  const body = lines.join('\n');
-  assert.doesNotMatch(body, /\{\{|\}\}/u);
-  assert.deepEqual([...new Set(body.match(/\bSSM_[A-Za-z]+/gu))].sort(), [
-    'SSM_action',
-    'SSM_ingressDigest',
-    'SSM_webDigest',
-  ]);
-  assert.doesNotMatch(body, /\beval\b|bash -c|sh -c/u);
-  assert.match(body, /^case "\$\{action\}" in deploy \| rollback \| maintenance\) ;; \*\)$/mu);
-});
-
-test('the script rejects input and takes the host lock before it touches Docker, AWS or the host state', () => {
-  const actionCheck = firstLine(/^case "\$\{action\}" in deploy/u);
-  const digestCheck = firstLine(
-    /^if ! \[\[ \$\{web\} =~ \$\{digest_re\} && \$\{ingress\} =~ \$\{digest_re\} \]\]; then$/u,
-  );
-  const lock = firstLine(/^if ! flock -n 9; then$/u);
-  const firstSideEffect = Math.min(
-    ...[
-      /\bdocker\b/u,
-      /^\s*account=\$\(aws /u,
-      /\baws ecr\b/u,
-      /write_pair "/u,
-      /cat >"\$\{compose_file\}\.tmp"/u,
-    ]
-      .map((pattern) => firstLine(pattern))
-      .filter((index) => index >= 0),
-  );
-  assert.ok(
-    actionCheck >= 0 && digestCheck > actionCheck && lock > digestCheck,
-    'validation, then lock',
-  );
-  assert.ok(lock < firstSideEffect, 'the lock comes before Docker, AWS and state writes');
-  assert.equal(lines[lock + 1].trim(), 'echo "RESULT=locked action=${action}"');
-  assert.equal(lines[lock + 2].trim(), 'exit 75');
-  assert.equal(lines[firstLine(/^exec 9>"\$\{state\}\/lock"$/u) + 1], lines[lock]);
-});
-
-test('the document carries the host compose it writes and keeps registry output in the root-only host log', () => {
-  const body = lines.join('\n');
-  assert.ok(body.includes(readSources(repoRoot).compose.trimEnd()), 'compose is embedded verbatim');
-  assert.match(
-    body,
-    /docker compose -p "\$\{project\}" -f "\$\{compose_file\}" "\$@" >>"\$\{log\}" 2>&1/u,
-  );
-  assert.match(body, /^project=dormduri-web$/mu);
-  // Standard output goes to SSM results that the deploy role reads: only RESULT lines and digests, never the registry.
-  // say and fail print to standard output too, so every call of the four writers is checked.
-  const writers = lines.filter((item) => /^\s*(?:echo|printf|say|fail)\b/u.test(item));
-  assert.ok(
-    writers.some((line) => /^\s*say\b/u.test(line)),
-    'say lines are covered',
-  );
-  for (const line of writers) {
-    assert.doesNotMatch(line, /registry|account|\$\(ref\b/u, line);
+test('each document runs one shell step on Linux and never takes free-form commands', () => {
+  for (const [{ document, body }, inputs] of [
+    [web, ['SSM_action', 'SSM_ingressDigest', 'SSM_webDigest']],
+    [api, ['SSM_action', 'SSM_apiDigest', 'SSM_apiMigrateDigest', 'SSM_observabilityConfigDigest']],
+  ]) {
+    assert.equal(document.mainSteps.length, 1);
+    assert.equal(document.mainSteps[0].action, 'aws:runShellScript');
+    assert.deepEqual(document.mainSteps[0].precondition, {
+      StringEquals: ['platformType', 'Linux'],
+    });
+    assert.doesNotMatch(body, /\{\{|\}\}/u);
+    assert.deepEqual([...new Set(body.match(/\bSSM_[A-Za-z]+/gu))].sort(), inputs);
+    assert.doesNotMatch(body, /\beval\b|bash -c|sh -c/u);
+    assert.match(body, /^case "\$\{action\}" in deploy \| rollback \| maintenance\) ;; \*\)$/mu);
   }
 });
 
-test('the generator refuses bodies that would change meaning inside SSM or the heredoc', () => {
-  const script = 'a\n#__COMPOSE_YML__\nb\n';
-  assert.throws(() => buildDocument({ script: 'no marker', compose: 'x: 1\n' }), /marker/u);
-  assert.throws(
-    () => buildDocument({ script: `${script}${script}`, compose: 'x: 1\n' }),
-    /marker/u,
-  );
-  assert.throws(() => buildDocument({ script, compose: 'x: 1\nCOMPOSE\n' }), /heredoc terminator/u);
-  assert.throws(
-    () => buildDocument({ script: `${script}echo {{ action }}\n`, compose: 'x: 1\n' }),
-    /SSM parameter syntax/u,
+test('each script rejects input and takes the shared host lock before it touches Docker, AWS or the host state', () => {
+  for (const [{ lines }, digestCheck] of [
+    [
+      web,
+      /^if ! \[\[ \$\{web\} =~ \$\{digest_re\} && \$\{ingress\} =~ \$\{digest_re\} \]\]; then$/u,
+    ],
+    [
+      api,
+      /^if ! \[\[ \$\{api\} =~ \$\{digest_re\} && \$\{api_migrate\} =~ \$\{digest_re\} && \$\{obs\} =~ \$\{digest_re\} \]\]; then$/u,
+    ],
+  ]) {
+    const actionCheck = firstLine(lines, /^case "\$\{action\}" in deploy/u);
+    const digest = firstLine(lines, digestCheck);
+    const lock = firstLine(lines, /^if ! flock -n 9; then$/u);
+    const firstSideEffect = Math.min(
+      ...[
+        /\bdocker\b/u,
+        /\baws (?:sts|ecr|secretsmanager)\b/u,
+        /^\s*(?:registry_init|adopt_legacy_web_records|ensure_api_transit)$/u,
+        /record_put "/u,
+        /cat >"\$\{(?:new_dir|tools)\}/u,
+      ]
+        .map((pattern) => firstLine(lines, pattern))
+        .filter((index) => index >= 0),
+    );
+    assert.ok(actionCheck >= 0 && digest > actionCheck && lock > digest, 'validation, then lock');
+    assert.ok(lock < firstSideEffect, 'the lock comes before Docker, AWS and state writes');
+    assert.equal(lines[lock + 1].trim(), 'echo "RESULT=locked action=${action}"');
+    assert.equal(lines[lock + 2].trim(), 'exit 75');
+    // Both documents share one host lock file.
+    assert.equal(lines[firstLine(lines, /^exec 9>"\$\{state\}\/lock"$/u) + 1], lines[lock]);
+  }
+  for (const { body } of [web, api]) assert.match(body, /^state=\$\{base\}\/state$/mu);
+});
+
+test('the documents carry their fragments and the shared library, and keep registry output in the root-only host log', () => {
+  const webSources = readSources(repoRoot);
+  const apiSources = readApiSources(repoRoot);
+  // 원본은 주석 줄만 떼고 담는다(document 크기 한도, 주석 아닌 줄은 그대로).
+  const embedded = (text) => stripCommentLines(text).trimEnd();
+  assert.ok(web.body.includes(embedded(webSources.compose)), 'web fragment is embedded verbatim');
+  assert.ok(api.body.includes(embedded(apiSources.compose)), 'API fragment is embedded verbatim');
+  assert.ok(api.body.includes(embedded(apiSources.secretBundle)), 'secret installer is embedded');
+  assert.ok(api.body.includes(apiSources.contract.trimEnd()), 'secret contract is embedded');
+  for (const { body } of [web, api]) {
+    assert.ok(body.includes(embedded(webSources.lib)), 'the shared library is embedded verbatim');
+    assert.match(body, /^project=dormduri-web$/mu);
+    // Every compose call goes through run_compose with the one project name.
+    assert.match(body, /^  set -- docker compose -p "\$\{project\}" "\$@"\n/mu);
+    assert.match(body, /^  "\$@" >>"\$\{log\}" 2>&1\n\}$/mu);
+    assert.equal(body.match(/docker compose /gu).length, 1, 'one compose call site');
+    assert.doesNotMatch(body, /run_compose[^\n]* down\b/u, 'no project-wide down');
+    const lines = body.split('\n');
+    // Standard output goes to SSM results that the deploy role reads: only RESULT lines and digests, never the registry.
+    const writers = lines.filter((item) => /^\s*(?:echo|printf|say|fail)\b/u.test(item));
+    assert.ok(
+      writers.some((line) => /^\s*say\b/u.test(line)),
+      'say lines are covered',
+    );
+    for (const line of writers) assert.doesNotMatch(line, /registry|account|\$\(ref\b/u, line);
+  }
+  // documentSource is the hash of the sources, so the host record names the source of each release.
+  assert.match(
+    web.body,
+    new RegExp(`^document_source=${sha256(JSON.stringify(webSources))}$`, 'mu'),
   );
   assert.match(
-    buildDocument({ script, compose: 'x: 1\n' }),
-    /"runCommand": \[\n\s+"a",\n\s+"x: 1",\n\s+"b"\n/u,
+    api.body,
+    new RegExp(`^document_source=${sha256(JSON.stringify(apiSources))}$`, 'mu'),
   );
 });
 
-// The host smoke inside the document greps the static page titles. Their source is the page files, so a changed <title>
-// must fail here, not on the host after the document is created.
-test('the host smoke expects the page titles of the static page files', () => {
-  const body = lines.join('\n');
-  const functionBody = (name) => {
-    const match = new RegExp(`^${name}\\(\\) \\{\\n([\\s\\S]*?)^\\}`, 'mu').exec(body);
-    assert.ok(match, `${name} is defined`);
-    return match[1];
-  };
+test('the generator refuses bodies that would change meaning inside SSM or a heredoc', () => {
+  const script =
+    'a\n#__USER_HOST_LIB__\ndocument_source=__DOCUMENT_SOURCE_SHA256__\n#__COMPOSE_YML__\nb\n';
+  const ok = { script, lib: 'lib', compose: 'x: 1\n' };
+  assert.throws(() => buildDocument({ ...ok, script: 'no marker' }), /marker/u);
+  assert.throws(() => buildDocument({ ...ok, script: `${script}${script}` }), /marker/u);
+  assert.throws(() => buildDocument({ ...ok, compose: 'x: 1\nCOMPOSE\n' }), /heredoc terminator/u);
+  assert.throws(() => buildDocument({ ...ok, lib: 'echo {{ action }}' }), /SSM parameter syntax/u);
+  assert.match(buildDocument(ok), /"runCommand": \[\n\s+"a",\n\s+"lib",\n/u);
+  const apiScript = `${script}#__SECRET_BUNDLE_PY__\n#__SECRET_CONTRACT_JSON__\n`;
+  const apiOk = { ...ok, script: apiScript, secretBundle: 'print(1)\n', contract: '{}\n' };
+  assert.throws(
+    () => buildApiDocument({ ...apiOk, secretBundle: 'print(1)\nPY\n' }),
+    /heredoc terminator line PY/u,
+  );
+  assert.throws(
+    () => buildApiDocument({ ...apiOk, contract: '{}\nJSON\n' }),
+    /heredoc terminator line JSON/u,
+  );
+  // A `$` sequence in a source stays literal (String.replace patterns are not applied).
+  assert.match(buildDocument({ ...ok, lib: 'echo "$\'" "$&"' }), /echo \\"\$'\\" \\"\$&\\"/u);
+});
+
+// The host smoke inside the web document greps the static page titles. Their source is the page files, so a changed
+// <title> must fail here, not on the host after the document is created.
+test('the web host smoke expects the page titles of the static page files', () => {
   const calls = (source) =>
     [...source.matchAll(/page_ok (\S+) (\d{3})(?: '([^']*)')?/gu)].map(([, path, code, title]) => ({
       path,
       code,
       title: title ?? null,
     }));
-  assert.deepEqual(calls(functionBody('smoke_serving')), [
+  assert.deepEqual(calls(functionBody(web.body, 'smoke_serving')), [
     { path: '/', code: '200', title: null },
     { path: '/privacy', code: '200', title: null },
     { path: '/terms', code: '200', title: null },
     { path: '/signup', code: '503', title: PAGE_TITLES.comingSoon },
     { path: '/__smoke_not_allowed', code: '404', title: PAGE_TITLES.notFound },
   ]);
-  assert.deepEqual(calls(functionBody('smoke_maintenance')), [
+  assert.deepEqual(calls(functionBody(web.body, 'smoke_maintenance')), [
     { path: '/', code: '503', title: PAGE_TITLES.maintenance },
     { path: '/privacy', code: '503', title: PAGE_TITLES.maintenance },
   ]);
 });
 
-// A successful rollback must not leave the pair it rolled away from as the next rollback target.
-test('a successful rollback clears previous instead of recording the rolled-back pair', () => {
-  const body = lines.join('\n');
-  const rollback = /^  rollback\)\n([\s\S]*?)^    ;;/mu.exec(body);
-  assert.ok(rollback, 'rollback case');
-  assert.doesNotMatch(rollback[1], /write_pair "\$\{state\}\/previous"/u);
-  assert.match(rollback[1], /rm -f "\$\{state\}\/previous"/u);
+// A successful rollback must not leave the release it rolled away from as the next rollback target.
+test('a successful rollback clears previous instead of recording the rolled-back release', () => {
+  for (const [{ body }, state] of [
+    [web, 'web_state'],
+    [api, 'api_state'],
+  ]) {
+    const rollback = caseBody(body, 'rollback');
+    assert.doesNotMatch(rollback, new RegExp(`record_put "\\$\\{${state}\\}/previous"`, 'u'));
+    assert.match(rollback, new RegExp(`rm -f [^\\n]*"\\$\\{${state}\\}/previous"`, 'u'));
+  }
+});
+
+test('web bundle calls name only web bundle services and keep the old web network definition untouched', () => {
+  const calls = [...web.body.matchAll(/run_compose ([^\n|]*)/gu)].map((match) => match[1]);
+  assert.ok(calls.length >= 4);
+  for (const call of calls) {
+    if (/^"\$@"|^\$/u.test(call)) continue;
+    assert.doesNotMatch(call, /\bapi\b|\bmigrate\b/u, call);
+  }
+  assert.match(functionBody(web.body, 'enter_maintenance'), /run_compose stop web ingress/u);
+  assert.match(functionBody(web.body, 'enter_maintenance'), /run_compose rm -f web ingress/u);
+  // `--remove-orphans` only when both fragments are passed.
+  assert.match(functionBody(web.body, 'start_record'), /run_compose up -d \$\(orphan_flag\) /u);
+});
+
+test('the API document guards the web record, fetches secrets only through a pipe and orders migrate before rollout', () => {
+  const lines = api.lines;
+  const guard = firstLine(
+    lines,
+    /record_is_current_format "\$\{web_record\}" \|\| fail web-record-legacy 2/u,
+  );
+  const fetch = firstLine(lines, /aws secretsmanager get-secret-value/u);
+  const registry = firstLine(lines, /^registry_init$/u);
+  assert.ok(guard >= 0 && guard < registry && guard < fetch, 'the web record guard comes first');
+  // Secret values never sit in a shell variable or argument: the JSON goes from the CLI straight into python3.
+  assert.doesNotMatch(api.body, /=\$\(aws secretsmanager|=\$\(secret_json/u);
+  assert.match(api.body, /secret_json "\$\{runtime_secret\}" \| secret_py install /u);
+  assert.match(api.body, /secret_json "\$\{migration_secret\}" \\\n\s+\| secret_py extract /u);
+  assert.match(api.body, /^runtime_secret=\/dormduri\/production\/api\/runtime$/mu);
+  assert.match(api.body, /^migration_secret=\/dormduri\/production\/api\/migration$/mu);
+  const migrate = functionBody(api.body, 'run_migrate');
+  assert.match(migrate, /for step in migrate grant smoke outbox; do/u);
+  assert.match(migrate, /run_compose --profile migrate run --rm --no-deps migrate "\$\{step\}"/u);
+  const rollout = functionBody(api.body, 'rollout_record');
+  const stop = rollout.indexOf('run_compose stop api');
+  const remove = rollout.indexOf('run_compose rm -f api');
+  const start = rollout.indexOf('run_compose up -d --no-deps --wait');
+  assert.ok(
+    stop >= 0 && stop < remove && remove < start,
+    'the old API stops before the new one starts',
+  );
+  assert.match(rollout, /host_smoke$/mu);
+  const deploy = caseBody(api.body, 'deploy');
+  assert.ok(
+    deploy.indexOf('run_migrate') < deploy.indexOf('rollout_record'),
+    'migrate before rollout',
+  );
+  assert.doesNotMatch(caseBody(api.body, 'rollback'), /run_migrate/u, 'rollback skips migrate');
+  assert.match(
+    caseBody(api.body, 'rollback'),
+    /install_runtime_secret/u,
+    'rollback re-fetches the secret',
+  );
+  // The host smoke reaches the private listener from inside the Web container, not a container on the Web transit.
+  assert.match(functionBody(api.body, 'host_smoke'), /run_compose exec -T web node -e /u);
+  assert.doesNotMatch(api.body, /docker run\b/u);
+});
+
+// 관측 단계는 current 갱신 뒤 같은 SSM step 안에서 돈다. network를 쓰는 호출(설정 image·upstream image 받기, 관측 secret, up)은
+// step 상한보다 60초 이른 obs_deadline 안의 timeout으로만 실행해 RESULT 줄과 기록 정리가 step 안에 끝난다.
+test('the API observability step bounds its network calls inside the document step timeout', () => {
+  const timeout = Number(api.document.mainSteps[0].inputs.timeoutSeconds);
+  const deadline = Number(/^obs_deadline=(\d+)$/mu.exec(api.body)?.[1]);
+  assert.ok(deadline > 0 && deadline + 60 <= timeout, 'obs_deadline leaves 60 seconds of the step');
+  assert.match(functionBody(api.body, 'obs_within'), /timeout -k 10 "\$\{obs_left\}" "\$@"/u);
+  assert.match(
+    functionBody(api.body, 'obs_compose'),
+    /compose_limit=\$\{obs_left\} run_compose "\$@"/u,
+  );
+  const fill = functionBody(api.body, 'fill_obs_config');
+  const secrets = functionBody(api.body, 'write_obs_secrets');
+  const up = functionBody(api.body, 'observability_up');
+  assert.match(fill, /obs_within config-pull docker pull -q /u);
+  assert.match(secrets, /obs_within secret-fetch aws secretsmanager get-secret-value /u);
+  assert.match(up, /obs_compose image-pull pull -q --policy missing \$\{obs_services\}/u);
+  assert.match(
+    up,
+    /obs_compose up up -d --no-deps --force-recreate --pull never --wait --wait-timeout 120 /u,
+  );
+  assert.doesNotMatch(
+    `${fill}\n${secrets}\n${up}`,
+    /\brun_compose\b|^\s*docker pull|secret_json/mu,
+  );
+  // compose_limit은 관측 단계만 쓴다(Web document와 API rollout은 상한 없이 run_compose를 부른다).
+  assert.equal(api.body.match(/compose_limit=/gu).length, 1);
+  assert.doesNotMatch(web.body, /compose_limit=/u);
+});
+
+// 주석 줄을 떼어도 뜻이 같아야 한다: shell heredoc 본문, Python 여러 줄 문자열, YAML block scalar 안에는 `#`로 시작하는 줄이 없다.
+// `#!`와 `#__X__` marker는 남긴다.
+test('stripping comment lines removes only comments from the embedded sources', () => {
+  assert.equal(
+    stripCommentLines(
+      '#!/bin/bash\n# note\n  # indented\n#__COMPOSE_YML__\necho "#kept"\nx=1 # tail\n',
+    ),
+    '#!/bin/bash\n#__COMPOSE_YML__\necho "#kept"\nx=1 # tail\n',
+  );
+  const webSources = readSources(repoRoot);
+  const apiSources = readApiSources(repoRoot);
+  const comment = /^\s*#(?!!|__[A-Z_]+__$)/u;
+  for (const [name, text] of [
+    ['web script', webSources.script],
+    ['API script', apiSources.script],
+    ['shared library', webSources.lib],
+  ]) {
+    let terminator = null;
+    for (const line of text.split('\n')) {
+      if (terminator) {
+        if (line === terminator) terminator = null;
+        else assert.doesNotMatch(line, comment, `${name}: a heredoc body line starts with #`);
+        continue;
+      }
+      terminator = /<<-?'?([A-Z_]+)'?\s*$/u.exec(line)?.[1] ?? null;
+    }
+    assert.equal(terminator, null, `${name}: heredoc is closed`);
+  }
+  let inString = false;
+  for (const line of apiSources.secretBundle.split('\n')) {
+    if (inString) assert.doesNotMatch(line, comment, 'a Python string line starts with #');
+    if ((line.match(/"""/gu) ?? []).length % 2 === 1) inString = !inString;
+  }
+  for (const compose of [webSources.compose, apiSources.compose])
+    assert.doesNotMatch(compose, /:\s*[|>][-+0-9]*\s*$/mu, 'no YAML block scalar');
 });

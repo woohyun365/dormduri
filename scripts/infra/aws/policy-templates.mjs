@@ -1,24 +1,46 @@
-// Web 단계 CD의 AWS 정책 원본(infra/aws/iam/*.json, infra/aws/ecr/lifecycle-policy.json) 계약. 각 함수는 어긋난 점의
-// 목록을 돌려준다(빈 목록 = 통과). 기준: OIDC trust는 aud와 정확한 sub를 StringEquals로만 받는다, publish는 두
-// repository push만, deploy는 tag 붙은 managed node와 custom document 하나에만 SendCommand(document 갱신 권한 없음)와
-// provenance 검증용 두 repository manifest 읽기,
-// host role은 두 repository pull만, 식별자는 placeholder(docs/deploy/README.md 식별자 규칙).
+// User host CD의 AWS 정책 원본(infra/aws/iam/*.json, infra/aws/ecr/lifecycle-policy.json) 계약. 각 함수는 어긋난 점의
+// 목록을 돌려준다(빈 목록 = 통과). 기준: OIDC trust는 aud와 정확한 sub를 StringEquals로만 받는다. role은 workflow마다
+// 나뉜다: web-cd(`publish-role.*`·`deploy-role.*`, web·ingress 두 repository와 `dormduri-web-deploy`)와 api-cd
+// (`api-publish-role.*`·`api-deploy-role.*`, api·api-migrate·observability-config 세 repository와 `dormduri-api-deploy`,
+// D-AB12). publish는 자기 repository push만, deploy는 tag 붙은 managed node와 자기 document 하나에만 SendCommand(document
+// 갱신 권한 없음)와 provenance 검증용 manifest 읽기. host role은 다섯 repository pull과 user host 묶음 secret 셋의
+// GetSecretValue만(D-AB7, 이름 뒤 Secrets Manager suffix 6자만 wildcard). 식별자는 placeholder(docs/deploy/README.md 식별자 규칙).
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 export const REGION = 'ap-northeast-2';
 export const REPOSITORIES = Object.freeze(['dormduri/web', 'dormduri/ingress']);
 export const DEPLOY_DOCUMENT = 'dormduri-web-deploy';
+export const API_REPOSITORIES = Object.freeze([
+  'dormduri/api',
+  'dormduri/api-migrate',
+  'dormduri/observability-config',
+]);
+export const API_DEPLOY_DOCUMENT = 'dormduri-api-deploy';
+export const HOST_SECRETS = Object.freeze([
+  '/dormduri/production/api/runtime',
+  '/dormduri/production/api/migration',
+  '/dormduri/production/observability',
+]);
 export const PLACEHOLDERS = Object.freeze([
   '<ACCOUNT_ID>',
   '<GITHUB_OWNER_ID>',
   '<GITHUB_REPO_ID>',
 ]);
 const OIDC_PROVIDER = 'token.actions.githubusercontent.com';
-const WORKFLOW_REF = 'woohyun365/dormduri/.github/workflows/web-cd.yml@refs/heads/main';
+const workflowRef = (workflow) =>
+  `woohyun365/dormduri/.github/workflows/${workflow}@refs/heads/main`;
 export const OIDC_CONTEXTS = Object.freeze({
   publish: 'ref:refs/heads/main',
   deploy: 'environment:production',
+  'api-publish': 'ref:refs/heads/main',
+  'api-deploy': 'environment:production-api',
+});
+const OIDC_WORKFLOWS = Object.freeze({
+  publish: 'web-cd.yml',
+  deploy: 'web-cd.yml',
+  'api-publish': 'api-cd.yml',
+  'api-deploy': 'api-cd.yml',
 });
 export const PUBLISH_ACTIONS = Object.freeze([
   'ecr:BatchCheckLayerAvailability',
@@ -29,17 +51,17 @@ export const PUBLISH_ACTIONS = Object.freeze([
   'ecr:UploadLayerPart',
 ]);
 
-const repositoryArns = REPOSITORIES.map(
-  (name) => `arn:aws:ecr:${REGION}:<ACCOUNT_ID>:repository/${name}`,
-).sort();
-const documentArn = `arn:aws:ssm:${REGION}:<ACCOUNT_ID>:document/${DEPLOY_DOCUMENT}`;
+const repositoryArnsOf = (names) =>
+  names.map((name) => `arn:aws:ecr:${REGION}:<ACCOUNT_ID>:repository/${name}`).sort();
+const documentArnOf = (name) => `arn:aws:ssm:${REGION}:<ACCOUNT_ID>:document/${name}`;
+const nodeArn = `arn:aws:ssm:${REGION}:<ACCOUNT_ID>:managed-instance/*`;
 
 const asList = (value) => (Array.isArray(value) ? value : value === undefined ? [] : [value]);
 const sameSet = (left, right) =>
   JSON.stringify([...asList(left)].sort()) === JSON.stringify([...asList(right)].sort());
 
 export function expectedSubject(role) {
-  return `repo:woohyun365@<GITHUB_OWNER_ID>/dormduri@<GITHUB_REPO_ID>:${OIDC_CONTEXTS[role]}:job_workflow_ref:${WORKFLOW_REF}`;
+  return `repo:woohyun365@<GITHUB_OWNER_ID>/dormduri@<GITHUB_REPO_ID>:${OIDC_CONTEXTS[role]}:job_workflow_ref:${workflowRef(OIDC_WORKFLOWS[role])}`;
 }
 
 // 파일 원문에 실제 식별자처럼 보이는 값이 없고 placeholder만 쓰는지 본다.
@@ -74,7 +96,9 @@ export function oidcTrustProblems(role, policy) {
     problems.push(`${role} trust: aud is not sts.amazonaws.com`);
   const subject = equals[`${OIDC_PROVIDER}:sub`];
   if (subject !== expectedSubject(role))
-    problems.push(`${role} trust: sub is not the exact ${OIDC_CONTEXTS[role]} web-cd.yml subject`);
+    problems.push(
+      `${role} trust: sub is not the exact ${OIDC_CONTEXTS[role]} ${OIDC_WORKFLOWS[role]} subject`,
+    );
   if (/[*?]/u.test(String(subject))) problems.push(`${role} trust: sub contains a wildcard`);
   return problems;
 }
@@ -115,40 +139,46 @@ function allowedStatements(name, policy, allowed) {
 }
 
 const anyResource = (resources, condition) => sameSet(resources, ['*']) && !condition;
-const twoRepositories = (resources, condition) => sameSet(resources, repositoryArns) && !condition;
+const exactly = (expected) => (resources, condition) => sameSet(resources, expected) && !condition;
 
-export function publishPermissionProblems(policy) {
-  return allowedStatements('publish permissions', policy, {
+export function publishPermissionProblems(
+  policy,
+  { name = 'publish permissions', repositories = REPOSITORIES } = {},
+) {
+  const repositoryRule = exactly(repositoryArnsOf(repositories));
+  return allowedStatements(name, policy, {
     'ecr:GetAuthorizationToken': anyResource,
-    ...Object.fromEntries(PUBLISH_ACTIONS.map((action) => [action, twoRepositories])),
+    ...Object.fromEntries(PUBLISH_ACTIONS.map((action) => [action, repositoryRule])),
   });
 }
 
-export function deployPermissionProblems(policy) {
+export function deployPermissionProblems(
+  policy,
+  { name = 'deploy permissions', repositories = REPOSITORIES, document = DEPLOY_DOCUMENT } = {},
+) {
   const problems = [];
+  const documentArn = documentArnOf(document);
+  const repositoryRule = exactly(repositoryArnsOf(repositories));
   const sendResources = asList(policy.Statement)
     .filter((statement) => asList(statement.Action).includes('ssm:SendCommand'))
     .flatMap((statement) => asList(statement.Resource));
-  if (
-    !sameSet(sendResources, [`arn:aws:ssm:${REGION}:<ACCOUNT_ID>:managed-instance/*`, documentArn])
-  )
+  if (!sameSet(sendResources, [nodeArn, documentArn]))
     problems.push(
-      'deploy permissions: ssm:SendCommand reaches more than the tagged node and the deploy document',
+      `${name}: ssm:SendCommand reaches more than the tagged node and the deploy document`,
     );
   problems.push(
-    ...allowedStatements('deploy permissions', policy, {
+    ...allowedStatements(name, policy, {
       'ssm:SendCommand': (resources, condition) =>
         (sameSet(resources, [documentArn]) && !condition) ||
-        (sameSet(resources, [`arn:aws:ssm:${REGION}:<ACCOUNT_ID>:managed-instance/*`]) &&
+        (sameSet(resources, [nodeArn]) &&
           sameSet(Object.keys(condition ?? {}), ['StringEquals']) &&
           condition.StringEquals['ssm:resourceTag/dormduri-deploy-target'] === 'user-app'),
-      'ssm:DescribeDocument': (resources, condition) =>
-        sameSet(resources, [documentArn]) && !condition,
+      'ssm:DescribeDocument': exactly([documentArn]),
       'ssm:ListCommands': anyResource,
-      'ecr:DescribeImages': twoRepositories,
-      // gh attestation verify reads the image manifest from the registry (D-WB3, D-WB4 allows read of both repositories).
+      'ecr:DescribeImages': repositoryRule,
+      // gh attestation verify reads the image manifest from the registry (D-WB3, D-WB4 allows read of the role's repositories).
       'ecr:GetAuthorizationToken': anyResource,
-      'ecr:BatchGetImage': twoRepositories,
+      'ecr:BatchGetImage': repositoryRule,
     }),
   );
   return problems;
@@ -168,11 +198,28 @@ export function hostTrustProblems(policy) {
 }
 
 export function hostPermissionProblems(policy) {
+  const repositoryRule = exactly(repositoryArnsOf([...REPOSITORIES, ...API_REPOSITORIES]));
   return allowedStatements('host permissions', policy, {
     'ecr:GetAuthorizationToken': anyResource,
-    'ecr:BatchGetImage': twoRepositories,
-    'ecr:GetDownloadUrlForLayer': twoRepositories,
+    'ecr:BatchGetImage': repositoryRule,
+    'ecr:GetDownloadUrlForLayer': repositoryRule,
   });
+}
+
+// host role은 user host 묶음 secret 셋만 읽는다. Secrets Manager가 이름 뒤에 붙이는 `-` + 6자 suffix만 `?`로 받는다
+// (`*`이면 같은 접두의 다른 secret, RDS 관리 master secret까지 닿을 수 있다).
+export function hostSecretProblems(policy) {
+  const expected = HOST_SECRETS.map(
+    (name) => `arn:aws:secretsmanager:${REGION}:<ACCOUNT_ID>:secret:${name}-??????`,
+  );
+  const problems = allowedStatements('host secrets', policy, {
+    'secretsmanager:GetSecretValue': exactly(expected),
+  });
+  for (const resource of asList(policy.Statement).flatMap((statement) =>
+    asList(statement.Resource),
+  ))
+    if (resource.includes('*')) problems.push(`host secrets: ${resource} has a * wildcard`);
+  return problems;
 }
 
 export function lifecycleProblems(policy) {
@@ -218,10 +265,15 @@ export function readPolicyTemplates(repoRoot) {
 export function checkPolicyTemplates(files) {
   const json = (path) => JSON.parse(files[`infra/aws/${path}`]);
   const expected = [
+    'iam/api-deploy-role.permissions.json',
+    'iam/api-deploy-role.trust.json',
+    'iam/api-publish-role.permissions.json',
+    'iam/api-publish-role.trust.json',
     'iam/deploy-role.permissions.json',
     'iam/deploy-role.trust.json',
     'iam/github-oidc-sub-template.json',
     'iam/host-role.ecr-pull.json',
+    'iam/host-role.secrets-read.json',
     'iam/host-role.trust.json',
     'iam/publish-role.permissions.json',
     'iam/publish-role.trust.json',
@@ -237,8 +289,20 @@ export function checkPolicyTemplates(files) {
     ...subjectTemplateProblems(json('iam/github-oidc-sub-template.json')),
     ...publishPermissionProblems(json('iam/publish-role.permissions.json')),
     ...deployPermissionProblems(json('iam/deploy-role.permissions.json')),
+    ...oidcTrustProblems('api-publish', json('iam/api-publish-role.trust.json')),
+    ...oidcTrustProblems('api-deploy', json('iam/api-deploy-role.trust.json')),
+    ...publishPermissionProblems(json('iam/api-publish-role.permissions.json'), {
+      name: 'api publish permissions',
+      repositories: API_REPOSITORIES,
+    }),
+    ...deployPermissionProblems(json('iam/api-deploy-role.permissions.json'), {
+      name: 'api deploy permissions',
+      repositories: API_REPOSITORIES,
+      document: API_DEPLOY_DOCUMENT,
+    }),
     ...hostTrustProblems(json('iam/host-role.trust.json')),
     ...hostPermissionProblems(json('iam/host-role.ecr-pull.json')),
+    ...hostSecretProblems(json('iam/host-role.secrets-read.json')),
     ...lifecycleProblems(json('ecr/lifecycle-policy.json')),
   ];
 }

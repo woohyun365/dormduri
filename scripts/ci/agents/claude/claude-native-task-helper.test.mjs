@@ -34,6 +34,8 @@ import {
   settleClaudeNativeTask,
 } from '../../../agents/claude/native-task-helper.mjs';
 import { validateAdapterReview, validateCrossModelPacket } from '../../../agents/common/index.mjs';
+// New exports are read through the namespace, so a missing one fails its own test and not the file.
+import * as helperModule from '../../../agents/claude/native-task-helper.mjs';
 
 const cliPath = resolve(import.meta.dirname, '../../../agents/claude/native-session.mjs');
 const PACKET_KEYS = [
@@ -202,7 +204,13 @@ test('prepare names spec problems before registration and keeps policy reasons c
       }),
       /unsafe-reference:nativeRequest\.task\.facts\[0\]\.sourceRef/,
     ],
-    [explorerSpec(r, { request: 'sample.txt 보안 정책 영향을 분석해줘.' }), /risk-downgrade/],
+    [
+      explorerSpec(r, {
+        request: 'sample.txt 보안 설정을 수정해줘.',
+        writeScope: ['sample.txt'],
+      }),
+      /profile: (?=.*read-only)(?=.*risk-downgrade)/,
+    ],
     [
       explorerSpec(r, { facts: [{ key: 'source-bound', sourceRef: 'plan:helper-test' }] }),
       /fact-confidence-not-high:source-bound/,
@@ -211,6 +219,12 @@ test('prepare names spec problems before registration and keeps policy reasons c
     [explorerSpec(r, { writeScope: null }), /writeScope-array-required/],
   ])
     assert.throws(() => prepareClaudeNativeTask(spec, { root: r.root }), reason);
+  // The same request on the read-only extraction registers and records its risk (D-KRR-1·2).
+  const read = prepareClaudeNativeTask(
+    explorerSpec(r, { request: 'sample.txt 보안 정책 영향을 분석해줘.' }),
+    { root: r.root },
+  );
+  assert.deepEqual(read.requestRisk, { intake: 'high', declared: 'low', belowIntake: true });
 });
 
 // The retired knu-delegate build template: an executor writing its own scope.
@@ -468,6 +482,7 @@ test('a read-only subject is reviewed from its bound response, its read scope an
     responsePath,
     'sample.txt',
     '.artifacts/plans/helper-test/runner.log',
+    review.runnerFile.path,
   ]);
   assert.deepEqual(review.reviewerSpec.readScope, review.packet.boundaries.allowedReadPaths);
   assert.equal(readFileSync(join(r.root, responsePath), 'utf8'), claim);
@@ -1387,16 +1402,23 @@ test('the native subject reviewer prompt keeps its fixed lines and gets no packe
   const review = reviewOf(r);
   const lines = review.reviewerPrompt.split('\n');
   assert.equal(lines[0], review.logHeader);
-  assert.ok(lines.at(-1).startsWith('Result template: '));
+  assert.ok(lines.at(-2).startsWith('Result template: '));
+  assert.equal(
+    lines.at(-1),
+    `KNU_REVIEW_RUNNER_FILE:${review.runnerFile.path} ${review.runnerFile.digest}`,
+  );
   // Beside the earlier fixed lines a review without context inputs adds only the unstated-behavior and same-type
-  // lines and the two context lines (none, no change-grade record).
-  assert.deepEqual(lines.slice(1, -1), [
+  // lines and the two context lines (none, no change-grade record). The runner records are listed by command, exit
+  // and observed result; the rest of each record is in the runner file.
+  assert.deepEqual(lines.slice(1, -2), [
     'Independent read-only review of one frozen subject (same host, fresh context).',
     '- Read only packet.boundaries.allowedReadPaths at this snapshot. Do not edit, run commands or delegate.',
     G6_LINE,
     '- Judge the source against each acceptanceCoverage criterion; no builder reasoning is provided or needed.',
     UNSTATED_LINE,
-    '- commandsActuallyRun holds the runner records. Keep them exactly; never add or claim a command yourself.',
+    '- commandsActuallyRun: copy that array from the KNU_REVIEW_RUNNER_FILE file exactly; never add or claim a command yourself.',
+    '- Runner records (command, exit, observed result; the file has their environment and output paths):',
+    '  1. [exit 0] node --test scripts/ci/sample.test.mjs — 3/3 pass',
     '- notRun lists only required checks nobody ran; knownGaps lists unresolved gaps blocking acceptance.',
     '  Either one, a coverage gap or a critical/high/medium finding forbids PASS.',
     '- Replace each coverage placeholder with sourceRefs and evidenceRefs (gap null), or keep a concrete gap.',
@@ -1618,6 +1640,8 @@ test('registration refuses a Parent reviewer whose prompt lost the packet file l
 // registry refuses a knu_reviewer whose prompt is not that recorded prompt, through prepare and
 // register --input alike, on a native and a Parent subject.
 const reviewIdOf = (review) => review.packet.packetId.slice('review-'.length);
+// Where a review keeps the copies of its ignored inputs.
+const copyDirOf = (review) => `${PACKET_DIR}/${reviewIdOf(review)}.inputs`;
 const promptRecordBytes = (reviewId, prompt) =>
   `${JSON.stringify({ schema: 'claude-review-prompt/v1', reviewId, promptDigest: sha256(Buffer.from(prompt)) })}\n`;
 const oneCharChanged = (spec) => ({
@@ -1641,7 +1665,11 @@ test('review records each reviewer prompt digest beside its packet as ignored he
     assert.ok(review.promptFile, `${kind}: review returns promptFile`);
     assert.equal(review.promptFile.path, `${PACKET_DIR}/${id}.prompt.json`, kind);
     const bytes = readFileSync(join(r.root, review.promptFile.path));
-    assert.equal(bytes.toString('utf8'), promptRecordBytes(id, review.reviewerPrompt), kind);
+    // The record binds the prompt and the runner file and keeps the role choice.
+    const { runner, reviewerRole, ...bound } = JSON.parse(bytes);
+    assert.deepEqual(bound, JSON.parse(promptRecordBytes(id, review.reviewerPrompt)), kind);
+    assert.deepEqual(runner, review.runnerFile, kind);
+    assert.deepEqual(reviewerRole, review.reviewerRole, kind);
     assert.equal(review.promptFile.digest, sha256(bytes), kind);
     assert.equal(statSync(join(r.root, review.promptFile.path)).mode & 0o777, 0o600, kind);
     assert.ok(!review.reviewerSpec.readScope.includes(review.promptFile.path), kind);
@@ -1731,7 +1759,11 @@ test('a Parent subject path into local state is refused before any review file i
   ])
     assert.throws(
       () => parentReview(r, { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', path] }),
-      (error) => error.message.includes(`local-state-path:${path}`),
+      // A home-relative or absolute path is not repository-relative, which is its own reason.
+      (error) =>
+        error.message.includes(
+          `${/^[~/]/u.test(path) ? 'path-not-repository-relative' : 'local-state-path'}:${path}`,
+        ),
       path,
     );
   assert.deepEqual(reviewFiles(r), []);
@@ -1972,11 +2004,14 @@ function roundReview(r, options) {
       selectionBasisRef: 'plan:helper-test/round-review',
       reviewerModel: 'claude-opus-4-6',
       sessionId: r.sessionId,
+      // review-run gives a later Parent round its scope; these tests give the full one directly.
+      ...(options.reviewRound > 1 ? { deltaScope: FULL_SCOPE } : {}),
       ...options,
     },
     { root: r.root },
   );
 }
+const FULL_SCOPE = { mode: 'full', reason: 'scope given by the test' };
 
 test('a review names its round; a later round needs the previous result and round 1 refuses one', (t) => {
   const r = repo(t);
@@ -2027,11 +2062,14 @@ test('a review names its round; a later round needs the previous result and roun
     );
   writePreviousResult(r);
   const second = roundReview(r, { reviewRound: 2, previousResult: previous });
-  assert.ok(second.reviewerSpec.readScope.includes(previous));
-  assert.ok(second.packet.boundaries.allowedReadPaths.includes(previous));
+  // The previous result is an ignored input: the reviewer reads its copy.
+  const copies = copyDirOf(second);
+  assert.ok(second.reviewerSpec.readScope.includes(copies));
+  assert.ok(second.packet.boundaries.allowedReadPaths.includes(copies));
   const digest = sha256(readFileSync(join(r.root, previous)));
+  assert.equal(sha256(readFileSync(join(r.root, copies, previous))), digest);
   assert.ok(
-    second.reviewerPrompt.includes(`${previous} ${digest}`),
+    second.reviewerPrompt.includes(`${copies}/${previous} ${digest}`),
     'the prompt binds the previous result',
   );
   prepareClaudeNativeTask(second.reviewerSpec, { root: r.root });
@@ -2139,11 +2177,14 @@ test('CLI review takes the round, previous result and criteria inputs', (t) => {
     '--criteria',
     'documents',
   );
-  assert.equal(ok.status, 0, ok.stderr);
-  const review = JSON.parse(ok.stdout);
-  assert.ok(review.reviewerSpec.readScope.includes(previous));
+  // A later round of a Parent subject is built by review-run; review alone reads the inputs and refuses.
+  assert.equal(ok.status, 1, ok.stdout);
+  assert.match(ok.stderr, /delta-scope-required: .*review-run/u);
+  const first = run(...base, '--round', '1', '--criteria', 'documents');
+  assert.equal(first.status, 0, first.stderr);
+  const review = JSON.parse(first.stdout);
   assert.ok(review.packet.sources.owners.includes(`${CRITERIA_DIR}/documents.md`));
-  assert.match(review.reviewerPrompt, /Review round 2:/u);
+  assert.match(review.reviewerPrompt, /Review round 1:/u);
 });
 
 // Without --criteria, review picks the criteria documents from the subject paths through the
@@ -2524,7 +2565,7 @@ test('a binding extract changed after the review, or a lost record, fails settle
 test('a review whose paths take no binding row keeps the prompt it has without binding sections', (t) => {
   const subject = { ...SMALL_PARENT_SUBJECT, paths: ['docs/product/intent.md'] };
   const identity =
-    /^(?:KNU review snapshot |KNU_REVIEW_PACKET_FILE:|KNU_REVIEW_INPUTS_FILE:|Result template: )/u;
+    /^(?:KNU review snapshot |KNU_REVIEW_PACKET_FILE:|KNU_REVIEW_RUNNER_FILE:|KNU_REVIEW_INPUTS_FILE:|Result template: )/u;
   const built = [contextRepo(t), contextRepo(t, { conventions: true })].map((r) => {
     const review = parentReview(r, subject);
     return {
@@ -2541,7 +2582,13 @@ test('a review whose paths take no binding row keeps the prompt it has without b
     };
   });
   assert.deepEqual(built[1], built[0]);
-  assert.deepEqual(built[0].promptKeys, ['schema', 'reviewId', 'promptDigest']);
+  assert.deepEqual(built[0].promptKeys, [
+    'schema',
+    'reviewId',
+    'promptDigest',
+    'runner',
+    'reviewerRole',
+  ]);
   assert.deepEqual(built[0].files, []);
   assert.ok(built[0].lines.includes(NO_GRADE_LINE));
 });
@@ -2867,9 +2914,11 @@ test('a first-round composition builds one frozen review per member with a share
   const [first, second] = built.reviewers;
   assert.notEqual(first.packet.packetId, second.packet.packetId);
   assert.notEqual(first.packet.lifecycle.dispatchId, second.packet.lifecycle.dispatchId);
-  // Each member reads its own packet file; every other read path is the same.
+  // Each member reads its own packet and runner file; every other read path is the same.
   const others = (member) =>
-    member.reviewerSpec.readScope.filter((path) => path !== member.packetFile.path);
+    member.reviewerSpec.readScope.filter(
+      (path) => path !== member.packetFile.path && path !== member.runnerFile.path,
+    );
   assert.deepEqual(others(first), others(second));
   assert.equal(packetFiles(r).length, 2);
   for (const member of built.reviewers)
@@ -2960,7 +3009,11 @@ test('a native subject composition gives each member its own reviewer id and the
     { root: r.root },
   );
   const [first, second] = built.reviewers;
-  assert.deepEqual(first.reviewerSpec.readScope, second.reviewerSpec.readScope);
+  // Each member has its own runner file; the rest of the read paths is shared.
+  const shared = (member) =>
+    member.reviewerSpec.readScope.filter((path) => path !== member.runnerFile.path);
+  assert.deepEqual(shared(first), shared(second));
+  assert.ok(first.reviewerSpec.readScope.includes(first.runnerFile.path));
   assert.equal(first.packetFile, undefined);
   assert.deepEqual(
     built.reviewers.map((member) => member.reviewerSpec.independentReview.reviewerId),
@@ -3027,10 +3080,15 @@ test('round 2 takes an adjudication record and binds every result it names', (t)
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
   const { path, reviews } = writeGroupRecord(r);
   const second = roundReview(r, { reviewRound: 2, previousResult: path });
+  // The record and the results are ignored inputs: the reviewer reads their copies.
+  const copies = copyDirOf(second);
+  assert.ok(second.reviewerSpec.readScope.includes(copies));
   for (const input of [path, ...reviews.map((review) => review.resultPath)]) {
-    assert.ok(second.reviewerSpec.readScope.includes(input), input);
+    assert.ok(existsSync(join(r.root, copies, input)), input);
     assert.ok(
-      second.reviewerPrompt.includes(`${input} ${sha256(readFileSync(join(r.root, input)))}`),
+      second.reviewerPrompt.includes(
+        `${copies}/${input} ${sha256(readFileSync(join(r.root, input)))}`,
+      ),
       input,
     );
   }
@@ -3130,8 +3188,40 @@ function ignoredInputReview(t) {
   const review = parentReview(r, { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', INPUT_DIR] });
   return { r, review };
 }
-// Dispatches a prepared reviewer, runs `during` while it works, then records its PASS result.
-function reviewedWhile(r, review, during = () => {}) {
+// Adds tool calls ([name, input]) to a child transcript as the reviewer's own.
+function useRows(r, agentId, uses) {
+  const child = join(
+    r.root,
+    '.artifacts/transcripts',
+    r.sessionId,
+    'subagents',
+    `agent-${agentId}.jsonl`,
+  );
+  const row = (type, message, extra = {}) =>
+    JSON.stringify({ type, sessionId: r.sessionId, agentId, ...extra, message });
+  writeFileSync(
+    child,
+    readFileSync(child, 'utf8') +
+      uses
+        .map(
+          ([name, input], index) =>
+            `${row(
+              'assistant',
+              {
+                model: 'claude-opus-4-6',
+                content: [{ type: 'tool_use', id: `toolu_use_${index}`, name, input }],
+              },
+              { effort: ROLE_EFFORT.knu_reviewer },
+            )}\n${row('user', {
+              content: [{ type: 'tool_result', tool_use_id: `toolu_use_${index}`, content: '' }],
+            })}\n`,
+        )
+        .join(''),
+  );
+}
+// Dispatches a prepared reviewer, runs `during` while it works, then records its PASS result. `reads`
+// are files the reviewer is seen reading and `uses` any other tool calls of its transcript.
+function reviewedWhile(r, review, during = () => {}, reads = [], uses = []) {
   const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
   const event = {
     hook_event_name: 'PreToolUse',
@@ -3167,25 +3257,35 @@ function reviewedWhile(r, review, during = () => {}) {
     { root: r.root },
   );
   readRows(r, 'review-1-agent', review.packetFile.path);
+  for (const path of reads) readRows(r, 'review-1-agent', path);
+  if (uses.length) useRows(r, 'review-1-agent', uses);
   return settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
 }
 
-test('an ignored review input changed after the review was built is refused at registration', (t) => {
+test('an input copy changed after the review was built is refused at registration', (t) => {
   const { r, review } = ignoredInputReview(t);
-  writeFileSync(join(r.root, INPUT_FILE), 'rev 2\n');
+  const copy = `${copyDirOf(review)}/${INPUT_FILE}`;
+  writeFileSync(join(r.root, copy), 'rev 2\n');
   assert.throws(
     () => prepareClaudeNativeTask(review.reviewerSpec, { root: r.root }),
-    /review-input-stale: \.artifacts\/plans\/helper-test\/inputs\/plan\.md/u,
+    new RegExp(`review-input-stale: ${copy.replaceAll('.', '\\.')}`, 'u'),
   );
 });
 
-test('an ignored file inside a review read directory changed during the review fails settle', (t) => {
-  const { r, review } = ignoredInputReview(t);
-  const status = reviewedWhile(r, review, () => writeFileSync(join(r.root, INPUT_FILE), 'rev 2\n'));
-  assert.ok(
-    status.observationErrors.includes(`review-input-changed:${INPUT_FILE}`),
-    status.observationErrors.join(','),
-  );
+test('a file added to or removed from the input copies during the review fails settle', (t) => {
+  for (const change of [
+    (root, copies) => writeFileSync(join(root, copies, 'extra.md'), 'not an input\n'),
+    (root, copies) => unlinkSync(join(root, copies, INPUT_FILE)),
+  ]) {
+    const { r, review } = ignoredInputReview(t);
+    const status = reviewedWhile(r, review, () => change(r.root, copyDirOf(review)));
+    assert.ok(
+      status.observationErrors.some((error) =>
+        error.startsWith(`review-input-changed:${copyDirOf(review)}/`),
+      ),
+      status.observationErrors.join(','),
+    );
+  }
 });
 
 const RUNNER_LOG = '.artifacts/plans/helper-test/runner.log';
@@ -3245,14 +3345,23 @@ test('a review binds the bounded ignored inputs in a manifest named on its last 
     review.inputsFile.digest,
     sha256(readFileSync(join(r.root, review.inputsFile.path))),
   );
-  // Ignored files under an ignored read path and in record locations, plus the runner output. Not
-  // the packet file, package output, tracked or untracked files (the snapshot binds those).
-  assert.deepEqual(Object.keys(manifestOf(r, review).files), [
-    `${INPUT_DIR}/link`,
-    INPUT_FILE,
-    RUNNER_LOG,
-    PLAN_FILE,
-  ]);
+  // Ignored files under an ignored read path, plus the runner output, are copied and the manifest
+  // lists each copy with its original. An ignored file in a record location under a read path that
+  // is not ignored itself stays reachable, so it is bound as it is. Not the packet file, package
+  // output, tracked or untracked files (the snapshot binds those).
+  const manifest = manifestOf(r, review);
+  assert.equal(manifest.schema, 'claude-review-inputs/v2');
+  assert.deepEqual(Object.keys(manifest.files), [PLAN_FILE]);
+  assert.deepEqual(
+    Object.entries(manifest.copies).map(([copy, { original }]) => [copy, original]),
+    [`${INPUT_DIR}/link`, INPUT_FILE, RUNNER_LOG].map((original) => [
+      `${copyDirOf(review)}/${original}`,
+      original,
+    ]),
+  );
+  assert.ok(!review.reviewerSpec.readScope.includes(INPUT_DIR));
+  assert.ok(!review.reviewerSpec.readScope.includes(RUNNER_LOG));
+  assert.ok(review.reviewerSpec.readScope.includes(PLANS));
   // The package directory is a normal read path: the review registers and settles cleanly.
   assert.deepEqual(reviewedWhile(r, review).observationErrors, []);
   // A review without ignored inputs has no manifest and no line.
@@ -3261,25 +3370,42 @@ test('a review binds the bounded ignored inputs in a manifest named on its last 
   assert.equal(inputsLine(plain.reviewerPrompt), undefined);
 });
 
-test('a changed, added, deleted or relinked ignored input fails the reviewer settlement', (t) => {
-  for (const [change, path] of [
-    [(root) => writeFileSync(join(root, INPUT_FILE), 'rev 2\n'), INPUT_FILE],
-    [(root) => writeFileSync(join(root, INPUT_DIR, 'new.md'), 'new\n'), `${INPUT_DIR}/new.md`],
-    [(root) => unlinkSync(join(root, INPUT_FILE)), INPUT_FILE],
+test('a changed, added, deleted or relinked input copy fails the reviewer settlement', (t) => {
+  // The same change to an original is recorded and refuses nothing; to its copy, or to an input that
+  // stays reachable through a read path, it fails the settlement.
+  for (const [change, path, recorded] of [
+    [(root) => writeFileSync(join(root, INPUT_FILE), 'rev 2\n'), INPUT_FILE, [INPUT_FILE]],
+    [(root) => writeFileSync(join(root, INPUT_DIR, 'new.md'), 'new\n'), `${INPUT_DIR}/new.md`, []],
+    [(root) => unlinkSync(join(root, INPUT_FILE)), INPUT_FILE, [INPUT_FILE]],
     [
       (root) => {
         unlinkSync(join(root, INPUT_DIR, 'link'));
         symlinkSync('new.md', join(root, INPUT_DIR, 'link'));
       },
       `${INPUT_DIR}/link`,
+      [`${INPUT_DIR}/link`],
     ],
-    [(root) => writeFileSync(join(root, PLAN_FILE), 'plan 2\n'), PLAN_FILE],
   ]) {
     const r = inputRepo(t);
-    const status = reviewedWhile(r, inputReview(r), () => change(r.root));
+    const original = reviewedWhile(r, inputReview(r), () => change(r.root));
+    assert.deepEqual(original.observationErrors, [], path);
+    assert.deepEqual(original.reviewInputOriginalsChanged, recorded, path);
+    const s = inputRepo(t);
+    const review = inputReview(s);
+    const copied = reviewedWhile(s, review, () => change(join(s.root, copyDirOf(review))));
     assert.ok(
-      status.observationErrors.includes(`review-input-changed:${path}`),
-      `${path}: ${status.observationErrors.join(',')}`,
+      copied.observationErrors.includes(`review-input-changed:${copyDirOf(review)}/${path}`),
+      `${path}: ${copied.observationErrors.join(',')}`,
+    );
+  }
+  {
+    const r = inputRepo(t);
+    const status = reviewedWhile(r, inputReview(r), () =>
+      writeFileSync(join(r.root, PLAN_FILE), 'plan 2\n'),
+    );
+    assert.ok(
+      status.observationErrors.includes(`review-input-changed:${PLAN_FILE}`),
+      status.observationErrors.join(','),
     );
   }
   // Package output under a read path is not bound, so its change is not a review input change.
@@ -3313,19 +3439,24 @@ test('a missing, misplaced, unreadable or other manifest is refused at registrat
   writeFileSync(join(r.root, other), fewer);
   assert.throws(
     prepare(withLine(`KNU_REVIEW_INPUTS_FILE:${other} ${sha256(fewer)}`)),
-    /review-input-stale: \.artifacts\/plans\/helper-test\/inputs\/link/u,
+    /review-input-stale: \.plans\/p\.md/u,
   );
   writeFileSync(join(r.root, review.inputsFile.path), 'not json\n');
   assert.throws(prepare(spec), /review-input-manifest-invalid/u);
 });
 
-test('a runner output changed after the review is stale; a tampered manifest fails settle', (t) => {
+test('a runner output copy changed after the review is stale; a tampered manifest fails settle', (t) => {
   const r = inputRepo(t);
   const review = inputReview(r);
+  // The runner output itself may be written again: the reviewer reads the copy.
   writeFileSync(join(r.root, RUNNER_LOG), 'rerun\n');
+  writeFileSync(join(r.root, copyDirOf(review), RUNNER_LOG), 'rerun\n');
   assert.throws(
     () => prepareClaudeNativeTask(review.reviewerSpec, { root: r.root }),
-    /review-input-stale: \.artifacts\/plans\/helper-test\/runner\.log/u,
+    new RegExp(
+      `review-input-stale: ${`${copyDirOf(review)}/${RUNNER_LOG}`.replaceAll('.', '\\.')}`,
+      'u',
+    ),
   );
   const s = inputRepo(t);
   const tampered = inputReview(s);
@@ -3388,10 +3519,14 @@ test('a native subject review binds its runner outputs and never its response', 
   writeFileSync(join(r.root, RUNNER_LOG), 'runner output\n');
   const review = reviewOf(r);
   assert.ok(review.reviewerSpec.readScope.includes(responsePathOf(r.subject.taskId)));
-  assert.deepEqual(Object.keys(manifestOf(r, review).files), [RUNNER_LOG]);
+  assert.deepEqual(Object.keys(manifestOf(r, review).files), []);
+  assert.deepEqual(
+    Object.values(manifestOf(r, review).copies).map(({ original }) => original),
+    [RUNNER_LOG],
+  );
 });
 
-test('an ignored input changed after the reviewer settled blocks builder completion', (t) => {
+test('an input copy changed after the reviewer settled blocks builder completion', (t) => {
   const r = settledSubject(t);
   mkdirSync(join(r.root, RUNNER_LOG, '..'), { recursive: true });
   writeFileSync(join(r.root, RUNNER_LOG), 'runner output\n');
@@ -3404,7 +3539,10 @@ test('an ignored input changed after the reviewer settled blocks builder complet
     { root: r.root },
   );
   assert.equal(reviewed.valid, true, reviewed.errors.join('; '));
+  // The runner output itself may change; the copy the reviewer read may not.
   writeFileSync(join(r.root, RUNNER_LOG), 'rerun\n');
+  const copy = `${copyDirOf(review)}/${RUNNER_LOG}`;
+  writeFileSync(join(r.root, copy), 'rerun\n');
   const settled = settleClaudeNativeTask(
     r.subject.taskId,
     judgment(r.subject, 'sample.txt analyzed', { reviewerTaskId: reviewer.taskId }),
@@ -3412,7 +3550,7 @@ test('an ignored input changed after the reviewer settled blocks builder complet
   );
   assert.equal(settled.valid, false);
   assert.ok(
-    settled.errors.some((error) => error.includes(`review-input-changed:${RUNNER_LOG}`)),
+    settled.errors.some((error) => error.includes(`review-input-changed:${copy}`)),
     settled.errors.join('; '),
   );
 });
@@ -3422,13 +3560,14 @@ test('a round-2 review binds the adjudication record and every result it names',
   const { path, reviews } = writeGroupRecord(r);
   const review = roundReview(r, { reviewRound: 2, previousResult: path });
   assert.deepEqual(
-    Object.keys(manifestOf(r, review).files),
+    Object.values(manifestOf(r, review).copies).map(({ original }) => original),
     [path, ...reviews.map((entry) => entry.resultPath)].sort(),
   );
-  writeFileSync(join(r.root, reviews[1].resultPath), '{"verdict":"FAIL","findings":[]}');
+  const copy = `${copyDirOf(review)}/${reviews[1].resultPath}`;
+  writeFileSync(join(r.root, copy), '{"verdict":"FAIL","findings":[]}');
   assert.throws(
     () => prepareClaudeNativeTask(review.reviewerSpec, { root: r.root }),
-    new RegExp(`review-input-stale: ${reviews[1].resultPath.replaceAll('.', '\\.')}`, 'u'),
+    new RegExp(`review-input-stale: ${copy.replaceAll('.', '\\.')}`, 'u'),
   );
 });
 
@@ -3491,8 +3630,12 @@ function researchSpec(r, patch = {}) {
 }
 
 test('a researcher without a reviewer settles through the quote-check slot of its template (D-RET-4)', (t) => {
+  settlesThroughQuoteCheck(t);
+});
+
+function settlesThroughQuoteCheck(t, patch = {}) {
   const r = researchRepo(t);
-  const prepared = prepareClaudeNativeTask(researchSpec(r), { root: r.root });
+  const prepared = prepareClaudeNativeTask(researchSpec(r, patch), { root: r.root });
   dispatch(r, prepared, 'research-1', RESEARCH_TEXT);
   const status = settleClaudeNativeTask(prepared.taskId, undefined, { root: r.root });
   const template = templateIn(status);
@@ -3555,7 +3698,7 @@ test('a researcher without a reviewer settles through the quote-check slot of it
     [[RESEARCH_URL, RESEARCH_QUOTE]],
   );
   assert.deepEqual(settled.quoteCheck.excluded, []);
-});
+}
 
 test('a reviewer-paired researcher and an explorer keep their templates (D-RET-3)', (t) => {
   const r = researchRepo(t);
@@ -3579,7 +3722,7 @@ test('a reviewer-paired researcher and an explorer keep their templates (D-RET-3
   assert.deepEqual(Object.keys(plain).sort(), ['acceptance', 'checks', 'responseDigest']);
 });
 
-test('prepare registers a deploy-worded researcher read at bounded-standard medium (D-RET-8)', (t) => {
+test('prepare registers a deploy-worded researcher or explorer read below its request risk (D-KRR-1)', (t) => {
   const r = researchRepo(t);
   const deploy = (patch) =>
     researchSpec(r, {
@@ -3592,28 +3735,25 @@ test('prepare registers a deploy-worded researcher read at bounded-standard medi
   const prepared = prepareClaudeNativeTask(deploy(), { root: r.root });
   assert.equal(prepared.invocation.model, 'sonnet');
   assert.equal(prepared.registerInput.workflowInput.nativeRequest.task.impactRisk, 'medium');
-  assert.throws(
-    () => prepareClaudeNativeTask(deploy({ impactRisk: 'low' }), { root: r.root }),
-    /risk-downgrade/u,
-  );
+  const low = prepareClaudeNativeTask(deploy({ impactRisk: 'low' }), { root: r.root });
+  assert.equal(low.invocation.model, 'sonnet');
+  assert.deepEqual(low.requestRisk, { intake: 'high', declared: 'low', belowIntake: true });
   assert.throws(
     () => prepareClaudeNativeTask(deploy({ impactRisk: 'high' }), { root: r.root }),
     /impact-risk/u,
   );
-  assert.throws(
-    () =>
-      prepareClaudeNativeTask(
-        deploy({
-          role: 'knu_explorer',
-          reviewDisposition: {
-            required: true,
-            reason: 'a repository read requires independent QA',
-          },
-        }),
-        { root: r.root },
-      ),
-    /risk-downgrade/u,
+  const explorer = prepareClaudeNativeTask(
+    deploy({
+      role: 'knu_explorer',
+      reviewDisposition: {
+        required: true,
+        reason: 'a repository read requires independent QA',
+      },
+    }),
+    { root: r.root },
   );
+  assert.equal(explorer.invocation.subagent_type, 'knu_explorer');
+  assert.deepEqual(explorer.requestRisk, { intake: 'high', declared: 'medium', belowIntake: true });
 });
 
 // D-RET-6 (Owner 2026-11-02 1.2): "a changed response artifact is refused" failed once when one preflight
@@ -3670,4 +3810,1398 @@ test('a changed response file and a quote-check slot that is not a path are name
   const again = settleClaudeNativeTask(prepared.taskId, undefined, { root: r.root });
   assert.ok(again.observationErrors.includes('quote-check-response-changed'));
   assert.equal(readFileSync(first.quoteCheckResponsePath, 'utf8'), '{"content":[]}\n');
+});
+
+// KNU-RISK (D-KRR-1·2·3): a read delegation (an explorer or researcher extract or read task with no write scope)
+// registers on its declared risk when the request words rate higher, and prepare and the task record name both
+// risks. The model and the independent QA still follow the declared risk and the kind.
+const READ_FACTS = ['source-bound', 'bounded-scope', 'acceptance', 'oracle', 'independent-qa'];
+const DEPLOY_RESEARCH = '배포 대상 Node 공식 문서의 지원 기간 근거를 분석해줘.';
+const taskRecordOf = (prepared) =>
+  JSON.parse(readFileSync(join(prepared.evidenceDirectory, 'task.json'), 'utf8')).record;
+function recordsRequestRisk(prepared, requestRisk) {
+  assert.deepEqual(prepared.requestRisk, requestRisk, 'prepare result');
+  assert.deepEqual(taskRecordOf(prepared).requestRisk, requestRisk, 'task record');
+}
+const below = (intake) => ({ intake, declared: 'low', belowIntake: true });
+
+test('a deploy-worded xhigh extraction registers at low on Haiku and records the request risk (KNU-RISK RED 1 (가))', (t) => {
+  const r = repo(t);
+  const prepared = prepareClaudeNativeTask(
+    explorerSpec(r, { request: 'sample.txt 배포 설정 값을 조사해줘.' }),
+    { root: r.root },
+  );
+  assert.equal(prepared.registerInput.workflowInput.reviewDisposition.required, false);
+  assert.equal(prepared.invocation.model, 'haiku');
+  recordsRequestRisk(prepared, below('high'));
+});
+
+test('a tidy-worded explorer extraction registers at low on Sonnet and records the request risk (KNU-RISK RED 1 (나))', (t) => {
+  const r = repo(t);
+  const prepared = prepareClaudeNativeTask(
+    explorerSpec(r, {
+      request: 'sample.txt 값을 표로 정리해줘.',
+      role: 'knu_explorer',
+      profileId: 'bounded-standard',
+      expectedResolvedModel: 'claude-sonnet-5-5',
+    }),
+    { root: r.root },
+  );
+  assert.equal(prepared.registerInput.workflowInput.reviewDisposition.required, false);
+  assert.equal(prepared.invocation.model, 'sonnet');
+  recordsRequestRisk(prepared, below('medium'));
+});
+
+test('a deploy-worded researcher read registers at low on Sonnet and records the request risk (KNU-RISK RED 1 (다))', (t) => {
+  const r = researchRepo(t);
+  const prepared = prepareClaudeNativeTask(
+    researchSpec(r, { request: DEPLOY_RESEARCH, kind: 'read', facts: facts(READ_FACTS) }),
+    { root: r.root },
+  );
+  assert.equal(prepared.registerInput.workflowInput.reviewDisposition.required, false);
+  assert.equal(prepared.invocation.model, 'sonnet');
+  recordsRequestRisk(prepared, below('high'));
+});
+
+test('a read declared at its request risk records belowIntake false (KNU-RISK RED 1 (라))', (t) => {
+  const r = repo(t);
+  const prepared = prepareClaudeNativeTask(
+    { ...subjectSpec(r), request: 'sample.txt 변경 내용을 분석해줘.' },
+    { root: r.root },
+  );
+  assert.equal(prepared.registerInput.workflowInput.reviewDisposition.required, true);
+  recordsRequestRisk(prepared, { intake: 'medium', declared: 'medium', belowIntake: false });
+});
+
+// The plain read request rates low, so a medium declaration sits above it and is not recorded as below.
+test('a read declared above its request risk records belowIntake false (KNU-RISK D-KRR-2)', (t) => {
+  const r = repo(t);
+  const prepared = prepareClaudeNativeTask(subjectSpec(r), { root: r.root });
+  assert.equal(prepared.registerInput.workflowInput.reviewDisposition.required, true);
+  recordsRequestRisk(prepared, { intake: 'low', declared: 'medium', belowIntake: false });
+});
+
+test('a deploy-worded explorer read at low still needs independent QA (KNU-RISK RED 1 (바))', (t) => {
+  const r = repo(t);
+  assert.throws(
+    () =>
+      prepareClaudeNativeTask(
+        {
+          ...subjectSpec(r),
+          request: 'sample.txt 배포 설정 값을 분석해줘.',
+          impactRisk: 'low',
+          reviewDisposition: { required: false, reason: 'no reviewer asked for this read' },
+        },
+        { root: r.root },
+      ),
+    /independent QA required for this profile/u,
+  );
+});
+
+test('a deploy-worded researcher read at low settles only through the quote check (KNU-RISK RED 1 (사))', (t) => {
+  settlesThroughQuoteCheck(t, {
+    request: DEPLOY_RESEARCH,
+    kind: 'read',
+    facts: facts(READ_FACTS),
+  });
+});
+
+test('the Parent-subject reviewer spec keeps its request, role, profile, kind and risk (KNU-RISK 회귀 4)', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const review = parentReview(r, SMALL_PARENT_SUBJECT);
+  const { request, role, profileId, kind, impactRisk, complexity, uncertainty } =
+    review.reviewerSpec;
+  assert.deepEqual(
+    { request, role, profileId, kind, impactRisk, complexity, uncertainty },
+    {
+      request: `Parent 작성 변경 ${review.snapshotDigest.slice(7, 15)} 결과를 독립 검토해줘.`,
+      role: 'knu_reviewer',
+      profileId: 'complex-critical',
+      kind: 'review',
+      impactRisk: 'medium',
+      complexity: 'bounded',
+      uncertainty: 'resolved',
+    },
+  );
+});
+
+// ---- Review dispatch in one command, reviewer role selection, input copies, the runner file,
+// completeness warnings, record labels and the round delta scope (OSS-RL P2). ----
+const promptLine = (prompt, prefix) => prompt.split('\n').find((line) => line.startsWith(prefix));
+const RUNNER_FILE_LINE = 'KNU_REVIEW_RUNNER_FILE:';
+const nativeTaskCount = (r) => {
+  const dir = join(r.root, '.artifacts/tools/claude-native');
+  return existsSync(dir) ? readdirSync(dir).length : 0;
+};
+
+test('reviewer role selection is knu_reviewer with a reason for every input (RL-P2 RED 2)', (t) => {
+  assert.equal(
+    typeof helperModule.selectReviewerRole,
+    'function',
+    'selectReviewerRole is not exported',
+  );
+  for (const planGrade of [undefined, 'P2', 'P3'])
+    for (const round of [1, 2, 3])
+      for (const riskTrigger of [null, 'transaction/concurrency 불변 조건']) {
+        const selected = helperModule.selectReviewerRole({ planGrade, round, riskTrigger });
+        assert.deepEqual(Object.keys(selected), ['role', 'reason']);
+        assert.equal(selected.role, 'knu_reviewer');
+        assert.ok(typeof selected.reason === 'string' && selected.reason.trim());
+      }
+  // review keeps the choice in its output and in the prompt record of that review.
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const review = parentReview(r, SMALL_PARENT_SUBJECT);
+  assert.equal(review.reviewerRole.role, 'knu_reviewer');
+  assert.equal(review.reviewerSpec.role, review.reviewerRole.role);
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(r.root, review.promptFile.path), 'utf8')).reviewerRole,
+    review.reviewerRole,
+  );
+});
+
+test('a reviewer reads ignored inputs from copies: a changed original is recorded, a changed copy is refused (RL-P2 RED 3)', (t) => {
+  const { r, review } = ignoredInputReview(t);
+  const copy = `${copyDirOf(review)}/${INPUT_FILE}`;
+  assert.ok(
+    review.reviewerSpec.readScope.includes(copyDirOf(review)),
+    `copy directory is a read path: ${review.reviewerSpec.readScope.join(',')}`,
+  );
+  assert.ok(!review.reviewerSpec.readScope.includes(INPUT_DIR), 'the original is no read path');
+  assert.equal(readFileSync(join(r.root, copy), 'utf8'), 'rev 1\n');
+  // The original changes while the reviewer works: the settlement holds and names the original.
+  const status = reviewedWhile(r, review, () => writeFileSync(join(r.root, INPUT_FILE), 'rev 2\n'));
+  assert.deepEqual(status.observationErrors, []);
+  assert.deepEqual(status.reviewInputOriginalsChanged, [INPUT_FILE]);
+  // An original changed before registration is not stale either: the reviewer never reads it.
+  const before = ignoredInputReview(t);
+  writeFileSync(join(before.r.root, INPUT_FILE), 'rev 2\n');
+  assert.deepEqual(reviewedWhile(before.r, before.review).reviewInputOriginalsChanged, [
+    INPUT_FILE,
+  ]);
+  // A changed copy is refused like a changed input was.
+  const tampered = ignoredInputReview(t);
+  const tamperedCopy = `${copyDirOf(tampered.review)}/${INPUT_FILE}`;
+  const refused = reviewedWhile(tampered.r, tampered.review, () =>
+    writeFileSync(join(tampered.r.root, tamperedCopy), 'tampered\n'),
+  );
+  assert.ok(
+    refused.observationErrors.includes(`review-input-changed:${tamperedCopy}`),
+    refused.observationErrors.join(','),
+  );
+  // A reviewer seen reading the changed original did not review the frozen copy: refused.
+  const strayed = ignoredInputReview(t);
+  const stray = reviewedWhile(
+    strayed.r,
+    strayed.review,
+    () => writeFileSync(join(strayed.r.root, INPUT_FILE), 'rev 2\n'),
+    [INPUT_FILE],
+  );
+  assert.ok(
+    stray.observationErrors.includes(`review-input-changed:${INPUT_FILE}`),
+    stray.observationErrors.join(','),
+  );
+});
+
+test('a changed original is refused only when a call names it or a directory above it', (t) => {
+  // The original changes while the reviewer works; `uses` are the other calls of its transcript.
+  const changed = (uses) => {
+    const { r, review } = ignoredInputReview(t);
+    return reviewedWhile(
+      r,
+      review,
+      () => writeFileSync(join(r.root, INPUT_FILE), 'rev 2\n'),
+      [],
+      uses(r),
+    );
+  };
+  // A search without a path or of the repository root judges the whole repository, yet it names no
+  // original: the change is recorded only.
+  for (const uses of [
+    () => [['Glob', { pattern: '**/*' }]],
+    (r) => [['Grep', { pattern: 'rev', path: r.root }]],
+    (r) => [
+      ['Glob', { pattern: '**/*.md', path: r.root }],
+      ['Grep', { pattern: 'edit', path: join(r.root, 'sample.txt') }],
+    ],
+  ]) {
+    const status = changed(uses);
+    assert.equal(status.dependencyJudgment.basis, 'repository');
+    assert.deepEqual(status.observationErrors, []);
+    assert.deepEqual(status.reviewInputOriginalsChanged, [INPUT_FILE]);
+  }
+  // Beside such a search, a call that names the original or a directory above it read it.
+  for (const uses of [
+    (r) => [
+      ['Glob', { pattern: '**/*' }],
+      ['Read', { file_path: join(r.root, INPUT_FILE) }],
+    ],
+    (r) => [
+      ['Glob', { pattern: '**/*' }],
+      ['Grep', { pattern: 'rev', path: join(r.root, INPUT_DIR) }],
+    ],
+    (r) => [
+      ['Grep', { pattern: 'rev', path: r.root }],
+      ['Glob', { pattern: '*.md', path: join(r.root, '.artifacts') }],
+    ],
+  ]) {
+    const status = changed(uses);
+    assert.ok(
+      status.observationErrors.includes(`review-input-changed:${INPUT_FILE}`),
+      status.observationErrors.join(','),
+    );
+    assert.deepEqual(status.reviewInputOriginalsChanged, []);
+  }
+  // Another tool leaves the reads untold: refused as before.
+  const untold = changed(() => [
+    ['Glob', { pattern: '**/*' }],
+    ['Bash', { command: 'cat plan.md' }],
+  ]);
+  assert.ok(
+    untold.observationErrors.includes(`review-input-changed:${INPUT_FILE}`),
+    untold.observationErrors.join(','),
+  );
+});
+
+test('an ignored input with a name registration refuses is read through its copy (RL-P2 RED 3)', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const named = '.artifacts/plans/helper-test/한글 계획.md';
+  mkdirSync(join(r.root, named, '..'), { recursive: true });
+  writeFileSync(join(r.root, named), '계획\n');
+  const review = parentReview(r, { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', named] });
+  assert.ok(existsSync(join(r.root, copyDirOf(review), named)), 'copy of the named input');
+  assert.equal(readFileSync(join(r.root, copyDirOf(review), named), 'utf8'), '계획\n');
+  assert.deepEqual(reviewedWhile(r, review).observationErrors, []);
+});
+
+// Many records with long output paths: the shape that used to push a prompt over the limit.
+const LONG_RECORDS = Array.from({ length: 40 }, (_, index) => ({
+  command: `node --test scripts/ci/sample-${index}.test.mjs`,
+  exit: 0,
+  environment: 'repository root, Node.js test runner, isolated clone outside the checkout',
+  observedResult: `${index + 1} pass`,
+  outputPaths: [
+    `.artifacts/plans/helper-test/logs/group-${index}/a-rather-long-output-directory/runner-${index}.log`,
+    `.artifacts/plans/helper-test/logs/group-${index}/a-rather-long-output-directory/summary-${index}.log`,
+  ],
+}));
+
+test('runner records move to a runner file the prompt names and the reviewer copies (RL-P2 RED 5)', (t) => {
+  const r = settledSubject(t);
+  let review;
+  assert.doesNotThrow(() => {
+    review = reviewOf(r, LONG_RECORDS);
+  }, 'a review with many long runner records is built');
+  const prompt = review.reviewerPrompt;
+  assert.ok(prompt.length <= 12000, `prompt ${prompt.length} chars`);
+  assert.equal(review.runnerFile.path, `${PACKET_DIR}/${reviewIdOf(review)}.runner.json`);
+  assert.equal(
+    promptLine(prompt, RUNNER_FILE_LINE),
+    `${RUNNER_FILE_LINE}${review.runnerFile.path} ${review.runnerFile.digest}`,
+  );
+  assert.ok(review.reviewerSpec.readScope.includes(review.runnerFile.path), 'runner file read');
+  const runnerBytes = readFileSync(join(r.root, review.runnerFile.path));
+  assert.equal(review.runnerFile.digest, sha256(runnerBytes));
+  const runner = JSON.parse(runnerBytes);
+  // The prompt keeps command, exit and observedResult; environment and outputPaths stay in the file.
+  for (const record of LONG_RECORDS) {
+    assert.ok(prompt.includes(record.command), record.command);
+    assert.ok(!prompt.includes(record.outputPaths[0]), record.outputPaths[0]);
+  }
+  assert.ok(!prompt.includes(LONG_RECORDS[0].environment), 'environment stays in the file');
+  // The template slot points at the file; the file holds the array a result carries.
+  const template = JSON.parse(
+    promptLine(prompt, 'Result template: ').slice('Result template: '.length),
+  );
+  assert.equal(typeof template.commandsActuallyRun, 'string');
+  assert.match(template.commandsActuallyRun, /KNU_REVIEW_RUNNER_FILE/u);
+  assert.deepEqual(
+    runner.commandsActuallyRun,
+    LONG_RECORDS.map(({ exit, observedResult, environment, outputPaths }) => ({
+      runner: 'parent',
+      exit,
+      observedResult,
+      environment,
+      outputPaths,
+    })),
+  );
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(r.root, review.promptFile.path), 'utf8')).runner,
+    review.runnerFile,
+  );
+  // A result that carries the file's records as they are settles.
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  const delivered = { ...template, commandsActuallyRun: runner.commandsActuallyRun };
+  delivered.acceptanceCoverage = delivered.acceptanceCoverage.map((coverage) => ({
+    ...coverage,
+    sourceRefs: ['sample.txt'],
+    evidenceRefs: ['runner:node --test'],
+    gap: null,
+  }));
+  delivered.verdict = 'PASS';
+  dispatch(r, reviewer, 'review-1', JSON.stringify(delivered));
+  const settled = settleClaudeNativeTask(
+    reviewer.taskId,
+    judgment(reviewer, 'terminal review result delivered for the frozen packet'),
+    { root: r.root },
+  );
+  assert.equal(settled.valid, true, settled.errors.join('; '));
+});
+
+test('a runner file changed after registration fails the settlement (RL-P2 RED 5)', (t) => {
+  // A Parent subject: the settle observation names the changed file.
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const review = parentReview(r, SMALL_PARENT_SUBJECT);
+  assert.ok(review.runnerFile, 'review returns runnerFile');
+  const status = reviewedWhile(r, review, () =>
+    writeFileSync(join(r.root, review.runnerFile.path), '{"commandsActuallyRun":[]}\n'),
+  );
+  assert.ok(
+    status.observationErrors.includes('review-runner-file-changed'),
+    status.observationErrors.join(','),
+  );
+  // A native subject: the reviewer cannot complete from the changed file.
+  const s = settledSubject(t);
+  const native = reviewOf(s);
+  const reviewer = prepareClaudeNativeTask(native.reviewerSpec, { root: s.root });
+  dispatch(s, reviewer, 'review-1', passing(native));
+  writeFileSync(join(s.root, native.runnerFile.path), '{"commandsActuallyRun":[]}\n');
+  assert.throws(
+    () =>
+      settleClaudeNativeTask(
+        reviewer.taskId,
+        judgment(reviewer, 'terminal review result delivered for the frozen packet'),
+        { root: s.root },
+      ),
+    /review-runner-file-changed/u,
+  );
+});
+
+test('the registry refuses a result copied from a runner file that changed after registration', (t) => {
+  const s = settledSubject(t);
+  const native = reviewOf(s);
+  const reviewer = prepareClaudeNativeTask(native.reviewerSpec, { root: s.root });
+  // The result carries the array the changed file holds, so the copy matches the file: only the
+  // digest on the prompt line tells that the records are not the ones review bound.
+  const delivered = JSON.parse(passing(native));
+  delivered.commandsActuallyRun = [];
+  dispatch(s, reviewer, 'review-1', JSON.stringify(delivered));
+  writeFileSync(join(s.root, native.runnerFile.path), '{"commandsActuallyRun":[]}\n');
+  const completion = JSON.parse(readFileSync(join(reviewer.evidenceDirectory, 'completion.json')));
+  const checked = completeClaudeNativeTask(
+    reviewer.taskId,
+    { responseDigest: completion.responseDigest },
+    { root: s.root },
+  );
+  assert.equal(checked.valid, false);
+  assert.ok(checked.errors.includes('review-runner-file-changed'), checked.errors.join('; '));
+});
+
+// Completeness warnings name a likely missing review input and never stop the review.
+const COMPLETENESS_WARNINGS = [
+  'acceptance-not-in-requirement-sections',
+  'lifecycle-draft-verification-missing',
+  'layout-owner-not-in-read-paths',
+  'policy-history-rule-not-in-read-paths',
+];
+const completenessWarnings = (review) =>
+  (review.warnings ?? [])
+    .map((warning) => warning.split(':')[0])
+    .filter((name) => COMPLETENESS_WARNINGS.includes(name));
+function warningRepo(t) {
+  const r = repo(t);
+  for (const [path, text] of [
+    ['docs/plan.md', '# Plan\n\n## Acceptance\n\n- sample.txt updated\n- a second criterion\n'],
+    [
+      'docs/pr-full.md',
+      '## Lifecycle\n\n- 변경 등급: `feature`\n\n## Verification\n\n- Targeted: ran\n- Not tested: 해당 없음\n',
+    ],
+    ['docs/pr-short.md', '## Lifecycle\n\n- 변경 등급: `feature`\n'],
+    ['docs/product/README.md', '# Product\n'],
+    ['docs/product/prd.md', '# PRD\n'],
+    ['docs/policies/README.md', '# Policies\n\n## 변경 이력 규칙\n\n변경 이력을 추가한다.\n'],
+    ['docs/policies/sample-policy.md', '# Sample policy\n'],
+  ]) {
+    mkdirSync(join(r.root, path, '..'), { recursive: true });
+    writeFileSync(join(r.root, path), text);
+  }
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  return r;
+}
+
+test('review warns once for each incomplete input and still builds the review (RL-P2 RED 6)', (t) => {
+  const sections = [{ path: 'docs/plan.md', headings: ['Acceptance'] }];
+  for (const [name, subject] of [
+    [
+      'acceptance-not-in-requirement-sections',
+      { acceptance: ['sample.txt is updated'], requirementSections: sections },
+    ],
+    ['lifecycle-draft-verification-missing', { lifecycleDraft: 'docs/pr-short.md' }],
+    ['layout-owner-not-in-read-paths', { paths: ['sample.txt', 'docs/product/prd.md'] }],
+    [
+      'policy-history-rule-not-in-read-paths',
+      { paths: ['sample.txt', 'docs/policies/sample-policy.md'] },
+    ],
+  ]) {
+    const r = warningRepo(t);
+    const review = parentReview(r, { ...SMALL_PARENT_SUBJECT, ...subject });
+    assert.deepEqual(
+      completenessWarnings(review),
+      [name],
+      `completeness warning ${name}: ${(review.warnings ?? []).join(' | ')}`,
+    );
+    // A warning never blocks: the reviewer registers.
+    const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+    assert.equal(typeof reviewer.taskId, 'string');
+  }
+});
+
+test('a policy file with a layout root of its own still warns about the policy history rule', (t) => {
+  const r = warningRepo(t);
+  // The path table has its own layout root under the policy root; its rule owner is the same README.
+  writeFileSync(
+    join(r.root, 'docs/policies/path-domains.json'),
+    `${JSON.stringify({
+      schema: 'lifecycle-path-domains/v1',
+      confirmedBy: { status: 'draft', date: null, basis: null },
+      productRoots: ['apps/**'],
+      entries: [],
+      noDomain: [],
+      irreversiblePaths: [],
+    })}\n`,
+  );
+  const review = parentReview(r, {
+    ...SMALL_PARENT_SUBJECT,
+    paths: ['sample.txt', 'docs/policies/path-domains.json'],
+  });
+  assert.deepEqual(
+    completenessWarnings(review),
+    ['policy-history-rule-not-in-read-paths'],
+    (review.warnings ?? []).join(' | '),
+  );
+});
+
+test('review gives no completeness warning when the inputs are complete (RL-P2 RED 6)', (t) => {
+  const sections = [{ path: 'docs/plan.md', headings: ['Acceptance'] }];
+  for (const subject of [
+    {},
+    { acceptance: ['sample.txt updated', 'a second criterion'], requirementSections: sections },
+    { lifecycleDraft: 'docs/pr-full.md' },
+    { paths: ['sample.txt', 'docs/product/prd.md', 'docs/product/README.md'] },
+    { paths: ['sample.txt', 'docs/policies/sample-policy.md', 'docs/policies/README.md'] },
+    { paths: ['sample.txt', 'docs/policies'] },
+  ]) {
+    const r = warningRepo(t);
+    const review = parentReview(r, { ...SMALL_PARENT_SUBJECT, ...subject });
+    assert.deepEqual(completenessWarnings(review), [], JSON.stringify(subject));
+  }
+  // The draft's verification section reaches the reviewer as an extract of that file.
+  const r = warningRepo(t);
+  const review = parentReview(r, { ...SMALL_PARENT_SUBJECT, lifecycleDraft: 'docs/pr-full.md' });
+  assert.ok(review.verificationFile, 'review returns verificationFile');
+  assert.equal(review.verificationFile.path, `${PACKET_DIR}/${reviewIdOf(review)}.verification.md`);
+  assert.ok(review.reviewerSpec.readScope.includes(review.verificationFile.path));
+  assert.equal(
+    readFileSync(join(r.root, review.verificationFile.path), 'utf8'),
+    '## Verification\n\n- Targeted: ran\n- Not tested: 해당 없음\n',
+  );
+  assert.ok(review.reviewerPrompt.includes(review.verificationFile.path));
+});
+
+test('a Verification extract changed after registration fails the settlement', (t) => {
+  const r = warningRepo(t);
+  const review = parentReview(r, { ...SMALL_PARENT_SUBJECT, lifecycleDraft: 'docs/pr-full.md' });
+  const status = reviewedWhile(r, review, () =>
+    writeFileSync(join(r.root, review.verificationFile.path), '## Verification\n\n- edited\n'),
+  );
+  assert.ok(
+    status.observationErrors.includes('review-verification-changed'),
+    status.observationErrors.join(','),
+  );
+});
+
+test('an ignored input that is not a file is refused before any review file is written', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  // A repository nested under an ignored read path is listed as a directory, which has no copy.
+  const nested = '.artifacts/plans/helper-test/nested';
+  mkdirSync(join(r.root, nested), { recursive: true });
+  execFileSync('git', ['init', '-q'], { cwd: join(r.root, nested) });
+  writeFileSync(join(r.root, nested, 'note.md'), 'inside\n');
+  assert.throws(
+    () =>
+      parentReview(r, {
+        ...SMALL_PARENT_SUBJECT,
+        paths: ['sample.txt', '.artifacts/plans/helper-test'],
+      }),
+    /review-input-not-a-file: \.artifacts\/plans\/helper-test\/nested\/ cannot be copied/u,
+  );
+  assert.deepEqual(reviewFiles(r), []);
+});
+
+test('records that share a command are told apart by a label (RL-P2 RED 7)', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const record = {
+    command: 'node --test scripts/ci/sample.test.mjs',
+    exit: 0,
+    environment: 'repository root',
+    observedResult: '3 pass',
+    outputPaths: ['.artifacts/plans/helper-test/runner.log'],
+  };
+  // Without labels the duplicate is refused as before, and the message says how to keep both.
+  assert.throws(
+    () => parentReview(r, SMALL_PARENT_SUBJECT, [record, record]),
+    /records\[1\]\.command repeats records\[0\]; give each a distinct label/u,
+  );
+  const review = parentReview(r, SMALL_PARENT_SUBJECT, [
+    { ...record, label: 'before the fix' },
+    { ...record, label: 'after the fix' },
+  ]);
+  assert.match(review.reviewerPrompt, /\(before the fix\)/u);
+  assert.match(review.reviewerPrompt, /\(after the fix\)/u);
+  assert.deepEqual(reviewedWhile(r, review).observationErrors, []);
+  // A label is text and unique among the records of one command.
+  assert.throws(
+    () =>
+      parentReview(r, SMALL_PARENT_SUBJECT, [
+        { ...record, label: 'same' },
+        { ...record, label: 'same' },
+      ]),
+    /records\[1\]\.command repeats records\[0\]/u,
+  );
+  assert.throws(
+    () => parentReview(r, SMALL_PARENT_SUBJECT, [{ ...record, label: ' ' }]),
+    /records\[0\]\.label text/u,
+  );
+});
+
+test('review refuses a read path registration would refuse before it writes any file (RL-P2 RED 7)', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  writeFileSync(join(r.root, '한글 문서.md'), '추적 대상\n');
+  assert.throws(
+    () => parentReview(r, { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', '한글 문서.md'] }),
+    /unsafe-path:nativeRequest\.task\.readScope:한글 문서\.md/u,
+    'review refuses the unsafe read path',
+  );
+  assert.deepEqual(reviewFiles(r), []);
+  // A path that is not repository-relative names its own reason, not host state.
+  for (const path of ['/etc/hosts', '~/notes.md'])
+    assert.throws(
+      () => parentReview(r, { ...SMALL_PARENT_SUBJECT, lifecycleDraft: path }),
+      (error) =>
+        error.message.includes(`path-not-repository-relative:${path}`) &&
+        !error.message.includes('local-state-path'),
+      path,
+    );
+});
+
+// review-run: the deterministic checks, review, role selection and registration in one command.
+const RUN_DIR = '.artifacts/plans/helper-test/run';
+function runFixture(t, { exitLine = 'exit=0', prepare = () => {} } = {}) {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'other.txt'), 'outside the subject paths\n');
+  execFileSync('git', ['add', 'other.txt'], { cwd: r.root });
+  execFileSync(
+    'git',
+    ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'base'],
+    { cwd: r.root },
+  );
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  prepare(r);
+  mkdirSync(join(r.root, RUN_DIR), { recursive: true });
+  const write = (name, value) => {
+    writeFileSync(join(r.root, RUN_DIR, name), JSON.stringify(value));
+    return `${RUN_DIR}/${name}`;
+  };
+  // Runner evidence for the current snapshot whose log follows the runner log rules.
+  const evidence = (round, subject = SMALL_PARENT_SUBJECT) => {
+    const { snapshotDigest, logHeader } = buildClaudeNativeReview(
+      { parentSubject: subject },
+      { root: r.root },
+    );
+    const log = `${RUN_DIR}/r${round}-runner.log`;
+    writeFileSync(join(r.root, log), `${logHeader}\nℹ pass 3\n${exitLine}\n`);
+    return write(`r${round}-evidence.json`, {
+      runner: 'lead-runner',
+      records: [
+        {
+          command: `node --test scripts/ci/sample.test.mjs # round ${round}`,
+          exit: 0,
+          environment: 'repository root',
+          observedResult: 'all pass `ℹ pass 3`',
+          outputPaths: [log],
+          sourceDigest: snapshotDigest,
+        },
+      ],
+    });
+  };
+  const run = (
+    round,
+    args = [],
+    subject = SMALL_PARENT_SUBJECT,
+    out = `${RUN_DIR}/r${round}-out`,
+  ) => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        cliPath,
+        'review-run',
+        '--parent-subject',
+        write(`r${round}-subject.json`, subject),
+        '--runner-evidence',
+        evidence(round, subject),
+        '--basis',
+        'plan:helper-test/review-run',
+        '--reviewer-model',
+        'claude-opus-4-6',
+        '--session',
+        r.sessionId,
+        '--round',
+        String(round),
+        '--out',
+        out,
+        ...args,
+      ],
+      { cwd: r.root, encoding: 'utf8' },
+    );
+    const file = join(r.root, out, 'review-run.json');
+    return {
+      result,
+      out,
+      record: existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null,
+    };
+  };
+  return { r, run, write };
+}
+const oneLine = (result) => result.stdout.split('\n').filter(Boolean);
+
+test('review-run checks, builds, selects the role and registers, and writes the result to --out (RL-P2 RED 1)', (t) => {
+  const { r, run } = runFixture(t);
+  const { result, out, record } = run(1, ['--board-session', 'TEST-SESSION']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(oneLine(result).length, 1, result.stdout);
+  assert.match(oneLine(result)[0], /^review-run ok /u);
+  assert.ok(oneLine(result)[0].includes(`${out}/review-run.json`), result.stdout);
+  assert.equal(record.ok, true);
+  assert.deepEqual(record.reviewerRole.role, 'knu_reviewer');
+  assert.deepEqual(
+    record.checks.map(({ name, exit }) => [name, exit]),
+    [['runner-log-check', 0]],
+  );
+  for (const check of record.checks) assert.ok(existsSync(join(r.root, check.outputPath)));
+  assert.equal(record.reviewers.length, 1);
+  const [reviewer] = record.reviewers;
+  assert.equal(reviewer.agentInput.subagent_type, 'knu_reviewer');
+  const invocation = JSON.parse(readFileSync(join(r.root, reviewer.invocationFile), 'utf8'));
+  assert.equal(invocation.subagent_type, 'knu_reviewer');
+  assert.match(invocation.prompt, /KNU_NATIVE_TASK/u);
+  const spec = JSON.parse(readFileSync(join(r.root, reviewer.specFile), 'utf8'));
+  assert.equal(spec.role, 'knu_reviewer');
+  assert.ok(existsSync(join(r.root, reviewer.packetFile.path)));
+  assert.match(
+    record.boardLine,
+    new RegExp(
+      `^TEST-SESSION \\| review-open \\| ${reviewer.taskId} \\| \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2} \\| main$`,
+      'u',
+    ),
+  );
+  assert.equal(nativeTaskCount(r), 1);
+  // The registered reviewer settles from the invocation the file holds.
+  dispatch(
+    r,
+    { invocation, registerInput: { expectedResolvedModel: 'claude-opus-4-6' } },
+    'run-1',
+    '{}',
+  );
+});
+
+test('review-run registers nothing when a check fails (RL-P2 RED 1)', (t) => {
+  const { r, run } = runFixture(t, { exitLine: 'exit=1' });
+  const { result, record } = run(1);
+  assert.equal(result.status, 1, result.stdout);
+  assert.equal(oneLine(result).length, 1, `review-run prints one summary line: ${result.stdout}`);
+  assert.match(oneLine(result)[0], /^review-run failed .*runner-log-check/u);
+  assert.equal(record.ok, false);
+  assert.deepEqual(
+    record.checks.map(({ name, exit }) => [name, exit]),
+    [['runner-log-check', 1]],
+  );
+  assert.equal(nativeTaskCount(r), 0);
+  assert.deepEqual(reviewFiles(r), []);
+});
+
+test('review-run records a request review refuses and registers nothing', (t) => {
+  const { r, run } = runFixture(t);
+  // A later round without its previous result: review refuses it, after the checks passed.
+  const { result, out, record } = run(2);
+  assert.equal(result.status, 1, result.stdout);
+  assert.equal(oneLine(result).length, 1, result.stdout);
+  assert.match(oneLine(result)[0], /^review-run failed refused=.*registered=0 /u);
+  assert.ok(oneLine(result)[0].includes(`${out}/review-run.json`), result.stdout);
+  assert.equal(result.stderr, '');
+  assert.equal(record.ok, false);
+  assert.match(record.error, /previous-result-required/u);
+  assert.deepEqual(
+    record.checks.map(({ name, exit }) => [name, exit]),
+    [['runner-log-check', 0]],
+  );
+  assert.equal(nativeTaskCount(r), 0);
+  assert.deepEqual(reviewFiles(r), []);
+});
+
+test('review-run records a member registered before an unexpected error', (t) => {
+  const { r, run } = runFixture(t);
+  // The spec file of the first member cannot be written: the member is registered by then.
+  mkdirSync(join(r.root, RUN_DIR, 'r1-out/reviewer-1.spec.json'), { recursive: true });
+  const { result, record } = run(1);
+  assert.equal(result.status, 1, result.stdout);
+  assert.equal(oneLine(result).length, 1, result.stdout);
+  assert.match(oneLine(result)[0], /^review-run failed error=.*registered=1 /u);
+  assert.equal(record.ok, false);
+  assert.equal(record.unexpected, true);
+  assert.equal(record.registered.length, 1);
+  assert.equal(nativeTaskCount(r), 1);
+});
+
+test('review-run refuses an --out inside the packet directory, a native task record or a subject path', (t) => {
+  const { r, run } = runFixture(t);
+  const sub = '.artifacts/plans/helper-test/sub';
+  mkdirSync(join(r.root, sub), { recursive: true });
+  writeFileSync(join(r.root, sub, 'a.md'), 'rev 1\n');
+  const subject = { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', sub] };
+  for (const out of [
+    `${PACKET_DIR}/run-out`,
+    '.artifacts/tools/claude-native/run-out',
+    `${sub}/out`,
+  ]) {
+    const { result } = run(1, [], subject, out);
+    assert.equal(result.status, 1, `${out}: ${result.stdout}`);
+    assert.match(result.stderr, /out-directory-required/u, out);
+    assert.ok(!existsSync(join(r.root, out)), `${out} is not created`);
+  }
+  assert.equal(nativeTaskCount(r), 0);
+});
+
+// A plan subject: the original under the plan root, a staged revision beside its manifest, and the
+// promote view and its baseline, both with a violation the plan already has.
+const PLAN_STAGE = '.artifacts/plans/helper-test/stage';
+const PLAN_A = [
+  '# Plan A',
+  '',
+  '- Plan ID: plan-a',
+  '- Status: active',
+  '',
+  '## 1. Scope',
+  '',
+  'See [b](./b.md#missing-anchor).',
+  '',
+  '## 2. Unchanged',
+  '',
+  'This sentence stays as it is.',
+  '',
+  '## 개정 이력',
+  '',
+  '- 2026-11-01 초안.',
+  '',
+].join('\n');
+function planFixture(t, added) {
+  return runFixture(t, {
+    prepare: (r) => {
+      writeFileSync(join(r.root, '.git/info/exclude'), `.artifacts/\n${PLANS}/\n`);
+      const staged = PLAN_A.replace(
+        'See [b](./b.md#missing-anchor).',
+        `See [b](./b.md#missing-anchor).\n${added}`,
+      );
+      for (const [path, text] of [
+        [`${PLANS}/a.md`, PLAN_A],
+        [`${PLANS}/b.md`, '# Plan B\n\n- Plan ID: plan-b\n\n## 1. Body\n\ntext\n'],
+        [`${PLAN_STAGE}/plan-drafts/${PLANS}/a.md`, staged],
+        [`${PLAN_STAGE}/review/baseline/${PLANS}/a.md`, PLAN_A],
+        [
+          `${PLAN_STAGE}/review/baseline/${PLANS}/b.md`,
+          '# Plan B\n\n- Plan ID: plan-b\n\n## 1. Body\n\ntext\n',
+        ],
+        [`${PLAN_STAGE}/review/promote-view/${PLANS}/a.md`, staged],
+        [
+          `${PLAN_STAGE}/review/promote-view/${PLANS}/b.md`,
+          '# Plan B\n\n- Plan ID: plan-b\n\n## 1. Body\n\ntext\n',
+        ],
+      ]) {
+        mkdirSync(join(r.root, path, '..'), { recursive: true });
+        writeFileSync(join(r.root, path), text);
+      }
+      const digest = createHash('sha256').update(PLAN_A).digest('hex');
+      writeFileSync(
+        join(r.root, PLAN_STAGE, 'plan-drafts/SOURCE-MANIFEST.tsv'),
+        `sha256\tsource\tdestination\n${digest}\t${PLANS}/a.md\t${PLANS}/a.md\n`,
+      );
+    },
+  });
+}
+const PLAN_ARGS = [
+  '--plan-grade',
+  'P2',
+  '--plan-drafts',
+  `${PLAN_STAGE}/plan-drafts`,
+  '--plan-view',
+  `${PLAN_STAGE}/review/promote-view`,
+  '--plan-baseline',
+  `${PLAN_STAGE}/review/baseline`,
+];
+
+test('review-run judges plan references against the baseline, not by exit code (RL-P2 RED 1)', (t) => {
+  // The view and the baseline both exit 1 for the violation the plan already has: no new one, so it registers.
+  const kept = planFixture(t, 'A sentence added to the scope.');
+  const ok = kept.run(1, PLAN_ARGS);
+  assert.equal(ok.result.status, 0, ok.result.stderr);
+  assert.equal(ok.record.ok, true);
+  const checks = Object.fromEntries(ok.record.checks.map(({ name, exit }) => [name, exit]));
+  assert.equal(checks['plan-reference-check:baseline'], 1);
+  assert.equal(checks['plan-reference-check:view'], 1);
+  assert.equal(checks['plan-shape-check'], 0);
+  assert.equal(checks['citation-check'], 0);
+  assert.deepEqual(ok.record.planReferences.newViolations, []);
+  assert.equal(nativeTaskCount(kept.r), 1);
+  // One violation the baseline does not have: nothing is registered.
+  const added = planFixture(t, 'See [b again](./b.md#another-missing-anchor).');
+  const refused = added.run(1, PLAN_ARGS);
+  assert.equal(refused.result.status, 1, refused.result.stdout);
+  assert.match(oneLine(refused.result)[0], /^review-run failed .*plan-reference-check/u);
+  assert.equal(refused.record.planReferences.newViolations.length, 1);
+  assert.equal(nativeTaskCount(added.r), 0);
+});
+
+test('review-run binds the promote view and the baseline to the staged drafts and the manifest originals', (t) => {
+  const NEW_REFERENCE = 'See [b again](./b.md#another-missing-anchor).';
+  const failsBinding = (fixture, detail) => {
+    const got = fixture.run(1, PLAN_ARGS);
+    assert.equal(got.result.status, 1, got.result.stdout);
+    assert.match(oneLine(got.result)[0], /^review-run failed checks=.*plan-view-binding/u);
+    const check = got.record.checks.find(({ name }) => name === 'plan-view-binding');
+    assert.equal(check.exit, 1);
+    assert.match(readFileSync(join(fixture.r.root, check.outputPath), 'utf8'), detail);
+    assert.equal(nativeTaskCount(fixture.r), 0);
+  };
+  // A view built before the staged revision: the reference check alone would find nothing new.
+  const stale = planFixture(t, NEW_REFERENCE);
+  writeFileSync(join(stale.r.root, `${PLAN_STAGE}/review/promote-view/${PLANS}/a.md`), PLAN_A);
+  failsBinding(stale, /a\.md: the view does not hold the staged file/u);
+  // A baseline that is not the manifest original hides what the revision adds.
+  const hidden = planFixture(t, NEW_REFERENCE);
+  writeFileSync(
+    join(hidden.r.root, `${PLAN_STAGE}/review/baseline/${PLANS}/a.md`),
+    PLAN_A.replace(
+      'See [b](./b.md#missing-anchor).',
+      `See [b](./b.md#missing-anchor).\n${NEW_REFERENCE}`,
+    ),
+  );
+  failsBinding(hidden, /a\.md: the baseline is not the manifest original/u);
+  // A plan the view holds beside the staged ones is the baseline's.
+  const drifted = planFixture(t, 'A sentence added to the scope.');
+  writeFileSync(
+    join(drifted.r.root, `${PLAN_STAGE}/review/promote-view/${PLANS}/b.md`),
+    '# Plan B\n\n- Plan ID: plan-b\n\n## 1. Body\n\nchanged\n',
+  );
+  failsBinding(drifted, /b\.md: the view differs from the baseline/u);
+  // A view directory without the plans passes nothing.
+  const missing = planFixture(t, 'A sentence added to the scope.');
+  rmSync(join(missing.r.root, `${PLAN_STAGE}/review/promote-view`), { recursive: true });
+  failsBinding(missing, /a\.md: the view does not hold the staged file/u);
+  // A baseline plan the view lost is a reference target the comparison would never see.
+  const lost = planFixture(t, 'A sentence added to the scope.');
+  rmSync(join(lost.r.root, `${PLAN_STAGE}/review/promote-view/${PLANS}/b.md`));
+  failsBinding(lost, /b\.md: the view lacks a baseline plan/u);
+  // A plan promoted to another path leaves its original path in the view empty.
+  const movedFixture = (holdsOriginal) => {
+    const fixture = planFixture(t, 'A sentence added to the scope.');
+    const at = (path) => join(fixture.r.root, PLAN_STAGE, path);
+    const staged = readFileSync(at(`plan-drafts/${PLANS}/a.md`));
+    rmSync(at(`plan-drafts/${PLANS}/a.md`));
+    for (const base of ['plan-drafts', 'review/promote-view']) {
+      mkdirSync(at(`${base}/${PLANS}/moved`), { recursive: true });
+      writeFileSync(at(`${base}/${PLANS}/moved/a.md`), staged);
+    }
+    if (!holdsOriginal) rmSync(at(`review/promote-view/${PLANS}/a.md`));
+    writeFileSync(
+      at('plan-drafts/SOURCE-MANIFEST.tsv'),
+      `sha256\tsource\tdestination\n${createHash('sha256').update(PLAN_A).digest('hex')}\t${PLANS}/a.md\t${PLANS}/moved/a.md\n`,
+    );
+    return fixture;
+  };
+  failsBinding(movedFixture(true), /a\.md: the view still holds a moved original/u);
+  const moved = movedFixture(false);
+  const movedCheck = moved
+    .run(1, PLAN_ARGS)
+    .record.checks.find(({ name }) => name === 'plan-view-binding');
+  assert.equal(movedCheck.exit, 0, readFileSync(join(moved.r.root, movedCheck.outputPath), 'utf8'));
+  // The view and the baseline of the fixture as built are bound.
+  const bound = planFixture(t, 'A sentence added to the scope.').run(1, PLAN_ARGS);
+  assert.equal(bound.result.status, 0, bound.result.stdout);
+  assert.equal(bound.record.checks.find(({ name }) => name === 'plan-view-binding').exit, 0);
+});
+
+test('review-run passes a new unavailable target the checkout has and fails one it lacks', (t) => {
+  // The view lacks the ignored evidence file the staged plan links, so the reference check lists it as unavailable.
+  const present = planFixture(t, 'See [evidence](../.artifacts/plans/helper-test/present.md).');
+  writeFileSync(join(present.r.root, '.artifacts/plans/helper-test/present.md'), '# Evidence\n');
+  const ok = present.run(1, PLAN_ARGS);
+  assert.equal(ok.result.status, 0, ok.result.stdout);
+  assert.deepEqual(
+    ok.record.planReferences.newUnavailable.map(({ target, presentInCheckout }) => [
+      target,
+      presentInCheckout,
+    ]),
+    [['.artifacts/plans/helper-test/present.md', true]],
+  );
+  assert.deepEqual(ok.record.planReferences.newViolations, []);
+  const absent = planFixture(t, 'See [evidence](../.artifacts/plans/helper-test/absent.md).');
+  const refused = absent.run(1, PLAN_ARGS);
+  assert.equal(refused.result.status, 1, refused.result.stdout);
+  assert.match(oneLine(refused.result)[0], /^review-run failed checks=.*plan-reference-check/u);
+  assert.deepEqual(
+    refused.record.planReferences.newUnavailable.map(({ presentInCheckout }) => presentInCheckout),
+    [false],
+  );
+  assert.equal(nativeTaskCount(absent.r), 0);
+});
+
+test('review-run refuses a staged plan whose original changed after it was staged', (t) => {
+  const { r, run } = planFixture(t, 'A sentence added to the scope.');
+  // The manifest row holds the sha256 the original had when the plan was staged.
+  writeFileSync(join(r.root, `${PLANS}/a.md`), `${PLAN_A}\nAnother session edited the original.\n`);
+  const { result, record } = run(1, PLAN_ARGS);
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(oneLine(result)[0], /^review-run failed checks=.*plan-source-manifest/u);
+  const manifest = record.checks.find(({ name }) => name === 'plan-source-manifest');
+  assert.equal(manifest.exit, 1);
+  assert.match(
+    readFileSync(join(r.root, manifest.outputPath), 'utf8'),
+    /^\.plans\/a\.md: sha256 /mu,
+  );
+  assert.equal(nativeTaskCount(r), 0);
+});
+
+test('review-run writes the changed sections of a P2 plan as its scope diff (RL-P2 RED 8)', (t) => {
+  const { r, run } = planFixture(t, 'A sentence added to the scope.');
+  const { result, out, record } = run(1, PLAN_ARGS);
+  assert.equal(result.status, 0, result.stderr);
+  const diff = `${out}/a.scope.diff`;
+  assert.deepEqual(record.planScopeDiffs, [diff]);
+  const text = readFileSync(join(r.root, diff), 'utf8');
+  assert.match(text, /^\+A sentence added to the scope\.$/mu);
+  assert.match(text, /^@@ .* @@ ## 1\. Scope$/mu);
+  assert.ok(!text.includes('This sentence stays as it is.'), text);
+  // The diff is a review input of that round.
+  const spec = JSON.parse(readFileSync(join(r.root, record.reviewers[0].specFile), 'utf8'));
+  const copies = spec.readScope.find((path) => path.endsWith('.inputs'));
+  assert.ok(existsSync(join(r.root, copies, diff)), spec.readScope.join(','));
+});
+
+// A later round: review-run compares the tree with the previous round's record and names the scope.
+function roundTwo(t, change, args = []) {
+  const { r, run, write } = runFixture(t);
+  const first = run(1);
+  assert.equal(first.result.status, 0, first.result.stderr);
+  const reviewId = /([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(
+    first.record.reviewers[0].packetFile.path,
+  )[1];
+  const previous = write('r1-result.json', {
+    packetId: `review-${reviewId}`,
+    verdict: 'FAIL',
+    findings: [{ id: 'F1', severity: 'medium', location: 'sample.txt:1' }],
+  });
+  change(r);
+  const second = run(2, ['--previous-result', previous, ...args]);
+  return { r, first, second };
+}
+
+test('a later round of a Parent subject gets its scope from review-run (RL-P2 RED 8)', (t) => {
+  // A fix inside the previous subject paths: the delta.
+  const delta = roundTwo(t, (r) => writeFileSync(join(r.root, 'sample.txt'), 'fixed'));
+  assert.equal(delta.second.result.status, 0, delta.second.result.stderr);
+  assert.equal(delta.second.record.deltaScope.mode, 'delta');
+  assert.deepEqual(delta.second.record.deltaScope.paths, ['sample.txt']);
+  const invocation = JSON.parse(
+    readFileSync(join(delta.r.root, delta.second.record.reviewers[0].invocationFile), 'utf8'),
+  );
+  assert.match(invocation.prompt, /^- Review round 2 \(delta\): .*sample\.txt/mu);
+  // Each fallback condition reads the full scope again and says why.
+  for (const [reason, change, args] of [
+    [/^new-file: added\.txt$/u, (r) => writeFileSync(join(r.root, 'added.txt'), 'new'), []],
+    [
+      /^outside-previous-paths: other\.txt$/u,
+      (r) => writeFileSync(join(r.root, 'other.txt'), 'changed outside'),
+      [],
+    ],
+    [
+      /^risk-trigger: transaction\/concurrency 불변 조건$/u,
+      (r) => writeFileSync(join(r.root, 'sample.txt'), 'fixed'),
+      ['--risk-trigger', 'transaction/concurrency 불변 조건'],
+    ],
+  ]) {
+    const full = roundTwo(t, change, args);
+    assert.equal(full.second.result.status, 0, full.second.result.stderr);
+    assert.equal(full.second.record.deltaScope.mode, 'full', String(reason));
+    assert.match(full.second.record.deltaScope.reason, reason);
+    const prompt = JSON.parse(
+      readFileSync(join(full.r.root, full.second.record.reviewers[0].invocationFile), 'utf8'),
+    ).prompt;
+    assert.match(prompt, /^- Review round 2: read the full scope again \(/mu);
+  }
+});
+
+test('a delta names the files of the previous blocking findings beside the changed files', (t) => {
+  const { r, run, write } = runFixture(t);
+  const subject = { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', 'other.txt'] };
+  const first = run(1, [], subject);
+  assert.equal(first.result.status, 0, first.result.stdout);
+  const reviewId = /([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(
+    first.record.reviewers[0].packetFile.path,
+  )[1];
+  // A blocking finding in a file the fix did not touch, a low one and one that names no file here.
+  const previous = write('r1-result.json', {
+    packetId: `review-${reviewId}`,
+    verdict: 'FAIL',
+    findings: [
+      { id: 'F1', severity: 'high', location: 'other.txt:2-5' },
+      { id: 'F2', severity: 'low', location: '.claude/agents/knu_reviewer.md:1' },
+      { id: 'F3', severity: 'medium', location: 'no/such/file.txt:9' },
+    ],
+  });
+  writeFileSync(join(r.root, 'sample.txt'), 'fixed');
+  const second = run(2, ['--previous-result', previous], subject);
+  assert.equal(second.result.status, 0, second.result.stdout);
+  assert.deepEqual(second.record.deltaScope, {
+    mode: 'delta',
+    reason: 'changed-within-previous-paths',
+    paths: ['other.txt', 'sample.txt'],
+  });
+});
+
+test('a delta finds the file of a blocking finding whose location says more than a line', (t) => {
+  const { r, run, write } = runFixture(t);
+  writeFileSync(join(r.root, 'third.txt'), 'a third subject file\n');
+  writeFileSync(join(r.root, 'fourth.txt'), 'a fourth subject file\n');
+  const subject = {
+    ...SMALL_PARENT_SUBJECT,
+    paths: ['sample.txt', 'other.txt', 'third.txt', 'fourth.txt'],
+  };
+  const first = run(1, [], subject);
+  assert.equal(first.result.status, 0, first.result.stdout);
+  const reviewId = /([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(
+    first.record.reviewers[0].packetFile.path,
+  )[1];
+  const previous = write('r1-result.json', {
+    packetId: `review-${reviewId}`,
+    verdict: 'FAIL',
+    findings: [
+      { id: 'F1', severity: 'high', location: 'other.txt:2 (helper)' },
+      { id: 'F2', severity: 'medium', location: '`third.txt:7-9`' },
+      { id: 'F3', severity: 'medium', location: 'fourth.txt:10, 20' },
+    ],
+  });
+  writeFileSync(join(r.root, 'sample.txt'), 'fixed');
+  const second = run(2, ['--previous-result', previous], subject);
+  assert.equal(second.result.status, 0, second.result.stdout);
+  assert.deepEqual(second.record.deltaScope.paths, [
+    'fourth.txt',
+    'other.txt',
+    'sample.txt',
+    'third.txt',
+  ]);
+});
+
+test('an ignored subject file follows the rule of a tracked one between rounds', (t) => {
+  const sub = '.artifacts/plans/helper-test/sub';
+  const subject = { ...SMALL_PARENT_SUBJECT, paths: ['sample.txt', sub] };
+  const rounds = (change) => {
+    const { r, run, write } = runFixture(t, {
+      prepare: (repository) => {
+        mkdirSync(join(repository.root, sub), { recursive: true });
+        writeFileSync(join(repository.root, sub, 'a.md'), 'rev 1\n');
+        writeFileSync(join(repository.root, sub, 'b.md'), 'kept\n');
+      },
+    });
+    const first = run(1, [], subject);
+    assert.equal(first.result.status, 0, first.result.stdout);
+    const reviewId = /([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(
+      first.record.reviewers[0].packetFile.path,
+    )[1];
+    const previous = write('r1-result.json', {
+      packetId: `review-${reviewId}`,
+      verdict: 'FAIL',
+      findings: [{ id: 'F1', severity: 'medium', location: 'sample.txt:1' }],
+    });
+    change(r);
+    const second = run(2, ['--previous-result', previous], subject);
+    assert.equal(second.result.status, 0, second.result.stdout);
+    return { r, second };
+  };
+  // Changed between the rounds: the delta names it beside the finding's file.
+  const changed = rounds((r) => writeFileSync(join(r.root, sub, 'a.md'), 'rev 2\n'));
+  assert.deepEqual(changed.second.record.deltaScope, {
+    mode: 'delta',
+    reason: 'changed-within-previous-paths',
+    paths: [`${sub}/a.md`, 'sample.txt'],
+  });
+  const prompt = JSON.parse(
+    readFileSync(join(changed.r.root, changed.second.record.reviewers[0].invocationFile), 'utf8'),
+  ).prompt;
+  // The reviewer is given the copy, so the round line names the copy; a tracked file keeps its path.
+  const roundLine = prompt
+    .split('\n')
+    .find((line) => line.startsWith('- Review round 2 (delta): '));
+  const listed = /since round 1: (.*?)\. Read other paths/u.exec(roundLine)[1].split(', ');
+  const secondId = /([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(
+    changed.second.record.reviewers[0].packetFile.path,
+  )[1];
+  const copy = `${PACKET_DIR}/${secondId}.inputs/${sub}/a.md`;
+  assert.ok(existsSync(join(changed.r.root, copy)), `${copy} is the copy the reviewer reads`);
+  assert.deepEqual(listed, [copy, 'sample.txt']);
+  // Removed: a change like one of a tracked file.
+  const removed = rounds((r) => rmSync(join(r.root, sub, 'b.md')));
+  assert.deepEqual(removed.second.record.deltaScope.paths, [`${sub}/b.md`, 'sample.txt']);
+  // Created inside the previous subject paths: the full scope, like a new tracked file.
+  const created = rounds((r) => writeFileSync(join(r.root, sub, 'new.md'), 'new\n'));
+  assert.deepEqual(created.second.record.deltaScope, {
+    mode: 'full',
+    reason: `new-file: ${sub}/new.md`,
+  });
+  // Left as it was: only the finding's file.
+  const same = rounds(() => {});
+  assert.deepEqual(same.second.record.deltaScope.paths, ['sample.txt']);
+});
+
+test('a later round compares commits, staged plans and a missing scope record with the previous round', (t) => {
+  // A fix committed between the rounds is still the delta: the comparison spans the two HEADs.
+  const committed = roundTwo(t, (r) => {
+    writeFileSync(join(r.root, 'sample.txt'), 'fixed');
+    execFileSync('git', ['add', 'sample.txt'], { cwd: r.root });
+    execFileSync(
+      'git',
+      ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'fix'],
+      { cwd: r.root },
+    );
+  });
+  assert.equal(committed.second.result.status, 0, committed.second.result.stdout);
+  assert.deepEqual(committed.second.record.deltaScope, {
+    mode: 'delta',
+    reason: 'changed-within-previous-paths',
+    paths: ['sample.txt'],
+  });
+  // A committed file outside the previous subject paths reads the full scope again.
+  const outside = roundTwo(t, (r) => {
+    writeFileSync(join(r.root, 'other.txt'), 'changed outside');
+    execFileSync('git', ['add', 'other.txt'], { cwd: r.root });
+    execFileSync(
+      'git',
+      ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'outside'],
+      { cwd: r.root },
+    );
+  });
+  assert.equal(outside.second.record.deltaScope.reason, 'outside-previous-paths: other.txt');
+  // The previous round left no scope record (built before records were kept): the full scope, with the reason.
+  const missing = roundTwo(t, (r) => {
+    for (const file of readdirSync(join(r.root, PACKET_DIR)))
+      if (file.endsWith('.scope.json')) unlinkSync(join(r.root, PACKET_DIR, file));
+  });
+  assert.equal(missing.second.result.status, 0, missing.second.result.stdout);
+  assert.deepEqual(missing.second.record.deltaScope, {
+    mode: 'full',
+    reason: 'previous-scope-record-missing',
+  });
+  // A staged plan is ignored, so the tree never shows it: its revision between the rounds is the delta.
+  const plan = planFixture(t, 'A sentence added to the scope.');
+  const first = plan.run(1, PLAN_ARGS);
+  assert.equal(first.result.status, 0, first.result.stdout);
+  const reviewId = /([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(
+    first.record.reviewers[0].packetFile.path,
+  )[1];
+  const previous = plan.write('r1-result.json', {
+    packetId: `review-${reviewId}`,
+    verdict: 'FAIL',
+    findings: [],
+  });
+  const stagedPath = `${PLAN_STAGE}/plan-drafts/${PLANS}/a.md`;
+  for (const path of [stagedPath, `${PLAN_STAGE}/review/promote-view/${PLANS}/a.md`])
+    writeFileSync(
+      join(plan.r.root, path),
+      readFileSync(join(plan.r.root, path), 'utf8').replace(
+        'A sentence added to the scope.',
+        'A sentence revised after round one.',
+      ),
+    );
+  const second = plan.run(2, [...PLAN_ARGS, '--previous-result', previous]);
+  assert.equal(second.result.status, 0, second.result.stdout);
+  assert.deepEqual(second.record.deltaScope, {
+    mode: 'delta',
+    reason: 'changed-within-previous-paths',
+    paths: [stagedPath],
+  });
+});
+
+test('a delta round with more paths than its prompt line holds reads a bound scope record', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const previous = writePreviousResult(r);
+  const paths = Array.from(
+    { length: 14 },
+    (_, index) => `many/f${String(index).padStart(2, '0')}.txt`,
+  );
+  const review = roundReview(r, {
+    reviewRound: 2,
+    previousResult: previous,
+    deltaScope: { mode: 'delta', reason: 'changed-within-previous-paths', paths },
+  });
+  const scopePath = `${PACKET_DIR}/${reviewIdOf(review)}.scope.json`;
+  assert.ok(review.reviewerSpec.readScope.includes(scopePath));
+  assert.match(
+    review.reviewerPrompt,
+    new RegExp(
+      `^- Review round 2 \\(delta\\): .*many/f11\\.txt and 2 more listed in ${scopePath.replaceAll('.', '\\.')}\\.`,
+      'mu',
+    ),
+  );
+  assert.ok(!review.reviewerPrompt.includes('many/f12.txt'));
+  const scope = JSON.parse(readFileSync(join(r.root, scopePath), 'utf8'));
+  assert.deepEqual(scope.deltaScope.paths, paths);
+  const record = JSON.parse(readFileSync(join(r.root, review.promptFile.path), 'utf8'));
+  assert.deepEqual(record.scope, {
+    path: scopePath,
+    digest: sha256(readFileSync(join(r.root, scopePath))),
+  });
+  const status = reviewedWhile(r, review, () =>
+    writeFileSync(join(r.root, scopePath), `${JSON.stringify({ ...scope, deltaScope: null })}\n`),
+  );
+  assert.ok(
+    status.observationErrors.includes('review-scope-changed'),
+    status.observationErrors.join(','),
+  );
+  // A shorter list stays on the prompt line and the scope record is not a read path.
+  const s = repo(t);
+  writeFileSync(join(s.root, 'sample.txt'), 'parent edit');
+  const short = roundReview(s, {
+    reviewRound: 2,
+    previousResult: writePreviousResult(s),
+    deltaScope: {
+      mode: 'delta',
+      reason: 'changed-within-previous-paths',
+      paths: paths.slice(0, 12),
+    },
+  });
+  assert.ok(!short.reviewerSpec.readScope.some((path) => path.endsWith('.scope.json')));
+  assert.equal(
+    JSON.parse(readFileSync(join(s.root, short.promptFile.path), 'utf8')).scope,
+    undefined,
+  );
+});
+
+test('review alone refuses a later round of a Parent subject and points at review-run (RL-P2 RED 8)', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const { path } = writeGroupRecord(r);
+  assert.throws(
+    () => roundReview(r, { reviewRound: 2, previousResult: path, deltaScope: undefined }),
+    /delta-scope-required: .*review-run/u,
+    'review refuses a later Parent round without a delta scope',
+  );
+  assert.deepEqual(reviewFiles(r), []);
+});
+
+// The prompt of a held-out copy subject (ignored subject paths, one runner record) as it was before
+// the runner file and the input copies: every line outside those two places stays as it is.
+const COPY_SHAPE_DIR = '.artifacts/plans/helper-test/held-out/ho-001';
+const COPY_SHAPE_CHANGED =
+  /^(?:KNU review snapshot |KNU_REVIEW_PACKET_FILE:|KNU_REVIEW_INPUTS_FILE:|KNU_REVIEW_RUNNER_FILE:|Result template: |- commandsActuallyRun|- Runner records|  \d+\. \[exit |- Ignored inputs )/u;
+const COPY_SHAPE_KEPT = [
+  'Independent read-only review of one frozen subject (same host, fresh context).',
+  '- Read only packet.boundaries.allowedReadPaths at this snapshot. Do not edit, run commands or delegate.',
+  G6_LINE,
+  '- Judge the source against each acceptanceCoverage criterion; no builder reasoning is provided or needed.',
+  UNSTATED_LINE,
+  '- notRun lists only required checks nobody ran; knownGaps lists unresolved gaps blocking acceptance.',
+  '  Either one, a coverage gap or a critical/high/medium finding forbids PASS.',
+  '- Replace each coverage placeholder with sourceRefs and evidenceRefs (gap null), or keep a concrete gap.',
+  '- Each finding needs severity (critical, high, medium or low), location, impact, reproduction and evidence.',
+  SAME_TYPE_LINE,
+  '- Review round 1: report broadly. Include lower-confidence blocking candidates with their evidence; list at most 5 low findings, most important first.',
+  '- An empty findings list is a valid result; do not add findings to fill it.',
+  '- Context inputs: none.',
+  NO_GRADE_LINE,
+  '- Read the packet file first with the Read tool: .artifacts/tools/claude-review-packets/<reviewId>.json. It holds the objective, sources and read boundaries. If it cannot be read or is not JSON, end with a blocker.',
+  '- Final message: exactly one JSON object from the result template, status "complete", verdict PASS or FAIL.',
+];
+
+test('a held-out copy subject keeps its prompt outside the runner record and input copy lines (RL-P2 RED 9)', (t) => {
+  const r = repo(t);
+  mkdirSync(join(r.root, COPY_SHAPE_DIR, 'subject'), { recursive: true });
+  writeFileSync(join(r.root, COPY_SHAPE_DIR, 'subject/module.mjs'), 'export const value = 1;\n');
+  writeFileSync(join(r.root, COPY_SHAPE_DIR, 'manifest.log'), 'manifest files=1\n');
+  const review = parentReview(
+    r,
+    {
+      request: 'held-out 사본 변경을 구현해줘.',
+      owner: 'parent',
+      acceptance: ['module exports the value'],
+      paths: [`${COPY_SHAPE_DIR}/subject`],
+    },
+    [
+      {
+        command: 'node scripts/manifest.mjs',
+        exit: 0,
+        environment: 'macOS, node 26',
+        observedResult: '`manifest files=1`',
+        outputPaths: [`${COPY_SHAPE_DIR}/manifest.log`],
+      },
+    ],
+  );
+  const lines = review.reviewerPrompt
+    .split('\n')
+    .map((line) => line.replaceAll(reviewIdOf(review), '<reviewId>'));
+  assert.deepEqual(
+    lines.filter((line) => !COPY_SHAPE_CHANGED.test(line)),
+    COPY_SHAPE_KEPT,
+  );
+  // The lines that do change: the runner record places and the input copy lines.
+  const changed = lines.filter((line) => COPY_SHAPE_CHANGED.test(line));
+  assert.deepEqual(
+    changed.map((line) => COPY_SHAPE_CHANGED.exec(line)[0]),
+    [
+      'KNU review snapshot ',
+      '- commandsActuallyRun',
+      '- Runner records',
+      '  1. [exit ',
+      '- Ignored inputs ',
+      'Result template: ',
+      'KNU_REVIEW_PACKET_FILE:',
+      'KNU_REVIEW_RUNNER_FILE:',
+      'KNU_REVIEW_INPUTS_FILE:',
+    ],
+    'the changed lines are the runner record and input copy places',
+  );
+  // The template differs from the one before only in its commandsActuallyRun slot.
+  const template = JSON.parse(
+    promptLine(review.reviewerPrompt, 'Result template: ').slice('Result template: '.length),
+  );
+  assert.deepEqual(
+    { ...template, commandsActuallyRun: null },
+    {
+      ...review.resultTemplate,
+      commandsActuallyRun: null,
+    },
+  );
+  assert.deepEqual(review.resultTemplate.commandsActuallyRun, [
+    {
+      runner: 'lead-runner',
+      exit: 0,
+      observedResult: '`manifest files=1`',
+      environment: 'macOS, node 26',
+      outputPaths: [`${COPY_SHAPE_DIR}/manifest.log`],
+    },
+  ]);
 });

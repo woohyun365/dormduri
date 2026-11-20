@@ -1,27 +1,68 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { checkUserHostCompose, rehearsalDifferenceProblems } from './compose-contract.mjs';
+import {
+  ALLOY_HOST_READS,
+  API_TRANSIT,
+  apiEnvironmentFromExamples,
+  checkUserHostBundleCompose,
+  checkUserHostCompose,
+  fragmentTextProblems,
+  MIGRATE_SECRET_FILES,
+  OBSERVABILITY_CONFIG_ROOT,
+  OBSERVABILITY_NETWORK,
+  OBSERVABILITY_SECRET_DIRECTORY,
+  OBSERVABILITY_SECRET_TARGET,
+  OBSERVABILITY_SERVICES,
+  rehearsalDifferenceProblems,
+  transitSubnetProblems,
+  USER_HOST_MEMORY_LIMITS,
+  WEB_TRANSIT,
+} from './compose-contract.mjs';
 
-// The shape `docker compose config --format json` renders for infra/deploy/user/compose.yml. validate-compose runs the
-// same check on the real file; this fixture proves the check rejects each weakened boundary.
-function hardened(memory, pids) {
+const repoRoot = process.cwd();
+
+// The shape `docker compose config --format json` renders for the user host fragments. validate-compose runs the same
+// checks on the real files; these fixtures prove each check rejects a weakened boundary.
+function hardened(memory, pids, networks) {
   return {
     read_only: true,
     cap_drop: ['ALL'],
     security_opt: ['no-new-privileges:true'],
     restart: 'unless-stopped',
-    networks: { web: null },
+    networks,
     logging: { driver: 'json-file', options: { 'max-file': '3', 'max-size': '10m' } },
     deploy: { resources: { limits: { memory: String(memory), pids } } },
   };
 }
 
+function networks() {
+  return {
+    [API_TRANSIT.key]: { name: API_TRANSIT.name, ipam: {}, external: true },
+    [WEB_TRANSIT.key]: {
+      name: `dormduri-web_${WEB_TRANSIT.key}`,
+      driver: 'bridge',
+      ipam: {
+        config: [
+          {
+            subnet: WEB_TRANSIT.subnet,
+            gateway: WEB_TRANSIT.gateway,
+            ip_range: WEB_TRANSIT.ipRange,
+          },
+        ],
+      },
+    },
+  };
+}
+
 function validConfig() {
   return {
+    networks: networks(),
     services: {
       web: {
-        ...hardened(335544320, 256),
+        ...hardened(335544320, 256, { [WEB_TRANSIT.key]: { ipv4_address: WEB_TRANSIT.web } }),
         tmpfs: ['/tmp:size=64m,mode=1777', '/app/apps/web/.next/cache:size=128m,mode=1777'],
         environment: {
           NODE_ENV: 'production',
@@ -31,7 +72,10 @@ function validConfig() {
         expose: ['3000'],
       },
       ingress: {
-        ...hardened(100663296, 128),
+        ...hardened(100663296, 128, {
+          [API_TRANSIT.key]: {},
+          [WEB_TRANSIT.key]: { ipv4_address: WEB_TRANSIT.ingress },
+        }),
         tmpfs: ['/tmp:size=16m,mode=1777'],
         ports: [
           { target: 8080, published: '80', protocol: 'tcp' },
@@ -51,18 +95,132 @@ function validConfig() {
   };
 }
 
+const API_ENVIRONMENT = Object.freeze({
+  NODE_ENV: 'production',
+  SECRET_SOURCE: 'mounted-files',
+  DATABASE_POOL_MAX: '7',
+});
+
+function validBundle() {
+  const config = validConfig();
+  const fileMount = (name) => ({
+    type: 'bind',
+    source: `/opt/dormduri/secrets/migrate.render/${name}`,
+    target: `/run/secrets/dormduri-migrate/${name}`,
+    read_only: true,
+    bind: { create_host_path: false },
+  });
+  config.services.api = {
+    ...hardened(1476395008, 512, { [API_TRANSIT.key]: {} }),
+    tmpfs: ['/tmp:size=64m,mode=1777'],
+    environment: { ...API_ENVIRONMENT },
+    stop_grace_period: '30s',
+    healthcheck: { test: ['CMD', '/app/healthcheck.sh'] },
+    volumes: [
+      {
+        type: 'bind',
+        source: '/opt/dormduri/secrets/api/releases/render',
+        target: '/run/secrets/dormduri-api',
+        read_only: true,
+        bind: { create_host_path: false },
+      },
+    ],
+  };
+  config.services.migrate = {
+    ...hardened(402653184, 256, { [API_TRANSIT.key]: {} }),
+    restart: 'no',
+    profiles: ['migrate'],
+    tmpfs: ['/tmp:size=64m,mode=1777'],
+    environment: {
+      NODE_ENV: 'production',
+      CHECKPOINT_DISABLE: '1',
+      MIGRATE_SECRET_DIRECTORY: '/run/secrets/dormduri-migrate',
+    },
+    volumes: MIGRATE_SECRET_FILES.map(fileMount),
+  };
+  config.networks[OBSERVABILITY_NETWORK.key] = {
+    name: `dormduri-web_${OBSERVABILITY_NETWORK.key}`,
+    ipam: {
+      config: [{ subnet: OBSERVABILITY_NETWORK.subnet, gateway: OBSERVABILITY_NETWORK.gateway }],
+    },
+  };
+  const digestDir = `${OBSERVABILITY_CONFIG_ROOT}/${'0'.repeat(64)}`;
+  const bind = (source, target) => ({
+    type: 'bind',
+    source,
+    target,
+    read_only: true,
+    bind: { create_host_path: false },
+  });
+  for (const [name, spec] of Object.entries(OBSERVABILITY_SERVICES)) {
+    config.services[name] = {
+      ...hardened(
+        USER_HOST_MEMORY_LIMITS[name],
+        128,
+        Object.fromEntries(spec.networks.map((key) => [key, {}])),
+      ),
+      image: `${name}@sha256:${'a'.repeat(64)}`,
+      user: spec.user,
+      tmpfs: ['/tmp:size=32m,mode=1777'],
+      ports: spec.ports.map((port) => {
+        const [host_ip, published, target] = port.split(':');
+        return { mode: 'ingress', host_ip, target: Number(target), published, protocol: 'tcp' };
+      }),
+      volumes: [
+        ...spec.config.map((path) => bind(`${digestDir}/${path}`, `/etc/${name}/${path}`)),
+        ...spec.secrets.map((file) =>
+          bind(
+            `${OBSERVABILITY_SECRET_DIRECTORY}/${file}`,
+            `${OBSERVABILITY_SECRET_TARGET}/${file}`,
+          ),
+        ),
+        ...(name === 'alloy'
+          ? Object.entries(ALLOY_HOST_READS).map(([source, target]) => ({
+              type: 'bind',
+              source,
+              target,
+              read_only: true,
+            }))
+          : []),
+        { type: 'volume', source: `${name}-data`, target: `/var/lib/${name}`, volume: {} },
+      ],
+      ...(name === 'alloy'
+        ? { environment: { OBSERVABILITY_COMPOSE_PROJECT: 'dormduri-web' } }
+        : {}),
+    };
+    config.services[name].deploy.resources.limits.cpus = 0.1;
+  }
+  return config;
+}
+
 function withChange(change) {
   const config = validConfig();
-  change(config.services);
+  change(config.services, config);
   return checkUserHostCompose(config);
 }
 
-test('the hardened Web stage compose shape passes', () => {
+function bundleWithChange(change) {
+  const config = validBundle();
+  change(config.services, config);
+  return checkUserHostBundleCompose(config, API_ENVIRONMENT);
+}
+
+function assertRejected(problemsOf, cases) {
+  for (const [change, expected] of cases) {
+    const problems = problemsOf(change);
+    assert.ok(
+      problems.some((problem) => expected.test(problem)),
+      `${expected}: ${problems.join(' | ')}`,
+    );
+  }
+}
+
+test('the hardened web bundle fragment shape passes', () => {
   assert.deepEqual(checkUserHostCompose(validConfig()), []);
 });
 
-test('each weakened boundary is rejected', () => {
-  const cases = [
+test('each weakened web bundle boundary is rejected', () => {
+  assertRejected(withChange, [
     [(s) => (s.web.ports = [{ target: 3000, published: '3000' }]), /web: publishes a host port/u],
     [
       (s) => (s.web.volumes = [{ type: 'bind', source: '/srv', target: '/srv' }]),
@@ -72,6 +230,12 @@ test('each weakened boundary is rejected', () => {
     [(s) => (s.ingress.cap_drop = []), /ingress: capabilities are not all dropped/u],
     [(s) => (s.web.cap_add = ['NET_ADMIN']), /web: adds capabilities/u],
     [(s) => (s.ingress.security_opt = []), /ingress: no-new-privileges is not set/u],
+    [
+      (s) => s.ingress.security_opt.push('seccomp:unconfined'),
+      /ingress: relaxes a security option \(seccomp:unconfined\)/u,
+    ],
+    [(s) => (s.web.devices = ['/dev/fuse:/dev/fuse']), /web: sets devices/u],
+    [(s) => (s.web.sysctls = { 'net.core.somaxconn': 1024 }), /web: sets sysctls/u],
     [(s) => (s.web.privileged = true), /web: runs privileged/u],
     [(s) => (s.ingress.network_mode = 'host'), /ingress: shares a host namespace/u],
     [(s) => (s.web.user = '0:0'), /web: overrides the image user with root/u],
@@ -79,7 +243,29 @@ test('each weakened boundary is rejected', () => {
     [(s) => (s.web.deploy.resources.limits.memory = '536870912'), /web: memory limit differs/u],
     [(s) => delete s.ingress.deploy.resources.limits.pids, /ingress: no pids limit/u],
     [(s) => (s.web.logging.options['max-size'] = '100m'), /web: log rotation differs/u],
-    [(s) => (s.web.networks = { web: null, default: null }), /web: not only on the web network/u],
+    // Web stays on the Web transit only; it never reaches the API transit directly.
+    [(s) => (s.web.networks[API_TRANSIT.key] = {}), /web: networks .* differ/u],
+    [(s) => delete s.ingress.networks[API_TRANSIT.key], /ingress: networks .* differ/u],
+    [
+      (s) => (s.web.networks[WEB_TRANSIT.key].ipv4_address = '10.217.10.9'),
+      /web: Web transit address is not/u,
+    ],
+    [
+      (s) => delete s.ingress.networks[WEB_TRANSIT.key].ipv4_address,
+      /ingress: Web transit address is not/u,
+    ],
+    [
+      (s, c) => (c.networks.web = { name: 'dormduri-web_web', driver: 'bridge' }),
+      /redefines the old web network/u,
+    ],
+    [
+      (s, c) => (c.networks[WEB_TRANSIT.key].ipam.config[0].subnet = '172.31.0.0/16'),
+      /web-transit is not the fixed Web transit subnet/u,
+    ],
+    [
+      (s, c) => delete c.networks[API_TRANSIT.key].external,
+      /api-transit is not the external dormduri-api-transit/u,
+    ],
     [
       (s) => (s.web.environment.API_URL = 'https://api.dormduri.com'),
       /web: API_URL is not the private ingress listener/u,
@@ -102,9 +288,321 @@ test('each weakened boundary is rejected', () => {
     ],
     [(s) => (s.ingress.healthcheck = undefined), /ingress: healthcheck does not probe/u],
     [(s) => (s.api = {}), /services must be exactly ingress and web/u],
+  ]);
+});
+
+test('the hardened API bundle fragment shape passes together with the web fragment', () => {
+  assert.deepEqual(checkUserHostBundleCompose(validBundle(), API_ENVIRONMENT), []);
+});
+
+test('each weakened API bundle boundary is rejected', () => {
+  assertRejected(bundleWithChange, [
+    [(s) => (s.api.ports = [{ target: 4000, published: '4000' }]), /api: publishes a host port/u],
+    [
+      (s) => (s.migrate.ports = [{ target: 5432, published: '5432' }]),
+      /migrate: publishes a host port/u,
+    ],
+    [(s) => (s.api.read_only = false), /api: root filesystem is not read-only/u],
+    [(s) => (s.migrate.user = 'root'), /migrate: overrides the image user with root/u],
+    [(s) => (s.api.deploy.resources.limits.memory = '2147483648'), /api: memory limit differs/u],
+    [(s) => (s.api.stop_grace_period = '15s'), /api: stop_grace_period is shorter than 30s/u],
+    [(s) => delete s.api.stop_grace_period, /api: stop_grace_period is shorter than 30s/u],
+    [(s) => (s.api.networks['web-transit'] = {}), /api: networks .* differ/u],
+    [(s) => (s.migrate.profiles = []), /migrate: is not a migrate-profile one-off/u],
+    [(s) => (s.migrate.restart = 'unless-stopped'), /migrate: restart policy is not no/u],
+    [
+      (s) => (s.api.volumes[0].read_only = false),
+      /api: mounts something other than one read-only/u,
+    ],
+    // The migration secret never reaches the API container.
+    [
+      (s) =>
+        s.api.volumes.push({
+          type: 'bind',
+          source: '/opt/dormduri/secrets/migrate.render/MIGRATION_DATABASE_URL',
+          target: '/run/secrets/dormduri-migrate/MIGRATION_DATABASE_URL',
+          read_only: true,
+        }),
+      /api: mounts the migration secret/u,
+    ],
+    // The one-off gets the four files, not a directory and not the runtime release directory.
+    [
+      (s) =>
+        (s.migrate.volumes = [
+          {
+            type: 'bind',
+            source: '/opt/dormduri/secrets/migrate.render',
+            target: '/run/secrets/dormduri-migrate',
+            read_only: true,
+            bind: { create_host_path: false },
+          },
+        ]),
+      /migrate: secret mounts are not exactly the four files/u,
+    ],
+    [
+      (s) =>
+        (s.migrate.volumes[1].source = '/opt/dormduri/secrets/api/releases/render/DATABASE_URL'),
+      /migrate: .* is not a read-only file mount from the temporary directory/u,
+    ],
+    [(s) => (s.migrate.volumes[2].read_only = false), /migrate: .* is not a read-only file mount/u],
+    [
+      (s) => delete s.migrate.environment.CHECKPOINT_DISABLE,
+      /migrate: CHECKPOINT_DISABLE=1 is not set/u,
+    ],
+    [(s) => (s.api.healthcheck = undefined), /api: healthcheck does not run the readiness probe/u],
+    [(s) => (s.api.environment.DATABASE_POOL_MAX = '10'), /api: env DATABASE_POOL_MAX differs/u],
+    [(s) => (s.api.environment.EXTRA = 'x'), /api: env EXTRA is not in the Lightsail example/u],
+    [(s) => delete s.migrate, /services must be exactly alertmanager, alloy, api, grafana/u],
+  ]);
+});
+
+test('each weakened observability boundary is rejected', () => {
+  const secretMount = (file) => ({
+    type: 'bind',
+    source: `${OBSERVABILITY_SECRET_DIRECTORY}/${file}`,
+    target: `${OBSERVABILITY_SECRET_TARGET}/${file}`,
+    read_only: true,
+    bind: { create_host_path: false },
+  });
+  const pins = { grafana: `grafana@sha256:${'b'.repeat(64)}` };
+  assert.match(
+    checkUserHostBundleCompose(validBundle(), API_ENVIRONMENT, pins).join('\n'),
+    /grafana: image differs from the observability pin/u,
+  );
+  assertRejected(bundleWithChange, [
+    [(s) => delete s.loki, /services must be exactly/u],
+    [
+      (s) => (s.grafana.image = 'grafana/grafana:13.3.0'),
+      /grafana: image is not pinned by digest/u,
+    ],
+    [(s) => (s.prometheus.user = '0'), /prometheus: overrides the image user with root/u],
+    // root·Docker socket·host `/`를 읽는 Alloy도 seccomp·AppArmor·host namespace를 풀지 않는다.
+    [
+      (s) => s.alloy.security_opt.push('apparmor:unconfined'),
+      /alloy: relaxes a security option \(apparmor:unconfined\)/u,
+    ],
+    [(s) => (s.alloy.userns_mode = 'host'), /alloy: sets userns_mode/u],
+    [(s) => (s.alloy.cgroup = 'host'), /alloy: sets cgroup/u],
+    [(s) => (s.alloy.device_cgroup_rules = ['c 1:3 mr']), /alloy: sets device_cgroup_rules/u],
+    [(s) => (s.alertmanager.user = '65534'), /alertmanager: user is not 65534:65534/u],
+    [(s) => (s.loki.read_only = false), /loki: root filesystem is not read-only/u],
+    [(s) => (s.grafana.cap_drop = []), /grafana: capabilities are not all dropped/u],
+    [(s) => (s.alloy.privileged = true), /alloy: runs privileged/u],
+    [(s) => (s.alloy.pid = 'host'), /alloy: shares a host namespace/u],
+    [
+      (s) => (s.prometheus.deploy.resources.limits.memory = '536870912'),
+      /prometheus: memory limit differs/u,
+    ],
+    [(s) => delete s.loki.deploy.resources.limits.cpus, /loki: no CPU limit/u],
+    [(s) => (s.grafana.ports[0].host_ip = '0.0.0.0'), /grafana: publishes 3000 beyond loopback/u],
+    [
+      (s) => s.loki.ports.push({ host_ip: '127.0.0.1', target: 3100, published: '3100' }),
+      /loki: published ports .* differ/u,
+    ],
+    [(s) => (s.alloy.networks['api-transit'] = {}), /alloy: networks .* differ/u],
+    [(s) => delete s.prometheus.networks['api-transit'], /prometheus: networks .* differ/u],
+    [
+      (s) => (s.prometheus.volumes[0].read_only = false),
+      /prometheus: .* is not a read-only mount of a config digest path/u,
+    ],
+    [
+      (s) => (s.prometheus.volumes[0].source = `${OBSERVABILITY_CONFIG_ROOT}/current/prometheus`),
+      /prometheus: .* is not a read-only mount of a config digest path/u,
+    ],
+    // 각 관측 container는 자기가 읽는 관측 secret 파일만 받는다.
+    [
+      (s) => s.alertmanager.volumes.push(secretMount('grafana-admin-password')),
+      /alertmanager: secret mounts .* differ/u,
+    ],
+    [
+      (s) => s.loki.volumes.push(secretMount('api-metrics-bearer-token')),
+      /loki: secret mounts .* differ/u,
+    ],
+    [
+      (s) =>
+        (s.prometheus.volumes = s.prometheus.volumes.filter(
+          (v) => !v.source.startsWith(OBSERVABILITY_SECRET_DIRECTORY),
+        )),
+      /prometheus: secret mounts .* differ/u,
+    ],
+    // 관측 secret 디렉터리와 runtime release 디렉터리는 디렉터리째 mount하지 않는다.
+    [
+      (s) =>
+        s.grafana.volumes.push({
+          type: 'bind',
+          source: OBSERVABILITY_SECRET_DIRECTORY,
+          target: OBSERVABILITY_SECRET_TARGET,
+          read_only: true,
+        }),
+      /grafana: mounts \/opt\/dormduri\/secrets\/observability outside the observability paths/u,
+    ],
+    [
+      (s) =>
+        s.prometheus.volumes.push({
+          type: 'bind',
+          source: '/opt/dormduri/secrets/api/releases/render',
+          target: '/run/secrets/dormduri-api',
+          read_only: true,
+        }),
+      /prometheus: mounts \/opt\/dormduri\/secrets\/api\/releases\/render outside the observability paths/u,
+    ],
+    [
+      (s) =>
+        (s.alertmanager.volumes[1] = {
+          ...s.alertmanager.volumes[1],
+          target: '/etc/alertmanager/slack-webhook-url',
+        }),
+      /alertmanager: .* is not a read-only file mount of its secret/u,
+    ],
+    [
+      (s) => (s.grafana.volumes[2].read_only = false),
+      /grafana: .* is not a read-only file mount of its secret/u,
+    ],
+    [
+      (s) => s.api.volumes.push(secretMount('slack-webhook-url')),
+      /api: mounts an observability secret/u,
+    ],
+    [
+      (s) =>
+        s.prometheus.volumes.push({
+          type: 'bind',
+          source: '/var/run/docker.sock',
+          target: '/var/run/docker.sock',
+          read_only: true,
+        }),
+      /prometheus: mounts the Docker socket/u,
+    ],
+    [
+      (s) => (s.alloy.volumes.find((v) => v.source === '/').read_only = false),
+      /alloy: \/ is writable/u,
+    ],
+    [
+      (s) => (s.alloy.volumes = s.alloy.volumes.filter((v) => v.source !== '/proc')),
+      /alloy: does not read the Docker socket and host paths/u,
+    ],
+    [
+      (s) => delete s.alloy.environment.OBSERVABILITY_COMPOSE_PROJECT,
+      /alloy: collects beyond the dormduri-web compose project/u,
+    ],
+    [
+      (s, c) => (c.networks.observability.ipam.config[0].subnet = '172.31.0.0/28'),
+      /networks: observability is not the fixed observability subnet/u,
+    ],
+    [
+      (s, c) => (c.networks.observability.external = true),
+      /networks: observability is not the fixed/u,
+    ],
+  ]);
+});
+
+// API transit은 조각에서 external이라 render 결과로 대조할 수 없다. 값의 원본은 두 document가 network를 만드는 lib.sh다.
+test('the API transit values in lib.sh are the contract values and no transit overlaps Docker pools or AWS default VPCs', () => {
+  const lib = readFileSync(resolve(repoRoot, 'infra/deploy/user/ssm/lib.sh'), 'utf8');
+  assert.deepEqual(transitSubnetProblems(lib), []);
+  const changed = (from, to) => transitSubnetProblems(lib.replace(from, to));
+  assert.match(
+    changed('api_transit_subnet=10.217.11.0/28', 'api_transit_subnet=10.217.12.0/28').join('\n'),
+    /api_transit_subnet/u,
+  );
+  assert.match(
+    changed('api_transit_gateway=10.217.11.1', 'api_transit_gateway=10.217.11.2').join('\n'),
+    /api_transit_gateway/u,
+  );
+  assert.match(changed('api_transit_range=10.217.11.8/29', '').join('\n'), /api_transit_range/u);
+  // Docker 기본 주소 pool·AWS 기본 VPC(default VPC·Lightsail VPC)와 겹치는 대역은 계약 값이어도 거부한다.
+  for (const subnet of ['172.31.0.0/28', '172.26.4.0/28', '192.168.10.0/28', '172.16.0.0/12']) {
+    assert.match(
+      transitSubnetProblems(lib, { ...API_TRANSIT, subnet }).join('\n'),
+      /overlaps/u,
+      subnet,
+    );
+  }
+  assert.match(
+    transitSubnetProblems(lib, API_TRANSIT, { ...WEB_TRANSIT, subnet: '10.217.11.0/28' }).join(
+      '\n',
+    ),
+    /overlaps/u,
+  );
+  // 관측 network도 두 transit·Docker pool·AWS 기본 VPC와 겹치지 않는다.
+  for (const subnet of ['10.217.11.0/28', '10.217.10.8/29', '172.31.0.0/28']) {
+    assert.match(
+      transitSubnetProblems(lib, API_TRANSIT, WEB_TRANSIT, {
+        ...OBSERVABILITY_NETWORK,
+        subnet,
+      }).join('\n'),
+      /observability network .* overlaps/u,
+      subnet,
+    );
+  }
+});
+
+// 관측 secret 파일 소유 UID(document·secret 설치기)가 그 파일을 읽는 container의 실행 user와 같다(D-AB7).
+test('the observability secret files are owned by the UID of the one container that mounts each file', () => {
+  const bundle = readFileSync(
+    resolve(repoRoot, 'infra/deploy/user/api/ssm/secret_bundle.py'),
+    'utf8',
+  );
+  const script = readFileSync(resolve(repoRoot, 'infra/deploy/user/api/ssm/deploy-api.sh'), 'utf8');
+  const owners = Object.fromEntries(
+    [...bundle.matchAll(/^ {4}"[A-Z_]+": \("([a-z-]+)", (\d+), (\d+)\),$/gmu)].map((m) => [
+      m[1],
+      `${m[2]}:${m[3]}`,
+    ]),
+  );
+  const token =
+    /install -m 0400 -o (\d+) -g (\d+) "\$\{secret_releases\}\/\$1\/METRICS_BEARER_TOKEN" "\$\{tmp\}\/([a-z-]+)"/u.exec(
+      script,
+    );
+  assert.ok(token, 'the document writes the scrape token from the runtime release');
+  owners[token[3]] = `${token[1]}:${token[2]}`;
+  const readers = Object.fromEntries(
+    Object.entries(OBSERVABILITY_SERVICES).flatMap(([, spec]) =>
+      spec.secrets.map((file) => [file, spec.user]),
+    ),
+  );
+  assert.deepEqual(owners, readers);
+  assert.equal(Object.keys(readers).length, 3);
+  for (const file of Object.keys(readers))
+    assert.match(
+      script,
+      new RegExp(`for name in [a-z -]*\\b${file}\\b`, 'u'),
+      `${file} is moved into place`,
+    );
+});
+
+test('the fragments use host absolute paths only and only the web fragment names the project', () => {
+  const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
+  const fragments = {
+    web: read('infra/deploy/user/compose.yml'),
+    api: read('infra/deploy/user/api/compose.yml'),
+  };
+  assert.deepEqual(fragmentTextProblems(fragments), []);
+  const cases = [
+    [{ api: `name: dormduri-web\n${fragments.api}` }, /api fragment: has a top-level name/u],
+    [
+      { web: fragments.web.replace('name: dormduri-web', 'name: dormduri-user') },
+      /web fragment: name/u,
+    ],
+    [
+      {
+        api: fragments.api.replace(
+          'source: ${API_SECRET_RELEASE_DIR',
+          'source: ./secrets${API_SECRET_RELEASE_DIR',
+        ),
+      },
+      /api fragment: has a relative path/u,
+    ],
+    [
+      { web: fragments.web.replace('      - /opt/dormduri/tls:', '      - ../tls:') },
+      /web fragment: has a relative path/u,
+    ],
+    [
+      { api: `${fragments.api}\n    env_file: /opt/dormduri/api.env\n` },
+      /api fragment: uses a file path key/u,
+    ],
   ];
   for (const [change, expected] of cases) {
-    const problems = withChange(change);
+    const problems = fragmentTextProblems({ ...fragments, ...change });
     assert.ok(
       problems.some((problem) => expected.test(problem)),
       `${expected}: ${problems.join(' | ')}`,
@@ -112,10 +610,31 @@ test('each weakened boundary is rejected', () => {
   }
 });
 
+test('the API environment is the Lightsail example and the runtime example keys it follows, without secrets', () => {
+  const environment = apiEnvironmentFromExamples(repoRoot);
+  const contract = JSON.parse(
+    readFileSync(resolve(repoRoot, 'infra/deploy/api/secret-mount.contract.json'), 'utf8'),
+  );
+  for (const key of contract.requiredFiles) assert.equal(key in environment, false, key);
+  assert.equal(environment.SECRET_SOURCE, 'mounted-files');
+  assert.equal(environment.SECRET_MOUNT_DIRECTORY, '/run/secrets/dormduri-api');
+  assert.equal(environment.DATABASE_POOL_MAX, '7');
+  assert.equal(environment.HTTP_TRUST_PROXY_HOPS, '0');
+  assert.equal(environment.SES_CONFIGURATION_SET, 'dormduri-production');
+  assert.equal('API_SECRET_HOST_CURRENT' in environment, false);
+  assert.equal('SECRET_NAME_PREFIX' in environment, false);
+  // Keys only the runtime example has (the Lightsail example follows it for the rest).
+  assert.equal(environment.AUTH_MAIL_DISPATCHER_ENABLED, 'true');
+});
+
 function rehearsalOf(production) {
   const rehearsal = structuredClone(production);
   rehearsal.name = 'dormduri-user-host-rehearsal';
-  rehearsal.networks = { web: { name: 'dormduri-user-host-rehearsal_web' } };
+  rehearsal.networks[WEB_TRANSIT.key].name = `dormduri-user-host-rehearsal_${WEB_TRANSIT.key}`;
+  rehearsal.networks[API_TRANSIT.key] = {
+    name: `dormduri-user-host-rehearsal_${API_TRANSIT.key}`,
+    ipam: {},
+  };
   rehearsal.services.web.build = { context: '/repo', dockerfile: 'infra/deploy/web/Dockerfile' };
   rehearsal.services.ingress.build = { context: '/repo/infra/deploy/user/ingress' };
   rehearsal.services.ingress.ports = [
@@ -127,36 +646,41 @@ function rehearsalOf(production) {
   return rehearsal;
 }
 
-test('the rehearsal may change only the build source, loopback ports and host path sources', () => {
-  const production = {
-    name: 'dormduri-web',
-    networks: { web: { name: 'dormduri-web_web' } },
-    ...validConfig(),
-  };
+test('the rehearsal may change only the build source, loopback ports, host path sources and the API transit owner', () => {
+  const production = { name: 'dormduri-web', ...validConfig() };
   assert.deepEqual(rehearsalDifferenceProblems(production, rehearsalOf(production)), []);
   const cases = [
     [
-      (s) => (s.web.environment.WEB_APP_URL = 'http://localhost'),
+      (r) => (r.services.web.environment.WEB_APP_URL = 'http://localhost'),
       /at \.services\.web\.environment\.WEB_APP_URL/u,
     ],
-    [(s) => (s.web.read_only = false), /at \.services\.web\.read_only/u],
+    [(r) => (r.services.web.read_only = false), /at \.services\.web\.read_only/u],
     [
-      (s) => (s.ingress.volumes[0].target = '/srv'),
+      (r) => (r.services.ingress.volumes[0].target = '/srv'),
       /at \.services\.ingress\.volumes\[0\]\.target/u,
     ],
     [
-      (s) => (s.ingress.volumes[1].read_only = false),
+      (r) => (r.services.ingress.volumes[1].read_only = false),
       /at \.services\.ingress\.volumes\[1\]\.read_only/u,
     ],
-    [(s) => delete s.ingress.ports[0].host_ip, /publishes ingress 8080 beyond loopback/u],
+    [(r) => delete r.services.ingress.ports[0].host_ip, /publishes ingress 8080 beyond loopback/u],
     [
-      (s) => (s.web.deploy.resources.limits.memory = '536870912'),
+      (r) => (r.services.web.deploy.resources.limits.memory = '536870912'),
       /\.services\.web\.deploy\.resources\.limits\.memory/u,
+    ],
+    // The Web transit subnet and addresses stay: the private listener binds the ingress address.
+    [
+      (r) => (r.networks[WEB_TRANSIT.key].ipam.config[0].subnet = '10.99.0.0/28'),
+      /at \.networks\.web-transit\.ipam\.config\[0\]\.subnet/u,
+    ],
+    [
+      (r) => (r.services.ingress.networks[WEB_TRANSIT.key].ipv4_address = '10.217.10.4'),
+      /at \.services\.ingress\.networks\.web-transit\.ipv4_address/u,
     ],
   ];
   for (const [change, expected] of cases) {
     const rehearsal = rehearsalOf(production);
-    change(rehearsal.services);
+    change(rehearsal);
     const problems = rehearsalDifferenceProblems(production, rehearsal);
     assert.ok(
       problems.some((problem) => expected.test(problem)),

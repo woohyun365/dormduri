@@ -28,6 +28,10 @@ const requiredFiles = [
   'loki/loki.yml',
   'loki/rules/web-bff-alerts.yml',
   'alloy/config.alloy',
+  'alloy/pipeline.alloy',
+  'prometheus/prometheus.production.yml',
+  'alertmanager/alertmanager.production.yml',
+  'Dockerfile',
 ];
 
 describe('observability stack', () => {
@@ -54,12 +58,18 @@ describe('observability stack', () => {
   });
 
   it('keeps log labels low-cardinality', () => {
+    // 수집 대상은 config.alloy, label 정리와 행 가림은 config.alloy가 import하는 pipeline.alloy가 소유한다.
     const alloy = stripCommentLines(readInfraFile('alloy/config.alloy'));
+    const pipeline = stripCommentLines(readInfraFile('alloy/pipeline.alloy'));
     expect(readInfraFile('loki/loki.yml')).toContain('retention_period: 720h');
-    expect(alloy).toContain('values = ["service", "env", "container", "level"]');
+    expect(alloy).toContain('filename = "/etc/alloy/pipeline.alloy"');
+    expect(pipeline).toContain('values = ["service", "env", "container", "level"]');
     const forbidden = ['email', 'ip', 'requestId', 'sessionId', 'threadId', 'token', 'userId'];
-    for (const label of forbidden) expect(alloy).not.toMatch(new RegExp(`\\b${label}\\s*=`));
-    expect(alloy).toContain('regex         = "api|nginx|web"');
+    for (const label of forbidden) {
+      expect(alloy).not.toMatch(new RegExp(`\\b${label}\\s*=`));
+      expect(pipeline).not.toMatch(new RegExp(`\\b${label}\\s*=`));
+    }
+    expect(alloy).toContain('regex         = "api|ingress|web"');
     expect(alloy).toContain('action        = "keep"');
     expect(alloy).toContain('sys.env("OBSERVABILITY_ENV")');
   });

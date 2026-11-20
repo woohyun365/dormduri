@@ -36,6 +36,7 @@
 - PASS 근거: 경계값과 실패 경로를 각각 실행하는 test가 있고, 오류가 호출자에게 구분되는 의미로 전달되는 위치가 보인다
 - 지침: 입력의 경계와 실패 경로를 먼저 열거하고 각각의 기대 결과를 정한다. 오류는 처리할 수 있는 층에서 처리하고, 아니면 의미를 보존해 전파한다
 - 피함: 오류를 삼키거나 log만 남기고 진행하기, 실패를 정상처럼 보이게 하는 기본값 반환, 정리 code를 성공 경로에만 두기
+- 센서: {{binding:sensor.lint}}
 
 ### S4. 책임 경계와 결합도
 
@@ -76,6 +77,7 @@
 - PASS 근거: dependency를 요청한 기록, 기존 utility로 대신할 수 없는 이유, dependency 정책 확인 결과가 변경 설명에 있다. version 의존 동작은 lockfile의 version과 그 version 공식 문서를 대조한 기록이 있다
 - 지침: 새 dependency는 명시 요청이 있을 때만 추가한다. 먼저 기존 utility·표준 library·이미 있는 dependency로 해결되는지 확인하고, 추가하면 version 고정과 정책 확인을 같은 변경에 둔다. version에 따라 동작이 다른 API는 lockfile의 current version과 그 version의 공식 원천으로 동작을 확인한다
 - 피함: 편의를 위한 package 추가, 측정 근거 없이 유행하는 library 먼저 도입하기, 같은 역할 dependency 중복, 기억이나 다른 version 문서로 API를 추측하기
+- 센서: {{binding:sensor.typecheck}}
 
 ### S8. 측정 근거 있는 성능
 

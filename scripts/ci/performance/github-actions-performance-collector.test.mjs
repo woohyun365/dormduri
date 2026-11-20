@@ -185,7 +185,7 @@ test('records the run-head fingerprint and reads a pnpm cache miss against the d
 });
 
 test('separates expected change surface from the jobs the historical workflow actually ran', () => {
-  const evidence = buildRunEvidence({ ...fixture, changedPaths: ['docs/README.md'] });
+  const evidence = buildRunEvidence({ ...fixture, changedPaths: ['docs/product/intent.md'] });
 
   assert.equal(evidence.change.expectedSurface, 'docs-config-tooling-only');
   assert.equal(evidence.change.observedSurface, 'web-only');

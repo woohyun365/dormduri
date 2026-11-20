@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import type { ComponentProps } from 'react';
 import { FaqAccordion } from '../../components/FaqAccordion';
 import { faqItems } from '../../model/landingCopy';
-import { frameArgTypes, inLandingPanel, type FrameArgs } from '../storyFrame';
+import { inLandingPanel } from '../storyFrame';
 
 const meta = {
   title: 'Landing/Components/FaqAccordion',
@@ -16,9 +16,8 @@ const meta = {
     },
   },
   decorators: [inLandingPanel],
-  args: { scheme: 'dark', items: faqItems },
-  argTypes: { ...frameArgTypes },
-} satisfies Meta<ComponentProps<typeof FaqAccordion> & FrameArgs>;
+  args: { items: faqItems },
+} satisfies Meta<ComponentProps<typeof FaqAccordion>>;
 export default meta;
 
 type Story = StoryObj<typeof meta>;

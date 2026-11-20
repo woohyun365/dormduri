@@ -1,0 +1,103 @@
+# 수집·전달 경보: API target 5분 down은 critical, 다른 target은 warning, Alertmanager 전달 실패와 Alertmanager 미도달은 warning.
+# 경보마다 울리기 직전·울리는 평가 시각을 함께 봐서 기준·`for`·창·분기가 바뀌면 기대가 깨진다.
+rule_files:
+  - ../rules/observability-alerts.yml
+evaluation_interval: 1m
+tests:
+  # API target은 2분부터 down이라 7분에 울린다. Loki target은 0분부터 down이라 5분에 울리고 host target은 계속 up이다.
+  # Slack 전달 실패는 3분에 하나 늘어 15분 창 안에 있는 동안(3~17분) 울리고 19분에는 창 밖이다.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="api",instance="api:4000",service="api",env="production"}'
+        values: '1 1 0x20'
+      - series: 'up{job="host",instance="alloy:12345",service="host",env="production"}'
+        values: '1x22'
+      - series: 'up{job="observability",instance="loki:3100",service="observability",env="production"}'
+        values: '0x22'
+      - series: 'alertmanager_notifications_failed_total{job="observability",instance="alertmanager:9093",integration="slack"}'
+        values: '0 0 0 1x19'
+      - series: 'prometheus_notifications_alertmanagers_discovered{job="observability",instance="localhost:9090"}'
+        values: '1x22'
+      - series: 'prometheus_notifications_errors_total{job="observability",instance="localhost:9090",alertmanager="http://alertmanager:9093/api/v2/alerts"}'
+        values: '0x22'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: ApiMetricsTargetDown
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: ApiMetricsTargetDown
+        exp_alerts:
+          - exp_labels:
+              { severity: critical, service: api, job: api, instance: 'api:4000', env: production }
+            exp_annotations:
+              summary: Prometheus가 API metrics를 5분 동안 읽지 못했습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 4m
+        alertname: ObservabilityTargetDown
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: ObservabilityTargetDown
+        exp_alerts:
+          - exp_labels:
+              {
+                severity: warning,
+                service: observability,
+                job: observability,
+                instance: 'loki:3100',
+                env: production,
+              }
+            exp_annotations:
+              summary: 관측 구성요소 또는 host 지표 target을 5분 동안 읽지 못했습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 2m
+        alertname: AlertmanagerNotificationsFailing
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: AlertmanagerNotificationsFailing
+        exp_alerts:
+          - exp_labels: { severity: warning, service: observability }
+            exp_annotations:
+              summary: Alertmanager가 경보를 Slack에 보내지 못했습니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+      - eval_time: 19m
+        alertname: AlertmanagerNotificationsFailing
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: PrometheusAlertmanagerUnreachable
+        exp_alerts: []
+  # Prometheus의 Alertmanager 전송 오류가 2분부터 늘어 7분에 울린다(Alertmanager는 발견된 상태).
+  - interval: 1m
+    input_series:
+      - series: 'prometheus_notifications_alertmanagers_discovered{job="observability",instance="localhost:9090"}'
+        values: '1x12'
+      - series: 'prometheus_notifications_errors_total{job="observability",instance="localhost:9090",alertmanager="http://alertmanager:9093/api/v2/alerts"}'
+        values: '0 0 1+1x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: PrometheusAlertmanagerUnreachable
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: PrometheusAlertmanagerUnreachable
+        exp_alerts:
+          - exp_labels: { severity: warning, service: observability }
+            exp_annotations:
+              summary: Prometheus가 Alertmanager에 경보를 보내지 못합니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+  # 발견한 Alertmanager가 2분부터 없어 7분에 울린다(전송 오류는 없음).
+  - interval: 1m
+    input_series:
+      - series: 'prometheus_notifications_alertmanagers_discovered{job="observability",instance="localhost:9090"}'
+        values: '1 1 0x10'
+      - series: 'prometheus_notifications_errors_total{job="observability",instance="localhost:9090",alertmanager="http://alertmanager:9093/api/v2/alerts"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: PrometheusAlertmanagerUnreachable
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: PrometheusAlertmanagerUnreachable
+        exp_alerts:
+          - exp_labels: { severity: warning, service: observability }
+            exp_annotations:
+              summary: Prometheus가 Alertmanager에 경보를 보내지 못합니다.
+              runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응

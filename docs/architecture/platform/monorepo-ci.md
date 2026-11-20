@@ -4,12 +4,14 @@
 
 돔두리의 pull request와 default `main` push 검증은 `.github/workflows/ci.yml`이 진입점이다. `dev`는 active ruleset이 PR-only integration과 green `CI summary`를 요구하므로 merge 직후 같은 graph를 다시 실행하지 않는다. Workflow는 변경 경로를 분류하고 필요한 reusable app workflow만 호출한다. Pull request에서는 분류와 무관하게 `Lifecycle gate`도 실행하고, 항상 존재하는 `CI summary` job에서 선택된 lane과 `Lifecycle gate`의 성공 여부를 fail-closed로 판정한다.
 
-이 문서의 CI workflow는 production deploy 권한을 갖지 않는다(`PRS-R47`). Web 단계 CD는 별도 workflow
-`.github/workflows/web-cd.yml`이 `main` push(Web 배포 입력 경로)와 `main`의 dispatch에서만 실행하고, image publish,
-`production` environment 승인, OIDC deployment identity, SSM 배포, rollback을 소유한다. CI graph(`ci.yml`)는 CD를 호출하지 않고
-CD는 CI 결과를 다시 판정하지 않는다. `main`에 들어온 commit은 이미 `dev` PR의 `CI summary`를 통과했다. CD 절차는
-[Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md), 지금 운영 구성은
-`docs/deploy/production-environment.md`가 소유한다. API 단계 CD 입력은 같은 문서의 "이후 단계에서 정할 입력"이다.
+이 문서의 CI workflow는 production deploy 권한을 갖지 않는다(`PRS-R47`). CD는 서비스마다 별도 workflow다. Web 단계는
+`.github/workflows/web-cd.yml`, API 단계는 `.github/workflows/api-cd.yml`이 `main` push(그 서비스의 배포 입력 경로)와 `main`의
+dispatch에서만 실행하고, image publish, 그 서비스 environment(`production`·`production-api`) 승인, OIDC deployment identity,
+SSM 배포, rollback을 소유한다. 두 CD는 concurrency group 하나에 줄 선다. CI graph(`ci.yml`)는 CD를 호출하지 않고 CD는 CI
+결과를 다시 판정하지 않는다. `main`에 들어온 commit은 이미 `dev` PR의 `CI summary`를 통과했다. CD workflow를 바꾼 PR은 infra
+lane(CD contract test)과 repo-policy lane(workflow trust test)을 켠다. CD 절차는
+[Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md)와 [API 단계 배포](../../../infra/runbooks/release/api-stage-deploy.md),
+지금 운영 구성은 `docs/deploy/production-environment.md`가 소유한다.
 
 ## Decision과 drivers
 
@@ -62,10 +64,14 @@ CI summary         # 선택된 모든 lane과 pull request의 lifecycle-gate 결
 - API-only 변경은 Web/Playwright lane을 실행하지 않는다.
 - Shared/root toolchain 변경은 Shared, API, Web을 함께 검증한다.
 - Storybook-owned 변경은 Web lane 안에서만 Storybook static build를 추가한다.
-- Docs-only 변경은 product lane을 실행하지 않는다.
+- Docs-only 변경은 product lane을 실행하지 않는다. 다만 API test가 읽는 문서(분류기의 `API_TEST_REPOSITORY_INPUTS`)를 바꾸면
+  API lane도 실행한다.
 - Agent workflow(host 설정, agent script·test·문서), repository 지원 script·설정, tracked local record 변경도 repo-policy lane과
   agent-workflow lane만 실행한다. Agent workflow test가 읽는 product 파일을 바꾸면 그 product lane과 함께 agent-workflow lane도
-  실행한다. 다만 lane job이 실행·import하거나 lane package 파일이 import·참조하는 저장소 script는 그 lane도 실행한다.
+  실행한다. 다만 lane job이 실행·import하거나 lane package 파일이 import·참조하는 저장소 script는 그 lane도 실행하고, API test가
+  읽는 파일(`.github/**`·`infra/deploy/**`·`infra/observability/**` 전체 포함)은 API lane도 실행한다. API test 파일을 바꾸면 그
+  읽기를 목록과 대조하는 repo-policy lane도 실행한다. 경로별 규칙은
+  [CI surface ownership](../../development/ci/ci-surface-ownership.md)이 소유한다.
 - 비교 기준 계산 실패 또는 알 수 없는 경로는 모든 검증 lane으로 fail-open한다.
 - `Lifecycle gate`는 `pull_request` event 조건으로만 실행되고 `CI summary`도 같은 조건으로 선택 여부를 정한다. Job은 실행 시점의
   PR 본문을 REST API로 읽고(`pull-requests: read`는 이 job에만), event의 base·head merge-base부터 head까지의 diff에 정책 우선
@@ -244,7 +250,8 @@ Web unit summary 단계:
 fan-out의 critical path가 API·Web job으로 바뀌었다. 개선 전 표본, 단계별 p50/p95, 개선별 전후 측정은
 [Monorepo CI restructuring evidence](../../evidence/ci/monorepo-ci-restructuring-evidence.md)와
 [CI baseline](../../evidence/ci/monorepo-ci-baseline.md)이 소유한다. 아래 budget은 분류별 성공 run이 쌓인 뒤 판정하며,
-개선 전 표본만으로 목표 달성을 주장하지 않는다.
+개선 전 표본만으로 목표 달성을 주장하지 않는다. 분류는 분류기가 고른 lane으로 정한다. 그래서 API test가 읽는 문서만 바꿔 API
+lane을 고른 run은 Docs-only가 아니라 API-only로 센다.
 
 Rollout budget:
 

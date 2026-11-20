@@ -226,9 +226,9 @@
       "groupSlug": "node-image"
     },
     {
-      "description": "Group observability stack image minor/patch and digest updates.",
+      "description": "Group observability stack image minor/patch and digest updates. The user host API fragment pins the same images (scripts/infra/check/validate-compose.mjs checks they match), so both files move in one PR.",
       "matchManagers": ["docker-compose"],
-      "matchFileNames": ["infra/observability/**"],
+      "matchFileNames": ["infra/observability/**", "infra/deploy/user/api/compose.yml"],
       "matchUpdateTypes": ["minor", "patch", "digest"],
       "groupName": "observability-images",
       "groupSlug": "observability-images"

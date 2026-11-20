@@ -86,6 +86,11 @@
       "project": "dormduri-web",
       "files": ["infra/deploy/user/compose.yml"]
     },
+    "user-host-bundle": {
+      "classification": "production-candidate",
+      "project": "dormduri-web",
+      "files": ["infra/deploy/user/compose.yml", "infra/deploy/user/api/compose.yml"]
+    },
     "user-host-rehearsal": {
       "classification": "rehearsal-only",
       "project": "dormduri-user-host-rehearsal",

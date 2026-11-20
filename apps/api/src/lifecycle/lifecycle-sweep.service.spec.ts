@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 const mockCronJobs = vi.hoisted(
   (): Array<{
     runAt: Date;
@@ -142,8 +142,8 @@ describe('LifecycleSweepService', () => {
           (reason: unknown) => reason,
         );
         await vi.advanceTimersByTimeAsync(0);
-        f.service.onModuleDestroy();
-        f.service.onModuleDestroy();
+        void f.service.onModuleDestroy();
+        void f.service.onModuleDestroy();
         addCron.mockClear();
         addInterval.mockClear();
         release();
@@ -169,7 +169,7 @@ describe('LifecycleSweepService', () => {
         release();
         await settled;
         await vi.advanceTimersByTimeAsync(0);
-        f.service.onModuleDestroy();
+        void f.service.onModuleDestroy();
         vi.clearAllTimers();
         vi.useRealTimers();
         log.mockRestore();
@@ -200,7 +200,7 @@ describe('LifecycleSweepService', () => {
         work = f.boundaryTick();
         await vi.advanceTimersByTimeAsync(0);
         expect(f.run).toHaveBeenCalledTimes(2);
-        f.service.onModuleDestroy();
+        void f.service.onModuleDestroy();
         release();
         await work;
         // The callback's finally can delete a late job again: registry-empty alone is insufficient.
@@ -213,7 +213,7 @@ describe('LifecycleSweepService', () => {
       } finally {
         release();
         await Promise.allSettled([work]);
-        f.service.onModuleDestroy();
+        void f.service.onModuleDestroy();
         vi.clearAllTimers();
         vi.useRealTimers();
         log.mockRestore();
@@ -229,8 +229,8 @@ describe('LifecycleSweepService', () => {
       const callback = f.cronJobs.values().next().value?.onTick;
       expect(callback).toBeDefined();
       const constructed = mockCronJobs.length;
-      f.service.onModuleDestroy();
-      f.service.onModuleDestroy();
+      void f.service.onModuleDestroy();
+      void f.service.onModuleDestroy();
       await f.service.onApplicationBootstrap();
       await f.service.refreshBoundarySchedules();
       await callback?.();
@@ -247,7 +247,7 @@ describe('LifecycleSweepService', () => {
       f.run.mockRejectedValueOnce(error);
       await expect(f.service.runSweep()).rejects.toBe(error);
     } finally {
-      f.service.onModuleDestroy();
+      void f.service.onModuleDestroy();
       vi.clearAllTimers();
       vi.useRealTimers();
     }
@@ -268,7 +268,7 @@ describe('LifecycleSweepService', () => {
         expect(boundarySchedule.buildBoundaryJobs).toHaveBeenCalledTimes(enabled ? 2 : 0);
         await vi.advanceTimersByTimeAsync(1_000);
         expect(run).toHaveBeenCalledTimes(enabled ? 2 : 0);
-        service.onModuleDestroy();
+        void service.onModuleDestroy();
         expect(intervals.size).toBe(0);
         expect(cronJobs.size).toBe(0);
         expect(vi.getTimerCount()).toBe(0);
@@ -276,7 +276,7 @@ describe('LifecycleSweepService', () => {
         expect(run).toHaveBeenCalledTimes(enabled ? 2 : 0);
         expect(boundarySchedule.buildBoundaryJobs).toHaveBeenCalledTimes(enabled ? 3 : 0);
       } finally {
-        service.onModuleDestroy();
+        void service.onModuleDestroy();
         vi.clearAllTimers();
         vi.useRealTimers();
       }
@@ -326,7 +326,7 @@ describe('LifecycleSweepService', () => {
         release();
         await Promise.allSettled([boundaryWork]);
         await vi.advanceTimersByTimeAsync(0);
-        service.onModuleDestroy();
+        void service.onModuleDestroy();
         vi.clearAllTimers();
         vi.useRealTimers();
       }
@@ -384,7 +384,7 @@ describe('LifecycleSweepService', () => {
           'lifecycle_sweep',
         );
       } finally {
-        service.onModuleDestroy();
+        void service.onModuleDestroy();
         vi.clearAllTimers();
         vi.useRealTimers();
         log.mockRestore();
@@ -490,12 +490,96 @@ describe('LifecycleSweepService', () => {
       { sweepEnabled: true, sweepIntervalMs: 1_000 },
     );
 
-    service.onModuleDestroy();
+    void service.onModuleDestroy();
 
     expect(schedulerRegistry.deleteInterval).toHaveBeenCalledWith('lifecycle-periodic-sweep');
     expect(schedulerRegistry.deleteCronJob).toHaveBeenCalledWith(
       `${BOUNDARY_JOB_PREFIX}:season-1:matching-start`,
     );
     expect(schedulerRegistry.deleteCronJob).not.toHaveBeenCalledWith('external-job');
+  });
+});
+
+describe('LifecycleSweepService shutdown drain', () => {
+  const DRAIN_TIMEOUT_MS = 20_000;
+
+  beforeEach(() => {
+    mockCronJobs.length = 0;
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  async function startPendingPeriodicSweep(f: ReturnType<typeof createScheduledFixture>) {
+    await f.service.onApplicationBootstrap();
+    let finish!: (outcome: 'resolve' | 'reject') => void;
+    f.run.mockImplementationOnce(
+      () =>
+        new Promise((resolve, reject) => {
+          finish = (outcome) =>
+            outcome === 'resolve' ? resolve([]) : reject(new Error('task failed'));
+        }),
+    );
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(f.run).toHaveBeenCalledTimes(2);
+    return (outcome: 'resolve' | 'reject') => finish(outcome);
+  }
+
+  it.each(['resolve', 'reject'] as const)(
+    'waits for an in-progress scheduled sweep that ends with %s before finishing destroy',
+    async (outcome) => {
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      const f = createScheduledFixture();
+      const finish = await startPendingPeriodicSweep(f);
+      const settled = vi.fn();
+
+      const destroyed = Promise.resolve(f.service.onModuleDestroy()).then(settled);
+      await vi.advanceTimersByTimeAsync(DRAIN_TIMEOUT_MS - 1);
+      expect(settled).not.toHaveBeenCalled();
+
+      finish(outcome);
+      await destroyed;
+
+      expect(settled).toHaveBeenCalledTimes(1);
+      expect(warn).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
+
+  it('stops waiting at the upper bound and logs a bounded warning', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const f = createScheduledFixture();
+    await startPendingPeriodicSweep(f);
+    const settled = vi.fn();
+
+    const destroyed = Promise.resolve(f.service.onModuleDestroy()).then(settled);
+    await vi.advanceTimersByTimeAsync(DRAIN_TIMEOUT_MS - 1);
+    expect(settled).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await destroyed;
+
+    expect(settled).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      `Lifecycle sweep still running after ${DRAIN_TIMEOUT_MS}ms shutdown wait.`,
+    );
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('does not wait or start a timer when no scheduled sweep is running', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const f = createScheduledFixture();
+    await f.service.onApplicationBootstrap();
+
+    await f.service.onModuleDestroy();
+
+    expect(warn).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

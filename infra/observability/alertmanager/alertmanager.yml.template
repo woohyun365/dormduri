@@ -33,8 +33,12 @@ receivers:
         username: '돔두리 Alerts'
         icon_emoji: ':rotating_light:'
         send_resolved: true
-        title: '{{ template "knu.slack.title" . }}'
-        text: '{{ template "knu.slack.text" . }}'
+        title: '{{ template "dormduri.slack.title" . }}'
+        text: '{{ template "dormduri.slack.text" . }}'
+        # Alertmanager 기본 fallback은 공통 label 값을 모두 출력하고 기본 title_link는 내부 주소다. 둘 다 고정해 가림을 우회하지
+        # 않게 한다(scripts/observability/production/alertmanager-render.mjs가 실제 payload로 확인한다).
+        fallback: '{{ template "dormduri.slack.title" . }}'
+        title_link: ''
         footer: '돔두리 observability · __OBSERVABILITY_ENV__'
 
 templates:

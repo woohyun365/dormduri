@@ -1,0 +1,35 @@
+# 정리 작업 경보(db-operations-baseline §7.7, production-api-baseline D-AB16). metric의 job label은 scrape job label과 겹쳐
+# 수집 뒤 exported_job이다(prometheus.production.yml job api, honor_labels 없음). 기준은 작업 주기의 3배이고 1초 주기
+# dispatcher는 scrape 간격(15초)을 넘는 60초다: lifecycle_sweep 5분 → 15분, database_table_stats 15분 → 45분.
+groups:
+  - name: dormduri-background-jobs
+    rules:
+      - alert: BackgroundJobStalled
+        expr: |
+          (time() - max by (exported_job) (api_background_job_last_success_timestamp_seconds{exported_job="lifecycle_sweep"}) > 900)
+          or
+          (time() - max by (exported_job) (api_background_job_last_success_timestamp_seconds{exported_job="database_table_stats"}) > 2700)
+          or
+          (time() - max by (exported_job) (api_background_job_last_success_timestamp_seconds{exported_job=~"auth_mail_dispatcher|notification_dispatcher|chat_realtime_dispatcher"}) > 60)
+        for: 1m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 정리 작업의 마지막 성공이 작업 주기의 3배보다 오래됐습니다.
+          runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
+
+      - alert: BackgroundJobRepeatedFailures
+        expr: |
+          (max by (exported_job) (increase(api_background_job_failures_total{exported_job="lifecycle_sweep"}[20m])) >= 3)
+          or
+          (max by (exported_job) (increase(api_background_job_failures_total{exported_job="database_table_stats"}[50m])) >= 3)
+          or
+          (max by (exported_job) (increase(api_background_job_failures_total{exported_job=~"auth_mail_dispatcher|notification_dispatcher|chat_realtime_dispatcher"}[2m])) >= 3)
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 정리 작업 실행이 작업 주기 3배 안에서 세 번 이상 실패했습니다.
+          runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응

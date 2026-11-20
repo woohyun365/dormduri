@@ -35,7 +35,7 @@ DECLARE
   -- one-off and human user = pool + 1 (infra/db/README.md, Connection budget).
   service_users text[][] := ARRAY[
     ARRAY['dormduri_migrator', 'migration_owner', '3', 'set'],
-    ARRAY['dormduri_api', 'app_runtime', '22', 'noset'],
+    ARRAY['dormduri_api', 'app_runtime', '16', 'noset'],
     ARRAY['dormduri_retention_worker', 'retention_worker', '8', 'noset'],
     ARRAY['dormduri_api_disclosure', 'retention_disclosure', '4', 'noset']
   ];

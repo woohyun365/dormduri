@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import type { ComponentProps } from 'react';
 import { LoginLink, SignupLink } from '../../components/actions';
 import { landingCopy } from '../../model/landingCopy';
-import { frameArgTypes, inLandingPanel, type FrameArgs } from '../storyFrame';
+import { inLandingPanel } from '../storyFrame';
 
 const meta = {
   title: 'Landing/Components/Actions',
@@ -18,9 +18,8 @@ const meta = {
     },
   },
   decorators: [inLandingPanel],
-  args: { scheme: 'dark' },
-  argTypes: { ...frameArgTypes, children: { control: false } },
-} satisfies Meta<ComponentProps<typeof SignupLink> & FrameArgs>;
+  argTypes: { children: { control: false } },
+} satisfies Meta<ComponentProps<typeof SignupLink>>;
 export default meta;
 
 type Story = StoryObj<typeof meta>;

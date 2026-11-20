@@ -1,6 +1,6 @@
-// Local/staging Docker log pipeline for dormduri API.
-// Keep Loki labels low-cardinality: service/env/container/level only.
-// requestId, actorHash, threadId, email, raw path, and payload data remain JSON fields, not labels.
+// 돔두리 Docker log·host 지표 수집(local observability compose와 user host API 묶음 조각이 같이 쓴다, production-api-baseline
+// D-AB14). Loki label은 service·env·container·level만이다. requestId·actorHash·threadId·email·원문 경로·payload는 JSON 필드로만
+// 남고 label이 되지 않는다. 행을 가리고 지우는 규칙은 같은 디렉터리의 pipeline.alloy가 소유한다.
 
 discovery.docker "containers" {
   host = "unix:///var/run/docker.sock"
@@ -9,9 +9,16 @@ discovery.docker "containers" {
 discovery.relabel "containers" {
   targets = discovery.docker.containers.targets
 
+  // user host는 compose project `dormduri-web`(두 묶음이 함께 쓰는 project)의 container만 받는다. local은 모든 project다.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = coalesce(sys.env("OBSERVABILITY_COMPOSE_PROJECT"), ".+")
+    action        = "keep"
+  }
+
   rule {
     source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
-    regex         = "api|nginx|web"
+    regex         = "api|ingress|web"
     action        = "keep"
   }
 
@@ -30,30 +37,18 @@ discovery.relabel "containers" {
   }
 }
 
+import.file "dormduri" {
+  filename = "/etc/alloy/pipeline.alloy"
+}
+
 loki.source.docker "containers" {
   host       = "unix:///var/run/docker.sock"
   targets    = discovery.relabel.containers.output
   labels     = { "env" = sys.env("OBSERVABILITY_ENV") }
-  forward_to = [loki.process.api_json.receiver]
+  forward_to = [dormduri.log_pipeline.containers.receiver]
 }
 
-loki.process "api_json" {
-  stage.json {
-    expressions = {
-      level = "level",
-    }
-  }
-
-  stage.labels {
-    values = {
-      level = "level",
-    }
-  }
-
-  stage.label_keep {
-    values = ["service", "env", "container", "level"]
-  }
-
+dormduri.log_pipeline "containers" {
   forward_to = [loki.write.local.receiver]
 }
 
@@ -61,4 +56,13 @@ loki.write "local" {
   endpoint {
     url = "http://loki:3100/loki/api/v1/push"
   }
+}
+
+// host memory·disk·inode 지표(D-AB14). user host는 host `/`·`/proc`·`/sys`를 read-only로 mount하고 그 경로를 env로 준다.
+// Prometheus가 alloy:12345의 이 component 경로를 긁는다(prometheus.production.yml job `host`). local은 container 자신의 값이다.
+prometheus.exporter.unix "host" {
+  rootfs_path    = coalesce(sys.env("HOST_ROOTFS_PATH"), "/")
+  procfs_path    = coalesce(sys.env("HOST_PROCFS_PATH"), "/proc")
+  sysfs_path     = coalesce(sys.env("HOST_SYSFS_PATH"), "/sys")
+  set_collectors = ["cpu", "diskstats", "filesystem", "loadavg", "meminfo", "netdev", "pressure", "stat", "time", "uname", "vmstat"]
 }

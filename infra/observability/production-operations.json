@@ -1,8 +1,9 @@
 {
   "version": 1,
   "topology": {
-    "initialHost": "dedicated-single-tenant-vps",
-    "operatorAccess": "loopback-via-ssh-tunnel",
+    "initialHost": "user-host-api-bundle",
+    "composeProject": "dormduri-web",
+    "operatorAccess": "loopback-via-ssm-port-forwarding",
     "publicPortsAllowed": false
   },
   "retention": {
@@ -15,20 +16,36 @@
     "diskUsedCriticalPercent": 90,
     "inodeUsedWarningPercent": 80,
     "inodeUsedCriticalPercent": 90,
-    "owner": "host-or-provider-monitoring"
+    "owner": "prometheus-host-alerts",
+    "memoryAvailableCriticalPercent": 10
   },
   "volumes": [
-    { "name": "prometheus-data", "classification": "rebuildable-operational-metrics" },
-    { "name": "loki-data", "classification": "rebuildable-operational-logs" },
-    { "name": "alloy-data", "classification": "rebuildable-collector-position" },
-    { "name": "grafana-data", "classification": "rebuildable-from-git-provisioning" },
-    { "name": "alertmanager-data", "classification": "operational-silence-state" }
+    {
+      "name": "prometheus-data",
+      "classification": "rebuildable-operational-metrics"
+    },
+    {
+      "name": "loki-data",
+      "classification": "rebuildable-operational-logs"
+    },
+    {
+      "name": "alloy-data",
+      "classification": "rebuildable-collector-position"
+    },
+    {
+      "name": "grafana-data",
+      "classification": "rebuildable-from-git-provisioning"
+    },
+    {
+      "name": "alertmanager-data",
+      "classification": "operational-silence-state"
+    }
   ],
   "alloyDockerSocket": {
     "allowedOnInitialHost": true,
     "readOnlyMountIsNotAuthorizationBoundary": true,
     "requiredContainerUser": "0:473",
-    "serviceAllowlist": ["api", "nginx", "web"],
+    "serviceAllowlist": ["api", "ingress", "web"],
     "removalTriggers": [
       "mixed-trust-workloads",
       "multi-tenant-host",

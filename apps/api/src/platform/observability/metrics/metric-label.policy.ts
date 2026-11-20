@@ -40,6 +40,7 @@ export const DOMAIN_METRIC_LABEL_NAMES = [
   'scope',
   'sort',
   'state',
+  'table',
   'target',
 ] as const;
 

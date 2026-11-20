@@ -48,7 +48,7 @@ describe('LoginSecondaryActions', () => {
     render(<LoginLegalFooter />);
 
     expect(screen.getByRole('link', { name: '이용약관' })).toHaveAttribute('href', '/terms');
-    expect(screen.getByRole('link', { name: '개인정보처리방침' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '개인정보 처리방침' })).toHaveAttribute(
       'href',
       '/privacy',
     );

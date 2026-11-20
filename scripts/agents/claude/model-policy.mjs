@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { validateCrossModelExchange, validateTaskEnvelope } from '../common/index.mjs';
 
-const POLICY_REVISION = '2026-11-02.1';
+const POLICY_REVISION = '2026-11-18.1';
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,159}$/u;
 const SAFE_REF = /^[a-zA-Z0-9][a-zA-Z0-9_./:-]{0,299}$/u;
@@ -589,7 +589,6 @@ function eligibilityReasons(profile, task) {
   const xhighExtraction = profile.id === 'bounded-extraction' || ladderRetry(profile, task);
   if (task.role === 'knu_explorer_xhigh' && !xhighExtraction) reasons.push('effort-tier');
   if (writing || task.writeOwner !== null) reasons.push('read-only');
-  if (profile.readOnly && writing) reasons.push('profile-read-only');
   return reasons;
 }
 
@@ -622,21 +621,38 @@ function envelopeReasons(envelope, task) {
   if (task.kind === 'review' && !['review', 'implement', 'debug'].includes(envelope.intent)) {
     reasons.push('review-not-authorized');
   }
-  const riskRank = { low: 0, medium: 1, high: 2 };
-  // A researcher with no write scope answers with cited claims the Parent checks against the raw source,
-  // so the request's words raise the risk it is compared with to medium at most; the Lead may still state
-  // high and pick complex-critical. Explorer and writing tasks keep the intake risk (DA-024).
-  const citedResearch =
-    task.role === 'knu_researcher' &&
-    Array.isArray(task.writeScope) &&
-    task.writeScope.length === 0;
-  const requestRisk = citedResearch
-    ? Math.min(riskRank[envelope.risk], riskRank.medium)
-    : riskRank[envelope.risk];
-  if (!Object.hasOwn(riskRank, envelope.risk) || riskRank[task.impactRisk] < requestRisk) {
+  // A read delegation is registered on its declared risk and the request risk is recorded beside it
+  // (claudeRequestRisk) instead of refusing the task. A reviewer and a writing task keep the intake risk, and
+  // an envelope risk outside the ranks is refused for every task (DA-025).
+  if (
+    !Object.hasOwn(RISK_RANK, envelope.risk) ||
+    (!isReadDelegation(task) && RISK_RANK[task.impactRisk] < RISK_RANK[envelope.risk])
+  ) {
     reasons.push('risk-downgrade');
   }
   return reasons;
+}
+
+const RISK_RANK = deepFreeze({ low: 0, medium: 1, high: 2 });
+const READ_DELEGATION_ROLES = new Set(['knu_explorer', 'knu_explorer_xhigh', 'knu_researcher']);
+// An explorer or researcher extract or read task with no write scope.
+function isReadDelegation(task) {
+  return (
+    READ_DELEGATION_ROLES.has(task.role) &&
+    ['extract', 'read'].includes(task.kind) &&
+    Array.isArray(task.writeScope) &&
+    task.writeScope.length === 0
+  );
+}
+
+// The request risk recorded beside the declared one for every registered task (DA-025): intake is the
+// envelope risk the request words gave, declared the task impactRisk, belowIntake whether it is lower.
+export function claudeRequestRisk({ envelopeRisk, impactRisk }) {
+  return {
+    intake: envelopeRisk,
+    declared: impactRisk,
+    belowIntake: RISK_RANK[impactRisk] < RISK_RANK[envelopeRisk],
+  };
 }
 
 function rolesForKind(kind) {

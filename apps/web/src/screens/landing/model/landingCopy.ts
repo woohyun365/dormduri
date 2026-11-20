@@ -1,7 +1,8 @@
 import { LANDING_SURFACE_SECTION_IDS } from './landingPolicyCopy';
 
 // Copy and data for the landing. Policy notices come from ./landingPolicyCopy; the rest is screen copy
-// that tests and stories import instead of pinning it (README, 검증).
+// that tests and stories import instead of pinning it (README, 검증), except footer.privacyLabel: the
+// name the law gives the privacy policy link, which the e2e pins as written.
 
 export const landingCopy = {
   loginLabel: '로그인',
@@ -24,7 +25,8 @@ export const landingCopy = {
     serviceLabel: '서비스',
     legalNavLabel: '약관과 정책',
     termsLabel: '이용약관',
-    privacyLabel: '개인정보처리방침',
+    // The name the law gives it, with the space (docs/policies/legal-basis.md LB-R1); the e2e pins it.
+    privacyLabel: '개인정보 처리방침',
     inquiryLabel: '서비스 외부 문의',
     // The inquiry address is text, not a link: the service's own mailbox, which the Owner set up for
     // it (2026-10-27). The terms and privacy pages call it the public inquiry contact.

@@ -211,6 +211,7 @@ const configFactoryBaseline = {
     path: 'src/platform/observability/observability.config.ts',
     consumers: [
       'src/config/composition/api-config.registry.ts',
+      'src/platform/database/database-table-stats.service.ts',
       'src/platform/observability/logging/app-logger.service.ts',
       'src/platform/observability/logging/request-context.service.ts',
       'src/platform/observability/metrics/domain-prometheus-metrics.service.ts',

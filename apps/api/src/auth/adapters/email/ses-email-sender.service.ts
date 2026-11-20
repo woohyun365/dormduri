@@ -17,6 +17,12 @@ import type {
 import { SesEmailSenderError, toSesEmailSenderError } from './ses-email-error.js';
 
 const UTF8 = 'UTF-8';
+const ENCODED_WORD_PREFIX = '=?UTF-8?B?';
+const ENCODED_WORD_SUFFIX = '?=';
+// RFC 2047 caps an encoded-word at 75 chars. 63 chars remain after the 12 framing chars, and the
+// largest whole base64 block count that fits is 15 blocks (60 chars), which carries 45 bytes.
+const MAX_ENCODED_WORD_BYTES = 45;
+const PRINTABLE_ASCII_ONLY = /^[\x20-\x7e]*$/u;
 
 export const SES_EMAIL_CLIENT = Symbol('SES_EMAIL_CLIENT');
 
@@ -215,7 +221,35 @@ function formatFromAddress(config: ResolvedSesEmailConfig) {
     return config.fromEmail;
   }
 
-  return `${quoteDisplayName(config.fromName)} <${config.fromEmail}>`;
+  return `${formatDisplayName(config.fromName)} <${config.fromEmail}>`;
+}
+
+function formatDisplayName(displayName: string) {
+  return PRINTABLE_ASCII_ONLY.test(displayName)
+    ? quoteDisplayName(displayName)
+    : encodeDisplayNameAsEncodedWords(displayName);
+}
+
+// SES needs MIME encoded-words for a non-ASCII display name. Iterating by code point keeps every
+// word decodable on its own; RFC 2047 ignores the whitespace between adjacent encoded-words.
+function encodeDisplayNameAsEncodedWords(displayName: string) {
+  const words: Buffer[] = [];
+  let current: Buffer = Buffer.alloc(0);
+
+  for (const character of displayName) {
+    const bytes = Buffer.from(character, 'utf8');
+    if (current.length + bytes.length > MAX_ENCODED_WORD_BYTES) {
+      words.push(current);
+      current = bytes;
+    } else {
+      current = Buffer.concat([current, bytes]);
+    }
+  }
+  words.push(current);
+
+  return words
+    .map((word) => `${ENCODED_WORD_PREFIX}${word.toString('base64')}${ENCODED_WORD_SUFFIX}`)
+    .join(' ');
 }
 
 function quoteDisplayName(displayName: string) {

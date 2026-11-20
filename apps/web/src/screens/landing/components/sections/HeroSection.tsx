@@ -13,8 +13,8 @@ import { container } from '../sectionStyles';
 // condition is not a breakpoint token (screens/README.md, lint 한계).
 const wideHeroMedia = '(min-aspect-ratio: 3/5)';
 
-// The night picture is dark in both schemes, so the hero always takes the dark palette (nestable)
-// and a white focus ring. No season badge: the landing shows no season D-day (the main page owns it).
+// The night picture sits in the page's dark palette with a white focus ring. No season badge: the
+// landing shows no season D-day (the main page owns it).
 // Where the tall cut shows (upright phones), a 12rem bottom padding sets the copy 4rem above the
 // middle: centered, the body ran over the moon. The pause toggle under the question box makes the copy
 // 3.25rem taller, and on short phones the sign-up note then lands on the bears; the picture's base
@@ -27,7 +27,6 @@ export function HeroSection() {
     <section
       id={LANDING_SURFACE_SECTION_IDS.hero}
       aria-labelledby="tabs-hero-title"
-      data-palette="dark"
       className="relative isolate overflow-hidden bg-layer-basement text-fg-neutral focus-on-media [@media(max-aspect-ratio:3/5)]:pb-24"
     >
       <ScenePicture art={heroNight} media={wideHeroMedia} hero />
