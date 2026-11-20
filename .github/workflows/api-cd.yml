@@ -3,7 +3,7 @@ name: API CD
 # API 단계 배포(infra/runbooks/release/api-stage-deploy.md). main에서 API 배포 입력이 바뀌면 API·migrate image 둘을 같은
 # Dockerfile에서, 관측 설정 image를 infra/observability/Dockerfile에서 build·검사·push하고, production-api 승인 뒤 provenance를
 # 만들어 검증한 다음 SSM document로 host에 배포한다(host가 secret을 꺼내고 migrate·grant·role smoke·outbox 확인 뒤 rollout하고,
-# 관측 설정을 펼쳐 관측 stack을 다시 띄운다. 이 workflow는 secret과 DB에 닿지 않는다).
+# 관측 설정을 펼쳐 관측 stack을 다시 띄운다. 이 workflow는 secret과 운영 DB에 닿지 않는다).
 # workflow_dispatch는 기록된 묶음의 재배포·rollback·API 내림(maintenance)용이다. 공개 저장소라 account ID·registry host·ARN·
 # node ID·IP를 log와 기록에 남기지 않는다(D-WB7). 신뢰 구조는 web-cd.yml과 같다(production-api-baseline D-AB12).
 on:
@@ -122,23 +122,33 @@ jobs:
           node-version: '26'
 
       # 생성 client(`packages/database/src/generated/prisma/`)는 Git 밖이라 Dockerfile이 build context에서 찾는다. 의존성
-      # 설치·migrate·generate는 API Dockerfile의 NODE_IMAGE container에서 돈다. 그 container는 workspace와 일회용 DB URL만 받고
-      # runner 환경변수(OIDC 요청 token 포함)는 받지 않아 의존성 code가 publish 출입증과 떨어져 돈다(#934). node_modules는
-      # `.dockerignore`가 build context에서 뺀다.
+      # 설치·migrate·generate는 API Dockerfile의 NODE_IMAGE container에서 돈다(#934). 그 container는 workspace가 아니라
+      # `$RUNNER_TEMP/prisma-generate`의 설치 입력 사본(root manifest·lockfile, `packages/database`, tsconfig JSON만 있는
+      # `packages/tsconfig`)과 일회용 DB URL만 받는다. runner 환경변수(OIDC 요청 token 포함)를 받지 않고, 뒤 step이
+      # runner에서 실행하는 workspace 파일도 고칠 수 없다. 생성본은 그 사본 안의 일반 파일·디렉터리일 때만
+      # workspace로 복사한다(data로만 build context에 들어감).
       - name: Generate the Prisma client and TypedSQL in an isolated container
         run: |
           node_image=$(sed -n 's/^ARG NODE_IMAGE=//p' infra/deploy/api/Dockerfile)
           [[ $node_image =~ ^node:[^@[:space:]]+@sha256:[0-9a-f]{64}$ ]] || { echo 'The API Dockerfile has no pinned NODE_IMAGE.' >&2; exit 1; }
-          docker run --rm --network host --volume "$GITHUB_WORKSPACE:/workspace" --workdir /workspace \
+          work="$RUNNER_TEMP/prisma-generate"
+          mkdir "$work"
+          tar -cf - package.json pnpm-lock.yaml pnpm-workspace.yaml packages/database packages/tsconfig | tar -xf - -C "$work"
+          docker run --rm --network host --volume "$work:/workspace" --workdir /workspace \
             --env DATABASE_URL=postgresql://dormduri_dev:dormduri_dev_password@127.0.0.1:5432/dormduri?schema=public \
             --env DIRECT_URL=postgresql://dormduri_dev:dormduri_dev_password@127.0.0.1:5432/dormduri?schema=public \
             "$node_image" sh -euc '
               npm install --global --no-audit --no-fund "$(node -p "require(\"./package.json\").packageManager")"
               pnpm install --frozen-lockfile --filter @repo/database
               pnpm --dir packages/database exec prisma migrate deploy --schema prisma/schema.prisma
-              pnpm --dir packages/database prisma:generate
-              test -f packages/database/src/generated/prisma/client.ts
-              test -f packages/database/src/generated/prisma/sql.ts'
+              pnpm --dir packages/database prisma:generate'
+          generated=packages/database/src/generated/prisma
+          [ "$(cd "$work/$generated" && pwd -P)" = "$(cd "$work" && pwd -P)/$generated" ] || { echo 'The generated client is not a directory inside the copy.' >&2; exit 1; }
+          [ -z "$(find "$work/$generated" ! -type f ! -type d -print -quit)" ] || { echo 'The generated client holds something other than files and directories.' >&2; exit 1; }
+          mkdir -p packages/database/src/generated
+          cp -R "$work/$generated" packages/database/src/generated/
+          test -f packages/database/src/generated/prisma/client.ts
+          test -f packages/database/src/generated/prisma/sql.ts
 
       # 같은 commit·builder에서 runtime·migrate target과 관측 설정 image(FROM scratch, build context infra/observability)를
       # build한다. SBOM은 image index의 attestation manifest로만 남긴다(ECR 비공개, workflow artifact 없음). provenance는 승인 뒤
