@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 import { ALLOWED_FINDINGS, imageLayers, scanLayout, textFindings } from './image-secret-scan.mjs';
@@ -224,4 +226,49 @@ test('binary and oversized content is not read as text, but a local env file nam
   assert.deepEqual(textFindings('app/.env.production', Buffer.alloc(9 * 1024 * 1024)), [
     { kind: 'local env file', path: 'app/.env.production', line: 0 },
   ]);
+});
+
+// API image의 migrate·runtime stage가 저장소에서 바로 COPY하는 파일은 push 전 scan 규칙에 걸리지 않아야 한다. 주석의 예시
+// URL(`scheme://user:password@host` 모양)도 scan이 credential로 잡아 api-cd가 push 전에 멈춘다(#934).
+test('repository files the API image stages copy directly pass the scan rules', () => {
+  const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
+  const dockerfile = readFileSync(join(repoRoot, 'infra/deploy/api/Dockerfile'), 'utf8');
+  const copied = [];
+  const findings = [];
+  for (const stage of dockerfile.split(/^FROM /mu).slice(1)) {
+    if (!['migrate', 'runtime'].includes(/^\S+ AS (\S+)/u.exec(stage)?.[1])) continue;
+    let workdir = '/';
+    for (const line of stage.split('\n')) {
+      workdir = /^WORKDIR (\S+)$/u.exec(line)?.[1] ?? workdir;
+      const args = /^COPY (.+)$/u.exec(line)?.[1];
+      if (!args || /--from=/u.test(args)) continue;
+      const words = args.split(/\s+/u).filter((word) => !word.startsWith('--'));
+      const dest = posix.resolve(workdir, words.pop());
+      for (const source of words) {
+        const files = execFileSync('git', ['ls-files', '--', source], {
+          cwd: repoRoot,
+          encoding: 'utf8',
+        })
+          .split('\n')
+          .filter(Boolean);
+        assert.ok(files.length > 0, `tracked COPY source: ${source}`);
+        for (const file of files) {
+          const inner = file === source ? '' : posix.relative(source, file);
+          const imagePath = (inner ? posix.join(dest, inner) : dest).replace(/^\//u, '');
+          copied.push(imagePath);
+          findings.push(
+            ...textFindings(imagePath, readFileSync(join(repoRoot, file))).filter(
+              (finding) =>
+                !ALLOWED_FINDINGS.some(
+                  (rule) => rule.kind === finding.kind && rule.path.test(finding.path),
+                ),
+            ),
+          );
+        }
+      }
+    }
+  }
+  for (const path of ['app/migrate-entrypoint.sh', 'app/entrypoint.sh', 'app/healthcheck.sh'])
+    assert.ok(copied.includes(path), `copied: ${path}`);
+  assert.deepEqual(findings, [], `scan findings in copied files: ${JSON.stringify(findings)}`);
 });
