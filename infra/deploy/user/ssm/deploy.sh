@@ -78,30 +78,38 @@ pull_pair() {
   docker pull -q "$(ref ingress "$2")" >>"${log}" 2>&1
 }
 
-# 내부 smoke: host loopback으로 canonical host에 요청해 status와 정적 화면 제목을 본다(바깥 smoke는 CD가 따로 한다).
+# 내부 smoke: host loopback으로 canonical host에 요청해 status와 정적 화면 이름을 본다(바깥 smoke는 CD가 따로 한다).
+# 정적 page는 떠 있는 쌍의 ingress image가 담는다. rollback·자동 되돌림으로 띄운 이전 쌍은 제목 형식(브랜드·구분자)이 이
+# document의 page와 다를 수 있으므로, 제목 전체가 아니라 화면을 가르는 이름이 <title> 안에 있는지만 본다.
 page_ok() {
-  local path=$1 want_code=$2 want_title=${3:-} body code
+  local path=$1 want_code=$2 want_screen=${3:-} body code title
   body=$(mktemp)
   code=$(curl -s -o "${body}" -w '%{http_code}' --max-time 10 --resolve "${host}:443:127.0.0.1" "https://${host}${path}" || true)
   if [ "${code}" != "${want_code}" ]; then
     rm -f "${body}"
     return 1
   fi
-  if [ -n "${want_title}" ] && ! grep -qF "<title>${want_title}</title>" "${body}"; then
-    rm -f "${body}"
-    return 1
+  if [ -n "${want_screen}" ]; then
+    title=$(sed -n 's:.*<title>\([^<]*\)</title>.*:\1:p' "${body}")
+    case "${title}" in
+      *"${want_screen}"*) ;;
+      *)
+        rm -f "${body}"
+        return 1
+        ;;
+    esac
   fi
   rm -f "${body}"
 }
 
 smoke_serving() {
   page_ok / 200 && page_ok /privacy 200 && page_ok /terms 200 \
-    && page_ok /signup 503 '돔두리 | 준비 중' \
-    && page_ok /__smoke_not_allowed 404 '돔두리 | 페이지를 찾을 수 없어요'
+    && page_ok /signup 503 '준비 중' \
+    && page_ok /__smoke_not_allowed 404 '페이지를 찾을 수 없어요'
 }
 
 smoke_maintenance() {
-  page_ok / 503 '돔두리 | 점검 중' && page_ok /privacy 503 '돔두리 | 점검 중'
+  page_ok / 503 '점검 중' && page_ok /privacy 503 '점검 중'
 }
 
 # 기록 하나의 web 묶음을 띄운다(API 묶음은 기록된 current 조각을 함께 넘기기만 한다).
