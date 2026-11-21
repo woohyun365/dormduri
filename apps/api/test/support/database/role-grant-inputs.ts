@@ -30,6 +30,7 @@ export const MANAGED_DATABASE_ROLES = [
   'retention_disclosure',
   'app_readonly',
   'backoffice_runtime',
+  'backoffice_retention',
 ] as const;
 
 export const GRANT_PRIVILEGES = ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] as const;

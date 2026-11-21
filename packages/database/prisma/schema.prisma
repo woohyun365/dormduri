@@ -823,7 +823,8 @@ model SeasonOperationAuditEvent {
   nextSnapshot      Json
   metadata          Json?
   createdAt         DateTime                   @default(now()) @db.Timestamptz(3)
-  season            Season                     @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  // Restrict: an append-only audit row must outlive a Season delete (#868, Backoffice foundation D-BF9).
+  season            Season                     @relation(fields: [seasonId], references: [id], onDelete: Restrict)
 
   @@index([seasonId, createdAt])
   @@index([campusCode, createdAt])
@@ -2161,4 +2162,314 @@ model ModerationTerm {
 
   @@unique([normalizedTerm, category, matchMode, surface])
   @@index([surface, category, isActive])
+}
+
+// Backoffice admin identity, access control and audit (Backoffice foundation D-BF3~D-BF9).
+// apps/backoffice-api owns these tables. The user API credentials have no grant on them
+// (role-grant-matrix.csv); retention cleanup runs as backoffice_retention.
+
+enum AdminAccountStatus {
+  ACTIVE
+  DEACTIVATED
+}
+
+enum AdminInvitationKind {
+  BOOTSTRAP_OWNER
+  OPERATOR
+}
+
+enum AdminPasskeyDeviceType {
+  SINGLE_DEVICE
+  MULTI_DEVICE
+}
+
+enum AdminSessionScope {
+  FULL
+  RECOVERY
+}
+
+enum AdminSessionRevocationReason {
+  LOGOUT
+  ROLE_REVOKED
+  ACCOUNT_LOCKED
+  ACCOUNT_DEACTIVATED
+}
+
+enum AdminWebAuthnChallengePurpose {
+  REGISTRATION
+  AUTHENTICATION
+  REAUTHENTICATION
+}
+
+enum AdminRole {
+  OWNER
+  AUDITOR
+  LEGAL_EDITOR
+  LEGAL_APPROVER
+}
+
+enum AdminApprovalRequestKind {
+  ROLE_GRANT
+  ROLE_REVOKE
+}
+
+enum AdminApprovalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum AdminAuditActorType {
+  ADMIN
+  SYSTEM
+  ANONYMOUS
+}
+
+enum AdminAuditAccessPath {
+  SSM_PORT_FORWARD
+}
+
+enum AdminAuditAction {
+  LOGIN
+  LOGOUT
+  SESSION_EXPIRED
+  ACCOUNT_LOCKED
+  REAUTHENTICATE
+  PASSKEY_REGISTER
+  TOTP_ENROLL
+  RECOVERY_CODES_ISSUE
+  INVITATION_CREATE
+  INVITATION_REVOKE
+  INVITATION_ACCEPT
+  ACCESS_REQUEST_CREATE
+  ACCESS_REQUEST_APPROVE
+  ACCESS_REQUEST_REJECT
+  ACCESS_REQUEST_CANCEL
+  ROLE_GRANT
+  ROLE_REVOKE
+  ACCOUNT_DEACTIVATE
+  AUDIT_REVIEW
+  BOOTSTRAP_OWNER
+}
+
+enum AdminAuditTargetType {
+  ADMIN_ACCOUNT
+  ADMIN_INVITATION
+  ADMIN_SESSION
+  ADMIN_PASSKEY_CREDENTIAL
+  ADMIN_ROLE_ASSIGNMENT
+  ADMIN_APPROVAL_REQUEST
+}
+
+enum AdminAuditResult {
+  SUCCEEDED
+  DENIED
+  FAILED
+}
+
+// Accounts are never deleted (OA-R6); a deactivated account is anonymized after its last
+// audit row passes the 3-year retention (D-BF7).
+model AdminAccount {
+  id                     String                   @id @default(uuid())
+  email                  String                   @unique
+  displayName            String
+  status                 AdminAccountStatus       @default(ACTIVE)
+  failedAuthAttemptCount Int                      @default(0)
+  lockedUntil            DateTime?                @db.Timestamptz(3)
+  lastLoginAt            DateTime?                @db.Timestamptz(3)
+  deactivatedAt          DateTime?                @db.Timestamptz(3)
+  anonymizedAt           DateTime?                @db.Timestamptz(3)
+  createdAt              DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime                 @default(now()) @updatedAt @db.Timestamptz(3)
+  passwordCredential     AdminPasswordCredential?
+  passkeyCredentials     AdminPasskeyCredential[]
+  totpCredential         AdminTotpCredential?
+  recoveryCodes          AdminRecoveryCode[]
+  sessions               AdminSession[]
+  webAuthnChallenges     AdminWebAuthnChallenge[]
+  roleAssignments        AdminRoleAssignment[]
+  sentInvitations        AdminInvitation[]        @relation("AdminInvitationInvitedBy")
+  acceptedInvitation     AdminInvitation?         @relation("AdminInvitationAcceptedAccount")
+  requestedApprovals     AdminApprovalRequest[]   @relation("AdminApprovalRequestRequestedBy")
+  decidedApprovals       AdminApprovalRequest[]   @relation("AdminApprovalRequestDecidedBy")
+  targetedApprovals      AdminApprovalRequest[]   @relation("AdminApprovalRequestTargetAccount")
+  auditEvents            AdminAuditEvent[]
+
+  @@index([status, deactivatedAt])
+}
+
+model AdminPasswordCredential {
+  accountId    String       @id
+  passwordHash String
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime     @default(now()) @updatedAt @db.Timestamptz(3)
+  account      AdminAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+}
+
+model AdminPasskeyCredential {
+  id           String                 @id @default(uuid())
+  accountId    String
+  credentialId String                 @unique
+  publicKey    Bytes
+  counter      BigInt                 @default(0)
+  transports   String[]
+  deviceType   AdminPasskeyDeviceType
+  backedUp     Boolean
+  label        String?
+  lastUsedAt   DateTime?              @db.Timestamptz(3)
+  createdAt    DateTime               @default(now()) @db.Timestamptz(3)
+  account      AdminAccount           @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([accountId])
+}
+
+model AdminTotpCredential {
+  accountId        String       @id
+  secretCiphertext String
+  lastUsedTimeStep BigInt?
+  confirmedAt      DateTime?    @db.Timestamptz(3)
+  createdAt        DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime     @default(now()) @updatedAt @db.Timestamptz(3)
+  account          AdminAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+}
+
+model AdminRecoveryCode {
+  id        String       @id @default(uuid())
+  accountId String
+  codeHash  String       @unique
+  usedAt    DateTime?    @db.Timestamptz(3)
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+  account   AdminAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([accountId])
+}
+
+model AdminInvitation {
+  id                 String                   @id @default(uuid())
+  kind               AdminInvitationKind
+  email              String
+  displayName        String
+  codeHash           String                   @unique
+  invitedByAccountId String?
+  acceptedAccountId  String?                  @unique
+  expiresAt          DateTime                 @db.Timestamptz(3)
+  usedAt             DateTime?                @db.Timestamptz(3)
+  revokedAt          DateTime?                @db.Timestamptz(3)
+  createdAt          DateTime                 @default(now()) @db.Timestamptz(3)
+  invitedBy          AdminAccount?            @relation("AdminInvitationInvitedBy", fields: [invitedByAccountId], references: [id], onDelete: Restrict)
+  acceptedAccount    AdminAccount?            @relation("AdminInvitationAcceptedAccount", fields: [acceptedAccountId], references: [id], onDelete: Restrict)
+  webAuthnChallenges AdminWebAuthnChallenge[]
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+// The audit row keeps the session id as a value, not a FK: cleanup deletes ended sessions
+// after 7 days while their audit rows stay for 3 years (D-BF4).
+model AdminSession {
+  id                 String                        @id @default(uuid())
+  accountId          String
+  tokenHash          String                        @unique
+  scope              AdminSessionScope
+  lastActivityAt     DateTime                      @db.Timestamptz(3)
+  absoluteExpiresAt  DateTime                      @db.Timestamptz(3)
+  reauthenticatedAt  DateTime?                     @db.Timestamptz(3)
+  revokedAt          DateTime?                     @db.Timestamptz(3)
+  revocationReason   AdminSessionRevocationReason?
+  createdAt          DateTime                      @default(now()) @db.Timestamptz(3)
+  account            AdminAccount                  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  webAuthnChallenges AdminWebAuthnChallenge[]
+
+  @@index([accountId, revokedAt])
+  @@index([absoluteExpiresAt])
+}
+
+model AdminWebAuthnChallenge {
+  id           String                        @id @default(uuid())
+  purpose      AdminWebAuthnChallengePurpose
+  challenge    String                        @unique
+  accountId    String?
+  invitationId String?
+  sessionId    String?
+  expiresAt    DateTime                      @db.Timestamptz(3)
+  usedAt       DateTime?                     @db.Timestamptz(3)
+  createdAt    DateTime                      @default(now()) @db.Timestamptz(3)
+  account      AdminAccount?                 @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  invitation   AdminInvitation?              @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  session      AdminSession?                 @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+// grantedByApprovalRequestId is null only for the first owner (bootstrap command, D-BF13).
+model AdminRoleAssignment {
+  id                         String                @id @default(uuid())
+  accountId                  String
+  role                       AdminRole
+  grantedAt                  DateTime              @default(now()) @db.Timestamptz(3)
+  grantedByApprovalRequestId String?
+  revokedAt                  DateTime?             @db.Timestamptz(3)
+  revokedByApprovalRequestId String?
+  account                    AdminAccount          @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  grantedByApprovalRequest   AdminApprovalRequest? @relation("AdminRoleAssignmentGrantedBy", fields: [grantedByApprovalRequestId], references: [id], onDelete: Restrict)
+  revokedByApprovalRequest   AdminApprovalRequest? @relation("AdminRoleAssignmentRevokedBy", fields: [revokedByApprovalRequestId], references: [id], onDelete: Restrict)
+
+  @@index([accountId, revokedAt])
+  @@index([revokedAt])
+}
+
+// A decision is a conditional UPDATE on the pending status and the request-time digest (D-BF6).
+model AdminApprovalRequest {
+  id                   String                     @id @default(uuid())
+  kind                 AdminApprovalRequestKind
+  status               AdminApprovalRequestStatus @default(PENDING)
+  contentDigest        String
+  targetAccountId      String?
+  targetRole           AdminRole?
+  requestedByAccountId String
+  requestReason        String?
+  expiresAt            DateTime                   @db.Timestamptz(3)
+  decidedByAccountId   String?
+  closedAt             DateTime?                  @db.Timestamptz(3)
+  decisionReason       String?
+  selfApproved         Boolean                    @default(false)
+  createdAt            DateTime                   @default(now()) @db.Timestamptz(3)
+  targetAccount        AdminAccount?              @relation("AdminApprovalRequestTargetAccount", fields: [targetAccountId], references: [id], onDelete: Restrict)
+  requestedBy          AdminAccount               @relation("AdminApprovalRequestRequestedBy", fields: [requestedByAccountId], references: [id], onDelete: Restrict)
+  decidedBy            AdminAccount?              @relation("AdminApprovalRequestDecidedBy", fields: [decidedByAccountId], references: [id], onDelete: Restrict)
+  grantedAssignments   AdminRoleAssignment[]      @relation("AdminRoleAssignmentGrantedBy")
+  revokedAssignments   AdminRoleAssignment[]      @relation("AdminRoleAssignmentRevokedBy")
+  auditEvents          AdminAuditEvent[]
+
+  @@index([status, expiresAt])
+  @@index([closedAt])
+}
+
+// Append-only for backoffice_runtime (INSERT·SELECT). Only backoffice_retention deletes rows
+// older than 3 years (D-BF7). metadata never holds secrets, codes, tokens or user personal data.
+model AdminAuditEvent {
+  id                String                @id @default(uuid())
+  occurredAt        DateTime              @default(now()) @db.Timestamptz(3)
+  actorType         AdminAuditActorType
+  actorAccountId    String?
+  sessionId         String?
+  accessPath        AdminAuditAccessPath?
+  action            AdminAuditAction
+  targetType        AdminAuditTargetType?
+  targetId          String?
+  approvalRequestId String?
+  result            AdminAuditResult
+  selfApproved      Boolean               @default(false)
+  reason            String?
+  requestId         String?
+  metadata          Json?
+  actorAccount      AdminAccount?         @relation(fields: [actorAccountId], references: [id], onDelete: Restrict)
+  approvalRequest   AdminApprovalRequest? @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict)
+
+  @@index([occurredAt])
+  @@index([actorAccountId, occurredAt])
+  @@index([targetType, targetId, occurredAt])
+  @@index([approvalRequestId])
 }

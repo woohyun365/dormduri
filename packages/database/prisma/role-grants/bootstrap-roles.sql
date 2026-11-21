@@ -28,7 +28,8 @@ DECLARE
     'retention_worker',
     'retention_disclosure',
     'app_readonly',
-    'backoffice_runtime'
+    'backoffice_runtime',
+    'backoffice_retention'
   ];
   -- LOGIN user, group role, CONNECTION LIMIT, SET option(migrator only).
   -- CONNECTION LIMIT: service user = pool x 2 + 2 (old and new container overlap),
@@ -37,7 +38,10 @@ DECLARE
     ARRAY['dormduri_migrator', 'migration_owner', '3', 'set'],
     ARRAY['dormduri_api', 'app_runtime', '16', 'noset'],
     ARRAY['dormduri_retention_worker', 'retention_worker', '8', 'noset'],
-    ARRAY['dormduri_api_disclosure', 'retention_disclosure', '4', 'noset']
+    ARRAY['dormduri_api_disclosure', 'retention_disclosure', '4', 'noset'],
+    -- Backoffice host only: the backoffice API and its admin-record cleanup job (Backoffice foundation D-BF8).
+    ARRAY['dormduri_backoffice', 'backoffice_runtime', '12', 'noset'],
+    ARRAY['dormduri_backoffice_retention', 'backoffice_retention', '4', 'noset']
   ];
   human_connection_limit integer := 4;
   role_name text;

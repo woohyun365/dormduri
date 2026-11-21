@@ -41,6 +41,37 @@ const RRPD_TABLES = [
   'ArchiveJob',
 ];
 
+// Backoffice admin tables (Backoffice foundation D-BF3~D-BF8). Only the two backoffice roles write them.
+const ADMIN_TABLES = [
+  'AdminAccount',
+  'AdminPasswordCredential',
+  'AdminPasskeyCredential',
+  'AdminTotpCredential',
+  'AdminRecoveryCode',
+  'AdminInvitation',
+  'AdminSession',
+  'AdminWebAuthnChallenge',
+  'AdminRoleAssignment',
+  'AdminApprovalRequest',
+  'AdminAuditEvent',
+];
+const ADMIN_CREDENTIAL_TABLES = [
+  'AdminPasswordCredential',
+  'AdminPasskeyCredential',
+  'AdminTotpCredential',
+  'AdminRecoveryCode',
+];
+// Rows the cleanup job removes: 3-year audit and access history, ended auth state after 7 days (D-BF4·D-BF6·D-BF7).
+const ADMIN_RETENTION_DELETE_TABLES = [
+  'AdminAuditEvent',
+  'AdminRoleAssignment',
+  'AdminApprovalRequest',
+  'AdminSession',
+  'AdminWebAuthnChallenge',
+  'AdminInvitation',
+];
+const USER_API_ROLES = ['app_runtime', 'retention_worker', 'retention_disclosure'] as const;
+
 /**
  * role-grant-matrix.csv is the one grant table (infra/db/README.md, Grant 표).
  * apply-role-grants.sql and smoke-role-grants.sql both read it; this guard fails when a
@@ -157,6 +188,86 @@ describe('DB role grant table', () => {
     ]);
   });
 
+  it('관리자 table은 백오피스 role 둘만 쓰고 사용자 API credential은 닿지 않는다', () => {
+    expect(schema.models.filter((model) => model.startsWith('Admin')).sort()).toEqual(
+      [...ADMIN_TABLES].sort(),
+    );
+    for (const table of ADMIN_TABLES) {
+      for (const role of USER_API_ROLES) {
+        expect(rowsFor(table, role).map(describeRow), `${table} ${role}`).toEqual([]);
+      }
+      expect(privilegesOf(table, 'backoffice_runtime').has('SELECT'), table).toBe(true);
+    }
+  });
+
+  it('관리자 감사는 backoffice_runtime에 append-only이고 폐기·익명화·정리는 backoffice_retention만 한다', () => {
+    expect([...privilegesOf('AdminAuditEvent', 'backoffice_runtime')].sort()).toEqual([
+      'INSERT',
+      'SELECT',
+    ]);
+    for (const role of MANAGED_DATABASE_ROLES) {
+      expect(privilegesOf('AdminAuditEvent', role).has('UPDATE'), role).toBe(false);
+      if (role !== 'backoffice_retention') {
+        expect(privilegesOf('AdminAuditEvent', role).has('DELETE'), role).toBe(false);
+      }
+    }
+
+    const retentionRows = rowsFor('AdminAuditEvent', 'backoffice_retention').concat(
+      ...ADMIN_TABLES.filter((table) => table !== 'AdminAuditEvent').map((table) =>
+        rowsFor(table, 'backoffice_retention'),
+      ),
+    );
+    // Cleanup never writes new rows and never rewrites access history.
+    expect(
+      retentionRows.filter((row) => row.privileges.includes('INSERT')).map(describeRow),
+    ).toEqual([]);
+    expect(
+      ADMIN_TABLES.filter((table) =>
+        privilegesOf(table, 'backoffice_retention').has('DELETE'),
+      ).sort(),
+    ).toEqual([...ADMIN_RETENTION_DELETE_TABLES].sort());
+    // The only UPDATE is the anonymization of a deactivated account (D-BF7, Q20).
+    expect(
+      retentionRows.filter((row) => row.privileges.includes('UPDATE')).map(describeRow),
+    ).toEqual([
+      'AdminAccount,backoffice_retention,UPDATE,email displayName anonymizedAt updatedAt',
+    ]);
+    // It reads only the columns its conditions need: no table-level SELECT, no secret or content column.
+    const classOf = new Map(classes.map((row) => [`${row.table}.${row.column}`, row.columnClass]));
+    const selectRows = retentionRows.filter((row) => row.privileges.includes('SELECT'));
+    expect(selectRows.filter((row) => row.columns === '').map(describeRow)).toEqual([]);
+    expect(
+      selectRows.flatMap((row) =>
+        row.columns
+          .split(/\s+/u)
+          .filter((column) =>
+            ['secret', 'content', 'identifier'].includes(
+              classOf.get(`${row.table}.${column}`) ?? '',
+            ),
+          )
+          .map((column) => `${row.table}.${column}`),
+      ),
+    ).toEqual([]);
+  });
+
+  it('backoffice_runtime은 감사·권한 내역을 지우지 않고 계정 익명화 열을 고치지 않는다', () => {
+    for (const table of ADMIN_TABLES.filter((name) => !ADMIN_CREDENTIAL_TABLES.includes(name))) {
+      expect(privilegesOf(table, 'backoffice_runtime').has('DELETE'), table).toBe(false);
+    }
+    // Deactivation deletes every credential at once (D-BF7).
+    for (const table of ADMIN_CREDENTIAL_TABLES) {
+      expect(privilegesOf(table, 'backoffice_runtime').has('DELETE'), table).toBe(true);
+    }
+    const accountUpdate = rowsFor('AdminAccount', 'backoffice_runtime').filter((row) =>
+      row.privileges.includes('UPDATE'),
+    );
+    expect(accountUpdate).toHaveLength(1);
+    expect(accountUpdate[0]!.columns, 'column-level UPDATE').not.toBe('');
+    for (const column of ['email', 'displayName', 'anonymizedAt']) {
+      expect(accountUpdate[0]!.columns.split(/\s+/u), column).not.toContain(column);
+    }
+  });
+
   it('사람 조회 role은 읽기만 하고 model table에서는 secret·content 열을 뺀다', () => {
     const readonlyRows = matrix.filter((row) => row.role === 'app_readonly');
 
@@ -194,8 +305,13 @@ describe('DB role grant table', () => {
   it('worker·disclosure·backoffice는 정한 범위 밖 권한을 받지 않는다', () => {
     // Nothing reads AuthMailOutboxEvent with the worker credential (F7).
     expect(rowsFor('AuthMailOutboxEvent', 'retention_worker')).toEqual([]);
-    // Backoffice table access arrives per feature with column grants (O1·L1).
-    expect(matrix.filter((row) => row.role === 'backoffice_runtime')).toEqual([]);
+    // Backoffice roles reach only the admin tables; user tables and RRPD arrive per feature (D-BF8·D-BF11).
+    expect(
+      matrix
+        .filter((row) => row.role === 'backoffice_runtime' || row.role === 'backoffice_retention')
+        .filter((row) => !ADMIN_TABLES.includes(row.table))
+        .map(describeRow),
+    ).toEqual([]);
     expect(
       matrix
         .filter((row) => row.role === 'retention_disclosure')
@@ -245,6 +361,8 @@ describe('DB role grant SQL artifacts', () => {
       "ARRAY['dormduri_api', 'app_runtime', '16', 'noset']",
       "ARRAY['dormduri_retention_worker', 'retention_worker', '8', 'noset']",
       "ARRAY['dormduri_api_disclosure', 'retention_disclosure', '4', 'noset']",
+      "ARRAY['dormduri_backoffice', 'backoffice_runtime', '12', 'noset']",
+      "ARRAY['dormduri_backoffice_retention', 'backoffice_retention', '4', 'noset']",
     ]) {
       expect(bootstrap).toContain(user);
     }
@@ -266,6 +384,15 @@ describe('DB role grant SQL artifacts', () => {
     );
     expect(defaultsStatements).not.toMatch(/\bIN SCHEMA\b/u);
     expect(defaultsStatements).not.toMatch(/\bGRANT\b/u);
+  });
+
+  it('입력 SQL의 관리 role 목록이 test의 목록과 같다(새 role은 둘에 함께 더한다)', () => {
+    const managed = /role_grant_managed_roles\(\)[\s\S]*?SELECT ARRAY\[([^\]]*)\]/u.exec(
+      inputs,
+    )?.[1];
+    expect(managed?.split(',').map((name) => name.trim().replaceAll("'", ''))).toEqual([
+      ...MANAGED_DATABASE_ROLES,
+    ]);
   });
 
   it('apply는 입력 검증 뒤 PUBLIC·관리 role 권한을 모두 지우고 표의 권한만 준다', () => {
@@ -367,9 +494,42 @@ describe('DB connection budget', () => {
       'dormduri_api',
       'dormduri_retention_worker',
       'dormduri_api_disclosure',
+      'dormduri_backoffice',
+      'dormduri_backoffice_retention',
     ]) {
       expect(readmeLimit(user), user).toBe(bootstrapLimit(user));
     }
     expect(readme).toMatch(/예약 연결 5/u);
+  });
+
+  it('백오피스 user CONNECTION LIMIT은 예산 표 pool × 2 + 2이고 예산 합이 max_connections × 0.6 이하다', () => {
+    // The backoffice API pool defaults arrive with apps/backoffice-api; until then the budget table is the source.
+    const budgetPools = (label: string): number[] => {
+      const row = readme
+        .split('\n')
+        .find((line) => line.startsWith('|') && line.split('|')[1]?.trim() === label);
+      const cell = row?.split('|')[2]?.trim();
+      if (!cell || !/^\d+( \/ \d+)*$/u.test(cell)) throw new Error(`no budget row for ${label}`);
+      return cell.split(' / ').map(Number);
+    };
+    const userApi = budgetPools('사용자 API runtime / worker / disclosure');
+    const backoffice = budgetPools('백오피스 API runtime / 정리 / disclosure');
+    const [migration] = budgetPools('migration(one-off)');
+    const [human] = budgetPools('사람 조회');
+    expect(userApi).toEqual([
+      DEFAULT_DATABASE_POOL_MAX,
+      DEFAULT_RETENTION_WORKER_DATABASE_POOL_MAX,
+      DEFAULT_RETENTION_DISCLOSURE_DATABASE_POOL_MAX,
+    ]);
+    const [backofficeRuntime, backofficeRetention] = backoffice as [number, number, number];
+    expect(bootstrapLimit('dormduri_backoffice')).toBe(backofficeRuntime * 2 + 2);
+    expect(bootstrapLimit('dormduri_backoffice_retention')).toBe(backofficeRetention * 2 + 2);
+
+    const maxConnections = Number(/`max_connections` (\d+)/u.exec(readme)?.[1]);
+    const reserved = Number(/예약 연결 (\d+)/u.exec(readme)?.[1]);
+    const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
+    const total = (sum(userApi) + sum(backoffice)) * 2 + migration! + human! + reserved;
+    expect(maxConnections).toBe(78);
+    expect(total).toBeLessThanOrEqual(maxConnections * 0.6);
   });
 });

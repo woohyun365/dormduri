@@ -25,7 +25,23 @@ const LOGIN_USERS_BY_ROLE = {
   app_runtime: INTEGRATION_LOGIN_USERS.runtime.user,
   retention_worker: INTEGRATION_LOGIN_USERS.retentionWorker.user,
   retention_disclosure: INTEGRATION_LOGIN_USERS.retentionDisclosure.user,
+  backoffice_runtime: INTEGRATION_LOGIN_USERS.backoffice.user,
+  backoffice_retention: INTEGRATION_LOGIN_USERS.backofficeRetention.user,
 };
+
+const ADMIN_TABLES = [
+  'AdminAccount',
+  'AdminPasswordCredential',
+  'AdminPasskeyCredential',
+  'AdminTotpCredential',
+  'AdminRecoveryCode',
+  'AdminInvitation',
+  'AdminSession',
+  'AdminWebAuthnChallenge',
+  'AdminRoleAssignment',
+  'AdminApprovalRequest',
+  'AdminAuditEvent',
+];
 
 /**
  * The production order once on a fresh schema (infra/db/README.md, Release order):
@@ -139,8 +155,8 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
       expect(summary).toMatch(
         /^role grant smoke ok: schema \S+, \d+ LOGIN users, \d+ table checks, \d+ column checks$/u,
       );
-      // The three app LOGIN users at least; other LOGIN members of one group join the count.
-      expect(smokeLoginCount(summary)).toBeGreaterThanOrEqual(3);
+      // The five service LOGIN users at least; other LOGIN members of one group join the count.
+      expect(smokeLoginCount(summary)).toBeGreaterThanOrEqual(5);
     });
 
     it('grant 적용은 다시 실행해도 같은 결과다', async () => {
@@ -231,6 +247,11 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
         ).rejects.toThrow(/permission denied|denied access/iu);
       } finally {
         await runtime.$disconnect();
+        // The audit FK is Restrict (#868), so the fixture removes the audit row before its season.
+        await admin.query(
+          `DELETE FROM ${table('SeasonOperationAuditEvent')} WHERE "seasonId" = $1`,
+          [seasonId],
+        );
         await admin.query(`DELETE FROM ${table('Season')} WHERE "id" = $1`, [seasonId]);
         await admin.query(`DELETE FROM ${table('CampusMaster')} WHERE "code" = 'DOGYE'`);
       }
@@ -259,6 +280,208 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
           /permission denied/u,
         );
       });
+    });
+
+    it('사용자 API LOGIN user 셋은 관리자 table에 닿지 않는다', async () => {
+      for (const login of [
+        INTEGRATION_LOGIN_USERS.runtime,
+        INTEGRATION_LOGIN_USERS.retentionWorker,
+        INTEGRATION_LOGIN_USERS.retentionDisclosure,
+      ]) {
+        await withLogin(login, async (client) => {
+          for (const name of ADMIN_TABLES) {
+            await expect(
+              client.query(`SELECT 1 FROM ${table(name)} LIMIT 1`),
+              `${login.user} ${name}`,
+            ).rejects.toThrow(/permission denied/u);
+          }
+          await expect(
+            client.query(`DELETE FROM ${table('AdminAuditEvent')}`),
+            login.user,
+          ).rejects.toThrow(/permission denied/u);
+        });
+      }
+    });
+
+    it('backoffice LOGIN user는 관리자 table만 쓰고 감사는 append만 한다', async () => {
+      const accountId = randomUUID();
+      const auditId = randomUUID();
+      try {
+        await withLogin(INTEGRATION_LOGIN_USERS.backoffice, async (client) => {
+          await client.query(
+            `INSERT INTO ${table('AdminAccount')} ("id", "email", "displayName") VALUES ($1, $2, 'operator')`,
+            [accountId, `${accountId}@backoffice.invalid`],
+          );
+          await client.query(
+            `INSERT INTO ${table('AdminPasswordCredential')} ("accountId", "passwordHash") VALUES ($1, 'argon2id-hash')`,
+            [accountId],
+          );
+          await client.query(
+            `INSERT INTO ${table('AdminAuditEvent')} ("id", "actorType", "actorAccountId", "action", "result") VALUES ($1, 'ADMIN', $2, 'LOGIN', 'SUCCEEDED')`,
+            [auditId, accountId],
+          );
+          // Deactivation: status change and immediate credential removal (D-BF7).
+          await client.query(
+            `UPDATE ${table('AdminAccount')} SET "status" = 'DEACTIVATED', "deactivatedAt" = now(), "updatedAt" = now() WHERE "id" = $1`,
+            [accountId],
+          );
+          await expect(
+            client.query(`DELETE FROM ${table('AdminPasswordCredential')} WHERE "accountId" = $1`, [
+              accountId,
+            ]),
+          ).resolves.toMatchObject({ rowCount: 1 });
+          for (const sql of [
+            `UPDATE ${table('AdminAuditEvent')} SET "reason" = "reason"`,
+            `DELETE FROM ${table('AdminAuditEvent')}`,
+            `UPDATE ${table('AdminAccount')} SET "email" = "email"`,
+            `UPDATE ${table('AdminAccount')} SET "anonymizedAt" = now()`,
+            `DELETE FROM ${table('AdminSession')}`,
+            `DELETE FROM ${table('AdminRoleAssignment')}`,
+            `SELECT 1 FROM ${table('User')} LIMIT 1`,
+            `SELECT "encryptedPayload" FROM ${table('RetainedVaultObject')} LIMIT 1`,
+            `SELECT 1 FROM ${table('SeasonOperationAuditEvent')} LIMIT 1`,
+          ]) {
+            await expect(client.query(sql), sql).rejects.toThrow(/permission denied/u);
+          }
+        });
+      } finally {
+        await admin.query(`DELETE FROM ${table('AdminAuditEvent')} WHERE "id" = $1`, [auditId]);
+        await admin.query(
+          `DELETE FROM ${table('AdminPasswordCredential')} WHERE "accountId" = $1`,
+          [accountId],
+        );
+        await admin.query(`DELETE FROM ${table('AdminAccount')} WHERE "id" = $1`, [accountId]);
+      }
+    });
+
+    it('backoffice_retention LOGIN user는 정리 조건 열을 읽고 폐기·익명화·정리만 한다', async () => {
+      const accountId = randomUUID();
+      const oldAuditId = randomUUID();
+      const sessionId = randomUUID();
+      await admin.query(
+        `INSERT INTO ${table('AdminAccount')} ("id", "email", "displayName", "status", "deactivatedAt") VALUES ($1, $2, 'former operator', 'DEACTIVATED', now() - interval '4 years')`,
+        [accountId, `${accountId}@backoffice.invalid`],
+      );
+      await admin.query(
+        `INSERT INTO ${table('AdminAuditEvent')} ("id", "occurredAt", "actorType", "actorAccountId", "action", "result") VALUES ($1, now() - interval '3 years 1 day', 'ADMIN', $2, 'LOGOUT', 'SUCCEEDED')`,
+        [oldAuditId, accountId],
+      );
+      await admin.query(
+        `INSERT INTO ${table('AdminSession')} ("id", "accountId", "tokenHash", "scope", "lastActivityAt", "absoluteExpiresAt", "revokedAt", "revocationReason") VALUES ($1, $2, $3, 'FULL', now() - interval '8 days', now() - interval '8 days', now() - interval '8 days', 'LOGOUT')`,
+        [sessionId, accountId, `token-hash-${sessionId}`],
+      );
+      try {
+        await withLogin(INTEGRATION_LOGIN_USERS.backofficeRetention, async (client) => {
+          await expect(
+            client.query(
+              `DELETE FROM ${table('AdminAuditEvent')} WHERE "id" = $1 AND "occurredAt" < now() - interval '3 years'`,
+              [oldAuditId],
+            ),
+          ).resolves.toMatchObject({ rowCount: 1 });
+          await expect(
+            client.query(
+              `UPDATE ${table('AdminAccount')} SET "email" = $2, "displayName" = 'anonymized', "anonymizedAt" = now(), "updatedAt" = now()
+               WHERE "id" = $1 AND "status" = 'DEACTIVATED' AND "anonymizedAt" IS NULL`,
+              [accountId, `anonymized-${accountId}@backoffice.invalid`],
+            ),
+          ).resolves.toMatchObject({ rowCount: 1 });
+          await expect(
+            client.query(
+              `DELETE FROM ${table('AdminSession')} WHERE "id" = $1 AND "revokedAt" < now() - interval '7 days'`,
+              [sessionId],
+            ),
+          ).resolves.toMatchObject({ rowCount: 1 });
+          for (const sql of [
+            `INSERT INTO ${table('AdminAuditEvent')} ("id", "actorType", "action", "result") VALUES ('${randomUUID()}', 'SYSTEM', 'LOGIN', 'SUCCEEDED')`,
+            `UPDATE ${table('AdminAuditEvent')} SET "occurredAt" = "occurredAt"`,
+            `SELECT "reason" FROM ${table('AdminAuditEvent')} LIMIT 1`,
+            `SELECT * FROM ${table('AdminAccount')} LIMIT 1`,
+            `UPDATE ${table('AdminAccount')} SET "status" = 'ACTIVE'`,
+            `DELETE FROM ${table('AdminAccount')}`,
+            `DELETE FROM ${table('AdminPasswordCredential')}`,
+            `SELECT "tokenHash" FROM ${table('AdminSession')} LIMIT 1`,
+            `SELECT 1 FROM ${table('User')} LIMIT 1`,
+            `SELECT "encryptedPayload" FROM ${table('RetainedVaultObject')} LIMIT 1`,
+          ]) {
+            await expect(client.query(sql), sql).rejects.toThrow(/permission denied/u);
+          }
+        });
+        const { rows } = await admin.query<{ email: string; anonymizedAt: Date | null }>(
+          `SELECT "email", "anonymizedAt" FROM ${table('AdminAccount')} WHERE "id" = $1`,
+          [accountId],
+        );
+        expect(rows[0]?.email).toBe(`anonymized-${accountId}@backoffice.invalid`);
+        expect(rows[0]?.anonymizedAt).not.toBeNull();
+      } finally {
+        await admin.query(`DELETE FROM ${table('AdminSession')} WHERE "id" = $1`, [sessionId]);
+        await admin.query(`DELETE FROM ${table('AdminAuditEvent')} WHERE "id" = $1`, [oldAuditId]);
+        await admin.query(`DELETE FROM ${table('AdminAccount')} WHERE "id" = $1`, [accountId]);
+      }
+    });
+
+    it('감사 행이 가리키는 시즌·관리자 계정·승인 요청은 지워지지 않는다(#868, D-BF9)', async () => {
+      const seasonId = `audit-fk-season-${randomUUID()}`;
+      const seasonAuditId = `audit-fk-${randomUUID()}`;
+      const accountId = randomUUID();
+      const requestId = randomUUID();
+      const adminAuditId = randomUUID();
+      await admin.query(
+        `INSERT INTO ${table('CampusMaster')} ("code", "nameKo", "isOperated") VALUES ('SAMCHEOK', 'test', true)`,
+      );
+      await admin.query(
+        `INSERT INTO ${table('Season')} ("id", "campusCode", "academicYear", "semester", "name", "preparationStartDate", "matchingStartDate", "seasonEndDate")
+         VALUES ($1, 'SAMCHEOK', 2026, 2, 'audit fk', '2026-08-01', '2026-08-15', '2026-12-31')`,
+        [seasonId],
+      );
+      await admin.query(
+        `INSERT INTO ${table('SeasonOperationAuditEvent')} ("id", "seasonId", "campusCode", "action", "previousSnapshot", "nextSnapshot")
+         VALUES ($1, $2, 'SAMCHEOK', 'UPDATE_SCHEDULE', '{}', '{}')`,
+        [seasonAuditId, seasonId],
+      );
+      await admin.query(
+        `INSERT INTO ${table('AdminAccount')} ("id", "email", "displayName") VALUES ($1, $2, 'owner')`,
+        [accountId, `${accountId}@backoffice.invalid`],
+      );
+      await admin.query(
+        `INSERT INTO ${table('AdminApprovalRequest')} ("id", "kind", "contentDigest", "targetAccountId", "targetRole", "requestedByAccountId", "expiresAt")
+         VALUES ($1, 'ROLE_GRANT', 'digest', $2, 'AUDITOR', $2, now() + interval '1 day')`,
+        [requestId, accountId],
+      );
+      await admin.query(
+        `INSERT INTO ${table('AdminAuditEvent')} ("id", "actorType", "actorAccountId", "action", "approvalRequestId", "result")
+         VALUES ($1, 'ADMIN', $2, 'ACCESS_REQUEST_CREATE', $3, 'SUCCEEDED')`,
+        [adminAuditId, accountId, requestId],
+      );
+      try {
+        for (const [sql, value] of [
+          [`DELETE FROM ${table('Season')} WHERE "id" = $1`, seasonId],
+          [`DELETE FROM ${table('AdminApprovalRequest')} WHERE "id" = $1`, requestId],
+          [`DELETE FROM ${table('AdminAccount')} WHERE "id" = $1`, accountId],
+        ] as const) {
+          // PostgreSQL names the rule: "violates RESTRICT setting of foreign key constraint".
+          await expect(admin.query(sql, [value]), sql).rejects.toThrow(
+            /violates RESTRICT setting of foreign key constraint/u,
+          );
+        }
+        const remaining = await admin.query(
+          `SELECT "id" FROM ${table('SeasonOperationAuditEvent')} WHERE "id" = $1`,
+          [seasonAuditId],
+        );
+        expect(remaining.rows).toEqual([{ id: seasonAuditId }]);
+      } finally {
+        await admin.query(`DELETE FROM ${table('AdminAuditEvent')} WHERE "id" = $1`, [
+          adminAuditId,
+        ]);
+        await admin.query(`DELETE FROM ${table('AdminApprovalRequest')} WHERE "id" = $1`, [
+          requestId,
+        ]);
+        await admin.query(`DELETE FROM ${table('AdminAccount')} WHERE "id" = $1`, [accountId]);
+        await admin.query(`DELETE FROM ${table('SeasonOperationAuditEvent')} WHERE "id" = $1`, [
+          seasonAuditId,
+        ]);
+        await admin.query(`DELETE FROM ${table('Season')} WHERE "id" = $1`, [seasonId]);
+        await admin.query(`DELETE FROM ${table('CampusMaster')} WHERE "code" = 'SAMCHEOK'`);
+      }
     });
 
     it('사람 조회 role은 secret·content 열과 RRPD를 읽지 못하고 RetentionCase는 행 수만 센다', async () => {

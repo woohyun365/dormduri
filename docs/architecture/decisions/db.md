@@ -1,8 +1,8 @@
 # DB 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-10
-**확인 근거**: [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(migration-seed-compatibility의 `db.migration.change-strategy`·`db.migration.rollback-path`, integrity-retention-lifecycle의 `db.integrity.role-separation`·`db.integrity.retention-execution`과 pack 밖 결정의 Owner 확인 날짜), [#862의 사람 조회 `RetentionCase.id` 결정 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6715462160)(`db.integrity.role-separation`, 2026-11-08), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`db.integrity.role-separation`의 pool 처분·readiness 열, `db.integrity.recovery-target`의 RPO 10분, 2026-11-09·10)
+**확인일**: 2026-11-21
+**확인 근거**: [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(migration-seed-compatibility의 `db.migration.change-strategy`·`db.migration.rollback-path`, integrity-retention-lifecycle의 `db.integrity.role-separation`·`db.integrity.retention-execution`과 pack 밖 결정의 Owner 확인 날짜), [#862의 사람 조회 `RetentionCase.id` 결정 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6715462160)(`db.integrity.role-separation`, 2026-11-08), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`db.integrity.role-separation`의 pool 처분·readiness 열, `db.integrity.recovery-target`의 RPO 10분, 2026-11-09·10), [#949의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/949#issuecomment-7059715410)(`db.integrity.role-separation`의 `backoffice_retention`, `db.integrity.retention-execution`의 관리자 기록 정리 위치, `db.integrity.audit-tables`의 관리자 감사와 FK `Restrict`, 2026-11-21)
 **근거**: [Database operator scripts](../../../infra/db/README.md), [RDS setup and backup checklist](../../../infra/aws/rds-setup-checklist.md), [Backup and restore drill runbook](../../../infra/runbooks/operations/database/backup-restore.md), [Data retention](../../policies/data-retention.md#rrpd-db-접근-통제와-운영-관측), [Domain/SWE/Web/DB pack](../../development/agent-workflows/domain/swe-web/db.md)
 
 `Domain/SWE/Web/DB` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
@@ -67,7 +67,7 @@ Role·LOGIN user·grant 표는 [Database operator scripts](../../../infra/db/REA
 - 판정: Ask
 - 상태: validated
 - 고른 선택지: 기능별 여러 계정. NOLOGIN group role(`migration_owner`, `app_runtime`, `retention_worker`, `retention_disclosure`,
-  `app_readonly`, `backoffice_runtime`)이 권한을 갖고, 서비스·사람마다 LOGIN user가 group의 member로 접속한다. 객체는
+  `app_readonly`, `backoffice_runtime`, `backoffice_retention`)이 권한을 갖고, 서비스·사람마다 LOGIN user가 group의 member로 접속한다. 객체는
   `migration_owner`가 소유하고, table마다 허용 권한은 grant 표 하나(`packages/database/prisma/role-grants/role-grant-matrix.csv`)가
   원본이다. Default privilege는 PUBLIC만 막고 앱 role에 자동 grant를 두지 않는다. 규칙은
   [Database operator scripts](../../../infra/db/README.md#grant-표)다
@@ -79,17 +79,24 @@ Role·LOGIN user·grant 표는 [Database operator scripts](../../../infra/db/REA
   `RetentionCase.id`만 읽어 복원 훈련이 행 수를 대조한다. 사람 조회는 secret·
   content 열을 뺀다. 새 table은 표에 넣고 같은 release의 grant 단계가 돌아야 열린다. Readiness는 실패하거나 되돌린
   migration이 없는지를 runtime 연결로 보므로 그 두 열만 읽는다(migration 이름·log·checksum은 닫힘). Connection 예산은 role별
-  pool과 `max_connections` × 0.6 규칙이다([Connection budget](../../../infra/db/README.md#connection-budget))
+  pool과 `max_connections` × 0.6 규칙이다([Connection budget](../../../infra/db/README.md#connection-budget)). 관리자 table은 백오피스
+  role 둘만 쓴다: `backoffice_runtime`은 감사를 append만 하고, 보존이 끝난 관리자 기록의 폐기·익명화는 백오피스 host에만 credential이
+  있는 `backoffice_retention`이 한다. 사용자 API role 셋은 관리자 table 권한이 없어 공개 ingress 뒤 process가 뚫려도 관리자 기록에
+  닿지 않는다
 - 기각한 대안: group role에 LOGIN 직접(운영자별로 나눌 수 없음), 서비스 이름으로 role을 새로 짓기(SQL·env·test 이름만 바뀜),
   계정 삭제를 나눠 사용자 table 변경을 runtime transaction으로(두 transaction 사이 실패 때 보존 없이 삭제되거나 그 반대),
-  default privilege로 runtime에 새 table DML 자동 부여(RRPD·감사 table이 처음부터 열림), 사람 조회에 비밀 열만 제외(통신
+  default privilege로 runtime에 새 table DML 자동 부여(RRPD·감사 table이 처음부터 열림), 관리자 기록 폐기·익명화를
+  `retention_worker`나 `backoffice_runtime`에 줌(앞은 user host process에, 뒤는 일상 백오피스 credential에 감사 삭제가 생김), 사람 조회에 비밀 열만 제외(통신
   내용을 일상 권한으로 봄), pool 하나 유지, 80% 규칙(사람 비상 접속 자리가 줄어듦), readiness를 DB 연결만 보기(실패한
   migration 위에서 ready가 됨), readiness용 SECURITY DEFINER 함수(소유자 권한으로 도는 객체가 하나 늘고 grant 표 밖 경로가 생김)
-- 재검토 조건: 백오피스 기능이 사용자 table 열을 읽어야 할 때(열 단위로 더함), 관리자 감사 table을 만들 때, runtime 권한을
+- 이전 선택: 2026-11-04 group role 여섯(`backoffice_runtime`까지, 관리자 table 없음). 바꾼 이유: 관리자 감사 table을 만들며
+  (재검토 조건) 폐기·익명화 credential을 따로 둠. 출처 #949, Owner 확인 2026-11-21
+- 재검토 조건: 백오피스 기능이 사용자 table 열을 읽어야 할 때(열 단위로 더함), 관리자 기록 정리가 백오피스 host 밖으로 옮겨 갈 때, runtime 권한을
   table별로 더 좁힐 때, target `max_connections`가 규칙을 넘을 때. 마지막 조건은 target 실측(`db.t4g.micro`,
   `max_connections` 78, 예약 5)에서 걸렸고, instance class는 그대로 두고 사용자 API runtime pool을 10에서 7로 줄였다(#238)
-- 출처: #237, #238, #862, #886, Owner 확인 2026-11-04(role·grant·예산)·2026-11-07(`migration_owner`의 database CREATE)·2026-11-08
-  (사람 조회의 `RetentionCase.id`)·2026-11-09(micro 유지와 pool 7)·2026-11-10(readiness의 두 열 SELECT)
+- 출처: #237, #238, #862, #886, #949, Owner 확인 2026-11-04(role·grant·예산)·2026-11-07(`migration_owner`의 database CREATE)·2026-11-08
+  (사람 조회의 `RetentionCase.id`)·2026-11-09(micro 유지와 pool 7)·2026-11-10(readiness의 두 열 SELECT)·2026-11-21(`backoffice_retention`과
+  백오피스 예산 runtime 5·정리 1·disclosure 1)
 - pack 결정: [db.integrity.role-separation](../../development/agent-workflows/domain/swe-web/db.md#dbintegrityrole-separation)
 
 #### db.integrity.retention-execution
@@ -98,29 +105,39 @@ Role·LOGIN user·grant 표는 [Database operator scripts](../../../infra/db/REA
 - 상태: validated
 - 고른 선택지: 주기 작업. 정리 sweep과 outbox dispatcher는 사용자 API instance 하나 안에서 돌고, 작업마다 마지막 성공 시각과
   실패 수를 공통 metric으로 낸다([Background job metrics](../../../apps/api/src/background-jobs/README.md)). Rollout은 옛
-  container를 멈춘 뒤 새 container를 시작해 두 container의 작업이 겹치지 않게 한다
+  container를 멈춘 뒤 새 container를 시작해 두 container의 작업이 겹치지 않게 한다. 관리자 기록 정리(감사 3년 폐기, 끝난 승인 요청·
+  회수된 역할 부여 3년 폐기, 비활성 관리자 계정 익명화, 끝난 session·WebAuthn challenge·초대 7일 정리)는 사용자 API sweep이 아니라
+  백오피스 API instance 하나의 예약 작업이 `backoffice_retention`으로 돈다([data-retention.md DR-R5](../../policies/data-retention.md),
+  [data-retention.md DR-R6](../../policies/data-retention.md)). 작업마다 실행 위치는 하나다
 - 근거: 기한이 사람 기억에 기대지 않고, 공통 metric 두 개로 경보 규칙 하나가 모든 작업의 멈춤·실패를 본다. Instance가 하나라
-  분산 lease가 필요 없다
+  분산 lease가 필요 없다. 관리자 table의 domain owner는 백오피스이고, 사용자 API가 관리자 schema를 알거나 user host에 관리자 기록
+  삭제 권한을 두지 않는다
 - 기각한 대안: lifecycle sweep DB lease를 지금 더함(instance 하나에서 쓰이지 않는 code), 별도 worker container(chat·notification
-  dispatcher를 옮길 수 없고 재검토 조건이 아직 없음)
-- 재검토 조건: 사용자 API instance가 2개 이상이 되거나 sweep이 응답 지연을 만들 때
-- 출처: #862, Owner 확인 2026-11-04
+  dispatcher를 옮길 수 없고 재검토 조건이 아직 없음), 관리자 기록 정리를 사용자 API lifecycle sweep에 둠(lifecycle은 정책 code를 두지
+  않고, user host process 침해 때 관리자 기록에 닿음)
+- 재검토 조건: 사용자 API instance가 2개 이상이 되거나 sweep이 응답 지연을 만들 때, 백오피스 API instance가 2개 이상이 될 때
+- 출처: #862, #949, Owner 확인 2026-11-04·2026-11-21(관리자 기록 정리 위치)
 - pack 결정: [db.integrity.retention-execution](../../development/agent-workflows/domain/swe-web/db.md#dbintegrityretention-execution)
 
 #### db.integrity.audit-tables
 
 - 판정: Ask
 - 상태: validated
-- 고른 선택지: 관리자 행위 감사는 append-only table 하나로 두고(관리자 계정 table과 함께 만듦), RRPD 열람 기록
-  `RetentionAccessLog`는 따로 둔다. 지금 감사 table 둘은 앱에서 기록하는 role이 INSERT·SELECT만 받는다
-  (`SeasonOperationAuditEvent`는 runtime, `RetentionAccessLog`는 disclosure). `RetentionAccessLog`의 수명 처리(3년 기한
+- 고른 선택지: 관리자 행위 감사는 append-only table 하나(`AdminAuditEvent`)로 두고(관리자 계정 table과 함께 만듦), RRPD 열람 기록
+  `RetentionAccessLog`는 따로 둔다. 감사 table 셋은 앱에서 기록하는 role이 INSERT·SELECT만 받는다
+  (`SeasonOperationAuditEvent`는 runtime, `RetentionAccessLog`는 disclosure, `AdminAuditEvent`는 `backoffice_runtime`). 감사 행이 가리키는
+  부모(시즌, 관리자 계정, 승인 요청) FK는 `Restrict`라 부모를 지워도 감사 행이 사라지지 않고, 관리자 계정은 지우지 않는다.
+  `AdminAuditEvent`의 3년 폐기는 `backoffice_retention`의 DELETE만 한다. `RetentionAccessLog`의 수명 처리(3년 기한
   폐기로 열람자·목적 열을 비우는 UPDATE 등)는 RRPD table로서 worker가 맡는다(grant 표의 RRPD worker DML)
 - 근거: RRPD 열람 기록은 보존·폐기 주기(3년)와 disclosure 권한이 관리자 감사와 다르다. 시즌 운영이 백오피스로 옮겨 가면 관리자
-  감사가 시즌 운영 감사를 흡수해 감사가 두 곳으로 나뉘지 않는다. append-only는 grant 표와 smoke가 막는다
+  감사가 시즌 운영 감사를 흡수해 감사가 두 곳으로 나뉘지 않는다. append-only는 grant 표와 smoke가 막는다. 부모 삭제의 cascade는
+  권한과 무관하게 감사 행을 지우므로 FK로 막는다(#868)
 - 기각한 대안: 셋 다 한 table(RRPD 폐기와 관리자 감사 보존·권한이 섞임), 셋 다 따로(시즌 운영이 옮겨 오면 감사가 나뉨), 관리자
   감사 table을 관리자 계정보다 먼저(FK 없는 table을 나중에 다시 고침)
-- 재검토 조건: 관리자 계정과 감사 table을 만들 때, 시즌 운영을 백오피스로 옮길 때
-- 출처: #862, Owner 확인 2026-11-04
+- 이전 선택: 2026-11-04 감사 table 둘, `SeasonOperationAuditEvent`의 Season FK `Cascade`. 바꾼 이유: 관리자 계정·감사 table을 만듦
+  (재검토 조건), 시즌 삭제가 감사를 지우는 경로를 닫음(#868). 출처 #949, Owner 확인 2026-11-21
+- 재검토 조건: 시즌 운영을 백오피스로 옮길 때, 감사 보존이 append-only 밖 보관(WORM)을 요구할 때
+- 출처: #862, #868, #949, Owner 확인 2026-11-04·2026-11-21
 - pack 결정: 없음
 
 #### db.integrity.recovery-target

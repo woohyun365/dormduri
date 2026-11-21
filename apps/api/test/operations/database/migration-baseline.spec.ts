@@ -112,6 +112,7 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain(
       'CREATE INDEX "SeasonOperationAuditEvent_actorUserId_createdAt_idx" ON "SeasonOperationAuditEvent"("actorUserId", "createdAt")',
     );
+    // The baseline file stays as applied; 20261121000000_backoffice_admin_foundation changes this FK to RESTRICT (#868).
     expect(sql).toContain(
       'ALTER TABLE "SeasonOperationAuditEvent" ADD CONSTRAINT "SeasonOperationAuditEvent_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
     );
