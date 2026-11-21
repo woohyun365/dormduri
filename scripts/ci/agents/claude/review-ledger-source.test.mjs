@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
@@ -393,5 +393,57 @@ test('a settled Parent reviewer row reads the result file settle wrote, not the 
     [row.status, row.verdict, row.findings.length],
     ['parsed', 'FAIL', 1],
     'closure record with result file: that result',
+  );
+});
+
+// Review 4 F1: the closure names the task that settled the packet. Another task whose prompt names the same packet
+// (its reviewerSpec registered again) is read from its own response, not from that settlement's result file.
+test('a task the closure does not name reads its own response', () => {
+  const root = sizedFixture();
+  const packets = resolve(root, '.artifacts/tools/claude-review-packets');
+  const registry = resolve(root, '.artifacts/tools/claude-native');
+  const t7 = JSON.parse(readFileSync(resolve(registry, 't7/task.json'), 'utf8')).record;
+  mkdirSync(resolve(registry, 't9'), { recursive: true });
+  writeFileSync(
+    resolve(registry, 't9/task.json'),
+    JSON.stringify({ record: { ...t7, taskId: 't9' } }),
+  );
+  const completion = (taskId, verdict) =>
+    writeFileSync(
+      resolve(registry, taskId, 'completion.json'),
+      JSON.stringify({
+        response: { content: [{ type: 'text', text: JSON.stringify({ verdict, findings: [] }) }] },
+      }),
+    );
+  completion('t7', 'FAIL');
+  completion('t9', 'PASS');
+  writeFileSync(
+    resolve(packets, 'aaaa1111-bbbb2222.settled.json'),
+    JSON.stringify({
+      taskId: 't7',
+      settledAt: '2026-11-22T00:00:00.000Z',
+      valid: true,
+      observationErrors: [],
+    }),
+  );
+  writeFileSync(
+    resolve(packets, 'aaaa1111-bbbb2222.result.json'),
+    JSON.stringify({
+      schemaVersion: 'cross-model-handoff/v1',
+      packetId: 'review-aaaa1111-bbbb2222',
+      verdict: 'FAIL',
+      findings: [{ severity: 'low' }],
+    }),
+  );
+  const rows = byTask(json(run(['--json', '--root', root], root).out).rows);
+  assert.deepEqual(
+    [rows.t7.status, rows.t7.verdict, rows.t7.findings.length],
+    ['parsed', 'FAIL', 1],
+    'the settled task reads the result file',
+  );
+  assert.deepEqual(
+    [rows.t9.status, rows.t9.verdict, rows.t9.findings.length],
+    ['parsed', 'PASS', 0],
+    'another task reads its own response',
   );
 });
