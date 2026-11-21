@@ -331,6 +331,8 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
             ]),
           ).resolves.toMatchObject({ rowCount: 1 });
           for (const sql of [
+            // The audit time is the database clock only: occurredAt has no INSERT privilege.
+            `INSERT INTO ${table('AdminAuditEvent')} ("id", "occurredAt", "actorType", "actorAccountId", "action", "result") VALUES ('${randomUUID()}', now() - interval '4 years', 'ADMIN', '${accountId}', 'LOGIN', 'SUCCEEDED')`,
             `UPDATE ${table('AdminAuditEvent')} SET "reason" = "reason"`,
             `DELETE FROM ${table('AdminAuditEvent')}`,
             `UPDATE ${table('AdminAccount')} SET "email" = "email"`,

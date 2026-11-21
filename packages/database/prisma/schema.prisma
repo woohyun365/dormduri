@@ -2404,6 +2404,10 @@ model AdminWebAuthnChallenge {
   session      AdminSession?                 @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
+  // The cleanup job deletes ended sessions and invitations; their challenges cascade through these
+  // indexes instead of a scan per deleted row (migration 20261121120000).
+  @@index([invitationId])
+  @@index([sessionId])
 }
 
 // grantedByApprovalRequestId is null only for the first owner (bootstrap command).
@@ -2421,9 +2425,15 @@ model AdminRoleAssignment {
 
   @@index([accountId, revokedAt])
   @@index([revokedAt])
+  // The 3-year cleanup keeps an approval request while an assignment still points at it; these
+  // indexes serve that NOT EXISTS check and the FK check when the request row is deleted.
+  @@index([grantedByApprovalRequestId])
+  @@index([revokedByApprovalRequestId])
 }
 
-// A decision is a conditional UPDATE on the pending status and the request-time digest.
+// A decision is a conditional UPDATE on the pending status and the request-time digest. The
+// decision pair CHECKs (migration 20261121120000) keep the decider, status and self-approval flag
+// consistent.
 model AdminApprovalRequest {
   id                   String                     @id @default(uuid())
   kind                 AdminApprovalRequestKind

@@ -218,6 +218,10 @@
     "./social-safety/enforcement": {
       "types": "./dist/social-safety/enforcement.d.ts",
       "default": "./dist/social-safety/enforcement.js"
+    },
+    "./backoffice": {
+      "types": "./dist/backoffice/index.d.ts",
+      "default": "./dist/backoffice/index.js"
     }
   },
   "scripts": {

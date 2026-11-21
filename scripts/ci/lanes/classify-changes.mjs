@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 const ALL_PRODUCT_LANES = {
   web: true,
   api: true,
+  backoffice: true,
   shared: true,
   storybook: true,
   infra: true,
@@ -87,7 +88,7 @@ const LANE_SCRIPT_PATHS = new Map([
   ['scripts/artifacts/workspace-layout.knu.json', ['api']],
   ['scripts/ci/product/prepare-next-standalone.mjs', ['web']],
   ['scripts/ci/lanes/repo-policy-test-files.mjs', ['infra']],
-  ['scripts/ci/lanes/run-timed-command.mjs', ['web', 'api', 'storybook']],
+  ['scripts/ci/lanes/run-timed-command.mjs', ['web', 'api', 'backoffice', 'storybook']],
   ['scripts/infra/compose/profile.mjs', ['api']],
   ['scripts/observability/production/environment.mjs', ['api']],
   ['scripts/observability/sentry/check-build.mjs', ['web']],
@@ -320,6 +321,7 @@ function emptyClassification() {
   return {
     web: false,
     api: false,
+    backoffice: false,
     shared: false,
     storybook: false,
     infra: false,
@@ -358,17 +360,25 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
+    if (path.startsWith('apps/backoffice-api/')) {
+      result.backoffice = true;
+      matched = true;
+    }
+
     if (path.startsWith('packages/shared/')) {
       result.shared = true;
       result.web = true;
       result.api = true;
+      result.backoffice = true;
       matched = true;
     }
 
     // The shared database package (Prisma schema, migrations, TypedSQL, grant SQL and the generated client) is built
-    // and tested by the API lane, its only consumer.
+    // and tested by its two consumers: the API lane and the backoffice lane (whose integration tests apply the grant
+    // SQL and run the backoffice TypedSQL as its LOGIN users).
     if (path.startsWith('packages/database/')) {
       result.api = true;
+      result.backoffice = true;
       matched = true;
     }
 
@@ -431,6 +441,12 @@ export function classifyChanges(paths) {
 
     if (path === '.github/workflows/api-ci.yml') {
       result.api = true;
+      result.repoPolicy = true;
+      matched = true;
+    }
+
+    if (path === '.github/workflows/backoffice-ci.yml') {
+      result.backoffice = true;
       result.repoPolicy = true;
       matched = true;
     }

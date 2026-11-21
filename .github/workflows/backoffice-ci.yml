@@ -1,0 +1,86 @@
+name: Backoffice CI
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  backoffice-api:
+    name: Backoffice API gate
+    runs-on: ubuntu-26.04
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public
+      DIRECT_URL: postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public
+    services:
+      postgres:
+        image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+        env:
+          POSTGRES_USER: dormduri_dev
+          POSTGRES_PASSWORD: dormduri_dev_password
+          POSTGRES_DB: dormduri
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dormduri_dev -d dormduri"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Start CI timing
+        id: timing
+        run: echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: 12.16.1
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Backoffice --stage=install -- pnpm install --frozen-lockfile
+
+      # TypedSQL generation reads the migrated schema; the integration tests create their own schemas.
+      - name: Prepare CI database schema
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Backoffice --stage=schema -- pnpm --dir packages/database exec prisma migrate deploy --schema prisma/schema.prisma
+
+      - name: Prepare backoffice API dependencies
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Backoffice --stage=prepare -- pnpm backoffice-api:prepare
+
+      - name: Backoffice API static checks
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Backoffice --stage=static -- pnpm backoffice-api:check:prepared
+
+      - name: Backoffice API unit and route table tests
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Backoffice --stage=unit -- pnpm backoffice-api:test:prepared
+
+      # The global setup bootstraps the database roles; the app connects as dormduri_backoffice and
+      # dormduri_backoffice_retention, so every query runs under the production grants.
+      - name: Backoffice API integration tests
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Backoffice --stage=integration-db -- pnpm backoffice-api:test:integration:prepared
+
+      - name: Backoffice API production build
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=Backoffice --stage=build -- pnpm backoffice-api:build:prepared
+
+      - name: Summarize backoffice CI duration
+        if: ${{ always() && !cancelled() }}
+        env:
+          STARTED_AT: ${{ steps.timing.outputs.started_at }}
+        run: |
+          duration_seconds=$(($(date +%s) - STARTED_AT))
+          echo "- total_duration_seconds: ${duration_seconds}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- pnpm_store_cache: setup-node managed; install timing is the observable signal" >> "$GITHUB_STEP_SUMMARY"

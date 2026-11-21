@@ -50,6 +50,7 @@ classify
   │   ├─ core      # static, runtime contract, unit, E2E, stress, build, compose
   │   ├─ shard 1   # integration 1/2 + 독립 PostgreSQL
   │   └─ shard 2   # integration 2/2 + 독립 PostgreSQL
+  ├─ backoffice    # 백오피스 API static, unit·route 전수 표, integration(독립 PostgreSQL), build
   ├─ web
   │   ├─ core      # static, build, optional Storybook, browser smoke
   │   └─ unit      # Node/jsdom Vitest projects
@@ -62,6 +63,8 @@ CI summary         # 선택된 모든 lane과 pull request의 lifecycle-gate 결
 
 - Web-only 변경은 API/PostgreSQL lane을 실행하지 않는다.
 - API-only 변경은 Web/Playwright lane을 실행하지 않는다.
+- 백오피스 API-only 변경은 backoffice lane만 실행한다. 두 API가 함께 쓰는 `packages/database`·`packages/shared` 변경은 API와
+  backoffice lane을 함께 실행한다.
 - Shared/root toolchain 변경은 Shared, API, Web을 함께 검증한다.
 - Storybook-owned 변경은 Web lane 안에서만 Storybook static build를 추가한다.
 - Docs-only 변경은 product lane을 실행하지 않는다. 다만 API test가 읽는 문서(분류기의 `API_TEST_REPOSITORY_INPUTS`)를 바꾸면

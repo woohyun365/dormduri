@@ -36,6 +36,7 @@ test('summarizes GitHub run wall, raw compute, billed rounding, queue, cache, te
     classification: {
       agentWorkflow: false,
       api: false,
+      backoffice: false,
       infra: false,
       repoPolicy: false,
       shared: false,
