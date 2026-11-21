@@ -282,6 +282,13 @@
       "overridable": true
     },
     {
+      "name": "edit-sensors",
+      "retention": {
+        "class": "historical-observation"
+      },
+      "overridable": false
+    },
+    {
       "name": "github",
       "retention": {
         "class": "sensitive-or-undetermined"

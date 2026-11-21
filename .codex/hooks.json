@@ -1,5 +1,5 @@
 {
-  "description": "KNU subagent spawn guard and completion records (.codex/hooks/knu-subagent-hooks.mjs)",
+  "description": "KNU subagent spawn guard, completion records and edit-time sensors (.codex/hooks/knu-subagent-hooks.mjs)",
   "hooks": {
     "PreToolUse": [
       {
@@ -9,6 +9,29 @@
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/knu-subagent-hooks.mjs\"",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^apply_patch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/knu-subagent-hooks.mjs\"",
+            "timeout": 13
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/knu-subagent-hooks.mjs\"",
+            "timeout": 35
           }
         ]
       }

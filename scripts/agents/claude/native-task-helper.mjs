@@ -37,6 +37,11 @@ import {
   validateAdjudication,
 } from '../common/review-adjudication.mjs';
 import { PLAN_ROOT } from '../common/plan-store.mjs';
+import {
+  prejudgmentPhraseMatches,
+  prejudgmentWarning,
+  recordPrejudgment,
+} from '../common/review-prejudgment-phrases.mjs';
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { loadWorkspaceLayout } from '../../artifacts/workspace-layout.mjs';
 import { prepareClaudeWorkflow } from './workflow-entry.mjs';
@@ -689,6 +694,12 @@ function subjectOf({ subjectTaskId, parentSubject }, root) {
     impactRisk: 'medium',
     snapshot: currentClaudeNativeSnapshot(root),
     requestMarkers: requestMarkerCount(request),
+    // SP2 (b): sentences that pre-judge the review; a warning and a count, never a refusal.
+    prejudgment: prejudgmentPhraseMatches({
+      request,
+      acceptance,
+      requirements: requirements?.text ?? undefined,
+    }),
     requirements: requirements?.text ?? null,
     lifecycleDraft,
   };
@@ -719,12 +730,15 @@ function reviewPacket(subject, evidence, reviewId) {
       ],
     },
     evidence: {
-      // A request-implementation-marker fact is a count only: no request sentence reaches the packet
-      // through it, and knownGaps stays empty so the warning never blocks PASS.
+      // A request-implementation-marker or review-prejudgment-phrase fact is a count only: no request
+      // sentence reaches the packet through it, and knownGaps stays empty so the warning never blocks PASS.
       environment: [
         ...new Set(evidence.records.map((record) => record.environment)),
         ...(subject.requestMarkers
           ? [`request-implementation-marker=${subject.requestMarkers}`]
+          : []),
+        ...(subject.prejudgment?.length
+          ? [`review-prejudgment-phrase=${subject.prejudgment.length}`]
           : []),
       ].join('; '),
       prerequisites: ['Source snapshot equals the reviewed subject snapshot'],
@@ -1493,6 +1507,7 @@ export function buildClaudeNativeReview(
         ]
       : []),
     ...completenessWarnings(root, subject, verification),
+    ...(subject.prejudgment?.length ? [prejudgmentWarning(subject.prejudgment.length)] : []),
   ];
   const status = {
     settlement: subject.settlement,
@@ -1861,6 +1876,18 @@ export function buildClaudeNativeReview(
     writeClaudeReviewPacket(root, member.reviewId, member.criteriaBytes, '.criteria.json');
     writeClaudeReviewPacket(root, member.reviewId, member.contextBytes, '.context.json');
   }
+  // The review point of the edit-time sensor records (evaluation input); a record failure never fails the review.
+  if (subject.prejudgment?.length && typeof (sessionId ?? subject.sessionId) === 'string')
+    try {
+      recordPrejudgment({
+        root,
+        sessionId: sessionId ?? subject.sessionId,
+        host: 'claude',
+        matches: subject.prejudgment,
+      });
+    } catch {
+      // The warning in the status and the packet count stay.
+    }
   const output = (member) => ({
     packet: member.packet,
     ...(member.packetFile ? { packetFile: member.packetFile } : {}),

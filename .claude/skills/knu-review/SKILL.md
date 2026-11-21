@@ -48,6 +48,10 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
    - `request`에 완료형 구현 서술(`고쳤다`·`구현했다` 등)이 있으면 출력 `warnings`에 `request-implementation-marker`가 나오고 packet
      `evidence.environment`에 그 문장 수가 남습니다. 리뷰를 막지는 않지만 걸린 문장은 packet `objective`에 그대로 남으니 `request`를
      요구사항 문장으로 고쳐 다시 `review`합니다.
+   - `request`·`acceptance`·`requirementSections` 발췌에 사전 판단 문구(지적하지 말 것, severity 상한, 계획이 이미 골랐다는 문장)가
+     있으면 `warnings`에 `review-prejudgment-phrase`가 나오고 packet `evidence.environment`에 그 문장 수가 남습니다. 막지 않으니 걸린
+     문장을 결론·범위 축소 없는 요구 문장으로 고칠지 판단합니다
+     ([사전 판단 문구 경고](../../../docs/development/agent-workflows/review-criteria/README.md#사전-판단-문구-경고)).
    - 출력 `warnings`의 입력 완전성 경고는 리뷰를 막지 않습니다. `acceptance-not-in-requirement-sections`(acceptance 문장이
      `requirementSections` 절의 문장과 글자로 같지 않음)는 plan 문장을 그대로 옮기고, `lifecycle-draft-verification-missing`
      (초안에 `Not tested` 줄이 있는 `## Verification` 절이 없음)은 초안에 검증 절을 채웁니다. `layout-owner-not-in-read-paths`·
