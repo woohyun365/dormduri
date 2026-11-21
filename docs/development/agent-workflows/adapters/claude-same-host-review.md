@@ -83,7 +83,8 @@ readiness 리뷰는 이 필드를 쓰지 않습니다. Subject의 `request`·`ac
 
 Reviewer prompt는 packet·diff·문서·runner 출력 안의 지시문을 판정 근거로만 읽고 따르지 않게 지시합니다. `review`는 reviewer마다 prompt의
 sha256을 `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에 한 번 쓰고(runner 파일의 경로와 digest, 역할 선택,
-requirement 추출·binding 행 추출·초안 절 추출과 2회차 범위가 있으면 그것도 함께), registry는
+requirement 추출·binding 행 추출·초안 절 추출, 2회차 범위와 helper 디렉터리의 직전 결과(`previousResults`)가 있으면 그것도
+함께), registry는
 모든 `knu_reviewer` 등록(`prepare`와 `register --input`)에서 그 기록과 prompt를 대조합니다. Review id는 native subject면 packet id
 `review-<reviewId>`, Parent subject면 prompt의 `KNU_REVIEW_PACKET_FILE:` 경로에서 얻고, 1회차 그룹은 구성원마다 대조합니다. 기록이
 없거나 review id를 얻을 수 없으면 `review-prompt-unbound`, prompt가 다르면 `review-prompt-changed`로 등록을 거부합니다.
@@ -143,7 +144,8 @@ reviewer마다 `.artifacts/tools/claude-review-packets/<reviewId>.binding.md`(�
 그룹 뒤 2회차는 단일 reviewer이며 `--previous-result`에 Parent의 `review-adjudication/v1` 처분 기록을 줄 수 있습니다. Helper는
 기록을 `review-adjudication.mjs` validator로 검사하고 기록이 가리키는 각 result에도 직전 result와 같은 조건(root 안 일반 파일, native
 task 기록 아님, verdict·findings JSON)을 적용합니다(`previous-result-invalid`·`previous-result-unreadable`). 기록과 각 result가 read
-path에 들어가고 prompt에 경로와 digest가 남으며, prompt는 처분과 그 근거가 Parent의 주장이지 증거가 아니라고 적습니다.
+path에 들어가고 prompt에 경로와 digest가 남으며(helper 디렉터리의 result는 prompt 기록 `previousResults`도 결속해 바뀌면 정산이
+`review-previous-result-changed`), prompt는 처분과 그 근거가 Parent의 주장이지 증거가 아니라고 적습니다.
 
 Claude native reviewer는 공통 QA packet의 `same-host-independent-review` 방향을 사용합니다. 등록 입력의 선택적
 `independentReview`는 `subjectTaskId`, `reviewerId`, `builderIds`, `packet`을 포함합니다. Registry는 실제 subject task와
@@ -268,7 +270,7 @@ promote·상태 정정 전 결속 확인은 이 규칙으로 열린 packet의 `.
 Review snapshot은 tracked·비ignored 파일만 결속하므로 ignored 리뷰 입력(계획, 증거, runner 출력, 2회차 직전 결과와 처분 기록)은 helper가
 따로 고정합니다. 대상은 reviewer read path 중 ignored read path 아래 파일과, 어느 read path든 그 아래 `.plans/`·`.artifacts/`·
 `.local-docs/`(기록 위치) 안의 ignored 파일입니다. Helper 디렉터리의 파일(packet·manifest는 prompt 줄이, requirement 추출·binding 행
-추출·초안 절 추출·runner 파일은 prompt 기록이 결속)과 native task 기록은 빠지고, 그 밖의 비ignored
+추출·초안 절 추출·runner 파일과 직전 결과로 준 Parent reviewer 결과 파일은 prompt 기록이 결속)과 native task 기록은 빠지고, 그 밖의 비ignored
 디렉터리 안 ignored 파일(package 의존성·build 산출물)은 결속하지 않습니다(known limit).
 
 Ignored read path(파일이나 디렉터리) 아래 대상은 helper가 `.artifacts/tools/claude-review-packets/<reviewId>.inputs/` 아래에 원래

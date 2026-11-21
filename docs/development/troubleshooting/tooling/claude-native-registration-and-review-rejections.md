@@ -116,7 +116,8 @@
   (`.artifacts/tools/claude-review-packets/<reviewId>.inputs/…`)이거나, reviewer가 path로 지목해 읽은 것으로 관측됐거나 읽기를 가릴
   수 없는 정산의 바뀐 원본 경로입니다.
 - Parent reviewer의 `settle --task` `observationErrors`에 `review-requirements-changed`·`review-binding-changed`·
-  `review-lifecycle-changed`·`review-verification-changed`·`review-scope-changed`·`review-runner-file-changed` 중 하나가 있습니다.
+  `review-lifecycle-changed`·`review-verification-changed`·`review-scope-changed`·`review-runner-file-changed`·
+  `review-previous-result-changed` 중 하나가 있습니다.
   Native subject reviewer는 `observationErrors`에 `review-binding-changed`나 `review-runner-file-changed`가 있고
   `settle --task --judgment`도 그 사유로 거부됩니다.
 - Parent reviewer의 `settle --task` `observationErrors`에 `review-result-unparsed`나 `review-packet-settled`가 있고 출력
@@ -327,7 +328,8 @@
   prompt에서 packet 파일 줄이 빠진 것입니다. 그런 prompt는 지금 등록부터 `review-prompt-unbound`로 거부되므로, Helper가 packet 파일 줄을 쓰기 전 버전으로 등록한 Parent reviewer를 지금 정산할 때 나옵니다. 세 사유 모두 결과를 쓰지 말고 파일을
   고치지 않은 채 `review-run`을 다시 실행해 새 reviewer로 재리뷰합니다(Parent subject의 2회차 이상은 `review` 단독을 받지 않음). `review-requirements-changed`(requirement 추출이나 그 prompt 기록이
   바뀌거나 사라짐)와 `review-binding-changed`·`review-lifecycle-changed`(binding 행 추출·초안 절 추출이나 그 prompt 기록이 바뀌거나
-  사라짐, native subject reviewer 포함)도 같습니다.
+  사라짐, native subject reviewer 포함), `review-previous-result-changed`(prompt 기록이 결속한 helper 디렉터리의 직전 결과 파일이
+  바뀌거나 사라짐)도 같습니다.
 - `review-result-unparsed`는 Parent reviewer 응답이 text 한 조각 전체가 이 review 결과 template 모양의 JSON 객체(같은
   `packetId`, `verdict` 문자열, `findings` 배열)가 아닌 것입니다(code fence·앞뒤 문장·다른 packet id 포함). 응답에서 JSON을 손으로
   잘라 결과로 쓰지 않고, 처분 기록 `reviews[].resultPath`에 응답 문자열을 저장하지 않습니다. 결과 없는 회차로 기록하고 `review-run`으로

@@ -1794,9 +1794,12 @@ export function buildClaudeNativeReview(
             ...(subject.deltaScope ? { deltaScope: subject.deltaScope } : {}),
           })}\n`,
         );
+    // A previous result in the helper directory (a Parent reviewer's result file the adjudication record names) is
+    // not copied with the other ignored inputs, so the prompt record binds it and settle checks it.
+    const previousResults = helperPreviousResults(root, subject.previous);
     // Registration takes only this prompt (G11); the record also binds the requirement and context
-    // extracts, the runner file and a scope record the reviewer reads, and keeps the role choice and
-    // the round's scope.
+    // extracts, the runner file, a scope record the reviewer reads and the helper-directory previous results, and
+    // keeps the role choice and the round's scope.
     const promptBytes = Buffer.from(
       `${JSON.stringify({
         schema: REVIEW_PROMPT_SCHEMA,
@@ -1806,6 +1809,7 @@ export function buildClaudeNativeReview(
         ...Object.fromEntries(extracts.map(({ key, file }) => [key, file])),
         ...(verificationFile ? { [VERIFICATION_EXTRACT.key]: verificationFile } : {}),
         ...(scopeRead ? { scope: { path: scopePath, digest: packetDigest(scopeBytes) } } : {}),
+        ...(previousResults.length ? { previousResults } : {}),
         runner: runnerFile,
         reviewerRole,
         ...(subject.deltaScope ? { deltaScope: subject.deltaScope } : {}),
@@ -2510,14 +2514,14 @@ function reviewPacketStatus(state, root) {
 // read scope says whether the review has one, so neither a lost record nor a narrowed read scope can skip
 // the check. A Parent subject's review id comes from its packet file line, a native subject's from its
 // packet id, as registration takes them.
+// The review id of a reviewer task: a Parent reviewer prompt's packet file line, or a native subject reviewer's packet id.
+const taskReviewId = (root, record) =>
+  claudeReviewPromptId(root, record.prompt) ??
+  /^review-([a-z0-9]{8}-[a-f0-9]{8})$/u.exec(record.independentReview?.packet?.packetId)?.[1];
 function reviewExtractStatus(state, root, { suffix, key }) {
   // The caller prompt as registered; the invocation prompt also carries the registry marker.
   const { prompt } = state.record;
-  const reviewId =
-    claudeReviewPromptId(root, prompt) ??
-    /^review-([a-z0-9]{8}-[a-f0-9]{8})$/u.exec(
-      state.record.independentReview?.packet?.packetId,
-    )?.[1];
+  const reviewId = taskReviewId(root, state.record);
   if (reviewId === undefined) return null;
   const { path } = reviewPacketPath(root, reviewId, suffix);
   if (!prompt.includes(path) && !state.record.input.nativeRequest.task.readScope.includes(path))
@@ -2534,6 +2538,40 @@ function reviewExtractStatus(state, root, { suffix, key }) {
     currentDigest = null;
   }
   return { path, expectedDigest, currentDigest };
+}
+// The previous results under the helper directory, as { path, digest }: the reviewed results of an adjudication record
+// and a previous result given directly.
+function helperPreviousResults(root, previous) {
+  if (!previous) return [];
+  const dir = `${relative(root, resolveArtifactPath(root, ['claude-review-packets'], {}))}/`;
+  return [previous, ...(previous.results ?? [])]
+    .filter(({ path }) => path.startsWith(dir))
+    .map(({ path, digest }) => ({ path, digest }));
+}
+// The helper-directory previous results the prompt record binds, and the settlement error when one changed.
+function previousResultChecks(state, root) {
+  const reviewId = taskReviewId(root, state.record);
+  const record = reviewId === undefined ? null : claudeReviewPromptRecord(root, reviewId);
+  if (
+    !Array.isArray(record?.previousResults) ||
+    record.promptDigest !== packetDigest(Buffer.from(state.record.prompt))
+  )
+    return { statuses: {}, errors: [] };
+  const results = record.previousResults.map(({ path, digest }) => {
+    let currentDigest = null;
+    try {
+      currentDigest = packetDigest(readFileSync(join(root, path)));
+    } catch {
+      currentDigest = null;
+    }
+    return { path, expectedDigest: digest, currentDigest };
+  });
+  return {
+    statuses: { reviewPreviousResults: results },
+    errors: results.some((result) => result.currentDigest !== result.expectedDigest)
+      ? ['review-previous-result-changed']
+      : [],
+  };
 }
 // Each bound extract's status and the settlement errors of those that changed or lost their record.
 function reviewExtractChecks(state, root) {
@@ -2615,6 +2653,8 @@ function settlementStatus(taskId, root) {
     state.errors.push('review-packet-changed');
   const reviewExtracts = reviewExtractChecks(state, root);
   state.errors.push(...reviewExtracts.errors);
+  const previousResults = previousResultChecks(state, root);
+  state.errors.push(...previousResults.errors);
   const { record } = state;
   // A Parent reviewer's prompt starts with the snapshot its runner logs name. A read-only reviewer
   // with no change among its dependencies is compared with the source it was registered for;
@@ -2721,6 +2761,7 @@ function settlementStatus(taskId, root) {
     reviewInputOriginalsChanged: state.reviewInputOriginalsChanged,
     ...(reviewPacket ? { reviewPacket } : {}),
     ...reviewExtracts.statuses,
+    ...previousResults.statuses,
     judgmentTemplatePath,
     ...(quoteCheckResponsePath ? { quoteCheckResponsePath } : {}),
     ...(parentReviewer ? { resultPath } : {}),
