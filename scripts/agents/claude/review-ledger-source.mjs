@@ -5,26 +5,34 @@
 //
 // Usage: node scripts/agents/claude/review-ledger-source.mjs [--root <repo>] [--adjudications <dir>]...
 //          [--until <ISO time>] [--json]
-// Exit 0 = ledger built, 1 = an adjudication record is invalid or a row was rejected, 2 = input error (missing
-// registry or adjudication directory, invalid --until, unknown option, root outside a git repository).
+// Exit 0 = ledger built, 1 = an adjudication record is invalid (other than legacy) or a row was rejected, 2 = input
+// error (missing registry or adjudication directory, invalid --until, unknown option, root outside a git repository).
+// A record whose violations are all old-record kinds (LEGACY_VIOLATION_KINDS of review-adjudication.mjs) is counted as
+// legacy and does not fail the run.
 //
 // Row fields: round comes from the reviewer prompt (`Review round N`, absent before round inputs existed), subjectKey
 // from the adjudication record's subject, else the native subject task (`task:<id>`), else the selection basis
-// (`basis:<ref>`, the grouping the first hand-made ledger used).
+// (`basis:<ref>`, the grouping the first hand-made ledger used). snapshot is the digest on the first prompt line
+// (`KNU review snapshot sha256:…`) and subjectSize the subject paths and criteria documents of the review's criteria
+// record (`<reviewId>.criteria.json` beside its packet; the review id comes from the packet file line of a Parent
+// reviewer prompt or the packet id of a native subject reviewer); either is null when the reader cannot find it.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { relative, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
-import { resultFindingIds, validateAdjudication } from '../common/review-adjudication.mjs';
+import { readAdjudicationRecords, resultFindingIds } from '../common/review-adjudication.mjs';
 import { buildLedger } from '../common/review-ledger.mjs';
 
 class InputError extends Error {}
 
 const ROUND = /Review round (\d+)/u;
+const SNAPSHOT_LINE = /^KNU review snapshot (sha256:[a-f0-9]{64})$/u;
+const PACKET_LINE = /^KNU_REVIEW_PACKET_FILE:\s*\S*?([a-z0-9]{8}-[a-f0-9]{8})\.json\s/mu;
+const PACKET_ID = /^review-([a-z0-9]{8}-[a-f0-9]{8})$/u;
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
@@ -52,50 +60,20 @@ function parseResult(completion) {
   }
 }
 
-function adjudicationFiles(directory) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = resolve(directory, entry.name);
-    if (entry.isDirectory()) return adjudicationFiles(path);
-    return entry.isFile() && entry.name.endsWith('-adjudication.json') ? [path] : [];
-  });
-}
-
-// taskId -> { record, valid } for every review a record names, plus the violations of every record.
-function readAdjudications(root, directories) {
-  const byTask = new Map();
-  const violations = [];
-  for (const path of directories.flatMap(adjudicationFiles).sort()) {
-    const file = relative(root, path);
-    let record;
-    try {
-      record = readJson(path);
-    } catch (error) {
-      violations.push({ file, kind: 'record-unreadable', detail: error.message });
-      continue;
-    }
-    const found =
-      record && typeof record === 'object' && !Array.isArray(record)
-        ? validateAdjudication(record, (resultPath) => readJson(resolve(root, resultPath)))
-        : [{ kind: 'record-unreadable', detail: 'not a JSON object' }];
-    violations.push(...found.map((violation) => ({ file, ...violation })));
-    for (const review of Array.isArray(record?.reviews) ? record.reviews : []) {
-      if (typeof review?.taskId !== 'string') continue;
-      if (byTask.has(review.taskId)) {
-        violations.push({
-          file,
-          kind: 'duplicate-review',
-          id: review.taskId,
-          detail: `already adjudicated in ${byTask.get(review.taskId).file}`,
-        });
-        continue;
-      }
-      byTask.set(review.taskId, { file, record, valid: found.length === 0 });
-    }
+// The subject size of a review from its criteria record, or null when the record is missing or malformed.
+function subjectSize(packets, reviewId) {
+  if (reviewId === undefined) return null;
+  try {
+    const criteria = readJson(resolve(packets, `${reviewId}.criteria.json`));
+    return Array.isArray(criteria.paths) && Number.isInteger(criteria.documentCount)
+      ? { paths: criteria.paths.length, documents: criteria.documentCount }
+      : null;
+  } catch {
+    return null;
   }
-  return { byTask, violations };
 }
 
-function reviewerRow(directory, taskId, adjudications) {
+function reviewerRow(directory, taskId, adjudications, packets) {
   const row = {
     host: 'claude',
     taskId,
@@ -106,6 +84,8 @@ function reviewerRow(directory, taskId, adjudications) {
     verdict: null,
     findings: [],
     adjudication: { status: 'missing', dispositions: [], origins: [] },
+    subjectSize: null,
+    snapshot: null,
   };
   let task;
   try {
@@ -116,8 +96,14 @@ function reviewerRow(directory, taskId, adjudications) {
   if (task?.input?.nativeRequest?.task?.role !== 'knu_reviewer') return null;
   const request = task.input.nativeRequest;
   row.issuedAt = request.issuedAt ?? null;
-  const round = ROUND.exec(task.prompt ?? '')?.[1];
+  const prompt = typeof task.prompt === 'string' ? task.prompt : '';
+  const round = ROUND.exec(prompt)?.[1];
   row.round = round ? Number(round) : null;
+  row.snapshot = SNAPSHOT_LINE.exec(prompt.split('\n')[0])?.[1] ?? null;
+  row.subjectSize = subjectSize(
+    packets,
+    PACKET_LINE.exec(prompt)?.[1] ?? PACKET_ID.exec(task.independentReview?.packet?.packetId)?.[1],
+  );
   const subjectTask = task.independentReview?.subjectTaskId;
   row.subjectKey = subjectTask
     ? `task:${subjectTask}`
@@ -170,10 +156,13 @@ export function readClaudeReviewRows({
   adjudicationDirectories = [],
   until = null,
 }) {
-  const adjudications = readAdjudications(root, adjudicationDirectories);
+  const adjudications = readAdjudicationRecords(root, adjudicationDirectories);
+  const packets = resolve(registry, '..', 'claude-review-packets');
   const all = readdirSync(registry, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .map((entry) => reviewerRow(resolve(registry, entry.name), entry.name, adjudications.byTask))
+    .map((entry) =>
+      reviewerRow(resolve(registry, entry.name), entry.name, adjudications.byTask, packets),
+    )
     .filter(Boolean);
   // A row without an issue time cannot be placed against the cutoff; it is left out and counted.
   const excludedWithoutIssuedAt =
@@ -185,7 +174,12 @@ export function readClaudeReviewRows({
         (left.issuedAt ?? '￿').localeCompare(right.issuedAt ?? '￿') ||
         left.taskId.localeCompare(right.taskId),
     );
-  return { rows, excludedWithoutIssuedAt, adjudicationViolations: adjudications.violations };
+  return {
+    rows,
+    excludedWithoutIssuedAt,
+    adjudicationViolations: adjudications.violations,
+    legacyAdjudications: adjudications.legacy,
+  };
 }
 
 function gitRoot(cwd) {
@@ -239,21 +233,33 @@ export function main(
       if (!isDirectory(directory)) throw new InputError(`${directory}: no such directory`);
     const until = values.until === undefined ? null : Date.parse(values.until);
     if (Number.isNaN(until)) throw new InputError(`--until ${values.until}: not an ISO time`);
-    const { rows, excludedWithoutIssuedAt, adjudicationViolations } = readClaudeReviewRows({
-      root,
-      registry,
-      adjudicationDirectories: directories,
-      until,
-    });
+    const { rows, excludedWithoutIssuedAt, adjudicationViolations, legacyAdjudications } =
+      readClaudeReviewRows({
+        root,
+        registry,
+        adjudicationDirectories: directories,
+        until,
+      });
     const ledger = buildLedger(rows);
     log(
       values.json
         ? JSON.stringify(
-            { root, ...ledger, excludedWithoutIssuedAt, adjudicationViolations },
+            {
+              root,
+              ...ledger,
+              excludedWithoutIssuedAt,
+              adjudicationViolations,
+              legacyAdjudications,
+            },
             null,
             2,
           )
-        : `${format(ledger)}\nexcludedWithoutIssuedAt ${excludedWithoutIssuedAt}`,
+        : [
+            format(ledger),
+            `excludedWithoutIssuedAt ${excludedWithoutIssuedAt}`,
+            `adjudicationViolations ${adjudicationViolations.length}`,
+            `legacyAdjudications ${JSON.stringify(legacyAdjudications)}`,
+          ].join('\n'),
     );
     return adjudicationViolations.length || ledger.rejected.length ? 1 : 0;
   } catch (caught) {

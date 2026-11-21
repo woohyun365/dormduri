@@ -111,7 +111,14 @@ test('an invalid adjudication record marks its rows invalid and exits 1', () => 
       subject: 'feature-x',
       round: 1,
       reviews: [{ taskId: 't1', resultPath: 'evidence/r1-result.json' }],
-      findings: [{ id: 't1#0', severity: 'medium', disposition: 'fixed' }],
+      findings: [
+        {
+          id: 't1#0',
+          severity: 'medium',
+          disposition: 'fixed',
+          fixRef: 'evidence/r1-result.json',
+        },
+      ],
     }),
   );
   const { code, out } = run(['--json', '--root', root, '--adjudications', 'evidence'], root);

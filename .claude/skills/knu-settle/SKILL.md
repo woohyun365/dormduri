@@ -49,18 +49,29 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
 
 ## 회차 처분 기록
 
-- 회차마다 계획 증거 위치에 reviewer가 전달한 result를 그대로 `r<N>-result.json`(그룹은 `r<N>-result-<i>.json`)으로 저장하고
-  `r<N>-adjudication.json`(`review-adjudication/v1`)을 써서 `node scripts/agents/common/review-adjudication.mjs <파일>`이 exit 0인지
-  확인합니다. 이 파일들과 재현 로그는 리뷰 read path(디렉터리 포함) 밖에 둡니다. Reviewer는 ignored 입력을 사본으로 읽으므로
+- 회차마다 `r<N>-adjudication.json`(`review-adjudication/v1`)을 계획 증거 위치에 써서
+  `node scripts/agents/common/review-adjudication.mjs <파일>`이 exit 0인지 확인합니다. Parent reviewer의 result는 `settle --task`
+  출력 `resultPath`의 결과 파일이고 처분 기록 `reviews[].resultPath`에 그 경로를 적습니다. 출력 `response` 문자열을 그대로
+  저장하지 않습니다(`review-result-unparsed`면 결과 없는 회차입니다). Native subject reviewer는 전달한 result를 그대로
+  `r<N>-result.json`(그룹은 `r<N>-result-<i>.json`)으로 저장합니다. 처분 기록 `subject`는 회차와 무관한 변경 이름이고 같은 변경의
+  모든 회차가 같은 문자열을 씁니다([처분 기록](../../../docs/development/agent-workflows/review-criteria/README.md#처분-기록) 예시의
+  `"<변경 이름>"`). 이 파일들과 재현 로그는 리뷰 read path(디렉터리 포함) 밖에 둡니다. Reviewer는 ignored 입력을 사본으로 읽으므로
   원본 디렉터리에 쓴 새 파일은 정산을 막지 않지만(subject `paths` 안 디렉터리면 다음 회차가 `new-file`로 전 범위), 사본 디렉터리(`<reviewId>.inputs/`)나 ignored가 아닌 read path 아래 ignored
   파일을 바꾸면 그 reviewer의 `review-input-changed`로 정산과 연결 builder 완료가 거부됩니다(그룹은 마지막 구성원 정산과 builder
   완료까지). 다른 reviewer의 같은 결함은 `duplicateOf`로 묶습니다. 구성원이 id 접두를 어겨 `duplicate-result-id`가 나면 기록으로
   풀 수 없으므로 native 경로는 새 builder task와 새 review로 가고, Parent 경로는 구성원마다 기록을 하나씩 씁니다.
-- Result에 `unjudgedBehaviors`(판정하지 않은 동작) 줄이 있으면 처분 기록 `unjudged`에 줄마다(`<taskId>#u<index>`)
-  `out-of-scope`·`raised`·`follow-up`과 이유를 적습니다. PASS 회차도 같고, 처분이 빠진 줄은 `missing-unjudged`로 거부됩니다.
+- 재현되면 고친 뒤 `fixed`와 `fixRef`(수정 commit SHA, `sha256:` snapshot digest 또는 저장소 상대 경로)를 적습니다. 고치기
+  전에는 `fixed`를 쓰지 않습니다. 2회차부터 finding마다 `origin`(`fix-induced`·`previously-missed`·`re-raised`)이 필요합니다.
+  rebase·squash로 SHA가 바뀌면 앞 회차 기록은 그대로 두고 다음 회차부터 새 SHA나 snapshot digest를 씁니다. Finding의
+  `sameTypeLocations`는 모두 고치거나 고치지 않은 위치를 그 finding 처분 `reason`에 남깁니다.
+- Result에 `unjudgedBehaviors`(판정하지 않은 동작) 줄이 있으면 처분 기록 `unjudged`에 줄마다(`<taskId>#u<index>`) 처분과
+  이유를 적습니다. Parent가 재현·대조해 결함이 없으면 `parent-checked`(그 log의 저장소 경로를 `reason`에 backtick으로), 이 변경의
+  결함이면 `raised`, 이 변경 전부터 있던 결함이면 `pre-existing`, 이 변경 범위 밖이면 `out-of-scope`·`follow-up`입니다. PASS
+  회차도 같고, 처분이 빠진 줄은 `missing-unjudged`로 거부됩니다.
 - 1회차 그룹의 non-PASS 구성원은 그 구성원의 blocking finding(critical·high·medium)을 Parent가 재현해 볼 때만 기각할 수 있습니다.
   재현 실행을 첫 줄이 그 회차 `logHeader`인 `.artifacts/` 로그로 남기고 `reason`에 그 경로를 backtick으로 적은 뒤 `rejected`로
-  둡니다. 재현되면 `fixed`이고 같은 변경의 다음 회차로 갑니다. 리뷰 전 runner 출력은 재현 근거가 아닙니다.
+  둡니다. 재현되면 고친 뒤 `fixed`와 `fixRef`를 적고 같은 변경의 다음 회차로 갑니다. 리뷰 전 runner 출력은 재현 근거가
+  아닙니다.
 - `notRun`이 있거나 blocking finding 없이 gap·`knownGaps`·low만 있는 구성원, gap·`knownGaps` 항목이 기각한 finding id를 적지 않은
   구성원은 처분으로 마감하지 않습니다. 새 builder task와 재리뷰로 갑니다. 다른 구성원의 PASS는 근거가 아닙니다.
 - Native builder 판정 파일에 non-PASS 구성원이 있으면 `reviewerTaskId`에 PASS 구성원을, `reviewAdjudication`에 처분 기록의 root 기준

@@ -1020,7 +1020,9 @@ const packetDigest = (bytes) => `sha256:${createHash('sha256').update(bytes).dig
 // names plan sections their extract (<reviewId>.requirements.md), the context extracts it has: binding
 // rows (<reviewId>.binding.md), the draft's Lifecycle section (<reviewId>.lifecycle.md) and its
 // Verification section (<reviewId>.verification.md), and for a Parent subject the round's scope
-// record (<reviewId>.scope.json).
+// record (<reviewId>.scope.json). Settling a reviewer adds, for a Parent reviewer, its parsed result
+// (<reviewId>.result.json) and, for both paths, the record that closes the packet
+// (<reviewId>.settled.json).
 function reviewPacketPath(root, reviewId, suffix = '.json') {
   if (typeof reviewId !== 'string' || !REVIEW_PACKET_ID.test(reviewId))
     throw new TypeError(`invalid review packet id: ${reviewId}`);
@@ -2544,6 +2546,50 @@ function reviewExtractChecks(state, root) {
   }
   return { statuses, errors };
 }
+const RESULT_SUFFIX = '.result.json';
+const SETTLED_SUFFIX = '.settled.json';
+// A Parent reviewer's response is its result when it is one text holding one JSON object of this review's result
+// template (schemaVersion, packet id, verdict, findings); anything else is no result, as on the native subject path.
+function parentReviewResult(content, reviewId) {
+  if (!Array.isArray(content) || content.length !== 1 || content[0]?.type !== 'text') return null;
+  let result;
+  try {
+    result = JSON.parse(content[0].text);
+  } catch {
+    return null;
+  }
+  return result !== null &&
+    typeof result === 'object' &&
+    !Array.isArray(result) &&
+    result.schemaVersion === 'cross-model-handoff/v1' &&
+    result.packetId === `review-${reviewId}` &&
+    typeof result.verdict === 'string' &&
+    Array.isArray(result.findings)
+    ? result
+    : null;
+}
+// Closes a review packet: the first finished settlement writes <reviewId>.settled.json (task, settle time, valid,
+// observation errors) and a later settlement of the same reviewer keeps it.
+function closeReviewPacket(root, reviewId, taskId, { valid, errors }) {
+  const { path } = reviewPacketPath(root, reviewId, SETTLED_SUFFIX);
+  if (!existsSync(join(root, path)))
+    writeClaudeReviewPacket(
+      root,
+      reviewId,
+      `${JSON.stringify(
+        {
+          taskId,
+          settledAt: new Date().toISOString(),
+          valid,
+          observationErrors: errors,
+        },
+        null,
+        2,
+      )}\n`,
+      SETTLED_SUFFIX,
+    );
+  return path;
+}
 function settlementStatus(taskId, root) {
   const state = observeClaudeNativeTask(taskId, { root });
   if (state.errors.includes('no-completion-observation'))
@@ -2574,6 +2620,26 @@ function settlementStatus(taskId, root) {
       state.errors.push('review-snapshot-mismatch');
   }
   const content = state.observation.response?.content;
+  // A Parent reviewer is settled here: its response is read as the result JSON and written beside the packet,
+  // and the packet is closed. A native subject reviewer is settled by its judgment.
+  let resultPath;
+  let settledPath;
+  const parentReviewer =
+    record.input.nativeRequest.task.role === 'knu_reviewer' && !record.independentReview;
+  const parentReviewId = parentReviewer ? claudeReviewPromptId(root, record.prompt) : undefined;
+  if (parentReviewer) {
+    const result =
+      parentReviewId === undefined ? null : parentReviewResult(content, parentReviewId);
+    resultPath = result
+      ? writeClaudeReviewPacket(
+          root,
+          parentReviewId,
+          `${JSON.stringify(result, null, 2)}\n`,
+          RESULT_SUFFIX,
+        ).path
+      : null;
+    if (!result) state.errors.push('review-result-unparsed');
+  }
   let judgmentTemplatePath = null;
   let quoteCheckResponsePath = null;
   // A reviewer without a native subject is judged by the Parent from this settle observation.
@@ -2614,6 +2680,11 @@ function settlementStatus(taskId, root) {
       if (error.code !== 'EEXIST') throw error; // Keep the Lead's edits.
     }
   }
+  if (parentReviewId !== undefined)
+    settledPath = closeReviewPacket(root, parentReviewId, taskId, {
+      valid: state.errors.length === 0,
+      errors: state.errors,
+    });
   return {
     taskId,
     responseDigest: state.observation.responseDigest,
@@ -2632,6 +2703,8 @@ function settlementStatus(taskId, root) {
     ...reviewExtracts.statuses,
     judgmentTemplatePath,
     ...(quoteCheckResponsePath ? { quoteCheckResponsePath } : {}),
+    ...(parentReviewer ? { resultPath } : {}),
+    ...(settledPath ? { settledPath } : {}),
     dispatchAuthorized: false,
   };
 }
@@ -2728,5 +2801,17 @@ export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() 
       /* complete reports the missing delivered JSON result. */
     }
   }
-  return { ...completeClaudeNativeTask(taskId, submitted, { root }), submitted };
+  const completed = completeClaudeNativeTask(taskId, submitted, { root });
+  // A native subject reviewer's settlement ends with this judgment, which closes its packet.
+  const reviewId = /^review-([a-z0-9]{8}-[a-f0-9]{8})$/u.exec(
+    record.independentReview?.packet?.packetId,
+  )?.[1];
+  const settledPath =
+    reviewer && reviewId !== undefined
+      ? closeReviewPacket(root, reviewId, taskId, {
+          valid: completed.valid === true,
+          errors: completed.errors ?? [],
+        })
+      : undefined;
+  return { ...completed, submitted, ...(settledPath ? { settledPath } : {}) };
 }

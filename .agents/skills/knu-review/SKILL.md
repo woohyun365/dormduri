@@ -8,7 +8,8 @@ description: 이 저장소에서 code review·"리뷰해줘" 요청이나 Codex 
 규칙의 원본은 [QA workflow](../../../docs/development/agent-workflows/qa.md)의
 [Portable QA packet](../../../docs/development/agent-workflows/qa.md#portable-qa-packet)과
 [리뷰 회차](../../../docs/development/agent-workflows/qa.md#리뷰-회차), Codex 회차 운용은
-[Context delivery](../../../docs/development/agent-workflows/adapters/codex-delegation.md#context-delivery)입니다.
+[Context delivery](../../../docs/development/agent-workflows/adapters/codex-delegation.md#context-delivery)입니다. 등록·회차·처분 기록과
+ledger reader를 모은 reference는 [Codex same-host review](../../../docs/development/agent-workflows/adapters/codex-same-host-review.md)입니다.
 
 Reviewer에게 기대 결론을 주지 않습니다. QA packet의 요청·acceptance·요구 절에 결론·범위 축소 문구("flag하지 말 것", "최대 low",
 "계획이 그렇게 정함" 등)를 쓰지 않고, 범위는 읽기 범위(변경 파일)·기준 선택으로만 줄입니다.

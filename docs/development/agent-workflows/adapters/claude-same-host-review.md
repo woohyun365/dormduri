@@ -235,6 +235,20 @@ subject는 읽기 전용이라 관측 변경 경로가 없어 기준 자동 선�
 판정을 `dependencyJudgment`로 냅니다. Effort는 관측 때 판정하므로 `completion.json`의 `valid`만으로는 판정하지 않습니다. Review prompt 첫 줄의 회차 digest가
 현재 source와 다르면 `prepare`가 `review-snapshot-stale`로 거부합니다. 이 경로는 새 binding이나 gate 완화가 아닙니다.
 
+### 정산 결과 파일과 packet 닫힘
+
+Parent reviewer의 `settle --task`는 응답을 결과 JSON으로 읽습니다. 응답이 text 한 조각이고 그 전체가 이 review 결과 template
+모양의 JSON 객체(`schemaVersion` `cross-model-handoff/v1`, 같은 `packetId`, `verdict` 문자열, `findings` 배열)이면
+`.artifacts/tools/claude-review-packets/<reviewId>.result.json`에 한 번 쓰고 출력 `resultPath`에 그 경로를 둡니다. 읽지 못하면
+`resultPath`는 null이고 `observationErrors`에 `review-result-unparsed`(native subject 경로의 결과 없음과 같은 뜻)를 넣습니다.
+처분 기록 `reviews[].resultPath`는 그 결과 파일이고, 출력 `response` 문자열을 그대로 저장하지 않습니다.
+
+Reviewer 정산이 끝나면 같은 디렉터리에 `<reviewId>.settled.json`(`taskId`·`settledAt`·`valid`·`observationErrors`)을 한 번
+씁니다. Parent reviewer는 완료 관측이 있는 `settle --task`, native subject reviewer는 판정을 준 `settle --task --judgment`가
+정산의 끝입니다. 완료 관측이 없어 거부된 정산이나 native subject reviewer의 관측 정산은 쓰지 않습니다. 열린 리뷰 packet은
+`<reviewId>.inputs.json`이 있고 그 review의 reviewer task가 native registry에 등록돼 있으며 `<reviewId>.settled.json`이 없는
+것입니다. `.plans` promote·상태 정정 전 결속 확인은 이 규칙으로 열린 packet의 `.inputs.json`을 봅니다.
+
 ### 리뷰 입력 사본
 
 Review snapshot은 tracked·비ignored 파일만 결속하므로 ignored 리뷰 입력(계획, 증거, runner 출력, 2회차 직전 결과와 처분 기록)은 helper가

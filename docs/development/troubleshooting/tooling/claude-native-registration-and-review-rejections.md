@@ -119,6 +119,7 @@
   `review-lifecycle-changed`·`review-verification-changed`·`review-scope-changed`·`review-runner-file-changed` 중 하나가 있습니다.
   Native subject reviewer는 `observationErrors`에 `review-binding-changed`나 `review-runner-file-changed`가 있고
   `settle --task --judgment`도 그 사유로 거부됩니다.
+- Parent reviewer의 `settle --task` `observationErrors`에 `review-result-unparsed`가 있고 출력 `resultPath`가 null입니다.
 - 정산·완료가 `adapter/role/settings drift`로 거부됩니다. 또는 거부 없이 settle 결과의 `identityOutsideChanges`·
   `reviewInputOriginalsChanged`에 경로가 있습니다(기록만 남는 관측이고 결과는 유효).
 - Read-only subject(쓰기 범위 없음)를 review하려는데 다음 중 하나로 거부됩니다.
@@ -326,6 +327,11 @@
   고치지 않은 채 `review-run`을 다시 실행해 새 reviewer로 재리뷰합니다(Parent subject의 2회차 이상은 `review` 단독을 받지 않음). `review-requirements-changed`(requirement 추출이나 그 prompt 기록이
   바뀌거나 사라짐)와 `review-binding-changed`·`review-lifecycle-changed`(binding 행 추출·초안 절 추출이나 그 prompt 기록이 바뀌거나
   사라짐, native subject reviewer 포함)도 같습니다.
+- `review-result-unparsed`는 Parent reviewer 응답이 text 한 조각 전체가 이 review 결과 template 모양의 JSON 객체(같은
+  `packetId`, `verdict` 문자열, `findings` 배열)가 아닌 것입니다(code fence·앞뒤 문장·다른 packet id 포함). 응답에서 JSON을 손으로
+  잘라 결과로 쓰지 않고, 처분 기록 `reviews[].resultPath`에 응답 문자열을 저장하지 않습니다. 결과 없는 회차로 기록하고 새 reviewer로
+  재리뷰합니다. 규칙은 [정산 결과 파일과 packet 닫힘](../../agent-workflows/adapters/claude-same-host-review.md#정산-결과-파일과-packet-닫힘)이
+  소유합니다.
 - `review-prompt-changed`·`review-prompt-unbound`는 prompt나 기록을 고쳐 맞추지 않습니다. `review` 출력의 `reviewerSpec`(그룹이면
   구성원 각자의 spec)을 그대로 `prepare`하고, 바꿀 것이 있으면 `review`를 다시 만듭니다.
 - `local-state-path`는 그 경로를 `paths`에서 빼고 리뷰 대상인 추적 파일만 줍니다. `path-not-repository-relative`는 저장소 root 기준
