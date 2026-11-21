@@ -120,7 +120,11 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
   끝나 child 정지를 막지 않습니다. 이 hook들은 다른 checkout에서 복사됐거나 손상된 task 기록을 건너뛰고, 그런 task는 완료
   판정에서 거부됩니다. 남는 한계: payload를 해석할 수 없거나(1 MB 초과·JSON 오류) 관리 대상 확인 전에 오류가 나면 exit 2가
   남아 비KNU 호출이나 정지를 막을 수 있습니다. 보장은 여전히 완료 판정 거부뿐입니다. File guard(`--hook --file-guard`)는
-  별도 hook 항목이라 payload 오류를 포함한 모든 오류가 exit 1로 끝나며 편집을 막지 않습니다.
+  별도 hook 항목이라 payload 오류를 포함한 모든 오류가 exit 1로 끝나며 편집을 막지 않습니다. 편집 시점 센서
+  (`--hook --sensor`, PostToolUse `Edit|Write`·Stop)도 별도 항목이고 센서 module은 이 진입에서만 읽혀, payload·module 오류를
+  포함한 모든 오류가 exit 0과 `error` 기록(기록할 수 없으면 stderr 한 줄)으로 끝납니다. SessionStart 분기는 판정·출력을 낸
+  뒤에 센서 기준선을 남기며, 기준선 오류와 5초 상한 초과는 SessionStart 결과를 바꾸지 않습니다
+  ([센서 동작](../review-criteria/README.md#센서-동작)).
 - FORCE 환경변수의 명시적 충돌은 hook에서 거부하지만 Home/managed/provider의 모든 모델 대체를 사전에 인증하는
   것은 아닙니다. 정상 환경을 scrub하지 않고 실행 후 모델을 확인합니다. 정상 설정 출처/role precedence와 충돌을
   관측하고 owner와 수정하며 Home/managed 설정을 자동으로 삭제·덮어쓰지 않습니다.

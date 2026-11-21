@@ -306,6 +306,46 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
   prompt의 `Review round N`에서 읽고, 회차 입력 전 기록은 `unknown`입니다.
 - 행의 finding은 id·severity·기준 항목(`criteriaItem`)과 result finding의 위치(`location`, 없으면 null)를 담습니다.
 
+## 센서 동작
+
+[KNU domain binding의 센서 절](../domain/knu-binding.md#센서)에서 실행 시점에 `편집`이 있는 행은 두 host의 project hook이
+[`edit-sensors.mjs`](../../../../scripts/agents/common/edit-sensors.mjs)로 검사 모드에서 돌립니다. 파일을 고치지 않고 막지도
+않는 피드백이며, 같은 검사는 `pnpm check`·CI가 다시 합니다.
+
+- 편집 직후(Claude `Edit`·`Write`, Codex `apply_patch`): 바뀐 파일의 `sensor.format`(Prettier check)과, JS/TS 파일이면 그
+  workspace의 `sensor.lint`(ESLint)입니다. HEAD에 있는 test 파일을 고치면 `sensor.test-change`가 표시합니다.
+- 끝내기 직전(Parent의 Stop): 그 agent가 편집 직후 처리에서 모은 파일의 workspace마다 제품 tsconfig `sensor.typecheck`와,
+  세션 첫 hook 처리 때의 기준선(`git diff --name-status HEAD`의 삭제 행)에 없던 test 삭제 표시입니다. Child의 편집은 편집 직후
+  피드백만 받고 Parent의 끝내기 직전 검사 대상이 아닙니다(지금 `knu_*` 역할은 모두 읽기 전용입니다).
+- 상한은 그 행의 지점과 상한 칸입니다. 넘으면 `timeout`, 필요한 생성물(shared build·Prisma client·Next type)이나 도구가 없으면
+  `skipped`로 기록하고 통과합니다. 센서는 그 생성물을 만들지 않습니다.
+- 돌려주는 곳: Claude는 편집 직후 PostToolUse `additionalContext`, 끝내기 직전 Stop `hookSpecificOutput.additionalContext`
+  한 번이고 `stop_hook_active`가 true인 Stop은 기록만 합니다. Codex는 편집 직후 PostToolUse `additionalContext`, Stop은
+  `systemMessage`(사용자 표시)입니다. 메시지는 센서 키, 도구 출력 요약, 그 센서를 `- 센서:`로 가리키는 항목의 `- 지침:`과
+  문서 경로·id입니다. 같은 test 파일 표시는 세션당 한 번입니다.
+- Codex hook은 sandbox 밖에서 돌므로 센서를 직접 실행하지 않고 `codex sandbox -P :workspace -C <repo>` 안에서
+  `node scripts/agents/common/edit-sensors.mjs codex …`로 부릅니다. `codex`가 없거나 sandbox가 실패하면 `skipped`입니다.
+- 스위치: `KNU_EDIT_SENSORS=0`이 두 host의 센서를 끄고(기본 켬), `KNU_EDIT_REMINDERS=1`이 리마인더를 켭니다(기본 끔).
+  리마인더는 편집 직후 그 파일을 고르는 기준 문서 항목의 `- 질문:`이고(`- trigger:`가 있는 항목은 그 경로에 맞을 때만),
+  한 지점에 세 항목까지이고 같은 항목은 세션당 한 번입니다.
+- 발동 기록: 통과가 아닌 결과마다 `edit-sensor-activation/v1` 한 줄을 도구 출력 kind `edit-sensors`의 `<session>.jsonl`에
+  씁니다(Codex hook 자신의 결과는 hook 상태 디렉터리, [Codex native registry](../adapters/codex-native-registry.md)). 결과는 `fail`·`timeout`·`skipped`·
+  `error`·`reminder`·`warning`이고, 편집 직후 `fail` 뒤 끝내기 직전까지 파일이 그대로면 `unchangedSince`가 붙은 줄이
+  더해집니다(오탐 후보). `node scripts/agents/common/edit-sensors.mjs --summary`가 두 위치를 센서·기준 항목별로 셉니다.
+  기록은 평가 입력이며 완료 근거가 아닙니다.
+- Hook 오류는 판정을 바꾸지 않습니다. Claude `--hook --sensor`는 모든 오류를 exit 0과 `error` 기록(기록할 수 없으면 stderr 한
+  줄)으로 끝내고, SessionStart의 기준선은 그 분기의 판정·출력 뒤에 5초 안에서 남깁니다.
+
+### 사전 판단 문구 경고
+
+Parent 작성 변경의 리뷰 subject에서 요구(`request`)·acceptance·요구 발췌가 reviewer에게 무엇을 지적하지 말지, severity
+상한, 계획이 이미 골랐다는 것을 미리 정하는 문장
+([`review-prejudgment-phrases.mjs`](../../../../scripts/agents/common/review-prejudgment-phrases.mjs)의 문구 묶음)은
+경고(`review-prejudgment-phrase: N …`)와 packet `environment`의 `review-prejudgment-phrase=N`으로 남고, 기록 지점 `리뷰`의
+`warning` 한 줄이 됩니다. 막거나 subject를 바꾸지 않으며 reviewer는 항목마다 source로 판정합니다. 일반적인 "무시"·범위를
+좁히는 문장은 해당하지 않습니다. Claude는 `pnpm claude:native review`가, Codex는 knu-review skill의
+`node scripts/agents/common/review-prejudgment-phrases.mjs --input <subject JSON> --session <id> --host codex`가 셉니다.
+
 ## 누적 이탈 점검
 
 리뷰 한 번은 그 변경만 봅니다. 누적 이탈 점검은 [결정 기록](../../../architecture/decisions/README.md)과 지금 code가 어긋난 곳을

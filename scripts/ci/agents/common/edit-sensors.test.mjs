@@ -269,11 +269,18 @@ test('existing tests are marked when changed or deleted during the session, once
     }),
   );
   assert.equal(created.message, null, 'a new test file is not an existing test');
+  // The same file is marked once a session (2.7절 Parent 기본값 7): deleting the changed test marks nothing more.
+  r.remove(r.files.oldTest);
+  const marked = r.module.beforeEnd(base(r, { agent: 'parent', stopHookActive: false }));
+  assert.doesNotMatch(marked.message ?? '', /old\.test\.ts/u);
   // A second SessionStart (compact) keeps the first baseline, so a test deleted in between is still marked.
-  r.remove(r.files.oldTest); // a Bash deletion: no edit hook saw it
-  assert.equal(r.module.recordParentBaseline(base(r)).result, 'exists');
-  const end = r.module.beforeEnd(base(r, { agent: 'parent', stopHookActive: false }));
-  assert.match(end.message, new RegExp(r.files.oldTest.replaceAll('.', '\\.'), 'u'));
+  const d = await repo(t);
+  d.remove(d.files.keptTest); // deleted before the session started: the baseline holds it
+  assert.equal(d.module.recordParentBaseline(base(d)).result, 'recorded');
+  d.remove(d.files.oldTest); // a Bash deletion: no edit hook saw it
+  assert.equal(d.module.recordParentBaseline(base(d)).result, 'exists');
+  const end = d.module.beforeEnd(base(d, { agent: 'parent', stopHookActive: false }));
+  assert.match(end.message, new RegExp(d.files.oldTest.replaceAll('.', '\\.'), 'u'));
   assert.doesNotMatch(
     end.message,
     /kept\.test\.ts/u,
@@ -282,7 +289,7 @@ test('existing tests are marked when changed or deleted during the session, once
   assert.deepEqual(results(end.records.filter(({ sensor }) => sensor === 'sensor.test-change')), [
     'sensor.test-change:warning',
   ]);
-  const again = r.module.beforeEnd(base(r, { agent: 'parent', stopHookActive: false }));
+  const again = d.module.beforeEnd(base(d, { agent: 'parent', stopHookActive: false }));
   assert.equal(again.message, null, 'the same deletion is marked once a session');
   // A Codex patch that deletes a test file is marked right after the edit.
   const codex = await repo(t);
@@ -312,6 +319,12 @@ test('a baseline over its five seconds records timeout and the end check then re
   assert.ok(
     results(end.records).includes('sensor.test-change:skipped'),
     results(end.records).join(),
+  );
+  const again = r.module.beforeEnd(base(r, { agent: 'parent', stopHookActive: false }));
+  assert.deepEqual(
+    results(again.records),
+    [],
+    'the skipped deletion check is recorded once a session',
   );
 });
 

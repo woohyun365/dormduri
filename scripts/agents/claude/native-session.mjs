@@ -2594,6 +2594,62 @@ async function helperCommand(action, args) {
   }
   return run ? helper.runClaudeNativeReview(options) : helper.buildClaudeNativeReview(options);
 }
+// Edit-time sensors (OSS-REVIEW P5) load only through these two calls, so a broken sensor module never
+// reaches the registry hooks above. Every error ends with exit 0: one error record through the module,
+// or one stderr line when the module cannot record (docs/development/agent-workflows/review-criteria/README.md#센서-동작).
+const SENSOR_MODULE = '../common/edit-sensors.mjs';
+async function sensorFailure(sensors, root, event, point, error) {
+  try {
+    sensors.recordSensorFailure({
+      root,
+      sessionId: event?.session_id,
+      host: 'claude',
+      point,
+      error,
+    });
+  } catch {
+    process.stderr.write(`KNU edit sensor failed: ${error.message}\n`);
+  }
+}
+async function sensorHook(root) {
+  let event;
+  let sensors;
+  try {
+    const raw = readFileSync(0);
+    check(raw.length <= 1024 * 1024, 'hook payload limit');
+    event = JSON.parse(raw);
+    sensors = await import(SENSOR_MODULE);
+  } catch (error) {
+    process.stderr.write(`KNU edit sensor failed: ${error.message}\n`);
+    return;
+  }
+  try {
+    const output = sensors.claudeSensorHook(event, { root, env: process.env });
+    if (output) process.stdout.write(JSON.stringify(output));
+  } catch (error) {
+    await sensorFailure(
+      sensors,
+      root,
+      event,
+      event?.hook_event_name === 'Stop' ? '끝' : '직후',
+      error,
+    );
+  }
+}
+async function sensorBaseline(event, root) {
+  let sensors;
+  try {
+    sensors = await import(SENSOR_MODULE);
+    sensors.recordParentBaseline({
+      root,
+      sessionId: event.session_id,
+      host: 'claude',
+      env: process.env,
+    });
+  } catch (error) {
+    await sensorFailure(sensors ?? {}, root, event, '끝', error);
+  }
+}
 async function main(args) {
   if (args[0] === 'review-run') {
     // The result is in the --out files; stdout is the one summary line.
@@ -2624,8 +2680,13 @@ async function main(args) {
     }
     return;
   }
+  if (args[0] === '--hook' && args[1] === '--sensor' && args.length === 2) {
+    await sensorHook(process.env.CLAUDE_PROJECT_DIR ?? process.cwd());
+    return;
+  }
   if (args[0] === '--hook' && args.length === 1) {
     let event;
+    let answered = false;
     try {
       const raw = readFileSync(0);
       check(raw.length <= 1024 * 1024, 'hook payload limit');
@@ -2637,12 +2698,17 @@ async function main(args) {
           }),
         ),
       );
+      answered = true;
     } catch (error) {
       process.stderr.write(`KNU hook failed: ${error.message}\n`);
       // Exit 2 blocks a PreToolUse call but also keeps a subagent from stopping, so a failed stop or
       // session-start hook reports a non-blocking error. PostToolUse exit 2 only shows stderr.
       process.exitCode = ['SubagentStop', 'SessionStart'].includes(event?.hook_event_name) ? 1 : 2;
     }
+    // The Parent baseline of the edit-time sensors comes after the session check has answered and
+    // never changes its output or exit.
+    if (answered && event.hook_event_name === 'SessionStart')
+      await sensorBaseline(event, process.env.CLAUDE_PROJECT_DIR ?? process.cwd());
     return;
   }
   const action = args.shift(),

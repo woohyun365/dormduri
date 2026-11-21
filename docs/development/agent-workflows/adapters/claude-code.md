@@ -15,8 +15,10 @@ Claude 실행 접점은 다섯 층입니다. 각 층은 다른 층의 보장을 
 - `CLAUDE.md`: 항상 참인 저장소 규칙과 진입점입니다. `@AGENTS.md`를 import하고 이 문서로 연결합니다.
 - Skills: 절차입니다. `/knu-delegate`·`/knu-review`·`/knu-settle`이 helper 호출 순서를 안내하며 권한을 부여하지 않습니다.
 - Subagents: 역할과 도구입니다. `.claude/agents/knu_*.md`가 역할별 도구를 정합니다.
-- Hooks: 관측·prompt 주입·file guard입니다. Hook 부재·crash 시 실행 자체의 fail-closed를 보장하지 않습니다. KNU hook
+- Hooks: 관측·prompt 주입·file guard·편집 시점 센서입니다. Hook 부재·crash 시 실행 자체의 fail-closed를 보장하지 않습니다. KNU hook
   오류가 호출을 막는 경우는 이벤트마다 다르며([Native registry](./claude-native-registry.md)), 남는 보장은 완료 판정 거부입니다.
+  센서(PostToolUse `Edit|Write`·Stop의 `--hook --sensor`)는 막지 않는 피드백이고 `KNU_EDIT_SENSORS=0`이 끕니다
+  ([센서 동작](../review-criteria/README.md#센서-동작)).
 - Permissions: settings의 permission `deny` 규칙에 맞는 호출은 확인 없이 막힙니다(hard deny). 규칙은 명령 텍스트 일치일
   뿐 보안 경계가 아닙니다. `ask` 규칙은 확인 단계이며 gate로 쓰지 않습니다. auto에서 `Agent(<role>)` ask 규칙이 prompt
   없이 child를 시작한 관측이 있습니다([Model profiles](./claude-model-profiles.md)). 추적되는 `.claude/settings.json`에는

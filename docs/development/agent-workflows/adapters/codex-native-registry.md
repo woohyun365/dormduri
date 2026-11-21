@@ -7,7 +7,7 @@
 ## Subagent hook guardrail과 완료 관측
 
 Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 호출 시점 guardrail(spawn guard)과 child 완료
-기록을 맡습니다.
+기록, 편집 시점 센서 호출을 맡습니다.
 공식 문서도 tool hook을 완전한 강제 경계가 아닌 guardrail로 한정하므로 아래 범위 밖을 hook 강제로 보고하지 않습니다.
 [공식 hooks 문서](https://learn.chatgpt.com/docs/hooks)
 
@@ -23,7 +23,7 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   않음). Reviewer에 더할 질문은 새 회차로 보냅니다([리뷰 회차](../qa.md#리뷰-회차)). Hook이 없거나 PreToolUse가 실패하면 이 deny와
   기록도 없습니다. Hook이 판정하지 못하면(정책 파일 오류 등) spawn을 deny합니다. codex-cli 0.162.0부터 `fork_turns` 양의 정수는
   full-history fork로 해석되므로(`rust-v0.162.0` #51329) 생략·`"all"`과 같이 `full-history-fork`로 deny합니다. 등록도 `"none"`만
-  받습니다. `apply_patch` 등 그 밖의 도구는 hook 대상이 아닙니다.
+  받습니다. `apply_patch` 등 그 밖의 도구는 이 guard 대상이 아닙니다(`apply_patch`의 PostToolUse는 아래 편집 시점 센서).
 - **등록·수락**: Parent는 spawn 전에 dispatch가 계산한 spawn 인자를 `codex:register`(`task-registry.mjs`의 `registerDispatch()`)로
   `.artifacts/tools/codex-native/<Parent session>/<task_name>.json`에 한 번만 씁니다(같은 이름의 두 번째 등록은 거절). 등록은
   `task_name`이 lane id·token(재시도는 `_retry`)이나 reviewer round와 맞고, (역할, model)이 허용 쌍이고, effort가 역할 pin이고,
@@ -101,6 +101,13 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
 - **엔진과 허용 목록 범위**: 허용 목록 model은 catalog v2 model입니다. Project hook이 로드된 세션에서는 V1 root의 spawn이 전부
   deny되어 V1 경로의 child가 생기지 않습니다. Hook이 없거나 PreToolUse가 실패하면 V1 child도 실행될 수 있으며, 완료 판정은 그
   dispatch task path의 기록과 allow 기록을 요구합니다.
+- **편집 시점 센서**: PostToolUse `^apply_patch$`와 Stop은 patch file header(`Add File`·`Update File`·`Move to`는 편집,
+  `Move to`의 원래 경로와 `Delete File`은 삭제)를 넘겨 `codex sandbox -P :workspace -C <repo>` 안에서
+  `node scripts/agents/common/edit-sensors.mjs codex …`를 부릅니다. Hook은 센서 module을 직접 실행하지 않습니다. 실패는 PostToolUse
+  `hookSpecificOutput.additionalContext`, Stop은 `systemMessage`(사용자 표시)로만 돌아오고 막지 않습니다. `codex`가 없거나
+  sandbox가 실패하면 `skipped`, 상한(8초·30초)을 넘으면 `timeout`을 Parent session별
+  `.codex/state/knu-edit-sensors/<session>.jsonl`에 남깁니다. `KNU_EDIT_SENSORS=0`이면 sandbox를 시작하지 않습니다
+  ([센서 동작](../review-criteria/README.md#센서-동작)). 두 등록은 `/hooks` trust 뒤에 돕니다.
 - **정책 사본**: hook은 child가 쓸 수 있는 workspace module을 import하지 않고 `.codex/hooks/knu-hook-policy.json`을 읽습니다. 사본이
   `model-profiles.mjs` 허용 목록·역할 쌍·역할 roster와 같고 roster의 역할 파일이 모두 `sandbox_mode = "read-only"`임은 test가
   결속합니다. 사본 schema(v4)가 맞지 않거나 쌍이 없으면 hook은 spawn을 deny합니다. `hooks.json`을 바꾸면 trust를 다시 받아야 합니다.
