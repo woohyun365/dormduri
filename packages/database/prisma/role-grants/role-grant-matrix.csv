@@ -143,5 +143,47 @@ RetainedVaultObjectHold,retention_disclosure,SELECT,
 ArchiveJob,retention_worker,SELECT INSERT UPDATE DELETE,
 RetentionReviewJob,retention_worker,SELECT INSERT UPDATE DELETE,
 RetentionReviewJob,retention_disclosure,SELECT INSERT UPDATE,
+AdminAccount,backoffice_runtime,SELECT INSERT,
+AdminAccount,backoffice_runtime,UPDATE,status failedAuthAttemptCount lockedUntil lastLoginAt deactivatedAt updatedAt
+AdminAccount,backoffice_retention,SELECT,id status deactivatedAt anonymizedAt
+AdminAccount,backoffice_retention,UPDATE,email displayName anonymizedAt updatedAt
+AdminAccount,app_readonly,SELECT,-secret -content
+AdminPasswordCredential,backoffice_runtime,SELECT INSERT UPDATE DELETE,
+AdminPasswordCredential,app_readonly,SELECT,-secret -content
+AdminPasskeyCredential,backoffice_runtime,SELECT INSERT UPDATE DELETE,
+AdminPasskeyCredential,app_readonly,SELECT,-secret -content
+AdminTotpCredential,backoffice_runtime,SELECT INSERT UPDATE DELETE,
+AdminTotpCredential,app_readonly,SELECT,-secret -content
+AdminRecoveryCode,backoffice_runtime,SELECT INSERT UPDATE DELETE,
+AdminRecoveryCode,app_readonly,SELECT,-secret -content
+AdminInvitation,backoffice_runtime,SELECT INSERT,
+AdminInvitation,backoffice_runtime,UPDATE,usedAt acceptedAccountId revokedAt
+AdminInvitation,backoffice_retention,SELECT,id expiresAt usedAt revokedAt
+AdminInvitation,backoffice_retention,DELETE,
+AdminInvitation,app_readonly,SELECT,-secret -content
+AdminSession,backoffice_runtime,SELECT INSERT,
+AdminSession,backoffice_runtime,UPDATE,lastActivityAt reauthenticatedAt revokedAt revocationReason
+AdminSession,backoffice_retention,SELECT,id lastActivityAt absoluteExpiresAt revokedAt
+AdminSession,backoffice_retention,DELETE,
+AdminSession,app_readonly,SELECT,-secret -content
+AdminWebAuthnChallenge,backoffice_runtime,SELECT INSERT,
+AdminWebAuthnChallenge,backoffice_runtime,UPDATE,usedAt
+AdminWebAuthnChallenge,backoffice_retention,SELECT,id expiresAt usedAt
+AdminWebAuthnChallenge,backoffice_retention,DELETE,
+AdminWebAuthnChallenge,app_readonly,SELECT,-secret -content
+AdminRoleAssignment,backoffice_runtime,SELECT INSERT,
+AdminRoleAssignment,backoffice_runtime,UPDATE,revokedAt revokedByApprovalRequestId
+AdminRoleAssignment,backoffice_retention,SELECT,id revokedAt grantedByApprovalRequestId revokedByApprovalRequestId
+AdminRoleAssignment,backoffice_retention,DELETE,
+AdminRoleAssignment,app_readonly,SELECT,-secret -content
+AdminApprovalRequest,backoffice_runtime,SELECT INSERT,
+AdminApprovalRequest,backoffice_runtime,UPDATE,status decidedByAccountId closedAt decisionReason selfApproved
+AdminApprovalRequest,backoffice_retention,SELECT,id status expiresAt closedAt
+AdminApprovalRequest,backoffice_retention,DELETE,
+AdminApprovalRequest,app_readonly,SELECT,-secret -content
+AdminAuditEvent,backoffice_runtime,SELECT INSERT,
+AdminAuditEvent,backoffice_retention,SELECT,id occurredAt actorAccountId targetType targetId approvalRequestId
+AdminAuditEvent,backoffice_retention,DELETE,
+AdminAuditEvent,app_readonly,SELECT,-secret -content
 _prisma_migrations,app_runtime,SELECT,finished_at rolled_back_at
 _prisma_migrations,app_readonly,SELECT,

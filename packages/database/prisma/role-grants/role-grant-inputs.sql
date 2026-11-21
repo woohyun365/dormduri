@@ -7,7 +7,7 @@
 --
 -- role-grant-matrix.csv: table,role,privileges,columns
 --   role        app_runtime | retention_worker | retention_disclosure | app_readonly |
---               backoffice_runtime | none (listed table, no grant)
+--               backoffice_runtime | backoffice_retention | none (listed table, no grant)
 --   privileges  space-separated SELECT INSERT UPDATE DELETE
 --   columns     empty = table-level grant; column names = column-level grant;
 --               -<class> tokens = every classified column except those classes
@@ -34,7 +34,7 @@ RETURNS text[]
 LANGUAGE sql
 IMMUTABLE
 AS $fn$
-  SELECT ARRAY['app_runtime', 'retention_worker', 'retention_disclosure', 'app_readonly', 'backoffice_runtime']
+  SELECT ARRAY['app_runtime', 'retention_worker', 'retention_disclosure', 'app_readonly', 'backoffice_runtime', 'backoffice_retention']
 $fn$;
 
 -- Relations that must appear in the grant table: tables, partitioned tables, views,

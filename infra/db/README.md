@@ -20,15 +20,16 @@
 권한은 NOLOGIN group role이 갖고, 접속은 서비스·사람마다 따로 둔 LOGIN user가 그 group의 member로 한다.
 LOGIN user는 group 권한을 상속하고(INHERIT) 다른 app group의 member가 아니다.
 
-| Group role(NOLOGIN)    | LOGIN user                                                               | 쓰는 곳                       | Env key                             | CONNECTION LIMIT |
-| ---------------------- | ------------------------------------------------------------------------ | ----------------------------- | ----------------------------------- | ---------------- |
-| `migration_owner`      | `dormduri_migrator`(`SET role = migration_owner`)                        | migration·grant·smoke one-off | `MIGRATION_DATABASE_URL`            | 3                |
-| `app_runtime`          | `dormduri_api`                                                           | 사용자 API                    | `DATABASE_URL`                      | 16               |
-| `retention_worker`     | `dormduri_retention_worker`                                              | 사용자 API의 정리·계정 삭제   | `RETENTION_WORKER_DATABASE_URL`     | 8                |
-| `retention_disclosure` | `dormduri_api_disclosure`(사용자 API), 백오피스용 user는 백오피스가 더함 | RRPD 제한 열람                | `RETENTION_DISCLOSURE_DATABASE_URL` | 4                |
-| `backoffice_runtime`   | 백오피스 API가 더함                                                      | 백오피스 API                  | 백오피스 env                        | —                |
-| `app_readonly`         | `dormduri_ro_<운영자 별칭>`                                              | 사람 조회(SSM 포트 포워딩)    | 사람 접속                           | 4                |
-| (master)               | RDS master user                                                          | bootstrap·비상(break-glass)   | Secrets Manager, 일상 사용 안 함    | —                |
+| Group role(NOLOGIN)    | LOGIN user                                                               | 쓰는 곳                                             | Env key                             | CONNECTION LIMIT |
+| ---------------------- | ------------------------------------------------------------------------ | --------------------------------------------------- | ----------------------------------- | ---------------- |
+| `migration_owner`      | `dormduri_migrator`(`SET role = migration_owner`)                        | migration·grant·smoke one-off                       | `MIGRATION_DATABASE_URL`            | 3                |
+| `app_runtime`          | `dormduri_api`                                                           | 사용자 API                                          | `DATABASE_URL`                      | 16               |
+| `retention_worker`     | `dormduri_retention_worker`                                              | 사용자 API의 정리·계정 삭제                         | `RETENTION_WORKER_DATABASE_URL`     | 8                |
+| `retention_disclosure` | `dormduri_api_disclosure`(사용자 API), 백오피스용 user는 백오피스가 더함 | RRPD 제한 열람                                      | `RETENTION_DISCLOSURE_DATABASE_URL` | 4                |
+| `backoffice_runtime`   | `dormduri_backoffice`                                                    | 백오피스 API(백오피스 host)                         | `BACKOFFICE_DATABASE_URL`           | 12               |
+| `backoffice_retention` | `dormduri_backoffice_retention`                                          | 백오피스 API의 관리자 기록 정리 작업(백오피스 host) | `BACKOFFICE_RETENTION_DATABASE_URL` | 4                |
+| `app_readonly`         | `dormduri_ro_<운영자 별칭>`                                              | 사람 조회(SSM 포트 포워딩)                          | 사람 접속                           | 4                |
+| (master)               | RDS master user                                                          | bootstrap·비상(break-glass)                         | Secrets Manager, 일상 사용 안 함    | —                |
 
 - `migration_owner`가 schema의 모든 객체를 소유한다. `dormduri_migrator`는 접속하면 `migration_owner`가 되므로
   Prisma가 만드는 객체도 그 소유다. `migration_owner`는 대상 schema의 USAGE·CREATE와 database CREATE를 받는다
@@ -59,7 +60,7 @@ Secret value는 command output, CI log, issue, report에 남기지 않는다. �
   하나라도 있으면 아무 권한도 바꾸지 않고 실패한다. extension 소유 객체(`pg_stat_statements` view, `pgaudit` 함수)는
   extension의 것이라 판정하지 않는다. 지금 sequence·routine은 없다(id는 앱이 만드는 문자열). 생기면 이 pipeline에
   규칙을 먼저 더한다(sequence는 그 table에 INSERT하는 role이 USAGE를 받는다).
-- 적용은 PUBLIC과 관리 role 다섯의 table 권한을 모두 지운 뒤(table REVOKE는 열 권한도 지움) 표의 권한만 준다.
+- 적용은 PUBLIC과 관리 role 여섯의 table 권한을 모두 지운 뒤(table REVOKE는 열 권한도 지움) 표의 권한만 준다.
   schema USAGE와 enum type USAGE는 관리 role 모두가 받는다.
 - default privilege는 `ALTER DEFAULT PRIVILEGES FOR ROLE migration_owner`의 전역 형태로 새 함수의 PUBLIC EXECUTE를
   막는다(`database-defaults.sql`). 앱 role에 자동 grant는 없어서 새 table은 표에 넣고 같은 release의 grant 단계가
@@ -79,12 +80,25 @@ Secret value는 command output, CI log, issue, report에 남기지 않는다. �
 | RRPD anchor `RetentionCase`                 | INSERT, `id` 열 SELECT                              | DML                                 | SELECT                                                            | `id` 열 SELECT      |
 | RRPD 그 밖(6)                               | —                                                   | DML                                 | `ArchiveJob` 밖 SELECT, `RetentionReviewJob` SELECT·INSERT·UPDATE | —                   |
 | `_prisma_migrations`                        | `finished_at`·`rolled_back_at` 열 SELECT(readiness) | —                                   | —                                                                 | SELECT              |
+| 관리자 table(11, `Admin*`)                  | —                                                   | —                                   | —                                                                 | secret·content 제외 |
 
-`backoffice_runtime`은 지금 권한이 없다. 백오피스 기능이 필요한 열만 열 단위로 더하고 test로 고정한다.
+관리자 table은 백오피스 role 둘만 쓰고 사용자 API role 셋(`app_runtime`·`retention_worker`·`retention_disclosure`)은 권한이 없다.
+
+- `backoffice_runtime`: 자격 증명 table 넷은 DML(비활성화 때 지움), 계정·초대·session·WebAuthn challenge·역할 부여·승인
+  요청은 SELECT·INSERT와 결정·회수·운영 열만 UPDATE(계정 이메일·이름·익명화 시각은 없음), 감사 `AdminAuditEvent`는
+  SELECT·INSERT(append-only).
+- `backoffice_retention`: 정리 조건에 쓰는 열만 SELECT(secret·content·identifier 없음), 감사·역할 부여·승인 요청·session·
+  challenge·초대 DELETE(3년 폐기, 끝난 인증 상태 7일 정리), 비활성 계정 익명화 열(`email`·`displayName`·`anonymizedAt`·
+  `updatedAt`)만 UPDATE. INSERT는 없다. 감사 FK `Restrict`는 감사가 가리키는 관리자 계정·승인 요청을, 역할 부여의 FK는 승인
+  요청을 먼저 지우지 못하게 한다. 감사가 역할 부여를 가리키는 것은 값(`targetType`·`targetId`)이라 DB가 막지 않으므로 정리
+  작업이 그 감사 행을 먼저 폐기한 뒤 역할 부여를 지운다([data-retention.md DR-R5](../../docs/policies/data-retention.md)).
+- 사용자 table·RRPD에는 두 role 모두 권한이 없다. 백오피스 기능이 필요한 열만 열 단위로 더하고 test로 고정한다.
 
 ## Release order
 
-0. RDS를 만든 뒤 한 번(그리고 role을 더할 때마다) master user로 role을 bootstrap한다. 그 전에 parameter group의
+0. RDS를 만든 뒤 한 번(그리고 role을 더할 때마다) master user로 role을 bootstrap한다. 관리 role(grant 표의 role)을 더한
+   commit은 처음 승격하기 전에 bootstrap을 다시 실행해야 한다. 그 role이 없으면 3의 grant가
+   `role … does not exist (run bootstrap-roles.sql first)`로 아무 권한도 바꾸지 않고 멈추고 rollout도 하지 않는다. 그 전에 parameter group의
    `shared_preload_libraries`에 `pgaudit`를 두고 reboot한 뒤 `CREATE EXTENSION pgaudit`를 실행한다.
 
    ```bash
@@ -194,7 +208,7 @@ Smoke는 읽기 전용이다(`default_transaction_read_only = on`). 다음을 �
 
 - 세 app URL이 각자 LOGIN user로 접속하고, 허용 table 하나는 읽고 거부 table 하나는 `permission denied`다.
 - migration URL은 `DB_EXPECTED_TABLE_OWNER`(default `migration_owner`)로 동작한다.
-- schema의 모든 table·열에 대해 PUBLIC, group role 다섯, 세 LOGIN user의 table 권한 여덟 가지(PostgreSQL 17+의
+- schema의 모든 table·열에 대해 PUBLIC, group role 여섯, 세 LOGIN user의 table 권한 여덟 가지(PostgreSQL 17+의
   `MAINTAIN` 포함)와 열 권한 네 가지가 grant 표와 같다. 감사 table의 append-only와 `_prisma_migrations` 권한도 이
   비교에 든다.
 - LOGIN user는 자기 group만 상속하고 superuser·CREATEROLE·CREATEDB·BYPASSRLS가 없다.
@@ -232,7 +246,7 @@ Secret value는 출력하지 않고 env key name과 pass/fail status만 남긴�
 
 ## 새 role 추가
 
-별도 worker·지표 읽기처럼 새 용도가 생기면 같은 구조로 더한다. 백오피스 API의 role 연결이 첫 사례다.
+별도 worker·지표 읽기처럼 새 용도가 생기면 같은 구조로 더한다. 백오피스 API의 role 둘(`backoffice_runtime`·`backoffice_retention`)이 첫 사례다.
 
 1. `bootstrap-roles.sql`에 group role(NOLOGIN)·LOGIN user·membership·`ALTER ROLE … SET`(사람 user면
    `pgaudit.log = 'all'`) 줄을 더하고 master user가 bootstrap을 다시 실행한다(이미 있는 것은 건너뜀).
@@ -300,7 +314,7 @@ Pool은 Prisma role마다 따로다(#238).
 | 접속                                     | pool max  | Env key                                                                                               |
 | ---------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
 | 사용자 API runtime / worker / disclosure | 7 / 3 / 1 | `DATABASE_POOL_MAX` / `RETENTION_WORKER_DATABASE_POOL_MAX` / `RETENTION_DISCLOSURE_DATABASE_POOL_MAX` |
-| 백오피스 API runtime / disclosure        | 5 / 2     | 백오피스 env                                                                                          |
+| 백오피스 API runtime / 정리 / disclosure | 5 / 1 / 1 | 백오피스 API env(disclosure는 쓰는 기능이 생길 때까지 비워 둔 예약)                                   |
 | migration(one-off)                       | 2         | —                                                                                                     |
 | 사람 조회                                | 3         | —                                                                                                     |
 
