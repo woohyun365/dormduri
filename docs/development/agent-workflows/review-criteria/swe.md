@@ -67,6 +67,7 @@
 - PASS 근거: 바뀐 동작마다 test 위치가 있고, 수정 전 실패 기록(RED)이 의도한 사유로 실패하며 수정 뒤 통과한다
 - 지침: 결함 수정과 동작 변경은 먼저 실패하는 test를 쓰고 의도한 사유로 실패하는지 본 뒤 고친다. Test는 동작을 판정하는 가장 가까운 layer에 두고 실패·거부 경로를 포함한다. 보호되지 않은 code를 정리할 때는 지금 있는 동작의 회귀 test를 먼저 둔다
 - 피함: 구현 뒤 통과하도록 맞춘 test만 두기, snapshot·mock으로 실제 판정을 대신하기, 실패하는 test를 skip하고 완료로 보고하기
+- 센서: {{binding:sensor.test-change}}
 
 ### S7. dependency 도입과 version 의존 동작
 

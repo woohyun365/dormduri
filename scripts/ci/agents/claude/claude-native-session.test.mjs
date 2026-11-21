@@ -26,6 +26,13 @@ import {
   writeRole,
 } from './fixtures/claude-native-session-fixture.mjs';
 import {
+  SESSION as SENSOR_SESSION,
+  TYPE_ERROR,
+  UNFORMATTED,
+  sensorRepo,
+  stubCommand,
+} from '../common/fixtures/edit-sensors-repo.mjs';
+import {
   registerClaudeNativeTask,
   handleClaudeNativeSessionEvent,
   completeClaudeNativeTask,
@@ -185,6 +192,7 @@ test('settings connect real project hooks without overriding auto/Home/plugins/t
     'PostToolUse',
     'PostToolUseFailure',
     'SubagentStop',
+    'Stop',
   ]);
   assert.equal(settings.hooks.PreToolUse[0].matcher, 'Agent|SendMessage');
   // A separate entry keeps the file guard's exit rules apart from the task hook's.
@@ -198,6 +206,21 @@ test('settings connect real project hooks without overriding auto/Home/plugins/t
     { type: 'command', command: `${hook} --file-guard`, timeout: 10 },
   ]);
   assert.equal(settings.hooks.PostToolUse[0].matcher, 'Agent');
+  // Edit-time sensors (OSS-REVIEW P5 PR ②) are a separate fail-open entry of the same script, limit + 5 seconds.
+  assert.deepEqual(
+    settings.hooks.PostToolUse.map(({ matcher }) => matcher),
+    ['Agent', 'Edit|Write'],
+  );
+  assert.deepEqual(settings.hooks.PostToolUse[1].hooks, [
+    { type: 'command', command: `${hook} --sensor`, timeout: 13 },
+  ]);
+  assert.deepEqual(settings.hooks.Stop, [
+    { hooks: [{ type: 'command', command: `${hook} --sensor`, timeout: 35 }] },
+  ]);
+  // Every knu_* child is read-only (D-OSS-35), so SubagentStop keeps only the completion record entry.
+  assert.deepEqual(settings.hooks.SubagentStop, [
+    { matcher: 'knu_.*', hooks: [{ type: 'command', command: hook, timeout: 10 }] },
+  ]);
 });
 
 function semanticResult(f) {
@@ -4379,6 +4402,7 @@ const IDENTITY_CLOSURE = [
   'scripts/agents/common/cross-model-handoff.mjs',
   'scripts/agents/common/discovery-questions.mjs',
   'scripts/agents/common/domain-guide-registry.mjs',
+  'scripts/agents/common/edit-sensors.mjs',
   'scripts/agents/common/index.mjs',
   'scripts/agents/common/intake-policy.mjs',
   'scripts/agents/common/markdown-links.mjs',
@@ -4388,6 +4412,7 @@ const IDENTITY_CLOSURE = [
   'scripts/agents/common/review-adjudication.mjs',
   'scripts/agents/common/review-context-inputs.mjs',
   'scripts/agents/common/review-criteria-selection.mjs',
+  'scripts/agents/common/review-prejudgment-phrases.mjs',
   'scripts/agents/common/workflow-entry.mjs',
   'scripts/artifacts/paths.mjs',
   'scripts/artifacts/workspace-layout.mjs',
@@ -4607,3 +4632,145 @@ for (const [kind, change] of [
       /adapter\/role\/settings drift/u,
     );
   });
+
+// OSS-REVIEW P5 PR ②: the edit-time sensors run through a separate `--hook --sensor` entry that always exits 0,
+// and the SessionStart branch records the Parent baseline after its own check without changing its result.
+async function sensorModule() {
+  try {
+    return await import('../../../agents/common/edit-sensors.mjs');
+  } catch {
+    assert.fail('edit-sensors module is not implemented');
+  }
+}
+function sensorHook(root, input, { env = {}, script = hookScript } = {}) {
+  return spawnSync(process.execPath, [script, '--hook', '--sensor'], {
+    cwd: root,
+    env: { ...process.env, CLAUDE_PROJECT_DIR: root, ...env },
+    input,
+    encoding: 'utf8',
+  });
+}
+const sensorEvent = (root, event, file) =>
+  JSON.stringify({
+    session_id: SENSOR_SESSION,
+    hook_event_name: event,
+    cwd: root,
+    ...(event === 'Stop'
+      ? { stop_hook_active: false }
+      : { tool_name: 'Write', tool_input: { file_path: join(root, file) } }),
+  });
+
+test('the --sensor entry returns PostToolUse and Stop feedback as hook JSON and exits 0 (P5 RED 1·3)', async (t) => {
+  const { EDIT_SENSOR_WORKSPACES } = await sensorModule();
+  const r = sensorRepo(t, { workspaces: EDIT_SENSOR_WORKSPACES });
+  r.write(r.files.doc, `# notes ${UNFORMATTED}\n`);
+  const edited = sensorHook(r.root, sensorEvent(r.root, 'PostToolUse', r.files.doc));
+  assert.equal(edited.status, 0, edited.stderr);
+  const after = JSON.parse(edited.stdout).hookSpecificOutput;
+  assert.equal(after.hookEventName, 'PostToolUse');
+  assert.match(after.additionalContext, /sensor\.format/u);
+  r.write(r.files.source, `export const value: number = 'x'; // ${TYPE_ERROR}\n`);
+  assert.equal(sensorHook(r.root, sensorEvent(r.root, 'PostToolUse', r.files.source)).status, 0);
+  const stopped = sensorHook(r.root, sensorEvent(r.root, 'Stop'));
+  assert.equal(stopped.status, 0, stopped.stderr);
+  const end = JSON.parse(stopped.stdout).hookSpecificOutput;
+  assert.equal(end.hookEventName, 'Stop');
+  assert.match(end.additionalContext, /sensor\.typecheck/u);
+});
+
+test('the --sensor entry fails open: a broken or oversized payload and a throwing module exit 0 with no output (P5 RED 4)', async (t) => {
+  await sensorModule();
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'sensor-hook-')));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  for (const input of ['{', 'x'.repeat(1024 * 1024 + 1)]) {
+    const run = sensorHook(root, input);
+    assert.equal(run.status, 0, `${input.length}: ${run.stderr}`);
+    assert.equal(run.stdout, '');
+    assert.match(run.stderr, /^KNU edit sensor failed: [^\n]+\n$/u);
+  }
+  // A module that throws inside the event records the error through the module and still exits 0.
+  const { copy } = await scriptsCopy(t);
+  const script = join(copy, 'scripts/agents/claude/native-session.mjs');
+  writeFileSync(
+    join(copy, 'scripts/agents/common/edit-sensors.mjs'),
+    [
+      "import { writeFileSync } from 'node:fs';",
+      "import { join } from 'node:path';",
+      "export function claudeSensorHook() { throw new Error('sensor boom'); }",
+      'export function recordSensorFailure({ root, error }) {',
+      "  writeFileSync(join(root, 'failure.txt'), error.message);",
+      '}',
+      '',
+    ].join('\n'),
+  );
+  for (const event of ['PostToolUse', 'Stop']) {
+    const run = sensorHook(copy, sensorEvent(copy, event, 'notes.md'), { script });
+    assert.equal(run.status, 0, run.stderr);
+    assert.equal(run.stdout, '');
+    assert.equal(readFileSync(join(copy, 'failure.txt'), 'utf8'), 'sensor boom');
+    rmSync(join(copy, 'failure.txt'));
+  }
+  // A module that cannot load leaves one stderr line.
+  writeFileSync(
+    join(copy, 'scripts/agents/common/edit-sensors.mjs'),
+    "throw new Error('sensor module broken');\n",
+  );
+  const broken = sensorHook(copy, sensorEvent(copy, 'Stop'), { script });
+  assert.equal(broken.status, 0);
+  assert.equal(broken.stdout, '');
+  assert.match(broken.stderr, /^KNU edit sensor failed: sensor module broken\n$/u);
+});
+
+test('the SessionStart baseline runs after the session check and keeps its output, exit and hook timeout (P5 RED 4)', async (t) => {
+  const { EDIT_SENSOR_WORKSPACES } = await sensorModule();
+  const r = sensorRepo(t, { workspaces: EDIT_SENSOR_WORKSPACES });
+  const event = { session_id: SENSOR_SESSION, hook_event_name: 'SessionStart', cwd: r.root };
+  const expected = JSON.stringify(handleClaudeNativeSessionEvent(event, { root: r.root }));
+  const baselineFile = join(
+    r.root,
+    '.artifacts/tools/edit-sensors',
+    `${SENSOR_SESSION}.baseline.json`,
+  );
+  const started = runHook(r.root, event);
+  assert.equal(started.status, 0, started.stderr);
+  assert.equal(started.stdout, expected);
+  assert.ok(existsSync(baselineFile), 'the Parent baseline is recorded');
+  // A baseline over its five seconds: the same output and exit, inside the ten second registration.
+  rmSync(baselineFile);
+  const slow = stubCommand(t, 'git', { sleepSeconds: 7 });
+  const begin = Date.now();
+  const timed = runHook(r.root, event, { PATH: slow.path });
+  assert.ok(Date.now() - begin < 10000, 'the SessionStart hook ends inside its timeout');
+  assert.equal(timed.status, 0, timed.stderr);
+  assert.equal(timed.stdout, expected);
+  assert.equal(slow.calls().length, 1, 'the baseline ran');
+  assert.ok(r.records().some(({ result }) => result === 'timeout'));
+  // A failing session check never reaches the baseline. Without a baseline file the module would run git, so a
+  // baseline call before the check shows up as a stub call.
+  rmSync(baselineFile);
+  const watched = stubCommand(t, 'git');
+  const refused = runHook(r.root, { ...event, cwd: tmpdir() }, { PATH: watched.path });
+  assert.equal(refused.status, 1);
+  assert.deepEqual(watched.calls(), [], 'no baseline after a refused SessionStart');
+  assert.equal(existsSync(baselineFile), false);
+  // A baseline module that throws changes nothing either.
+  const { copy } = await scriptsCopy(t);
+  writeFileSync(
+    join(copy, 'scripts/agents/common/edit-sensors.mjs'),
+    "export function recordParentBaseline() { throw new Error('baseline boom'); }\n",
+  );
+  const copied = { ...event, cwd: copy };
+  const copiedExpected = JSON.stringify(handleClaudeNativeSessionEvent(copied, { root: copy }));
+  const thrown = spawnSync(
+    process.execPath,
+    [join(copy, 'scripts/agents/claude/native-session.mjs'), '--hook'],
+    {
+      cwd: copy,
+      env: { ...process.env, CLAUDE_PROJECT_DIR: copy },
+      input: JSON.stringify(copied),
+      encoding: 'utf8',
+    },
+  );
+  assert.equal(thrown.status, 0, thrown.stderr);
+  assert.equal(thrown.stdout, copiedExpected);
+});

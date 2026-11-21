@@ -117,8 +117,11 @@ test('common import graph cannot acquire Codex, Claude, model or OMX policy', ()
     'common/review-criteria-selection.mjs',
     'common/review-context-inputs.mjs',
     'common/discovery-questions.mjs',
+    'common/edit-sensors.mjs',
+    'common/review-prejudgment-phrases.mjs',
   ];
   for (const file of neutralFiles) {
+    assert.ok(existsSync(resolve(root, 'scripts/agents', file)), `${file} is missing`);
     const source = readFileSync(resolve(root, 'scripts/agents', file), 'utf8');
     assert.doesNotMatch(
       source,

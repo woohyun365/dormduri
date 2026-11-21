@@ -39,6 +39,7 @@ const CODE_KINDS = [
   'ci-performance',
   ...HOST_RUNTIME_KINDS,
   'dependency-automation',
+  'edit-sensors',
   'github',
   'infra',
   'plan-impact',
@@ -71,8 +72,10 @@ test('the core manifest and the KNU binding validate with the retention vocabula
       until: 'task-settled',
     });
   }
-  for (const kind of ['ci-performance', 'stress'])
+  for (const kind of ['ci-performance', 'stress', 'edit-sensors'])
     assert.deepEqual(layout.toolKinds.get(kind).retention, { class: 'historical-observation' });
+  // The sandboxed Codex sensor CLI writes inside the workspace only, so the activation records are never redirected.
+  assert.equal(layout.toolKinds.get('edit-sensors').overridable, false);
   assert.deepEqual(layout.toolKinds.get('test').retention, { class: 'regenerable-output' });
   for (const root of layout.roots)
     if (root.tracking === 'tracked') assert.equal(root.retention, undefined, root.id);

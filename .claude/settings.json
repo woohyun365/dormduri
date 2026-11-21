@@ -43,6 +43,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/agents/claude/native-session.mjs\" --hook --sensor",
+            "timeout": 13
+          }
+        ]
       }
     ],
     "PostToolUseFailure": [
@@ -65,6 +75,17 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/scripts/agents/claude/native-session.mjs\" --hook",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/agents/claude/native-session.mjs\" --hook --sensor",
+            "timeout": 35
           }
         ]
       }
