@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
@@ -37,6 +37,9 @@ const RESULTS = {
   },
 };
 
+// A snapshot digest is one of the three fixRef forms (with a commit SHA and a repository path).
+const DIGEST = `sha256:${'b'.repeat(64)}`;
+
 const ROUND1 = {
   schema: 'review-adjudication/v1',
   subject: 'feature-x',
@@ -46,7 +49,7 @@ const ROUND1 = {
     { taskId: 'task-b', resultPath: 'review/r1-b-result.json' },
   ],
   findings: [
-    { id: 'task-a#0', severity: 'medium', disposition: 'fixed', fixRef: 'abc1234' },
+    { id: 'task-a#0', severity: 'medium', disposition: 'fixed', fixRef: DIGEST },
     { id: 'task-a#1', severity: 'low', disposition: 'rejected', reason: 'not reproduced' },
     { id: 'b-dup', severity: 'medium', disposition: 'fixed', duplicateOf: 'task-a#0' },
   ],
@@ -57,7 +60,15 @@ const ROUND2 = {
   subject: 'feature-x',
   round: 2,
   reviews: [{ taskId: 'task-c', resultPath: 'review/r2-result.json' }],
-  findings: [{ id: 'task-c#0', severity: 'medium', disposition: 'fixed', origin: 'fix-induced' }],
+  findings: [
+    {
+      id: 'task-c#0',
+      severity: 'medium',
+      disposition: 'fixed',
+      origin: 'fix-induced',
+      fixRef: 'review/r2-result.json',
+    },
+  ],
 };
 
 function fixture(records) {
@@ -267,4 +278,137 @@ test('every unjudged behavior line of a reviewed result needs one disposition wi
     assert.deepEqual(check(record), { code: 1, kinds }, JSON.stringify(record));
   // A result without unjudged lines needs no key, and an empty list is allowed.
   assert.deepEqual(check({ ...ROUND2, unjudged: [] }), { code: 0, kinds: [] });
+});
+
+// P6 ② RED 1: a fixed finding names what fixed it. The forms are a 40-character commit SHA the --root repository has,
+// a `sha256:` snapshot digest and a repository-relative path that exists; anything else is invalid-fix-ref.
+function gitFixture(records) {
+  const root = fixture(records);
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+  git('init', '-q');
+  git('add', '.');
+  git('-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'fix');
+  return { root, sha: git('rev-parse', 'HEAD').trim() };
+}
+
+function checkIn(root, record) {
+  writeFileSync(resolve(root, 'review/x-adjudication.json'), JSON.stringify(record));
+  const { code, out } = run(['--json', '--root', root, 'review/x-adjudication.json'], root);
+  return { code, kinds: json(out).violations.map(({ kind, id }) => (id ? `${kind}:${id}` : kind)) };
+}
+
+test('a fixed or fixed-mechanical finding needs a fixRef in one of three forms (P6 ② RED 1)', () => {
+  const { root, sha } = gitFixture({});
+  const [c0] = ROUND2.findings;
+  const withRef = (patch) => ({ ...ROUND2, findings: [{ ...c0, ...patch }] });
+  for (const fixRef of [sha, DIGEST, 'review/r2-result.json', 'review'])
+    assert.deepEqual(
+      checkIn(root, withRef({ fixRef })),
+      { code: 0, kinds: [] },
+      `a valid fixRef passes: ${fixRef}`,
+    );
+  for (const disposition of ['fixed', 'fixed-mechanical'])
+    assert.deepEqual(
+      checkIn(root, withRef({ disposition, fixRef: undefined })),
+      { code: 1, kinds: ['missing-fix-ref:task-c#0'] },
+      `missing-fix-ref for ${disposition}`,
+    );
+  for (const fixRef of [
+    'f'.repeat(40), // a SHA the repository does not have
+    sha.slice(0, 8), // a short SHA
+    'review/absent.json',
+    '/etc/hosts',
+    '../outside.json',
+    'fix-r1',
+    'review/r2-result.json:3',
+    'sha256:abc',
+    '',
+    7,
+  ])
+    assert.deepEqual(
+      checkIn(root, withRef({ fixRef })),
+      { code: 1, kinds: ['invalid-fix-ref:task-c#0'] },
+      `invalid-fix-ref for ${String(fixRef)}`,
+    );
+  // A fixRef on another disposition is checked the same way; none is needed there.
+  const deferred = { disposition: 'deferred', reason: 'later' };
+  assert.deepEqual(checkIn(root, withRef({ ...deferred, fixRef: undefined })), {
+    code: 0,
+    kinds: [],
+  });
+  assert.deepEqual(checkIn(root, withRef({ ...deferred, fixRef: 'fix-r1' })), {
+    code: 1,
+    kinds: ['invalid-fix-ref:task-c#0'],
+  });
+  // A duplicate follows the fix of the finding it duplicates.
+  const [a0, a1, b] = ROUND1.findings;
+  assert.equal(b.fixRef, undefined);
+  assert.deepEqual(checkIn(root, { ...ROUND1, findings: [a0, a1, b] }), { code: 0, kinds: [] });
+});
+
+test('a commit fixRef outside a git repository root is invalid', () => {
+  const [c0] = ROUND2.findings;
+  assert.deepEqual(check({ ...ROUND2, findings: [{ ...c0, fixRef: 'a'.repeat(40) }] }), {
+    code: 1,
+    kinds: ['invalid-fix-ref:task-c#0'],
+  });
+});
+
+test('the command line exits 1 with missing-fix-ref on a record whose fixed finding has no fixRef (P6 ② RED 6)', () => {
+  const [c0] = ROUND2.findings;
+  const root = fixture({
+    'review/old-adjudication.json': { ...ROUND2, findings: [{ ...c0, fixRef: undefined }] },
+  });
+  const result = spawnSync(
+    process.execPath,
+    [tool, '--root', root, 'review/old-adjudication.json'],
+    {
+      cwd: root,
+      encoding: 'utf8',
+    },
+  );
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stdout, /\tmissing-fix-ref\ttask-c#0\t/u);
+});
+
+// P6 ② RED 2: an unjudged line the Parent reproduced or compared and found no defect in is parent-checked, and its
+// reason names that log by a repository path in backticks. A defect that was there before this change is
+// pre-existing (Owner 2026-11-21 1.2). Every value still needs a reason; an unknown value stays refused.
+test('an unjudged line takes parent-checked with a repository log path, or pre-existing (P6 ② RED 2)', () => {
+  const root = fixture({ 'review/u0-repro.log': 'reproduced, no defect\n' });
+  const [, u1] = UNJUDGED.unjudged;
+  const first = (disposition, reason) => ({
+    ...UNJUDGED,
+    unjudged: [{ id: 'task-u#u0', disposition, reason }, u1],
+  });
+  for (const record of [
+    first('parent-checked', 'compared both orders: `review/u0-repro.log`'),
+    first('parent-checked', 'the log `review` directory holds the run'),
+    first('pre-existing', 'the old order bug predates this change; issue #12'),
+  ])
+    assert.deepEqual(
+      checkIn(root, record),
+      { code: 0, kinds: [] },
+      `${record.unjudged[0].disposition} passes: ${record.unjudged[0].reason}`,
+    );
+  for (const reason of [
+    'checked by hand',
+    'see review/u0-repro.log without backticks',
+    'see `review/absent.log`',
+    'see `/etc/hosts`',
+    'see `../outside.log`',
+  ])
+    assert.deepEqual(
+      checkIn(root, first('parent-checked', reason)),
+      { code: 1, kinds: ['missing-reason:task-u#u0'] },
+      `parent-checked missing-reason: ${reason}`,
+    );
+  assert.deepEqual(checkIn(root, first('pre-existing', ' ')), {
+    code: 1,
+    kinds: ['missing-reason:task-u#u0'],
+  });
+  assert.deepEqual(checkIn(root, first('checked', 'see `review/u0-repro.log`')), {
+    code: 1,
+    kinds: ['invalid-field:task-u#u0'],
+  });
 });

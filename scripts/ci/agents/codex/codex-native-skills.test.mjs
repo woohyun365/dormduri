@@ -284,3 +284,36 @@ test('the delegation template is a spec the delegate CLI accepts', () => {
         `${file}: ${name}`,
       );
 });
+
+// P6 ② RED 8 and Owner 2026-11-21 1.2·1.3: the Codex settle skill keeps the disposition record file in the Claude
+// format and states the same rules in the same words; the review skill points at the Codex same-host review reference.
+test('the Codex settle skill keeps the disposition record file and its rules (P6 ② RED 8)', () => {
+  const text = read(skillPath('knu-settle')).replace(/\s+/gu, ' ');
+  for (const [pattern, label] of [
+    [/`r<N>-adjudication\.json`\(`review-adjudication\/v1`/u, 'disposition record file'],
+    [/재현되면 고친 뒤 `fixed`와 `fixRef`/u, 'fixed only after the fix, with its fixRef'],
+    [/고치기 전에는 `fixed`를 쓰지 않습니다/u, 'no fixed before the fix'],
+    [
+      /처분 기록 `subject`는 회차와 무관한 변경 이름이고 같은 변경의 모든 회차가 같은 문자열을 씁니다/u,
+      'one subject name for every round',
+    ],
+    [/2회차부터 finding마다 `origin`\(`fix-induced`·`previously-missed`·`re-raised`\)/u, 'origin'],
+    [/rebase·squash로 SHA가 바뀌면 앞 회차 기록은 그대로 두고/u, 'rebase'],
+    [
+      /`sameTypeLocations`는 모두 고치거나 고치지 않은 위치를 그 finding 처분 `reason`에 남깁니다/u,
+      'same type',
+    ],
+    [/`parent-checked`/u, 'parent-checked'],
+    [/`pre-existing`/u, 'pre-existing'],
+  ])
+    assert.match(text, pattern, label);
+  assert.ok(
+    !text.includes('처분 기록 파일이 없습니다'),
+    'older wording: no disposition record file',
+  );
+  assert.match(
+    read(skillPath('knu-review')),
+    /\]\(\.\.\/\.\.\/\.\.\/docs\/development\/agent-workflows\/adapters\/codex-same-host-review\.md(?:#[^)]*)?\)/u,
+    'knu-review points at the Codex same-host review reference',
+  );
+});

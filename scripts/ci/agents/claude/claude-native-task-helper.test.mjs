@@ -1575,7 +1575,14 @@ function readRows(r, agentId, packetPath, { error = false, root = r.root } = {})
 }
 function settledParentReview(
   t,
-  { read = true, error = false, change = false, alias = false, dropLine = false } = {},
+  {
+    read = true,
+    error = false,
+    change = false,
+    alias = false,
+    dropLine = false,
+    response = (template) => JSON.stringify(template),
+  } = {},
 ) {
   const r = repo(t);
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
@@ -1592,7 +1599,7 @@ function settledParentReview(
   const reviewer = prepareClaudeNativeTask(spec, { root: r.root });
   const result = structuredClone(review.resultTemplate);
   result.verdict = 'PASS';
-  dispatch(r, reviewer, 'review-1', JSON.stringify(result));
+  dispatch(r, reviewer, 'review-1', response(result));
   let root = r.root;
   if (alias) {
     root = `${r.root}-alias`;
@@ -1604,6 +1611,7 @@ function settledParentReview(
   return {
     r,
     review,
+    reviewer,
     status: settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root }),
   };
 }
@@ -5251,4 +5259,160 @@ test('a held-out copy subject keeps its prompt outside the runner record and inp
       outputPaths: [`${COPY_SHAPE_DIR}/manifest.log`],
     },
   ]);
+});
+
+// P6 ② RED 3: settle --task of a Parent reviewer reads the response as the result JSON. A response that is not one
+// JSON object of this review's result template is review-result-unparsed (the native subject path's missing result);
+// a parsed one is written once as <reviewId>.result.json beside the packet and the output names that path.
+test('settle --task writes a Parent reviewer result file or names an unparsed response (P6 ② RED 3)', (t) => {
+  const { r, review, status } = settledParentReview(t);
+  const resultPath = `${PACKET_DIR}/${reviewIdOf(review)}.result.json`;
+  assert.deepEqual(status.observationErrors, []);
+  assert.equal(status.resultPath, resultPath);
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(r.root, resultPath), 'utf8')),
+    JSON.parse(status.response),
+  );
+  // Settling again keeps the same file.
+  const again = settleClaudeNativeTask(status.taskId, undefined, { root: r.root });
+  assert.equal(again.resultPath, resultPath);
+  for (const response of [
+    () => 'Overall verdict: PASS',
+    (template) => `\`\`\`json\n${JSON.stringify(template)}\n\`\`\``,
+    (template) => `Final result:\n${JSON.stringify(template)}`,
+    () => JSON.stringify({ verdict: 'PASS', findings: [] }),
+    (template) => JSON.stringify({ ...template, packetId: 'review-00000000-00000000' }),
+    (template) => JSON.stringify({ ...template, findings: null }),
+    () => '[]',
+  ]) {
+    const unparsed = settledParentReview(t, { response });
+    assert.ok(
+      unparsed.status.observationErrors.includes('review-result-unparsed'),
+      response.toString(),
+    );
+    assert.equal(unparsed.status.resultPath, null, response.toString());
+    assert.equal(
+      existsSync(join(unparsed.r.root, `${PACKET_DIR}/${reviewIdOf(unparsed.review)}.result.json`)),
+      false,
+    );
+  }
+});
+
+// P6 ② RED 4: a finished reviewer settlement closes its packet: settle --task of a Parent reviewer and the judgment
+// settle of a native subject reviewer write <reviewId>.settled.json (task id, settle time, valid, observation errors)
+// once. Before the settlement, including a settle refused for a missing completion, there is no such file.
+test('a reviewer settlement writes the settled record of its packet, and nothing before (P6 ② RED 4)', (t) => {
+  const settledOf = (r, review) => join(r.root, `${PACKET_DIR}/${reviewIdOf(review)}.settled.json`);
+  // A Parent reviewer that has not completed: settle is refused and the packet stays open.
+  {
+    const r = repo(t);
+    writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+    const review = parentReview(r, SMALL_PARENT_SUBJECT);
+    const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+    dispatch(r, reviewer, 'review-1');
+    assert.throws(
+      () => settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root }),
+      /cannot settle yet/u,
+    );
+    assert.equal(existsSync(settledOf(r, review)), false);
+  }
+  // A Parent reviewer settled clean, and one settled with an observation error.
+  {
+    const { r, review, reviewer, status } = settledParentReview(t);
+    assert.equal(status.settledPath, `${PACKET_DIR}/${reviewIdOf(review)}.settled.json`);
+    const record = JSON.parse(readFileSync(settledOf(r, review), 'utf8'));
+    assert.ok(!Number.isNaN(Date.parse(record.settledAt)), record.settledAt);
+    assert.deepEqual(
+      { ...record, settledAt: null },
+      { taskId: reviewer.taskId, settledAt: null, valid: true, observationErrors: [] },
+    );
+  }
+  {
+    const { r, review, status } = settledParentReview(t, { read: false });
+    const record = JSON.parse(readFileSync(settledOf(r, review), 'utf8'));
+    assert.equal(record.valid, false);
+    assert.deepEqual(record.observationErrors, status.observationErrors);
+    assert.ok(record.observationErrors.includes('review-packet-unread'));
+  }
+  // A native subject reviewer: the observation settle leaves the packet open, the judgment settle closes it.
+  {
+    const r = settledSubject(t);
+    const { snapshotDigest } = buildClaudeNativeReview(
+      { subjectTaskId: r.subject.taskId },
+      { root: r.root },
+    );
+    const review = buildClaudeNativeReview(
+      {
+        subjectTaskId: r.subject.taskId,
+        runnerEvidence: runnerEvidence(snapshotDigest),
+        selectionBasisRef: 'plan:helper-test/review',
+        reviewerModel: 'claude-opus-4-6',
+        reviewRound: 1,
+      },
+      { root: r.root },
+    );
+    const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+    const delivered = structuredClone(review.resultTemplate);
+    delivered.acceptanceCoverage = delivered.acceptanceCoverage.map((c) => ({
+      ...c,
+      sourceRefs: ['sample.txt'],
+      evidenceRefs: ['runner:node --test'],
+      gap: null,
+    }));
+    delivered.verdict = 'PASS';
+    delivered.confidence = 'high';
+    dispatch(r, reviewer, 'review-1', JSON.stringify(delivered));
+    const observed = settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
+    assert.equal(observed.settledPath, undefined);
+    assert.equal(existsSync(settledOf(r, review)), false);
+    const reviewed = settleClaudeNativeTask(
+      reviewer.taskId,
+      judgment(reviewer, 'terminal review result delivered for the frozen packet'),
+      { root: r.root },
+    );
+    assert.equal(reviewed.valid, true, reviewed.errors.join('; '));
+    assert.equal(reviewed.settledPath, `${PACKET_DIR}/${reviewIdOf(review)}.settled.json`);
+    const record = JSON.parse(readFileSync(settledOf(r, review), 'utf8'));
+    assert.deepEqual(
+      { ...record, settledAt: null },
+      { taskId: reviewer.taskId, settledAt: null, valid: true, observationErrors: [] },
+    );
+  }
+});
+
+// P6 ② RED 9 (a protection test, not RED): the reviewer prompt of a held-out copy-shaped subject is, to the
+// character, the prompt before P6 ② (fixture captured from the helper at 7e1d95a8). P6 ② changes only the settle
+// branch, so the rescore copy runs see the same prompt (재채점 해당 없음). Review id, digests and SHAs are masked.
+test('a held-out copy subject prompt is the prompt before P6 ② to the character (P6 ② RED 9)', (t) => {
+  const r = repo(t);
+  mkdirSync(join(r.root, COPY_SHAPE_DIR, 'subject'), { recursive: true });
+  writeFileSync(join(r.root, COPY_SHAPE_DIR, 'subject/module.mjs'), 'export const value = 1;\n');
+  writeFileSync(join(r.root, COPY_SHAPE_DIR, 'manifest.log'), 'manifest files=1\n');
+  const review = parentReview(
+    r,
+    {
+      request: 'held-out 사본 변경을 구현해줘.',
+      owner: 'parent',
+      acceptance: ['module exports the value'],
+      paths: [`${COPY_SHAPE_DIR}/subject`],
+    },
+    [
+      {
+        command: 'node scripts/manifest.mjs',
+        exit: 0,
+        environment: 'macOS, node 26',
+        observedResult: '`manifest files=1`',
+        outputPaths: [`${COPY_SHAPE_DIR}/manifest.log`],
+      },
+    ],
+  );
+  const masked = review.reviewerPrompt
+    .replaceAll(reviewIdOf(review), '<reviewId>')
+    .replaceAll(r.root, '<root>')
+    .replace(/sha256:[a-f0-9]{64}/gu, 'sha256:<digest>')
+    .replace(/\b[a-f0-9]{40}\b/gu, '<sha>');
+  assert.equal(
+    `${masked}\n`,
+    readFileSync(join(import.meta.dirname, 'fixtures/review-prompt-copy-shape.txt'), 'utf8'),
+  );
 });
