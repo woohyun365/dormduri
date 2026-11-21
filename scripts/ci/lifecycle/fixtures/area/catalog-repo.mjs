@@ -1,7 +1,7 @@
 // In-memory repository for the area criteria check tests: the policy fixture's path table plus a small review criteria
 // catalog. The FE and BFF pack sections overlap under `apps/web/src/app/api/`, the security-privacy section is
 // cross-cutting, `repo-structure.mobile-app` has no pack section (an area without criteria) and `swe` is layerless. The
-// binding document ends with the `영역 검사` exemption table; a test sets its rows per revision.
+// binding document ends with the `영역 검사` exemption table; a test sets its rows and the key values per revision.
 
 import { REVISIONS, repository } from '../policy-repo.mjs';
 
@@ -19,6 +19,14 @@ export const KEYS = {
   'repo-structure.review-swe': '`apps/**`, `infra/**`, `*`(root 파일). 제외: `!**/*.md`',
 };
 
+// A product page outside `apps/web/src/app/**` that the FE key also lists as a second glob, so a pull request can delete
+// the page with its glob and keep the key (a key without a glob would leave the FE pack section unresolved).
+export const LEGACY_PAGE = 'apps/web/src/legacy-page.tsx';
+export const TWO_GLOB_KEYS = {
+  ...KEYS,
+  'repo-structure.fe-routes': `\`apps/web/src/app/**\`, \`${LEGACY_PAGE}\``,
+};
+
 // Rows of the `| 제외 경로 | 이유 |` table: [first cell, reason].
 export const BASE_EXEMPTIONS = [['`apps/web/e2e/**`', '검증 코드. 현재 기준 없음']];
 
@@ -28,14 +36,14 @@ const PACKS = {
   'security-privacy': ['secrets', 'repo-structure.secret-delivery'],
 };
 
-// exemptions: rows, or null for a binding document without the `영역 검사` section.
-export function bindingText({ exemptions = BASE_EXEMPTIONS } = {}) {
+// exemptions: rows, or null for a binding document without the `영역 검사` section. keys: the path key table.
+export function bindingText({ exemptions = BASE_EXEMPTIONS, keys = KEYS } = {}) {
   const lines = [
     '# KNU domain binding',
     '',
     '| 키 | 값 |',
     '| --- | --- |',
-    ...Object.entries(KEYS).map(([key, value]) => `| \`${key}\` | ${value} |`),
+    ...Object.entries(keys).map(([key, value]) => `| \`${key}\` | ${value} |`),
     '',
   ];
   if (exemptions !== null)
@@ -55,8 +63,8 @@ export function bindingText({ exemptions = BASE_EXEMPTIONS } = {}) {
 export const criteriaPath = (id) => `${CRITERIA_DIR}/${id}.md`;
 export const packPath = (layer) => `${PACK_DIR}/${layer}.md`;
 
-export function catalogFiles({ exemptions } = {}) {
-  const files = { [BINDING_FILE]: bindingText({ exemptions }) };
+export function catalogFiles({ exemptions, keys } = {}) {
+  const files = { [BINDING_FILE]: bindingText({ exemptions, keys }) };
   for (const [layer, [section, key]] of Object.entries(PACKS)) {
     files[packPath(layer)] =
       `# ${layer} pack\n\n## ${section}\n\n### binding 키\n\n- {{binding:${key}}}\n`;
@@ -64,6 +72,19 @@ export function catalogFiles({ exemptions } = {}) {
   }
   files[criteriaPath('swe')] = '# swe\n\n### S1. 항목\n';
   return files;
+}
+
+// Files of a revision that gives `glob` the FE area: a new path key, an FE pack section `section` next to the routing
+// section, and the section's criteria document.
+export function feAreaFiles({ key, glob, section, exemptions }) {
+  const [routing, routingKey] = PACKS.fe;
+  return {
+    [BINDING_FILE]: bindingText({ exemptions, keys: { ...KEYS, [key]: `\`${glob}\`` } }),
+    [packPath('fe')]:
+      `# fe pack\n\n## ${routing}\n\n### binding 키\n\n- {{binding:${routingKey}}}\n\n` +
+      `## ${section}\n\n### binding 키\n\n- {{binding:${key}}}\n`,
+    [criteriaPath(`web-fe-${section}`)]: `# web-fe-${section}\n\n### A1. 항목\n`,
+  };
 }
 
 export const AREA_PRODUCT_FILES = [
@@ -78,16 +99,28 @@ export const AREA_PRODUCT_FILES = [
 const productFiles = () =>
   Object.fromEntries(AREA_PRODUCT_FILES.map((path) => [path, `// ${path}\n`]));
 
-// headExemptions defaults to baseExemptions; head and base override files as in the policy fixture (null removes one).
-export function areaRepository({ head = {}, base = {}, baseExemptions, headExemptions } = {}) {
-  const snapshot = (exemptions, changes) => ({
-    ...catalogFiles({ exemptions }),
+// headExemptions defaults to baseExemptions and headKeys to baseKeys; head and base override files as in the policy
+// fixture (null removes one).
+export function areaRepository({
+  head = {},
+  base = {},
+  baseExemptions,
+  headExemptions,
+  baseKeys,
+  headKeys,
+} = {}) {
+  const snapshot = (exemptions, keys, changes) => ({
+    ...catalogFiles({ exemptions, keys }),
     ...productFiles(),
     ...changes,
   });
-  const baseFiles = snapshot(baseExemptions, base);
+  const baseFiles = snapshot(baseExemptions, baseKeys, base);
   return repository({
-    head: snapshot(headExemptions === undefined ? baseExemptions : headExemptions, head),
+    head: snapshot(
+      headExemptions === undefined ? baseExemptions : headExemptions,
+      headKeys === undefined ? baseKeys : headKeys,
+      head,
+    ),
     mergeBase: baseFiles,
     base: baseFiles,
   });
