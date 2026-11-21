@@ -18,7 +18,7 @@ Web 운영 관측은 두 개의 독립 owner로 운영한다.
 | `NEXT_PUBLIC_WEB_RELEASE`                   | immutable release identifier |     commit SHA/image tag |
 | `NEXT_PUBLIC_WEB_OBSERVABILITY_ENVIRONMENT` | bounded environment          | local/preview/production |
 
-Web 단계 host compose(`infra/deploy/user/compose.yml`)의 Web service 이름은 `web`이다. 관측 stack을 붙일 때 Alloy가 이 이름을 `service` label로 받는지 먼저 확인한다(지금 Web 단계에는 관측 stack이 없다).
+Host compose(`infra/deploy/user/compose.yml`)의 Web service 이름은 `web`이다. Alloy는 compose service `api`·`ingress`·`web` container의 stdout만 받고 그 이름을 `service` label로 쓴다([`config.alloy`](../../../observability/alloy/config.alloy)).
 
 ## Release 전 확인
 
