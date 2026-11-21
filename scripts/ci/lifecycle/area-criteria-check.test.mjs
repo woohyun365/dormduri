@@ -500,6 +500,18 @@ test('a head-only exemption row does not exempt a deleted path without a base ar
   assert.equal(result.failed, true);
 });
 
+// The changed-path collection turns a backslash into a slash, and the head tree is compared in that form.
+test('a head file with a backslash in its name is judged at head, not as a deleted path', () => {
+  const result = evaluate({
+    changedPaths: ['apps/web/src/app/legacy/page.tsx'],
+    head: { 'apps/web/src/app/legacy\\page.tsx': '// kept\n' },
+  });
+
+  assert.deepEqual(areaFindings(result), [
+    { check: 'W-AREA', level: 'pass', reason: '제품 경로 1개, 영역 fe' },
+  ]);
+});
+
 test('a deleted path with an area at base and head passes on the deleted path line', () => {
   const result = evaluate({ changedPaths: [FE_PAGE], head: { [FE_PAGE]: null } });
 

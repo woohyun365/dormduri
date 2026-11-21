@@ -57,6 +57,8 @@ export function buildLifecycleContext({ body, author, baseRef, revisions, change
     revisions,
     changedPaths,
     readFile: reader.readFile,
+    // Lists another revision's tree on demand (the area check reads the base tree only for a deleted product path).
+    listFiles: reader.listFiles,
     hasCommit: reader.hasCommit,
     diffPaths: reader.diffPaths,
     headFiles: reader.listFiles(revisions.head),
