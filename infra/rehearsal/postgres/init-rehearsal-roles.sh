@@ -17,6 +17,7 @@ CREATE ROLE retention_disclosure NOLOGIN;
 CREATE ROLE app_readonly NOLOGIN;
 CREATE ROLE migration_owner NOLOGIN;
 CREATE ROLE backoffice_runtime NOLOGIN;
+CREATE ROLE backoffice_retention NOLOGIN;
 
 CREATE ROLE :"runtime_user" LOGIN PASSWORD :'runtime_password';
 CREATE ROLE :"retention_user" LOGIN PASSWORD :'retention_password';

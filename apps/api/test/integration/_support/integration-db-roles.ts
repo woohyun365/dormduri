@@ -35,6 +35,12 @@ export const INTEGRATION_LOGIN_USERS = {
     password: 'dormduri_api_disclosure_integration_password',
   },
   migrator: { user: 'dormduri_migrator', password: 'dormduri_migrator_integration_password' },
+  // The backoffice API connects with these; the user API never does (infra/db/README.md Credential boundary).
+  backoffice: { user: 'dormduri_backoffice', password: 'dormduri_backoffice_integration_password' },
+  backofficeRetention: {
+    user: 'dormduri_backoffice_retention',
+    password: 'dormduri_backoffice_retention_integration_password',
+  },
 } as const;
 
 export function parseIntegrationDatabaseRoleMode(
