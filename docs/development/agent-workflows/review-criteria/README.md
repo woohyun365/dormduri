@@ -327,8 +327,9 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
   사유별 위반 수)로 세고 exit를 바꾸지 않습니다. `fixRef` 두 사유만 있는 기록은 처분을 지금처럼 셉니다. 그 밖의 위반은
   `adjudicationViolations`이고 exit 1입니다.
 - 행 상태: `parsed`, `parse-failed`(마지막 응답에 result JSON 없음), `completion-missing`, `task-unreadable`(task 기록을 읽지
-  못해 reviewer인지 모르는 task도 행으로 셈). 정산이 닫은 Parent reviewer packet(`<reviewId>.settled.json`)은 응답 대신 그
-  정산의 결과 파일(`<reviewId>.result.json`)로 읽고, 결과 파일이 없으면(`review-result-unparsed`) `parse-failed`입니다. 회차는
+  못해 reviewer인지 모르는 task도 행으로 셈). Parent reviewer task가 정산해 닫은 packet(`<reviewId>.settled.json`의 `taskId`가 그
+  task)이면 응답 대신 그 정산의 결과 파일(`<reviewId>.result.json`)로 읽고, 결과 파일이 없으면(`review-result-unparsed`)
+  `parse-failed`입니다. 닫힘 기록이 다른 task를 가리키면(같은 reviewerSpec을 다시 등록한 task) 응답으로 읽습니다. 회차는
   reviewer prompt의 `Review round N`에서 읽고, 회차 입력 전 기록은 `unknown`입니다.
 - 행의 finding은 id·severity·기준 항목(`criteriaItem`)과 result finding의 위치(`location`, 없으면 null)를 담습니다.
 - 행의 선택 field `subjectSize`는 그 리뷰 기준 기록(`<reviewId>.criteria.json`)의 subject 경로 수·기준 문서 수(`paths`·

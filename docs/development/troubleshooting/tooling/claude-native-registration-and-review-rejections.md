@@ -119,7 +119,8 @@
   `review-lifecycle-changed`·`review-verification-changed`·`review-scope-changed`·`review-runner-file-changed` 중 하나가 있습니다.
   Native subject reviewer는 `observationErrors`에 `review-binding-changed`나 `review-runner-file-changed`가 있고
   `settle --task --judgment`도 그 사유로 거부됩니다.
-- Parent reviewer의 `settle --task` `observationErrors`에 `review-result-unparsed`가 있고 출력 `resultPath`가 null입니다.
+- Parent reviewer의 `settle --task` `observationErrors`에 `review-result-unparsed`나 `review-packet-settled`가 있고 출력
+  `resultPath`가 null입니다.
 - 정산·완료가 `adapter/role/settings drift`로 거부됩니다. 또는 거부 없이 settle 결과의 `identityOutsideChanges`·
   `reviewInputOriginalsChanged`에 경로가 있습니다(기록만 남는 관측이고 결과는 유효).
 - Read-only subject(쓰기 범위 없음)를 review하려는데 다음 중 하나로 거부됩니다.
@@ -329,9 +330,13 @@
   사라짐, native subject reviewer 포함)도 같습니다.
 - `review-result-unparsed`는 Parent reviewer 응답이 text 한 조각 전체가 이 review 결과 template 모양의 JSON 객체(같은
   `packetId`, `verdict` 문자열, `findings` 배열)가 아닌 것입니다(code fence·앞뒤 문장·다른 packet id 포함). 응답에서 JSON을 손으로
-  잘라 결과로 쓰지 않고, 처분 기록 `reviews[].resultPath`에 응답 문자열을 저장하지 않습니다. 결과 없는 회차로 기록하고 새 reviewer로
-  재리뷰합니다. 규칙은 [정산 결과 파일과 packet 닫힘](../../agent-workflows/adapters/claude-same-host-review.md#정산-결과-파일과-packet-닫힘)이
+  잘라 결과로 쓰지 않고, 처분 기록 `reviews[].resultPath`에 응답 문자열을 저장하지 않습니다. 결과 없는 회차로 기록하고 `review-run`으로
+  새 review를 만들어 재리뷰합니다(같은 reviewerSpec을 다시 등록하면 그 정산은 아래 `review-packet-settled`). 규칙은
+  [정산 결과 파일과 packet 닫힘](../../agent-workflows/adapters/claude-same-host-review.md#정산-결과-파일과-packet-닫힘)이
   소유합니다.
+- `review-packet-settled`는 그 packet을 다른 Parent reviewer task가 이미 정산한 것입니다(같은 reviewerSpec을 다시 등록함). 결과
+  파일과 닫힘 기록은 첫 정산의 것이고 이 task는 쓰지 않습니다. 이 task를 `release --task <taskId> --ended`로 해제하고, 다시
+  리뷰할 때는 `review-run`으로 새 review를 만듭니다.
 - `review-prompt-changed`·`review-prompt-unbound`는 prompt나 기록을 고쳐 맞추지 않습니다. `review` 출력의 `reviewerSpec`(그룹이면
   구성원 각자의 spec)을 그대로 `prepare`하고, 바꿀 것이 있으면 `review`를 다시 만듭니다.
 - `local-state-path`는 그 경로를 `paths`에서 빼고 리뷰 대상인 추적 파일만 줍니다. `path-not-repository-relative`는 저장소 root 기준
@@ -344,7 +349,8 @@
   고치는 변경이면 그 수정도 리뷰 대상에 넣음). `context-output-missing`은 추출 kind의 `-out` flag를 더하고,
   `context-output-invalid`는 리뷰 대상·원본과 겹치지 않는 저장소 안 새 상대 경로(Codex는
   `.artifacts/tools/codex-native/<sessionId>/<reviewId>.binding.md`·`<reviewId>.lifecycle.md`)를 줍니다.
-- `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 새 reviewer로 다시 review합니다.
+- `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 `review-run`으로 새 review를 만들어 다시
+  review합니다.
   `review-runner-file-changed`·`review-scope-changed`·`review-verification-changed`도 파일을 되돌려 맞추지 않고 `review-run`을
   다시 실행해 재리뷰합니다. 같은 `command` 기록의 거부는 기록마다 `label`(두 실행의 차이)을 더합니다.
 - `review-run failed checks=…`는 `review-run.json`의 `checks[].outputPath` 출력을 읽고 원인을 고친 뒤 runner부터 다시 실행합니다.

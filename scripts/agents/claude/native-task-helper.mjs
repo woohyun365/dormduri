@@ -2574,9 +2574,22 @@ function parentReviewResult(content, reviewId) {
     ? result
     : null;
 }
+// The task the packet's closing record names: undefined without the record, null when it cannot be read.
+function packetSettledBy(root, reviewId) {
+  const full = join(root, reviewPacketPath(root, reviewId, SETTLED_SUFFIX).path);
+  if (!existsSync(full)) return undefined;
+  try {
+    const { taskId } = JSON.parse(readFileSync(full, 'utf8'));
+    return typeof taskId === 'string' ? taskId : null;
+  } catch {
+    return null;
+  }
+}
+
 // Closes a review packet: a finished settlement writes <reviewId>.settled.json (task, settle time, valid, observation
-// errors). A later settlement of the same reviewer (a native reviewer judged again) replaces it, so the record is the
-// latest settlement; a target that is not a regular file is refused as for the packet files.
+// errors). A later settlement replaces it, so the record is the latest settlement: the same reviewer settled again, or
+// for a native subject reviewer another task of the same packet (a Parent reviewer packet another task settled is
+// refused before this, review-packet-settled). A target that is not a regular file is refused as for the packet files.
 function closeReviewPacket(root, reviewId, taskId, { valid, errors }) {
   const { path } = reviewPacketPath(root, reviewId, SETTLED_SUFFIX);
   const bytes = `${JSON.stringify(
@@ -2626,7 +2639,15 @@ function settlementStatus(taskId, root) {
   const parentReviewer =
     record.input.nativeRequest.task.role === 'knu_reviewer' && !record.independentReview;
   const parentReviewId = parentReviewer ? claudeReviewPromptId(root, record.prompt) : undefined;
-  if (parentReviewer) {
+  // The result file is written once and the adjudication record points at it, so it and the closure belong to the
+  // packet's first settled task: another task of the same packet (its reviewerSpec registered again) writes neither.
+  const settledBy =
+    parentReviewId === undefined ? undefined : packetSettledBy(root, parentReviewId);
+  const packetTaken = settledBy !== undefined && settledBy !== taskId;
+  if (parentReviewer && packetTaken) {
+    resultPath = null;
+    state.errors.push('review-packet-settled');
+  } else if (parentReviewer) {
     const result =
       parentReviewId === undefined ? null : parentReviewResult(content, parentReviewId);
     resultPath = result
@@ -2679,7 +2700,7 @@ function settlementStatus(taskId, root) {
       if (error.code !== 'EEXIST') throw error; // Keep the Lead's edits.
     }
   }
-  if (parentReviewId !== undefined)
+  if (parentReviewId !== undefined && !packetTaken)
     settledPath = closeReviewPacket(root, parentReviewId, taskId, {
       valid: state.errors.length === 0,
       errors: state.errors,

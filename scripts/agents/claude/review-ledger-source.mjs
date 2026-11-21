@@ -16,7 +16,7 @@
 // (`KNU review snapshot sha256:…`) and subjectSize the subject paths and criteria documents of the review's criteria
 // record (`<reviewId>.criteria.json` beside its packet; the review id comes from the packet file line of a Parent
 // reviewer prompt or the packet id of a native subject reviewer); either is null when the reader cannot find it.
-// A Parent reviewer whose packet settle closed takes its status from that settlement's result file.
+// A Parent reviewer task whose settlement closed its packet takes its status from that settlement's result file.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
@@ -61,12 +61,17 @@ function parseResult(completion) {
   }
 }
 
-// A Parent reviewer whose packet settle closed (<reviewId>.settled.json) has the result settle wrote
-// (<reviewId>.result.json), or none when settle found the response unparsed. Undefined when the packet is not closed,
-// which leaves the row to the response parse (records from before the closure record, or not settled yet).
-function settledResult(packets, reviewId) {
-  if (reviewId === undefined || !existsSync(resolve(packets, `${reviewId}.settled.json`)))
+// A Parent reviewer task whose settlement closed its packet (<reviewId>.settled.json names the task) has the result
+// that settlement wrote (<reviewId>.result.json), or none when settle found the response unparsed. Undefined when the
+// closure is missing, unreadable or names another task of the same packet, which leaves the row to the response parse
+// (records from before the closure record, a task not settled yet, or a reviewerSpec registered again).
+function settledResult(packets, reviewId, taskId) {
+  if (reviewId === undefined) return undefined;
+  try {
+    if (readJson(resolve(packets, `${reviewId}.settled.json`))?.taskId !== taskId) return undefined;
+  } catch {
     return undefined;
+  }
   try {
     const result = readJson(resolve(packets, `${reviewId}.result.json`));
     return typeof result?.verdict === 'string' && Array.isArray(result.findings) ? result : null;
@@ -133,7 +138,7 @@ function reviewerRow(directory, taskId, adjudications, packets) {
   const completionPath = resolve(directory, 'completion.json');
   if (!existsSync(completionPath)) row.status = 'completion-missing';
   else {
-    let result = settledResult(packets, parentReviewId);
+    let result = settledResult(packets, parentReviewId, taskId);
     if (result === undefined)
       try {
         result = parseResult(readJson(completionPath));

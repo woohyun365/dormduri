@@ -241,7 +241,10 @@ Parent reviewer의 `settle --task`는 응답을 결과 JSON으로 읽습니다. 
 모양의 JSON 객체(`schemaVersion` `cross-model-handoff/v1`, 같은 `packetId`, `verdict` 문자열, `findings` 배열)이면
 `.artifacts/tools/claude-review-packets/<reviewId>.result.json`에 한 번 쓰고 출력 `resultPath`에 그 경로를 둡니다. 읽지 못하면
 `resultPath`는 null이고 `observationErrors`에 `review-result-unparsed`(native subject 경로의 결과 없음과 같은 뜻)를 넣습니다.
-처분 기록 `reviews[].resultPath`는 그 결과 파일이고, 출력 `response` 문자열을 그대로 저장하지 않습니다.
+처분 기록 `reviews[].resultPath`는 그 결과 파일이고, 출력 `response` 문자열을 그대로 저장하지 않습니다. 결과 파일과 닫힘 기록은
+packet을 처음 정산한 Parent reviewer task의 것입니다. 같은 packet을 가리키는 다른 Parent reviewer task(같은 reviewerSpec을 다시
+등록한 task)의 `settle --task`는 둘 다 쓰지 않고 `resultPath` null과 `review-packet-settled`를 냅니다. 다시 리뷰할 때는
+`review-run`으로 새 review를 만듭니다.
 
 등록은 packet마다 같은 디렉터리에 열림 기록 `<reviewId>.open.json`(`reviewId`, 닫힘 기록 이름 `closedBy`)을 씁니다. Reviewer
 정산이 끝나면 같은 디렉터리에 닫힘 기록 `<reviewId>.settled.json`(`taskId`·`settledAt`·`valid`·`observationErrors`)을
@@ -254,7 +257,8 @@ reviewer task(Parent reviewer는 prompt의 `KNU_REVIEW_PACKET_FILE:` 줄, native
 `review-<reviewId>`) 가운데 무효 기록이 없고(task 디렉터리에 `observation-error.json`이 없음. release·대체 등록·관측 오류가
 쓰는 기록) 가장 나중에 등록(`issuedAt`)한 task이고, 기준 task가 없으면 열린 packet이 아닙니다. 열림 기록이 있는 packet은
 `<reviewId>.settled.json`의 `taskId`가 기준 task이면 닫힙니다. 등록은 닫힌 packet의 reviewerSpec도 다시 받으므로, 같은 spec을
-다시 등록하면 기준 task가 바뀌어 그 task의 정산이 닫힘 기록을 다시 쓸 때까지 packet이 다시 열립니다. 열림 기록이 없는 packet은
+다시 등록하면 기준 task가 바뀌어 packet이 다시 열립니다. Native subject reviewer는 그 task의 판정 정산이 닫힘 기록을 다시 써
+닫고, Parent reviewer는 그 task의 정산이 `review-packet-settled`로 닫힘 기록을 쓰지 않으므로 그 task를 release해 닫습니다. 열림 기록이 없는 packet은
 열림 기록을 쓰기 전 helper가 등록한 것이라 닫힘 기록이 생기지 않을 수 있으므로, 닫힘 기록의 `taskId`가 기준 task이거나 기준
 task에 완료 관측(`completion.json`)이 있으면 닫힌 것으로 봅니다. 정산하지 않을 task는 release해 기준 task에서 뺍니다. `.plans`
 promote·상태 정정 전 결속 확인은 이 규칙으로 열린 packet의 `.inputs.json`을 봅니다.
