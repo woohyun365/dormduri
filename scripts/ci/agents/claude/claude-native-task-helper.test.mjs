@@ -5380,9 +5380,53 @@ test('a reviewer settlement writes the settled record of its packet, and nothing
   }
 });
 
+// Review 2 F1: registration writes the packet's opening record <reviewId>.open.json beside the other packet files, so
+// a packet the settled record closes is told apart from one an earlier helper registered (that helper never writes the
+// settled record). The record stays after the settlement closes the packet.
+test('a review packet records its opening at registration and keeps it after the settlement', (t) => {
+  const opened = (r, review, label) => {
+    const path = join(r.root, `${PACKET_DIR}/${reviewIdOf(review)}.open.json`);
+    assert.ok(existsSync(path), label);
+    assert.deepEqual(
+      JSON.parse(readFileSync(path, 'utf8')),
+      { reviewId: reviewIdOf(review), closedBy: `${reviewIdOf(review)}.settled.json` },
+      label,
+    );
+  };
+  {
+    const r = repo(t);
+    writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+    const review = parentReview(r, SMALL_PARENT_SUBJECT);
+    opened(r, review, 'Parent subject opening record');
+  }
+  {
+    const { r, review } = settledParentReview(t);
+    opened(r, review, 'opening record after the settlement');
+  }
+  {
+    const r = settledSubject(t);
+    const { snapshotDigest } = buildClaudeNativeReview(
+      { subjectTaskId: r.subject.taskId },
+      { root: r.root },
+    );
+    const review = buildClaudeNativeReview(
+      {
+        subjectTaskId: r.subject.taskId,
+        runnerEvidence: runnerEvidence(snapshotDigest),
+        selectionBasisRef: 'plan:helper-test/review',
+        reviewerModel: 'claude-opus-4-6',
+        reviewRound: 1,
+      },
+      { root: r.root },
+    );
+    opened(r, review, 'native subject opening record');
+  }
+});
+
 // P6 ② RED 9 (a protection test, not RED): the reviewer prompt of a held-out copy-shaped subject is, to the
-// character, the prompt before P6 ② (fixture captured from the helper at 7e1d95a8). P6 ② changes only the settle
-// branch, so the rescore copy runs see the same prompt (재채점 해당 없음). Review id, digests and SHAs are masked.
+// character, the prompt before P6 ② (fixture captured from the helper at 7e1d95a8). P6 ② changes the settle branch
+// and adds the packet's opening record at registration, neither of which is in the prompt, so the rescore copy runs
+// see the same prompt (재채점 해당 없음). Review id, digests and SHAs are masked.
 test('a held-out copy subject prompt is the prompt before P6 ② to the character (P6 ② RED 9)', (t) => {
   const r = repo(t);
   mkdirSync(join(r.root, COPY_SHAPE_DIR, 'subject'), { recursive: true });
