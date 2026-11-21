@@ -126,12 +126,15 @@ Role·LOGIN user·grant 표는 [Database operator scripts](../../../infra/db/REA
 - 고른 선택지: 관리자 행위 감사는 append-only table 하나(`AdminAuditEvent`)로 두고(관리자 계정 table과 함께 만듦), RRPD 열람 기록
   `RetentionAccessLog`는 따로 둔다. 감사 table 셋은 앱에서 기록하는 role이 INSERT·SELECT만 받는다
   (`SeasonOperationAuditEvent`는 runtime, `RetentionAccessLog`는 disclosure, `AdminAuditEvent`는 `backoffice_runtime`). 감사 행이 가리키는
-  부모(시즌, 관리자 계정, 승인 요청) FK는 `Restrict`라 부모를 지워도 감사 행이 사라지지 않고, 관리자 계정은 지우지 않는다.
+  부모(시즌, 관리자 계정, 승인 요청) FK는 삭제·수정 모두 `Restrict`라 부모를 지우거나 id를 바꿔도 감사 행이 사라지거나 바뀌지
+  않고, 관리자 계정은 지우지 않는다. 같은 계정·역할의 활성 부여는 하나이고(partial unique index), 정리 조건이 기대는 상태·시각
+  짝(승인 요청의 닫힘 시각, 계정의 비활성화·익명화, session 회수 사유, 감사의 관리자 actor)은 CHECK 제약이 막는다.
   `AdminAuditEvent`의 3년 폐기는 `backoffice_retention`의 DELETE만 한다. `RetentionAccessLog`의 수명 처리(3년 기한
   폐기로 열람자·목적 열을 비우는 UPDATE 등)는 RRPD table로서 worker가 맡는다(grant 표의 RRPD worker DML)
 - 근거: RRPD 열람 기록은 보존·폐기 주기(3년)와 disclosure 권한이 관리자 감사와 다르다. 시즌 운영이 백오피스로 옮겨 가면 관리자
-  감사가 시즌 운영 감사를 흡수해 감사가 두 곳으로 나뉘지 않는다. append-only는 grant 표와 smoke가 막는다. 부모 삭제의 cascade는
-  권한과 무관하게 감사 행을 지우므로 FK로 막는다(#868)
+  감사가 시즌 운영 감사를 흡수해 감사가 두 곳으로 나뉘지 않는다. append-only는 grant 표와 smoke가 막는다. 부모 삭제·id 변경의
+  cascade는 권한과 무관하게 감사 행을 지우거나 고치므로 FK로 막는다(#868). 상태와 시각이 어긋난 행은 정리 대상에서 빠져 보존
+  기한을 넘기므로 쓰기 code가 아니라 DB 제약이 마지막에 막는다
 - 기각한 대안: 셋 다 한 table(RRPD 폐기와 관리자 감사 보존·권한이 섞임), 셋 다 따로(시즌 운영이 옮겨 오면 감사가 나뉨), 관리자
   감사 table을 관리자 계정보다 먼저(FK 없는 table을 나중에 다시 고침)
 - 이전 선택: 2026-11-04 감사 table 둘, `SeasonOperationAuditEvent`의 Season FK `Cascade`. 바꾼 이유: 관리자 계정·감사 table을 만듦

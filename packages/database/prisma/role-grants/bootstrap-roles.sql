@@ -39,7 +39,7 @@ DECLARE
     ARRAY['dormduri_api', 'app_runtime', '16', 'noset'],
     ARRAY['dormduri_retention_worker', 'retention_worker', '8', 'noset'],
     ARRAY['dormduri_api_disclosure', 'retention_disclosure', '4', 'noset'],
-    -- Backoffice host only: the backoffice API and its admin-record cleanup job (Backoffice foundation D-BF8).
+    -- Backoffice host only: the backoffice API and its admin-record cleanup job (infra/db/README.md Credential boundary).
     ARRAY['dormduri_backoffice', 'backoffice_runtime', '12', 'noset'],
     ARRAY['dormduri_backoffice_retention', 'backoffice_retention', '4', 'noset']
   ];

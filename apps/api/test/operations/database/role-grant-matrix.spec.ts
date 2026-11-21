@@ -41,7 +41,7 @@ const RRPD_TABLES = [
   'ArchiveJob',
 ];
 
-// Backoffice admin tables (Backoffice foundation D-BF3~D-BF8). Only the two backoffice roles write them.
+// Backoffice admin tables (docs/policies/operator-access.md, decision record db.integrity.role-separation). Only the two backoffice roles write them.
 const ADMIN_TABLES = [
   'AdminAccount',
   'AdminPasswordCredential',
@@ -61,7 +61,7 @@ const ADMIN_CREDENTIAL_TABLES = [
   'AdminTotpCredential',
   'AdminRecoveryCode',
 ];
-// Rows the cleanup job removes: 3-year audit and access history, ended auth state after 7 days (D-BF4·D-BF6·D-BF7).
+// Rows the cleanup job removes: 3-year audit and access history, ended auth state after 7 days (data-retention.md DR-R5·DR-R6).
 const ADMIN_RETENTION_DELETE_TABLES = [
   'AdminAuditEvent',
   'AdminRoleAssignment',
@@ -226,7 +226,7 @@ describe('DB role grant table', () => {
         privilegesOf(table, 'backoffice_retention').has('DELETE'),
       ).sort(),
     ).toEqual([...ADMIN_RETENTION_DELETE_TABLES].sort());
-    // The only UPDATE is the anonymization of a deactivated account (D-BF7, Q20).
+    // The only UPDATE is the anonymization of a deactivated account (data-retention.md DR-R5).
     expect(
       retentionRows.filter((row) => row.privileges.includes('UPDATE')).map(describeRow),
     ).toEqual([
@@ -254,7 +254,7 @@ describe('DB role grant table', () => {
     for (const table of ADMIN_TABLES.filter((name) => !ADMIN_CREDENTIAL_TABLES.includes(name))) {
       expect(privilegesOf(table, 'backoffice_runtime').has('DELETE'), table).toBe(false);
     }
-    // Deactivation deletes every credential at once (D-BF7).
+    // Deactivation deletes every credential at once (operator-access.md OA-R6).
     for (const table of ADMIN_CREDENTIAL_TABLES) {
       expect(privilegesOf(table, 'backoffice_runtime').has('DELETE'), table).toBe(true);
     }
@@ -305,7 +305,7 @@ describe('DB role grant table', () => {
   it('worker·disclosure·backoffice는 정한 범위 밖 권한을 받지 않는다', () => {
     // Nothing reads AuthMailOutboxEvent with the worker credential (F7).
     expect(rowsFor('AuthMailOutboxEvent', 'retention_worker')).toEqual([]);
-    // Backoffice roles reach only the admin tables; user tables and RRPD arrive per feature (D-BF8·D-BF11).
+    // Backoffice roles reach only the admin tables; user tables and RRPD arrive per feature (infra/db/README.md, new role step).
     expect(
       matrix
         .filter((row) => row.role === 'backoffice_runtime' || row.role === 'backoffice_retention')

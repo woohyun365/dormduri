@@ -282,7 +282,7 @@ CREATE INDEX "AdminAuditEvent_targetType_targetId_occurredAt_idx" ON "AdminAudit
 CREATE INDEX "AdminAuditEvent_approvalRequestId_idx" ON "AdminAuditEvent"("approvalRequestId");
 
 -- AddForeignKey
-ALTER TABLE "SeasonOperationAuditEvent" ADD CONSTRAINT "SeasonOperationAuditEvent_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "SeasonOperationAuditEvent" ADD CONSTRAINT "SeasonOperationAuditEvent_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
 ALTER TABLE "AdminPasswordCredential" ADD CONSTRAINT "AdminPasswordCredential_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "AdminAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -333,8 +333,45 @@ ALTER TABLE "AdminApprovalRequest" ADD CONSTRAINT "AdminApprovalRequest_requeste
 ALTER TABLE "AdminApprovalRequest" ADD CONSTRAINT "AdminApprovalRequest_decidedByAccountId_fkey" FOREIGN KEY ("decidedByAccountId") REFERENCES "AdminAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "AdminAuditEvent" ADD CONSTRAINT "AdminAuditEvent_actorAccountId_fkey" FOREIGN KEY ("actorAccountId") REFERENCES "AdminAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "AdminAuditEvent" ADD CONSTRAINT "AdminAuditEvent_actorAccountId_fkey" FOREIGN KEY ("actorAccountId") REFERENCES "AdminAccount"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
-ALTER TABLE "AdminAuditEvent" ADD CONSTRAINT "AdminAuditEvent_approvalRequestId_fkey" FOREIGN KEY ("approvalRequestId") REFERENCES "AdminApprovalRequest"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "AdminAuditEvent" ADD CONSTRAINT "AdminAuditEvent_approvalRequestId_fkey" FOREIGN KEY ("approvalRequestId") REFERENCES "AdminApprovalRequest"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
+-- Manual constraints not represented by Prisma schema DSL
+-- One active assignment per account and role: revocation then always ends the role.
+CREATE UNIQUE INDEX "AdminRoleAssignment_accountId_role_active_key"
+  ON "AdminRoleAssignment"("accountId", "role")
+  WHERE "revokedAt" IS NULL;
+
+-- Role requests name the account and the role they change.
+ALTER TABLE "AdminApprovalRequest"
+  ADD CONSTRAINT "AdminApprovalRequest_role_target_check"
+  CHECK (
+    "kind" NOT IN ('ROLE_GRANT', 'ROLE_REVOKE')
+    OR ("targetAccountId" IS NOT NULL AND "targetRole" IS NOT NULL)
+  );
+
+-- A request leaves PENDING exactly when it is closed; the 3-year cleanup reads closedAt.
+ALTER TABLE "AdminApprovalRequest"
+  ADD CONSTRAINT "AdminApprovalRequest_closed_check"
+  CHECK (("status" = 'PENDING') = ("closedAt" IS NULL));
+
+-- A deactivated account has its deactivation time, and only a deactivated account is anonymized.
+ALTER TABLE "AdminAccount"
+  ADD CONSTRAINT "AdminAccount_deactivated_check"
+  CHECK (("status" = 'DEACTIVATED') = ("deactivatedAt" IS NOT NULL));
+
+ALTER TABLE "AdminAccount"
+  ADD CONSTRAINT "AdminAccount_anonymized_check"
+  CHECK ("anonymizedAt" IS NULL OR "status" = 'DEACTIVATED');
+
+-- A revoked session records why; the 7-day cleanup reads revokedAt.
+ALTER TABLE "AdminSession"
+  ADD CONSTRAINT "AdminSession_revocation_pair_check"
+  CHECK (("revokedAt" IS NULL) = ("revocationReason" IS NULL));
+
+-- An admin actor is an account; system and anonymous actors have none.
+ALTER TABLE "AdminAuditEvent"
+  ADD CONSTRAINT "AdminAuditEvent_actor_check"
+  CHECK (("actorType" = 'ADMIN') = ("actorAccountId" IS NOT NULL));

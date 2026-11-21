@@ -823,8 +823,9 @@ model SeasonOperationAuditEvent {
   nextSnapshot      Json
   metadata          Json?
   createdAt         DateTime                   @default(now()) @db.Timestamptz(3)
-  // Restrict: an append-only audit row must outlive a Season delete (#868, Backoffice foundation D-BF9).
-  season            Season                     @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  // Restrict on delete and update: an append-only audit row must outlive and keep pointing at
+  // its Season (#868, decision record db.integrity.audit-tables).
+  season            Season                     @relation(fields: [seasonId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([seasonId, createdAt])
   @@index([campusCode, createdAt])
@@ -2164,9 +2165,11 @@ model ModerationTerm {
   @@index([surface, category, isActive])
 }
 
-// Backoffice admin identity, access control and audit (Backoffice foundation D-BF3~D-BF9).
-// apps/backoffice-api owns these tables. The user API credentials have no grant on them
-// (role-grant-matrix.csv); retention cleanup runs as backoffice_retention.
+// Backoffice admin identity, access control and audit (docs/policies/operator-access.md,
+// decision record db.integrity.audit-tables). apps/backoffice-api owns these tables. The user
+// API credentials have no grant on them (role-grant-matrix.csv); retention cleanup runs as
+// backoffice_retention. The migration adds the constraints this DSL cannot state: one active
+// assignment per account and role, and the status/time pair checks the cleanup relies on.
 
 enum AdminAccountStatus {
   ACTIVE
@@ -2270,7 +2273,7 @@ enum AdminAuditResult {
 }
 
 // Accounts are never deleted (OA-R6); a deactivated account is anonymized after its last
-// audit row passes the 3-year retention (D-BF7).
+// audit row passes the 3-year retention (data-retention.md DR-R5).
 model AdminAccount {
   id                     String                   @id @default(uuid())
   email                  String                   @unique
@@ -2367,7 +2370,7 @@ model AdminInvitation {
 }
 
 // The audit row keeps the session id as a value, not a FK: cleanup deletes ended sessions
-// after 7 days while their audit rows stay for 3 years (D-BF4).
+// after 7 days while their audit rows stay for 3 years (data-retention.md DR-R6, DR-R5).
 model AdminSession {
   id                 String                        @id @default(uuid())
   accountId          String
@@ -2403,7 +2406,7 @@ model AdminWebAuthnChallenge {
   @@index([expiresAt])
 }
 
-// grantedByApprovalRequestId is null only for the first owner (bootstrap command, D-BF13).
+// grantedByApprovalRequestId is null only for the first owner (bootstrap command).
 model AdminRoleAssignment {
   id                         String                @id @default(uuid())
   accountId                  String
@@ -2420,7 +2423,7 @@ model AdminRoleAssignment {
   @@index([revokedAt])
 }
 
-// A decision is a conditional UPDATE on the pending status and the request-time digest (D-BF6).
+// A decision is a conditional UPDATE on the pending status and the request-time digest.
 model AdminApprovalRequest {
   id                   String                     @id @default(uuid())
   kind                 AdminApprovalRequestKind
@@ -2448,7 +2451,8 @@ model AdminApprovalRequest {
 }
 
 // Append-only for backoffice_runtime (INSERT·SELECT). Only backoffice_retention deletes rows
-// older than 3 years (D-BF7). metadata never holds secrets, codes, tokens or user personal data.
+// older than 3 years (data-retention.md DR-R5). metadata never holds secrets, codes, tokens or
+// user personal data (operator-access.md OA-R7).
 model AdminAuditEvent {
   id                String                @id @default(uuid())
   occurredAt        DateTime              @default(now()) @db.Timestamptz(3)
@@ -2465,8 +2469,8 @@ model AdminAuditEvent {
   reason            String?
   requestId         String?
   metadata          Json?
-  actorAccount      AdminAccount?         @relation(fields: [actorAccountId], references: [id], onDelete: Restrict)
-  approvalRequest   AdminApprovalRequest? @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict)
+  actorAccount      AdminAccount?         @relation(fields: [actorAccountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  approvalRequest   AdminApprovalRequest? @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([occurredAt])
   @@index([actorAccountId, occurredAt])

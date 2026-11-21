@@ -89,7 +89,9 @@ Secret value는 command output, CI log, issue, report에 남기지 않는다. �
   SELECT·INSERT(append-only).
 - `backoffice_retention`: 정리 조건에 쓰는 열만 SELECT(secret·content·identifier 없음), 감사·역할 부여·승인 요청·session·
   challenge·초대 DELETE(3년 폐기, 끝난 인증 상태 7일 정리), 비활성 계정 익명화 열(`email`·`displayName`·`anonymizedAt`·
-  `updatedAt`)만 UPDATE. INSERT는 없다. 감사 FK `Restrict`가 폐기 순서(감사 → 역할 부여 → 승인 요청)를 지킨다.
+  `updatedAt`)만 UPDATE. INSERT는 없다. 감사 FK `Restrict`는 감사가 가리키는 관리자 계정·승인 요청을, 역할 부여의 FK는 승인
+  요청을 먼저 지우지 못하게 한다. 감사가 역할 부여를 가리키는 것은 값(`targetType`·`targetId`)이라 DB가 막지 않으므로 정리
+  작업이 그 감사 행을 먼저 폐기한 뒤 역할 부여를 지운다([data-retention.md DR-R5](../../docs/policies/data-retention.md)).
 - 사용자 table·RRPD에는 두 role 모두 권한이 없다. 백오피스 기능이 필요한 열만 열 단위로 더하고 test로 고정한다.
 
 ## Release order

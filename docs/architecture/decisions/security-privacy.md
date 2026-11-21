@@ -23,14 +23,16 @@ DB 계정·grant는 [Database operator scripts](../../../infra/db/README.md#cred
   (`pgaudit.log = 'all'`). bind 값은 pgAudit와 statement log 모두 남기지 않는다. PostgreSQL log는 CloudWatch에 731일(2년)
   둔다. 사람 DB 계정의 권한 부여·변경·말소 내역(3년)과 break-glass 사용은 pgAudit log와 따로 전용 운영 이슈의 댓글로 남긴다
   ([권한 내역과 break-glass](../../../infra/db/README.md#권한-내역과-break-glass)). RRPD SELECT 객체 감사는 하지 않는다
-- 근거: 앱이 쓰는 감사는 table 권한으로 고칠 수 없게 막고, DB에 직접 들어온 사람의 열람·변경은 pgAudit가 남긴다. 운영 worker의
+- 근거: 앱이 쓰는 감사는 table 권한으로 고칠 수 없게 막고, 권한과 무관하게 감사 행을 지우거나 고치는 부모 삭제·id 변경의 FK
+  경로도 `Restrict`로 막는다(#868, [db.integrity.audit-tables](./db.md#dbintegrityaudit-tables)). DB에 직접 들어온 사람의 열람·변경은
+  pgAudit가 남긴다. 운영 worker의
   RRPD 읽기까지 객체 감사로 남기면 log 양과 비용이 크고 열람 판단은 `RetentionAccessLog`와 role 차단이 한다. bind 값을 남기면
   개인정보가 log로 흘러간다. master session은 pgAudit 설정을 끌 수 있어 접속·종료 log, break-glass 기록, 쓴 뒤 비밀번호
   교체로 보완한다. 관리자 감사 폐기 권한을 사용자 API worker에 두면 공개 ingress 뒤 process가 뚫렸을 때 3년이 안 된 관리자 기록도
   지울 수 있어(grant는 행의 나이를 막지 못함) 백오피스 host로 둔다. user host가 host 수준으로 뚫리면 배포 one-off의 migration
   credential(모든 객체의 소유자)은 결정과 무관하게 모든 table에 닿으므로 RDS 백업·시점 복원과 pgAudit DDL·role 기록이 대응이다
 - 기각한 대안: RRPD SELECT 객체 감사(log 양·비용, 운영 worker 읽기까지 남음), 앱 감사만(DB에 직접 들어온 사람의 변경이 안
-  남음), 사람은 쓰기·DDL·role만(누가 어떤 개인정보를 열람했는지 안 남음), log 1년 보존(관리자 접속·행위 기록 2년 기준과 다름), 관리자 감사 폐기를 사용자 API worker로(사용자 API process 침해 때 관리자 기록에 닿음)
+  남음), 사람은 쓰기·DDL·role만(누가 어떤 개인정보를 열람했는지 안 남음), log 1년 보존(pgAudit·SSM 기록 2년, 백오피스 앱 감사 3년보다 짧음), 관리자 감사 폐기를 사용자 API worker로(사용자 API process 침해 때 관리자 기록에 닿음)
 - 이전 선택: 2026-11-04 관리자 행위 감사의 폐기 주체를 정하지 않음(관리자 감사 table 없음). 바꾼 이유: 관리자 감사 table을 만듦(재검토
   조건). 출처 #949, Owner 확인 2026-11-21
 - 재검토 조건: 사람 조회 경로가 SSM 밖으로 늘 때, pgAudit log 양이 CloudWatch 비용 기준을 넘을 때, 백오피스 host에 공개 ingress가 생길 때
