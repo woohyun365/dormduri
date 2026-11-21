@@ -70,10 +70,14 @@ PR template의 `Lifecycle` 절은 CI `Lifecycle gate` job이 읽는 입력입니
   필요하면 `override: W-IRREV — <이유> — <재검토 조건>` 줄로 경고로 낮추고 리뷰가 그 근거를 봅니다.
 - 제품 경로(path-domains.json의 `productRoots`)를 바꾸면 경로마다 영역 리뷰 기준이 있어야 합니다(`W-AREA`). 영역은
   [KNU domain binding](../agent-workflows/domain/knu-binding.md#영역-검사)의 경로 키로 판정합니다. 영역이 없는 경로는 PR base의
-  제외 표 행에 맞으면 경고이고, 아니면 feature·policy-change에서 fail, trivial·bugfix·hotfix에서 경고입니다. 영역 키와 pack 절은
-  PR head로 판정해 같은 PR에서 더해도 되지만, PR이 더한 제외 행은 그 PR에 적용되지 않습니다. 그래서 새 제품 디렉터리는 같은 PR에
-  영역 키와 pack 절을 더하거나, 제외 행을 먼저 merge하거나, `override: W-AREA — <이유> — <재검토 조건>` 줄로 경고로 낮추고 리뷰가
-  그 근거를 봅니다. 분기 뒤 base가 제외 행을 지우고 영역 키를 더했으면 branch를 base로 갱신합니다.
+  제외 표 행에 맞으면 경고이고, 아니면 feature·policy-change에서 fail, trivial·bugfix·hotfix에서 경고입니다. PR head에 있는 경로의
+  영역 키와 pack 절은 PR head로 판정해 같은 PR에서 더해도 되지만, PR이 더한 제외 행은 그 PR에 적용되지 않습니다. 그래서 새 제품
+  디렉터리는 같은 PR에 영역 키와 pack 절을 더하거나, 제외 행을 먼저 merge하거나, `override: W-AREA — <이유> — <재검토 조건>` 줄로
+  경고로 낮추고 리뷰가 그 근거를 봅니다. 분기 뒤 base가 제외 행을 지우고 영역 키를 더했으면 branch를 base로 갱신합니다. PR이 삭제한
+  경로(PR head에 없는 변경 경로, rename의 원래 경로 포함)는 영역 키·pack 절도 PR base로 판정하므로 파일과 그 경로의 binding glob·영역
+  키를 한 PR에서 지울 수 있습니다. base에 영역도 제외 행도 없던 경로를 지우면 같은 PR이 head에 더한 영역 키와 제외 행은 적용되지
+  않아 위 등급대로 fail·경고이고, 같은 PR에서 넘기려면 `override: W-AREA` 줄을 둡니다. 분기 뒤 base가 같은 경로를 먼저 지웠을 때도
+  branch를 base로 갱신합니다.
 - 독립 리뷰가 PASS한 snapshot은 등급과 무관하게
   `리뷰 PASS: <reviewId> base=<sha> head=<sha> diff=<sha256|none> untracked=<sha256|none>` 줄로 적습니다. 값은 공통 리뷰
   결과의 `reviewedSnapshot`이고 host adapter digest(`KNU review snapshot sha256:…` 등)가 아닙니다.
