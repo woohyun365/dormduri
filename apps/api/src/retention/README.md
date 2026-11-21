@@ -73,7 +73,7 @@ Retention observability는 lifecycle sweep 결과와 DB backlog를 count/status/
 ### Follow-up boundaries
 
 - External alert delivery adapter는 #240 범위다. 현재 layer는 alert candidate를 생성하고 structured log로 남긴다.
-- Production KMS/secret adapter는 #232 또는 별도 secret management issue 범위다.
+- Production KMS/secret adapter와 vault key 회전은 #950 범위다.
 - Production EXPLAIN/IOPS/load-test baseline은 운영 관측 issue에서 다룬다.
 
 ## Queue claim and disposal hardening

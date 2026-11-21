@@ -109,6 +109,9 @@ pnpm --dir apps/api secrets:inventory
 
 - 값 교체: `put-secret-value`로 새 version을 `AWSCURRENT`로 만든 뒤 API 배포 document를 지금 digest로 다시 실행한다(`deploy`).
   Document는 `deploy`·`rollback` 모두 `AWSCURRENT`를 다시 꺼내 새 secret release로 설치한다.
+- 보존 data 암호화 key(`RETENTION_IDENTITY_ENCRYPTION_KEY_BASE64`·`RETENTION_VAULT_*_ENCRYPTION_KEY_BASE64`)는 위 값 교체로 바꾸지
+  않는다. API는 용도마다 key 하나와 version 하나만 읽고 이전 key로 여는 경로가 없어, 바꾸면 이미 보존한 암호문(식별 anchor·vault
+  payload)을 열지 못한다. 이 key의 회전은 key 보관·회전 절차(#950)가 정한다.
 - Database credential: RDS role 비밀번호 변경, 묶음 갱신, API 배포 document 실행을 같은 change window에 묶는다. 그 사이 옛
   비밀번호로 도는 container는 새 연결을 열지 못한다.
 - Secret value rollback: 직전 version을 `AWSCURRENT`로 되돌린(`update-secret-version-stage`) 뒤 document를 다시 실행한다. Image

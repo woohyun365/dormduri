@@ -3,11 +3,16 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { API_ENV_VALIDATION_SCHEMA } from '../../../src/config/composition/api-config.registry.js';
 import { retentionEnvKeys } from '../../../src/retention/config/retention.env.js';
-import { parseRetentionVaultKeyPurpose } from '../../../src/retention/vault/retained-vault-keyring.js';
+import {
+  parseRetentionVaultKeyPurpose,
+  RETENTION_VAULT_KEY_PURPOSES,
+} from '../../../src/retention/vault/retained-vault-keyring.js';
 
-// The vault key purposes that production code retains payloads with must each have an encryption key and a key
-// version in the env schema and in every deployment contract. The env keyring has no fallback key, so a purpose
-// without a delivered key makes its archive job fail with `key unavailable` (#951).
+// Every vault key purpose the keyring serves must have an encryption key and a key version in the env schema and in
+// every deployment contract. The env keyring has no fallback key, so a purpose without a delivered key makes its
+// archive job fail with `key unavailable` (#951). The purpose type comes from the keyring list, so a purpose passed
+// through a constant or a variable is still checked against the deployment contracts. The source scan only sees
+// `keyPurpose: '<NAME>'` literals; it checks that production code retains payloads with exactly the listed purposes.
 
 const sourceRoot = resolve(process.cwd(), 'src');
 const manifestPath = resolve(process.cwd(), '../../infra/deploy/api/env.manifest.json');
@@ -68,21 +73,23 @@ function productionErrorPaths(env: Record<string, string>): string[] {
 }
 
 const inUse = purposesInUse();
-const expectedEncryptionKeys = inUse.map(encryptionKey).sort();
+const keyringPurposes = [...RETENTION_VAULT_KEY_PURPOSES].sort();
+const expectedEncryptionKeys = keyringPurposes.map(encryptionKey).sort();
 
 describe('retention vault key contract', () => {
-  it('finds the vault key purposes that production code retains payloads with', () => {
+  it('retains payloads with exactly the keyring purposes', () => {
     // Positive control for the source scan: the chat body archive is a known caller.
     expect(inUse).toContain('CHAT_BODY');
+    expect(inUse).toEqual(keyringPurposes);
   });
 
-  it('declares a production-required encryption key and a key version for exactly the purposes in use', () => {
+  it('declares a production-required encryption key and a key version for every keyring purpose', () => {
     const definitions = new Map<string, (typeof retentionEnvKeys)[number]>(
       retentionEnvKeys.map((definition) => [definition.key, definition]),
     );
 
     expect(vaultEncryptionKeys(definitions.keys())).toEqual(expectedEncryptionKeys);
-    for (const purpose of inUse) {
+    for (const purpose of keyringPurposes) {
       expect(definitions.get(encryptionKey(purpose))).toMatchObject({
         owner: 'retention',
         source: 'secret-store',
@@ -99,14 +106,17 @@ describe('retention vault key contract', () => {
     }
   });
 
-  it.each(inUse)('production env validation fails without the %s vault key', (purpose) => {
-    const key = encryptionKey(purpose);
+  it.each(keyringPurposes)(
+    'production env validation fails without the %s vault key',
+    (purpose) => {
+      const key = encryptionKey(purpose);
 
-    expect(productionErrorPaths({})).toContain(key);
-    expect(productionErrorPaths({ [key]: validBase64Key })).not.toContain(key);
-  });
+      expect(productionErrorPaths({})).toContain(key);
+      expect(productionErrorPaths({ [key]: validBase64Key })).not.toContain(key);
+    },
+  );
 
-  it('delivers the vault keys in use through every deployment contract', () => {
+  it('delivers every keyring purpose key through every deployment contract', () => {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
       entries: { key: string; secret: boolean; requiredInProduction: boolean }[];
       projections: { containerStartupRequired: string[]; runtimeSecrets: string[] };
@@ -117,7 +127,7 @@ describe('retention vault key contract', () => {
     const manifestKeys = new Set(manifest.entries.map((entry) => entry.key));
 
     expect(vaultEncryptionKeys(manifestKeys)).toEqual(expectedEncryptionKeys);
-    for (const purpose of inUse) {
+    for (const purpose of keyringPurposes) {
       expect(manifestKeys).toContain(keyVersionKey(purpose));
     }
     expect(vaultEncryptionKeys(manifest.projections.runtimeSecrets)).toEqual(
@@ -130,11 +140,12 @@ describe('retention vault key contract', () => {
     expect(vaultEncryptionKeys(envExampleKeys(envExamplePath))).toEqual(expectedEncryptionKeys);
   });
 
-  it('keeps every purpose in use parseable and rejects the unused IDENTITY purpose', () => {
-    for (const purpose of inUse) {
+  it('parses only keyring purposes and rejects the unused IDENTITY purpose', () => {
+    for (const purpose of keyringPurposes) {
       expect(parseRetentionVaultKeyPurpose(purpose)).toBe(purpose);
     }
     // Retained identity anchors use the RETENTION_IDENTITY_* cipher, not a vault key purpose.
     expect(() => parseRetentionVaultKeyPurpose('IDENTITY')).toThrow('unsupported key purpose');
+    expect(() => parseRetentionVaultKeyPurpose('chat_body')).toThrow('unsupported key purpose');
   });
 });

@@ -2,15 +2,18 @@ import { createRetentionCipher, type RetentionCipher } from '../crypto/retention
 
 const DEFAULT_VAULT_KEY_VERSION = 'local-v1';
 
-// 용도마다 `RETENTION_VAULT_<용도>_ENCRYPTION_KEY_BASE64`·`_KEY_VERSION`을 env schema(`../config/retention.env.ts`)와 배포
-// 계약이 함께 선언한다(`test/operations/platform/retention-vault-key-contract.spec.ts`). Retained identity 식별 anchor는
-// vault 용도가 아니라 `RETENTION_IDENTITY_*` cipher를 쓴다.
-export type RetentionVaultKeyPurpose =
-  | 'CHAT_BODY'
-  | 'NICKNAME_AUDIT'
-  | 'ACADEMIC_IDENTITY_AUDIT'
-  | 'SEASON_PROFILE_HISTORY'
-  | 'MATCH_HISTORY';
+// Vault key 용도 목록의 원본이다. 용도마다 `RETENTION_VAULT_<용도>_ENCRYPTION_KEY_BASE64`·`_KEY_VERSION`을 env
+// schema(`../config/retention.env.ts`)와 배포 계약이 함께 선언한다(`test/operations/platform/retention-vault-key-contract.spec.ts`).
+// Retained identity 식별 anchor는 vault 용도가 아니라 `RETENTION_IDENTITY_*` cipher를 쓴다.
+export const RETENTION_VAULT_KEY_PURPOSES = [
+  'CHAT_BODY',
+  'NICKNAME_AUDIT',
+  'ACADEMIC_IDENTITY_AUDIT',
+  'SEASON_PROFILE_HISTORY',
+  'MATCH_HISTORY',
+] as const;
+
+export type RetentionVaultKeyPurpose = (typeof RETENTION_VAULT_KEY_PURPOSES)[number];
 
 export interface RetentionVaultKeyring {
   getCipher(purpose: RetentionVaultKeyPurpose): RetentionCipher | null;
@@ -63,14 +66,12 @@ export function resolveRetentionVaultCipher(
   return (keyring ?? createEnvRetentionVaultKeyring()).getCipher(purpose);
 }
 
+function isRetentionVaultKeyPurpose(value: string): value is RetentionVaultKeyPurpose {
+  return (RETENTION_VAULT_KEY_PURPOSES as readonly string[]).includes(value);
+}
+
 export function parseRetentionVaultKeyPurpose(value: string): RetentionVaultKeyPurpose {
-  if (
-    value === 'CHAT_BODY' ||
-    value === 'NICKNAME_AUDIT' ||
-    value === 'ACADEMIC_IDENTITY_AUDIT' ||
-    value === 'SEASON_PROFILE_HISTORY' ||
-    value === 'MATCH_HISTORY'
-  ) {
+  if (isRetentionVaultKeyPurpose(value)) {
     return value;
   }
   throw new Error('[retained-vault-owner] unsupported key purpose');
