@@ -249,12 +249,15 @@ Parent reviewer의 `settle --task`는 응답을 결과 JSON으로 읽습니다. 
 정산의 끝이고, 같은 reviewer를 다시 정산하면(native subject reviewer를 다시 판정하는 경우) 마지막 정산으로 다시 씁니다. 완료
 관측이 없어 거부된 정산이나 native subject reviewer의 관측 정산은 쓰지 않습니다.
 
-열린 리뷰 packet은 `<reviewId>.inputs.json`이 있고, 그 review의 reviewer task가 native registry에 등록돼 있고 무효 기록이
-없으며(task 디렉터리에 `observation-error.json`이 없음. release·대체 등록·관측 오류가 쓰는 기록), 닫히지 않은 것입니다. 열림
-기록이 있는 packet은 `<reviewId>.settled.json`이 생기면 닫힙니다. 열림 기록이 없는 packet은 열림 기록을 쓰기 전 helper가
-등록한 것이라 닫힘 기록이 생기지 않을 수 있으므로, `<reviewId>.settled.json`이 있거나 reviewer task에 완료
-관측(`completion.json`)이 생기면 닫힌 것으로 봅니다. 정산하지 않을 task의 packet은 그 task를 release해 닫습니다. `.plans` promote·상태 정정 전 결속 확인은
-이 규칙으로 열린 packet의 `.inputs.json`을 봅니다.
+열린 리뷰 packet은 `<reviewId>.inputs.json`이 있고 아래 규칙으로 닫히지 않은 것입니다. 기준 task는 그 packet을 가리키는
+reviewer task(Parent reviewer는 prompt의 `KNU_REVIEW_PACKET_FILE:` 줄, native subject reviewer는 packet id
+`review-<reviewId>`) 가운데 무효 기록이 없고(task 디렉터리에 `observation-error.json`이 없음. release·대체 등록·관측 오류가
+쓰는 기록) 가장 나중에 등록(`issuedAt`)한 task이고, 기준 task가 없으면 열린 packet이 아닙니다. 열림 기록이 있는 packet은
+`<reviewId>.settled.json`의 `taskId`가 기준 task이면 닫힙니다. 등록은 닫힌 packet의 reviewerSpec도 다시 받으므로, 같은 spec을
+다시 등록하면 기준 task가 바뀌어 그 task의 정산이 닫힘 기록을 다시 쓸 때까지 packet이 다시 열립니다. 열림 기록이 없는 packet은
+열림 기록을 쓰기 전 helper가 등록한 것이라 닫힘 기록이 생기지 않을 수 있으므로, 닫힘 기록의 `taskId`가 기준 task이거나 기준
+task에 완료 관측(`completion.json`)이 있으면 닫힌 것으로 봅니다. 정산하지 않을 task는 release해 기준 task에서 뺍니다. `.plans`
+promote·상태 정정 전 결속 확인은 이 규칙으로 열린 packet의 `.inputs.json`을 봅니다.
 
 ### 리뷰 입력 사본
 
