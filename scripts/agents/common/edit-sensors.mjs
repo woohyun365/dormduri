@@ -742,7 +742,8 @@ export function summarizeEditSensors(root) {
   );
   const bySensor = {};
   const byCriteria = {};
-  for (const record of records) {
+  // An unchanged end record repeats an activation already counted: it counts only as a false positive candidate.
+  for (const record of records.filter(({ unchangedSince }) => !unchangedSince)) {
     const sensor = record.sensor ?? '(hook)';
     bySensor[sensor] ??= {};
     bySensor[sensor][record.result] = (bySensor[sensor][record.result] ?? 0) + 1;

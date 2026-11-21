@@ -103,3 +103,16 @@ test('the CLI prints the count, records a review-point warning for a session and
   assert.equal(records().length, 1, 'no record without a phrase');
   assert.equal(run('--session', SESSION).status, 2, 'an input file is required');
 });
+
+// Review round 1 F1: a Codex packet is the message the Parent writes, so the knu-review skill step that runs the CLI also
+// tells the Parent to put the count in the packet environment, as the Claude helper does.
+test('the Codex knu-review step runs the CLI and puts a non-zero count in the packet environment', () => {
+  const skill = readFileSync(resolve(repoRoot, '.agents/skills/knu-review/SKILL.md'), 'utf8');
+  const step3 = skill.split(/\n(?=\d+\. )/u).find((step) => step.startsWith('3. '));
+  assert.ok(step3, 'knu-review has a step 3');
+  assert.ok(
+    step3.includes('node scripts/agents/common/review-prejudgment-phrases.mjs --input'),
+    'step 3 runs the phrase CLI',
+  );
+  assert.match(step3, /`environment`에 `review-prejudgment-phrase=<count>`/u);
+});

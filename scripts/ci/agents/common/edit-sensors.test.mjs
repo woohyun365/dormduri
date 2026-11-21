@@ -76,6 +76,19 @@ test('every 편집 row of the repository binding has a runner and the format, li
     'sensor.typecheck': { 끝: 30000 },
     'sensor.test-change': { 직후: 8000, 끝: 30000 },
   });
+  // Review round 1 unjudged u0: the repository's test file names are test-change targets, the API e2e
+  // `<name>.e2e-spec.ts` included. The names are neutral: an agent test names no product file.
+  const { matchPathGlob } = await import('../../../agents/common/review-criteria-selection.mjs');
+  const testChange = rows.find(({ id }) => id === 'sensor.test-change');
+  for (const file of [
+    'area/e2e/flow.e2e-spec.ts',
+    'area/src/unit.test.ts',
+    'area/src/unit.spec.tsx',
+  ])
+    assert.ok(
+      testChange.targets.include.some((glob) => matchPathGlob(file, glob)),
+      `${file} is a test-change target`,
+    );
   // S6 points at the test change row (Owner 3.1); the row reaches no other item.
   const swe = readFileSync(join(repoRoot, CRITERIA_DIR, 'swe.md'), 'utf8');
   const s6 = swe.slice(swe.indexOf('### S6. '), swe.indexOf('### S7. '));
@@ -346,9 +359,10 @@ test('the summary counts activations by sensor and criteria item and the unchang
   const summary = r.module.summarizeEditSensors(r.root);
   assert.equal(summary.schema, 'edit-sensor-summary/v1');
   assert.equal(summary.falsePositiveCandidates, 1);
-  assert.equal(summary.bySensor['sensor.lint'].fail, 2);
+  // The unchanged end record is a false positive candidate, not a second activation (review round 1 F2).
+  assert.equal(summary.bySensor['sensor.lint'].fail, 1);
   assert.equal(summary.bySensor['(hook)'].skipped, 1);
-  assert.equal(summary.byCriteria[`swe.md ${CRITERIA_ITEMS.lint.id}`], 2);
+  assert.equal(summary.byCriteria[`swe.md ${CRITERIA_ITEMS.lint.id}`], 1);
   const cli = spawnSync(process.execPath, [MODULE, '--summary', '--root', r.root], {
     encoding: 'utf8',
   });

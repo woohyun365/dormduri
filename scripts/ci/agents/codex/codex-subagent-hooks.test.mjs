@@ -1409,6 +1409,29 @@ test('an apply_patch PostToolUse runs the sensor CLI inside codex sandbox and re
   assert.deepEqual(hookRecords(), [], 'a sandbox run that answered leaves no hook-side record');
 });
 
+// Review round 1 F4: a session whose cwd reaches the repository through a symlink still names the patched files.
+test('an apply_patch whose payload cwd is a symlink to the repository still runs the sensors on its files', async (t) => {
+  const { runHook } = await hooks();
+  const { root } = sensorHookRoot(t);
+  const links = realpathSync(mkdtempSync(join(tmpdir(), 'knu-sensor-link-')));
+  t.after(() => rmSync(links, { recursive: true, force: true }));
+  const link = join(links, 'repo');
+  symlinkSync(root, link);
+  const codex = stubCommand(t, 'codex', { stdout: '{}' });
+  runHook({
+    payload: sensorPayload(link, 'PostToolUse'),
+    root,
+    env: { ...process.env, PATH: codex.path },
+  });
+  const [call] = codex.calls();
+  assert.ok(call, 'the sandbox runs for a symlinked cwd');
+  assert.deepEqual(JSON.parse(argAfter(call, '--files')), [
+    'docs/new.md',
+    'src/a.ts',
+    'src/moved.ts',
+  ]);
+});
+
 test('a missing codex is skipped and an overrun is a timeout, both recorded only under .codex/state (P5 RED 7)', async (t) => {
   const { runHook } = await hooks();
   const { root, hookRecords } = sensorHookRoot(t);

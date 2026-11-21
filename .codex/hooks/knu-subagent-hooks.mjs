@@ -397,7 +397,14 @@ const isSensorEvent = (payload) =>
 export function patchFiles(patch, { root, cwd }) {
   const files = [];
   const deleted = [];
-  const base = typeof cwd === 'string' && isAbsolute(cwd) ? cwd : root;
+  // The root is a real path, so a cwd through a symlink is resolved the same way before the paths are compared.
+  let base = root;
+  if (typeof cwd === 'string' && isAbsolute(cwd))
+    try {
+      base = realpathSync(cwd);
+    } catch {
+      base = cwd;
+    }
   const inside = (path) => {
     const relativePath = relative(root, resolve(base, path.trim()));
     return !relativePath || relativePath.startsWith('..') || isAbsolute(relativePath)

@@ -52,7 +52,8 @@ Reviewer에게 기대 결론을 주지 않습니다. QA packet의 요청·accept
    메시지의 요청·acceptance·요구 절 문장을 `{"request": …, "acceptance": […], "requirements": …}` JSON 파일로 출력 디렉터리에 두고
    `node scripts/agents/common/review-prejudgment-phrases.mjs --input <파일> --session <sessionId> --host codex`로 사전 판단 문구를
    셉니다. 출력 `count`가 0보다 크면 `matches`의 문장(지적하지 말 것, severity 상한, 계획이 이미 골랐다는 문장)을 위 규칙대로
-   고칠지 판단합니다. 이 검사는 막지 않고 경고마다 발동 기록 한 줄을 남깁니다
+   고칠지 판단하고, 고치지 않고 보내면 QA packet의 `environment`에 `review-prejudgment-phrase=<count>`를 적습니다(0이면 packet은
+   그대로). 이 검사는 막지 않고 경고마다 발동 기록 한 줄을 남깁니다
    ([사전 판단 문구 경고](../../../docs/development/agent-workflows/review-criteria/README.md#사전-판단-문구-경고)).
 4. Reviewer 완료 뒤 `$knu-settle`로 reviewer를 수락합니다. 리뷰 대상 lane은 결과를 반영한 뒤 수락합니다. 결과의 `dispatchId`는 그 회차의 `reviewId`입니다. Parent가 finding을
    재현하거나 기각 근거를 남기며, 구현자 자신의 PASS는 독립 리뷰가 아닙니다.
