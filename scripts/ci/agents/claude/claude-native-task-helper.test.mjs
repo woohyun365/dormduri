@@ -5380,6 +5380,34 @@ test('a reviewer settlement writes the settled record of its packet, and nothing
   }
 });
 
+// Review 3 u3 (a protection test): registration does not refuse a reviewerSpec whose packet a settlement already
+// closed, so the same spec can be registered again. The open-packet rule (same-host review) therefore reads the
+// settled record's task id against the latest valid reviewer task of the packet: a later reviewer's settlement
+// rewrites the closure with its own task id.
+test('a reviewer registered again from a settled packet rewrites the closure with its own task id', (t) => {
+  const { r, review, reviewer } = settledParentReview(t);
+  const settled = join(r.root, `${PACKET_DIR}/${reviewIdOf(review)}.settled.json`);
+  assert.equal(
+    JSON.parse(readFileSync(settled, 'utf8')).taskId,
+    reviewer.taskId,
+    'first settlement',
+  );
+  const again = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  assert.notEqual(again.taskId, reviewer.taskId, 'the same spec registers a second task');
+  assert.equal(
+    JSON.parse(readFileSync(settled, 'utf8')).taskId,
+    reviewer.taskId,
+    'closure before the second settlement',
+  );
+  const result = structuredClone(review.resultTemplate);
+  result.verdict = 'PASS';
+  dispatch(r, again, 'review-2', JSON.stringify(result));
+  readRows(r, 'review-2-agent', review.packetFile.path);
+  const status = settleClaudeNativeTask(again.taskId, undefined, { root: r.root });
+  assert.equal(status.settledPath, `${PACKET_DIR}/${reviewIdOf(review)}.settled.json`);
+  assert.equal(JSON.parse(readFileSync(settled, 'utf8')).taskId, again.taskId, 'latest settlement');
+});
+
 // Review 2 F1: registration writes the packet's opening record <reviewId>.open.json beside the other packet files, so
 // a packet the settled record closes is told apart from one an earlier helper registered (that helper never writes the
 // settled record). The record stays after the settlement closes the packet.
