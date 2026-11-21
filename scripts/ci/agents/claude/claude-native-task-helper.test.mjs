@@ -5416,3 +5416,51 @@ test('a held-out copy subject prompt is the prompt before P6 ② to the characte
     readFileSync(join(import.meta.dirname, 'fixtures/review-prompt-copy-shape.txt'), 'utf8'),
   );
 });
+
+// Review 1 (r1 u4·r2 u5): a native subject reviewer can be judged again after an invalid judgment, so the closure
+// record follows the latest finished settlement instead of keeping the first one.
+test('a native reviewer judged again rewrites the settled record with the latest judgment', (t) => {
+  const r = settledSubject(t);
+  const { snapshotDigest } = buildClaudeNativeReview(
+    { subjectTaskId: r.subject.taskId },
+    { root: r.root },
+  );
+  const review = buildClaudeNativeReview(
+    {
+      subjectTaskId: r.subject.taskId,
+      runnerEvidence: runnerEvidence(snapshotDigest),
+      selectionBasisRef: 'plan:helper-test/review',
+      reviewerModel: 'claude-opus-4-6',
+      reviewRound: 1,
+    },
+    { root: r.root },
+  );
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  const delivered = structuredClone(review.resultTemplate);
+  delivered.acceptanceCoverage = delivered.acceptanceCoverage.map((c) => ({
+    ...c,
+    sourceRefs: ['sample.txt'],
+    evidenceRefs: ['runner:node --test'],
+    gap: null,
+  }));
+  delivered.verdict = 'PASS';
+  delivered.confidence = 'high';
+  dispatch(r, reviewer, 'review-1', JSON.stringify(delivered));
+  settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
+  const settled = join(r.root, `${PACKET_DIR}/${reviewIdOf(review)}.settled.json`);
+  const base = judgment(reviewer, 'terminal review result delivered for the frozen packet');
+  const failed = settleClaudeNativeTask(
+    reviewer.taskId,
+    { ...base, acceptance: [{ ...base.acceptance[0], passed: false }] },
+    { root: r.root },
+  );
+  assert.equal(failed.valid, false);
+  assert.equal(JSON.parse(readFileSync(settled, 'utf8')).valid, false, 'first judgment recorded');
+  const passed = settleClaudeNativeTask(reviewer.taskId, base, { root: r.root });
+  assert.equal(passed.valid, true, passed.errors.join('; '));
+  assert.deepEqual(
+    { ...JSON.parse(readFileSync(settled, 'utf8')), settledAt: null },
+    { taskId: reviewer.taskId, settledAt: null, valid: true, observationErrors: [] },
+    'latest judgment recorded',
+  );
+});

@@ -317,3 +317,15 @@ test('the Codex settle skill keeps the disposition record file and its rules (P6
     'knu-review points at the Codex same-host review reference',
   );
 });
+
+// Review 1 m1-F2·m1-F6: the Codex settle skill names the 40-character commit SHA and the check at writing time, which
+// lives in the Codex same-host review reference (a Codex skill calls only the listed scripts, codex.md).
+test('the Codex settle skill names the 40-character SHA and the check at writing time', () => {
+  const text = read(skillPath('knu-settle')).replace(/\s+/gu, ' ');
+  assert.match(text, /`fixRef`\(수정 commit의 40자 SHA/u, 'fixRef 40-character SHA');
+  assert.match(
+    text,
+    /작성한 처분 기록은 \[작성 때 검사\]\(\.\.\/\.\.\/\.\.\/docs\/development\/agent-workflows\/adapters\/codex-same-host-review\.md#처분-기록과-ledger\)가 exit 0인지 확인합니다/u,
+    'check at writing time',
+  );
+});

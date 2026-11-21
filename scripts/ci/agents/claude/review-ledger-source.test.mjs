@@ -131,7 +131,7 @@ test('an invalid adjudication record marks its rows invalid and exits 1', () => 
   );
 });
 
-test('an unreadable record and a task adjudicated twice are violations', () => {
+test('an unreadable record is a violation and a task adjudicated twice counts as legacy', () => {
   const root = fixture();
   writeFileSync(resolve(root, 'evidence/broken-adjudication.json'), '{');
   cpSync(
@@ -343,4 +343,55 @@ test('a row carries the subject size of its review and the snapshot it reviewed 
   );
   assert.equal(summary.subjectSizes['paths:3,documents:2'].subjects, 1);
   assert.equal(summary.subjectSizes['paths:1,documents:1'].subjects, 1);
+});
+
+// Review 1 m1-F4·m2-F3: once settle closed a Parent reviewer packet (<reviewId>.settled.json), the row follows that
+// settlement: the result file settle wrote is the result, and no result file is parse-failed even when the old parse
+// would cut a JSON object out of the response. A packet without the closure record keeps the old parse.
+test('a settled Parent reviewer row reads the result file settle wrote, not the response', () => {
+  const root = sizedFixture();
+  const packets = resolve(root, '.artifacts/tools/claude-review-packets');
+  const completion = (verdict) =>
+    writeFileSync(
+      resolve(root, '.artifacts/tools/claude-native/t7/completion.json'),
+      JSON.stringify({
+        response: {
+          content: [
+            { type: 'text', text: `Final result:\n${JSON.stringify({ verdict, findings: [] })}` },
+          ],
+        },
+      }),
+    );
+  completion('PASS');
+  const rowOf = () => byTask(json(run(['--json', '--root', root], root).out).rows).t7;
+  assert.equal(rowOf().status, 'parsed', 'no closure record: the old parse');
+  writeFileSync(
+    resolve(packets, 'aaaa1111-bbbb2222.settled.json'),
+    JSON.stringify({
+      taskId: 't7',
+      settledAt: '2026-11-22T00:00:00.000Z',
+      valid: false,
+      observationErrors: ['review-result-unparsed'],
+    }),
+  );
+  assert.deepEqual(
+    [rowOf().status, rowOf().verdict],
+    ['parse-failed', null],
+    'closure record without result file: parse-failed',
+  );
+  writeFileSync(
+    resolve(packets, 'aaaa1111-bbbb2222.result.json'),
+    JSON.stringify({
+      schemaVersion: 'cross-model-handoff/v1',
+      packetId: 'review-aaaa1111-bbbb2222',
+      verdict: 'FAIL',
+      findings: [{ severity: 'low' }],
+    }),
+  );
+  const row = rowOf();
+  assert.deepEqual(
+    [row.status, row.verdict, row.findings.length],
+    ['parsed', 'FAIL', 1],
+    'closure record with result file: that result',
+  );
 });

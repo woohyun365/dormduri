@@ -412,3 +412,28 @@ test('an unjudged line takes parent-checked with a repository log path, or pre-e
     kinds: ['invalid-field:task-u#u0'],
   });
 });
+
+// Review 1 m2-F4: the repository root itself names nothing that fixed a finding or logged a check.
+test('the repository root is neither a fixRef path nor a parent-checked log path', () => {
+  const root = fixture({});
+  const fixed = (fixRef) => ({ ...ROUND2, findings: [{ ...ROUND2.findings[0], fixRef }] });
+  for (const fixRef of ['.', './', 'review/..'])
+    assert.deepEqual(
+      checkIn(root, fixed(fixRef)),
+      { code: 1, kinds: ['invalid-fix-ref:task-c#0'] },
+      `invalid-fix-ref for ${fixRef}`,
+    );
+  const [, u1] = UNJUDGED.unjudged;
+  for (const span of ['.', './'])
+    assert.deepEqual(
+      checkIn(root, {
+        ...UNJUDGED,
+        unjudged: [
+          { id: 'task-u#u0', disposition: 'parent-checked', reason: `no defect in \`${span}\`` },
+          u1,
+        ],
+      }),
+      { code: 1, kinds: ['missing-reason:task-u#u0'] },
+      `parent-checked missing-reason: ${span}`,
+    );
+});

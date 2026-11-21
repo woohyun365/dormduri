@@ -779,3 +779,9 @@ test('the settle skill states the disposition record rules (P6 ② RED 8)', () =
     assert.match(text, pattern, label);
   assert.ok(!text.includes('재현되면 `fixed`이고'), 'older wording: fixed when reproduced');
 });
+
+// Review 1 m1-F6: a short SHA is no fixRef, so the settle skill names the 40-character commit SHA.
+test('the settle skill names the 40-character commit SHA of a fixRef', () => {
+  const text = read('.claude/skills/knu-settle/SKILL.md').replace(/\s+/gu, ' ');
+  assert.match(text, /`fixRef`\(수정 commit의 40자 SHA/u, 'fixRef 40-character SHA');
+});
