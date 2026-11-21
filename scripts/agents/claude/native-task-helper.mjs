@@ -1020,8 +1020,9 @@ const packetDigest = (bytes) => `sha256:${createHash('sha256').update(bytes).dig
 // names plan sections their extract (<reviewId>.requirements.md), the context extracts it has: binding
 // rows (<reviewId>.binding.md), the draft's Lifecycle section (<reviewId>.lifecycle.md) and its
 // Verification section (<reviewId>.verification.md), and for a Parent subject the round's scope
-// record (<reviewId>.scope.json). Settling a reviewer adds, for a Parent reviewer, its parsed result
-// (<reviewId>.result.json) and, for both paths, the record that closes the packet
+// record (<reviewId>.scope.json), and the packet's opening record (<reviewId>.open.json: the settled record closes
+// this packet, which tells it apart from a packet an earlier helper registered). Settling a reviewer adds, for a
+// Parent reviewer, its parsed result (<reviewId>.result.json) and, for both paths, the record that closes the packet
 // (<reviewId>.settled.json).
 function reviewPacketPath(root, reviewId, suffix = '.json') {
   if (typeof reviewId !== 'string' || !REVIEW_PACKET_ID.test(reviewId))
@@ -1877,6 +1878,7 @@ export function buildClaudeNativeReview(
     writeClaudeReviewPacket(root, member.reviewId, member.promptBytes, '.prompt.json');
     writeClaudeReviewPacket(root, member.reviewId, member.criteriaBytes, '.criteria.json');
     writeClaudeReviewPacket(root, member.reviewId, member.contextBytes, '.context.json');
+    writeClaudeReviewPacket(root, member.reviewId, openingRecord(member.reviewId), OPEN_SUFFIX);
   }
   // The review point of the edit-time sensor records (evaluation input); a record failure never fails the review.
   if (subject.prejudgment?.length && typeof (sessionId ?? subject.sessionId) === 'string')
@@ -2548,6 +2550,10 @@ function reviewExtractChecks(state, root) {
 }
 const RESULT_SUFFIX = '.result.json';
 const SETTLED_SUFFIX = '.settled.json';
+const OPEN_SUFFIX = '.open.json';
+// The opening record names the closing record, so a packet with it is open until <reviewId>.settled.json exists.
+const openingRecord = (reviewId) =>
+  `${JSON.stringify({ reviewId, closedBy: `${reviewId}${SETTLED_SUFFIX}` }, null, 2)}\n`;
 // A Parent reviewer's response is its result when it is one text holding one JSON object of this review's result
 // template (schemaVersion, packet id, verdict, findings); anything else is no result, as on the native subject path.
 function parentReviewResult(content, reviewId) {
