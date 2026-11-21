@@ -5380,6 +5380,47 @@ test('a reviewer settlement writes the settled record of its packet, and nothing
   }
 });
 
+// Review 5 F1: a Parent reviewer's result file in the helper directory is the next round's previous result (the
+// adjudication record names it), and helper-directory read paths are not copied with the other ignored inputs, so the
+// prompt record binds it and a settlement whose previous result changed is refused (review-previous-result-changed).
+test('a previous result in the helper directory is bound by the prompt record and checked at settlement', (t) => {
+  const { r, review, reviewer } = settledParentReview(t);
+  const resultPath = `${PACKET_DIR}/${reviewIdOf(review)}.result.json`;
+  const dir = '.artifacts/plans/helper-test';
+  mkdirSync(join(r.root, dir), { recursive: true });
+  const record = `${dir}/r1-adjudication.json`;
+  writeFileSync(
+    join(r.root, record),
+    JSON.stringify({
+      schema: 'review-adjudication/v1',
+      subject: 'helper-test',
+      round: 1,
+      reviews: [{ taskId: reviewer.taskId, resultPath }],
+      findings: [],
+    }),
+  );
+  const second = roundReview(r, { reviewRound: 2, previousResult: record });
+  const promptRecord = JSON.parse(
+    readFileSync(join(r.root, `${PACKET_DIR}/${reviewIdOf(second)}.prompt.json`), 'utf8'),
+  );
+  assert.deepEqual(
+    promptRecord.previousResults,
+    [{ path: resultPath, digest: sha256(readFileSync(join(r.root, resultPath))) }],
+    'prompt record binds the helper-directory result',
+  );
+  const next = prepareClaudeNativeTask(second.reviewerSpec, { root: r.root });
+  const result = structuredClone(second.resultTemplate);
+  result.verdict = 'PASS';
+  dispatch(r, next, 'review-2', JSON.stringify(result));
+  readRows(r, 'review-2-agent', second.packetFile.path);
+  writeFileSync(join(r.root, resultPath), JSON.stringify({ verdict: 'FAIL', findings: [] }));
+  const status = settleClaudeNativeTask(next.taskId, undefined, { root: r.root });
+  assert.ok(
+    status.observationErrors.includes('review-previous-result-changed'),
+    `previous result changed: ${status.observationErrors.join(',')}`,
+  );
+});
+
 // Review 4 F1: registration takes a settled packet's reviewerSpec again, so one packet can have several reviewer
 // tasks. A Parent reviewer packet's result file is written once and the adjudication record points at it, so it and
 // the closure belong to the packet's first settled task: another task of the same packet is refused at its settlement
