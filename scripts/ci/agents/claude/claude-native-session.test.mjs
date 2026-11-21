@@ -4745,11 +4745,14 @@ test('the SessionStart baseline runs after the session check and keeps its outpu
   assert.equal(timed.stdout, expected);
   assert.equal(slow.calls().length, 1, 'the baseline ran');
   assert.ok(r.records().some(({ result }) => result === 'timeout'));
-  // A failing session check never reaches the baseline.
+  // A failing session check never reaches the baseline. Without a baseline file the module would run git, so a
+  // baseline call before the check shows up as a stub call.
+  rmSync(baselineFile);
   const watched = stubCommand(t, 'git');
   const refused = runHook(r.root, { ...event, cwd: tmpdir() }, { PATH: watched.path });
   assert.equal(refused.status, 1);
   assert.deepEqual(watched.calls(), [], 'no baseline after a refused SessionStart');
+  assert.equal(existsSync(baselineFile), false);
   // A baseline module that throws changes nothing either.
   const { copy } = await scriptsCopy(t);
   writeFileSync(
