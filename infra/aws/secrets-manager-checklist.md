@@ -31,7 +31,7 @@ Lightsail instance는 EC2 instance profile과 같은 workload service role을 �
 
 | Secret 이름                          | Key                                                                  | 읽는 주체                                   |
 | ------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------- |
-| `/dormduri/production/api/runtime`   | `infra/deploy/api/secret-mount.contract.json`의 `requiredFiles` 13개 | host role(API 배포 document, restore drill) |
+| `/dormduri/production/api/runtime`   | `infra/deploy/api/secret-mount.contract.json`의 `requiredFiles` 17개 | host role(API 배포 document, restore drill) |
 | `/dormduri/production/api/migration` | `MIGRATION_DATABASE_URL`                                             | host role(migrate one-off, restore drill)   |
 | `/dormduri/production/observability` | `SLACK_ALERT_WEBHOOK_URL`, `GRAFANA_ADMIN_PASSWORD`                  | host role(관측 배포)                        |
 | RDS 관리 master secret(이름은 RDS)   | master user                                                          | 사람(break-glass)만                         |
@@ -39,6 +39,10 @@ Lightsail instance는 EC2 instance profile과 같은 workload service role을 �
 - 각 묶음의 `SecretString`은 key를 이름으로 갖는 JSON object다. 값은 비어 있지 않은 문자열이다.
 - runtime 묶음의 key 목록은 contract가 원본이고, contract는 `apps/api/src/config/composition/api-config.registry.ts`의 production
   required secret과 같다(`apps/api/test/operations/platform/lightsail-secret-delivery.spec.ts`).
+- contract의 `requiredFiles`가 바뀐 변경을 `main`에 올리면 runtime 묶음의 key 변경과 AWS document `dormduri-api-deploy` 새 버전을
+  같은 때(그 변경을 담은 `api-cd` 실행의 deploy 승인 전)에 한다. Document의 묶음 설치는 빠진 key와 여분 key를 모두 거부하므로(아래
+  Host 전달 2) 한쪽만 바뀐 동안의 deploy·rollback은 `secret-invalid`로 멈춘다(돌고 있는 API는 그대로). API는 자기 image가 요구하는
+  파일만 읽으므로 새 document로 이전 image를 rollback해도 뜬다.
 - DB URL 형식: runtime 셋은 `sslmode=verify-full&sslrootcert=/etc/dormduri/rds-ca/root.pem`, migration은
   `sslmode=require&sslcert=/etc/dormduri/rds-ca/root.pem&sslaccept=strict`(`infra/db/README.md` RDS SSL / CA bundle).
 - Prometheus scrape token은 runtime 묶음의 `METRICS_BEARER_TOKEN` 값을 같이 쓴다.

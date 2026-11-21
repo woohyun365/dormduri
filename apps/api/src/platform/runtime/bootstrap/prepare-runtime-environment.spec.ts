@@ -55,7 +55,7 @@ describe('prepareRuntimeEnvironment', () => {
       version: 1,
       status: 'prepared',
       secretSource: 'mounted-files',
-      materializedSecretCount: 13,
+      materializedSecretCount: 17,
     });
     expect(JSON.stringify(receipt)).not.toContain(mountDirectory);
   });
@@ -110,7 +110,7 @@ describe('prepareRuntimeEnvironment', () => {
       version: 1,
       status: 'prepared',
       secretSource: 'aws-secrets-manager',
-      materializedSecretCount: 13,
+      materializedSecretCount: 17,
       completedAt: '2026-08-12T05:30:00.000Z',
     });
     expect(Object.isFrozen(receipt)).toBe(true);
@@ -221,6 +221,10 @@ function validSecretValue(secretName: string): string {
     case 'AUTH_MAIL_ENVELOPE_ENCRYPTION_KEY_BASE64':
     case 'RETENTION_IDENTITY_ENCRYPTION_KEY_BASE64':
     case 'RETENTION_VAULT_CHAT_BODY_ENCRYPTION_KEY_BASE64':
+    case 'RETENTION_VAULT_NICKNAME_AUDIT_ENCRYPTION_KEY_BASE64':
+    case 'RETENTION_VAULT_ACADEMIC_IDENTITY_AUDIT_ENCRYPTION_KEY_BASE64':
+    case 'RETENTION_VAULT_SEASON_PROFILE_HISTORY_ENCRYPTION_KEY_BASE64':
+    case 'RETENTION_VAULT_MATCH_HISTORY_ENCRYPTION_KEY_BASE64':
       return validBase64Key;
     default:
       return `production-${envKey?.toLowerCase() ?? 'secret'}-value`;

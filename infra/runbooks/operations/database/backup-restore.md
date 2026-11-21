@@ -100,9 +100,9 @@
 
 12. User host에 임시 API container를 SSM Run Command로 띄운다. 띄우기 전 host `MemAvailable`이 그 memory 상한 + 512MiB보다
     작으면 띄우지 않고 drill을 다른 때로 미룬다(production container를 멈추지 않는다).
-    - secret: runtime 묶음 13 key를 production release와 같은 형식(디렉터리 0500·파일 0400, 소유 10001:10001,
+    - secret: runtime 묶음 17 key를 production release와 같은 형식(디렉터리 0500·파일 0400, 소유 10001:10001,
       `infra/aws/secrets-manager-checklist.md` Host 전달)의 임시 디렉터리에 쓴다. DB URL 셋은 11에서 대상 확인을 통과한 임시
-      migrate 디렉터리의 같은 key 파일을 복사하고 `cmp`로 같은지 확인한다(다르면 띄우지 않음). 나머지 10 key는 runtime 묶음
+      migrate 디렉터리의 같은 key 파일을 복사하고 `cmp`로 같은지 확인한다(다르면 띄우지 않음). 나머지 14 key는 runtime 묶음
       그대로다. 그 디렉터리를 `/run/secrets/dormduri-api`에 read-only로 mount한다(`SECRET_SOURCE=mounted-files`).
     - env: 지금 돌고 있는 production `api` container의 env(`docker inspect`의 `Config.Env`. secret은 파일이라 값이 없다)를
       root 전용 env 파일로 옮기고 예약 작업 셋을 `LIFECYCLE_SWEEP_ENABLED=false`, `AUTH_MAIL_DISPATCHER_ENABLED=false`,

@@ -127,7 +127,7 @@ Retention observability는 lifecycle sweep 결과와 DB backlog를 count/status/
 - Retained identity disclosure/disposal behavior: `retained-identities/retained-identity-disclosure.service.ts`, `retained-identities/retained-identity-disposal.service.ts`.
 - Retained vault retain/disclose/dispose and payload codec: `vault/`.
 - Retention case/hold updates: `vault/retention-case.repository.ts` and `vault/retained-vault.service.ts`.
-- Retained vault keyring/env key lookup: `vault/retained-vault-keyring.ts`.
+- Retained vault keyring/env key lookup: `vault/retained-vault-keyring.ts`. 용도별 key env(`RETENTION_VAULT_<용도>_ENCRYPTION_KEY_BASE64`·`_KEY_VERSION`)는 `config/retention.env.ts`가 선언하고 encryption key는 production 필수다. 코드가 쓰는 용도와 env schema·배포 계약의 일치는 `apps/api/test/operations/platform/retention-vault-key-contract.spec.ts`가 본다.
 - Retained vault payload parser/codec rules: `vault/retained-vault-payload-codecs.ts`.
 - Retained vault retain/disclose/dispose behavior: `vault/retained-vault.service.ts`.
 - Retention payload encryption envelope: `crypto/retention-cipher.ts`.

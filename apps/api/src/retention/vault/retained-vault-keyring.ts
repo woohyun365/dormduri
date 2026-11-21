@@ -2,8 +2,10 @@ import { createRetentionCipher, type RetentionCipher } from '../crypto/retention
 
 const DEFAULT_VAULT_KEY_VERSION = 'local-v1';
 
+// 용도마다 `RETENTION_VAULT_<용도>_ENCRYPTION_KEY_BASE64`·`_KEY_VERSION`을 env schema(`../config/retention.env.ts`)와 배포
+// 계약이 함께 선언한다(`test/operations/platform/retention-vault-key-contract.spec.ts`). Retained identity 식별 anchor는
+// vault 용도가 아니라 `RETENTION_IDENTITY_*` cipher를 쓴다.
 export type RetentionVaultKeyPurpose =
-  | 'IDENTITY'
   | 'CHAT_BODY'
   | 'NICKNAME_AUDIT'
   | 'ACADEMIC_IDENTITY_AUDIT'
@@ -63,7 +65,6 @@ export function resolveRetentionVaultCipher(
 
 export function parseRetentionVaultKeyPurpose(value: string): RetentionVaultKeyPurpose {
   if (
-    value === 'IDENTITY' ||
     value === 'CHAT_BODY' ||
     value === 'NICKNAME_AUDIT' ||
     value === 'ACADEMIC_IDENTITY_AUDIT' ||
