@@ -243,11 +243,16 @@ Parent reviewer의 `settle --task`는 응답을 결과 JSON으로 읽습니다. 
 `resultPath`는 null이고 `observationErrors`에 `review-result-unparsed`(native subject 경로의 결과 없음과 같은 뜻)를 넣습니다.
 처분 기록 `reviews[].resultPath`는 그 결과 파일이고, 출력 `response` 문자열을 그대로 저장하지 않습니다.
 
-Reviewer 정산이 끝나면 같은 디렉터리에 `<reviewId>.settled.json`(`taskId`·`settledAt`·`valid`·`observationErrors`)을 한 번
+Reviewer 정산이 끝나면 같은 디렉터리에 `<reviewId>.settled.json`(`taskId`·`settledAt`·`valid`·`observationErrors`)을
 씁니다. Parent reviewer는 완료 관측이 있는 `settle --task`, native subject reviewer는 판정을 준 `settle --task --judgment`가
-정산의 끝입니다. 완료 관측이 없어 거부된 정산이나 native subject reviewer의 관측 정산은 쓰지 않습니다. 열린 리뷰 packet은
-`<reviewId>.inputs.json`이 있고 그 review의 reviewer task가 native registry에 등록돼 있으며 `<reviewId>.settled.json`이 없는
-것입니다. `.plans` promote·상태 정정 전 결속 확인은 이 규칙으로 열린 packet의 `.inputs.json`을 봅니다.
+정산의 끝이고, 같은 reviewer를 다시 정산하면(native subject reviewer를 다시 판정하는 경우) 마지막 정산으로 다시 씁니다. 완료
+관측이 없어 거부된 정산이나 native subject reviewer의 관측 정산은 쓰지 않습니다.
+
+열린 리뷰 packet은 `<reviewId>.inputs.json`이 있고, 그 review의 reviewer task가 native registry에 등록돼 있고 무효 기록이
+없으며(task 디렉터리에 `observation-error.json`이 없음. release·대체 등록·관측 오류가 쓰는 기록), `<reviewId>.settled.json`이
+없는 것입니다. 닫힘 기록은 2026-11-22부터 쓰이므로, 그 전에 등록(`issuedAt`)한 reviewer
+task의 packet은 완료 관측(`completion.json`)이 있으면 닫힌 것으로 봅니다. `.plans` promote·상태 정정 전 결속 확인은 이
+규칙으로 열린 packet의 `.inputs.json`을 봅니다.
 
 ### 리뷰 입력 사본
 

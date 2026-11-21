@@ -29,7 +29,7 @@ export const SEVERITIES = ['critical', 'high', 'medium', 'low'];
 // `fixed` closes a finding during the review rounds; the other four are the QA dispositions after PASS.
 export const DISPOSITIONS = ['fixed', 'fixed-mechanical', 'deferred', 'rejected', 'pre-existing'];
 // A fixed finding names what fixed it (fixRef): a 40-character commit SHA the root repository has, a `sha256:` snapshot
-// digest or a repository-relative path that exists. A duplicate follows the fix of the finding it duplicates.
+// digest or a repository-relative path that exists (not the root itself). A duplicate follows the fix of the finding it duplicates.
 export const FIX_DISPOSITIONS = ['fixed', 'fixed-mechanical'];
 export const ORIGINS = ['fix-induced', 'previously-missed', 're-raised'];
 // A behavior the reviewer left unjudged is outside this change, raised as a finding, a follow-up, checked by the
@@ -92,10 +92,11 @@ function commitExists(root, sha) {
   return commits.get(key);
 }
 
-// A repository-relative path that exists under root: not absolute, no `..` segment.
+// A repository-relative path that exists under root: not absolute, no `..` segment and not the root itself.
 function repositoryPath(root, value) {
   if (typeof value !== 'string' || !value.trim() || isAbsolute(value)) return false;
-  if (normalize(value).split(sep).includes('..')) return false;
+  const path = normalize(value);
+  if (path === '.' || path === `.${sep}` || path.split(sep).includes('..')) return false;
   return existsSync(resolve(root, value));
 }
 
@@ -195,7 +196,7 @@ export function validateAdjudication(record, readResult, { root } = {}) {
     } else if (FIX_DISPOSITIONS.includes(finding.disposition) && finding.duplicateOf === undefined)
       add(
         'missing-fix-ref',
-        `${finding.disposition} needs a fixRef: a commit SHA, a sha256 snapshot digest or a repository path`,
+        `${finding.disposition} needs a fixRef: a 40-character commit SHA, a sha256 snapshot digest or a repository path`,
         id,
       );
     if (finding.origin !== undefined && !ORIGINS.includes(finding.origin))

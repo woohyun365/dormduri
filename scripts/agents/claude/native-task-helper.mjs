@@ -2568,26 +2568,19 @@ function parentReviewResult(content, reviewId) {
     ? result
     : null;
 }
-// Closes a review packet: the first finished settlement writes <reviewId>.settled.json (task, settle time, valid,
-// observation errors) and a later settlement of the same reviewer keeps it.
+// Closes a review packet: a finished settlement writes <reviewId>.settled.json (task, settle time, valid, observation
+// errors). A later settlement of the same reviewer (a native reviewer judged again) replaces it, so the record is the
+// latest settlement; a target that is not a regular file is refused as for the packet files.
 function closeReviewPacket(root, reviewId, taskId, { valid, errors }) {
   const { path } = reviewPacketPath(root, reviewId, SETTLED_SUFFIX);
-  if (!existsSync(join(root, path)))
-    writeClaudeReviewPacket(
-      root,
-      reviewId,
-      `${JSON.stringify(
-        {
-          taskId,
-          settledAt: new Date().toISOString(),
-          valid,
-          observationErrors: errors,
-        },
-        null,
-        2,
-      )}\n`,
-      SETTLED_SUFFIX,
-    );
+  const bytes = `${JSON.stringify(
+    { taskId, settledAt: new Date().toISOString(), valid, observationErrors: errors },
+    null,
+    2,
+  )}\n`;
+  const full = join(root, path);
+  if (existsSync(full) && lstatSync(full).isFile()) writeFileSync(full, bytes, { mode: 0o600 });
+  else writeClaudeReviewPacket(root, reviewId, bytes, SETTLED_SUFFIX);
   return path;
 }
 function settlementStatus(taskId, root) {

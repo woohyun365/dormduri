@@ -16,6 +16,7 @@
 // (`KNU review snapshot sha256:…`) and subjectSize the subject paths and criteria documents of the review's criteria
 // record (`<reviewId>.criteria.json` beside its packet; the review id comes from the packet file line of a Parent
 // reviewer prompt or the packet id of a native subject reviewer); either is null when the reader cannot find it.
+// A Parent reviewer whose packet settle closed takes its status from that settlement's result file.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
@@ -54,6 +55,20 @@ function parseResult(completion) {
     .join('\n');
   try {
     const result = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
+    return typeof result?.verdict === 'string' && Array.isArray(result.findings) ? result : null;
+  } catch {
+    return null;
+  }
+}
+
+// A Parent reviewer whose packet settle closed (<reviewId>.settled.json) has the result settle wrote
+// (<reviewId>.result.json), or none when settle found the response unparsed. Undefined when the packet is not closed,
+// which leaves the row to the response parse (records from before the closure record, or not settled yet).
+function settledResult(packets, reviewId) {
+  if (reviewId === undefined || !existsSync(resolve(packets, `${reviewId}.settled.json`)))
+    return undefined;
+  try {
+    const result = readJson(resolve(packets, `${reviewId}.result.json`));
     return typeof result?.verdict === 'string' && Array.isArray(result.findings) ? result : null;
   } catch {
     return null;
@@ -100,9 +115,10 @@ function reviewerRow(directory, taskId, adjudications, packets) {
   const round = ROUND.exec(prompt)?.[1];
   row.round = round ? Number(round) : null;
   row.snapshot = SNAPSHOT_LINE.exec(prompt.split('\n')[0])?.[1] ?? null;
+  const parentReviewId = PACKET_LINE.exec(prompt)?.[1];
   row.subjectSize = subjectSize(
     packets,
-    PACKET_LINE.exec(prompt)?.[1] ?? PACKET_ID.exec(task.independentReview?.packet?.packetId)?.[1],
+    parentReviewId ?? PACKET_ID.exec(task.independentReview?.packet?.packetId)?.[1],
   );
   const subjectTask = task.independentReview?.subjectTaskId;
   row.subjectKey = subjectTask
@@ -117,10 +133,13 @@ function reviewerRow(directory, taskId, adjudications, packets) {
   const completionPath = resolve(directory, 'completion.json');
   if (!existsSync(completionPath)) row.status = 'completion-missing';
   else {
-    let result = null;
-    try {
-      result = parseResult(readJson(completionPath));
-    } catch {}
+    let result = settledResult(packets, parentReviewId);
+    if (result === undefined)
+      try {
+        result = parseResult(readJson(completionPath));
+      } catch {
+        result = null;
+      }
     if (!result) row.status = 'parse-failed';
     else {
       row.status = 'parsed';

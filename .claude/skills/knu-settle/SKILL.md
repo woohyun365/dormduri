@@ -60,7 +60,7 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
   파일을 바꾸면 그 reviewer의 `review-input-changed`로 정산과 연결 builder 완료가 거부됩니다(그룹은 마지막 구성원 정산과 builder
   완료까지). 다른 reviewer의 같은 결함은 `duplicateOf`로 묶습니다. 구성원이 id 접두를 어겨 `duplicate-result-id`가 나면 기록으로
   풀 수 없으므로 native 경로는 새 builder task와 새 review로 가고, Parent 경로는 구성원마다 기록을 하나씩 씁니다.
-- 재현되면 고친 뒤 `fixed`와 `fixRef`(수정 commit SHA, `sha256:` snapshot digest 또는 저장소 상대 경로)를 적습니다. 고치기
+- 재현되면 고친 뒤 `fixed`와 `fixRef`(수정 commit의 40자 SHA, `sha256:` snapshot digest 또는 저장소 상대 경로)를 적습니다. 고치기
   전에는 `fixed`를 쓰지 않습니다. 2회차부터 finding마다 `origin`(`fix-induced`·`previously-missed`·`re-raised`)이 필요합니다.
   rebase·squash로 SHA가 바뀌면 앞 회차 기록은 그대로 두고 다음 회차부터 새 SHA나 snapshot digest를 씁니다. Finding의
   `sameTypeLocations`는 모두 고치거나 고치지 않은 위치를 그 finding 처분 `reason`에 남깁니다.
