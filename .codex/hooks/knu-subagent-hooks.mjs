@@ -388,6 +388,12 @@ export const SENSOR_RECORD_DIRECTORY = join(dirname(RECORD_DIRECTORY), 'knu-edit
 const SENSOR_SCHEMA = 'edit-sensor-activation/v1';
 const SENSOR_LIMITS = { PostToolUse: 8000, Stop: 30000 };
 const SENSOR_START_MS = 500;
+// A Codex agent shell gets no variable whose name has KEY, SECRET or TOKEN by default (shell_environment_policy), and
+// `codex sandbox` passes the environment through. The sensor CLI is repository code the agent can edit, so it gets no
+// more than the agent shell would.
+const SECRET_NAME = /KEY|SECRET|TOKEN/iu;
+const sensorEnv = (env) =>
+  Object.fromEntries(Object.entries(env).filter(([name]) => !SECRET_NAME.test(name)));
 const isSensorEvent = (payload) =>
   (payload?.hook_event_name === 'PostToolUse' && payload.tool_name === 'apply_patch') ||
   payload?.hook_event_name === 'Stop';
@@ -490,7 +496,7 @@ function runSensors({ payload, root, now, env, limits }) {
       '--deadline-ms',
       String(Math.max(limit - SENSOR_START_MS, 0)),
     ],
-    { cwd: root, env, encoding: 'utf8', timeout: limit, maxBuffer: 1024 * 1024 },
+    { cwd: root, env: sensorEnv(env), encoding: 'utf8', timeout: limit, maxBuffer: 1024 * 1024 },
   );
   const failure =
     run.error?.code === 'ENOENT'

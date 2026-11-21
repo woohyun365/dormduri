@@ -103,7 +103,8 @@ Project hook(`.codex/hooks.json` → `.codex/hooks/knu-subagent-hooks.mjs`)은 �
   dispatch task path의 기록과 allow 기록을 요구합니다.
 - **편집 시점 센서**: PostToolUse `^apply_patch$`와 Stop은 patch file header(`Add File`·`Update File`·`Move to`는 편집,
   `Move to`의 원래 경로와 `Delete File`은 삭제)를 넘겨 `codex sandbox -P :workspace -C <repo>` 안에서
-  `node scripts/agents/common/edit-sensors.mjs codex …`를 부릅니다. Hook은 센서 module을 직접 실행하지 않습니다. 실패는 PostToolUse
+  `node scripts/agents/common/edit-sensors.mjs codex …`를 부릅니다. Hook은 센서 module을 직접 실행하지 않고, sandbox에 넘기는 env에서
+  이름에 `KEY`·`SECRET`·`TOKEN`이 든 변수(대소문자 무시, Codex agent shell의 기본 제외와 같은 규칙)를 뺍니다. 실패는 PostToolUse
   `hookSpecificOutput.additionalContext`, Stop은 `systemMessage`(사용자 표시)로만 돌아오고 막지 않습니다. `codex`가 없거나
   sandbox가 실패하면 `skipped`, 상한(8초·30초)을 넘으면 `timeout`을 Parent session별
   `.codex/state/knu-edit-sensors/<session>.jsonl`에 남깁니다. `KNU_EDIT_SENSORS=0`이면 sandbox를 시작하지 않습니다

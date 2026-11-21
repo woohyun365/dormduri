@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
   mkdirSync,
@@ -1430,6 +1431,41 @@ test('an apply_patch whose payload cwd is a symlink to the repository still runs
     'src/a.ts',
     'src/moved.ts',
   ]);
+});
+
+// Review round 2 unjudged u1: a Codex agent shell gets no variable whose name has KEY, SECRET or TOKEN by default
+// (shell_environment_policy), and `codex sandbox` passes the environment through, so the hook drops those names before
+// the sensor CLI, which is repository code the agent can edit, runs.
+test('the sensor sandbox gets no environment variable whose name has KEY, SECRET or TOKEN', async (t) => {
+  const { runHook } = await hooks();
+  const { root } = sensorHookRoot(t);
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'stub-codex-env-')));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(
+    join(dir, 'codex'),
+    `#!/bin/sh\n/usr/bin/env > '${join(dir, 'env.txt')}'\nprintf '{}'\n`,
+  );
+  chmodSync(join(dir, 'codex'), 0o755);
+  runHook({
+    payload: sensorPayload(root, 'PostToolUse'),
+    root,
+    env: {
+      PATH: `${dir}:${process.env.PATH}`,
+      PROBE_API_KEY: 'k',
+      PROBE_SECRET: 's',
+      probe_token: 't',
+      PROBE_PLAIN: 'p',
+      KNU_EDIT_REMINDERS: '1',
+    },
+  });
+  const names = readFileSync(join(dir, 'env.txt'), 'utf8')
+    .split('\n')
+    .map((line) => line.split('=')[0]);
+  assert.deepEqual(
+    names.filter((name) => name.startsWith('PROBE_') || name.startsWith('probe_')),
+    ['PROBE_PLAIN'],
+  );
+  assert.ok(names.includes('PATH') && names.includes('KNU_EDIT_REMINDERS'), names.join(' '));
 });
 
 test('a missing codex is skipped and an overrun is a timeout, both recorded only under .codex/state (P5 RED 7)', async (t) => {
