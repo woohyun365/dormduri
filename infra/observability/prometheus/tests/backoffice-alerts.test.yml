@@ -155,6 +155,28 @@ tests:
             exp_annotations:
               summary: 백오피스 host 지표가 15분 동안 들어오지 않습니다.
               runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+  # 끊긴 지 3일이 넘어도(recording rule이 보낸 적이 있다는 사실을 이어 적음) 계속 울린다.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="backoffice-api",instance="backoffice-api:4310"}'
+        values: '1x10 _x4400'
+    alert_rule_test:
+      - eval_time: 73h
+        alertname: BackofficeTelemetryAbsent
+        exp_alerts:
+          - exp_labels: { severity: critical, service: backoffice, job: backoffice-api }
+            exp_annotations:
+              summary: 백오피스 host 지표가 15분 동안 들어오지 않습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+  # 백오피스 지표가 한 번도 오지 않았으면(첫 배포 전) 울리지 않는다.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="api",instance="api:4000"}'
+        values: '1x60'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: BackofficeTelemetryAbsent
+        exp_alerts: []
   - interval: 1m
     input_series:
       - series: 'up{job="api",instance="api:4000"}'

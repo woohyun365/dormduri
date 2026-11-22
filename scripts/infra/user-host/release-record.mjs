@@ -105,7 +105,7 @@ export const STAGES = Object.freeze({
         : `DB credential(백오피스 role): ${NOT_JUDGED}`,
       action === 'maintenance'
         ? '관측(백오피스 Alloy): 해당 없음(이 실행은 관측을 바꾸지 않음)'
-        : '관측(백오피스 Alloy → user host 수신)·보안 경보: 미판정(operator가 host RESULT 줄의 observability 값, Grafana의 백오피스 log·지표, 경보 시험을 확인한 뒤 고친다)',
+        : '관측(백오피스 Alloy → user host 수신)·보안 경보: 미판정(operator가 host RESULT 줄의 observability 값, Grafana의 백오피스 log·지표, 경보 시험, Alloy Docker socket 위험 수용을 확인한 뒤 고친다)',
     ],
     hostSmoke: (action) =>
       action === 'maintenance'

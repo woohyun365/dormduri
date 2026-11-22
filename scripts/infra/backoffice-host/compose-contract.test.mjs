@@ -99,6 +99,12 @@ function validConfig() {
       alloy: service('alloy', ['backoffice-front', 'backoffice-app', 'backoffice-egress'], {
         image: ALLOY,
         user: '0:473',
+        command: [
+          'run',
+          '--server.http.listen-addr=127.0.0.1:12345',
+          '--storage.path=/var/lib/alloy/data',
+          '/etc/alloy/config.alloy',
+        ],
         deploy: {
           resources: {
             limits: { cpus: 0.1, memory: String(BACKOFFICE_MEMORY_LIMITS.alloy), pids: 128 },
@@ -266,6 +272,12 @@ test('each weakened container boundary is rejected', () => {
     'Alloy without host reads': (config) =>
       (config.services.alloy.volumes = config.services.alloy.volumes.filter(
         (volume) => volume.source !== '/proc',
+      )),
+    'Alloy HTTP server on every interface': (config) =>
+      (config.services.alloy.command = config.services.alloy.command.map((arg) =>
+        arg.startsWith('--server.http.listen-addr=')
+          ? '--server.http.listen-addr=0.0.0.0:12345'
+          : arg,
       )),
     'a sixth service': (config) => (config.services.extra = config.services['backoffice-web']),
   };

@@ -127,6 +127,14 @@ function hardeningProblems(name, service) {
     if (name !== 'alloy' && /docker\.sock/u.test(volume.source ?? ''))
       problems.push(`${name}: mounts the Docker socket`);
   }
+  // Alloy(root·Docker socket)를 network로 긁는 쪽이 없으므로 HTTP server(UI·component API)는 container 안 loopback에만 연다.
+  if (name === 'alloy') {
+    const listen = (service.command ?? []).filter((arg) =>
+      String(arg).startsWith('--server.http.listen-addr='),
+    );
+    if (listen.length !== 1 || listen[0] !== '--server.http.listen-addr=127.0.0.1:12345')
+      problems.push(`${name}: the HTTP server listens beyond the container loopback`);
+  }
   return problems;
 }
 

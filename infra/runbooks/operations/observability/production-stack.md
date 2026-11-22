@@ -50,7 +50,10 @@ API 배포 document는 API rollout과 host 안 smoke가 끝난 뒤 관측 단계
 | `ok`            | 설정·secret을 쓰고 다섯이 healthy                                                          | 단계 기록의 관측 줄에 옮겨 적고 Grafana·Slack 시험을 한다                                                     |
 | `failed`        | 설정 받기·펼치기, secret 쓰기, image 받기, 다섯 기동 중 하나가 실패하거나 시간 상한에 걸림 | host 안 document log(root만 읽음)의 `observability` 줄에서 실패 단계를 보고 고친 뒤 같은 묶음을 다시 배포한다 |
 
-- 설정 digest는 API 묶음 release 기록에 들어간다. `rollback`은 직전 묶음의 설정 digest로 관측 설정을 되돌린다.
+- 설정 digest는 API 묶음 release 기록에 들어간다. `rollback`은 직전 묶음의 설정 digest로 관측 설정을 되돌린다. 예외는 수신
+  gateway(`obs-gateway`)를 처음 들인 묶음의 바로 앞 묶음으로 되돌릴 때다. 그 묶음의 compose 조각과 설정 image에는 gateway가
+  없어 관측 단계가 실패하므로 API만 되돌아가고, 관측은 지금 구성(Prometheus가 gateway로 API를 긁음)으로 남으며 결과는
+  `observability=failed`다. 관측까지 되돌려야 하면 gateway 변경을 revert한 묶음을 새로 배포한다.
 - `maintenance`는 API만 내리고 관측 stack은 그대로 둔다.
 - 설정 디렉터리는 지금·직전 묶음의 digest와 관측 container가 쓰고 있을 수 있는 digest(api state의 `observability` 파일)만
   남기고 정리한다. 다시 만들기가 실패하면 container가 어느 설정으로 다시 만들어졌는지 모르므로 이전 설정과 새 설정을 모두
@@ -146,7 +149,9 @@ no-new-privileges, root filesystem 읽기 전용). 수집 대상은 compose proj
 
 `read_only` mount는 파일 mount 변경을 막을 뿐 Docker API 권한을 조회 전용으로 축소하지 않는다. 따라서 immutable image, private
 port, resource/capability 제한, service allowlist, fail-open 검증을 compensating control로 사용하고, socket 사용과 위험 수용을 API
-단계 배포 기록의 관측 component 줄에 적는다.
+단계 배포 기록의 관측 component 줄에 적는다. 백오피스 host Alloy도 같은 이유로 socket을 읽고 root로 돈다. 수집 대상은 compose
+project `dormduri-backoffice`의 세 service이고, 그 host에는 Alloy를 긁는 쪽이 없어 HTTP server를 container 안 loopback에만 연다.
+위험 수용은 백오피스 단계 배포 기록의 관측 component 줄에 적는다.
 
 다른 신뢰 경계의 workload, multi-tenant host, collector supply-chain risk 또는 security incident가 발생하면 host-level
 journald/file tail, Docker logging driver, managed logging 중 하나로 전환한다.

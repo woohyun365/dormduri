@@ -151,7 +151,7 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
   남는다. 관측 단계의 network 호출은 SSM step 상한(900초)보다 60초 이른 상한 안에서 끝나고 남은 시간이 없으면 건너뛴다.
   실패 처리와 DB 경계는 `infra/db/README.md` Release order와 `infra/runbooks/incidents/release-rollback.md`가 소유한다.
 - `rollback`은 host의 `previous`와 세 digest가 모두 같을 때만, migrate 단계 없이 되돌리고 관측도 그 묶음의 설정으로 다시
-  만든다. `maintenance`는 API를 내리고 관측 stack은 건드리지 않는다. 관측 배치·접근·대응은
+  만든다(수신 gateway를 처음 들인 묶음의 앞 묶음으로 되돌릴 때는 관측이 그대로 남고 `observability=failed`다, 운영 관측 runbook). `maintenance`는 API를 내리고 관측 stack은 건드리지 않는다. 관측 배치·접근·대응은
   [운영 관측 runbook](../runbooks/operations/observability/production-stack.md)이 소유한다.
 
 ### Local rehearsal과 검사

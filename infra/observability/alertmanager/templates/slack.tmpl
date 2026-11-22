@@ -7,7 +7,7 @@ critical은 channel mention을 붙이고 warning·info는 붙이지 않는다.
 */}}
 {{ define "dormduri.slack.alertname" }}{{ if match "^[A-Z][A-Za-z0-9]{2,63}$" . }}{{ . }}{{ else }}redacted{{ end }}{{ end }}
 {{ define "dormduri.slack.severity" }}{{ if match "^(critical|warning|info)$" . }}{{ . }}{{ else }}redacted{{ end }}{{ end }}
-{{ define "dormduri.slack.service" }}{{ if match "^(api|web|ingress|host|observability)$" . }}{{ . }}{{ else }}redacted{{ end }}{{ end }}
+{{ define "dormduri.slack.service" }}{{ if match "^(api|web|ingress|host|observability|backoffice)$" . }}{{ . }}{{ else }}redacted{{ end }}{{ end }}
 {{ define "dormduri.slack.env" }}{{ if match "^(production|local|ci|test)$" . }}{{ . }}{{ else }}unknown{{ end }}{{ end }}
 {{ define "dormduri.slack.runbook" }}{{ if match "^(infra|docs)/[A-Za-z0-9/_.-]+(#[\\p{Hangul}A-Za-z0-9_-]+)?$" . }}{{ . }}{{ else }}infra/observability/README.md{{ end }}{{ end }}
 

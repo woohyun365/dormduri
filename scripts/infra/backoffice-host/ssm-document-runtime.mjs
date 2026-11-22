@@ -48,6 +48,15 @@ export const BACKOFFICE_DOCUMENT_CASES = Object.freeze([
     name: 'insecure-raw-env',
     ...fields(2, 'RESULT=failed action=deploy reason=docker-daemon-config', { pulled: 'no' }),
   },
+  // dockerd 명령줄 flag와 `--config-file`이 고른 설정 파일도 본다.
+  {
+    name: 'daemon-flag-direct-routing',
+    ...fields(2, 'RESULT=failed action=deploy reason=docker-daemon-config', { pulled: 'no' }),
+  },
+  {
+    name: 'daemon-config-file',
+    ...fields(2, 'RESULT=failed action=deploy reason=docker-daemon-config', { pulled: 'no' }),
+  },
   {
     name: 'bootstrap-no-current',
     ...fields(2, 'RESULT=failed action=bootstrap-owner reason=no-current'),
@@ -147,6 +156,7 @@ export const BACKOFFICE_DOCUMENT_CASES = Object.freeze([
     ...fields(2, 'RESULT=failed action=rollback reason=no-previous', unchanged('2', 'none', '2')),
   },
   { name: 'bootstrap-input', ...fields(2, 'RESULT=rejected reason=input') },
+  { name: 'bootstrap-input-long', ...fields(2, 'RESULT=rejected reason=input') },
   {
     name: 'bootstrap-issued',
     ...fields(0, 'RESULT=succeeded action=bootstrap-owner', { running: '2' }),

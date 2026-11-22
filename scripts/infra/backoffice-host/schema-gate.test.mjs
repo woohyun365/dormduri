@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { API_CD_DEPLOY_JOB, judgeSchemaGate } from './schema-gate.mjs';
+import { API_CD_DEPLOY_JOB, judgeSchemaGate, readApiCdRuns } from './schema-gate.mjs';
 
 const sha = 'a'.repeat(40);
 const older = 'b'.repeat(40);
@@ -63,4 +63,38 @@ test('a run commit that is not a full SHA is refused', () => {
       value,
     );
   }
+});
+
+// 기다리는 동안 GITHUB_TOKEN REST 한도를 쓰지 않도록, 끝난 실행의 job 결과는 다음 회에 다시 묻지 않는다.
+test('reading the api-cd runs asks for the jobs of a finished run only once', () => {
+  const calls = [];
+  const listed = [
+    { id: 3, head_sha: sha, status: 'in_progress' },
+    { id: 2, head_sha: older, status: 'completed' },
+    { id: 1, head_sha: 'c'.repeat(40), status: 'completed' },
+  ];
+  const jobs = {
+    3: [{ name: API_CD_DEPLOY_JOB, status: 'in_progress', conclusion: null }],
+    2: [{ name: API_CD_DEPLOY_JOB, status: 'completed', conclusion: 'success' }],
+    1: [{ name: 'Build images', status: 'completed', conclusion: 'success' }],
+  };
+  const request = (args) => {
+    calls.push(args[1]);
+    const id = /\/runs\/(\d+)\/jobs/u.exec(args[1])?.[1];
+    return id ? { jobs: jobs[id] } : { workflow_runs: listed };
+  };
+  const completed = new Map();
+  const first = readApiCdRuns('owner/repo', { request, completed });
+  assert.deepEqual(first, [
+    run(3, sha, 'in_progress', null),
+    run(2, older, 'completed', 'success'),
+    run(1, 'c'.repeat(40), 'completed', null),
+  ]);
+  assert.equal(calls.length, 4);
+  calls.length = 0;
+  assert.deepEqual(readApiCdRuns('owner/repo', { request, completed }), first);
+  assert.deepEqual(calls, [
+    'repos/owner/repo/actions/workflows/api-cd.yml/runs?branch=main&event=push&per_page=30',
+    'repos/owner/repo/actions/runs/3/jobs?per_page=50',
+  ]);
 });

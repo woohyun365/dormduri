@@ -9,14 +9,20 @@ secrets=/opt/dormduri/secrets/backoffice
 P1=$(pair 1)
 count() { find "$1" -mindepth 1 -maxdepth 1 "${@:2}" 2>/dev/null | wc -l | tr -d ' '; }
 run() {
-  local name=$1 script=$2 code current previous running up perms obs pulled published
+  local name=$1 script=$2 code current previous running up perms obs pulled published arg
+  local -a argv=()
   shift 2
+  # DOCKERD_ARGV=<flag>는 document shell의 명령줄에 붙는다. 가짜 pidof(PIDOF_DOCKERD=parent)가 그 shell을 dockerd처럼 내므로
+  # guard가 /proc/<pid>/cmdline에서 그 flag를 읽는다.
+  for arg in "$@"; do
+    case "${arg}" in DOCKERD_ARGV=*) argv+=("${arg#DOCKERD_ARGV=}") ;; esac
+  done
   : >/tmp/docker.log
   : >/tmp/services.log
   : >/tmp/aws.log
   : >/tmp/curl.log
   rm -f /tmp/running_obs
-  env "$@" bash "/work/${script}" >/tmp/out 2>/tmp/err
+  env "$@" bash "/work/${script}" "${argv[@]}" >/tmp/out 2>/tmp/err
   code=$?
   cat /tmp/out /tmp/err /tmp/docker.log /tmp/aws.log /tmp/curl.log >>/tmp/seen
   [ "${script}" = bootstrap.sh ] || cat /tmp/out >>/tmp/seen-deploy-stdout
@@ -62,6 +68,9 @@ printf '{"allow-direct-routing": true}\n' >/etc/docker/daemon.json
 deploy daemon-direct-routing deploy 1
 printf '{"log-driver": "json-file"}\n' >/etc/docker/daemon.json
 deploy insecure-raw-env deploy 1 PIDOF_DOCKERD=parent DOCKER_INSECURE_NO_IPTABLES_RAW=1
+deploy daemon-flag-direct-routing deploy 1 PIDOF_DOCKERD=parent DOCKERD_ARGV=--allow-direct-routing
+printf '{"iptables": false}\n' >/tmp/weak-daemon.json
+deploy daemon-config-file deploy 1 PIDOF_DOCKERD=parent DOCKERD_ARGV=--config-file=/tmp/weak-daemon.json
 bootstrap bootstrap-no-current owner@example.com Owner
 # rollout 전 실패와 첫 배포 실패.
 deploy secret-fetch deploy 1 BAD_FETCH=1
@@ -80,7 +89,9 @@ deploy rollback rollback 2
 deploy rollback-without-previous rollback 4
 # 첫 owner 등록 code.
 bootstrap bootstrap-input 'not-an-email' Owner
-bootstrap bootstrap-issued owner@example.com Owner
+# 이름은 글자로 센다: 한글 61자는 거부하고 60자는 받는다.
+bootstrap bootstrap-input-long owner@example.com "$(printf '가%.0s' $(seq 61))"
+bootstrap bootstrap-issued owner@example.com "$(printf '가%.0s' $(seq 60))"
 bootstrap bootstrap-refused owner@example.com Owner BOOTSTRAP_EXIT=2
 deploy maintenance maintenance 2
 # 누설: 가짜 secret 값은 어디에도, 등록 code는 bootstrap SSM 출력 밖(배포 출력·host log·명령 인자)에 없어야 한다.

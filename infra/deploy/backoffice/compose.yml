@@ -122,7 +122,8 @@ services:
     deploy: { resources: { limits: { memory: 256M, pids: 128 } } }
 
   # 관측(D-BF15). compose project `dormduri-backoffice`의 세 service log와 API metric·readiness probe·host 지표를 user host의 관측
-  # 수신 gateway로 보낸다. Docker socket·host `/`·`/proc`·`/sys`를 읽기 전용으로 읽어 root(0:473)로 돈다. 설정은 document가 release
+  # 수신 gateway로 보낸다. Docker socket·host `/`·`/proc`·`/sys`를 읽기 전용으로 읽어 root(0:473)로 돈다. 이 host에는 Alloy를 network로
+  # 긁는 쪽이 없으므로 HTTP server(UI·component API)는 container 안 loopback에만 연다. 설정은 document가 release
   # 디렉터리에 쓴 것을, 수신 주소·token과 metric token은 root 소유 0400 파일을 읽는다. 관측이 멈춰도 운영자 요청은 막히지 않는다.
   alloy:
     <<: *hardening
@@ -131,7 +132,7 @@ services:
     command:
       [
         run,
-        --server.http.listen-addr=0.0.0.0:12345,
+        --server.http.listen-addr=127.0.0.1:12345,
         --storage.path=/var/lib/alloy/data,
         /etc/alloy/config.alloy,
       ]

@@ -3,6 +3,15 @@
 # backoffice-host(host 지표). 보안 이벤트는 backoffice_security_events_total의 event label(고정 값)이고 계정·email은 label이 아니다.
 # summary·runbook은 고정 문구다(Slack template이 이 둘만 annotation에서 출력한다).
 groups:
+  # 백오피스 지표가 한 번이라도 들어온 뒤로 1을 이어 적는다(자기 직전 값을 1시간 창에서 이어 받으므로 지표가 끊겨도 남는다). 첫
+  # 배포 전에는 series가 없다. Prometheus 자신이 1시간 넘게 멈추면 사라지고, 지표가 다시 들어오면 다시 생긴다.
+  - name: dormduri-backoffice-presence
+    rules:
+      - record: backoffice:telemetry_expected
+        expr: |
+          max(up{job="backoffice-api"}) * 0 + 1
+          or
+          max_over_time(backoffice:telemetry_expected[1h])
   - name: dormduri-backoffice
     rules:
       - alert: BackofficeRecoveryLogin
@@ -96,13 +105,13 @@ groups:
           summary: 백오피스 Alloy가 API metrics를 5분 동안 읽지 못했습니다.
           runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
 
-      # 백오피스 host·Alloy·수신 gateway 가운데 하나가 멈추면 지표가 오지 않는다. 최근 3일 안에 보낸 적이 있을 때만 울린다(첫 배포
-      # 전에는 울리지 않는다).
+      # 백오피스 host·Alloy·수신 gateway 가운데 하나가 멈추면 지표가 오지 않는다. 지표가 한 번이라도 들어온 뒤에만 울리고(첫 배포
+      # 전에는 울리지 않는다), 끊긴 동안은 기간과 상관없이 계속 울린다.
       - alert: BackofficeTelemetryAbsent
         expr: |
           absent_over_time(up{job="backoffice-api"}[15m])
           and on ()
-          count(count_over_time(up{job="backoffice-api"}[3d])) > 0
+          backoffice:telemetry_expected
         for: 0m
         labels:
           severity: critical

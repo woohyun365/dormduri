@@ -52,7 +52,7 @@ Document 원본은 [`infra/deploy/backoffice/ssm/deploy.sh`](../../deploy/backof
    (`reason=entered-maintenance`, 운영자 접속 닫힘). 성공하면 기록(`current`·`previous`)을 바꾸고 Alloy를 다시 띄운다(fail-open,
    실패는 RESULT 줄 `observability=failed`로만 남는다).
 
-실제 동작은 `scripts/infra/backoffice-host/ssm-document-runtime.mjs`가 일회용 container에서 가짜 docker·aws·curl로 25가지 경로를
+실제 동작은 `scripts/infra/backoffice-host/ssm-document-runtime.mjs`가 일회용 container에서 가짜 docker·aws·curl로 28가지 경로를
 돌려 판정하고(`pnpm infra:check` runtime gate), admin ingress의 Host·header 경계는 `scripts/infra/backoffice-host/ingress-smoke.mjs`가
 실제 nginx로 본다.
 
@@ -68,9 +68,10 @@ Admin ingress는 host `127.0.0.1:4300`에만 publish한다. Lightsail 방화벽�
   `DOCKER_INSECURE_NO_IPTABLES_RAW`(28.0.2 release note: "When enabled, Docker will not create rules in the iptables `raw` table."),
   `iptables: false`. nftables backend는 29.0.0에서 실험 기능이다("Experimental support for nftables can now be enabled by setting
   Docker daemon's `firewall-backend` option to `nftables`.").
-- Document는 Engine major가 28 미만, firewall backend가 `iptables`가 아님, `/etc/docker/daemon.json`의 `allow-direct-routing: true`·
-  `iptables: false`·`ip6tables: false`, dockerd 환경의 `DOCKER_INSECURE_NO_IPTABLES_RAW` 가운데 하나라도 있으면 아무것도 바꾸기 전에
-  멈춘다(`reason=docker-engine-below-28`·`docker-firewall-backend`·`docker-daemon-config`). Compose 계약 test는 bridge network에
+- Document는 Engine major가 28 미만, firewall backend가 `iptables`가 아님, 설정 파일(dockerd 명령줄의 `--config-file`, 없으면
+  `/etc/docker/daemon.json`)의 `allow-direct-routing: true`·`iptables: false`·`ip6tables: false`, dockerd 명령줄의
+  `--allow-direct-routing`·`--iptables=false`·`--ip6tables=false`, dockerd 환경의 `DOCKER_INSECURE_NO_IPTABLES_RAW` 가운데 하나라도
+  있으면 아무것도 바꾸기 전에 멈춘다(`reason=docker-engine-below-28`·`docker-firewall-backend`·`docker-daemon-config`). Compose 계약 test는 bridge network에
   보호를 끄는 driver option(`gateway_mode`·`trusted_host_interfaces` 등)이 없음을 고정한다.
 - Document가 배포마다 하한을 보므로 host의 지금 판은 따로 적지 않는다. Engine을 올릴 때는 그 판의 release note에 이 보호를
   약하게 하는 항목이 없는지 본다(29.x release note에는 없다, 2026-11-22 확인).
@@ -138,8 +139,9 @@ Admin ingress는 host `127.0.0.1:4300`에만 publish한다. Lightsail 방화벽�
 
 - `backoffice-cd`는 concurrency group `backoffice-host-production`을 쓴다. 실행 중인 run과 대기 자리가 하나씩이고, 새 run이 오면
   대기 중인 run이 취소된다(API 단계 배포의 [대기 실행](./api-stage-deploy.md#대기-실행)과 같은 규칙).
-- schema gate가 기다리는 동안에도 run은 group을 잡는다. 같은 승격의 `api-cd` 승인이 늦으면 gate가 90분 뒤 멈추고, `api-cd` 배포
-  뒤 그 run을 Re-run failed jobs로 다시 돌린다(build를 다시 돌지 않는다).
+- schema gate가 기다리는 동안에도 run은 group을 잡는다. Gate는 60초마다 `api-cd` 실행을 보고(끝난 실행의 job 결과는 다시 묻지
+  않음), 읽지 못하면 다시 시도한다. 같은 승격의 `api-cd` 승인이 늦으면 gate가 90분 뒤 멈추고, `api-cd` 배포 뒤 그 run을 Re-run
+  failed jobs로 다시 돌린다(build를 다시 돌지 않는다).
 - 승인 대기 중인 run보다 더 새 백오피스 배포 입력 run이 있으면 옛 run을 거절한다. 잘못 승인해도 "더 새 변경" 확인이 host에
   보내기 전에 멈춘다.
 
@@ -162,13 +164,15 @@ DB migration은 되돌리지 않는다. 옛 백오피스 image가 새 schema와 
 - 멈춘 run은 run 요약의 "Backoffice CD stopped" 절에 단계별 결과를 남긴다. Host가 바뀐 run(자동 되돌림·내림 포함)은 그 절과
   host `RESULT=` 줄을 7일 안에 단계 이슈 댓글로 옮긴다.
 - `docker-engine-below-28`·`docker-firewall-backend`·`docker-daemon-config`(exit 2): host는 그대로다. Docker 설정을
-  [Docker Engine 하한](#docker-engine-하한) 안으로 되돌린 뒤 다시 보낸다. 보호를 끄는 설정을 두고 배포하지 않는다.
+  [Docker Engine 하한](#docker-engine-하한) 안으로 되돌린 뒤 다시 보낸다. 보호를 끄는 설정을 두고 배포하지 않는다. `docker info`가
+  firewall backend를 알리지 않는 판도 `docker-firewall-backend`로 멈추므로 그때는 Engine을 올린다.
 - `secret-fetch`·`secret-invalid`: Owner가 host role 정책과 묶음 key를 checklist와 대조한다. 값은 기록하지 않는다.
 - `rolled-back-to-current`·`entered-maintenance`: host 안 smoke나 readiness가 실패했다. Owner가 Session Manager로 host log
   (`/opt/dormduri/state/deploy-backoffice.log`, `SMOKE` 줄)를 읽고 원인을 고친 묶음을 다시 배포한다.
 - 결과 줄 없이 끝난 command(`TimedOut`·`Cancelled`): Owner가 host의 `/opt/dormduri/state/current`와 실행 중인 container의 image
   digest를 읽고(digest만 기록) 원하는 Release의 `images` 묶음을 `deploy`로 다시 올려 기록과 host를 맞춘다.
-- schema gate 멈춤: 같은 commit의 `api-cd` 실행이 없거나 실패했다. API 단계를 먼저 고쳐 배포한 뒤 다시 돌린다.
+- schema gate 멈춤: 같은 commit의 `api-cd` 실행이 없거나 실패했거나 90분 안에 배포하지 못했다. API 단계를 먼저 고쳐 배포한 뒤
+  다시 돌린다.
 
 ## 경보 대응
 
@@ -182,7 +186,7 @@ Alertmanager → Slack 고정 형식으로 온다(규칙 `infra/observability/pr
 | `BackofficeAuditWriteFailed`                                     | critical         | 감사 쓰기 실패는 그 작업도 되돌린다. DB 연결·권한을 보고 고칠 때까지 권한 변경을 멈춘다                                             |
 | `BackofficeAccountLocked`                                        | warning          | 로그인 실패가 본인 것인지 확인한다. 아니면 비밀번호를 바꾼다                                                                        |
 | `BackofficeRoleChanged`·`BackofficeSelfApproval`                 | warning          | 감사 화면에서 그 변경과 승인 사유를 확인한다                                                                                        |
-| `BackofficePermissionDeniedBurst`                                | warning          | 10분에 5번 넘게 권한 밖 기능을 시도했다. 감사 화면과 log에서 그 계정을 보고 의도하지 않았으면 session을 끊는다                      |
+| `BackofficePermissionDeniedBurst`                                | warning          | 10분에 5번 이상 권한 밖 기능을 시도했다. 감사 화면과 log에서 그 계정을 보고 의도하지 않았으면 session을 끊는다                      |
 | `BackofficeNotReady`·`BackofficeApiMetricsDown`                  | critical         | host log와 container 상태를 본다. 배포 직후면 직전 묶음으로 `rollback`한다                                                          |
 | `BackofficeTelemetryAbsent`                                      | critical         | 백오피스 host·Alloy·user host gateway 가운데 무엇이 멈췄는지 본다(gateway health, 관측 묶음 두 key, 백오피스 host 상태)             |
 | `BackofficeRetentionFailed`·`BackofficeRetentionStalled`         | warning          | 관리자 기록 정리가 실패하거나 3시간 성공하지 않았다. DB 연결과 `backoffice_retention` 권한을 본다. 다음 실행이 밀린 것을 따라잡는다 |

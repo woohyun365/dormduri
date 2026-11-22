@@ -8,6 +8,8 @@
 # 종료 코드: 0 발급, 1 실패, 2 거부(입력·상태·활성 계정 있음), 64 앱 입력 거부, 75 host lock.
 set -euo pipefail
 umask 022
+# SSM agent는 locale 없이 실행한다. 이름 길이 검사(60자)가 byte가 아니라 글자를 세도록 UTF-8 locale을 둔다.
+export LC_ALL=C.UTF-8
 export HOME=/root
 export AWS_SHARED_CREDENTIALS_FILE=/root/.aws/credentials
 export AWS_REGION=ap-northeast-2

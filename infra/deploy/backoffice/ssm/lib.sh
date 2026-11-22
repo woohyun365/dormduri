@@ -46,9 +46,10 @@ record_put() {
 # loopback publish 보호(D-BF2): Docker Engine 28.0.0부터 같은 network의 다른 host가 127.0.0.1에 publish한 port로 직접 route해
 # 닿는 길을 iptables raw table 규칙이 막는다(Docker 28.0.0 release note). 그 판보다 낮거나, 보호를 끄는 설정(daemon option
 # `allow-direct-routing`, `iptables: false`, 환경 변수 DOCKER_INSECURE_NO_IPTABLES_RAW)이거나, 확인한 iptables backend가 아니면
-# 아무것도 바꾸기 전에 멈춘다.
+# 아무것도 바꾸기 전에 멈춘다. daemon option은 dockerd 명령줄 flag와 그 flag가 고른 설정 파일(`--config-file`, 없으면
+# /etc/docker/daemon.json) 둘 다에서 본다.
 engine_guard() {
-  local version major backend pid
+  local version major backend pid config=/etc/docker/daemon.json
   # document 본문에는 SSM 파라미터 문법(이중 중괄호)을 두지 않으므로 Go template 대신 JSON 출력을 읽는다.
   version=$(docker version --format json 2>>"${log}" \
     | python3 -I -c 'import json, sys; print(json.load(sys.stdin)["Server"]["Version"])' 2>>"${log}") || fail docker 2
@@ -58,19 +59,40 @@ engine_guard() {
     | python3 -I -c 'import json, sys; print((json.load(sys.stdin).get("FirewallBackend") or {}).get("Driver", ""))' \
       2>>"${log}" || true)
   [ "${backend}" = iptables ] || fail docker-firewall-backend 2
-  if [ -f /etc/docker/daemon.json ]; then
+  for pid in $(pidof dockerd 2>/dev/null || true); do
+    if tr '\0' '\n' <"/proc/${pid}/environ" 2>/dev/null | grep -q '^DOCKER_INSECURE_NO_IPTABLES_RAW='; then
+      fail docker-daemon-config 2
+    fi
+    # 명령줄 flag가 보호를 끄면 멈추고, 아니면 그 dockerd가 읽는 설정 파일 경로를 낸다. 명령줄을 읽지 못하면 멈춘다.
+    config=$(python3 -I -c '
+import sys
+args = [arg.decode() for arg in open(sys.argv[1], "rb").read().split(b"\0") if arg][1:]
+config, index = "/etc/docker/daemon.json", 0
+while index < len(args):
+    name, eq, value = args[index].partition("=")
+    if name == "--config-file":
+        if not eq:
+            index += 1
+            value = args[index] if index < len(args) else ""
+        config = value
+    elif name == "--allow-direct-routing" and value.lower() not in ("false", "0"):
+        sys.exit(1)
+    elif name in ("--iptables", "--ip6tables") and value.lower() in ("false", "0"):
+        sys.exit(1)
+    index += 1
+print(config)
+' "/proc/${pid}/cmdline" 2>>"${log}") || fail docker-daemon-config 2
+  done
+  if [ -f "${config}" ]; then
     python3 -I -c '
 import json, sys
 config = json.load(open(sys.argv[1]))
 weak = config.get("allow-direct-routing") is True or config.get("iptables") is False or config.get("ip6tables") is False
 sys.exit(1 if weak else 0)
-' /etc/docker/daemon.json 2>>"${log}" || fail docker-daemon-config 2
+' "${config}" 2>>"${log}" || fail docker-daemon-config 2
+  elif [ "${config}" != /etc/docker/daemon.json ]; then
+    fail docker-daemon-config 2
   fi
-  for pid in $(pidof dockerd 2>/dev/null || true); do
-    if tr '\0' '\n' <"/proc/${pid}/environ" 2>/dev/null | grep -q '^DOCKER_INSECURE_NO_IPTABLES_RAW='; then
-      fail docker-daemon-config 2
-    fi
-  done
 }
 
 # registry login(host credential, ECR). 주소는 host log에만 남는다.
