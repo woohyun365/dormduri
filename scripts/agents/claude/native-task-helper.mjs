@@ -1472,8 +1472,9 @@ function reviewerPrompt(
         : []),
     ]),
   ];
+  // A line counts with the line break before it, so the sizes add up to the prompt length.
   const sizes = Object.fromEntries(PROMPT_PARTS.map((part) => [part, 0]));
-  for (const [part, line] of lines) sizes[part] += line.length + 1;
+  for (const [index, [part, line]] of lines.entries()) sizes[part] += line.length + (index ? 1 : 0);
   return {
     text: lines.map(([, line]) => line).join('\n'),
     parts: PROMPT_PARTS.map((part) => `${part} ${sizes[part]}`).join(', '),
@@ -2880,11 +2881,8 @@ function settlementStatus(taskId, root) {
       Boolean(registered) &&
       header === claudeNativeSnapshotDigest(registered) &&
       sameClaudeSourceTree(root, registered, state.observation.finalSnapshot);
-    if (
-      header === undefined ||
-      !source ||
-      (header !== claudeNativeSnapshotDigest(source) && !sameTree)
-    )
+    // A prompt without the header line (header undefined) matches no snapshot and no registered tree.
+    if (!source || (header !== claudeNativeSnapshotDigest(source) && !sameTree))
       state.errors.push('review-snapshot-mismatch');
   }
   const content = state.observation.response?.content;
@@ -3039,20 +3037,20 @@ export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() 
   // A native subject reviewer completes from this judgment, so an extract changed after its review was
   // built is refused here as well as in the settle observation. A subject settled with its reviewer checks
   // that reviewer's extracts again: a change after the reviewer settled stops the subject too.
-  const linked =
-    !reviewer && typeof judgment.reviewerTaskId === 'string'
-      ? (() => {
-          try {
-            return observeClaudeNativeTask(judgment.reviewerTaskId, { root });
-          } catch {
-            return null;
-          }
-        })()
-      : null;
+  // A reviewer id that names no task this checkout can observe adds no extract check here.
+  const linkedExtractErrors = (id) => {
+    let linked;
+    try {
+      linked = observeClaudeNativeTask(id, { root });
+    } catch {
+      return [];
+    }
+    return reviewExtractChecks(linked, root).errors;
+  };
   const changed = reviewer
     ? reviewExtractChecks(state, root).errors
-    : linked
-      ? reviewExtractChecks(linked, root).errors
+    : typeof judgment.reviewerTaskId === 'string'
+      ? linkedExtractErrors(judgment.reviewerTaskId)
       : [];
   if (changed.length)
     throw new TypeError(

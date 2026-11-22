@@ -1103,3 +1103,14 @@ test('a read binding whose envelope risk is no rank is refused at admission (KNU
     });
   }
 });
+
+test('a read scope segment takes letters, marks, digits and . _ - ( ) [ ] and every segment must (P6 ④ 착수 5.1)', () => {
+  const withScope = (readScope) => {
+    const input = researchInput();
+    input.task.readScope = readScope;
+    return evaluateClaudeProfileEligibility(input).reasons;
+  };
+  assert.deepEqual(withScope(['docs/(guide)/[id]/화면-설명_1.md']), []);
+  for (const path of ['docs/(guide)/a b.md', 'docs/a;b/qa.md', 'docs/../qa.md', './docs', 'docs/'])
+    assert.deepEqual(withScope([path]), ['invalid-input'], path);
+});

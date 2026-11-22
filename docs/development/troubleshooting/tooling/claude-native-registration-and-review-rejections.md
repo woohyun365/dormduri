@@ -255,8 +255,8 @@
 - Review-read hook: `knu_reviewer` 역할 frontmatter의 PreToolUse hook이 path 없는·빈 path·저장소 root와 그 상위·read 범위 밖
   Grep·Glob을 거부하고 task 디렉터리 `review-read-denials.jsonl`에 줄로 남깁니다. 정산은 그 기록에 있는 호출만 의존 판정에서 빼므로
   저장소 전체 판정(`basis: repository`)이 되지 않습니다. 기록에 읽지 못하는 줄이 있으면 기록 전체를 쓰지 않습니다. Read는 거부하지
-  않고 read 범위 밖 대상을 `readOutsidePaths`에 기록만 합니다. Child task를 찾지 못하면(신뢰하지 않은 폴더 세션 등) path 없음·root·
-  상위만 거부하고 기록을 남기지 않습니다.
+  않고 read 범위 밖 대상을 `readOutsidePaths`에 기록만 합니다. Child task를 찾지 못하면(transcript·marker·task 기록이 맞지 않을 때)
+  path 없음·root·상위만 거부하고 기록을 남기지 않습니다. 신뢰하지 않은 폴더 세션처럼 hook이 돌지 않으면 거부도 기록도 없습니다.
 - Adapter identity: 등록 때와 hook·정산 때의 identity가 다르면 `adapter/role/settings drift`입니다. Source digest는
   `native-session.mjs`와 `native-task-helper.mjs`에서 시작하는 정적 import 닫힘의 파일들이고 역할 파일과 settings digest가 함께
   듭니다. 닫힘 밖 `scripts/agents/claude`·`scripts/agents/common` script(dispatch 전 검사 도구 등)의 변경은 거부하지 않고

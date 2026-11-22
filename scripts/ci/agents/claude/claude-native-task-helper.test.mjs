@@ -5824,26 +5824,26 @@ test('settlement refuses a result template changed after registration on both su
   }
 });
 // The PostToolUse completion of a reviewer Agent call whose child transcript is already written.
+const reviewerCompletion = (r, reviewer, transcriptPath, text, agentId = 'review-1-agent') => ({
+  hook_event_name: 'PostToolUse',
+  session_id: r.sessionId,
+  cwd: r.root,
+  permission_mode: 'auto',
+  tool_name: 'Agent',
+  tool_use_id: 'review-1',
+  tool_input: reviewer.invocation,
+  transcript_path: transcriptPath,
+  tool_response: {
+    status: 'completed',
+    agentId,
+    resolvedModel: 'claude-opus-4-6',
+    content: [{ type: 'text', text }],
+  },
+});
 function completeReviewerAgent(r, reviewer, transcriptPath, text, agentId = 'review-1-agent') {
-  handleClaudeNativeSessionEvent(
-    {
-      hook_event_name: 'PostToolUse',
-      session_id: r.sessionId,
-      cwd: r.root,
-      permission_mode: 'auto',
-      tool_name: 'Agent',
-      tool_use_id: 'review-1',
-      tool_input: reviewer.invocation,
-      transcript_path: transcriptPath,
-      tool_response: {
-        status: 'completed',
-        agentId,
-        resolvedModel: 'claude-opus-4-6',
-        content: [{ type: 'text', text }],
-      },
-    },
-    { root: r.root },
-  );
+  handleClaudeNativeSessionEvent(reviewerCompletion(r, reviewer, transcriptPath, text, agentId), {
+    root: r.root,
+  });
 }
 
 test('a prompt over the limit names the size of each part on both subject paths (P6 ④ RED 2)', (t) => {
@@ -5976,7 +5976,24 @@ function reviewReadRun(t, { tools = () => [], prompt } = {}) {
     return settleClaudeNativeTask(reviewer.taskId, undefined, { root: r.root });
   };
   const denials = join(reviewer.evidenceDirectory, 'review-read-denials.jsonl');
-  return { r, review, reviewer, agentId, event, guard, complete, denials };
+  const childTranscript = join(
+    dirname(transcriptPath),
+    r.sessionId,
+    'subagents',
+    `agent-${agentId}.jsonl`,
+  );
+  return {
+    r,
+    review,
+    reviewer,
+    agentId,
+    transcriptPath,
+    childTranscript,
+    event,
+    guard,
+    complete,
+    denials,
+  };
 }
 const decision = (output) => output?.hookSpecificOutput?.permissionDecision;
 
@@ -6504,4 +6521,378 @@ test('a later round reads the full scope again for a new ignored file under its 
     { mode: 'full', reason: `new-file: ${added}` },
     `P6-4 2.3: ${JSON.stringify(second.record.deltaScope)}`,
   );
+});
+
+// The operator mutation sweep of the P6 ④ branches: each test below fixes a branch that a mutant changed while every
+// earlier test still passed.
+const denialRow = (toolUseId) =>
+  JSON.stringify({
+    toolUseId,
+    tool: 'Grep',
+    path: null,
+    reason: 'without-path',
+    at: '2026-11-23T00:00:00Z',
+  });
+const packetAndPathlessGrep = (review, root) => [
+  { name: 'Read', input: { file_path: join(root, review.packetFile.path) } },
+  { name: 'Grep', input: { pattern: 'x' } },
+];
+test('a denial record is used only when every line is an object with a tool use id, and a blank line is skipped (P6 ④ sweep)', (t) => {
+  const basisWith = (text) => {
+    const run = reviewReadRun(t, { tools: packetAndPathlessGrep });
+    writeFileSync(run.denials, text);
+    return run.complete().dependencyJudgment.basis;
+  };
+  assert.equal(
+    basisWith(`\n${denialRow('toolu_1')}\n`),
+    'dependency',
+    'a blank line before the row',
+  );
+  for (const line of ['{}', '{"toolUseId":5}', '{"toolUseId":""}', 'null', '"toolu_1"'])
+    assert.equal(basisWith(`${denialRow('toolu_1')}\n${line}\n`), 'repository', line);
+});
+
+test('a denial record that is not a regular file is not read (P6 ④ sweep)', (t) => {
+  const run = reviewReadRun(t, { tools: packetAndPathlessGrep });
+  // A FIFO: reading it would wait for a writer, so the completion hook and settle run as commands with a time limit.
+  const made = spawnSync('mkfifo', [run.denials]);
+  if (made.status !== 0) {
+    t.skip('mkfifo is not available');
+    return;
+  }
+  const command = (args, input) =>
+    spawnSync(process.execPath, [cliPath, ...args], {
+      cwd: run.r.root,
+      input,
+      encoding: 'utf8',
+      env: { ...process.env, CLAUDE_PROJECT_DIR: run.r.root },
+      timeout: 30000,
+    });
+  const completion = reviewerCompletion(
+    run.r,
+    run.reviewer,
+    run.transcriptPath,
+    passing(run.review),
+    run.agentId,
+  );
+  const completed = command(['--hook'], JSON.stringify(completion));
+  assert.equal(completed.error, undefined, 'the completion hook ended');
+  assert.equal(completed.status, 0, completed.stderr);
+  const settled = command(['settle', '--task', run.reviewer.taskId]);
+  assert.equal(settled.error, undefined, 'settle ended');
+  assert.equal(JSON.parse(settled.stdout).dependencyJudgment.basis, 'repository');
+});
+
+test('settlement leaves out only the denied call of an assistant message and judges the calls after it (P6 ④ sweep)', (t) => {
+  const run = reviewReadRun(t, {
+    tools: (review, root) => [
+      ...packetAndPathlessGrep(review, root),
+      { name: 'Glob', input: { pattern: '*', path: root } },
+    ],
+  });
+  // The model sent the path-less Grep (toolu_1) and the root Glob (toolu_2) in one message.
+  const rows = readFileSync(run.childTranscript, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  const calls = rows.filter(
+    (row) =>
+      row.type === 'assistant' && ['toolu_1', 'toolu_2'].includes(row.message.content[0]?.id),
+  );
+  calls[0].message.content = calls.flatMap((row) => row.message.content);
+  writeFileSync(
+    run.childTranscript,
+    `${rows
+      .filter((row) => row !== calls[1])
+      .map((row) => JSON.stringify(row))
+      .join('\n')}\n`,
+  );
+  run.guard(run.event('Grep', { pattern: 'x' }, { tool_use_id: 'toolu_1' }));
+  const status = run.complete();
+  assert.equal(status.dependencyJudgment.basis, 'repository');
+  assert.equal(status.dependencyJudgment.reason, 'whole-repository:Glob');
+});
+
+test('readOutsidePaths holds Read targets only; a search outside the read paths is judged and not listed there (P6 ④ sweep)', (t) => {
+  const status = reviewReadRun(t, {
+    tools: (review, root) => [
+      { name: 'Read', input: { file_path: join(root, review.packetFile.path) } },
+      { name: 'Grep', input: { pattern: 'x', path: join(root, 'other.txt') } },
+    ],
+  }).complete();
+  assert.deepEqual(status.readOutsidePaths, []);
+});
+
+test('the review-read hook finds the reviewer task only from a child id, its marker digest and a text first row (P6 ④ sweep)', (t) => {
+  const run = reviewReadRun(t);
+  const { r, reviewer, event, guard } = run;
+  const outside = (agentId) =>
+    guard(
+      event(
+        'Grep',
+        { pattern: 'x', path: join(r.root, 'other.txt') },
+        { agent_id: agentId, tool_use_id: `toolu_${agentId}` },
+      ),
+    );
+  const child = (agentId, prompt, firstRow = (row) => row) => {
+    writeChildTranscript(r.root, {
+      sessionId: r.sessionId,
+      agentId,
+      prompt,
+      model: 'claude-opus-4-6',
+      effort: ROLE_EFFORT.knu_reviewer,
+    });
+    const path = join(
+      dirname(run.transcriptPath),
+      r.sessionId,
+      'subagents',
+      `agent-${agentId}.jsonl`,
+    );
+    const [first, ...rest] = readFileSync(path, 'utf8').split('\n');
+    writeFileSync(path, [JSON.stringify(firstRow(JSON.parse(first))), ...rest].join('\n'));
+  };
+  // A first row whose content is a list of parts names the task by its text parts.
+  const prompt = reviewer.invocation.prompt;
+  child('parts-agent', prompt, (row) => ({
+    ...row,
+    message: {
+      content: [
+        { type: 'text', text: prompt.slice(0, 40) },
+        { type: 'image', source: { type: 'base64', media_type: 'image/png', data: '' } },
+        { type: 'text', text: prompt.slice(40) },
+      ],
+    },
+  }));
+  assert.equal(decision(outside('parts-agent')), 'deny', 'the text parts hold the marker');
+  // A marker with another digest, and an agent id that is no child id though its path names the reviewer transcript.
+  child('forged-agent', prompt.replace(/sha256:[a-f0-9]{64}$/u, `sha256:${'0'.repeat(64)}`));
+  assert.deepEqual(outside('forged-agent'), {}, 'a forged marker digest finds no task');
+  assert.deepEqual(outside(`x/../agent-${run.agentId}`), {}, 'an agent id with a path');
+  const rows = readFileSync(run.denials, 'utf8').split('\n').filter(Boolean);
+  assert.deepEqual(
+    rows.map((line) => JSON.parse(line).toolUseId),
+    ['toolu_parts-agent'],
+  );
+});
+
+test('the denial record names the reason code and the given path of each call, a relative path read from the call cwd (P6 ④ sweep)', (t) => {
+  const run = reviewReadRun(t);
+  const { r, event, guard } = run;
+  const calls = [
+    [{ pattern: 'x' }, 'without-path', null],
+    [{ pattern: 'x', path: '' }, 'without-path', ''],
+    [{ pattern: 'x', path: 5 }, 'without-path', null],
+    [{ pattern: 'x', path: r.root }, 'whole-repository', r.root],
+    [{ pattern: 'x', path: '..' }, 'whole-repository', '..'],
+    [{ pattern: 'x', path: 'other.txt' }, 'outside-read-paths', 'other.txt'],
+  ];
+  calls.forEach(([input], index) =>
+    assert.equal(
+      decision(guard(event('Grep', input, { tool_use_id: `toolu_r${index}` }))),
+      'deny',
+      JSON.stringify(input),
+    ),
+  );
+  const rows = readFileSync(run.denials, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  assert.deepEqual(
+    rows.map(({ reason, path }) => [reason, path]),
+    calls.map(([, reason, path]) => [reason, path]),
+  );
+  const nested = join(r.root, 'nested');
+  mkdirSync(nested);
+  assert.deepEqual(
+    guard(event('Grep', { pattern: 'x', path: '../sample.txt' }, { cwd: nested })),
+    {},
+    'a read path given relative to the cwd',
+  );
+  assert.equal(
+    decision(guard(event('Grep', { pattern: 'x', path: 'sample.txt' }, { cwd: nested }))),
+    'deny',
+    'nested/sample.txt is outside the read paths',
+  );
+});
+
+test('sameClaudeSourceTree matches two snapshots by HEAD tree, dirty diff and untracked digests (P6 ④ sweep)', (t) => {
+  const r = repo(t);
+  gitIn(r.root, 'commit', '-qm', 'base');
+  const first = gitIn(r.root, 'rev-parse', 'HEAD');
+  gitIn(r.root, 'commit', '--allow-empty', '-qm', 'same tree');
+  const sameTree = gitIn(r.root, 'rev-parse', 'HEAD');
+  commitFile(r.root, 'other.txt');
+  const otherTree = gitIn(r.root, 'rev-parse', 'HEAD');
+  const same = (a, b) => sessionModule.sameClaudeSourceTree(r.root, a, b);
+  const at = (headSHA, patch = {}) => ({
+    headSHA,
+    dirtyDiffDigest: 'sha256:dirty',
+    untrackedInputDigests: [{ path: 'u.txt', digest: 'sha256:u' }],
+    ...patch,
+  });
+  assert.equal(same(null, at(first)), false);
+  assert.equal(same(at(first), undefined), false);
+  assert.equal(same(at(first), at(first)), true, 'equal snapshots');
+  assert.equal(same({ dirtyDiffDigest: 'x' }, { dirtyDiffDigest: 'x' }), true, 'equal, no commit');
+  assert.equal(same(at(first), at(sameTree)), true, 'another commit of the same tree');
+  assert.equal(same(at(first), at(otherTree)), false);
+  assert.equal(same(at(first), at(sameTree, { dirtyDiffDigest: 'sha256:other' })), false);
+  assert.equal(same(at(first), at(sameTree, { untrackedInputDigests: [] })), false);
+  assert.equal(same(at('1'.repeat(40)), at('2'.repeat(40))), false, 'commits Git cannot read');
+  // A headSHA that is not a string is no match, even one whose text names the commit.
+  assert.equal(same(at([first]), at(sameTree)), false);
+  assert.equal(same(at(first), at([sameTree])), false);
+});
+
+test('CLI review takes every --requirement-source value and refuses another repeated or valueless option (P6 ④ sweep)', (t) => {
+  const r = settledSubject(t);
+  writeRequirementSource(r);
+  const run = (...args) =>
+    spawnSync(process.execPath, [cliPath, 'review', '--subject', r.subject.taskId, ...args], {
+      cwd: r.root,
+      encoding: 'utf8',
+    });
+  const twice = run(
+    '--requirement-source',
+    REQUIREMENT_SOURCE,
+    '--requirement-source',
+    '../outside.md',
+  );
+  assert.equal(twice.status, 1);
+  assert.match(twice.stderr, /requirement-source-invalid: \.\.\/outside\.md/u, 'the second value');
+  for (const args of [['--subject', r.subject.taskId], ['--requirement-source']]) {
+    const refused = run(...args);
+    assert.equal(refused.status, 1, args.join(' '));
+    assert.match(refused.stderr, /expected review --subject ID/u, args.join(' '));
+  }
+});
+
+test('the --file-guard and --review-read hooks take a payload of exactly 1 MiB and refuse a larger one (P6 ④ sweep)', (t) => {
+  const r = repo(t);
+  const payload = (size, event) =>
+    JSON.stringify({
+      ...event,
+      pad: 'x'.repeat(size - JSON.stringify({ ...event, pad: '' }).length),
+    });
+  for (const [flag, event] of [
+    ['--file-guard', { hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: {} }],
+    ['--review-read', { hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: {} }],
+  ]) {
+    const hook = (input) =>
+      spawnSync(process.execPath, [cliPath, '--hook', flag], {
+        cwd: r.root,
+        input,
+        encoding: 'utf8',
+        env: { ...process.env, CLAUDE_PROJECT_DIR: r.root },
+      });
+    const limit = hook(payload(1024 * 1024, event));
+    assert.equal(limit.status, 0, `${flag}: ${limit.stderr}`);
+    assert.deepEqual(JSON.parse(limit.stdout), {}, flag);
+    const over = hook(payload(1024 * 1024 + 1, event));
+    assert.equal(over.status, 1, flag);
+    assert.match(over.stderr, /hook payload limit/u, flag);
+  }
+});
+
+test('requirement sources and reference paths refuse an empty, repeated or non-list value and every entry that is no plain repository file (P6 ④ sweep)', (t) => {
+  for (const kind of ['native', 'parent']) {
+    const r = kindRepo(t, kind);
+    writeRequirementSource(r);
+    const evidence = `.artifacts/tools/claude-native/${randomUUID()}/note.md`;
+    for (const [path, text] of [
+      ['ref/a b.md', 'a name with a space\n'],
+      ['.omx/state/note.md', 'local state\n'],
+      [evidence, 'native evidence\n'],
+    ]) {
+      mkdirSync(join(r.root, dirname(path)), { recursive: true });
+      writeFileSync(join(r.root, path), text);
+    }
+    const build = (sources) =>
+      kind === 'native'
+        ? kindReview(r, kind, { requirementSources: sources })
+        : kindReview(r, kind, {
+            parentSubject: { ...SMALL_PARENT_SUBJECT, requirementSources: sources },
+          });
+    for (const sources of [[], [REQUIREMENT_SOURCE, REQUIREMENT_SOURCE], REQUIREMENT_SOURCE])
+      assert.throws(
+        () => build(sources),
+        /requirement-sources-invalid: a list of distinct repository file paths/u,
+        `${kind}: ${JSON.stringify(sources)}`,
+      );
+    for (const source of [
+      'ref/a b.md',
+      '.omx/state/note.md',
+      evidence,
+      dirname(REQUIREMENT_SOURCE),
+    ])
+      assert.throws(
+        () => build([source]),
+        (error) =>
+          error.message.includes(`requirement-source-invalid: ${source} is not a repository file`),
+        `${kind}: ${source}`,
+      );
+  }
+  // A Parent source that overlaps one of several subject paths, and the reference path lists.
+  const r = kindRepo(t, 'parent');
+  writeFileSync(join(r.root, 'other.txt'), 'second subject path\n');
+  const subject = (patch) => ({
+    ...SMALL_PARENT_SUBJECT,
+    paths: ['sample.txt', 'other.txt'],
+    ...patch,
+  });
+  assert.throws(
+    () =>
+      kindReview(r, 'parent', { parentSubject: subject({ requirementSources: ['sample.txt'] }) }),
+    /requirement-source-in-paths: sample\.txt/u,
+  );
+  for (const references of [[], ['ref', 'ref'], 'ref'])
+    assert.throws(
+      () => kindReview(r, 'parent', { parentSubject: subject({ referencePaths: references }) }),
+      /reference-paths-invalid: a list of distinct repository paths/u,
+      JSON.stringify(references),
+    );
+  // A commit basis with no reference paths compares nothing; a native subject has no reference paths at all.
+  kindReview(r, 'parent', {
+    parentSubject: subject(),
+    selectionBasisRef: gitIn(r.root, 'rev-parse', 'HEAD'),
+  });
+  const native = kindRepo(t, 'native');
+  kindReview(native, 'native', { selectionBasisRef: gitIn(native.root, 'rev-parse', 'HEAD') });
+});
+
+test('a later round names the round its previous result adjudicated (P6 ④ sweep)', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const { path } = writeGroupRecord(r);
+  assert.match(
+    roundReview(r, { reviewRound: 2, previousResult: path }).reviewerPrompt,
+    /The previous result is the Parent's adjudication record of round 1\. Reviewed results: /u,
+  );
+});
+
+test('the part sizes of a prompt over the limit add up to its length (P6 ④ sweep)', (t) => {
+  const records = Array.from({ length: 60 }, (_, i) => ({
+    command: `node --test scripts/ci/sample.test.mjs # case ${i}`.padEnd(120, 'x'),
+    exit: 0,
+    environment: 'repository root',
+    observedResult: `case ${i} `.padEnd(160, 'y'),
+    outputPaths: ['.artifacts/plans/helper-test/runner.log'],
+  }));
+  for (const kind of ['native', 'parent']) {
+    const r = kindRepo(t, kind);
+    assert.throws(
+      () => kindReview(r, kind, { records }),
+      (error) => {
+        const [, total, parts] =
+          /reviewer-prompt-exceeds-12000-chars \((\d+); ([^)]*)\)/u.exec(error.message) ?? [];
+        const sizes = parts.split(', ').map((part) => Number(/ (\d+)$/u.exec(part)[1]));
+        assert.equal(
+          sizes.reduce((sum, size) => sum + size, 0),
+          Number(total),
+          `${kind}: ${parts}`,
+        );
+        return true;
+      },
+    );
+  }
 });

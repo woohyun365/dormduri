@@ -139,11 +139,15 @@ git ls-tree -r --name-only ead56b6b | grep -c '[][()]'
 ### 회귀 보호
 
 - RED commit의 새 test 21개는 변경 전 구현에서 모두 실패했고 실패 사유가 test가 이름 붙인 항목과 맞았습니다(RED 사유 검사 위반 0).
-- 양성 대조: 변이 전 같은 clone에서 다섯 test 파일(helper·session·skills·adapter contract·리뷰어 입력) 411개가 모두 통과했고, 구현을 한 곳씩
-  되돌린 변이 24개가 모두 그 동작을 고정한 test를 실패시켰습니다. 변이는 결과 template 파일 쓰기·digest 결속, 한도 오류의 부분별 글자 수, 요구
+- 양성 대조: 저장소 밖 독립 clone에서 구현을 한 곳씩 되돌린 변이 24개가 모두 그 동작을 고정한 test를 실패시켰습니다. 변이는 결과 template 파일 쓰기·digest 결속, 한도 오류의 부분별 글자 수, 요구
   원본의 packet 요구 원천, hook의 read 범위·root 판정, 거부 기록 제외, `readOutsidePaths`, 두 정산 지점의 tree 비교, `referencePaths`의 선택
   제외·basis 뒤 변경·dirty 변경 거부, 연결 reviewer 추출 재대조, 두 경로 이름 규칙, literal pathspec, 기준 문서 줄, delta 범위 기록, finding 줄,
   manifest digest 줄, runner 식별자 문구, 이번 회차 subject 경로의 ignored 비교, 기준 항목을 가리키지 않는 binding 행 거부입니다.
+- 연산자 mutation sweep: 바뀐 판정 module 셋(`native-session.mjs`·`native-task-helper.mjs`·`model-policy.mjs`)의 더한 줄에서 비교·논리
+  연산자, 경계값, 조건 반전을 하나씩 바꾼 변이를 저장소 밖 독립 clone에서 돌렸습니다. 첫 sweep에서 어떤 test도 실패시키지 못한 43개는 test
+  공백이었습니다(거부 기록 줄 검증, hook의 task 찾기, 한 message 안의 거부 호출, tree 비교 guard, CLI 반복 option, hook 입력 한도, 요구
+  원본·참조 경로 거부, 이전 회차 번호, 부분별 글자 수). 그 분기마다 test를 더했고, 그중 둘은 중복 조건이라 code에서 지웠습니다. 부분별 글자
+  수는 합이 prompt 길이보다 1 커서 고쳤습니다. 다시 돌린 변이 149개는 모두 test를 실패시켰습니다(survivor 0, 시간 초과 0).
 
 ### 재채점
 

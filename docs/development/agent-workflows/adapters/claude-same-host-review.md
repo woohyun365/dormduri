@@ -37,7 +37,7 @@ runner 출력 경로이고, Parent subject의 read path도 subject `paths`와 ru
 (`template`)이 digest를 결속하므로, 등록 뒤 바뀌면 정산이 `review-template-changed`로 거부합니다. Template의 `commandsActuallyRun`
 자리는 runner 파일의 배열을 그대로 옮기라는 문장이고, 정산 때 reviewer 결과가 runner 파일의 기록과 같아야 합니다. Prompt가
 12,000자를 넘으면 두 subject 경로 모두 `reviewer-prompt-exceeds-12000-chars (<글자 수>; instructions <n>, runner records <n>,
-acceptance and criteria <n>, context <n>, round <n>, files <n>)`처럼 부분별 글자 수(줄바꿈 포함)를 내고 파일을 쓰지 않습니다. Runner 파일은
+acceptance and criteria <n>, context <n>, round <n>, files <n>)`처럼 부분별 글자 수(줄바꿈 포함, 합이 글자 수)를 내고 파일을 쓰지 않습니다. Runner 파일은
 reviewer read path에 들어가고 prompt 기록이 digest를 결속하므로, 등록 뒤 파일이 바뀌면 `review-runner-file-changed`로 정산을
 거부합니다. Runner 파일 줄이 없는 이전 형식 prompt는 template의 기록과 대조합니다. Reviewer spec은 유일한 reviewer 조합(`knu_reviewer`·`complex-critical`)과
 review 필수 facts를 `--basis` 출처로 채운 초안이며, Lead가 확인한 뒤 `prepare`에 넘깁니다. 역할은
