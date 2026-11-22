@@ -102,7 +102,7 @@ git ls-tree -r --name-only ead56b6b | grep -c '[][()]'
 | --------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | 작은 subject(Parent / native)     | 3,923자 / 3,776자               | 3,086자 / 2,938자                                                                                                                             |
 | 과밀 subject(Parent / native)     | 15,098자 거부 / 10,557자        | 5,376자 / 5,228자                                                                                                                             |
-| runner 기록 60개(Parent / native) | 21,790자 / 21,643자, 둘 다 거부 | 20,953자 / 20,805자, 둘 다 거부: instructions 1,732, runner records 18,031, acceptance and criteria 0, context 81, round 151, files 959 / 811 |
+| runner 기록 60개(Parent / native) | 21,790자 / 21,643자, 둘 다 거부 | 20,953자 / 20,805자, 둘 다 거부: instructions 1,731, runner records 18,031, acceptance and criteria 0, context 81, round 151, files 959 / 811 |
 | 사본 모양 fixture                 | 3,857 byte                      | 3,375 byte                                                                                                                                    |
 
 - 결과 template은 `<reviewId>.template.json`으로 옮겨 prompt에는 파일 줄과 먼저 읽으라는 지시만 남습니다. 그 digest는 prompt 기록이 결속해
