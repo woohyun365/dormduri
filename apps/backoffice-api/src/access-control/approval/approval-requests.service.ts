@@ -108,6 +108,7 @@ export class ApprovalRequestsService {
           effectiveStatusFilter(query.status, now),
           cursor
             ? {
+                createdAt: { lte: cursor.time },
                 OR: [
                   { createdAt: { lt: cursor.time } },
                   { createdAt: cursor.time, id: { lt: cursor.id } },

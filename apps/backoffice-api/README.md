@@ -39,7 +39,8 @@ import하지 않는 두 파일, route 접근 규칙 decorator(`access-control/ro
   로그아웃만 할 수 있고 권한이 비어 있다. 이 로그인은 `backoffice_security_events_total{event="recovery_login"}`을 올린다.
 - 계정이 없거나, 비활성이거나, 잠겼거나, 비밀번호가 틀려도 같은 `authentication_failed`를 준다. 비밀번호와 2단계 인증을
   합쳐 연속 5번 틀리면 15분 잠그고 그 계정의 session을 끝낸다(`OA-R5`). 한 계정의 시도는 계정 행을 잠근 transaction 안에서
-  차례로 돌아, 동시에 온 시도도 앞 시도가 남긴 실패 수와 잠금을 본다. 로그인 route 전체는 process 안에서 분당 30번으로 막는다.
+  차례로 돌아, 동시에 온 시도도 앞 시도가 남긴 실패 수와 잠금을 본다. 잠금은 `FOR NO KEY UPDATE`라 그 계정을 가리키는
+  감사·session 행의 FK 검사는 기다리지 않는다(credential 행을 잡고 감사 행을 쓰는 재인증과 엇갈려도 deadlock이 없다). 로그인 route 전체는 process 안에서 분당 30번으로 막는다.
 - Session token은 32 byte 불투명 값이고 DB에는 SHA-256 hash만 둔다. 15분 동안 요청이 없거나 로그인 뒤 8시간이 지나면
   끝나고, 끝난 session은 감사에 한 번 `SESSION_EXPIRED`로 남는다(`OA-R3`). 로그아웃·잠금·비활성화·역할 회수는 바로 끝낸다.
 - 재인증(`POST /auth/reauthentication/options` → `POST /auth/reauthentication`)은 passkey로 하고 5분 동안 유효하다.

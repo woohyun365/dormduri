@@ -316,14 +316,22 @@ export const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     path: 'prisma/sql/lockAdminAccountRow.sql',
     owner: 'backoffice-api/admin-identity',
     category: 'row-lock',
-    requiredPatterns: [/FROM\s+"AdminAccount"/i, /WHERE\s+id\s+=\s+\$1/i, /FOR\s+UPDATE/i],
+    requiredPatterns: [
+      /FROM\s+"AdminAccount"/i,
+      /WHERE\s+id\s+=\s+\$1/i,
+      /FOR\s+NO\s+KEY\s+UPDATE/i,
+    ],
     rationale: 'backoffice login attempts and credential reissues serialize on the account row.',
   }),
   sqlEntry({
     path: 'prisma/sql/lockAdminSessionRow.sql',
     owner: 'backoffice-api/admin-identity',
     category: 'row-lock',
-    requiredPatterns: [/FROM\s+"AdminSession"/i, /WHERE\s+id\s+=\s+\$1/i, /FOR\s+UPDATE/i],
+    requiredPatterns: [
+      /FROM\s+"AdminSession"/i,
+      /WHERE\s+id\s+=\s+\$1/i,
+      /FOR\s+NO\s+KEY\s+UPDATE/i,
+    ],
     rationale: 'the expiry audit of one backoffice session is written once under its row lock.',
   }),
   sqlEntry({

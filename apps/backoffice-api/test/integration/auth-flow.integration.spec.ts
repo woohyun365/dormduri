@@ -1,3 +1,4 @@
+import { lockAdminAccountRow, lockAdminSessionRow } from '@repo/database/sql';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { issueBootstrapOwnerInvitation } from '../../src/admin-identity/bootstrap/bootstrap-owner.js';
 import { totpAt } from '../../src/admin-identity/crypto/totp.js';
@@ -316,6 +317,32 @@ describe('backoffice login, sessions and recovery (OA-R2~OA-R5)', () => {
         credential: foreign.authenticate(step.body.options),
       })
       .expect(401);
+  });
+
+  it('holds the account and session row locks without blocking audit rows that reference them', async () => {
+    // A re-authentication holds its passkey row and then writes an audit row; a login attempt holds
+    // the account row and then updates that passkey. If the account lock blocked the audit row's
+    // foreign key check, the two would deadlock.
+    const { rows: sessions } = await sandbox.admin.query<{ id: string }>(
+      `SELECT "id" FROM ${sandbox.table('AdminSession')} WHERE "accountId" = $1 AND "revokedAt" IS NULL LIMIT 1`,
+      [owner.accountId],
+    );
+    const sessionId = sessions[0]?.id;
+    expect(sessionId).toBeDefined();
+    await test.prisma.$transaction(async (tx) => {
+      await tx.$queryRawTyped(lockAdminAccountRow(owner.accountId));
+      await tx.$queryRawTyped(lockAdminSessionRow(sessionId!));
+      await sandbox.admin.query(`SET lock_timeout = '2s'`);
+      try {
+        await sandbox.admin.query(
+          `INSERT INTO ${sandbox.table('AdminAuditEvent')} ("id", "actorType", "actorAccountId", "sessionId", "action", "result")
+           VALUES (gen_random_uuid()::text, 'ADMIN', $1, $2, 'REAUTHENTICATE', 'SUCCEEDED')`,
+          [owner.accountId, sessionId],
+        );
+      } finally {
+        await sandbox.admin.query('RESET lock_timeout');
+      }
+    });
   });
 
   it('ends a session after 15 idle minutes and 8 hours after login, auditing the expiry once', async () => {

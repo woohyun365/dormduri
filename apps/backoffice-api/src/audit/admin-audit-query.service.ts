@@ -15,12 +15,17 @@ export class AdminAuditQueryService {
     private readonly audit: AdminAuditWriter,
   ) {}
 
-  /** Newest first; the next page starts after the last row's time and id (keyset). */
+  /**
+   * Newest first; the next page starts after the last row's time and id (keyset). The `lte` bound
+   * repeats the cursor time as a range, so the scan starts at the cursor on the `occurredAt` index
+   * instead of filtering every newer row (an OR of two comparisons gives the planner no range).
+   */
   async list(query: AuditEventsQuery) {
     const cursor = pageCursor(query);
     const rows = await this.prisma.adminAuditEvent.findMany({
       where: cursor
         ? {
+            occurredAt: { lte: cursor.time },
             OR: [
               { occurredAt: { lt: cursor.time } },
               { occurredAt: cursor.time, id: { lt: cursor.id } },
