@@ -91,7 +91,11 @@ SessionStart → task 등록 → native Agent PreToolUse → PostToolUse/Failure
    결속한 ignored 입력, child transcript가 보인 Read·Grep·Glob 대상) 안의 변경만 거부하고, 집합 밖 변경과 HEAD 변경은 결과
    `dependencyJudgment`와 `accepted.json`에 기록만 남깁니다. Hand-back(`SubagentHandback`)과 `WebSearch`·`WebFetch`는 저장소를
    읽지 않으므로 건너뜁니다. Transcript를 읽지 못하거나 경로 없는 검색, 저장소 root나 그 위 디렉터리 검색, 저장 이름과 대소문자가
-   다른 대상, 그 밖 도구가 보이면 저장소 전체로 판정합니다(`dependencyJudgment.reason`). 저장된 `completion.json`과 아래 recovery 결속은 저장소 전체 판정 그대로입니다.
+   다른 대상, 그 밖 도구가 보이면 저장소 전체로 판정합니다(`dependencyJudgment.reason`). `knu_reviewer`는 역할 frontmatter
+   PreToolUse hook(`--hook --review-read`)이 path 없는·빈 path·저장소 root와 그 상위·read 범위 밖 Grep·Glob을 이유와 함께 거부하고
+   거부한 호출의 `tool_use_id`를 task 디렉터리 `review-read-denials.jsonl`에 줄로 남기며, 정산은 그 기록(읽지 못하는 줄이 있으면 기록
+   전체를 쓰지 않음)에 있는 Grep·Glob만 이 판정에서 빼고 Read 대상 중 read 범위 밖 경로는 `readOutsidePaths`에 기록만 합니다.
+   기록에 없는 경로 없는 검색(hook이 건너뛰어진 신뢰하지 않은 폴더 세션 포함)은 지금처럼 저장소 전체 판정입니다. 저장된 `completion.json`과 아래 recovery 결속은 저장소 전체 판정 그대로입니다.
    File guard(PreToolUse `Edit|Write|NotebookEdit`)는 Parent 쓰기를 막지 않으므로 Parent 쓰기는 이 운영 규칙과 정산의
    `unattributable-change` 거부로 다룹니다([Parent 동시 쓰기](../../troubleshooting/tooling/claude-native-parent-concurrent-write.md)).
    같은 guard는 subagent가 native evidence(`.artifacts/tools/claude-native/**`)를 쓰는 것을 deny합니다. 완료 알림이 오면 편집 전에 먼저

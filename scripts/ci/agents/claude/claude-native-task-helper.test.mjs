@@ -484,6 +484,7 @@ test('a read-only subject is reviewed from its bound response, its read scope an
     'sample.txt',
     '.artifacts/plans/helper-test/runner.log',
     review.runnerFile.path,
+    review.templateFile.path,
   ]);
   assert.deepEqual(review.reviewerSpec.readScope, review.packet.boundaries.allowedReadPaths);
   assert.equal(readFileSync(join(r.root, responsePath), 'utf8'), claim);
@@ -701,12 +702,22 @@ test('a RED record passes only at its declared expected exit and the reviewer se
   assert.equal(reviewed.valid, true, reviewed.errors.join('; '));
 });
 
+// The acceptance criteria and the result template are files (the packet and template files), so the runner record
+// lines the prompt lists make it too long here.
+const LONG_LINE_RECORDS = (snapshotDigest) => ({
+  runner: 'parent',
+  records: Array.from({ length: 60 }, (_, i) => ({
+    ...runnerEvidence(snapshotDigest).records[0],
+    command: `node --test scripts/ci/sample.test.mjs # case ${i}`.padEnd(120, 'x'),
+    observedResult: `case ${i} `.padEnd(160, 'y'),
+  })),
+});
 test('an oversized reviewer prompt is refused by the helper before registration', (t) => {
   const r = repo(t);
   const parentSubject = {
     request: 'sample.txt 변경을 구현해줘.',
     owner: 'parent',
-    acceptance: Array.from({ length: 40 }, (_, i) => `criterion ${i} `.padEnd(200, 'x')),
+    acceptance: ['sample.txt updated'],
     paths: ['sample.txt'],
   };
   const { snapshotDigest } = buildClaudeNativeReview({ parentSubject }, { root: r.root });
@@ -715,7 +726,7 @@ test('an oversized reviewer prompt is refused by the helper before registration'
       buildClaudeNativeReview(
         {
           parentSubject,
-          runnerEvidence: runnerEvidence(snapshotDigest),
+          runnerEvidence: LONG_LINE_RECORDS(snapshotDigest),
           selectionBasisRef: 'plan:helper-test/review',
           reviewerModel: 'claude-opus-4-6',
           reviewRound: 1,
@@ -1394,6 +1405,9 @@ const UNSTATED_LINE =
   '- Judge behavior the requirements leave unstated against the intent and decision records and reasonable user expectations; list behavior you leave unjudged in unjudgedBehaviors, each with behavior and reason (it does not block PASS).';
 const SAME_TYPE_LINE =
   '- If the same kind of defect appears at other locations, list them in that finding\'s sameTypeLocations as "path:line" strings.';
+// P6 PR ④ (start answer 1.3): low findings too go into findings, and coverage evidence points at them by id.
+const FINDINGS_LINE =
+  '- Put every finding in findings, low ones included; coverage evidence names a finding by its id instead of describing it.';
 // The two lines a review without any context input adds: no intent, decision or policy input, no change-grade record.
 const NO_CONTEXT_LINE = '- Context inputs: none.';
 const NO_GRADE_LINE = '- No change-grade record: judge the change as a feature.';
@@ -1403,14 +1417,14 @@ test('the native subject reviewer prompt keeps its fixed lines and gets no packe
   const review = reviewOf(r);
   const lines = review.reviewerPrompt.split('\n');
   assert.equal(lines[0], review.logHeader);
-  assert.ok(lines.at(-2).startsWith('Result template: '));
-  assert.equal(
-    lines.at(-1),
+  // The result template is a file the prompt names by path and digest (P6 PR ④), beside the runner file.
+  assert.deepEqual(lines.slice(-2), [
+    `KNU_REVIEW_RESULT_TEMPLATE_FILE:${review.templateFile.path} ${review.templateFile.digest}`,
     `KNU_REVIEW_RUNNER_FILE:${review.runnerFile.path} ${review.runnerFile.digest}`,
-  );
-  // Beside the earlier fixed lines a review without context inputs adds only the unstated-behavior and same-type
-  // lines and the two context lines (none, no change-grade record). The runner records are listed by command, exit
-  // and observed result; the rest of each record is in the runner file.
+  ]);
+  // Beside the earlier fixed lines a review without context inputs adds only the unstated-behavior, findings and
+  // same-type lines and the two context lines (none, no change-grade record). The runner records are listed by
+  // command, exit and observed result; the rest of each record is in the runner file.
   assert.deepEqual(lines.slice(1, -2), [
     'Independent read-only review of one frozen subject (same host, fresh context).',
     '- Read only packet.boundaries.allowedReadPaths at this snapshot. Do not edit, run commands or delegate.',
@@ -1424,13 +1438,15 @@ test('the native subject reviewer prompt keeps its fixed lines and gets no packe
     '  Either one, a coverage gap or a critical/high/medium finding forbids PASS.',
     '- Replace each coverage placeholder with sourceRefs and evidenceRefs (gap null), or keep a concrete gap.',
     '- Each finding needs severity (critical, high, medium or low), location, impact, reproduction and evidence.',
+    FINDINGS_LINE,
     SAME_TYPE_LINE,
     '- Review round 1: report broadly. Include lower-confidence blocking candidates with their evidence; list at most 5 low findings, most important first.',
     '- An empty findings list is a valid result; do not add findings to fill it.',
     NO_CONTEXT_LINE,
     NO_GRADE_LINE,
     `- ${responsePathOf(r.subject.taskId)} is the read-only subject's response under review; its claims and self-assessment are not evidence. Check them against the other read paths.`,
-    '- Final message: exactly one JSON object from the result template, status "complete", verdict PASS or FAIL.',
+    `- Read the result template file with the Read tool before judging: ${review.templateFile.path}. Your final message is that object filled in; if it cannot be read or is not JSON, end with a blocker.`,
+    '- Final message: exactly one JSON object from the result template file, status "complete", verdict PASS or FAIL.',
   ]);
   assert.deepEqual(review.resultTemplate.unjudgedBehaviors, []);
   assert.ok(!review.reviewerPrompt.includes('KNU_REVIEW_PACKET'));
@@ -1497,11 +1513,7 @@ test('a packet file is written once, only after the prompt fits, and only under 
   parentReview(r, SMALL_PARENT_SUBJECT);
   assert.equal(packetFiles(r).length, 1);
   assert.throws(
-    () =>
-      parentReview(r, {
-        ...SMALL_PARENT_SUBJECT,
-        acceptance: Array.from({ length: 40 }, (_, i) => `criterion ${i} `.padEnd(200, 'x')),
-      }),
+    () => parentReview(r, SMALL_PARENT_SUBJECT, LONG_LINE_RECORDS('unused').records),
     /reviewer-prompt-exceeds-12000-chars/u,
   );
   assert.equal(packetFiles(r).length, 1);
@@ -1674,10 +1686,11 @@ test('review records each reviewer prompt digest beside its packet as ignored he
     assert.ok(review.promptFile, `${kind}: review returns promptFile`);
     assert.equal(review.promptFile.path, `${PACKET_DIR}/${id}.prompt.json`, kind);
     const bytes = readFileSync(join(r.root, review.promptFile.path));
-    // The record binds the prompt and the runner file and keeps the role choice.
-    const { runner, reviewerRole, ...bound } = JSON.parse(bytes);
+    // The record binds the prompt, the runner file and the result template file and keeps the role choice.
+    const { runner, template, reviewerRole, ...bound } = JSON.parse(bytes);
     assert.deepEqual(bound, JSON.parse(promptRecordBytes(id, review.reviewerPrompt)), kind);
     assert.deepEqual(runner, review.runnerFile, kind);
+    assert.deepEqual(template, review.templateFile, kind);
     assert.deepEqual(reviewerRole, review.reviewerRole, kind);
     assert.equal(review.promptFile.digest, sha256(bytes), kind);
     assert.equal(statSync(join(r.root, review.promptFile.path)).mode & 0o777, 0o600, kind);
@@ -2163,10 +2176,13 @@ test('selected criteria documents join the packet owners and read paths; unknown
     'docs/development/agent-workflows/adapters/claude-code.md',
     ...selected,
   ]);
-  for (const path of selected) {
-    assert.ok(review.reviewerSpec.readScope.includes(path), path);
-    assert.ok(review.reviewerPrompt.includes(path), path);
-  }
+  for (const path of selected) assert.ok(review.reviewerSpec.readScope.includes(path), path);
+  // The prompt names the directory once and the document ids (P6 PR ④, start answer 1.2).
+  assert.ok(
+    review.reviewerPrompt.includes(
+      `Criteria documents (<directory>/<id>.md): ${CRITERIA_DIR}/ documents, agent-workflow-tooling.`,
+    ),
+  );
   // The ledger counts criteria items only from this one field (review-ledger-source.mjs), so the prompt names it.
   assert.match(
     review.reviewerPrompt,
@@ -2285,7 +2301,11 @@ test('review selects criteria from the Parent subject paths and records the choi
   });
   const review = roundReview(r, { reviewRound: 1 });
   assert.ok(review.packet.sources.owners.includes(`${CRITERIA_DIR}/swe.md`));
-  assert.ok(review.reviewerPrompt.includes(`Criteria documents: ${CRITERIA_DIR}/swe.md.`));
+  assert.ok(
+    review.reviewerPrompt.includes(
+      `Criteria documents (<directory>/<id>.md): ${CRITERIA_DIR}/ swe.`,
+    ),
+  );
   assert.ok(review.criteriaFile, 'review returns criteriaFile');
   const path = `${PACKET_DIR}/${reviewIdOf(review)}.criteria.json`;
   assert.equal(review.criteriaFile.path, path);
@@ -2621,7 +2641,7 @@ test('a binding extract changed after the review, or a lost record, fails settle
 test('a review whose paths take no binding row keeps the prompt it has without binding sections', (t) => {
   const subject = { ...SMALL_PARENT_SUBJECT, paths: ['docs/product/intent.md'] };
   const identity =
-    /^(?:KNU review snapshot |KNU_REVIEW_PACKET_FILE:|KNU_REVIEW_RUNNER_FILE:|KNU_REVIEW_INPUTS_FILE:|Result template: )/u;
+    /^(?:KNU review snapshot |KNU_REVIEW_PACKET_FILE:|KNU_REVIEW_RUNNER_FILE:|KNU_REVIEW_INPUTS_FILE:|KNU_REVIEW_RESULT_TEMPLATE_FILE:)/u;
   const built = [contextRepo(t), contextRepo(t, { conventions: true })].map((r) => {
     const review = parentReview(r, subject);
     return {
@@ -2643,6 +2663,7 @@ test('a review whose paths take no binding row keeps the prompt it has without b
     'reviewId',
     'promptDigest',
     'runner',
+    'template',
     'reviewerRole',
   ]);
   assert.deepEqual(built[0].files, []);
@@ -2970,10 +2991,11 @@ test('a first-round composition builds one frozen review per member with a share
   const [first, second] = built.reviewers;
   assert.notEqual(first.packet.packetId, second.packet.packetId);
   assert.notEqual(first.packet.lifecycle.dispatchId, second.packet.lifecycle.dispatchId);
-  // Each member reads its own packet and runner file; every other read path is the same.
+  // Each member reads its own packet, runner and result template file; every other read path is the same.
   const others = (member) =>
     member.reviewerSpec.readScope.filter(
-      (path) => path !== member.packetFile.path && path !== member.runnerFile.path,
+      (path) =>
+        ![member.packetFile.path, member.runnerFile.path, member.templateFile.path].includes(path),
     );
   assert.deepEqual(others(first), others(second));
   assert.equal(packetFiles(r).length, 2);
@@ -3065,9 +3087,11 @@ test('a native subject composition gives each member its own reviewer id and the
     { root: r.root },
   );
   const [first, second] = built.reviewers;
-  // Each member has its own runner file; the rest of the read paths is shared.
+  // Each member has its own runner and result template file; the rest of the read paths is shared.
   const shared = (member) =>
-    member.reviewerSpec.readScope.filter((path) => path !== member.runnerFile.path);
+    member.reviewerSpec.readScope.filter(
+      (path) => path !== member.runnerFile.path && path !== member.templateFile.path,
+    );
   assert.deepEqual(shared(first), shared(second));
   assert.ok(first.reviewerSpec.readScope.includes(first.runnerFile.path));
   assert.equal(first.packetFile, undefined);
@@ -4167,10 +4191,8 @@ test('runner records move to a runner file the prompt names and the reviewer cop
     assert.ok(!prompt.includes(record.outputPaths[0]), record.outputPaths[0]);
   }
   assert.ok(!prompt.includes(LONG_RECORDS[0].environment), 'environment stays in the file');
-  // The template slot points at the file; the file holds the array a result carries.
-  const template = JSON.parse(
-    promptLine(prompt, 'Result template: ').slice('Result template: '.length),
-  );
+  // The template file's slot points at the runner file; the runner file holds the array a result carries.
+  const template = JSON.parse(readFileSync(join(r.root, review.templateFile.path), 'utf8'));
   assert.equal(typeof template.commandsActuallyRun, 'string');
   assert.match(template.commandsActuallyRun, /KNU_REVIEW_RUNNER_FILE/u);
   assert.deepEqual(
@@ -4885,7 +4907,11 @@ test('a later round of a Parent subject gets its scope from review-run (RL-P2 RE
   const invocation = JSON.parse(
     readFileSync(join(delta.r.root, delta.second.record.reviewers[0].invocationFile), 'utf8'),
   );
-  assert.match(invocation.prompt, /^- Review round 2 \(delta\): .*sample\.txt/mu);
+  // The delta paths are in the scope record the line names (P6 PR ④, start answer 1.2).
+  assert.match(
+    invocation.prompt,
+    /^- Review round 2 \(delta\): read the previous result and the 1 path changed since round 1, listed in \S+\.scope\.json\./mu,
+  );
   // Each fallback condition reads the full scope again and says why.
   for (const [reason, change, args] of [
     [/^new-file: added\.txt$/u, (r) => writeFileSync(join(r.root, 'added.txt'), 'new'), []],
@@ -5008,17 +5034,28 @@ test('an ignored subject file follows the rule of a tracked one between rounds',
   const prompt = JSON.parse(
     readFileSync(join(changed.r.root, changed.second.record.reviewers[0].invocationFile), 'utf8'),
   ).prompt;
-  // The reviewer is given the copy, so the round line names the copy; a tracked file keeps its path.
-  const roundLine = prompt
-    .split('\n')
-    .find((line) => line.startsWith('- Review round 2 (delta): '));
-  const listed = /since round 1: (.*?)\. Read other paths/u.exec(roundLine)[1].split(', ');
+  // The round line counts the paths and names the scope record, which lists them by their original paths; the
+  // copy line tells the reviewer to read an ignored one through its copy (P6 PR ④, start answer 1.2).
+  const lines = prompt.split('\n');
+  const roundLine = lines.find((line) => line.startsWith('- Review round 2 (delta): '));
   const secondId = /([a-z0-9]{8}-[a-f0-9]{8})\.json$/u.exec(
     changed.second.record.reviewers[0].packetFile.path,
   )[1];
+  const scopePath = `${PACKET_DIR}/${secondId}.scope.json`;
+  assert.ok(roundLine.includes(`the 2 paths changed since round 1, listed in ${scopePath}.`));
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(changed.r.root, scopePath), 'utf8')).deltaScope.paths,
+    [`${sub}/a.md`, 'sample.txt'],
+  );
   const copy = `${PACKET_DIR}/${secondId}.inputs/${sub}/a.md`;
   assert.ok(existsSync(join(changed.r.root, copy)), `${copy} is the copy the reviewer reads`);
-  assert.deepEqual(listed, [copy, 'sample.txt']);
+  assert.ok(
+    lines.some((line) =>
+      line.includes(
+        `for an ignored path named here or in a file named here, read ${PACKET_DIR}/${secondId}.inputs/<that path>`,
+      ),
+    ),
+  );
   // Removed: a change like one of a tracked file.
   const removed = rounds((r) => rmSync(join(r.root, sub, 'b.md')));
   assert.deepEqual(removed.second.record.deltaScope.paths, [`${sub}/b.md`, 'sample.txt']);
@@ -5101,7 +5138,7 @@ test('a later round compares commits, staged plans and a missing scope record wi
   });
 });
 
-test('a delta round with more paths than its prompt line holds reads a bound scope record', (t) => {
+test('a delta round reads its paths from a bound scope record and its line counts them', (t) => {
   const r = repo(t);
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
   const previous = writePreviousResult(r);
@@ -5116,14 +5153,12 @@ test('a delta round with more paths than its prompt line holds reads a bound sco
   });
   const scopePath = `${PACKET_DIR}/${reviewIdOf(review)}.scope.json`;
   assert.ok(review.reviewerSpec.readScope.includes(scopePath));
-  assert.match(
-    review.reviewerPrompt,
-    new RegExp(
-      `^- Review round 2 \\(delta\\): .*many/f11\\.txt and 2 more listed in ${scopePath.replaceAll('.', '\\.')}\\.`,
-      'mu',
+  assert.ok(
+    review.reviewerPrompt.includes(
+      `- Review round 2 (delta): read the previous result and the 14 paths changed since round 1, listed in ${scopePath}.`,
     ),
   );
-  assert.ok(!review.reviewerPrompt.includes('many/f12.txt'));
+  assert.ok(!review.reviewerPrompt.includes('many/f00.txt'));
   const scope = JSON.parse(readFileSync(join(r.root, scopePath), 'utf8'));
   assert.deepEqual(scope.deltaScope.paths, paths);
   const record = JSON.parse(readFileSync(join(r.root, review.promptFile.path), 'utf8'));
@@ -5138,7 +5173,7 @@ test('a delta round with more paths than its prompt line holds reads a bound sco
     status.observationErrors.includes('review-scope-changed'),
     status.observationErrors.join(','),
   );
-  // A shorter list stays on the prompt line and the scope record is not a read path.
+  // A short list goes to the scope record too (P6 PR ④, start answer 1.2); a full round reads no scope record.
   const s = repo(t);
   writeFileSync(join(s.root, 'sample.txt'), 'parent edit');
   const short = roundReview(s, {
@@ -5147,12 +5182,20 @@ test('a delta round with more paths than its prompt line holds reads a bound sco
     deltaScope: {
       mode: 'delta',
       reason: 'changed-within-previous-paths',
-      paths: paths.slice(0, 12),
+      paths: paths.slice(0, 1),
     },
   });
-  assert.ok(!short.reviewerSpec.readScope.some((path) => path.endsWith('.scope.json')));
+  const shortScope = `${PACKET_DIR}/${reviewIdOf(short)}.scope.json`;
+  assert.ok(short.reviewerSpec.readScope.includes(shortScope));
+  assert.ok(
+    short.reviewerPrompt.includes(`the 1 path changed since round 1, listed in ${shortScope}.`),
+  );
+  const u = repo(t);
+  writeFileSync(join(u.root, 'sample.txt'), 'parent edit');
+  const full = roundReview(u, { reviewRound: 2, previousResult: writePreviousResult(u) });
+  assert.ok(!full.reviewerSpec.readScope.some((path) => path.endsWith('.scope.json')));
   assert.equal(
-    JSON.parse(readFileSync(join(s.root, short.promptFile.path), 'utf8')).scope,
+    JSON.parse(readFileSync(join(u.root, full.promptFile.path), 'utf8')).scope,
     undefined,
   );
 });
@@ -5170,10 +5213,11 @@ test('review alone refuses a later round of a Parent subject and points at revie
 });
 
 // The prompt of a held-out copy subject (ignored subject paths, one runner record) as it was before
-// the runner file and the input copies: every line outside those two places stays as it is.
+// the runner file and the input copies: every line outside those two places stays as it is. P6 PR ④ moved the result
+// template to a file and added the findings line, the template read line and the manifest digest line (its rescore).
 const COPY_SHAPE_DIR = '.artifacts/plans/helper-test/held-out/ho-001';
 const COPY_SHAPE_CHANGED =
-  /^(?:KNU review snapshot |KNU_REVIEW_PACKET_FILE:|KNU_REVIEW_INPUTS_FILE:|KNU_REVIEW_RUNNER_FILE:|Result template: |- commandsActuallyRun|- Runner records|  \d+\. \[exit |- Ignored inputs )/u;
+  /^(?:KNU review snapshot |KNU_REVIEW_PACKET_FILE:|KNU_REVIEW_INPUTS_FILE:|KNU_REVIEW_RUNNER_FILE:|KNU_REVIEW_RESULT_TEMPLATE_FILE:|- The file digests in the KNU_REVIEW_INPUTS_FILE manifest |- commandsActuallyRun|- Runner records|  \d+\. \[exit |- Ignored inputs )/u;
 const COPY_SHAPE_KEPT = [
   'Independent read-only review of one frozen subject (same host, fresh context).',
   '- Read only packet.boundaries.allowedReadPaths at this snapshot. Do not edit, run commands or delegate.',
@@ -5184,13 +5228,15 @@ const COPY_SHAPE_KEPT = [
   '  Either one, a coverage gap or a critical/high/medium finding forbids PASS.',
   '- Replace each coverage placeholder with sourceRefs and evidenceRefs (gap null), or keep a concrete gap.',
   '- Each finding needs severity (critical, high, medium or low), location, impact, reproduction and evidence.',
+  FINDINGS_LINE,
   SAME_TYPE_LINE,
   '- Review round 1: report broadly. Include lower-confidence blocking candidates with their evidence; list at most 5 low findings, most important first.',
   '- An empty findings list is a valid result; do not add findings to fill it.',
   '- Context inputs: none.',
   NO_GRADE_LINE,
   '- Read the packet file first with the Read tool: .artifacts/tools/claude-review-packets/<reviewId>.json. It holds the objective, sources and read boundaries. If it cannot be read or is not JSON, end with a blocker.',
-  '- Final message: exactly one JSON object from the result template, status "complete", verdict PASS or FAIL.',
+  '- Read the result template file with the Read tool before judging: .artifacts/tools/claude-review-packets/<reviewId>.template.json. Your final message is that object filled in; if it cannot be read or is not JSON, end with a blocker.',
+  '- Final message: exactly one JSON object from the result template file, status "complete", verdict PASS or FAIL.',
 ];
 
 test('a held-out copy subject keeps its prompt outside the runner record and input copy lines (RL-P2 RED 9)', (t) => {
@@ -5233,17 +5279,16 @@ test('a held-out copy subject keeps its prompt outside the runner record and inp
       '- Runner records',
       '  1. [exit ',
       '- Ignored inputs ',
-      'Result template: ',
+      'KNU_REVIEW_RESULT_TEMPLATE_FILE:',
       'KNU_REVIEW_PACKET_FILE:',
       'KNU_REVIEW_RUNNER_FILE:',
+      '- The file digests in the KNU_REVIEW_INPUTS_FILE manifest ',
       'KNU_REVIEW_INPUTS_FILE:',
     ],
-    'the changed lines are the runner record and input copy places',
+    'the changed lines are the runner record, input copy and template file places',
   );
-  // The template differs from the one before only in its commandsActuallyRun slot.
-  const template = JSON.parse(
-    promptLine(review.reviewerPrompt, 'Result template: ').slice('Result template: '.length),
-  );
+  // The template file differs from the template before only in its commandsActuallyRun slot.
+  const template = JSON.parse(readFileSync(join(r.root, review.templateFile.path), 'utf8'));
   assert.deepEqual(
     { ...template, commandsActuallyRun: null },
     {
@@ -5542,10 +5587,11 @@ test('a review packet records its opening at registration and keeps it after the
 });
 
 // P6 ② RED 9 (a protection test, not RED): the reviewer prompt of a held-out copy-shaped subject is, to the
-// character, the prompt before P6 ② (fixture captured from the helper at 7e1d95a8). P6 ② changes the settle branch
-// and adds the packet's opening record at registration, neither of which is in the prompt, so the rescore copy runs
-// see the same prompt (재채점 해당 없음). Review id, digests and SHAs are masked.
-test('a held-out copy subject prompt is the prompt before P6 ② to the character (P6 ② RED 9)', (t) => {
+// character, the fixture. P6 ② kept the prompt (fixture captured at 7e1d95a8, 재채점 해당 없음); P6 PR ④ changed it
+// (result template file, findings line, template read line, manifest digest line, criteria and delta lines) and
+// captured it again, so its rescore runs this prompt. A later change to the fixture is a rescore input change.
+// Review id, digests and SHAs are masked.
+test('a held-out copy subject prompt is the fixture prompt to the character (P6 ② RED 9)', (t) => {
   const r = repo(t);
   mkdirSync(join(r.root, COPY_SHAPE_DIR, 'subject'), { recursive: true });
   writeFileSync(join(r.root, COPY_SHAPE_DIR, 'subject/module.mjs'), 'export const value = 1;\n');
@@ -6267,7 +6313,9 @@ test('a read path may hold parentheses, brackets and Unicode letters (P6 ④ 착
     mkdirSync(join(r.root, dirname(name)), { recursive: true });
     writeFileSync(join(r.root, name), 'x\n');
   }
+  // Committed: an untracked path with brackets still leaves the snapshot invalid (adapter-contract, OSS-CORE P1).
   gitIn(r.root, 'add', '.');
+  gitIn(r.root, 'commit', '-qm', 'names');
   let prepared;
   try {
     prepared = prepareClaudeNativeTask(explorerSpec(r, { readScope: names }), { root: r.root });
@@ -6310,6 +6358,7 @@ test('Git reads a read path with brackets literally (P6 ④ 착수 1.1)', (t) =>
   mkdirSync(join(r.root, 'app/[requestId]'), { recursive: true });
   writeFileSync(join(r.root, 'app/[requestId]/approve.ts'), 'export {};\n');
   gitIn(r.root, 'add', '.');
+  gitIn(r.root, 'commit', '-qm', 'route');
   writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
   let review;
   try {
@@ -6318,7 +6367,7 @@ test('Git reads a read path with brackets literally (P6 ④ 착수 1.1)', (t) =>
     assert.fail(`P6-4 1.1: ${error.message.slice(0, 200)}`);
   }
   const selection = JSON.parse(readFileSync(join(r.root, review.criteriaFile.path), 'utf8'));
-  assert.deepEqual(selection.paths, ['app/[requestId]/approve.ts', 'sample.txt']);
+  assert.deepEqual(selection.paths, ['sample.txt', 'app/[requestId]/approve.ts']);
   // An ignored read path with brackets is read through its copy, which holds that file only.
   const copied = parentReview(r, {
     ...SMALL_PARENT_SUBJECT,
@@ -6369,8 +6418,6 @@ test('a delta round names its changed paths in the scope record and counts them 
 });
 
 test('every finding goes into findings and the unjudged dispositions of an adjudication record are claims (P6 ④ 착수 1.3)', (t) => {
-  const FINDINGS_LINE =
-    '- Put every finding in findings, low ones included; coverage evidence names a finding by its id instead of describing it.';
   for (const kind of ['native', 'parent']) {
     const { review } = subjectReview(t, kind);
     assert.ok(promptLines(review.reviewerPrompt).includes(FINDINGS_LINE), `P6-4 1.3: ${kind}`);
@@ -6397,7 +6444,7 @@ test('the inputs manifest line says its digests are the values settlement comput
   assert.ok(at > 0);
   assert.match(
     lines[at - 1],
-    /^- The KNU_REVIEW_INPUTS_FILE digests are the values settlement computes .*not the file sha256 a runner log shows/u,
+    /^- The file digests in the KNU_REVIEW_INPUTS_FILE manifest are the values settlement computes .*not the file sha256 a runner log shows/u,
     `P6-4 목표 2: ${lines[at - 1].slice(0, 120)}`,
   );
 });

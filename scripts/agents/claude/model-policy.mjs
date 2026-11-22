@@ -836,7 +836,10 @@ function safePaths(value, nonEmpty) {
       (item) =>
         !item.startsWith('/') &&
         !item.endsWith('/') &&
-        item.split('/').every((segment) => /^(?!\.{1,2}$)[a-zA-Z0-9._-]+$/u.test(segment)),
+        // The same segment rule as native-session safePath (letters, marks, digits, . _ - ( ) [ ]).
+        item
+          .split('/')
+          .every((segment) => /^(?!\.{1,2}$)[\p{L}\p{M}\p{N}._()[\]-]+$/u.test(segment)),
     ),
   );
 }

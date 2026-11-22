@@ -3,7 +3,11 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import {
+  appendFileSync,
+  closeSync,
+  openSync,
   readFileSync,
+  readSync,
   writeFileSync,
   mkdirSync,
   readdirSync,
@@ -231,9 +235,13 @@ export const claudeReviewInputsDirectory = (root) =>
   relative(root, resolveArtifactPath(root, ['claude-review-packets'], {}));
 // The bound ignored files under readPaths and their digests, inventory's format. A symlink is bound
 // by its link text and not followed. Too many or too large inputs are refused, not truncated. The
-// helper directory is left out: a packet file and a manifest are each bound by their own prompt line
-// and a requirement extract by the prompt record (a lost packet line is refused at registration as
-// review-prompt-unbound, not as a missing manifest).
+// helper directory is left out: a packet file, the runner file and a manifest are each bound by their
+// own prompt line, and the prompt record (<reviewId>.prompt.json) binds every helper-directory extract
+// the reviewer reads: the requirement sections, the binding rows, the Lifecycle and Verification
+// sections, a delta round's scope record, the runner file, the result template file and a previous
+// result in the helper directory. The helper checks them at the reviewer's settlement and again at its
+// native subject's (a lost packet line is refused at registration as review-prompt-unbound, not as a
+// missing manifest).
 export function claudeReviewInputs(root, readPaths) {
   const helperDir = `${claudeReviewInputsDirectory(root)}/`;
   const paths = new Set();
@@ -254,7 +262,7 @@ export function claudeReviewInputs(root, readPaths) {
         '--ignored',
         '--exclude-standard',
         '--',
-        readPath,
+        literalPathspec(readPath),
       ],
       { cwd: root, maxBuffer: 64 * 1024 * 1024, timeout: 10000 },
     )
@@ -549,10 +557,10 @@ function localIdentity(root, role) {
     configDigest: hash({ role: hash(readFileSync(rolePath)), config }),
   };
 }
-// A review built by the task helper binds its result template into the registered prompt on the
-// line starting with this prefix. The runner records a result must carry are in the runner file
-// (<reviewId>.runner.json in the helper directory) the prompt names with its digest; a prompt
-// without that line (an earlier helper's) carries them in the template itself.
+// The task helper writes a review's result template to the template file (<reviewId>.template.json in the helper
+// directory) the prompt names; an earlier helper put it inline on the prompt line starting with this prefix. The
+// runner records a result must carry are in the runner file (<reviewId>.runner.json) the prompt names with its digest;
+// a prompt without that line (an earlier helper's) carries them in its inline template.
 export const REVIEW_RESULT_TEMPLATE_PREFIX = 'Result template: ';
 export const REVIEW_RUNNER_LINE = 'KNU_REVIEW_RUNNER_FILE:';
 export const REVIEW_RUNNER_CHANGED = 'review-runner-file-changed';
@@ -599,11 +607,18 @@ export const safeRef = (value) =>
   SAFE_REF.test(value) &&
   !value.includes('//') &&
   value.split('/').every((segment) => segment !== '.' && segment !== '..');
+// A repository-relative path: segments of letters and digits (Unicode, with their combining marks), `.`, `_`, `-`,
+// parentheses and brackets (Next.js route groups and dynamic segments). An absolute path, `.`, `..` or empty segment, a
+// trailing `/`, control characters, `\`, `*`, `?`, `{` and `}` stay refused. Git reads these paths literally where they
+// become pathspecs (literalPathspec below), so a bracket never acts as a glob.
 export const safePath = (value) =>
   typeof value === 'string' &&
   !value.startsWith('/') &&
   !value.endsWith('/') &&
-  value.split('/').every((segment) => /^(?!\.{1,2}$)[a-zA-Z0-9._-]+$/u.test(segment));
+  value.split('/').every((segment) => /^(?!\.{1,2}$)[\p{L}\p{M}\p{N}._()[\]-]+$/u.test(segment));
+// `git ls-files` takes pathspecs, where `[`, `]`, `*` and `?` are glob characters; a read path names itself only.
+// `git check-ignore` takes path names and refuses pathspec magic, so it gets the path as it is.
+export const literalPathspec = (path) => `:(literal)${path}`;
 export function nativeRequestIssues(nativeRequest) {
   const issues = [];
   const { issuedAt, expiresAt, selectionBasisRef, task } = nativeRequest ?? {};
@@ -1084,6 +1099,10 @@ function transcriptDependencies(root, dir, record, observation) {
     return { reason: 'child-transcript-unreadable' };
   }
   const paths = [];
+  // The Read targets, for the reads outside a reviewer's read paths (readOutsidePaths).
+  const reads = [];
+  // A Grep or Glob the review-read hook denied did not run, so it names no dependency.
+  const denied = reviewReadDenials(dir);
   // The first cause in transcript order is the reason; `untold` marks a cause that hides the reads.
   let reason = null;
   let untold = false;
@@ -1096,7 +1115,10 @@ function transcriptDependencies(root, dir, record, observation) {
         untold = true;
         continue;
       }
+      if (use.name !== 'Read' && typeof use.id === 'string' && denied.has(use.id)) continue;
       const target = use.name === 'Read' ? use.input?.file_path : use.input?.path;
+      if (use.name === 'Read' && typeof target === 'string' && target)
+        reads.push(dependencyPath(root, target) || resolve(root, target));
       if (typeof target !== 'string' || !target) {
         reason ??= `without-path:${use.name}`;
         continue;
@@ -1115,23 +1137,58 @@ function transcriptDependencies(root, dir, record, observation) {
       if (repository !== null) paths.push(repository);
     }
   }
-  if (reason === null) return { paths };
-  return untold ? { reason } : { reason, paths };
+  if (reason === null) return { paths, reads };
+  return untold ? { reason, reads } : { reason, paths, reads };
+}
+// The review-read hook record (review-read-denials.jsonl in the task directory): one JSON line per denied Grep or Glob,
+// appended by the hook. A record with any line that is not such an object is not used at all, so its searches stay
+// under the repository-wide judgment.
+const REVIEW_READ_DENIALS = 'review-read-denials.jsonl';
+function reviewReadDenials(dir) {
+  const path = join(dir, REVIEW_READ_DENIALS);
+  if (!existsSync(path)) return new Set();
+  try {
+    check(realpathSync(path) === path && lstatSync(path).isFile(), 'denial record path');
+    const ids = new Set();
+    for (const line of readFileSync(path, 'utf8').split('\n')) {
+      if (!line) continue;
+      const row = JSON.parse(line);
+      check(
+        row !== null &&
+          typeof row === 'object' &&
+          typeof row.toolUseId === 'string' &&
+          row.toolUseId,
+        'denial row',
+      );
+      ids.add(row.toolUseId);
+    }
+    return ids;
+  } catch {
+    return new Set();
+  }
 }
 // The ignored files a reviewer prompt binds in its inputs manifest; claudeReviewInputErrors judges them.
 function boundInputFiles(root, prompt) {
   return Object.keys(reviewInputManifest(root, prompt)?.files ?? {});
 }
-// What a read-only task was given and the paths its transcript names.
-function dependencyScope({ record, invocation }, paths) {
+// What a read-only task was given: its read scope and a native subject packet's read paths.
+function givenReadScope(record) {
   return [
     ...new Set(
       [
         ...record.input.nativeRequest.task.readScope,
         ...(record.independentReview?.packet?.boundaries?.allowedReadPaths ?? []),
-        ...boundInputFiles(record.root, invocation.prompt),
-        ...paths,
       ].map((path) => path.replace(/\/+$/u, '')),
+    ),
+  ].sort();
+}
+// What a read-only task was given and the paths its transcript names.
+function dependencyScope({ record, invocation }, paths) {
+  return [
+    ...new Set(
+      [...givenReadScope(record), ...boundInputFiles(record.root, invocation.prompt), ...paths].map(
+        (path) => path.replace(/\/+$/u, ''),
+      ),
     ),
   ].sort();
 }
@@ -1183,6 +1240,7 @@ function currentObservation(task, { dependency = true } = {}) {
       dependencyJudgment: null,
       identityOutsideChanges: [],
       reviewInputOriginalsChanged: [],
+      readOutsidePaths: [],
     };
   }
   const finalFiles = inventory(record.root, record.input.nativeRequest.task.readScope);
@@ -1241,9 +1299,13 @@ function currentObservation(task, { dependency = true } = {}) {
     )
   )
     errors.push('adapter/role/settings drift');
+  // A reviewer judged over the whole repository compares trees: a commit that keeps the tree (a fast-forward of an
+  // empty commit, a squash merge of the reviewed tree) is no drift. headChanged still records the new HEAD.
+  const reviewerRole = record.input.nativeRequest.task.role === 'knu_reviewer';
   if (
     !isDeepStrictEqual(current, observation.finalSnapshot) &&
-    !(filtering && judgment.inside.length === 0)
+    !(filtering && judgment.inside.length === 0) &&
+    !(reviewerRole && sameClaudeSourceTree(record.root, current, observation.finalSnapshot))
   )
     errors.push('post-completion-source-drift');
   // An original changed after its copy was made is reported only: the reviewer read the copy. One a
@@ -1251,6 +1313,11 @@ function currentObservation(task, { dependency = true } = {}) {
   // so is any when its reads cannot be told. A search without a path or of the repository root
   // names no original, so under that repository-wide judgment the other calls still decide.
   let reviewInputOriginalsChanged = [];
+  // A reviewer's Read targets outside what it was given, recorded only: the judgment above already counts them.
+  const given = givenReadScope(record);
+  const readOutsidePaths = reviewerRole
+    ? [...new Set((observed?.reads ?? []).filter((path) => !covered(path, given)))].sort()
+    : [];
   if (record.input.nativeRequest.task.role === 'knu_reviewer') {
     errors.push(
       ...claudeReviewInputErrors(
@@ -1282,6 +1349,7 @@ function currentObservation(task, { dependency = true } = {}) {
       ? delta(record.identityOutside, identityOutsideFiles())
       : [],
     reviewInputOriginalsChanged,
+    readOutsidePaths,
   };
 }
 // The settled background transcript, or the location a foreground completion recorded.
@@ -1585,6 +1653,103 @@ function repositoryPath(root, absolute) {
   }
   const path = relative(root, join(realpathSync(existing), ...rest));
   return !path || path === '..' || path.startsWith('../') || isAbsolute(path) ? null : path;
+}
+// Review-read guard (`--hook --review-read`, the knu_reviewer frontmatter PreToolUse hook for Grep and Glob). A search
+// without a path, of the repository root or a directory above it, or outside the reviewer's read paths (its read scope
+// and a native subject packet's allowedReadPaths) is denied with the reason, and the denied call's tool use id is
+// appended to review-read-denials.jsonl in the reviewer's task directory: the call does not run, so settlement leaves
+// it out of the dependency judgment. The task is the one whose marker ends the child's first transcript row; without it
+// (no transcript, no marker, another session or role) only a search without a path, of the root or above is denied and
+// nothing is recorded. Other roles and tools pass. It never allows.
+const denyRead = (reason) => ({
+  hookSpecificOutput: {
+    hookEventName: 'PreToolUse',
+    permissionDecision: 'deny',
+    permissionDecisionReason: `KNU review read: ${reason}`,
+  },
+});
+const FIRST_ROW_LIMIT = 4 * 1024 * 1024;
+function firstTranscriptRow(path) {
+  const fd = openSync(path, 'r');
+  try {
+    const buffer = Buffer.alloc(FIRST_ROW_LIMIT);
+    const read = readSync(fd, buffer, 0, FIRST_ROW_LIMIT, 0);
+    const text = buffer.subarray(0, read).toString('utf8');
+    const end = text.indexOf('\n');
+    return JSON.parse(end === -1 ? text : text.slice(0, end));
+  } finally {
+    closeSync(fd);
+  }
+}
+function reviewReadTask(root, event) {
+  try {
+    const { transcript_path: parent, session_id: sessionId, agent_id: agentId } = event;
+    check(
+      typeof parent === 'string' && uuid.test(sessionId ?? '') && CHILD_ID.test(agentId ?? ''),
+      'review read ids',
+    );
+    const row = firstTranscriptRow(
+      join(dirname(parent), sessionId, 'subagents', `agent-${agentId}.jsonl`),
+    );
+    const content = row?.message?.content;
+    const prompt =
+      typeof content === 'string'
+        ? content
+        : Array.isArray(content)
+          ? content.map((part) => (part?.type === 'text' ? part.text : '')).join('')
+          : '';
+    const [, taskId, digest] = marker.exec(prompt) ?? [];
+    check(taskId !== undefined, 'review read marker');
+    const task = loadTask(root, taskId);
+    check(
+      task.record.sessionId === sessionId &&
+        task.record.input.nativeRequest.task.role === 'knu_reviewer' &&
+        marker.exec(task.invocation.prompt)?.[2] === digest &&
+        jsonFile(join(task.dir, 'attempt.json')).sessionId === sessionId,
+      'review read task',
+    );
+    return task;
+  } catch {
+    return null;
+  }
+}
+export function guardClaudeReviewRead(event, { root = process.cwd() } = {}) {
+  if (event?.hook_event_name !== 'PreToolUse' || !['Grep', 'Glob'].includes(event.tool_name))
+    return {};
+  if (event.agent_type !== 'knu_reviewer') return {};
+  root = realpathSync(root);
+  const tool = event.tool_name;
+  const given = event.tool_input?.path;
+  const repository =
+    typeof given === 'string' && given
+      ? dependencyPath(root, resolve(typeof event.cwd === 'string' ? event.cwd : root, given))
+      : undefined;
+  const task = reviewReadTask(root, event);
+  let reason;
+  let code;
+  if (repository === undefined) {
+    code = 'without-path';
+    reason = `a ${tool} without a path searches the whole repository; give a path inside packet.boundaries.allowedReadPaths`;
+  } else if (repository === '') {
+    code = 'whole-repository';
+    reason = `${tool} path ${given} is the repository root or a directory above it; give a path inside packet.boundaries.allowedReadPaths`;
+  } else if (task && (repository === null || !covered(repository, givenReadScope(task.record)))) {
+    code = 'outside-read-paths';
+    reason = `${tool} path ${given} is outside packet.boundaries.allowedReadPaths; give a path inside them`;
+  } else return {};
+  if (task)
+    appendFileSync(
+      join(task.dir, REVIEW_READ_DENIALS),
+      `${JSON.stringify({
+        toolUseId: typeof event.tool_use_id === 'string' ? event.tool_use_id : null,
+        tool,
+        path: typeof given === 'string' ? given : null,
+        reason: code,
+        at: new Date().toISOString(),
+      })}\n`,
+      { mode: 0o600 },
+    );
+  return denyRead(reason);
 }
 // Edit, Write and NotebookEdit guard. It denies only a subagent writing native evidence; no child
 // writes the repository (D-OSS-35), so the main thread is never held back. It never allows. Bash and
@@ -2445,6 +2610,7 @@ export function completeClaudeNativeTask(
     dependencyJudgment: dependencyRecord,
     identityOutsideChanges: currentState.identityOutsideChanges,
     reviewInputOriginalsChanged: currentState.reviewInputOriginalsChanged,
+    readOutsidePaths: currentState.readOutsidePaths,
     ...(quoteRecord ? { quoteCheck: quoteRecord } : {}),
     common,
     verificationClass: 'local-evidence-and-static-contract',
@@ -2468,6 +2634,7 @@ export function observeClaudeNativeTask(id, { root = process.cwd() } = {}) {
     dependencyJudgment: state.dependencyJudgment,
     identityOutsideChanges: state.identityOutsideChanges,
     reviewInputOriginalsChanged: state.reviewInputOriginalsChanged,
+    readOutsidePaths: state.readOutsidePaths,
     errors: [...state.errors, ...settlement],
     evidenceDirectory: task.dir,
   };
@@ -2497,6 +2664,28 @@ export function currentClaudeNativeSnapshot(root = process.cwd()) {
 export function claudeNativeSnapshotDigest(snapshot) {
   const { baseSHA, headSHA, dirtyDiffDigest, untrackedInputDigests } = snapshot;
   return hash({ baseSHA, headSHA, dirtyDiffDigest, untrackedInputDigests });
+}
+// Two snapshots of the same source: the same HEAD tree, dirty diff and untracked input digests. Only the commit may
+// differ (a fast-forward of an empty commit, a squash merge of the reviewed tree). A commit Git cannot read is no match.
+const headTree = (root, sha) => {
+  const r = spawnSync('git', ['-C', root, 'rev-parse', '--verify', '-q', `${sha}^{tree}`], {
+    encoding: 'utf8',
+    timeout: 5000,
+  });
+  return r.status === 0 ? r.stdout.trim() : null;
+};
+export function sameClaudeSourceTree(root, a, b) {
+  if (!a || !b) return false;
+  if (isDeepStrictEqual(a, b)) return true;
+  if (
+    typeof a.headSHA !== 'string' ||
+    typeof b.headSHA !== 'string' ||
+    a.dirtyDiffDigest !== b.dirtyDiffDigest ||
+    !isDeepStrictEqual(a.untrackedInputDigests ?? [], b.untrackedInputDigests ?? [])
+  )
+    return false;
+  const tree = headTree(root, a.headSHA);
+  return tree !== null && tree === headTree(root, b.headSHA);
 }
 
 const RELEASE_USAGE =
@@ -2536,6 +2725,8 @@ const REVIEW_OPTIONS = {
   '--criteria': 'criteria',
   '--composition': 'composition',
   '--reviewers': 'reviewers',
+  // Repeated: each a repository-relative requirement source file of a native subject.
+  '--requirement-source': 'requirementSources',
 };
 // review-run takes the review options and these: where its result files go, the declared risk
 // trigger and plan grade, a plan subject's staging inputs and the checkout board line's session.
@@ -2574,10 +2765,10 @@ async function helperCommand(action, args) {
   for (let i = 0; i < args.length; i += 2) {
     const key = Object.hasOwn(known, args[i]) ? known[args[i]] : undefined;
     check(
-      key && args[i + 1] && !Object.hasOwn(options, key),
+      key && args[i + 1] && (key === 'requirementSources' || !Object.hasOwn(options, key)),
       run
-        ? 'expected review-run --subject ID | --parent-subject FILE --runner-evidence FILE --basis REF --reviewer-model ID --round N --out DIR [--previous-result FILE] [--criteria ID,ID] [--composition e2|e3 --reviewers N] [--session ID] [--risk-trigger ITEM] [--plan-grade P2|P3 --plan-drafts DIR --plan-view DIR --plan-baseline DIR] [--board-session NAME] [--board-checkout main|product-clone]'
-        : 'expected review --subject ID | --parent-subject FILE [--runner-evidence FILE --basis REF --reviewer-model ID --round N [--previous-result FILE] [--criteria ID,ID] [--composition e2|e3 --reviewers N] [--session ID]]',
+        ? 'expected review-run --subject ID [--requirement-source PATH]... | --parent-subject FILE --runner-evidence FILE --basis REF --reviewer-model ID --round N --out DIR [--previous-result FILE] [--criteria ID,ID] [--composition e2|e3 --reviewers N] [--session ID] [--risk-trigger ITEM] [--plan-grade P2|P3 --plan-drafts DIR --plan-view DIR --plan-baseline DIR] [--board-session NAME] [--board-checkout main|product-clone]'
+        : 'expected review --subject ID [--requirement-source PATH]... | --parent-subject FILE [--runner-evidence FILE --basis REF --reviewer-model ID --round N [--previous-result FILE] [--criteria ID,ID] [--composition e2|e3 --reviewers N] [--session ID]]',
     );
     const value = args[i + 1];
     options[key] = ['parentSubject', 'runnerEvidence'].includes(key)
@@ -2590,7 +2781,9 @@ async function helperCommand(action, args) {
           ? resolve(value)
           : key === 'criteria'
             ? value.split(',')
-            : value;
+            : key === 'requirementSources'
+              ? [...(options.requirementSources ?? []), value]
+              : value;
   }
   return run ? helper.runClaudeNativeReview(options) : helper.buildClaudeNativeReview(options);
 }
@@ -2676,6 +2869,21 @@ async function main(args) {
     } catch (error) {
       process.stderr.write(`KNU file guard failed: ${error.message}\n`);
       // Exit 1 is a non-blocking error: a broken guard must never stop an ordinary edit.
+      process.exitCode = 1;
+    }
+    return;
+  }
+  if (args[0] === '--hook' && args[1] === '--review-read' && args.length === 2) {
+    try {
+      const raw = readFileSync(0);
+      check(raw.length <= 1024 * 1024, 'hook payload limit');
+      const result = guardClaudeReviewRead(JSON.parse(raw), {
+        root: process.env.CLAUDE_PROJECT_DIR ?? process.cwd(),
+      });
+      process.stdout.write(JSON.stringify(result));
+    } catch (error) {
+      process.stderr.write(`KNU review read guard failed: ${error.message}\n`);
+      // Exit 1 is a non-blocking error: the call runs and settlement judges it over the whole repository.
       process.exitCode = 1;
     }
     return;
