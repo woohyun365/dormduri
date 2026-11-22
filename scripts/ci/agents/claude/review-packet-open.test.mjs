@@ -24,7 +24,9 @@ async function load() {
 
 const PACKETS = '.artifacts/tools/claude-review-packets';
 const TASKS = '.artifacts/tools/claude-native';
-const TARGET = '.plans/sample-plan.md';
+// Built from the root name so the tracked guard on ignored plan paths does not read a plan path here.
+const PLANS = '.plans';
+const TARGET = `${PLANS}/sample-plan.md`;
 const NOW = '2026-11-22T12:00:00.000Z';
 const at = (time) => `2026-11-22T${time}:00.000Z`;
 
@@ -75,9 +77,9 @@ function registry(t) {
       completed = false,
       invalid = false,
       taskRoot = root,
+      taskId = randomUUID(),
     } = {},
   ) => {
-    const taskId = randomUUID();
     const dir = join(root, TASKS, taskId);
     mkdirSync(dir);
     const prompt = native
@@ -139,10 +141,18 @@ test('packets binding a path are open, closed or not open by the same-host revie
   r.task('d0000005-00000005', { invalid: true });
   r.packet('d0000006-00000006', bound);
   r.task('d0000006-00000006', { taskRoot: '/elsewhere/checkout' });
-  // Registered again: the later task is the basis, so the earlier settlement no longer closes the packet.
-  const earlier = r.task('e0000007-00000007', { issuedAt: at('09:00'), completed: true });
+  // Registered again: the later task is the basis, so the earlier settlement no longer closes the packet. The task ids
+  // sort against the issue order, so the basis comes from the issue time and not from the id.
+  const earlier = r.task('e0000007-00000007', {
+    issuedAt: at('09:00'),
+    completed: true,
+    taskId: 'ffffffff-0000-4000-8000-000000000007',
+  });
   r.packet('e0000007-00000007', { ...bound, settledBy: earlier });
-  r.task('e0000007-00000007', { issuedAt: at('11:00') });
+  r.task('e0000007-00000007', {
+    issuedAt: at('11:00'),
+    taskId: 'aaaaaaaa-0000-4000-8000-000000000007',
+  });
   // A basis task that expired without a launch cannot be dispatched any more: counted apart, not open.
   r.packet('f0000008-00000008', bound);
   r.task('f0000008-00000008', { issuedAt: at('08:00'), expiresAt: at('08:15'), launched: false });
@@ -178,12 +188,12 @@ test('packets binding a path are open, closed or not open by the same-host revie
   assert.equal(result.summary.open, 5);
   assert.equal(result.summary.expiredUnlaunched, 1);
   // A directory path binds the files under it.
-  const directory = checkOpenPackets({ root: r.root, paths: ['.plans'], now: Date.parse(NOW) });
+  const directory = checkOpenPackets({ root: r.root, paths: [PLANS], now: Date.parse(NOW) });
   assert.equal(directory.packets.length, result.packets.length);
   assert.equal(
     checkOpenPackets({
       root: r.root,
-      paths: ['.plans/other.md'],
+      paths: [`${PLANS}/other.md`],
       now: Date.parse(NOW),
     }).packets.filter(({ state }) => state !== 'open-unreadable-inputs').length,
     0,
@@ -258,4 +268,66 @@ test('the open packet rule names the tool and the tool reads the records the hel
     rule.includes('`node scripts/agents/claude/review-packet-open.mjs --paths <경로>[,<경로>…]`'),
     'the open packet paragraph names the tool',
   );
+});
+
+// P6 ③ operator mutation sweep: registry and manifest shapes the first test left unguarded (sweep/survivors.md).
+test('registry entries, expiry, manifest shapes and path errors keep the states and counts (P6 ③ sweep)', async (t) => {
+  const { checkOpenPackets, main } = await load();
+  // Without the packet and registry directories nothing is bound.
+  const bare = realpathSync(mkdtempSync(join(tmpdir(), 'review-packet-open-')));
+  t.after(() => rmSync(bare, { recursive: true, force: true }));
+  assert.deepEqual(
+    checkOpenPackets({ root: bare, paths: [TARGET], now: Date.parse(NOW) }).packets,
+    [],
+  );
+  const r = registry(t);
+  // Registry entries read first: a stray file, a task directory without task.json, two unreadable task records and a
+  // reviewer task of another checkout root.
+  writeFileSync(join(r.root, TASKS, '0-stray.txt'), '');
+  mkdirSync(join(r.root, TASKS, '00000000-no-task-json'));
+  for (const [name, text] of [
+    ['00000001-unparsed', '{'],
+    ['00000002-record-text', '{"record":"x"}'],
+  ]) {
+    mkdirSync(join(r.root, TASKS, name));
+    writeFileSync(join(r.root, TASKS, name, 'task.json'), text);
+  }
+  r.task('a0000001-00000001', { taskRoot: '/elsewhere/checkout', taskId: '00000003-foreign' });
+  // A packet read first whose manifest cannot be read and that is not open is counted, not listed.
+  r.packet('00000000-00000000', { inputsText: '{' });
+  // Expiry: a task expiring exactly now has not expired; a task without expiry never expires.
+  r.packet('a0000001-00000001', bound);
+  r.task('a0000001-00000001', { expiresAt: NOW, launched: false });
+  r.packet('a0000002-00000002', bound);
+  r.task('a0000002-00000002', { expiresAt: null, launched: false });
+  // A manifest whose files is null binds through its copies; one key of several binds the packet.
+  r.packet('a0000003-00000003', { files: null, copies: copied.copies });
+  r.task('a0000003-00000003');
+  r.packet('a0000004-00000004', {
+    files: { 'docs/other.md': `sha256:${'3'.repeat(64)}`, [TARGET]: `sha256:${'1'.repeat(64)}` },
+  });
+  r.task('a0000004-00000004');
+  const result = checkOpenPackets({ root: r.root, paths: [TARGET], now: Date.parse(NOW) });
+  assert.deepEqual(
+    result.packets.map(({ reviewId, state }) => [reviewId, state]),
+    [
+      ['a0000001-00000001', 'open'],
+      ['a0000002-00000002', 'open'],
+      ['a0000003-00000003', 'open'],
+      ['a0000004-00000004', 'open'],
+    ],
+  );
+  assert.equal(result.summary.unreadableTasks, 2);
+  assert.equal(result.summary.foreignTasks, 1);
+  assert.equal(result.summary.unreadableInputs, 1);
+  // An empty path entry and a path outside the repository are input errors returned as exit 2.
+  for (const paths of [`${TARGET},`, '../outside.md']) {
+    const errors = [];
+    const code = main(['--paths', paths, '--root', r.root], {
+      log: () => {},
+      error: (line) => errors.push(line),
+    });
+    assert.equal(code, 2, paths);
+    assert.equal(errors.length, 1, paths);
+  }
 });

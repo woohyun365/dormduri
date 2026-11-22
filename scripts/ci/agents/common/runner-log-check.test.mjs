@@ -284,6 +284,55 @@ test('a rejected fragment names its reason and the fragment shape the log line h
   assert.ok(text.out.includes('`pass 41`'), text.out);
 });
 
+// P6 ③ operator mutation sweep: cases the RED 1 test left unguarded (sweep/survivors.md).
+test('fragment messages keep every fragment, the pair rule, the first line and the text columns', () => {
+  const lines = [...SHAPE_LINES, '73 / 88 done'];
+  const { violations } = json(
+    checkJson(
+      stepsRoot(lines, [
+        'label after it `88`',
+        'no labeled pair `73`',
+        'spaced `73 /`',
+        'empty then unlabeled `` and `41`',
+        'three backticks `a` b `c',
+      ]),
+    ).out,
+  );
+  assert.deepEqual(
+    violations.map(({ record: index, kind, fragment, suggestion }) => [
+      index,
+      kind,
+      fragment,
+      suggestion,
+    ]),
+    [
+      [0, 'invalid-fragment', '88', '88 done'],
+      [1, 'invalid-fragment', '73', undefined],
+      [2, 'invalid-fragment', '73 /', undefined],
+      [3, 'invalid-fragment', '', undefined],
+      [3, 'invalid-fragment', '41', 'pass 41'],
+      [4, 'invalid-fragment', undefined, undefined],
+    ],
+  );
+  assert.match(violations[5].detail, /backtick count 3 is odd/u);
+  // The first line of a log is the header slot, never a result line, even when it is not the header.
+  const root = fixture({
+    runner: 'parent',
+    records: [record({ outputPaths: ['logs/noheader.log'], observedResult: '`Result: PASS`' })],
+  });
+  writeFileSync(resolve(root, 'logs/noheader.log'), 'Result: PASS\nexit=0\n');
+  assert.deepEqual(kinds(checkJson(root).out), [
+    [0, 'header-mismatch'],
+    [0, 'summary-mismatch'],
+  ]);
+  // The text output names the rejected fragment in its own column.
+  const text = run(
+    ['--evidence', 'evidence.json', '--header', HEADER],
+    stepsRoot(SHAPE_LINES, ['count only `41`']),
+  );
+  assert.ok(text.out.includes('\tinvalid-fragment\t`41`\t'), text.out);
+});
+
 test('a positional evidence argument is refused with the option usage (P6 ③ RED 1)', () => {
   const { code, err } = run(['evidence.json'], fixture({ runner: 'parent', records: [record()] }));
   assert.equal(code, 2);

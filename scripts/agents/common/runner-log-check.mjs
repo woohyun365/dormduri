@@ -66,7 +66,7 @@ function fragments(summary) {
   const parts = summary.split('`');
   if (parts.length % 2 === 0)
     return {
-      error: `unpaired backtick: ${parts.length - 1} backticks cannot be split into fragments; each fragment is one pair of backticks around log text that holds no backtick`,
+      error: `unpaired backtick: backtick count ${parts.length - 1} is odd, so the summary cannot be split into fragments; each fragment is one pair of backticks around log text that holds no backtick`,
     };
   return { fragments: parts.filter((_, index) => index % 2 === 1) };
 }
@@ -82,29 +82,22 @@ function readLog(root, path) {
 const isLabeled = (fragment) => fragment.trim() && !UNLABELED.test(fragment.replace(/\s/gu, ''));
 
 // The whitespace-separated run of a line around [start, end): the token run a fragment should copy.
-function tokenRun(line, start, end) {
-  let from = start;
-  let to = end;
-  while (from > 0 && !/\s/u.test(line[from - 1])) from -= 1;
-  while (to < line.length && !/\s/u.test(line[to])) to += 1;
-  return line.slice(from, to);
-}
+const tokenRun = (line, start, end) =>
+  `${/\S*$/u.exec(line.slice(0, start))[0]}${line.slice(start, end)}${/^\S*/u.exec(line.slice(end))[0]}`;
 
-// An unlabeled fragment that is a token on a result line: that token with its neighbor on the line (`pass 41` for
-// `41` in `ℹ pass 41`, `bad=0 ok=3` for `bad=0`).
+// An unlabeled fragment that is a token on a result line: that token with the token printed before or after it on the
+// line when the pair carries a label (`pass 41` for `41` in `ℹ pass 41`, `bad=0 ok=3` for `bad=0`).
 function labeledSuggestion(fragment, lines) {
   for (const line of lines) {
     if (!fragmentOnLine(fragment, line)) continue;
     const tokens = line.trim().split(/\s+/u);
+    // A fragment holding whitespace is in no single token (at -1), and then neither slice is a pair.
     const at = tokens.findIndex((token) => token.includes(fragment));
-    const candidates = [
-      at > 0 ? tokens.slice(at - 1, at + 1).join(' ') : null,
-      at >= 0 && at + 1 < tokens.length ? tokens.slice(at, at + 2).join(' ') : null,
-    ];
-    const found = candidates.find(
-      (candidate) => candidate && isLabeled(candidate) && fragmentOnLine(candidate, line),
-    );
-    if (found) return found;
+    for (const pair of [tokens.slice(at - 1, at + 1), tokens.slice(at, at + 2)]) {
+      const candidate = pair.join(' ');
+      if (pair.length === 2 && isLabeled(candidate) && fragmentOnLine(candidate, line))
+        return candidate;
+    }
   }
   return undefined;
 }
@@ -117,15 +110,14 @@ function mismatch(fragment, resultLines, otherLines) {
       detail: 'Markdown emphasis is not in the log: copy the result line text as printed',
       suggestion: emphasis,
     };
+  // The whitespace-separated run around the fragment carries its label and is a token on that line.
   for (const line of resultLines) {
     const at = line.indexOf(fragment);
-    if (at < 0) continue;
-    const run = tokenRun(line, at, at + fragment.length);
-    if (isLabeled(run) && fragmentOnLine(run, line))
+    if (at >= 0)
       return {
         detail:
           'fragment starts or ends inside a token (a letter, digit, _, . or - next to it, as `concat` in `x.concat(`): copy the whole whitespace-separated token run',
-        suggestion: run,
+        suggestion: tokenRun(line, at, at + fragment.length),
       };
   }
   if (otherLines.some((line) => line.includes(fragment)))

@@ -278,3 +278,81 @@ test('a node --test failure without its reason in a block points at --test-isola
   assert.equal(isolated.code, 0, isolated.out);
   assert.deepEqual(json(isolated.out).summary, { fail: 1, failures: 1, violations: 0 });
 });
+
+// P6 ③ operator mutation sweep: line numbers, a FAIL header on the last line, a summary on the first line and the
+// placeholder hint only for a body that only says 'test failed' (sweep/survivors.md).
+test('RED reason violations keep their lines and the isolation hint only for a placeholder body', () => {
+  const lineOf = (name, prefix) =>
+    readFileSync(resolve(fixtures, name), 'utf8')
+      .split('\n')
+      .flatMap((line, index) => (line.startsWith(prefix) ? [index + 1] : []));
+  const vitest = run(['--json', '--log', 'vitest-assertion.log', '--expect', 'ENOENT']);
+  assert.deepEqual(
+    json(vitest.out).violations.map(({ line }) => line),
+    lineOf('vitest-assertion.log', ' FAIL  '),
+  );
+  const noTests = run(['--json', '--log', 'vitest-import.log', '--expect', 'AssertionError']);
+  assert.deepEqual(
+    json(noTests.out)
+      .violations.filter(({ kind }) => kind === 'no-failure')
+      .map(({ line }) => line),
+    lineOf('vitest-import.log', '      Tests  '),
+  );
+  // A FAIL header on the last line of a log without a final newline.
+  const last = logFile('last.log', []);
+  writeFileSync(
+    last,
+    [' Test Files  1 failed (1)', '      Tests  1 failed (1)', ' FAIL  a.test.js > last'].join(
+      '\n',
+    ),
+  );
+  assert.deepEqual(
+    json(run(['--json', '--log', last, '--expect', 'AssertionError']).out).violations.map(
+      ({ line, kind, test: title }) => [line, kind, title],
+    ),
+    [[3, 'unexpected-reason', 'a.test.js > last']],
+  );
+  // An `ℹ fail` summary on the first line is still the summary.
+  assert.deepEqual(
+    reasons(
+      run(['--json', '--log', logFile('first.log', ['ℹ fail 1']), '--expect', 'AssertionError'])
+        .out,
+    ),
+    ['no-failure-blocks:'],
+  );
+  // The isolation hint is for a body that only says 'test failed': not an empty body, another reason, or a body that
+  // says more.
+  const hint = /--test-isolation=none/u;
+  const details = (argv) =>
+    json(run(['--json', ...argv]).out)
+      .violations.filter(({ kind }) => kind === 'unexpected-reason')
+      .map(({ detail }) => detail);
+  const empty = details([
+    '--log',
+    logFile('empty.log', ['✖ reports the missing citation (1ms)', 'ℹ fail 1']),
+    '--expect',
+    'AssertionError',
+  ]);
+  const other = details(['--log', 'mixed-enoent.log', '--expect', 'AssertionError']);
+  const more = details([
+    '--log',
+    logFile('more.log', [
+      'ℹ fail 1',
+      '✖ failing tests:',
+      'test at x.test.mjs:1:1',
+      '✖ x (1ms)',
+      "  'test failed'",
+      '    at file:///x.test.mjs:1:1',
+    ]),
+    '--expect',
+    'AssertionError',
+  ]);
+  for (const [label, list] of [
+    ['empty', empty],
+    ['other', other],
+    ['more', more],
+  ]) {
+    assert.equal(list.length, 1, label);
+    assert.doesNotMatch(list[0], hint, label);
+  }
+});

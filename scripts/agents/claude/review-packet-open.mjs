@@ -56,7 +56,11 @@ function reviewerTasks(root, registry, now) {
   const byReview = new Map();
   const counts = { unreadableTasks: 0, foreignTasks: 0 };
   if (!isDirectory(registry)) return { byReview, counts };
-  for (const entry of readdirSync(registry, { withFileTypes: true })) {
+  // Name order keeps the output and the counts independent of the file system's listing order.
+  const entries = readdirSync(registry, { withFileTypes: true }).sort((left, right) =>
+    left.name.localeCompare(right.name),
+  );
+  for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const dir = join(registry, entry.name);
     if (!existsSync(join(dir, 'task.json'))) continue;
