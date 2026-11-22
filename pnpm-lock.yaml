@@ -575,7 +575,7 @@ importers:
         version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@testing-library/user-event':
         specifier: ^14.6.8
-        version: 14.6.12(@testing-library/dom@10.4.1)
+        version: 14.6.13(@testing-library/dom@10.4.1)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
