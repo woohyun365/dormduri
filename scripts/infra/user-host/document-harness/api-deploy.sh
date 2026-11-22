@@ -68,7 +68,7 @@ run() {
   if [ -e /opt/dormduri/secrets/observability/slack-webhook-url ]; then
     obssecret=no
     [ "$(cd /opt/dormduri/secrets/observability && stat -c '%n:%u:%a' slack-webhook-url grafana-admin-password \
-      api-metrics-bearer-token | paste -sd' ')" = 'slack-webhook-url:65534:400 grafana-admin-password:472:400 api-metrics-bearer-token:65534:400' ] \
+      api-metrics-bearer-token gateway-access.conf | paste -sd' ')" = 'slack-webhook-url:65534:400 grafana-admin-password:472:400 api-metrics-bearer-token:65534:400 gateway-access.conf:101:400' ] \
       && obssecret=yes
   fi
   obsresult=$(result_line /tmp/out | sed -n 's/.* observability=\([a-z]*\).*/\1/p')

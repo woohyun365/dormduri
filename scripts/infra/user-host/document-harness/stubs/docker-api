@@ -21,7 +21,7 @@ case "$1" in
     dest=${3%/}
     for file in alloy/config.alloy alloy/pipeline.alloy loki/loki.yml loki/rules/web-bff-alerts.yml \
       prometheus/prometheus.production.yml prometheus/rules/api-alerts.yml alertmanager/alertmanager.production.yml \
-      alertmanager/templates/slack.tmpl grafana/provisioning/datasources/datasources.yml; do
+      alertmanager/templates/slack.tmpl grafana/provisioning/datasources/datasources.yml gateway/nginx.conf; do
       [ "${BAD_CONFIG:-}" = partial ] && [ "${file}" = prometheus/prometheus.production.yml ] && continue
       mkdir -p "${dest}/$(dirname "${file}")"
       printf 'fixture %s\n' "${file}" >"${dest}/${file}"
@@ -50,8 +50,8 @@ case "${sub}" in
       *" prometheus "*)
         [ -f "${OBSERVABILITY_CONFIG_DIR:-/nonexistent}/prometheus/prometheus.production.yml" ] || exit 5
         s=/opt/dormduri/secrets/observability
-        [ "$(stat -c '%u:%g:%a' "${s}/slack-webhook-url" "${s}/grafana-admin-password" "${s}/api-metrics-bearer-token" 2>/dev/null | paste -sd' ')" \
-          = '65534:65534:400 472:0:400 65534:65534:400' ] || exit 6
+        [ "$(stat -c '%u:%g:%a' "${s}/slack-webhook-url" "${s}/grafana-admin-password" "${s}/api-metrics-bearer-token" \
+          "${s}/gateway-access.conf" 2>/dev/null | paste -sd' ')" = '65534:65534:400 472:0:400 65534:65534:400 101:101:400' ] || exit 6
         basename "${OBSERVABILITY_CONFIG_DIR}" | cut -c1 >/tmp/running_obs
         [ -z "${BAD_OBS_UP:-}" ] || exit 1
         exit 0

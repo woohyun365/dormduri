@@ -1,8 +1,8 @@
 import { collectDefaultMetrics, Counter, Gauge, Registry } from '@prometheus-io/client';
 
 /**
- * Security events the alert rules read (OA-R2, OA-R5, OA-R9). Labels are fixed values; no account, email or
- * code ever becomes a label.
+ * Security events the alert rules read (OA-R2, OA-R5, OA-R9; `permission_denied` is a guard refusal, a burst of which
+ * pages the Owner). Labels are fixed values; no account, email or code ever becomes a label.
  */
 export const SECURITY_EVENTS = [
   'account_locked',
@@ -12,6 +12,7 @@ export const SECURITY_EVENTS = [
   'self_approval',
   'bootstrap_owner_used',
   'audit_write_failed',
+  'permission_denied',
 ] as const;
 export type SecurityEvent = (typeof SECURITY_EVENTS)[number];
 
@@ -42,7 +43,7 @@ export class BackofficeMetrics {
     collectDefaultMetrics({ register: this.registry });
     this.securityEvents = new Counter({
       name: 'backoffice_security_events_total',
-      help: 'Backoffice security events by kind (account lock, recovery login, role change, self approval, bootstrap, audit write failure).',
+      help: 'Backoffice security events by kind (account lock, recovery login, role change, self approval, bootstrap, audit write failure, permission refusal).',
       labelNames: ['event'],
       registers: [this.registry],
     });

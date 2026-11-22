@@ -13,8 +13,9 @@ groups:
           summary: Prometheus가 API metrics를 5분 동안 읽지 못했습니다.
           runbook: infra/runbooks/operations/observability/production-stack.md#경보-대응
 
+      # 백오피스 job(backoffice-*)은 backoffice-alerts.yml이 본다(BackofficeNotReady·BackofficeApiMetricsDown).
       - alert: ObservabilityTargetDown
-        expr: up{job!="api"} == 0
+        expr: up{job!="api",job!~"backoffice-.*"} == 0
         for: 5m
         labels:
           severity: warning

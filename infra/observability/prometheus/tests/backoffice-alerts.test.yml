@@ -1,0 +1,234 @@
+# promtool test rules(scripts/infra/check/validate-runtime-configs.mjs). 백오피스 경보(backoffice-foundation D-BF15)가 remote write로
+# 받은 지표(job backoffice-api·backoffice-probe·backoffice-host)에 따라 울리고 그친다.
+rule_files:
+  - ../rules/backoffice-alerts.yml
+  - ../rules/observability-alerts.yml
+evaluation_interval: 1m
+tests:
+  # 보안 이벤트: 한 번 늘면 10분 창 동안 울리고 그 뒤 그친다. 권한 거부는 10분에 5번부터다.
+  - interval: 1m
+    input_series:
+      - series: 'backoffice_security_events_total{job="backoffice-api",service="backoffice-api",env="production",event="recovery_login"}'
+        values: '0x4 1x20'
+      - series: 'backoffice_security_events_total{job="backoffice-api",service="backoffice-api",env="production",event="bootstrap_owner_used"}'
+        values: '0x4 1x20'
+      - series: 'backoffice_security_events_total{job="backoffice-api",service="backoffice-api",env="production",event="audit_write_failed"}'
+        values: '0x4 1x20'
+      - series: 'backoffice_security_events_total{job="backoffice-api",service="backoffice-api",env="production",event="account_locked"}'
+        values: '0x4 1x20'
+      - series: 'backoffice_security_events_total{job="backoffice-api",service="backoffice-api",env="production",event="role_revoked"}'
+        values: '0x4 1x20'
+      - series: 'backoffice_security_events_total{job="backoffice-api",service="backoffice-api",env="production",event="self_approval"}'
+        values: '0x4 1x20'
+      - series: 'backoffice_security_events_total{job="backoffice-api",service="backoffice-api",env="production",event="permission_denied"}'
+        values: '0x10 1 2 3 4 4x20'
+      # 같은 이름의 user host 쪽 series(다른 job)는 세지 않는다.
+      - series: 'backoffice_security_events_total{job="api",event="recovery_login"}'
+        values: '0x4 9x20'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: BackofficeRecoveryLogin
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: BackofficeRecoveryLogin
+        exp_alerts:
+          - exp_labels: { severity: critical, service: backoffice }
+            exp_annotations:
+              summary: 백오피스에 복구 code 로그인이 있었습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+      - eval_time: 20m
+        alertname: BackofficeRecoveryLogin
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: BackofficeBootstrapOwnerUsed
+        exp_alerts:
+          - exp_labels: { severity: critical, service: backoffice }
+            exp_annotations:
+              summary: 백오피스 첫 owner 등록 code가 쓰였습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+      - eval_time: 6m
+        alertname: BackofficeAuditWriteFailed
+        exp_alerts:
+          - exp_labels: { severity: critical, service: backoffice }
+            exp_annotations:
+              summary: 백오피스 감사 기록 쓰기가 실패했습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+      - eval_time: 6m
+        alertname: BackofficeAccountLocked
+        exp_alerts:
+          - exp_labels: { severity: warning, service: backoffice }
+            exp_annotations:
+              summary: 백오피스 운영자 계정이 잠겼습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+      - eval_time: 6m
+        alertname: BackofficeRoleChanged
+        exp_alerts:
+          - exp_labels: { severity: warning, service: backoffice }
+            exp_annotations:
+              summary: 백오피스 운영자 역할이 부여되거나 회수되었습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+      - eval_time: 6m
+        alertname: BackofficeSelfApproval
+        exp_alerts:
+          - exp_labels: { severity: warning, service: backoffice }
+            exp_annotations:
+              summary: 백오피스에서 1인 예외 자기 승인이 있었습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+      # 10분 동안 4번은 울리지 않는다.
+      - eval_time: 16m
+        alertname: BackofficePermissionDeniedBurst
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'backoffice_security_events_total{job="backoffice-api",event="permission_denied"}'
+        values: '0x10 1 2 3 4 5 6 6x20'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: BackofficePermissionDeniedBurst
+        exp_alerts: []
+      - eval_time: 17m
+        alertname: BackofficePermissionDeniedBurst
+        exp_alerts:
+          - exp_labels: { severity: warning, service: backoffice }
+            exp_annotations:
+              summary: 백오피스 권한 거부가 10분 동안 5번 이상 있었습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+      - eval_time: 35m
+        alertname: BackofficePermissionDeniedBurst
+        exp_alerts: []
+
+  # 가용성: probe가 3분 실패하면 critical이고, 백오피스 job은 user host의 ObservabilityTargetDown에 들지 않는다.
+  - interval: 1m
+    input_series:
+      - series: 'probe_success{job="backoffice-probe",instance="backoffice_api_ready",service="backoffice-probe",env="production"}'
+        values: '1 1 0 0 0 0 0 1 1'
+      - series: 'up{job="backoffice-api",instance="backoffice-api:4310"}'
+        values: '1 0 0 0 0 0 0 0 0 1'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: BackofficeNotReady
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: BackofficeNotReady
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              service: backoffice
+              job: backoffice-probe
+              instance: backoffice_api_ready
+              env: production
+            exp_annotations:
+              summary: 백오피스 API 또는 운영자 화면이 3분 동안 응답하지 않습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+      - eval_time: 8m
+        alertname: BackofficeNotReady
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: BackofficeApiMetricsDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              service: backoffice
+              job: backoffice-api
+              instance: backoffice-api:4310
+            exp_annotations:
+              summary: 백오피스 Alloy가 API metrics를 5분 동안 읽지 못했습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+      - eval_time: 7m
+        alertname: ObservabilityTargetDown
+        exp_alerts: []
+
+  # 지표가 끊기면(백오피스 host·Alloy·gateway 중단) 15분 뒤 울린다. 보낸 적이 없으면(첫 배포 전) 울리지 않는다.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="backoffice-api",instance="backoffice-api:4310"}'
+        values: '1x10 _x40'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: BackofficeTelemetryAbsent
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: BackofficeTelemetryAbsent
+        exp_alerts:
+          - exp_labels: { severity: critical, service: backoffice, job: backoffice-api }
+            exp_annotations:
+              summary: 백오피스 host 지표가 15분 동안 들어오지 않습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+  - interval: 1m
+    input_series:
+      - series: 'up{job="api",instance="api:4000"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: BackofficeTelemetryAbsent
+        exp_alerts: []
+
+  # 정리 작업: 실패가 있으면 warning, 마지막 성공이 3시간을 넘으면 warning. 시작 뒤 성공 전(0)은 세지 않는다.
+  - interval: 1m
+    input_series:
+      - series: 'backoffice_retention_failures_total{job="backoffice-api",step="sessions"}'
+        values: '0x5 1x100'
+      - series: 'backoffice_retention_last_success_timestamp_seconds{job="backoffice-api"}'
+        values: '60x260'
+      - series: 'backoffice_retention_last_success_timestamp_seconds{job="backoffice-api",instance="restarted"}'
+        values: '0x260'
+    alert_rule_test:
+      - eval_time: 7m
+        alertname: BackofficeRetentionFailed
+        exp_alerts:
+          - exp_labels: { severity: warning, service: backoffice }
+            exp_annotations:
+              summary: 백오피스 관리자 기록 정리 작업이 실패했습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+      - eval_time: 90m
+        alertname: BackofficeRetentionFailed
+        exp_alerts: []
+      - eval_time: 185m
+        alertname: BackofficeRetentionStalled
+        exp_alerts: []
+      - eval_time: 200m
+        alertname: BackofficeRetentionStalled
+        exp_alerts:
+          - exp_labels: { severity: warning, service: backoffice, job: backoffice-api }
+            exp_annotations:
+              summary: 백오피스 관리자 기록 정리 작업이 3시간 동안 성공하지 않았습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+  # 백오피스 host 지표. user host 경보(job host)와 섞이지 않는다.
+  - interval: 1m
+    input_series:
+      - series: 'node_filesystem_avail_bytes{job="backoffice-host",instance="backoffice",mountpoint="/"}'
+        values: '15x20'
+      - series: 'node_filesystem_size_bytes{job="backoffice-host",instance="backoffice",mountpoint="/"}'
+        values: '100x20'
+      - series: 'node_memory_MemAvailable_bytes{job="backoffice-host",instance="backoffice"}'
+        values: '5x20'
+      - series: 'node_memory_MemTotal_bytes{job="backoffice-host",instance="backoffice"}'
+        values: '100x20'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: BackofficeHostDiskUsageHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: backoffice
+              job: backoffice-host
+              instance: backoffice
+              mountpoint: /
+            exp_annotations:
+              summary: 백오피스 host 디스크 사용률이 80%를 넘었습니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+      - eval_time: 12m
+        alertname: BackofficeHostMemoryAvailableLow
+        exp_alerts:
+          - exp_labels:
+              {
+                severity: critical,
+                service: backoffice,
+                job: backoffice-host,
+                instance: backoffice,
+              }
+            exp_annotations:
+              summary: 백오피스 host 사용 가능 memory가 10% 미만입니다.
+              runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응

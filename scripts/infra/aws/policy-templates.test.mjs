@@ -4,9 +4,13 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { API_DOCUMENT_NAME, DOCUMENT_NAME } from '../user-host/ssm-document.mjs';
+import { DEPLOY_DOCUMENT_NAME } from '../backoffice-host/ssm-document.mjs';
 import {
   API_DEPLOY_DOCUMENT,
+  BACKOFFICE_DEPLOY_DOCUMENT,
+  BACKOFFICE_HOST_TARGET,
   DEPLOY_DOCUMENT,
+  USER_HOST_TARGET,
   checkPolicyTemplates,
   readPolicyTemplates,
 } from './policy-templates.mjs';
@@ -225,6 +229,85 @@ test('each widened trust or permission is rejected', () => {
       /^publish permissions: ecr:PutImage resource or condition is wider/u,
     ],
   );
+  // 백오피스 role(backoffice-foundation D-BF16)은 user host role과 따로다: 자기 workflow·environment·repository·document·대상
+  // tag만. 첫 owner 등록 code document는 deploy role이 보내지 못한다. host role은 백오피스 묶음 하나만 읽는다.
+  const backofficeDocument =
+    'arn:aws:ssm:ap-northeast-2:<ACCOUNT_ID>:document/dormduri-backoffice-deploy';
+  const bootstrapDocument =
+    'arn:aws:ssm:ap-northeast-2:<ACCOUNT_ID>:document/dormduri-backoffice-bootstrap-owner';
+  const apiRepository = 'arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/api';
+  const nodeStatement = (p) => p.Statement.find((s) => s.Condition?.StringEquals);
+  cases.push(
+    [
+      'infra/aws/iam/backoffice-deploy-role.trust.json',
+      (p) => {
+        p.Statement[0].Condition.StringEquals[sub] = p.Statement[0].Condition.StringEquals[
+          sub
+        ].replace('environment:production-backoffice', 'environment:production-api');
+      },
+      /backoffice-deploy trust: sub is not the exact environment:production-backoffice backoffice-cd\.yml subject/u,
+    ],
+    [
+      'infra/aws/iam/backoffice-publish-role.trust.json',
+      (p) => {
+        p.Statement[0].Condition.StringEquals[sub] = p.Statement[0].Condition.StringEquals[
+          sub
+        ].replace('backoffice-cd.yml', 'api-cd.yml');
+      },
+      /backoffice-publish trust: sub is not the exact/u,
+    ],
+    [
+      'infra/aws/iam/backoffice-deploy-role.permissions.json',
+      (p) =>
+        (nodeStatement(p).Condition.StringEquals['ssm:resourceTag/dormduri-deploy-target'] =
+          'user-app'),
+      /backoffice deploy permissions: ssm:SendCommand resource or condition is wider/u,
+    ],
+    [
+      'infra/aws/iam/backoffice-deploy-role.permissions.json',
+      (p) =>
+        (p.Statement.find(
+          (s) => s.Resource === backofficeDocument && s.Action === 'ssm:SendCommand',
+        ).Resource = [backofficeDocument, bootstrapDocument]),
+      /backoffice deploy permissions: ssm:SendCommand reaches more than/u,
+    ],
+    [
+      'infra/aws/iam/backoffice-deploy-role.permissions.json',
+      (p) => p.Statement.find((s) => s.Action === 'ecr:BatchGetImage').Resource.push(apiRepository),
+      /backoffice deploy permissions: ecr:BatchGetImage resource or condition is wider/u,
+    ],
+    [
+      'infra/aws/iam/backoffice-publish-role.permissions.json',
+      (p) => p.Statement[1].Resource.push(apiRepository),
+      /backoffice publish permissions: ecr:PutImage resource or condition is wider/u,
+    ],
+    [
+      'infra/aws/iam/backoffice-host-role.ecr-pull.json',
+      (p) => p.Statement[1].Resource.push(apiRepository),
+      /backoffice host permissions: ecr:BatchGetImage resource or condition is wider/u,
+    ],
+    [
+      'infra/aws/iam/backoffice-host-role.secrets-read.json',
+      (p) =>
+        p.Statement[0].Resource.push(
+          'arn:aws:secretsmanager:ap-northeast-2:<ACCOUNT_ID>:secret:/dormduri/production/api/runtime-??????',
+        ),
+      /backoffice host secrets: secretsmanager:GetSecretValue resource or condition is wider/u,
+    ],
+    [
+      'infra/aws/iam/backoffice-host-role.secrets-read.json',
+      (p) => (p.Statement[0].Resource[0] = p.Statement[0].Resource[0].replace('-??????', '*')),
+      /backoffice host secrets: .* has a \* wildcard/u,
+    ],
+    [
+      'infra/aws/iam/host-role.ecr-pull.json',
+      (p) =>
+        p.Statement[1].Resource.push(
+          'arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/backoffice-api',
+        ),
+      /^host permissions: ecr:BatchGetImage resource or condition is wider/u,
+    ],
+  );
   for (const [path, change, expected] of cases) {
     const problems = mutated(path, change);
     assert.ok(
@@ -232,4 +315,14 @@ test('each widened trust or permission is rejected', () => {
       `${expected}: ${problems.join(' | ')}`,
     );
   }
+});
+
+test('the committed backoffice role templates name the backoffice-cd workflow, environment and document', () => {
+  assert.equal(BACKOFFICE_DEPLOY_DOCUMENT, DEPLOY_DOCUMENT_NAME);
+  assert.notEqual(BACKOFFICE_HOST_TARGET, USER_HOST_TARGET);
+  const files = readPolicyTemplates(repoRoot);
+  assert.doesNotMatch(
+    files['infra/aws/iam/backoffice-deploy-role.permissions.json'],
+    /bootstrap-owner/u,
+  );
 });

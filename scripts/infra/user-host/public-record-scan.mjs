@@ -35,8 +35,8 @@ export const ALLOWED_VALUES = Object.freeze([
   ['sha256 hex hash', /\b[0-9a-f]{64}\b/gu],
   ['commit SHA', /\b[0-9a-f]{40}\b/gu],
   ['image deploy tag', /\bdeploy-[0-9]{8}T[0-9]{4}-[0-9]+\b/gu],
-  // Release tag of each stage(release-record.mjs STAGES: web-cd, api-cd).
-  ['git deploy tag', /\bdeploy-(?:web|api)-[0-9]{8}-[0-9]+\b/gu],
+  // Release tag of each stage(release-record.mjs STAGES: web-cd, api-cd, backoffice-cd).
+  ['git deploy tag', /\bdeploy-(?:web|api|backoffice)-[0-9]{8}-[0-9]+\b/gu],
   ['timestamp', /\b[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z\b/gu],
   // GitHub runner가 job마다 새로 만드는 임시 경로·worker UUID. activation ID와 형식이 같아 이 경로·문맥에 든 UUID만 지운다.
   [

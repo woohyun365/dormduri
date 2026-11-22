@@ -433,10 +433,12 @@ test('groups non-npm updates so shared pins move in one PR', () => {
   assert.deepEqual(groups['node-image'].matchPackageNames, ['node']);
   // The Node images (docker) and .node-version (nodenv, node-version datasource) move in one PR.
   assert.deepEqual(groups['node-image'].matchDatasources, ['docker', 'node-version']);
-  // The user host API fragment pins the same observability images as the local stack; one PR moves both.
+  // The user host API fragment and the backoffice host bundle (Alloy) pin the same observability images as the local
+  // stack; one PR moves them all.
   assert.deepEqual(groups['observability-images'].matchFileNames, [
     'infra/observability/**',
     'infra/deploy/user/api/compose.yml',
+    'infra/deploy/backoffice/compose.yml',
   ]);
   for (const name of [
     'actions-minor-patch',

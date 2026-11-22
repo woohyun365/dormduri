@@ -1,0 +1,28 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EcrLogin",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "PushAndRetagBackofficeRepositories",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:PutImage",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": [
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/backoffice-api",
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/backoffice-web",
+        "arn:aws:ecr:ap-northeast-2:<ACCOUNT_ID>:repository/dormduri/backoffice-ingress"
+      ]
+    }
+  ]
+}

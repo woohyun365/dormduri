@@ -4,7 +4,7 @@
 Alloy, Alertmanager **configuration asset**을 소유한다. API product behavior, route, response code,
 auth/session semantics는 이 stack을 켜도 바뀌지 않는다.
 
-운영 stack은 user host API 묶음의 관측 service 다섯이고, 운영 설정은 아래 [운영 설정 image](#운영-설정-image)에 담겨 API와 함께
+운영 stack은 user host API 묶음의 관측 service 다섯과 백오피스 관측 수신 gateway이고, 운영 설정은 아래 [운영 설정 image](#운영-설정-image)에 담겨 API와 함께
 배포된다. Retention, volume, operator access, 경보 대응, Docker socket 위험은
 `infra/runbooks/operations/observability/production-stack.md`를 기준으로 한다. Local example을 복사한 설정은 production profile에서
 거부된다.
@@ -27,16 +27,17 @@ API image와 같은 commit에서 build·검사·push하고, API 배포 document�
 펼친다. 각 관측 container는 그 경로를 읽기 전용으로 mount한다. Image에 드는 파일(Dockerfile `COPY` 원본)이 `api-cd`의 경로
 filter이고 `scripts/infra/user-host/api-cd-contract.test.mjs`가 둘을 대조한다.
 
-| 파일                                           | 운영에서의 역할                                                                         |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `alloy/config.alloy`                           | 수집 대상(compose project의 `api`·`ingress`·`web`), host 지표, Loki 전송                |
-| `alloy/pipeline.alloy`                         | log 처리 module: ingress 접속 log 다시 쓰기, IP 가림, label 정리(local과 공용)          |
-| `loki/loki.yml`, `loki/rules/`                 | Loki 설정(30일 보존)과 Web BFF log rule                                                 |
-| `prometheus/prometheus.production.yml`         | scrape(API·host·관측 자신)와 rule 경로                                                  |
-| `prometheus/rules/`                            | 경보 rule(API·retention·정리 작업·table·host·관측). promtool 시험은 `prometheus/tests/` |
-| `alertmanager/alertmanager.production.yml`     | Slack receiver(`api_url_file`로 secret 파일을 읽음)                                     |
-| `alertmanager/templates/`                      | Slack 본문 template(local과 공용)                                                       |
-| `grafana/provisioning/`, `grafana/dashboards/` | datasource와 dashboard                                                                  |
+| 파일                                           | 운영에서의 역할                                                                                  |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `alloy/config.alloy`                           | 수집 대상(compose project의 `api`·`ingress`·`web`), host 지표, Loki 전송                         |
+| `alloy/pipeline.alloy`                         | log 처리 module: ingress 접속 log 다시 쓰기, IP 가림, label 정리(local과 공용)                   |
+| `loki/loki.yml`, `loki/rules/`                 | Loki 설정(30일 보존)과 Web BFF log rule                                                          |
+| `prometheus/prometheus.production.yml`         | scrape(API는 수신 gateway 경유·host·관측 자신)와 rule 경로                                       |
+| `prometheus/rules/`                            | 경보 rule(API·retention·정리 작업·table·host·관측·백오피스). promtool 시험은 `prometheus/tests/` |
+| `gateway/nginx.conf`                           | 수신 gateway: 백오피스 host의 log push·remote write(주소·token include), API 지표 대행           |
+| `alertmanager/alertmanager.production.yml`     | Slack receiver(`api_url_file`로 secret 파일을 읽음)                                              |
+| `alertmanager/templates/`                      | Slack 본문 template(local과 공용)                                                                |
+| `grafana/provisioning/`, `grafana/dashboards/` | datasource와 dashboard                                                                           |
 
 Secret·webhook URL과 local 예시(`.env.observability.example`, `alertmanager.yml.example`, token 예시)는 image에 넣지 않는다.
 `pnpm infra:check:runtime`이 image를 build해 꺼낸 파일로 promtool·Loki·Alloy·amtool 검사, 실제 Alloy·Loki log 가림 시험, 실제

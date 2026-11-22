@@ -1,0 +1,207 @@
+# 백오피스 host 묶음 compose(admin ingress·backoffice-web·backoffice-api·Alloy와 one-off bootstrap-owner, 동작 설명:
+# infra/deploy/README.md "백오피스 host 묶음", backoffice-foundation D-BF2·D-BF13·D-BF15·D-BF16).
+# 배포 document(ssm/deploy.sh)가 이 파일을 document 안에 담아 `/opt/dormduri/releases/backoffice/<release>/compose.yml`에 쓰고,
+# 그 release의 기록이 이 파일을 가리킨다. rollback은 기록된 파일로 띄운다. 경로는 host 절대 경로만 쓴다.
+# - host publish는 admin ingress의 `127.0.0.1:4300` 하나다(SSM 포트 포워딩만 닿는다. Lightsail 방화벽은 같은 계정 사설 IP
+#   traffic을 막지 않으므로 다른 interface에 publish하지 않는다). Web·API port는 internal network에만 있다.
+# - image는 registry digest 참조만 받는다. secret은 document가 Secrets Manager 백오피스 묶음에서 꺼내 쓴 host 파일만 파일
+#   단위로 읽기 전용으로 받는다(API 넷, Alloy 셋).
+# - bootstrap-owner one-off는 log를 남기지 않는다(출력의 1회용 등록 code가 host log·Loki로 가지 않게, D-BF13).
+name: dormduri-backoffice
+
+x-hardening: &hardening
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+  logging: { driver: json-file, options: { max-size: '10m', max-file: '3' } }
+
+x-api-secrets: &api-secrets
+  - type: bind
+    source: ${BACKOFFICE_SECRET_RELEASE_DIR:?BACKOFFICE_SECRET_RELEASE_DIR must name the installed secret release}/BACKOFFICE_DATABASE_URL
+    target: /run/secrets/dormduri-backoffice/BACKOFFICE_DATABASE_URL
+    read_only: true
+    bind: { create_host_path: false }
+  - type: bind
+    source: ${BACKOFFICE_SECRET_RELEASE_DIR:?BACKOFFICE_SECRET_RELEASE_DIR must name the installed secret release}/BACKOFFICE_RETENTION_DATABASE_URL
+    target: /run/secrets/dormduri-backoffice/BACKOFFICE_RETENTION_DATABASE_URL
+    read_only: true
+    bind: { create_host_path: false }
+  - type: bind
+    source: ${BACKOFFICE_SECRET_RELEASE_DIR:?BACKOFFICE_SECRET_RELEASE_DIR must name the installed secret release}/BACKOFFICE_TOTP_ENCRYPTION_KEY
+    target: /run/secrets/dormduri-backoffice/BACKOFFICE_TOTP_ENCRYPTION_KEY
+    read_only: true
+    bind: { create_host_path: false }
+  - type: bind
+    source: ${BACKOFFICE_SECRET_RELEASE_DIR:?BACKOFFICE_SECRET_RELEASE_DIR must name the installed secret release}/BACKOFFICE_METRICS_BEARER_TOKEN
+    target: /run/secrets/dormduri-backoffice/BACKOFFICE_METRICS_BEARER_TOKEN
+    read_only: true
+    bind: { create_host_path: false }
+
+services:
+  backoffice-ingress:
+    <<: *hardening
+    image: ${BACKOFFICE_INGRESS_IMAGE:?BACKOFFICE_INGRESS_IMAGE must be a registry digest reference}
+    # host loopback 하나에만 publish한다(D-BF2). compose 계약 test가 이 한 줄만 허용한다.
+    ports:
+      - '127.0.0.1:4300:8080'
+    restart: unless-stopped
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    stop_grace_period: 15s
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8081/__ingress/health']
+      interval: 15s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    networks:
+      backoffice-publish: {}
+      backoffice-front: {}
+    deploy: { resources: { limits: { memory: 96M, pids: 128 } } }
+
+  backoffice-web:
+    <<: *hardening
+    image: ${BACKOFFICE_WEB_IMAGE:?BACKOFFICE_WEB_IMAGE must be a registry digest reference}
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: '3000'
+      TZ: Asia/Seoul
+      NEXT_TELEMETRY_DISABLED: '1'
+      # internal network의 backoffice-api. browser에는 나가지 않는다.
+      BACKOFFICE_API_URL: http://backoffice-api:4310
+    expose: ['3000']
+    restart: unless-stopped
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+      - /app/apps/backoffice-web/.next/cache:size=32m,mode=1777
+    stop_grace_period: 15s
+    # 바깥으로 나가는 network가 없다(ingress·API·Alloy와만 닿는다).
+    networks:
+      backoffice-front: {}
+      backoffice-app: {}
+    deploy: { resources: { limits: { memory: 256M, pids: 256 } } }
+
+  backoffice-api:
+    <<: *hardening
+    image: ${BACKOFFICE_API_IMAGE:?BACKOFFICE_API_IMAGE must be a registry digest reference}
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Seoul
+      BACKOFFICE_API_PORT: '4310'
+      BACKOFFICE_DATABASE_POOL_MAX: '5'
+      BACKOFFICE_RETENTION_DATABASE_POOL_MAX: '1'
+      BACKOFFICE_LOG_LEVEL: info
+    volumes: *api-secrets
+    expose: ['4310']
+    restart: unless-stopped
+    tmpfs: ['/tmp:size=32m,mode=1777']
+    stop_grace_period: 30s
+    # backoffice-app은 Web·Alloy가 닿는 internal network, backoffice-egress는 RDS로 나가는 길이다.
+    networks:
+      backoffice-app: {}
+      backoffice-egress: {}
+    deploy: { resources: { limits: { memory: 512M, pids: 256 } } }
+
+  # 첫 owner 등록 code one-off(D-BF13, OA-R10). bootstrap document만 `run`으로 부른다. 같은 API image와 secret을 쓰고 DB로만 나간다.
+  bootstrap-owner:
+    <<: *hardening
+    image: ${BACKOFFICE_API_IMAGE:?BACKOFFICE_API_IMAGE must be a registry digest reference}
+    profiles: ['bootstrap']
+    entrypoint: ['./entrypoint.sh', 'node', 'dist/cli/bootstrap-owner.js']
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Seoul
+    volumes: *api-secrets
+    restart: 'no'
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    # 출력(등록 code)은 SSM 결과로만 간다. json-file에 남기지 않는다.
+    logging: { driver: none }
+    networks:
+      backoffice-egress: {}
+    deploy: { resources: { limits: { memory: 256M, pids: 128 } } }
+
+  # 관측(D-BF15). compose project `dormduri-backoffice`의 세 service log와 API metric·readiness probe·host 지표를 user host의 관측
+  # 수신 gateway로 보낸다. Docker socket·host `/`·`/proc`·`/sys`를 읽기 전용으로 읽어 root(0:473)로 돈다. 설정은 document가 release
+  # 디렉터리에 쓴 것을, 수신 주소·token과 metric token은 root 소유 0400 파일을 읽는다. 관측이 멈춰도 운영자 요청은 막히지 않는다.
+  alloy:
+    <<: *hardening
+    image: grafana/alloy:v1.21.3@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
+    user: '0:473'
+    command:
+      [
+        run,
+        --server.http.listen-addr=0.0.0.0:12345,
+        --storage.path=/var/lib/alloy/data,
+        /etc/alloy/config.alloy,
+      ]
+    environment:
+      TZ: Asia/Seoul
+      HOST_ROOTFS_PATH: /host/root
+      HOST_PROCFS_PATH: /host/proc
+      HOST_SYSFS_PATH: /host/sys
+    volumes:
+      - type: bind
+        source: ${BACKOFFICE_ALLOY_CONFIG_DIR:?BACKOFFICE_ALLOY_CONFIG_DIR must name the release Alloy config}
+        target: /etc/alloy
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${BACKOFFICE_OBSERVABILITY_SECRET_DIR:?BACKOFFICE_OBSERVABILITY_SECRET_DIR must name the observability secret release}/BACKOFFICE_METRICS_BEARER_TOKEN
+        target: /run/secrets/dormduri-backoffice-observability/BACKOFFICE_METRICS_BEARER_TOKEN
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${BACKOFFICE_OBSERVABILITY_SECRET_DIR:?BACKOFFICE_OBSERVABILITY_SECRET_DIR must name the observability secret release}/OBSERVABILITY_INGEST_URL
+        target: /run/secrets/dormduri-backoffice-observability/OBSERVABILITY_INGEST_URL
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${BACKOFFICE_OBSERVABILITY_SECRET_DIR:?BACKOFFICE_OBSERVABILITY_SECRET_DIR must name the observability secret release}/OBSERVABILITY_INGEST_TOKEN
+        target: /run/secrets/dormduri-backoffice-observability/OBSERVABILITY_INGEST_TOKEN
+        read_only: true
+        bind: { create_host_path: false }
+      - { type: bind, source: /var/run/docker.sock, target: /var/run/docker.sock, read_only: true }
+      - {
+          type: bind,
+          source: /,
+          target: /host/root,
+          read_only: true,
+          bind: { propagation: rslave },
+        }
+      - { type: bind, source: /proc, target: /host/proc, read_only: true }
+      - { type: bind, source: /sys, target: /host/sys, read_only: true }
+      - { type: volume, source: alloy-data, target: /var/lib/alloy/data }
+    restart: unless-stopped
+    tmpfs: ['/tmp:size=32m,mode=1777']
+    stop_grace_period: 30s
+    networks:
+      backoffice-front: {}
+      backoffice-app: {}
+      backoffice-egress: {}
+    deploy: { resources: { limits: { cpus: '0.10', memory: 96M, pids: 128 } } }
+
+# 고정 subnet(Docker 기본 주소 pool·AWS default VPC·Lightsail VPC 대역과 겹치지 않음, user host 묶음과 같은 10.217.0.0/16 안의
+# 다른 /28). internal network는 host 밖으로 나가지 못한다.
+networks:
+  # admin ingress의 publish용(ingress만). internal network에는 host port를 publish할 수 없어 따로 둔다.
+  backoffice-publish:
+    driver: bridge
+    ipam: { config: [{ subnet: 10.217.20.0/28, gateway: 10.217.20.1 }] }
+  # ingress → Web(Alloy probe 포함).
+  backoffice-front:
+    driver: bridge
+    internal: true
+    ipam: { config: [{ subnet: 10.217.21.0/28, gateway: 10.217.21.1 }] }
+  # Web → API, Alloy → API metric·readiness.
+  backoffice-app:
+    driver: bridge
+    internal: true
+    ipam: { config: [{ subnet: 10.217.22.0/28, gateway: 10.217.22.1 }] }
+  # API → RDS, Alloy → user host 관측 수신 gateway.
+  backoffice-egress:
+    driver: bridge
+    ipam: { config: [{ subnet: 10.217.23.0/28, gateway: 10.217.23.1 }] }
+
+volumes:
+  alloy-data: {}

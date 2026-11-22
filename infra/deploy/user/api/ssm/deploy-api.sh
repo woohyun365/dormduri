@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dormduri-api-deploy 본문(API 묶음: api·migrate one-off·관측 다섯). scripts/infra/user-host/ssm-document.mjs가 이 파일, web 묶음
+# dormduri-api-deploy 본문(API 묶음: api·migrate one-off·관측 다섯·수신 gateway). scripts/infra/user-host/ssm-document.mjs가 이 파일, web 묶음
 # document와 같은 ../../ssm/lib.sh, ../compose.yml(API 묶음 조각), secret_bundle.py, secret-mount contract로 SSM Command
 # document(dormduri-api-deploy.json)를 만든다. 파라미터는 interpolationType ENV_VAR로 SSM_action·SSM_apiDigest·
 # SSM_apiMigrateDigest·SSM_observabilityConfigDigest 환경 변수로만 받는다. 임의 명령을 받지 않는다.
@@ -62,7 +62,7 @@ runtime_uid=10001
 tools=${api_state}/tools
 obs_root=${base}/observability/config
 obs_secrets=${base}/secrets/observability
-obs_services='prometheus loki alloy alertmanager grafana'
+obs_services='prometheus loki alloy alertmanager grafana obs-gateway'
 install -d -m 0700 "${api_state}" "${tools}" "${base}/secrets" "${obs_secrets}"
 install -d -m 0700 "${secrets_root}" "${secret_releases}"
 install -d -m 0755 "${obs_root}"
@@ -260,7 +260,7 @@ fill_obs_config() {
     docker rm -f "${cid}" >>"${log}" 2>&1 || true
   fi
   for file in alloy/config.alloy alloy/pipeline.alloy loki/loki.yml prometheus/prometheus.production.yml \
-    alertmanager/alertmanager.production.yml grafana/provisioning/datasources/datasources.yml; do
+    alertmanager/alertmanager.production.yml grafana/provisioning/datasources/datasources.yml gateway/nginx.conf; do
     [ -f "${tmp}/${file}" ] || status=1
   done
   if [ "${status}" != 0 ] || find "${tmp}" ! -type f ! -type d | grep -q .; then
@@ -270,7 +270,8 @@ fill_obs_config() {
   fi
   chown -R 0:0 "${tmp}" && chmod -R u=rwX,go=rX "${tmp}" && mv -T "${tmp}" "${dir}"
 }
-# 파일 셋을 하나씩 바꾼다. 중간에 실패하면 새 값과 옛 값이 섞일 수 있으나 container는 다시 만들지 않고, 다음 배포가 셋을 다시 쓴다.
+# 파일 넷(관측 secret 셋과 수신 gateway 접근 include)을 하나씩 바꾼다. 중간에 실패하면 새 값과 옛 값이 섞일 수 있으나 container는
+# 다시 만들지 않고, 다음 배포가 넷을 다시 쓴다.
 write_obs_secrets() {
   local tmp name status=0
   tmp=$(mktemp -d "${base}/secrets/.obs.XXXXXX") || return 1
@@ -278,7 +279,7 @@ write_obs_secrets() {
     --output text 2>>"${log}" | secret_py observability "${tools}/secret-mount.contract.json" "${tmp}" \
     && install -m 0400 -o 65534 -g 65534 "${secret_releases}/$1/METRICS_BEARER_TOKEN" "${tmp}/api-metrics-bearer-token" \
     || status=1
-  for name in slack-webhook-url grafana-admin-password api-metrics-bearer-token; do
+  for name in slack-webhook-url grafana-admin-password api-metrics-bearer-token gateway-access.conf; do
     [ "${status}" = 0 ] && mv -f "${tmp}/${name}" "${obs_secrets}/${name}" || status=1
   done
   rm -rf "${tmp}"

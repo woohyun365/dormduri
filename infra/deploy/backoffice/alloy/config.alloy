@@ -1,0 +1,194 @@
+// 백오피스 host 관측 수집(backoffice-foundation D-BF15). 배포 document가 이 파일을 release 디렉터리에 쓰고 Alloy container가 읽는다.
+// - log: compose project `dormduri-backoffice`의 admin ingress·Web·API log만 받아 Loki label service·env·container로 보낸다.
+//   bootstrap-owner one-off는 log driver가 none이라 여기에 오지 않는다(1회용 등록 code). 행의 IPv4·IPv6 주소는 한 번 더 가린다.
+// - metric: backoffice-api `/internal/metrics`(bearer token), readiness probe 둘(API `/health/ready`, ingress → Web 로그인 화면),
+//   host 지표를 Prometheus remote write로 보낸다. job은 backoffice-api·backoffice-probe·backoffice-host로 user host series와 갈린다
+//   (경보 infra/observability/prometheus/rules/backoffice-alerts.yml).
+// - 보내는 곳은 user host 관측 수신 gateway 하나다(user host API 묶음, 백오피스 host private IP와 bearer token만 받음). 주소와
+//   token은 Secrets Manager 백오피스 묶음의 OBSERVABILITY_INGEST_URL·OBSERVABILITY_INGEST_TOKEN을 document가 root 소유 0400
+//   파일로 쓴 것이다(공개 저장소에 주소를 두지 않는다).
+
+local.file "ingest_url" {
+  filename = "/run/secrets/dormduri-backoffice-observability/OBSERVABILITY_INGEST_URL"
+}
+
+local.file "ingest_token" {
+  filename  = "/run/secrets/dormduri-backoffice-observability/OBSERVABILITY_INGEST_TOKEN"
+  is_secret = true
+}
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "dormduri-backoffice"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "backoffice-api|backoffice-web|backoffice-ingress"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+    replacement   = "$1"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "(.+)"
+    target_label  = "service"
+    replacement   = "$1"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  labels     = { "env" = "production" }
+  forward_to = [loki.process.mask.receiver]
+}
+
+// 앱 log는 앱이 가린다(pino 가림, ingress 접속 log에는 IP가 없다). 그래도 주소 모양이 남으면 지운다(이중 방어).
+loki.process "mask" {
+  stage.replace {
+    expression = `(?:^|[^0-9A-Za-z_./:])((?:[0-9]{1,3}\.){3}[0-9]{1,3})(?:$|[^0-9A-Za-z_./:])`
+    replace    = "-"
+  }
+
+  stage.replace {
+    expression = `((?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4})`
+    replace    = "-"
+  }
+
+  forward_to = [loki.write.user_host.receiver]
+}
+
+loki.write "user_host" {
+  endpoint {
+    url          = string.format("%s/loki/api/v1/push", string.trim_space(local.file.ingest_url.content))
+    bearer_token = local.file.ingest_token.content
+  }
+}
+
+prometheus.scrape "backoffice_api" {
+  targets = [{
+    "__address__" = "backoffice-api:4310",
+    "service"     = "backoffice-api",
+    "env"         = "production",
+  }]
+  job_name          = "backoffice-api"
+  metrics_path      = "/internal/metrics"
+  scrape_interval   = "15s"
+  scrape_timeout    = "5s"
+  bearer_token_file = "/run/secrets/dormduri-backoffice-observability/BACKOFFICE_METRICS_BEARER_TOKEN"
+  forward_to        = [prometheus.remote_write.user_host.receiver]
+}
+
+// readiness probe 둘: API(DB 연결 포함)와 운영자가 실제로 지나는 ingress → Web(Host는 고정 origin의 값).
+prometheus.exporter.blackbox "ready" {
+  config = "{ modules: { api_ready: { prober: http, timeout: 5s, http: { method: GET, valid_status_codes: [200], preferred_ip_protocol: ip4 } }, ingress_login: { prober: http, timeout: 5s, http: { method: GET, valid_status_codes: [200], preferred_ip_protocol: ip4, headers: { Host: 'localhost:4300' } } } } }"
+
+  target {
+    name    = "backoffice_api_ready"
+    address = "http://backoffice-api:4310/health/ready"
+    module  = "api_ready"
+  }
+
+  target {
+    name    = "backoffice_ingress_login"
+    address = "http://backoffice-ingress:8080/login"
+    module  = "ingress_login"
+  }
+}
+
+// exporter target은 자기 job(`integrations/blackbox/<target>`)과 instance(component 이름)를 갖고 와 scrape job_name을 덮는다.
+// probe 이름을 instance로 옮기고 job을 고정한다.
+discovery.relabel "probes" {
+  targets = prometheus.exporter.blackbox.ready.targets
+
+  rule {
+    source_labels = ["job"]
+    regex         = "integrations/blackbox/(.+)"
+    target_label  = "instance"
+    replacement   = "$1"
+  }
+
+  rule {
+    target_label = "job"
+    replacement  = "backoffice-probe"
+  }
+
+  rule {
+    target_label = "service"
+    replacement  = "backoffice-probe"
+  }
+
+  rule {
+    target_label = "env"
+    replacement  = "production"
+  }
+}
+
+prometheus.scrape "probes" {
+  job_name        = "backoffice-probe"
+  targets         = discovery.relabel.probes.output
+  scrape_interval = "30s"
+  scrape_timeout  = "10s"
+  forward_to      = [prometheus.remote_write.user_host.receiver]
+}
+
+prometheus.exporter.unix "host" {
+  rootfs_path    = sys.env("HOST_ROOTFS_PATH")
+  procfs_path    = sys.env("HOST_PROCFS_PATH")
+  sysfs_path     = sys.env("HOST_SYSFS_PATH")
+  set_collectors = ["cpu", "diskstats", "filesystem", "loadavg", "meminfo", "netdev", "pressure", "stat", "time", "uname", "vmstat"]
+}
+
+// unix exporter target의 job(`integrations/unix`)과 instance(container hostname)를 고정 값으로 바꾼다.
+discovery.relabel "host" {
+  targets = prometheus.exporter.unix.host.targets
+
+  rule {
+    target_label = "job"
+    replacement  = "backoffice-host"
+  }
+
+  rule {
+    target_label = "instance"
+    replacement  = "backoffice"
+  }
+
+  rule {
+    target_label = "service"
+    replacement  = "backoffice-host"
+  }
+
+  rule {
+    target_label = "env"
+    replacement  = "production"
+  }
+}
+
+prometheus.scrape "host" {
+  job_name        = "backoffice-host"
+  targets         = discovery.relabel.host.output
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.user_host.receiver]
+}
+
+prometheus.remote_write "user_host" {
+  endpoint {
+    url          = string.format("%s/api/v1/write", string.trim_space(local.file.ingest_url.content))
+    bearer_token = local.file.ingest_token.content
+  }
+}

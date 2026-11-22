@@ -20,6 +20,7 @@ export const USER_HOST_MEMORY_LIMITS = Object.freeze({
   alloy: 160 * MiB,
   alertmanager: 96 * MiB,
   grafana: 320 * MiB,
+  'obs-gateway': 64 * MiB,
 });
 // Web transit: web 조각이 정의한다. 고정 주소는 동적 할당 범위 밖이고, ingress private listener는 web 주소와 loopback만 받고
 // 그 밖의 peer에는 403을 낸다(infra/deploy/user/ingress/conf.d/dormduri.conf). API transit: 두 document가 lib.sh 값으로 만들고
@@ -48,15 +49,18 @@ export const OBSERVABILITY_NETWORK = Object.freeze({
   subnet: '10.217.12.0/28',
   gateway: '10.217.12.1',
 });
-// 관측 다섯(D-AB14): 실행 user(관측 secret 파일 소유 UID와 같아야 한다), 설정 경로(관측 설정 digest 경로 아래), 그 container만
-// 받는 관측 secret 파일, loopback publish, network. upstream image pin은 infra/observability/compose.base.yml(image inventory)과 같다.
+// 관측 다섯(D-AB14)과 수신 gateway(backoffice-foundation D-BF15): 실행 user(관측 secret 파일 소유 UID와 같아야 한다), 설정
+// 경로(관측 설정 digest 경로 아래), 그 container만 받는 관측 secret 파일, publish, network. 관측 다섯의 upstream image pin은
+// infra/observability/compose.base.yml(image inventory)과 같다. Prometheus는 api-transit에 붙지 않고(API가 remote write 수신에
+// 닿지 않게) API 지표는 gateway의 관측 network 전용 listener로 긁는다. gateway만 host 모든 주소에 9480 하나를 publish한다
+// (백오피스 host 사설 IP 경로, Lightsail 방화벽은 열지 않는다).
 export const OBSERVABILITY_SERVICES = Object.freeze({
   prometheus: {
     user: '65534:65534',
     config: ['prometheus'],
     secrets: ['api-metrics-bearer-token'],
     ports: ['127.0.0.1:9090:9090'],
-    networks: ['api-transit', 'observability'],
+    networks: ['observability'],
   },
   loki: {
     user: '10001:10001',
@@ -80,7 +84,16 @@ export const OBSERVABILITY_SERVICES = Object.freeze({
     ports: ['127.0.0.1:3001:3000'],
     networks: ['observability'],
   },
+  'obs-gateway': {
+    user: '101:101',
+    config: ['gateway'],
+    secrets: ['gateway-access.conf'],
+    ports: [':9480:9480'],
+    networks: ['api-transit', 'observability'],
+  },
 });
+// gateway만 loopback 밖에 publish한다(OBSERVABILITY_SERVICES의 ports가 그 한 줄을 고정한다).
+export const PUBLIC_OBSERVABILITY_SERVICES = Object.freeze(['obs-gateway']);
 export const OBSERVABILITY_CONFIG_ROOT = '/opt/dormduri/observability/config';
 export const OBSERVABILITY_SECRET_DIRECTORY = '/opt/dormduri/secrets/observability';
 export const OBSERVABILITY_SECRET_TARGET = '/run/secrets/dormduri-observability';
@@ -267,12 +280,16 @@ function hardeningProblems(
       if (port.host_ip !== '127.0.0.1')
         problems.push(`${name}: publishes ${port.target} beyond loopback`);
     }
-  } else if (name !== 'ingress' && service.ports?.length)
+  } else if (
+    name !== 'ingress' &&
+    !PUBLIC_OBSERVABILITY_SERVICES.includes(name) &&
+    service.ports?.length
+  )
     problems.push(`${name}: publishes a host port`);
   return problems;
 }
 
-const portText = (port) => `${port.host_ip}:${port.published}:${port.target}`;
+const portText = (port) => `${port.host_ip ?? ''}:${port.published}:${port.target}`;
 
 // 관측 다섯. pins는 service 이름 → image 참조(infra/observability/compose.base.yml의 pin, validate-compose가 image inventory로 준다).
 export function observabilityProblems(config, pins = {}) {
@@ -298,7 +315,7 @@ export function observabilityProblems(config, pins = {}) {
       ...hardeningProblems(name, service, {
         allowRoot: name === 'alloy',
         allowSocket: name === 'alloy',
-        loopbackPorts: true,
+        loopbackPorts: !PUBLIC_OBSERVABILITY_SERVICES.includes(name),
       }),
     );
     if (pins[name] && service.image !== pins[name])

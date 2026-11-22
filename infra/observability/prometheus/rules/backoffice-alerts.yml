@@ -1,0 +1,158 @@
+# 백오피스 경보(backoffice-foundation D-BF15, Owner 2026-11-22 Q3). 지표는 백오피스 host Alloy가 user host 수신 gateway로 remote
+# write한 것이다: job backoffice-api(앱 `/internal/metrics`), backoffice-probe(instance backoffice_api_ready·backoffice_ingress_login),
+# backoffice-host(host 지표). 보안 이벤트는 backoffice_security_events_total의 event label(고정 값)이고 계정·email은 label이 아니다.
+# summary·runbook은 고정 문구다(Slack template이 이 둘만 annotation에서 출력한다).
+groups:
+  - name: dormduri-backoffice
+    rules:
+      - alert: BackofficeRecoveryLogin
+        expr: sum(increase(backoffice_security_events_total{job="backoffice-api",event="recovery_login"}[10m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: backoffice
+        annotations:
+          summary: 백오피스에 복구 code 로그인이 있었습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      - alert: BackofficeBootstrapOwnerUsed
+        expr: sum(increase(backoffice_security_events_total{job="backoffice-api",event="bootstrap_owner_used"}[10m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: backoffice
+        annotations:
+          summary: 백오피스 첫 owner 등록 code가 쓰였습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      - alert: BackofficeAuditWriteFailed
+        expr: sum(increase(backoffice_security_events_total{job="backoffice-api",event="audit_write_failed"}[10m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: backoffice
+        annotations:
+          summary: 백오피스 감사 기록 쓰기가 실패했습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      - alert: BackofficeAccountLocked
+        expr: sum(increase(backoffice_security_events_total{job="backoffice-api",event="account_locked"}[10m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: backoffice
+        annotations:
+          summary: 백오피스 운영자 계정이 잠겼습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      - alert: BackofficeRoleChanged
+        expr: sum(increase(backoffice_security_events_total{job="backoffice-api",event=~"role_granted|role_revoked"}[10m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: backoffice
+        annotations:
+          summary: 백오피스 운영자 역할이 부여되거나 회수되었습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      - alert: BackofficeSelfApproval
+        expr: sum(increase(backoffice_security_events_total{job="backoffice-api",event="self_approval"}[10m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: backoffice
+        annotations:
+          summary: 백오피스에서 1인 예외 자기 승인이 있었습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      # 권한 거부 연속(Owner 2026-11-22 Q3): 10분에 5번 이상이면 권한 밖 기능을 거듭 시도한 것이다.
+      - alert: BackofficePermissionDeniedBurst
+        expr: sum(increase(backoffice_security_events_total{job="backoffice-api",event="permission_denied"}[10m])) >= 5
+        for: 0m
+        labels:
+          severity: warning
+          service: backoffice
+        annotations:
+          summary: 백오피스 권한 거부가 10분 동안 5번 이상 있었습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      - alert: BackofficeNotReady
+        expr: probe_success{job="backoffice-probe"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          service: backoffice
+        annotations:
+          summary: 백오피스 API 또는 운영자 화면이 3분 동안 응답하지 않습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      - alert: BackofficeApiMetricsDown
+        expr: up{job="backoffice-api"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: backoffice
+        annotations:
+          summary: 백오피스 Alloy가 API metrics를 5분 동안 읽지 못했습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      # 백오피스 host·Alloy·수신 gateway 가운데 하나가 멈추면 지표가 오지 않는다. 최근 3일 안에 보낸 적이 있을 때만 울린다(첫 배포
+      # 전에는 울리지 않는다).
+      - alert: BackofficeTelemetryAbsent
+        expr: |
+          absent_over_time(up{job="backoffice-api"}[15m])
+          and on ()
+          count(count_over_time(up{job="backoffice-api"}[3d])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: backoffice
+        annotations:
+          summary: 백오피스 host 지표가 15분 동안 들어오지 않습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      - alert: BackofficeRetentionFailed
+        expr: sum(increase(backoffice_retention_failures_total{job="backoffice-api"}[1h])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: backoffice
+        annotations:
+          summary: 백오피스 관리자 기록 정리 작업이 실패했습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      # 정리 작업은 1시간마다 돈다(BACKOFFICE_RETENTION_JOB_INTERVAL_MS 기본값). 성공이 3시간 없으면 멈춘 것이다. 0은 시작 뒤 아직
+      # 성공 전이라 세지 않는다(실패는 위 경보가 본다).
+      - alert: BackofficeRetentionStalled
+        expr: |
+          time() - backoffice_retention_last_success_timestamp_seconds{job="backoffice-api"} > 3 * 3600
+          and
+          backoffice_retention_last_success_timestamp_seconds{job="backoffice-api"} > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: backoffice
+        annotations:
+          summary: 백오피스 관리자 기록 정리 작업이 3시간 동안 성공하지 않았습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      - alert: BackofficeHostDiskUsageHigh
+        expr: |
+          (1 - node_filesystem_avail_bytes{job="backoffice-host",mountpoint="/"} / node_filesystem_size_bytes{job="backoffice-host",mountpoint="/"}) * 100 >= 80
+        for: 10m
+        labels:
+          severity: warning
+          service: backoffice
+        annotations:
+          summary: 백오피스 host 디스크 사용률이 80%를 넘었습니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
+
+      - alert: BackofficeHostMemoryAvailableLow
+        expr: node_memory_MemAvailable_bytes{job="backoffice-host"} / node_memory_MemTotal_bytes{job="backoffice-host"} < 0.10
+        for: 10m
+        labels:
+          severity: critical
+          service: backoffice
+        annotations:
+          summary: 백오피스 host 사용 가능 memory가 10% 미만입니다.
+          runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응

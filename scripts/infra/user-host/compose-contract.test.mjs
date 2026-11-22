@@ -400,7 +400,27 @@ test('each weakened observability boundary is rejected', () => {
       /loki: published ports .* differ/u,
     ],
     [(s) => (s.alloy.networks['api-transit'] = {}), /alloy: networks .* differ/u],
-    [(s) => delete s.prometheus.networks['api-transit'], /prometheus: networks .* differ/u],
+    // Prometheus는 api-transit에 붙지 않는다(API가 remote write 수신에 닿지 않게, backoffice-foundation D-BF15).
+    [(s) => (s.prometheus.networks['api-transit'] = {}), /prometheus: networks .* differ/u],
+    // 수신 gateway만 loopback 밖에 9480 하나를 publish한다.
+    [
+      (s) => (s['obs-gateway'].ports[0].host_ip = '127.0.0.1'),
+      /obs-gateway: published ports .* differ/u,
+    ],
+    [
+      (s) => s['obs-gateway'].ports.push({ host_ip: '', target: 9482, published: '9482' }),
+      /obs-gateway: published ports .* differ/u,
+    ],
+    [(s) => (s.prometheus.ports[0].host_ip = ''), /prometheus: publishes 9090 beyond loopback/u],
+    [(s) => delete s['obs-gateway'].networks['api-transit'], /obs-gateway: networks .* differ/u],
+    [
+      (s) => s['obs-gateway'].volumes.push(secretMount('slack-webhook-url')),
+      /obs-gateway: secret mounts .* differ/u,
+    ],
+    [
+      (s) => (s['obs-gateway'].user = '0:0'),
+      /obs-gateway: (?:overrides the image user with root|user is not 101:101)/u,
+    ],
     [
       (s) => (s.prometheus.volumes[0].read_only = false),
       /prometheus: .* is not a read-only mount of a config digest path/u,
@@ -544,7 +564,7 @@ test('the observability secret files are owned by the UID of the one container t
   );
   const script = readFileSync(resolve(repoRoot, 'infra/deploy/user/api/ssm/deploy-api.sh'), 'utf8');
   const owners = Object.fromEntries(
-    [...bundle.matchAll(/^ {4}"[A-Z_]+": \("([a-z-]+)", (\d+), (\d+)\),$/gmu)].map((m) => [
+    [...bundle.matchAll(/^ {4}"[A-Z_]+": \("([a-z.-]+)", (\d+), (\d+)\),$/gmu)].map((m) => [
       m[1],
       `${m[2]}:${m[3]}`,
     ]),
@@ -561,7 +581,8 @@ test('the observability secret files are owned by the UID of the one container t
     ),
   );
   assert.deepEqual(owners, readers);
-  assert.equal(Object.keys(readers).length, 3);
+  // 관측 secret 셋과 수신 gateway 접근 include(backoffice-foundation D-BF15).
+  assert.equal(Object.keys(readers).length, 4);
   for (const file of Object.keys(readers))
     assert.match(
       script,

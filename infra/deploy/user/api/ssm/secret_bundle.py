@@ -3,16 +3,19 @@
   install <contract> <releases dir> <release id>   표준 입력의 묶음 JSON을 release 디렉터리에 key별 파일로 쓴다
   verify <contract> <bundle dir>                   기존 Node 검사(infra/deploy/scripts/verify-api-secret-bundle.sh)와 같은 판정
   extract <contract> <key> <file>                  표준 입력의 JSON object에서 key 하나만 있는지 보고 그 값을 0400 파일로 쓴다
-  observability <contract> <dir>                   표준 입력의 관측 묶음을 OBSERVABILITY_FILES의 파일로 쓴다(그 파일을 읽는
-                                                   container UID 소유 0400, compose 조각의 관측 secret mount와 같은 이름)
+  observability <contract> <dir>                   표준 입력의 관측 묶음을 OBSERVABILITY_FILES의 파일과 수신 gateway 접근
+                                                   include(GATEWAY_FILES)로 쓴다(그 파일을 읽는 container UID 소유 0400,
+                                                   compose 조각의 관측 secret mount와 같은 이름)
 
 판정 규칙은 secret-mount contract(infra/deploy/api/secret-mount.contract.json)가 소유한다: 파일 이름 = requiredFiles,
 일반 파일(symlink 아님), 크기 1..maximumFileBytes, mode는 allowedFileModes, 빈 값 아님. 설치 모양은 파일 0400, 디렉터리
 0500, 소유는 contract의 runtimeUid:runtimeGid(root로 돌 때만 바꾼다). 값은 출력하지 않는다. 오류 문구는 고정이다.
 """
 
+import ipaddress
 import json
 import os
+import re
 import stat
 import sys
 
@@ -27,6 +30,15 @@ OBSERVABILITY_FILES = {
     "GRAFANA_ADMIN_PASSWORD": ("grafana-admin-password", 472, 0),
     "SLACK_ALERT_WEBHOOK_URL": ("slack-webhook-url", 65534, 65534),
 }
+
+# 관측 수신 gateway(obs-gateway, nginx 101:101)의 접근 include(backoffice-foundation D-BF15). 관측 묶음의 선택 key 둘
+# (BACKOFFICE_HOST_PRIVATE_IP: 백오피스 host 사설 IPv4, BACKOFFICE_INGEST_TOKEN: base64url 32..256자)이 함께 있으면 그 /32와
+# Bearer token만 받는 geo·map을 쓰고, 둘 다 없으면 모두 거부하는 include를 쓴다. 하나만 있으면 묶음 오류다.
+GATEWAY_KEYS = ("BACKOFFICE_HOST_PRIVATE_IP", "BACKOFFICE_INGEST_TOKEN")
+GATEWAY_FILES = {
+    "BACKOFFICE_GATEWAY_ACCESS": ("gateway-access.conf", 101, 101),
+}
+GATEWAY_TOKEN = re.compile(r"[A-Za-z0-9_-]{32,256}")
 
 
 def read_contract(path):
@@ -139,13 +151,39 @@ def extract(contract, key, path):
     write_file(path, encoded_value(contract, bundle[key]), owner(contract))
 
 
+def gateway_access(bundle):
+    present = [key for key in GATEWAY_KEYS if key in bundle]
+    if not present:
+        return "geo $dormduri_backoffice_peer {\n  default 0;\n}\nmap $http_authorization $dormduri_backoffice_token {\n  default 0;\n}\n"
+    if len(present) != len(GATEWAY_KEYS):
+        raise BundleError("set both backoffice gateway keys or neither")
+    try:
+        address = ipaddress.IPv4Address(bundle["BACKOFFICE_HOST_PRIVATE_IP"])
+    except (ipaddress.AddressValueError, TypeError):
+        raise BundleError("backoffice host address is not an IPv4 address") from None
+    if not address.is_private or address.is_loopback or address.is_link_local or address.is_unspecified:
+        raise BundleError("backoffice host address is not a private host address")
+    token = bundle["BACKOFFICE_INGEST_TOKEN"]
+    if not isinstance(token, str) or not GATEWAY_TOKEN.fullmatch(token):
+        raise BundleError("backoffice ingest token is not base64url of 32 to 256 characters")
+    # map의 문자열 key는 대소문자를 가리지 않으므로 대소문자를 가리는 정규식으로 쓴다(token 글자는 정규식 특수 문자가 아니다).
+    return (
+        "geo $dormduri_backoffice_peer {\n  default 0;\n  %s/32 1;\n}\n"
+        'map $http_authorization $dormduri_backoffice_token {\n  default 0;\n  "~^Bearer %s$" 1;\n}\n'
+    ) % (address, token)
+
+
 def observability(contract, directory):
     bundle = read_object()
-    if sorted(bundle) != sorted(OBSERVABILITY_FILES):
+    if sorted(key for key in bundle if key not in GATEWAY_KEYS) != sorted(OBSERVABILITY_FILES):
         raise BundleError("secret bundle keys differ from the observability keys")
     files = {key: encoded_value(contract, bundle[key]) for key in OBSERVABILITY_FILES}
+    access = gateway_access(bundle).encode("utf-8")
+    root = os.geteuid() == 0
     for key, (name, uid, gid) in OBSERVABILITY_FILES.items():
-        write_file(os.path.join(directory, name), files[key], (uid, gid) if os.geteuid() == 0 else None)
+        write_file(os.path.join(directory, name), files[key], (uid, gid) if root else None)
+    for name, uid, gid in GATEWAY_FILES.values():
+        write_file(os.path.join(directory, name), access, (uid, gid) if root else None)
 
 
 def main(argv):

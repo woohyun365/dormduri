@@ -1,0 +1,74 @@
+#!/bin/bash
+# 백오피스 document harness의 가짜 docker. 실행 중 묶음은 /tmp/running(api image digest의 label 한 글자)에 둔다.
+# - version·info: ENGINE_VERSION(기본 29.10.0), FIREWALL_BACKEND(기본 iptables)
+# - compose up(app 셋): API secret release가 0500·10001, Alloy secret release가 0500·root, 파일이 0400일 때만 뜬다(BAD_UP label은 실패)
+# - compose up alloy: release의 Alloy 설정과 Alloy secret 파일 셋이 root 소유 0400일 때만(BAD_OBS_UP은 실패)
+# - compose exec backoffice-api: metric smoke(BAD_METRICS label은 실패)
+# - compose run bootstrap-owner: 등록 code JSON을 표준 출력에 낸다(BOOTSTRAP_EXIT가 있으면 그 code)
+# - ps·port: 묶음 container 셋과 ingress publish(BAD_PUBLISH label은 0.0.0.0에 publish한 것처럼 보인다)
+. /work/common.sh
+echo "docker $*" >>/tmp/docker.log
+running() { cat /tmp/running 2>/dev/null || printf none; }
+case "$1" in
+  version) printf '{"Server":{"Version":"%s"}}\n' "${ENGINE_VERSION:-29.10.0}"; exit 0 ;;
+  info) printf '{"FirewallBackend":{"Driver":"%s"}}\n' "${FIREWALL_BACKEND:-iptables}"; exit 0 ;;
+  login) cat >/dev/null; exit 0 ;;
+  logout | pull | rm) exit 0 ;;
+  image) exit 0 ;;
+  ps)
+    [ "$(running)" != none ] || exit 0
+    case "$*" in
+      *com.docker.compose.service=backoffice-ingress*) echo c-ingress ;;
+      *) printf 'c-ingress\nc-web\nc-api\n' ;;
+    esac
+    exit 0
+    ;;
+  port)
+    address=127.0.0.1
+    [ "${BAD_PUBLISH:-none}" != "$(running)" ] || address=0.0.0.0
+    case "$2" in
+      c-ingress) if [ -n "${3:-}" ]; then echo "${address}:4300"; else echo "8080/tcp -> ${address}:4300"; fi ;;
+    esac
+    exit 0
+    ;;
+esac
+[ "$1" = compose ] || exit 0
+compose_args "$@"
+require_fragments
+echo "${sub}:${services}" >>/tmp/services.log
+label_of() { printf '%s' "${1##*@sha256:}" | cut -c1; }
+case "${sub}" in
+  up)
+    case " ${services} " in
+      *" alloy "*)
+        [ -f "${BACKOFFICE_ALLOY_CONFIG_DIR:-/nonexistent}/config.alloy" ] || exit 5
+        o=${BACKOFFICE_OBSERVABILITY_SECRET_DIR:-/nonexistent}
+        [ "$(stat -c '%u:%g:%a' "${o}" "${o}/BACKOFFICE_METRICS_BEARER_TOKEN" "${o}/OBSERVABILITY_INGEST_URL" \
+          "${o}/OBSERVABILITY_INGEST_TOKEN" 2>/dev/null | paste -sd' ')" = '0:0:500 0:0:400 0:0:400 0:0:400' ] || exit 6
+        [ -z "${BAD_OBS_UP:-}" ] || exit 1
+        printf 'ok' >/tmp/running_obs
+        exit 0
+        ;;
+    esac
+    s=${BACKOFFICE_SECRET_RELEASE_DIR:-/nonexistent}
+    [ "$(stat -c '%u:%g:%a' "${s}" 2>/dev/null)" = 10001:10001:500 ] || exit 4
+    [ -z "$(find "${s}" -mindepth 1 ! -perm 0400 2>/dev/null)" ] || exit 4
+    api=$(label_of "${BACKOFFICE_API_IMAGE}")
+    case " ${BAD_UP:-} " in *" ${api} "*) exit 1 ;; esac
+    printf '%s' "${api}" >/tmp/running
+    ;;
+  stop) rm -f /tmp/running ;;
+  exec)
+    [ -f /tmp/running ] || exit 1
+    [ "${BAD_METRICS:-none}" != "$(running)" ] || exit 1
+    ;;
+  run)
+    [ -f /tmp/running ] || exit 1
+    if [ -n "${BOOTSTRAP_EXIT:-}" ]; then
+      echo '{"event":"backoffice_bootstrap_owner_refused"}' >&2
+      exit "${BOOTSTRAP_EXIT}"
+    fi
+    echo '{"event":"backoffice_bootstrap_owner_issued","code":"fakebootstrapcode-0123456789","expiresAt":"2026-11-22T00:15:00.000Z"}'
+    ;;
+esac
+exit 0
