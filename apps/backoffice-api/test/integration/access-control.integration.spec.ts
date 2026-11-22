@@ -356,4 +356,102 @@ describe('roles, approval requests and separation of duties (OA-R6, OA-R9)', () 
       update(`"status" = 'CANCELLED', "decidedByAccountId" = '${target.accountId}'`),
     ).rejects.toThrow(/AdminApprovalRequest_decider_check/u);
   });
+
+  it('pages the audit and request lists by time and id, keeping rows of one transaction', async () => {
+    const pageThrough = async (path: string, key: 'events' | 'requests'): Promise<string[]> => {
+      const ids: string[] = [];
+      let next: { beforeTime: string; beforeId: string } | null = null;
+      do {
+        const cursor: string = next
+          ? `&beforeTime=${encodeURIComponent(next.beforeTime)}&beforeId=${next.beforeId}`
+          : '';
+        const page = await test.http
+          .get(`${path}?limit=2${cursor}`)
+          .set(bearer(owner.token))
+          .expect(200);
+        const body = page.body as Record<typeof key, { id: string }[]> & {
+          nextPage: { beforeTime: string; beforeId: string } | null;
+        };
+        ids.push(...body[key].map((row) => row.id));
+        next = body.nextPage;
+      } while (next);
+      return ids;
+    };
+    const ordered = async (table: string, time: string): Promise<string[]> =>
+      (
+        await sandbox.admin.query<{ id: string }>(
+          `SELECT "id" FROM ${sandbox.table(table)} ORDER BY "${time}" DESC, "id" DESC`,
+        )
+      ).rows.map((row) => row.id);
+
+    // The bootstrap registration alone wrote six audit rows at one database time.
+    expect(await pageThrough('/audit/events', 'events')).toEqual(
+      await ordered('AdminAuditEvent', 'occurredAt'),
+    );
+    expect(await pageThrough('/access/requests', 'requests')).toEqual(
+      await ordered('AdminApprovalRequest', 'createdAt'),
+    );
+    const half = await test.http
+      .get(`/audit/events?beforeId=${owner.accountId}`)
+      .set(bearer(owner.token))
+      .expect(400);
+    expect(half.body.error.code).toBe('invalid_request');
+  });
+
+  it('lists a pending request past its expiry as EXPIRED before anyone decides it', async () => {
+    const target = await inviteOperator(test, owner, 'late@backoffice.test');
+    const request = await requestRole(owner, 'ROLE_GRANT', target, 'AUDITOR');
+    test.clock.advance(7 * 24 * 60 * 60_000 + 60_000);
+    owner = await fresh(owner);
+    const listed = async (status: string) =>
+      (
+        (
+          await test.http
+            .get(`/access/requests?status=${status}&limit=100`)
+            .set(bearer(owner.token))
+            .expect(200)
+        ).body as { requests: { id: string; status: string }[] }
+      ).requests.filter((row) => row.id === request.id);
+    expect(await listed('PENDING')).toEqual([]);
+    expect(await listed('EXPIRED')).toMatchObject([{ id: request.id, status: 'EXPIRED' }]);
+  });
+
+  it('refuses a deactivation that would leave one approver; the role is revoked through a request', async () => {
+    expect(secondOwner).not.toBeNull();
+    const other = await fresh(secondOwner!);
+    const refused = await test.http
+      .post(`/accounts/${other.accountId}/deactivate`)
+      .set(bearer(owner.token))
+      .send({ reason: 'left the team' })
+      .expect(409);
+    expect(refused.body.error.code).toBe('conflict');
+    const { rows: untouched } = await sandbox.admin.query<{ status: string; roles: number }>(
+      `SELECT a."status", (SELECT COUNT(*)::int FROM ${sandbox.table('AdminRoleAssignment')} r
+         WHERE r."accountId" = a."id" AND r."revokedAt" IS NULL AND r."role" = 'OWNER') AS roles
+       FROM ${sandbox.table('AdminAccount')} a WHERE a."id" = $1`,
+      [other.accountId],
+    );
+    expect(untouched).toEqual([{ status: 'ACTIVE', roles: 1 }]);
+
+    // The requester cannot decide; the target operator may decide their own role revoke.
+    const revoke = await requestRole(owner, 'ROLE_REVOKE', other, 'OWNER');
+    await test.http
+      .post(`/access/requests/${revoke.id}/approve`)
+      .set(bearer(owner.token))
+      .send({ contentDigest: revoke.contentDigest, reason: 'leaving' })
+      .expect(403);
+    const decided = await test.http
+      .post(`/access/requests/${revoke.id}/approve`)
+      .set(bearer(other.token))
+      .send({ contentDigest: revoke.contentDigest })
+      .expect(200);
+    expect(decided.body).toMatchObject({ status: 'APPROVED', selfApproved: false });
+    owner = await fresh(owner);
+    await test.http
+      .post(`/accounts/${other.accountId}/deactivate`)
+      .set(bearer(owner.token))
+      .send({ reason: 'left the team' })
+      .expect(204);
+    secondOwner = null;
+  });
 });

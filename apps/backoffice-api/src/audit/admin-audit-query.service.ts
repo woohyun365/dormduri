@@ -1,6 +1,7 @@
 import type { AuditEventsQuery, AuditReviewRequest } from '@repo/shared/backoffice';
 import type { BackofficeRuntimePrisma } from '../platform/database/backoffice-prisma.js';
 import type { AdminRequestSession } from '../platform/http/request-context.js';
+import { nextPageAfter, pageCursor } from '../platform/http/keyset-page.js';
 import { adminActor, type AdminAuditWriter } from './admin-audit-writer.js';
 
 /**
@@ -14,9 +15,18 @@ export class AdminAuditQueryService {
     private readonly audit: AdminAuditWriter,
   ) {}
 
+  /** Newest first; the next page starts after the last row's time and id (keyset). */
   async list(query: AuditEventsQuery) {
+    const cursor = pageCursor(query);
     const rows = await this.prisma.adminAuditEvent.findMany({
-      where: query.before ? { occurredAt: { lt: new Date(query.before) } } : {},
+      where: cursor
+        ? {
+            OR: [
+              { occurredAt: { lt: cursor.time } },
+              { occurredAt: cursor.time, id: { lt: cursor.id } },
+            ],
+          }
+        : {},
       orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
       take: query.limit,
       select: {
@@ -37,10 +47,9 @@ export class AdminAuditQueryService {
         metadata: true,
       },
     });
-    const last = rows.at(-1);
     return {
       events: rows.map((row) => ({ ...row, occurredAt: row.occurredAt.toISOString() })),
-      nextBefore: rows.length === query.limit && last ? last.occurredAt.toISOString() : null,
+      nextPage: nextPageAfter(rows, query.limit, (row) => row.occurredAt),
     };
   }
 

@@ -11,6 +11,7 @@ import type { BackofficeRetentionPrisma } from '../../platform/database/backoffi
 import type { BackofficeLogger } from '../../platform/observability/backoffice-logger.js';
 import type {
   BackofficeMetrics,
+  RetentionFailurePoint,
   RetentionStep,
 } from '../../platform/observability/backoffice-metrics.js';
 import { DAY_MS } from '../../platform/time/clock.js';
@@ -49,9 +50,11 @@ const count = (rows: readonly { deletedCount: number | null }[]) => rows[0]?.del
 /**
  * Order matters (README §5, DR-R5, DR-R6): audit rows first, then the revoked role assignments and closed approval
  * requests no remaining audit row points at, then anonymization of deactivated accounts whose last
- * audit row is gone, then the 7-day cleanup of sessions, challenges and invitations. Every step is
- * one conditional statement per batch, so a second run, or two containers overlapping during a
- * rollout, finds nothing left to change and ends in the same state.
+ * audit row is gone, then the 7-day cleanup of sessions, challenges and invitations. Each batch
+ * picks and changes its rows in one statement, and every state it picks (past the cutoff, ended,
+ * closed, revoked, deactivated without audit rows) never changes back; the anonymization also
+ * checks its condition again in the UPDATE. So a second run, or two containers overlapping during
+ * a rollout, finds nothing left to change and ends in the same state.
  */
 export const RETENTION_STEP_ORDER: readonly RetentionStepDefinition[] = [
   {
@@ -99,7 +102,7 @@ export type RetentionRunResult =
   | { readonly ok: true; readonly processed: Readonly<Record<RetentionStep, number>> }
   | {
       readonly ok: false;
-      readonly failedStep: RetentionStep;
+      readonly failedStep: RetentionFailurePoint;
       readonly processed: Partial<Record<RetentionStep, number>>;
     };
 
@@ -117,7 +120,18 @@ export class AdminRecordsRetention {
   ) {}
 
   async runOnce(): Promise<RetentionRunResult> {
-    const now = await this.prisma.databaseNow();
+    let now: Date;
+    try {
+      now = await this.prisma.databaseNow();
+    } catch (error) {
+      // The retention credential or the database itself failed; the next run retries.
+      this.metrics.retentionFailed('start', null);
+      this.logger.event('error', 'backoffice_retention_step_failed', {
+        step: 'start',
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+      return { ok: false, failedStep: 'start', processed: {} };
+    }
     const cutoffs = retentionCutoffs(now);
     const processed: Partial<Record<RetentionStep, number>> = {};
     for (const definition of this.steps) {

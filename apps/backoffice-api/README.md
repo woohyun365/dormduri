@@ -18,7 +18,9 @@
 
 ## 2. 모듈
 
-의존 방향은 `platform` ← `audit` ← `access-control/roles` ← `admin-identity` ← `access-control`이다.
+의존 방향은 `platform` ← `audit` ← `access-control/roles` ← `admin-identity` ← `access-control`이다. 예외는 다른 module을
+import하지 않는 두 파일, route 접근 규칙 decorator(`access-control/route-access.ts`)와 권한 계산(`access-control/permissions.ts`)이고
+모든 module의 controller와 session이 쓴다.
 
 | 모듈                                       | 책임                                                                                                 |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
@@ -35,8 +37,9 @@
   passkey 응답을 확인하면 전체(`FULL`) session을 낸다(`OA-R2`). 같은 challenge로 TOTP(`/auth/login/totp`)나 복구
   code(`/auth/login/recovery-code`)를 내면 `RECOVERY` session이 된다. 이 session은 자기 session 보기, 새 passkey 등록,
   로그아웃만 할 수 있고 권한이 비어 있다. 이 로그인은 `backoffice_security_events_total{event="recovery_login"}`을 올린다.
-- 계정이 없거나, 비활성이거나, 잠겼거나, 비밀번호가 틀려도 같은 `authentication_failed`를 준다. 연속 5번 틀리면 15분
-  잠그고 그 계정의 session을 끝낸다(`OA-R5`). 로그인 route 전체는 process 안에서 분당 30번으로 막는다.
+- 계정이 없거나, 비활성이거나, 잠겼거나, 비밀번호가 틀려도 같은 `authentication_failed`를 준다. 비밀번호와 2단계 인증을
+  합쳐 연속 5번 틀리면 15분 잠그고 그 계정의 session을 끝낸다(`OA-R5`). 한 계정의 시도는 계정 행을 잠근 transaction 안에서
+  차례로 돌아, 동시에 온 시도도 앞 시도가 남긴 실패 수와 잠금을 본다. 로그인 route 전체는 process 안에서 분당 30번으로 막는다.
 - Session token은 32 byte 불투명 값이고 DB에는 SHA-256 hash만 둔다. 15분 동안 요청이 없거나 로그인 뒤 8시간이 지나면
   끝나고, 끝난 session은 감사에 한 번 `SESSION_EXPIRED`로 남는다(`OA-R3`). 로그아웃·잠금·비활성화·역할 회수는 바로 끝낸다.
 - 재인증(`POST /auth/reauthentication/options` → `POST /auth/reauthentication`)은 passkey로 하고 5분 동안 유효하다.
@@ -54,8 +57,12 @@
   모든 route와 규칙은 `test/architecture/route-access-table.spec.ts`의 표와 같아야 한다. 새 route는 규칙과 표 행을 함께 더한다.
 - 역할 부여·회수는 승인 요청(`/access/requests`)을 거친다. 결정자는 요청자와 달라야 하고, 승인 권한을 가진 활성 계정이
   요청자 하나뿐일 때만 사유를 적어 자기 요청을 승인할 수 있다(`OA-R9`). 그 수는 결정 때 센다. 승인자는 화면에서 본 내용
-  digest를 보내고, 결정은 digest와 대기 상태를 조건으로 한 UPDATE라 한 번만 된다. 요청은 7일 뒤 만료된다. 마지막 승인
-  계정의 owner 역할 회수와 비활성화는 거부한다. DB CHECK가 상태·결정자·자기 승인 표시의 짝을 지킨다.
+  digest를 보내고, 결정은 digest와 대기 상태를 조건으로 한 UPDATE라 한 번만 된다. 요청은 7일 뒤 만료되고, 목록은 기한이
+  지난 대기 요청을 결정 시도 전에도 `EXPIRED`로 보인다. 마지막 승인 계정의 owner 역할 회수와 비활성화는 거부한다. 승인 계정을
+  요청자 하나만 남기는 비활성화도 거부하고, 그 owner 역할은 승인 요청으로 먼저 회수한다(대상 운영자도 결정할 수 있다). DB
+  CHECK가 상태·결정자·자기 승인 표시의 짝을 지킨다.
+- 감사 목록과 승인 요청 목록은 최신순이고 한 번에 `limit`(최대 100)행이다. 다음 page는 응답 `nextPage`의 마지막 행 시각과
+  id(`beforeTime`·`beforeId`)로 받는다. 한 transaction의 감사 행은 시각이 같아 id가 순서를 정한다.
 - 첫 owner는 `bootstrap-owner` 명령이 만든다(`OA-R10`). 활성 계정이 하나라도 있으면 거부하고, 15분 동안 한 번 쓰는 등록
   code를 낸다. 그 code로 등록하면 owner 역할 부여가 system actor의 감사 행으로 남는다.
 
@@ -67,8 +74,9 @@ node dist/cli/bootstrap-owner.js --email <owner email> --display-name <이름>
 ## 5. 관리자 기록 정리 작업
 
 `AdminRecordsRetention`이 `dormduri_backoffice_retention`으로 1시간마다(첫 실행은 기동 30초 뒤) 아래 순서로 돈다. 기준
-시각은 DB 시계다. 앞 단계가 실패하면 뒤 단계는 그 회차에 돌지 않는다. 단계마다 500행씩, 조건을 DELETE·UPDATE에 다시 건
-문장이라 다시 돌리거나 rollout 때 옛·새 container가 겹쳐 돌아도 결과가 같다.
+시각은 DB 시계다. 앞 단계가 실패하면 뒤 단계는 그 회차에 돌지 않는다. 단계마다 500행씩 대상 선택과 삭제·익명화를 한
+문장으로 하고, 고르는 상태(기준 시각 전·끝남·닫힘·회수됨·감사 행 없는 비활성)는 되돌아가지 않으므로 다시 돌리거나 rollout
+때 옛·새 container가 겹쳐 돌아도 결과가 같다. 익명화 UPDATE는 비활성·미익명 조건을 다시 건다.
 
 1. 3년이 지난 감사 행 폐기([DR-R5](../../docs/policies/data-retention.md))
 2. 3년 전에 회수됐고 가리키는 감사 행이 없는 역할 부여 폐기
@@ -76,7 +84,8 @@ node dist/cli/bootstrap-owner.js --email <owner email> --display-name <이름>
 4. 가리키는 감사 행이 없는 비활성 계정의 email·이름 익명화(행과 id는 남김)
 5. 끝난 지 7일이 지난 session, 6. WebAuthn challenge, 7. 초대 폐기([DR-R6](../../docs/policies/data-retention.md))
 
-단계별 처리 행 수·실패와 마지막 성공 시각은 `backoffice_retention_*` metric으로 낸다. Production에서 기본으로 켜지고
+단계별 처리 행 수·실패와 마지막 성공 시각은 `backoffice_retention_*` metric으로 낸다. DB 시계를 읽지 못한 회차는 실패
+`step="start"`로 센다. Production에서 기본으로 켜지고
 `BACKOFFICE_RETENTION_JOB_ENABLED`로 끌 수 있다.
 
 ## 6. 환경변수

@@ -1,3 +1,4 @@
+import { lockAdminSessionRow } from '@repo/database/sql';
 import type { AdminSessionRevocationReason, AdminSessionScope } from '@repo/database/enums';
 import { permissionsForRoles } from '../../access-control/permissions.js';
 import type { AdminAuditWriter } from '../../audit/admin-audit-writer.js';
@@ -141,6 +142,7 @@ export class AdminSessionService {
   /**
    * The request after an idle or absolute expiry leaves one audit row for that session. When no
    * such request comes, the last audit action and the session row show when the access ended.
+   * Concurrent requests on the expired session wait on its row lock, so the later ones see the row.
    */
   private async recordExpiry(
     sessionId: string,
@@ -149,6 +151,7 @@ export class AdminSessionService {
     requestId: string,
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRawTyped(lockAdminSessionRow(sessionId));
       const already = await tx.adminAuditEvent.findFirst({
         where: { targetType: 'ADMIN_SESSION', targetId: sessionId, action: 'SESSION_EXPIRED' },
         select: { id: true },

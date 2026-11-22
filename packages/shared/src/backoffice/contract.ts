@@ -151,14 +151,32 @@ export const accessRequestRejectRequestSchema = z.strictObject({
   contentDigest: contentDigestSchema,
   reason: reasonSchema,
 });
-export const accessRequestListQuerySchema = z.strictObject({
-  status: accessRequestStatusSchema.optional(),
-});
-
-export const auditEventsQuerySchema = z.strictObject({
-  before: z.iso.datetime({ offset: true }).optional(),
+/**
+ * Keyset page cursor of the newest-first lists: the time and id of the last row of the previous
+ * page (the response's `nextPage`). Rows written in one transaction share one time, so the id
+ * orders them; a page asks for both or neither.
+ */
+const pageQueryShape = {
+  beforeTime: z.iso.datetime({ offset: true }).optional(),
+  beforeId: idSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
-});
+};
+const cursorComplete = (query: { beforeTime?: string; beforeId?: string }) =>
+  (query.beforeTime === undefined) === (query.beforeId === undefined);
+const cursorMessage = { message: 'beforeTime and beforeId go together' };
+
+export interface PageCursor {
+  readonly beforeTime: string;
+  readonly beforeId: string;
+}
+
+export const accessRequestListQuerySchema = z
+  .strictObject({ status: accessRequestStatusSchema.optional(), ...pageQueryShape })
+  .refine(cursorComplete, cursorMessage);
+
+export const auditEventsQuerySchema = z
+  .strictObject(pageQueryShape)
+  .refine(cursorComplete, cursorMessage);
 export const auditReviewRequestSchema = z.strictObject({
   note: z.string().trim().min(1).max(500).optional(),
 });

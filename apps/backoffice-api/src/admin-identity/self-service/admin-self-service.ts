@@ -1,4 +1,5 @@
 import { Prisma } from '@repo/database/client';
+import { lockAdminAccountRow } from '@repo/database/sql';
 import type {
   PasskeyRegistrationRequest,
   ReauthenticationRequest,
@@ -247,8 +248,11 @@ export class AdminSelfService {
     });
   }
 
+  // Reissues lock the account row first, so two concurrent reissues run one after the other and
+  // the later one replaces what the earlier one issued (one TOTP secret, ten recovery codes).
   async reissueTotp(session: AdminRequestSession, requestId: string): Promise<IssuedTotp> {
     return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRawTyped(lockAdminAccountRow(session.accountId));
       const account = await tx.adminAccount.findUniqueOrThrow({
         where: { id: session.accountId },
         select: { email: true },
@@ -268,6 +272,7 @@ export class AdminSelfService {
 
   async reissueRecoveryCodes(session: AdminRequestSession, requestId: string): Promise<string[]> {
     return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRawTyped(lockAdminAccountRow(session.accountId));
       const codes = await this.credentials.issueRecoveryCodes(tx, session.accountId);
       await this.audit.record(tx, {
         ...adminActor({ ...session, requestId }),

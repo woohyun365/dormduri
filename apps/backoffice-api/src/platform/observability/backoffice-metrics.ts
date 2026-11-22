@@ -25,6 +25,9 @@ export const RETENTION_STEPS = [
   'invitations',
 ] as const;
 export type RetentionStep = (typeof RETENTION_STEPS)[number];
+/** Where a cleanup run can stop: `start` is the database clock read before the first step. */
+export const RETENTION_FAILURE_POINTS = ['start', ...RETENTION_STEPS] as const;
+export type RetentionFailurePoint = (typeof RETENTION_FAILURE_POINTS)[number];
 
 export class BackofficeMetrics {
   readonly registry = new Registry();
@@ -51,7 +54,7 @@ export class BackofficeMetrics {
     });
     this.retentionFailures = new Counter({
       name: 'backoffice_retention_failures_total',
-      help: 'Failed runs of the backoffice records cleanup job, by the step that failed.',
+      help: 'Failed runs of the backoffice records cleanup job, by the step that failed (start: the database clock read).',
       labelNames: ['step'],
       registers: [this.registry],
     });
@@ -70,6 +73,8 @@ export class BackofficeMetrics {
     }
     for (const step of RETENTION_STEPS) {
       this.retentionRows.inc({ step }, 0);
+    }
+    for (const step of RETENTION_FAILURE_POINTS) {
       this.retentionFailures.inc({ step }, 0);
     }
   }
@@ -82,9 +87,12 @@ export class BackofficeMetrics {
     this.retentionRows.inc({ step }, rows);
   }
 
-  retentionFailed(step: RetentionStep, at: Date): void {
+  /** `at` is the run's database time; a run that failed to read it leaves the last-run time. */
+  retentionFailed(step: RetentionFailurePoint, at: Date | null): void {
     this.retentionFailures.inc({ step });
-    this.retentionLastRun.set(at.getTime() / 1_000);
+    if (at) {
+      this.retentionLastRun.set(at.getTime() / 1_000);
+    }
   }
 
   retentionSucceeded(at: Date): void {

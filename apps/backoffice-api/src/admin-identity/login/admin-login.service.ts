@@ -1,3 +1,4 @@
+import { lockAdminAccountRow } from '@repo/database/sql';
 import type {
   LoginPasskeyRequest,
   LoginPasswordRequest,
@@ -27,6 +28,26 @@ export interface PasswordStepResult {
 }
 
 type SecondFactorStep = 'passkey' | 'totp' | 'recovery_code';
+type LoginStep = 'password' | SecondFactorStep;
+
+/**
+ * What one attempt decided under the account lock: the factor passed, a factor was wrong (counted
+ * toward the lock), or nothing was tried (the challenge was already used).
+ */
+type AttemptResult<T> =
+  | { readonly kind: 'passed'; readonly value: T }
+  | { readonly kind: 'failed' }
+  | { readonly kind: 'refused' };
+
+interface LoginChallenge {
+  readonly id: string;
+  readonly accountId: string;
+  readonly challenge: string;
+}
+
+// Attempts on one account wait for each other on its row lock; a burst queues for a few seconds
+// at most (the login routes allow 30 attempts a minute in all).
+const ATTEMPT_TRANSACTION = { maxWait: 10_000, timeout: 10_000 } as const;
 
 export function totpAssociatedData(accountId: string): string {
   return `admin-totp:${accountId}`;
@@ -37,6 +58,10 @@ export function totpAssociatedData(accountId: string): string {
  * locked or deactivated account and a wrong password. A correct password opens one five-minute
  * challenge that one second-factor attempt consumes: a passkey gives a full session, a TOTP or
  * recovery code gives a recovery-scope session.
+ *
+ * Every attempt on a known account runs in one transaction that first locks the account row, so
+ * concurrent attempts see the failures and the lock the earlier ones committed: at most five wrong
+ * factors are checked before the lock, and none after it.
  */
 export class AdminLoginService {
   constructor(
@@ -51,17 +76,12 @@ export class AdminLoginService {
   ) {}
 
   async passwordStep(input: LoginPasswordRequest, requestId: string): Promise<PasswordStepResult> {
-    const now = this.clock.now();
     const account = await this.prisma.adminAccount.findUnique({
       where: { email: input.email },
       select: {
         id: true,
         status: true,
-        lockedUntil: true,
         passwordCredential: { select: { passwordHash: true } },
-        passkeyCredentials: { select: { credentialId: true } },
-        totpCredential: { select: { confirmedAt: true } },
-        recoveryCodes: { where: { usedAt: null }, select: { id: true } },
       },
     });
     if (!account || account.status !== 'ACTIVE' || !account.passwordCredential) {
@@ -69,143 +89,212 @@ export class AdminLoginService {
       await this.recordAnonymousFailure(requestId);
       throw new BackofficeApiError('authentication_failed');
     }
-    if (isLocked(account.lockedUntil, now)) {
-      await this.passwords.verifyDummy(input.password);
-      await this.recordLockedAttempt(account.id, requestId);
-      throw new BackofficeApiError('authentication_failed');
-    }
-    const passwordOk = await this.passwords.verify(
-      account.passwordCredential.passwordHash,
-      input.password,
-    );
-    if (!passwordOk) {
-      await this.recordFailure(account.id, 'password', requestId);
-      throw new BackofficeApiError('authentication_failed');
-    }
-    const options = await this.webauthn.authenticationOptions(
-      account.passkeyCredentials.map((passkey) => passkey.credentialId),
-    );
-    const challenge = await this.prisma.adminWebAuthnChallenge.create({
-      data: {
-        purpose: 'AUTHENTICATION',
-        challenge: options.challenge,
-        accountId: account.id,
-        expiresAt: addMs(now, WEBAUTHN_CHALLENGE_TTL_MS),
+    const accountId = account.id;
+    const passwordHash = account.passwordCredential.passwordHash;
+    return this.attempt<PasswordStepResult>(accountId, 'password', requestId, {
+      whileLocked: () => this.passwords.verifyDummy(input.password),
+      run: async (tx, now) => {
+        if (!(await this.passwords.verify(passwordHash, input.password))) {
+          return { kind: 'failed' };
+        }
+        const factors = await tx.adminAccount.findUniqueOrThrow({
+          where: { id: accountId },
+          select: {
+            passkeyCredentials: { select: { credentialId: true } },
+            totpCredential: { select: { confirmedAt: true } },
+            recoveryCodes: { where: { usedAt: null }, select: { id: true } },
+          },
+        });
+        const options = await this.webauthn.authenticationOptions(
+          factors.passkeyCredentials.map((passkey) => passkey.credentialId),
+        );
+        const challenge = await tx.adminWebAuthnChallenge.create({
+          data: {
+            purpose: 'AUTHENTICATION',
+            challenge: options.challenge,
+            accountId,
+            expiresAt: addMs(now, WEBAUTHN_CHALLENGE_TTL_MS),
+          },
+          select: { id: true },
+        });
+        return {
+          kind: 'passed',
+          value: {
+            challengeId: challenge.id,
+            options,
+            recovery: {
+              totp: factors.totpCredential?.confirmedAt != null,
+              recoveryCode: factors.recoveryCodes.length > 0,
+            },
+          },
+        };
       },
-      select: { id: true },
     });
-    return {
-      challengeId: challenge.id,
-      options,
-      recovery: {
-        totp: account.totpCredential?.confirmedAt != null,
-        recoveryCode: account.recoveryCodes.length > 0,
-      },
-    };
   }
 
   async passkeyStep(input: LoginPasskeyRequest, requestId: string): Promise<IssuedSession> {
-    const { accountId, challenge } = await this.consumeLoginChallenge(input.challengeId);
-    const passkey = await this.prisma.adminPasskeyCredential.findFirst({
-      where: { accountId, credentialId: input.credential.id },
-      select: { id: true, credentialId: true, publicKey: true, counter: true, transports: true },
-    });
-    const verified = passkey
-      ? await this.webauthn.verifyAuthentication(input.credential, challenge, passkey)
-      : null;
-    if (!passkey || !verified) {
-      await this.recordFailure(accountId, 'passkey', requestId);
-      throw new BackofficeApiError('authentication_failed');
-    }
-    return this.completeLogin(accountId, 'FULL', 'passkey', requestId, async (tx, now) => {
-      await tx.adminPasskeyCredential.update({
-        where: { id: passkey.id },
-        data: { counter: BigInt(verified.newCounter), lastUsedAt: now },
-      });
+    const challenge = await this.loginChallenge(input.challengeId);
+    const { accountId } = challenge;
+    return this.attempt<IssuedSession>(accountId, 'passkey', requestId, {
+      run: async (tx, now) => {
+        if (!(await this.consumeChallenge(tx, challenge.id, now))) {
+          return { kind: 'refused' };
+        }
+        const passkey = await tx.adminPasskeyCredential.findFirst({
+          where: { accountId, credentialId: input.credential.id },
+          select: {
+            id: true,
+            credentialId: true,
+            publicKey: true,
+            counter: true,
+            transports: true,
+          },
+        });
+        const verified = passkey
+          ? await this.webauthn.verifyAuthentication(input.credential, challenge.challenge, passkey)
+          : null;
+        if (!passkey || !verified) {
+          return { kind: 'failed' };
+        }
+        await tx.adminPasskeyCredential.update({
+          where: { id: passkey.id },
+          data: { counter: BigInt(verified.newCounter), lastUsedAt: now },
+        });
+        return {
+          kind: 'passed',
+          value: await this.openSession(tx, accountId, 'FULL', 'passkey', requestId, now),
+        };
+      },
     });
   }
 
   async totpStep(input: LoginTotpRequest, requestId: string): Promise<IssuedSession> {
-    const { accountId } = await this.consumeLoginChallenge(input.challengeId);
-    const now = this.clock.now();
-    const credential = await this.prisma.adminTotpCredential.findUnique({
-      where: { accountId },
-      select: { secretCiphertext: true, lastUsedTimeStep: true, confirmedAt: true },
+    const challenge = await this.loginChallenge(input.challengeId);
+    const { accountId } = challenge;
+    const session = await this.attempt<IssuedSession>(accountId, 'totp', requestId, {
+      run: async (tx, now) => {
+        if (!(await this.consumeChallenge(tx, challenge.id, now))) {
+          return { kind: 'refused' };
+        }
+        const credential = await tx.adminTotpCredential.findUnique({
+          where: { accountId },
+          select: { secretCiphertext: true, lastUsedTimeStep: true, confirmedAt: true },
+        });
+        const result =
+          credential?.confirmedAt != null
+            ? verifyTotp({
+                secret: this.secretBox.open(
+                  credential.secretCiphertext,
+                  totpAssociatedData(accountId),
+                ),
+                code: input.code,
+                at: now,
+                lastUsedStep:
+                  credential.lastUsedTimeStep === null ? null : Number(credential.lastUsedTimeStep),
+              })
+            : ({ ok: false } as const);
+        if (!result.ok) {
+          return { kind: 'failed' };
+        }
+        // A code is used once: a later attempt in the same time step reads this step and fails.
+        await tx.adminTotpCredential.update({
+          where: { accountId },
+          data: { lastUsedTimeStep: BigInt(result.step) },
+        });
+        return {
+          kind: 'passed',
+          value: await this.openSession(tx, accountId, 'RECOVERY', 'totp', requestId, now),
+        };
+      },
     });
-    const result =
-      credential?.confirmedAt != null
-        ? verifyTotp({
-            secret: this.secretBox.open(credential.secretCiphertext, totpAssociatedData(accountId)),
-            code: input.code,
-            at: now,
-            lastUsedStep:
-              credential.lastUsedTimeStep === null ? null : Number(credential.lastUsedTimeStep),
-          })
-        : ({ ok: false } as const);
-    if (!result.ok) {
-      await this.recordFailure(accountId, 'totp', requestId);
-      throw new BackofficeApiError('authentication_failed');
-    }
-    return this.completeLogin(accountId, 'RECOVERY', 'totp', requestId, async (tx) => {
-      // The step guard makes a concurrent use of the same code lose (no replay within the window).
-      const updated = await tx.adminTotpCredential.updateMany({
-        where: {
-          accountId,
-          OR: [{ lastUsedTimeStep: null }, { lastUsedTimeStep: { lt: BigInt(result.step) } }],
-        },
-        data: { lastUsedTimeStep: BigInt(result.step) },
-      });
-      if (updated.count !== 1) {
-        throw new BackofficeApiError('authentication_failed');
-      }
-    });
+    this.metrics.securityEvent('recovery_login');
+    return session;
   }
 
   async recoveryCodeStep(
     input: LoginRecoveryCodeRequest,
     requestId: string,
   ): Promise<IssuedSession> {
-    const { accountId } = await this.consumeLoginChallenge(input.challengeId);
-    const code = await this.prisma.adminRecoveryCode.findFirst({
-      where: { accountId, codeHash: hashRecoveryCode(input.code), usedAt: null },
-      select: { id: true },
-    });
-    if (!code) {
-      await this.recordFailure(accountId, 'recovery_code', requestId);
-      throw new BackofficeApiError('authentication_failed');
-    }
-    return this.completeLogin(
-      accountId,
-      'RECOVERY',
-      'recovery_code',
-      requestId,
-      async (tx, now) => {
+    const challenge = await this.loginChallenge(input.challengeId);
+    const { accountId } = challenge;
+    const session = await this.attempt<IssuedSession>(accountId, 'recovery_code', requestId, {
+      run: async (tx, now) => {
+        if (!(await this.consumeChallenge(tx, challenge.id, now))) {
+          return { kind: 'refused' };
+        }
         const used = await tx.adminRecoveryCode.updateMany({
-          where: { id: code.id, usedAt: null },
+          where: { accountId, codeHash: hashRecoveryCode(input.code), usedAt: null },
           data: { usedAt: now },
         });
         if (used.count !== 1) {
-          throw new BackofficeApiError('authentication_failed');
+          return { kind: 'failed' };
         }
+        return {
+          kind: 'passed',
+          value: await this.openSession(tx, accountId, 'RECOVERY', 'recovery_code', requestId, now),
+        };
       },
-    );
+    });
+    this.metrics.securityEvent('recovery_login');
+    return session;
   }
 
-  /** One attempt per password step: the challenge is used whether the factor passes or not. */
-  private async consumeLoginChallenge(
-    challengeId: string,
-  ): Promise<{ accountId: string; challenge: string }> {
+  /**
+   * Runs one attempt on a known account under its row lock. A locked or no longer active account
+   * gets the same answer without the factor being checked; a wrong factor is counted, and the
+   * fifth consecutive one locks the account (OA-R5). The answer is thrown after the commit, so the
+   * count and the lock survive it.
+   */
+  private async attempt<T>(
+    accountId: string,
+    step: LoginStep,
+    requestId: string,
+    handlers: {
+      readonly run: (tx: BackofficeTransaction, now: Date) => Promise<AttemptResult<T>>;
+      readonly whileLocked?: () => Promise<unknown>;
+    },
+  ): Promise<T> {
     const now = this.clock.now();
+    const outcome = await this.prisma.$transaction(
+      async (tx): Promise<{ result: AttemptResult<T>; locked: boolean }> => {
+        const [account] = await tx.$queryRawTyped(lockAdminAccountRow(accountId));
+        if (!account || account.status !== 'ACTIVE') {
+          return { result: { kind: 'refused' }, locked: false };
+        }
+        if (isLocked(account.lockedUntil, now)) {
+          await handlers.whileLocked?.();
+          await this.recordLockedAttempt(tx, accountId, step, requestId);
+          return { result: { kind: 'refused' }, locked: false };
+        }
+        const result = await handlers.run(tx, now);
+        if (result.kind !== 'failed') {
+          return { result, locked: false };
+        }
+        return { result, locked: await this.countFailure(tx, accountId, step, requestId, now) };
+      },
+      ATTEMPT_TRANSACTION,
+    );
+    if (outcome.locked) {
+      this.metrics.securityEvent('account_locked');
+    }
+    if (outcome.result.kind !== 'passed') {
+      throw new BackofficeApiError('authentication_failed');
+    }
+    return outcome.result.value;
+  }
+
+  /** The login challenge a password step opened; checked again when it is consumed. */
+  private async loginChallenge(challengeId: string): Promise<LoginChallenge> {
     const row = await this.prisma.adminWebAuthnChallenge.findUnique({
       where: { id: challengeId },
       select: {
+        id: true,
         purpose: true,
         challenge: true,
         accountId: true,
         sessionId: true,
         expiresAt: true,
         usedAt: true,
-        account: { select: { status: true, lockedUntil: true } },
       },
     });
     if (
@@ -214,55 +303,52 @@ export class AdminLoginService {
       row.accountId === null ||
       row.sessionId !== null ||
       row.usedAt !== null ||
-      row.expiresAt.getTime() <= now.getTime() ||
-      row.account?.status !== 'ACTIVE' ||
-      isLocked(row.account.lockedUntil, now)
+      row.expiresAt.getTime() <= this.clock.now().getTime()
     ) {
       throw new BackofficeApiError('authentication_failed');
     }
-    const consumed = await this.prisma.adminWebAuthnChallenge.updateMany({
-      where: { id: challengeId, usedAt: null },
-      data: { usedAt: now },
-    });
-    if (consumed.count !== 1) {
-      throw new BackofficeApiError('authentication_failed');
-    }
-    return { accountId: row.accountId, challenge: row.challenge };
+    return { id: row.id, accountId: row.accountId, challenge: row.challenge };
   }
 
-  private async completeLogin(
+  /** One attempt per password step: the challenge is used whether the factor passes or not. */
+  private async consumeChallenge(
+    tx: BackofficeTransaction,
+    challengeId: string,
+    now: Date,
+  ): Promise<boolean> {
+    const consumed = await tx.adminWebAuthnChallenge.updateMany({
+      where: { id: challengeId, usedAt: null, expiresAt: { gt: now } },
+      data: { usedAt: now },
+    });
+    return consumed.count === 1;
+  }
+
+  private async openSession(
+    tx: BackofficeTransaction,
     accountId: string,
     scope: 'FULL' | 'RECOVERY',
     method: SecondFactorStep,
     requestId: string,
-    consumeFactor: (tx: BackofficeTransaction, now: Date) => Promise<void>,
+    now: Date,
   ): Promise<IssuedSession> {
-    const now = this.clock.now();
-    const session = await this.prisma.$transaction(async (tx) => {
-      await consumeFactor(tx, now);
-      await tx.adminAccount.update({
-        where: { id: accountId },
-        data: { failedAuthAttemptCount: 0, lastLoginAt: now },
-      });
-      const issued = await this.sessions.issue(tx, accountId, scope, now);
-      await this.audit.record(tx, {
-        actorType: 'ADMIN',
-        actorAccountId: accountId,
-        sessionId: issued.sessionId,
-        accessPath: 'SSM_PORT_FORWARD',
-        action: 'LOGIN',
-        targetType: 'ADMIN_SESSION',
-        targetId: issued.sessionId,
-        result: 'SUCCEEDED',
-        requestId,
-        metadata: { scope, method },
-      });
-      return issued;
+    await tx.adminAccount.update({
+      where: { id: accountId },
+      data: { failedAuthAttemptCount: 0, lastLoginAt: now },
     });
-    if (scope === 'RECOVERY') {
-      this.metrics.securityEvent('recovery_login');
-    }
-    return session;
+    const issued = await this.sessions.issue(tx, accountId, scope, now);
+    await this.audit.record(tx, {
+      actorType: 'ADMIN',
+      actorAccountId: accountId,
+      sessionId: issued.sessionId,
+      accessPath: 'SSM_PORT_FORWARD',
+      action: 'LOGIN',
+      targetType: 'ADMIN_SESSION',
+      targetId: issued.sessionId,
+      result: 'SUCCEEDED',
+      requestId,
+      metadata: { scope, method },
+    });
+    return issued;
   }
 
   private async recordAnonymousFailure(requestId: string): Promise<void> {
@@ -278,68 +364,67 @@ export class AdminLoginService {
     });
   }
 
-  private async recordLockedAttempt(accountId: string, requestId: string): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      await this.audit.record(tx, {
-        actorType: 'ANONYMOUS',
-        accessPath: 'SSM_PORT_FORWARD',
-        action: 'LOGIN',
-        targetType: 'ADMIN_ACCOUNT',
-        targetId: accountId,
-        result: 'DENIED',
-        requestId,
-        metadata: { step: 'password', locked: true },
-      });
+  private async recordLockedAttempt(
+    tx: BackofficeTransaction,
+    accountId: string,
+    step: LoginStep,
+    requestId: string,
+  ): Promise<void> {
+    await this.audit.record(tx, {
+      actorType: 'ANONYMOUS',
+      accessPath: 'SSM_PORT_FORWARD',
+      action: 'LOGIN',
+      targetType: 'ADMIN_ACCOUNT',
+      targetId: accountId,
+      result: 'DENIED',
+      requestId,
+      metadata: { step, locked: true },
     });
   }
 
   /**
    * Counts a failed password or second factor. The fifth consecutive failure locks the account
-   * for 15 minutes, ends its sessions, restarts the count and raises the lock alert.
+   * for 15 minutes, ends its sessions and restarts the count. Returns whether it locked.
    */
-  private async recordFailure(
+  private async countFailure(
+    tx: BackofficeTransaction,
     accountId: string,
-    step: 'password' | SecondFactorStep,
+    step: LoginStep,
     requestId: string,
-  ): Promise<void> {
-    const now = this.clock.now();
-    const locked = await this.prisma.$transaction(async (tx) => {
-      const account = await tx.adminAccount.update({
-        where: { id: accountId },
-        data: { failedAuthAttemptCount: { increment: 1 } },
-        select: { failedAuthAttemptCount: true },
-      });
-      await this.audit.record(tx, {
-        actorType: 'ANONYMOUS',
-        accessPath: 'SSM_PORT_FORWARD',
-        action: 'LOGIN',
-        targetType: 'ADMIN_ACCOUNT',
-        targetId: accountId,
-        result: 'FAILED',
-        requestId,
-        metadata: { step },
-      });
-      if (!shouldLock(account.failedAuthAttemptCount)) {
-        return false;
-      }
-      await tx.adminAccount.update({
-        where: { id: accountId },
-        data: { failedAuthAttemptCount: 0, lockedUntil: addMs(now, LOCKOUT_DURATION_MS) },
-      });
-      await this.sessions.revokeAllForAccount(tx, accountId, 'ACCOUNT_LOCKED', now);
-      await this.audit.record(tx, {
-        actorType: 'SYSTEM',
-        action: 'ACCOUNT_LOCKED',
-        targetType: 'ADMIN_ACCOUNT',
-        targetId: accountId,
-        result: 'SUCCEEDED',
-        requestId,
-        metadata: { lockMinutes: LOCKOUT_DURATION_MS / 60_000 },
-      });
-      return true;
+    now: Date,
+  ): Promise<boolean> {
+    const account = await tx.adminAccount.update({
+      where: { id: accountId },
+      data: { failedAuthAttemptCount: { increment: 1 } },
+      select: { failedAuthAttemptCount: true },
     });
-    if (locked) {
-      this.metrics.securityEvent('account_locked');
+    await this.audit.record(tx, {
+      actorType: 'ANONYMOUS',
+      accessPath: 'SSM_PORT_FORWARD',
+      action: 'LOGIN',
+      targetType: 'ADMIN_ACCOUNT',
+      targetId: accountId,
+      result: 'FAILED',
+      requestId,
+      metadata: { step },
+    });
+    if (!shouldLock(account.failedAuthAttemptCount)) {
+      return false;
     }
+    await tx.adminAccount.update({
+      where: { id: accountId },
+      data: { failedAuthAttemptCount: 0, lockedUntil: addMs(now, LOCKOUT_DURATION_MS) },
+    });
+    await this.sessions.revokeAllForAccount(tx, accountId, 'ACCOUNT_LOCKED', now);
+    await this.audit.record(tx, {
+      actorType: 'SYSTEM',
+      action: 'ACCOUNT_LOCKED',
+      targetType: 'ADMIN_ACCOUNT',
+      targetId: accountId,
+      result: 'SUCCEEDED',
+      requestId,
+      metadata: { lockMinutes: LOCKOUT_DURATION_MS / 60_000 },
+    });
+    return true;
   }
 }

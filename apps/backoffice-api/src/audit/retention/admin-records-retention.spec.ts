@@ -59,6 +59,30 @@ describe('backoffice records cleanup', () => {
     );
   });
 
+  it('counts and logs a run that cannot read the database clock, and runs no step', async () => {
+    const run = vi.fn(() => Promise.resolve(0));
+    const metrics = new BackofficeMetrics('test');
+    const event = vi.fn();
+    const prisma = {
+      databaseNow: () => Promise.reject(new Error('password authentication failed')),
+    };
+    const result = await new AdminRecordsRetention(
+      prisma as unknown as BackofficeRetentionPrisma,
+      metrics,
+      { event } as unknown as BackofficeLogger,
+      [{ step: 'audit_events', run }],
+    ).runOnce();
+    expect(result).toEqual({ ok: false, failedStep: 'start', processed: {} });
+    expect(run).not.toHaveBeenCalled();
+    expect(event).toHaveBeenCalledWith('error', 'backoffice_retention_step_failed', {
+      step: 'start',
+      errorName: 'Error',
+    });
+    expect(await metrics.render()).toMatch(
+      /backoffice_retention_failures_total\{step="start"[^}]*\} 1/u,
+    );
+  });
+
   it('repeats a step in batches until a batch is short', async () => {
     const sizes = [2, 2, 1];
     const run = vi.fn(() => Promise.resolve(sizes.shift() ?? 0));

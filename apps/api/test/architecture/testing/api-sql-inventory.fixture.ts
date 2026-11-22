@@ -313,6 +313,20 @@ export const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     rationale: 'active match mutation paths explicitly lock the aggregate row.',
   }),
   sqlEntry({
+    path: 'prisma/sql/lockAdminAccountRow.sql',
+    owner: 'backoffice-api/admin-identity',
+    category: 'row-lock',
+    requiredPatterns: [/FROM\s+"AdminAccount"/i, /WHERE\s+id\s+=\s+\$1/i, /FOR\s+UPDATE/i],
+    rationale: 'backoffice login attempts and credential reissues serialize on the account row.',
+  }),
+  sqlEntry({
+    path: 'prisma/sql/lockAdminSessionRow.sql',
+    owner: 'backoffice-api/admin-identity',
+    category: 'row-lock',
+    requiredPatterns: [/FROM\s+"AdminSession"/i, /WHERE\s+id\s+=\s+\$1/i, /FOR\s+UPDATE/i],
+    rationale: 'the expiry audit of one backoffice session is written once under its row lock.',
+  }),
+  sqlEntry({
     path: 'prisma/sql/lockMatchRequestRow.sql',
     owner: 'matches/requests',
     category: 'row-lock',

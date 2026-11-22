@@ -17,8 +17,9 @@
 - 상태: validated
 - 고른 선택지: 업무 capability 단위. 백오피스는 사용자 앱과 따로 Next.js BFF(`apps/backoffice-web`)와 NestJS API(`apps/backoffice-api`)를
   두고 공유 DB package(`@repo/database`)와 계약 package(`@repo/shared/backoffice`)를 함께 쓴다. API 안의 owner는 기능 module
-  (`platform`·`audit`·`access-control/roles`·`admin-identity`·`access-control`)이고 의존은 이 순서의 한 방향이다. 사용자 API code는
-  import하지 않는다(ESLint `no-restricted-imports`)
+  (`platform`·`audit`·`access-control/roles`·`admin-identity`·`access-control`)이고 의존은 이 순서의 한 방향이다. 예외는 다른 module을
+  import하지 않는 두 파일, route 접근 규칙 decorator(`access-control/route-access.ts`)와 권한 계산(`access-control/permissions.ts`)이고
+  모든 module의 controller와 session이 쓴다. 사용자 API code는 import하지 않는다(ESLint `no-restricted-imports`)
 - 근거: 관리자 계정·session·감사가 사용자 API image와 session 경계에서 떨어져 사용자 API process가 뚫려도 관리자 기록에 닿지 않는다.
   역할 부여 행은 초대 등록(bootstrap)과 승인 결과가 함께 바꾸므로 한 store(`access-control/roles`)가 소유해 identity와 access-control의
   순환을 끊었다. Module을 다시 나누는 비용은 크지만 DB·계약 package는 그대로 둔다
@@ -91,8 +92,9 @@ route template은 [platform/observability README](../../../apps/api/src/platform
 - 판정: Ask
 - 상태: provisional
 - 고른 선택지: process 안 timer. 관리자 기록 정리 작업은 백오피스 API process 안의 timer(1시간, 첫 실행은 기동 30초 뒤)가
-  `dormduri_backoffice_retention`으로 돌린다. 백오피스 API instance는 하나이고, 단계마다 조건을 DELETE·UPDATE에 다시 건 batch 문장이라
-  rollout 때 옛·새 container가 겹쳐 돌아도 같은 행이 두 번 바뀌지 않는다
+  `dormduri_backoffice_retention`으로 돌린다. 백오피스 API instance는 하나이고, batch마다 대상 선택과 삭제·익명화가 한 문장이며 고르는
+  상태(기준 시각 전·끝남·닫힘·회수됨·감사 행 없는 비활성)는 되돌아가지 않아 rollout 때 옛·새 container가 겹쳐 돌아도 같은 행이 두 번
+  바뀌지 않는다(익명화 UPDATE는 조건을 다시 건다)
 - 근거: 실행 위치(백오피스 API가 소유·실행)는 Owner가 정했다. 실행 방식은 instance 하나에서 새 table·dependency 없이 가장 단순하고,
   pack이 결함으로 보는 "instance마다 같은 작업이 돈다"는 조건부 문장으로 결과가 같아(재실행·동시 실행 integration test) 중복 실행이
   결함이 되지 않는다. 기준 시각은 DB 시계라 container 시계와 무관하다

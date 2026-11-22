@@ -118,11 +118,20 @@ describe('backoffice login, sessions and recovery (OA-R2~OA-R5)', () => {
   });
 
   it('answers an unknown email, a wrong password and a deactivated account the same way', async () => {
+    const leaver = await inviteOperator(test, owner, 'same-answer@backoffice.test');
+    await reauthenticate(test, owner);
+    await test.http
+      .post(`/accounts/${leaver.accountId}/deactivate`)
+      .set(bearer(owner.token))
+      .send({ reason: 'left the team' })
+      .expect(204);
     const unknown = await passwordStep(test, 'nobody@backoffice.test').expect(401);
     const wrong = await passwordStep(test, owner.email, 'wrong password value').expect(401);
-    expect(unknown.body.error.code).toBe('authentication_failed');
-    expect(wrong.body.error.code).toBe('authentication_failed');
-    expect(Object.keys(unknown.body.error)).toEqual(Object.keys(wrong.body.error));
+    const deactivated = await passwordStep(test, leaver.email).expect(401);
+    for (const answer of [unknown, wrong, deactivated]) {
+      expect(answer.body.error.code).toBe('authentication_failed');
+      expect(Object.keys(answer.body.error)).toEqual(Object.keys(wrong.body.error));
+    }
   });
 
   it('locks the account for 15 minutes on the fifth consecutive failure and ends its sessions', async () => {
@@ -147,6 +156,43 @@ describe('backoffice login, sessions and recovery (OA-R2~OA-R5)', () => {
 
     test.clock.advance(15 * 60_000);
     await loginWithPasskey(test, victim);
+  });
+
+  it('checks at most five wrong passwords before the lock, even when they arrive together', async () => {
+    const victim = await inviteOperator(test, owner, 'burst@backoffice.test');
+    const answers = await Promise.all(
+      Array.from({ length: 8 }, () => passwordStep(test, victim.email, 'wrong password value')),
+    );
+    expect(answers.map((answer) => answer.status)).toEqual(Array.from({ length: 8 }, () => 401));
+    // Attempts wait on the account row: five are checked and counted, the rest meet the lock.
+    const { rows } = await sandbox.admin.query<{ result: string; count: number }>(
+      `SELECT "result", COUNT(*)::int AS count FROM ${sandbox.table('AdminAuditEvent')}
+       WHERE "action" = 'LOGIN' AND "targetId" = $1 GROUP BY "result" ORDER BY "result"`,
+      [victim.accountId],
+    );
+    expect(rows).toEqual([
+      { result: 'DENIED', count: 3 },
+      { result: 'FAILED', count: 5 },
+    ]);
+    await passwordStep(test, victim.email).expect(401);
+  });
+
+  it('counts wrong second factors toward the same lock', async () => {
+    const victim = await inviteOperator(test, owner, 'factors@backoffice.test');
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const step = await passwordStep(test, victim.email).expect(200);
+      await test.http
+        .post('/auth/login/recovery-code')
+        .send({ challengeId: step.body.challengeId, code: 'AAAAA-BBBBB' })
+        .expect(401);
+    }
+    await passwordStep(test, victim.email).expect(401);
+    const { rows } = await sandbox.admin.query<{ step: string; count: number }>(
+      `SELECT "metadata"->>'step' AS step, COUNT(*)::int AS count FROM ${sandbox.table('AdminAuditEvent')}
+       WHERE "action" = 'LOGIN' AND "result" = 'FAILED' AND "targetId" = $1 GROUP BY 1`,
+      [victim.accountId],
+    );
+    expect(rows).toEqual([{ step: 'recovery_code', count: 5 }]);
   });
 
   it('turns a TOTP login into a recovery session that may only add a passkey and log out', async () => {
@@ -242,6 +288,24 @@ describe('backoffice login, sessions and recovery (OA-R2~OA-R5)', () => {
       .expect(401);
   });
 
+  it('refuses a passkey answer made without user verification, and counts it', async () => {
+    const operator = await inviteOperator(test, owner, 'unverified@backoffice.test');
+    const step = await passwordStep(test, operator.email).expect(200);
+    await test.http
+      .post('/auth/login/passkey')
+      .send({
+        challengeId: step.body.challengeId,
+        credential: operator.authenticator.authenticate(step.body.options, { userVerified: false }),
+      })
+      .expect(401);
+    const { rows } = await sandbox.admin.query<{ count: number }>(
+      `SELECT COUNT(*)::int AS count FROM ${sandbox.table('AdminAuditEvent')}
+       WHERE "action" = 'LOGIN' AND "result" = 'FAILED' AND "targetId" = $1 AND "metadata"->>'step' = 'passkey'`,
+      [operator.accountId],
+    );
+    expect(rows[0]?.count).toBe(1);
+  });
+
   it('refuses a passkey answer for another origin', async () => {
     const step = await passwordStep(test, owner.email).expect(200);
     const foreign = new SoftwareAuthenticator({ origin: 'http://localhost:3000' });
@@ -259,9 +323,16 @@ describe('backoffice login, sessions and recovery (OA-R2~OA-R5)', () => {
     test.clock.advance(14 * 60_000);
     await test.http.get('/auth/session').set(bearer(idle)).expect(200);
     test.clock.advance(15 * 60_000);
-    const expired = await test.http.get('/auth/session').set(bearer(idle)).expect(401);
-    expect(expired.body.error.code).toBe('session_expired');
-    await test.http.get('/auth/session').set(bearer(idle)).expect(401);
+    // Requests on the expired session at once still leave one expiry row (its row lock).
+    const expired = await Promise.all(
+      Array.from({ length: 4 }, () => test.http.get('/auth/session').set(bearer(idle))),
+    );
+    expect(
+      expired.map((answer) => [
+        answer.status,
+        (answer.body as { error: { code: string } }).error.code,
+      ]),
+    ).toEqual(Array.from({ length: 4 }, () => [401, 'session_expired']));
     const { rows } = await sandbox.admin.query<{ count: number }>(
       `SELECT COUNT(*)::int AS count FROM ${sandbox.table('AdminAuditEvent')} e
        JOIN ${sandbox.table('AdminSession')} s ON s."id" = e."targetId"

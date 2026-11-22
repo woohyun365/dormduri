@@ -49,10 +49,8 @@ export class SoftwareAuthenticator {
     return b64url(this.credentialId);
   }
 
-  private flags(extra = 0): number {
-    return (
-      FLAG_USER_PRESENT | (this.options.userVerified === false ? 0 : FLAG_USER_VERIFIED) | extra
-    );
+  private flags(extra = 0, userVerified = this.options.userVerified !== false): number {
+    return FLAG_USER_PRESENT | (userVerified ? FLAG_USER_VERIFIED : 0) | extra;
   }
 
   private clientData(type: 'webauthn.create' | 'webauthn.get', challenge: string): Buffer {
@@ -105,11 +103,19 @@ export class SoftwareAuthenticator {
     };
   }
 
-  authenticate(options: PublicKeyCredentialRequestOptionsJSON): AuthenticationResponseJSON {
+  /** `userVerified: false` answers as an authenticator that skipped the PIN or biometric check. */
+  authenticate(
+    options: PublicKeyCredentialRequestOptionsJSON,
+    overrides: { readonly userVerified?: boolean } = {},
+  ): AuthenticationResponseJSON {
     this.signCount += 1;
     const counter = Buffer.alloc(4);
     counter.writeUInt32BE(this.signCount);
-    const authData = Buffer.concat([this.rpIdHash(), Buffer.from([this.flags()]), counter]);
+    const authData = Buffer.concat([
+      this.rpIdHash(),
+      Buffer.from([this.flags(0, overrides.userVerified ?? this.options.userVerified !== false)]),
+      counter,
+    ]);
     const clientDataJSON = this.clientData('webauthn.get', options.challenge);
     const signature = sign(
       'sha256',

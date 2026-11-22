@@ -1,3 +1,4 @@
+import type { Prisma } from '@repo/database/client';
 import type {
   AccessRequestApproveRequest,
   AccessRequestCreateRequest,
@@ -11,6 +12,7 @@ import type {
   BackofficeTransaction,
 } from '../../platform/database/backoffice-prisma.js';
 import { BackofficeApiError } from '../../platform/http/api-error.js';
+import { nextPageAfter, pageCursor } from '../../platform/http/keyset-page.js';
 import type { AdminRequestSession } from '../../platform/http/request-context.js';
 import type {
   BackofficeMetrics,
@@ -66,6 +68,19 @@ function serializeRequest(row: {
   };
 }
 
+function effectiveStatusFilter(
+  status: AccessRequestListQuery['status'],
+  now: Date,
+): Prisma.AdminApprovalRequestWhereInput {
+  if (status === 'PENDING') {
+    return { status: 'PENDING', expiresAt: { gt: now } };
+  }
+  if (status === 'EXPIRED') {
+    return { OR: [{ status: 'EXPIRED' }, { status: 'PENDING', expiresAt: { lte: now } }] };
+  }
+  return status ? { status } : {};
+}
+
 /**
  * Role grant and revoke requests (OA-R9). Every change after the first owner goes through
  * one request and a decision by another account, except the single-approver case.
@@ -80,14 +95,41 @@ export class ApprovalRequestsService {
     private readonly clock: Clock,
   ) {}
 
+  /**
+   * Newest first, a keyset page at a time. A pending request past its expiry is closed only when
+   * someone tries to decide it, so the list shows it as EXPIRED and filters it that way.
+   */
   async list(query: AccessRequestListQuery) {
+    const now = this.clock.now();
+    const cursor = pageCursor(query);
     const rows = await this.prisma.adminApprovalRequest.findMany({
-      where: query.status ? { status: query.status } : {},
+      where: {
+        AND: [
+          effectiveStatusFilter(query.status, now),
+          cursor
+            ? {
+                OR: [
+                  { createdAt: { lt: cursor.time } },
+                  { createdAt: cursor.time, id: { lt: cursor.id } },
+                ],
+              }
+            : {},
+        ],
+      },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: 100,
+      take: query.limit,
       select: REQUEST_SELECT,
     });
-    return { requests: rows.map(serializeRequest) };
+    return {
+      requests: rows.map((row) =>
+        serializeRequest(
+          row.status === 'PENDING' && row.expiresAt.getTime() <= now.getTime()
+            ? { ...row, status: 'EXPIRED' }
+            : row,
+        ),
+      ),
+      nextPage: nextPageAfter(rows, query.limit, (row) => row.createdAt),
+    };
   }
 
   async create(session: AdminRequestSession, input: AccessRequestCreateRequest, requestId: string) {
