@@ -236,10 +236,19 @@ test('the open packet rule names the tool and the tool reads the records the hel
     resolve(repo, 'scripts/agents/claude/native-task-helper.mjs'),
     'utf8',
   );
-  for (const name of ['KNU_REVIEW_PACKET_FILE:', '.open.json', '.settled.json', '.inputs.json'])
+  for (const name of ["'.open.json'", "'.settled.json'", "'.inputs.json'", '${REVIEW_PACKET_LINE}'])
     assert.ok(helper.includes(name), `helper writes ${name}`);
   const session = readFileSync(resolve(repo, 'scripts/agents/claude/native-session.mjs'), 'utf8');
-  for (const name of ["'observation-error.json'", "'completion.json'", "'launch.json'"])
+  assert.ok(
+    session.includes("REVIEW_PACKET_LINE = 'KNU_REVIEW_PACKET_FILE:'"),
+    'the registry defines the packet file line',
+  );
+  for (const name of [
+    "'observation-error.json'",
+    "'completion.json'",
+    "'launch.json'",
+    "'attempt.json'",
+  ])
     assert.ok(session.includes(name), `registry writes ${name}`);
   const rule = readFileSync(
     resolve(repo, 'docs/development/agent-workflows/adapters/claude-same-host-review.md'),

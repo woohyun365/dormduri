@@ -3,13 +3,15 @@
 // backtick fragments in `observedResult` must appear on a result line of those logs. A log with several whole-line
 // `exit=<n>` lines where an earlier one is not 0 while the record has exit 0 is `repeated-step-exit-hidden`: the last
 // exit would hide a failed run of a repeated step. A search exit carries its command name (`rg exit=1`) and is not
-// such a line.
+// such a line. A rejected fragment's message says why and, when the log holds one, the fragment shape that would match
+// (`suggestion`). A zero-hit search fragment (`rg exit=1`) without a positive control fragment (`control rg exit=0`)
+// in the same record is the warning `absence-without-control`; warnings never change the exit.
 // Rules and usage: docs/development/agent-workflows/review-criteria/README.md
 //
-// Usage: node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header <first line> [--root <repo>] [--json]
-// Exit 0 = no violation, 1 = violations, 2 = input error (missing option or file, header without a trailing
-// `sha256:<64 hex>`, evidence that is not JSON or has no records, missing root, unknown option). Input errors never
-// count as a pass.
+// Usage: node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header "<logHeader>" [--root <repo>] [--json]
+// Exit 0 = no violation, 1 = violations, 2 = input error (missing option or file, positional argument, header without a
+// trailing `sha256:<64 hex>`, evidence that is not JSON or has no records, missing root, unknown option). Input errors
+// never count as a pass.
 // Only the common record fields are read (`exit`, `outputPaths`, `observedResult`, optional `sourceDigest`); the full
 // field format stays with each host's runner helper.
 
@@ -32,6 +34,13 @@ const DIGEST_LINE = [/^[0-9a-f]{64} {2}\S/u, /sha256:[0-9a-f]{64}/u];
 // too much by chance.
 const UNLABELED = /^[0-9A-Fa-f\p{P}\p{S}]*$/u;
 const TOKEN_CHAR = '[\\p{L}\\p{N}_.-]';
+const USAGE =
+  'usage: runner-log-check --evidence <JSON> --header "<logHeader>" [--root <repo>] [--json]';
+// A zero-hit search exit claims an absence; its positive control is the same kind of search where it must hit, written
+// with `control` in front of its exit line.
+const ABSENCE = /^(?:rg|grep|git grep) exit=1$/u;
+const CONTROL = /^control (?:rg|grep|git grep) exit=0$/u;
+const EMPHASIS = /^(\*\*|\*|__|_)(?<inner>.+)\1$/u;
 
 function isFile(path) {
   try {
@@ -55,7 +64,10 @@ export function fragmentOnLine(fragment, line) {
 // Backtick fragments of a summary. An odd number of backticks cannot be split into fragments.
 function fragments(summary) {
   const parts = summary.split('`');
-  if (parts.length % 2 === 0) return { error: 'unpaired backtick' };
+  if (parts.length % 2 === 0)
+    return {
+      error: `unpaired backtick: ${parts.length - 1} backticks cannot be split into fragments; each fragment is one pair of backticks around log text that holds no backtick`,
+    };
   return { fragments: parts.filter((_, index) => index % 2 === 1) };
 }
 
@@ -67,14 +79,75 @@ function readLog(root, path) {
   }
 }
 
+const isLabeled = (fragment) => fragment.trim() && !UNLABELED.test(fragment.replace(/\s/gu, ''));
+
+// The whitespace-separated run of a line around [start, end): the token run a fragment should copy.
+function tokenRun(line, start, end) {
+  let from = start;
+  let to = end;
+  while (from > 0 && !/\s/u.test(line[from - 1])) from -= 1;
+  while (to < line.length && !/\s/u.test(line[to])) to += 1;
+  return line.slice(from, to);
+}
+
+// An unlabeled fragment that is a token on a result line: that token with its neighbor on the line (`pass 41` for
+// `41` in `ℹ pass 41`, `bad=0 ok=3` for `bad=0`).
+function labeledSuggestion(fragment, lines) {
+  for (const line of lines) {
+    if (!fragmentOnLine(fragment, line)) continue;
+    const tokens = line.trim().split(/\s+/u);
+    const at = tokens.findIndex((token) => token.includes(fragment));
+    const candidates = [
+      at > 0 ? tokens.slice(at - 1, at + 1).join(' ') : null,
+      at >= 0 && at + 1 < tokens.length ? tokens.slice(at, at + 2).join(' ') : null,
+    ];
+    const found = candidates.find(
+      (candidate) => candidate && isLabeled(candidate) && fragmentOnLine(candidate, line),
+    );
+    if (found) return found;
+  }
+  return undefined;
+}
+
+// Why a labeled fragment matched no result line, and the fragment a result line holds instead.
+function mismatch(fragment, resultLines, otherLines) {
+  const emphasis = EMPHASIS.exec(fragment)?.groups.inner;
+  if (emphasis && resultLines.some((line) => fragmentOnLine(emphasis, line)))
+    return {
+      detail: 'Markdown emphasis is not in the log: copy the result line text as printed',
+      suggestion: emphasis,
+    };
+  for (const line of resultLines) {
+    const at = line.indexOf(fragment);
+    if (at < 0) continue;
+    const run = tokenRun(line, at, at + fragment.length);
+    if (isLabeled(run) && fragmentOnLine(run, line))
+      return {
+        detail:
+          'fragment starts or ends inside a token (a letter, digit, _, . or - next to it, as `concat` in `x.concat(`): copy the whole whitespace-separated token run',
+        suggestion: run,
+      };
+  }
+  if (otherLines.some((line) => line.includes(fragment)))
+    return {
+      detail:
+        'fragment is only on the header or a digest line (a shasum line or a line with a sha256: digest), which are not result lines',
+    };
+  return {
+    detail:
+      'fragment is not a token on a result line of the record logs: copy one whitespace-separated token run of a result line as printed, and leave out counts that change between rounds',
+  };
+}
+
 function checkRecord(root, header, digest, record, index) {
   const violations = [];
+  const warnings = [];
   const add = (kind, detail, extra = {}) =>
     violations.push({ record: index, kind, ...extra, detail });
   const counts = { outputs: 0, fragments: 0, unverifiedSummaries: 0 };
   if (!record || typeof record !== 'object' || Array.isArray(record)) {
     add('invalid-record', 'record must be an object');
-    return { violations, counts };
+    return { violations, warnings, counts };
   }
   const exitValid = Number.isInteger(record.exit);
   if (!exitValid) add('invalid-record', 'exit must be an integer');
@@ -87,6 +160,7 @@ function checkRecord(root, header, digest, record, index) {
     );
 
   const resultLines = [];
+  const otherLines = [];
   const outputs = record.outputPaths;
   if (!Array.isArray(outputs) || outputs.length === 0)
     add('missing-output', 'outputPaths must be a non-empty array');
@@ -121,33 +195,57 @@ function checkRecord(root, header, digest, record, index) {
           `line ${hidden.line} is exit=${hidden.exit} but the record has exit 0: a whole-line exit= line is the end exit of one bundle; write a search exit with its command name (rg exit=1) or give each run its own record`,
           { path },
         );
-      resultLines.push(
-        ...lines.slice(1).filter((line) => !DIGEST_LINE.some((pattern) => pattern.test(line))),
-      );
+      for (const [at, line] of lines.entries()) {
+        if (at > 0 && !DIGEST_LINE.some((pattern) => pattern.test(line))) resultLines.push(line);
+        else otherLines.push(line);
+      }
     }
 
   const summary = typeof record.observedResult === 'string' ? record.observedResult : '';
   if (!summary.includes('`')) {
     counts.unverifiedSummaries += 1;
-    return { violations, counts };
+    return { violations, warnings, counts };
   }
   const parsed = fragments(summary);
   if (parsed.error) {
     add('invalid-fragment', parsed.error);
-    return { violations, counts };
+    return { violations, warnings, counts };
   }
   for (const fragment of parsed.fragments) {
-    if (!fragment.trim() || UNLABELED.test(fragment.replace(/\s/gu, ''))) {
-      add('invalid-fragment', 'fragment needs the label printed in the log', { fragment });
+    if (!fragment.trim()) {
+      add('invalid-fragment', 'empty fragment', { fragment });
+      continue;
+    }
+    if (!isLabeled(fragment)) {
+      const suggestion = labeledSuggestion(fragment, resultLines);
+      add(
+        'invalid-fragment',
+        'digits, hex letters and punctuation alone (`41`, `#961`, `bad=0`) match by chance: copy the fragment with the label printed beside it on the log line',
+        { fragment, ...(suggestion === undefined ? {} : { suggestion }) },
+      );
       continue;
     }
     counts.fragments += 1;
-    if (!resultLines.some((line) => fragmentOnLine(fragment, line)))
-      add('summary-mismatch', 'fragment is not a token on a result line of the record logs', {
+    if (!resultLines.some((line) => fragmentOnLine(fragment, line))) {
+      const { detail, suggestion } = mismatch(fragment, resultLines, otherLines);
+      add('summary-mismatch', detail, {
         fragment,
+        ...(suggestion === undefined ? {} : { suggestion }),
       });
+    }
   }
-  return { violations, counts };
+  if (
+    parsed.fragments.some((fragment) => ABSENCE.test(fragment)) &&
+    !parsed.fragments.some((fragment) => CONTROL.test(fragment))
+  )
+    warnings.push({
+      record: index,
+      kind: 'absence-without-control',
+      fragment: parsed.fragments.find((fragment) => ABSENCE.test(fragment)),
+      detail:
+        'a zero-hit search exit claims an absence: run the same search where it must hit (the revision before the change) in this record and quote its exit line as `control rg exit=0`',
+    });
+  return { violations, warnings, counts };
 }
 
 export function checkRunnerLog({ root, header, evidence }) {
@@ -160,13 +258,15 @@ export function checkRunnerLog({ root, header, evidence }) {
     violations: 0,
   };
   const violations = [];
+  const warnings = [];
   evidence.records.forEach((record, index) => {
     const checked = checkRecord(root, header, digest, record, index);
     violations.push(...checked.violations);
+    warnings.push(...checked.warnings);
     for (const [key, value] of Object.entries(checked.counts)) summary[key] += value;
   });
   summary.violations = violations.length;
-  return { summary, violations };
+  return { summary, violations, warnings };
 }
 
 function gitRoot(cwd) {
@@ -193,7 +293,7 @@ function parseOptions(argv) {
       },
     }).values;
   } catch (error) {
-    throw new InputError(error.message);
+    throw new InputError(`${error.message}\n${USAGE}`);
   }
 }
 
@@ -211,9 +311,11 @@ function readEvidence(path) {
 
 function format(result) {
   const lines = result.violations.map(
-    ({ record, kind, path, fragment, detail }) =>
-      `record ${record}\t${kind}\t${path ?? (fragment === undefined ? '' : `\`${fragment}\``)}\t${detail}`,
+    ({ record, kind, path, fragment, detail, suggestion }) =>
+      `record ${record}\t${kind}\t${path ?? (fragment === undefined ? '' : `\`${fragment}\``)}\t${detail}${suggestion === undefined ? '' : `; use \`${suggestion}\``}`,
   );
+  for (const { record, kind, fragment, detail } of result.warnings)
+    lines.push(`record ${record}\twarning ${kind}\t\`${fragment}\`\t${detail}`);
   lines.push(
     Object.entries(result.summary)
       .map(([key, value]) => `${key} ${value}`)
@@ -225,10 +327,7 @@ function format(result) {
 export function main(argv, { cwd = process.cwd(), log = console.log, error = console.error } = {}) {
   try {
     const values = parseOptions(argv);
-    if (!values.evidence || !values.header)
-      throw new InputError(
-        'usage: runner-log-check --evidence <JSON> --header <first line> [--root <repo>] [--json]',
-      );
+    if (!values.evidence || !values.header) throw new InputError(USAGE);
     if (!HEADER.test(values.header))
       throw new InputError(
         '--header must be `<text> sha256:<64 lowercase hex>` (the digest is the last token)',
