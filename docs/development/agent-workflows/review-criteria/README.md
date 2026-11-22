@@ -261,8 +261,9 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 
 ### 처분 기록
 
-- [QA 리뷰 회차](../qa.md#리뷰-회차)의 finding별 처분을 기계로 검사할 수 있게 쓰는 형식입니다. 파일은 reviewer result 옆의
-  `<회차>-adjudication.json`입니다.
+- [QA 리뷰 회차](../qa.md#리뷰-회차)의 finding별 처분을 기계로 검사할 수 있게 쓰는 형식입니다. 파일은 계획 증거 위치의
+  `<회차>-adjudication.json`입니다. `reviews[].resultPath`는 Parent reviewer면 정산이 쓴 결과 파일, native subject
+  reviewer면 Parent가 저장한 result입니다.
 
 ```json
 {
@@ -271,7 +272,13 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
   "round": 2,
   "reviews": [{ "taskId": "<reviewer task id>", "resultPath": "<--root 기준 result JSON 경로>" }],
   "findings": [
-    { "id": "<task id>#0", "severity": "medium", "disposition": "fixed", "origin": "fix-induced" }
+    {
+      "id": "<task id>#0",
+      "severity": "medium",
+      "disposition": "fixed",
+      "origin": "fix-induced",
+      "fixRef": "<수정 commit의 40자 SHA>"
+    }
   ]
 }
 ```
@@ -284,27 +291,52 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
   PASS 뒤의 구분은 검사하지 않습니다.
 - `duplicateOf`는 같은 기록의 다른 finding(다른 reviewer가 낸 같은 결함)이고 그 finding의 disposition을 따릅니다. 중복의
   중복은 위반입니다.
+- `subject`는 회차와 무관한 변경 이름이고 같은 변경의 모든 회차가 같은 문자열을 씁니다.
 - 2회차부터 `origin`이 필요합니다: `fix-induced`(수정이 들여온 결함), `previously-missed`(이전 회차가 놓친 결함),
-  `re-raised`(다시 제기된 결함). `fixRef`는 선택입니다.
+  `re-raised`(다시 제기된 결함).
+- `fixed`·`fixed-mechanical`은 고친 것을 가리키는 `fixRef`가 필요합니다(`duplicateOf`가 있는 finding은 그 finding을
+  따릅니다). 형식은 `--root` 저장소에 있는 40자 commit SHA, `sha256:<64자 16진수>` snapshot digest, 있는 저장소 상대
+  경로(저장소 root 자체는 아님) 가운데 하나입니다. 없으면 `missing-fix-ref`, 형식 밖이거나 없는 commit·경로면 `invalid-fix-ref`입니다. 고치기 전에는
+  `fixed`를 쓰지 않습니다. Rebase·squash로 SHA가 바뀌면 앞 회차 기록은 그대로 두고 다음 회차부터 새 SHA나 snapshot digest를
+  씁니다.
 - 나열한 result에 `unjudgedBehaviors`(판정하지 않은 동작) 줄이 있으면 선택 key `unjudged`에 줄마다
   `{ "id": "<task id>#u<index>", "disposition": "...", "reason": "..." }`를 둡니다. Index는 result `unjudgedBehaviors` 배열
   index(0부터)입니다. `disposition`은 `out-of-scope`(이 변경 범위 밖)·`raised`(Parent가 finding으로 올림)·`follow-up`(후속
-  작업)이고 모두 `reason`이 필요합니다. 줄마다 정확히 한 번 나와야 하며 처분이 빠진 줄(`missing-unjudged`), 같은 줄의 두 번째
+  작업)·`parent-checked`(Parent가 재현·대조해 결함 없음을 확인)·`pre-existing`(이 변경 전부터 있던 결함)이고 모두 `reason`이
+  필요합니다. `parent-checked`의 `reason`은 그 재현·대조 log를 backtick 안 저장소 상대 경로(있는 파일·디렉터리, root 자체는 아님)로 가리키고,
+  없으면 `missing-reason`입니다. 줄마다 정확히 한 번 나와야 하며 처분이 빠진 줄(`missing-unjudged`), 같은 줄의 두 번째
   처분(`duplicate-unjudged`), result에 없는 id(`unknown-unjudged`)는 위반입니다.
+- `fixRef`와 `parent-checked` 경로 검사는 작성 때 검사와 ledger reader가 합니다. 작성 때 검사는
+  `node scripts/agents/common/review-adjudication.mjs [--root <repo>] <파일>`입니다. 2회차 리뷰 입력과 builder 완료 그룹처럼
+  저장소 root 없이 기록을 읽는 검사는 앞 규칙만 봅니다.
 
 ### 리뷰 측정
 
-[공통 ledger](../../../../scripts/agents/common/review-ledger.mjs)는 host reader가 준 행에서 상태·verdict·severity·기준
+[공통 ledger](../../../../scripts/agents/common/review-ledger.mjs)는 host reader가 준 행에서 host·상태·verdict·severity·기준
 항목·회차·처분·기원 건수를 셉니다. 측정이며 판정이 아닙니다. 형식이 틀린 행은 이유와 함께 건수에서 뺍니다.
 
 - Claude: `node scripts/agents/claude/review-ledger-source.mjs [--root <repo>] [--adjudications <dir>]... [--until <ISO 시각>] [--json]`.
-  Native registry의 `knu_reviewer` task를 읽고, `--adjudications` 아래 `*-adjudication.json`과 task id로 연결합니다. 처분
-  기록이 틀리거나(JSON이 아닌 기록, 한 task를 두 기록이 처분한 경우 포함) 형식이 틀린 행이 있으면 exit 1입니다. `--until`은
-  발행 시각이 그 시각 이전인 task만 세고, 발행 시각을 읽지 못한 task는 빼고 그 수를 `excludedWithoutIssuedAt`으로 냅니다.
+  Native registry의 `knu_reviewer` task를 읽고, `--adjudications` 아래 `*-adjudication.json`과 task id로 연결합니다. 아래
+  legacy 셈 밖의 처분 기록 위반(JSON이 아닌 기록 포함)이나 형식이 틀린 행이 있으면 exit 1입니다. 한 task를 두 기록이
+  처분하면 뒤 기록에 `duplicate-review`가 나고 그 task는 앞 기록으로만 셉니다. `--until`은 발행 시각이 그 시각 이전인 task만
+  세고, 발행 시각을 읽지 못한 task는 빼고 그 수를 `excludedWithoutIssuedAt`으로 냅니다.
+- Codex: `node scripts/agents/codex/review-ledger-source.mjs`(같은 옵션). 행은 `host: 'codex'`이고 입력과 행 상태는
+  [Codex same-host review](../adapters/codex-same-host-review.md#처분-기록과-ledger)가 소유합니다.
+- 두 reader는 위반이 모두 옛 기록 종류(`unknown-key`·`invalid-field`·`unknown-finding`·`unknown-unjudged`·
+  `result-unreadable`·`duplicate-review`와 `missing-fix-ref`·`invalid-fix-ref`)인 기록을 `legacyAdjudications`(기록 수와
+  사유별 위반 수)로 세고 exit를 바꾸지 않습니다. `fixRef` 두 사유만 있는 기록은 처분을 지금처럼 셉니다. 그 밖의 위반은
+  `adjudicationViolations`이고 exit 1입니다.
 - 행 상태: `parsed`, `parse-failed`(마지막 응답에 result JSON 없음), `completion-missing`, `task-unreadable`(task 기록을 읽지
-  못해 reviewer인지 모르는 task도 행으로 셈). 회차는 reviewer
-  prompt의 `Review round N`에서 읽고, 회차 입력 전 기록은 `unknown`입니다.
+  못해 reviewer인지 모르는 task도 행으로 셈). Parent reviewer task가 정산해 닫은 packet(`<reviewId>.settled.json`의 `taskId`가 그
+  task)이면 응답 대신 그 정산의 결과 파일(`<reviewId>.result.json`)로 읽고, 결과 파일이 없으면(`review-result-unparsed`)
+  `parse-failed`입니다. 닫힘 기록이 다른 task를 가리키면(같은 reviewerSpec을 다시 등록한 task) 응답으로 읽습니다. 회차는
+  reviewer prompt의 `Review round N`에서 읽고, 회차 입력 전 기록은 `unknown`입니다.
 - 행의 finding은 id·severity·기준 항목(`criteriaItem`)과 result finding의 위치(`location`, 없으면 null)를 담습니다.
+- 행의 선택 field `subjectSize`는 그 리뷰 기준 기록(`<reviewId>.criteria.json`)의 subject 경로 수·기준 문서 수(`paths`·
+  `documents`), `snapshot`은 그 reviewer가 리뷰한 snapshot digest이고 reader가 찾지 못하면 null입니다.
+- Summary의 `subjectRows`는 subject 키별 경로 수·기준 문서 수(가장 앞 회차 기준 기록)·run 수·회차 수·origin 수·끝에서 이어진
+  non-PASS 회차 수(회차의 모든 행이 `parsed` PASS면 PASS 회차)·서로 다른 snapshot 수이고, `subjectSizes`는 그 행을 크기
+  (`paths:<수>,documents:<수>`, 모르면 `unknown`)별로 더한 subject 수·run 수·회차 수·origin 수입니다.
 
 ## 센서 동작
 
@@ -391,8 +423,8 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
 - 원자료
   - [리뷰 측정](#리뷰-측정) ledger에서 같은 기준 항목(`criteriaItem`)이 서로 다른 subject 2개 이상에 나온 finding과 그 `location`.
     subject는 처분 기록의 subject(ledger를 `--adjudications`로 뽑을 때의 행 subject 키)로 묶고, 처분 기록이 없는 행 수를 따로
-    적습니다. 교정·재채점·실험처럼 사본으로 재는 측정 run은 뺍니다. Codex 리뷰는 ledger reader가 없으므로 Parent가 그 작업 증거의
-    결과 JSON과 정산 보고에서 직접 모읍니다.
+    적습니다. 교정·재채점·실험처럼 사본으로 재는 측정 run은 뺍니다. Codex 리뷰는 Codex reader의 행으로 모읍니다(처분 기록이
+    가리키는 결과 JSON을 읽습니다).
   - non-PASS 회차.
   - PR `Lifecycle` 절의 `override` 줄.
   - `원인 PR`로 찾은 놓친 결함. 원인 PR의 리뷰 기준 기록(`<reviewId>.criteria.json`)·ledger와 대조해 "기준이 있었는데 놓침"과

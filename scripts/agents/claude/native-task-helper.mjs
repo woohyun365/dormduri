@@ -1020,7 +1020,10 @@ const packetDigest = (bytes) => `sha256:${createHash('sha256').update(bytes).dig
 // names plan sections their extract (<reviewId>.requirements.md), the context extracts it has: binding
 // rows (<reviewId>.binding.md), the draft's Lifecycle section (<reviewId>.lifecycle.md) and its
 // Verification section (<reviewId>.verification.md), and for a Parent subject the round's scope
-// record (<reviewId>.scope.json).
+// record (<reviewId>.scope.json), and the packet's opening record (<reviewId>.open.json: the settled record closes
+// this packet, which tells it apart from a packet an earlier helper registered). Settling a reviewer adds, for a
+// Parent reviewer, its parsed result (<reviewId>.result.json) and, for both paths, the record that closes the packet
+// (<reviewId>.settled.json).
 function reviewPacketPath(root, reviewId, suffix = '.json') {
   if (typeof reviewId !== 'string' || !REVIEW_PACKET_ID.test(reviewId))
     throw new TypeError(`invalid review packet id: ${reviewId}`);
@@ -1791,9 +1794,12 @@ export function buildClaudeNativeReview(
             ...(subject.deltaScope ? { deltaScope: subject.deltaScope } : {}),
           })}\n`,
         );
+    // A previous result in the helper directory (a Parent reviewer's result file the adjudication record names) is
+    // not copied with the other ignored inputs, so the prompt record binds it and settle checks it.
+    const previousResults = helperPreviousResults(root, subject.previous);
     // Registration takes only this prompt (G11); the record also binds the requirement and context
-    // extracts, the runner file and a scope record the reviewer reads, and keeps the role choice and
-    // the round's scope.
+    // extracts, the runner file, a scope record the reviewer reads and the helper-directory previous results, and
+    // keeps the role choice and the round's scope.
     const promptBytes = Buffer.from(
       `${JSON.stringify({
         schema: REVIEW_PROMPT_SCHEMA,
@@ -1803,6 +1809,7 @@ export function buildClaudeNativeReview(
         ...Object.fromEntries(extracts.map(({ key, file }) => [key, file])),
         ...(verificationFile ? { [VERIFICATION_EXTRACT.key]: verificationFile } : {}),
         ...(scopeRead ? { scope: { path: scopePath, digest: packetDigest(scopeBytes) } } : {}),
+        ...(previousResults.length ? { previousResults } : {}),
         runner: runnerFile,
         reviewerRole,
         ...(subject.deltaScope ? { deltaScope: subject.deltaScope } : {}),
@@ -1875,6 +1882,7 @@ export function buildClaudeNativeReview(
     writeClaudeReviewPacket(root, member.reviewId, member.promptBytes, '.prompt.json');
     writeClaudeReviewPacket(root, member.reviewId, member.criteriaBytes, '.criteria.json');
     writeClaudeReviewPacket(root, member.reviewId, member.contextBytes, '.context.json');
+    writeClaudeReviewPacket(root, member.reviewId, openingRecord(member.reviewId), OPEN_SUFFIX);
   }
   // The review point of the edit-time sensor records (evaluation input); a record failure never fails the review.
   if (subject.prejudgment?.length && typeof (sessionId ?? subject.sessionId) === 'string')
@@ -2506,14 +2514,14 @@ function reviewPacketStatus(state, root) {
 // read scope says whether the review has one, so neither a lost record nor a narrowed read scope can skip
 // the check. A Parent subject's review id comes from its packet file line, a native subject's from its
 // packet id, as registration takes them.
+// The review id of a reviewer task: a Parent reviewer prompt's packet file line, or a native subject reviewer's packet id.
+const taskReviewId = (root, record) =>
+  claudeReviewPromptId(root, record.prompt) ??
+  /^review-([a-z0-9]{8}-[a-f0-9]{8})$/u.exec(record.independentReview?.packet?.packetId)?.[1];
 function reviewExtractStatus(state, root, { suffix, key }) {
   // The caller prompt as registered; the invocation prompt also carries the registry marker.
   const { prompt } = state.record;
-  const reviewId =
-    claudeReviewPromptId(root, prompt) ??
-    /^review-([a-z0-9]{8}-[a-f0-9]{8})$/u.exec(
-      state.record.independentReview?.packet?.packetId,
-    )?.[1];
+  const reviewId = taskReviewId(root, state.record);
   if (reviewId === undefined) return null;
   const { path } = reviewPacketPath(root, reviewId, suffix);
   if (!prompt.includes(path) && !state.record.input.nativeRequest.task.readScope.includes(path))
@@ -2531,6 +2539,40 @@ function reviewExtractStatus(state, root, { suffix, key }) {
   }
   return { path, expectedDigest, currentDigest };
 }
+// The previous results under the helper directory, as { path, digest }: the reviewed results of an adjudication record
+// and a previous result given directly.
+function helperPreviousResults(root, previous) {
+  if (!previous) return [];
+  const dir = `${relative(root, resolveArtifactPath(root, ['claude-review-packets'], {}))}/`;
+  return [previous, ...(previous.results ?? [])]
+    .filter(({ path }) => path.startsWith(dir))
+    .map(({ path, digest }) => ({ path, digest }));
+}
+// The helper-directory previous results the prompt record binds, and the settlement error when one changed.
+function previousResultChecks(state, root) {
+  const reviewId = taskReviewId(root, state.record);
+  const record = reviewId === undefined ? null : claudeReviewPromptRecord(root, reviewId);
+  if (
+    !Array.isArray(record?.previousResults) ||
+    record.promptDigest !== packetDigest(Buffer.from(state.record.prompt))
+  )
+    return { statuses: {}, errors: [] };
+  const results = record.previousResults.map(({ path, digest }) => {
+    let currentDigest = null;
+    try {
+      currentDigest = packetDigest(readFileSync(join(root, path)));
+    } catch {
+      currentDigest = null;
+    }
+    return { path, expectedDigest: digest, currentDigest };
+  });
+  return {
+    statuses: { reviewPreviousResults: results },
+    errors: results.some((result) => result.currentDigest !== result.expectedDigest)
+      ? ['review-previous-result-changed']
+      : [],
+  };
+}
 // Each bound extract's status and the settlement errors of those that changed or lost their record.
 function reviewExtractChecks(state, root) {
   const statuses = {};
@@ -2543,6 +2585,60 @@ function reviewExtractChecks(state, root) {
       errors.push(extract.error);
   }
   return { statuses, errors };
+}
+const RESULT_SUFFIX = '.result.json';
+const SETTLED_SUFFIX = '.settled.json';
+const OPEN_SUFFIX = '.open.json';
+// The opening record names the closing record, so a packet with it is open until <reviewId>.settled.json exists.
+const openingRecord = (reviewId) =>
+  `${JSON.stringify({ reviewId, closedBy: `${reviewId}${SETTLED_SUFFIX}` }, null, 2)}\n`;
+// A Parent reviewer's response is its result when it is one text holding one JSON object of this review's result
+// template (schemaVersion, packet id, verdict, findings); anything else is no result, as on the native subject path.
+function parentReviewResult(content, reviewId) {
+  if (!Array.isArray(content) || content.length !== 1 || content[0]?.type !== 'text') return null;
+  let result;
+  try {
+    result = JSON.parse(content[0].text);
+  } catch {
+    return null;
+  }
+  return result !== null &&
+    typeof result === 'object' &&
+    !Array.isArray(result) &&
+    result.schemaVersion === 'cross-model-handoff/v1' &&
+    result.packetId === `review-${reviewId}` &&
+    typeof result.verdict === 'string' &&
+    Array.isArray(result.findings)
+    ? result
+    : null;
+}
+// The task the packet's closing record names: undefined without the record, null when it cannot be read.
+function packetSettledBy(root, reviewId) {
+  const full = join(root, reviewPacketPath(root, reviewId, SETTLED_SUFFIX).path);
+  if (!existsSync(full)) return undefined;
+  try {
+    const { taskId } = JSON.parse(readFileSync(full, 'utf8'));
+    return typeof taskId === 'string' ? taskId : null;
+  } catch {
+    return null;
+  }
+}
+
+// Closes a review packet: a finished settlement writes <reviewId>.settled.json (task, settle time, valid, observation
+// errors). A later settlement replaces it, so the record is the latest settlement: the same reviewer settled again, or
+// for a native subject reviewer another task of the same packet (a Parent reviewer packet another task settled is
+// refused before this, review-packet-settled). A target that is not a regular file is refused as for the packet files.
+function closeReviewPacket(root, reviewId, taskId, { valid, errors }) {
+  const { path } = reviewPacketPath(root, reviewId, SETTLED_SUFFIX);
+  const bytes = `${JSON.stringify(
+    { taskId, settledAt: new Date().toISOString(), valid, observationErrors: errors },
+    null,
+    2,
+  )}\n`;
+  const full = join(root, path);
+  if (existsSync(full) && lstatSync(full).isFile()) writeFileSync(full, bytes, { mode: 0o600 });
+  else writeClaudeReviewPacket(root, reviewId, bytes, SETTLED_SUFFIX);
+  return path;
 }
 function settlementStatus(taskId, root) {
   const state = observeClaudeNativeTask(taskId, { root });
@@ -2557,6 +2653,8 @@ function settlementStatus(taskId, root) {
     state.errors.push('review-packet-changed');
   const reviewExtracts = reviewExtractChecks(state, root);
   state.errors.push(...reviewExtracts.errors);
+  const previousResults = previousResultChecks(state, root);
+  state.errors.push(...previousResults.errors);
   const { record } = state;
   // A Parent reviewer's prompt starts with the snapshot its runner logs name. A read-only reviewer
   // with no change among its dependencies is compared with the source it was registered for;
@@ -2574,6 +2672,34 @@ function settlementStatus(taskId, root) {
       state.errors.push('review-snapshot-mismatch');
   }
   const content = state.observation.response?.content;
+  // A Parent reviewer is settled here: its response is read as the result JSON and written beside the packet,
+  // and the packet is closed. A native subject reviewer is settled by its judgment.
+  let resultPath;
+  let settledPath;
+  const parentReviewer =
+    record.input.nativeRequest.task.role === 'knu_reviewer' && !record.independentReview;
+  const parentReviewId = parentReviewer ? claudeReviewPromptId(root, record.prompt) : undefined;
+  // The result file is written once and the adjudication record points at it, so it and the closure belong to the
+  // packet's first settled task: another task of the same packet (its reviewerSpec registered again) writes neither.
+  const settledBy =
+    parentReviewId === undefined ? undefined : packetSettledBy(root, parentReviewId);
+  const packetTaken = settledBy !== undefined && settledBy !== taskId;
+  if (parentReviewer && packetTaken) {
+    resultPath = null;
+    state.errors.push('review-packet-settled');
+  } else if (parentReviewer) {
+    const result =
+      parentReviewId === undefined ? null : parentReviewResult(content, parentReviewId);
+    resultPath = result
+      ? writeClaudeReviewPacket(
+          root,
+          parentReviewId,
+          `${JSON.stringify(result, null, 2)}\n`,
+          RESULT_SUFFIX,
+        ).path
+      : null;
+    if (!result) state.errors.push('review-result-unparsed');
+  }
   let judgmentTemplatePath = null;
   let quoteCheckResponsePath = null;
   // A reviewer without a native subject is judged by the Parent from this settle observation.
@@ -2614,6 +2740,11 @@ function settlementStatus(taskId, root) {
       if (error.code !== 'EEXIST') throw error; // Keep the Lead's edits.
     }
   }
+  if (parentReviewId !== undefined && !packetTaken)
+    settledPath = closeReviewPacket(root, parentReviewId, taskId, {
+      valid: state.errors.length === 0,
+      errors: state.errors,
+    });
   return {
     taskId,
     responseDigest: state.observation.responseDigest,
@@ -2630,8 +2761,11 @@ function settlementStatus(taskId, root) {
     reviewInputOriginalsChanged: state.reviewInputOriginalsChanged,
     ...(reviewPacket ? { reviewPacket } : {}),
     ...reviewExtracts.statuses,
+    ...previousResults.statuses,
     judgmentTemplatePath,
     ...(quoteCheckResponsePath ? { quoteCheckResponsePath } : {}),
+    ...(parentReviewer ? { resultPath } : {}),
+    ...(settledPath ? { settledPath } : {}),
     dispatchAuthorized: false,
   };
 }
@@ -2728,5 +2862,17 @@ export function settleClaudeNativeTask(taskId, judgment, { root = process.cwd() 
       /* complete reports the missing delivered JSON result. */
     }
   }
-  return { ...completeClaudeNativeTask(taskId, submitted, { root }), submitted };
+  const completed = completeClaudeNativeTask(taskId, submitted, { root });
+  // A native subject reviewer's settlement ends with this judgment, which closes its packet.
+  const reviewId = /^review-([a-z0-9]{8}-[a-f0-9]{8})$/u.exec(
+    record.independentReview?.packet?.packetId,
+  )?.[1];
+  const settledPath =
+    reviewer && reviewId !== undefined
+      ? closeReviewPacket(root, reviewId, taskId, {
+          valid: completed.valid === true,
+          errors: completed.errors ?? [],
+        })
+      : undefined;
+  return { ...completed, submitted, ...(settledPath ? { settledPath } : {}) };
 }
