@@ -1,11 +1,53 @@
 # BE 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-10-31
-**확인 근거**: [#773](https://github.com/woohyun365/dormduri/issues/773) 본문의 채택 판정과 계획 보강 댓글(application-architecture의 `be.arch.http-adapter`: adapter 채택, `qs` override, 성숙 기간 면제)
-**근거**: [platform/http](../../../apps/api/src/platform/http/README.md), [platform/observability](../../../apps/api/src/platform/observability/README.md), [Domain/SWE/Web/BE pack](../../development/agent-workflows/domain/swe-web/be.md)
+**확인일**: 2026-11-21
+**확인 근거**: [#773](https://github.com/woohyun365/dormduri/issues/773) 본문의 채택 판정과 계획 보강 댓글(application-architecture의 `be.arch.http-adapter`: adapter 채택, `qs` override, 성숙 기간 면제), [#958의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/958#issuecomment-7064557164)(domain-model-invariant의 `be.domain.owner-unit/backoffice`, authn-authz의 `be.auth.session-model/backoffice`, background-integration-performance의 `be.bg.job-runner/backoffice` 실행 위치, 2026-11-04·12·21)
+**근거**: [platform/http](../../../apps/api/src/platform/http/README.md), [백오피스 API](../../../apps/backoffice-api/README.md), [platform/observability](../../../apps/api/src/platform/observability/README.md), [Domain/SWE/Web/BE pack](../../development/agent-workflows/domain/swe-web/be.md)
 
 `Domain/SWE/Web/BE` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
+
+## domain-model-invariant
+
+백오피스 API의 module 구성과 의존 방향은 [백오피스 API README](../../../apps/backoffice-api/README.md#2-모듈)가 소유합니다.
+
+#### be.domain.owner-unit/backoffice
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: 업무 capability 단위. 백오피스는 사용자 앱과 따로 Next.js BFF(`apps/backoffice-web`)와 NestJS API(`apps/backoffice-api`)를
+  두고 공유 DB package(`@repo/database`)와 계약 package(`@repo/shared/backoffice`)를 함께 쓴다. API 안의 owner는 기능 module
+  (`platform`·`audit`·`access-control/roles`·`admin-identity`·`access-control`)이고 의존은 이 순서의 한 방향이다. 예외는 다른 module을
+  import하지 않는 두 파일, route 접근 규칙 decorator(`access-control/route-access.ts`)와 권한 계산(`access-control/permissions.ts`)이고
+  모든 module의 controller와 session이 쓴다. 사용자 API code는 import하지 않는다(ESLint `no-restricted-imports`)
+- 근거: 관리자 계정·session·감사가 사용자 API image와 session 경계에서 떨어져 사용자 API process가 뚫려도 관리자 기록에 닿지 않는다.
+  역할 부여 행은 초대 등록(bootstrap)과 승인 결과가 함께 바꾸므로 한 store(`access-control/roles`)가 소유해 identity와 access-control의
+  순환을 끊었다. Module을 다시 나누는 비용은 크지만 DB·계약 package는 그대로 둔다
+- 기각한 대안: 사용자 API에 admin module(user·admin code가 한 image와 session 경계를 나눔), 화면·진입점 단위 owner(같은 승인·감사 규칙이
+  진입점마다 복제됨), 사용자 API code import로 재사용(두 app의 배포·권한 경계가 섞임)
+- 재검토 조건: 두 API가 함께 쓸 server code가 생길 때(공유 server package), 백오피스 기능이 legal·RRPD 열람으로 늘 때
+- 출처: #958, Owner 확인 2026-11-04·2026-11-12
+- pack 결정: [be.domain.owner-unit](../../development/agent-workflows/domain/swe-web/be.md#bedomainowner-unit)
+
+## authn-authz
+
+값과 규칙은 [운영자 접근 정책](../../policies/operator-access.md) `OA-R2`~`OA-R5`가, 구현 위치는
+[백오피스 API README](../../../apps/backoffice-api/README.md#3-인증과-session)가 소유합니다.
+
+#### be.auth.session-model/backoffice
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: server 저장 session. 로그인하면 32 byte 불투명 token을 한 번 주고 DB(`AdminSession`)에는 SHA-256 hash만 둔다. 요청마다
+  hash로 session을 읽어 idle 15분·absolute 8시간·회수를 확인하고, 로그아웃·잠금·비활성화·역할 회수는 그 행을 바로 끝낸다. BFF는 token을
+  `dormduri_bo_session` cookie에 두고 `Authorization: Bearer`로 넘긴다
+- 근거: 운영자 계정의 강제 종료가 다음 요청에 바로 반영되고(`OA-R3`), token이 새어도 DB에는 hash만 있다. 운영자가 몇 명이라 요청마다
+  session 행을 읽는 비용이 작다. 바꾸면 모든 운영자가 다시 로그인하고 인증 경로를 다시 쓴다
+- 기각한 대안: 서명된 token(만료 전 강제 종료가 어렵다), 사용자 API session 공유(관리자와 사용자 session 경계가 섞인다), 외부 IdP
+  session(처리위탁 고지가 늘고 운영자 한 명 규모에 무겁다)
+- 재검토 조건: 백오피스가 여러 독립 서비스로 나뉘어 같은 인증을 검증해야 할 때
+- 출처: #958, Owner 확인 2026-11-12
+- pack 결정: [be.auth.session-model](../../development/agent-workflows/domain/swe-web/be.md#beauthsession-model)
 
 ## application-architecture
 
@@ -39,3 +81,25 @@ route template은 [platform/observability README](../../../apps/api/src/platform
   API 배포 뒤 metrics로 본 처리량·CPU가 evidence와 크게 다를 때
 - 출처: #773, Owner 확인 2026-10-31(adapter 채택·`qs` override·성숙 기간 면제)
 - pack 결정: 없음
+
+## background-integration-performance
+
+정리 단계·순서·batch와 metric은 [백오피스 API README](../../../apps/backoffice-api/README.md#5-관리자-기록-정리-작업)가, 보존 기간은
+[data-retention.md](../../policies/data-retention.md) `DR-R5`·`DR-R6`가 소유합니다.
+
+#### be.bg.job-runner/backoffice
+
+- 판정: Ask
+- 상태: provisional
+- 고른 선택지: process 안 timer. 관리자 기록 정리 작업은 백오피스 API process 안의 timer(1시간, 첫 실행은 기동 30초 뒤)가
+  `dormduri_backoffice_retention`으로 돌린다. 백오피스 API instance는 하나이고, batch마다 대상 선택과 삭제·익명화가 한 문장이며 고르는
+  상태(기준 시각 전·끝남·닫힘·회수됨·감사 행 없는 비활성)는 되돌아가지 않아 rollout 때 옛·새 container가 겹쳐 돌아도 같은 행이 두 번
+  바뀌지 않는다(익명화 UPDATE는 조건을 다시 건다)
+- 근거: 실행 위치(백오피스 API가 소유·실행)는 Owner가 정했다. 실행 방식은 instance 하나에서 새 table·dependency 없이 가장 단순하고,
+  pack이 결함으로 보는 "instance마다 같은 작업이 돈다"는 조건부 문장으로 결과가 같아(재실행·동시 실행 integration test) 중복 실행이
+  결함이 되지 않는다. 기준 시각은 DB 시계라 container 시계와 무관하다
+- 기각한 대안: DB 작업 table·lease(작업 하나·instance 하나에 table과 lease 관리가 더 든다), 별도 queue 서비스(새 dependency와 운영 대상),
+  사용자 API worker가 실행(사용자 API process 침해 때 관리자 기록에 닿는다)
+- 재검토 조건: 백오피스 API instance가 둘 이상으로 늘 때, 정리할 행이 batch 한도(단계당 500행 × 200회)를 넘을 때, 작업 종류가 늘 때
+- 출처: #958, Owner 확인 2026-11-21(실행 위치)
+- pack 결정: [be.bg.job-runner](../../development/agent-workflows/domain/swe-web/be.md#bebgjob-runner)

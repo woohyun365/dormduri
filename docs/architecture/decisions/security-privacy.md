@@ -2,7 +2,7 @@
 
 **상태**: owner-confirmed
 **확인일**: 2026-11-21
-**확인 근거**: [#289](https://github.com/woohyun365/dormduri/issues/289)의 2026-11-02 Web 단계 처리자 범위 결정 댓글(data-privacy-secret의 `sec.privacy.landing-visit-analytics`: Landing 방문 통계 도입, 처리방침 공개 근거, 코드 자리), [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(trust-authz-model의 `sec.trust.db-privilege-audit`: grant 표 하나와 앱 append-only 감사·pgAudit), [#869의 log 보존 결정 댓글](https://github.com/woohyun365/dormduri/issues/869#issuecomment-6718939243)(data-privacy-secret의 `sec.privacy.log-retention`: log 종류별 보존과 IP 가림, 통신비밀보호법 적용 시점), [#869의 접속 log 필드 결정 댓글](https://github.com/woohyun365/dormduri/issues/869#issuecomment-6719267639)(같은 항목의 `OO-R1`), [#949의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/949#issuecomment-7059715410)(trust-authz-model의 `sec.trust.db-privilege-audit`: 관리자 감사의 폐기 주체 `backoffice_retention`, data-privacy-secret의 `sec.privacy.log-retention`: 백오피스 앱 감사 3년과 pgAudit·SSM 기록 2년, 2026-11-12·21)
+**확인 근거**: [#289](https://github.com/woohyun365/dormduri/issues/289)의 2026-11-02 Web 단계 처리자 범위 결정 댓글(data-privacy-secret의 `sec.privacy.landing-visit-analytics`: Landing 방문 통계 도입, 처리방침 공개 근거, 코드 자리), [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(trust-authz-model의 `sec.trust.db-privilege-audit`: grant 표 하나와 앱 append-only 감사·pgAudit), [#869의 log 보존 결정 댓글](https://github.com/woohyun365/dormduri/issues/869#issuecomment-6718939243)(data-privacy-secret의 `sec.privacy.log-retention`: log 종류별 보존과 IP 가림, 통신비밀보호법 적용 시점), [#869의 접속 log 필드 결정 댓글](https://github.com/woohyun365/dormduri/issues/869#issuecomment-6719267639)(같은 항목의 `OO-R1`), [#949의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/949#issuecomment-7059715410)(trust-authz-model의 `sec.trust.db-privilege-audit`: 관리자 감사의 폐기 주체 `backoffice_retention`, data-privacy-secret의 `sec.privacy.log-retention`: 백오피스 앱 감사 3년과 pgAudit·SSM 기록 2년, 2026-11-12·21), [#958의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/958#issuecomment-7064557164)(trust-authz-model의 `sec.trust.authz-model/backoffice`·`sec.trust.admin-authentication`·`sec.trust.separation-of-duties`와 `sec.trust.db-privilege-audit`의 감사 시각, 2026-11-04·12·21)
 **근거**: [공개 법적 문서 fallback](../../../apps/web/src/legal/content/legal-fallback-documents.ts), [Web 운영 관측성 경계](../frontend/web-observability.md), [지금 운영 환경](../../deploy/production-environment.md), [Domain/SWE/Web/security-privacy pack](../../development/agent-workflows/domain/swe-web/security-privacy.md)
 
 `Domain/SWE/Web/security-privacy` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
@@ -20,7 +20,7 @@ DB 계정·grant는 [Database operator scripts](../../../infra/db/README.md#cred
   원본이고, apply와 smoke가 같은 표를 읽는다. 관리자 행위·RRPD 열람 감사는 앱의 append-only table에 남긴다(앱에서 기록하는 role은
   INSERT·SELECT만. 기한 폐기는 RRPD 열람 기록이 worker, 관리자 감사가 백오피스 host에만 credential이 있는 `backoffice_retention`이고,
   사용자 API credential은 관리자 감사에 닿지 않는다). DB 쪽은 pgAudit가 DDL·role class를 기본으로 남기고, 사람 LOGIN user와 master user는 모든 문장을 남긴다
-  (`pgaudit.log = 'all'`). bind 값은 pgAudit와 statement log 모두 남기지 않는다. PostgreSQL log는 CloudWatch에 731일(2년)
+  (`pgaudit.log = 'all'`). bind 값은 pgAudit와 statement log 모두 남기지 않는다. 관리자 감사 시각은 DB 시계만 쓴다(`backoffice_runtime`은 `occurredAt`을 뺀 열에만 INSERT 권한이 있다). PostgreSQL log는 CloudWatch에 731일(2년)
   둔다. 사람 DB 계정의 권한 부여·변경·말소 내역(3년)과 break-glass 사용은 pgAudit log와 따로 전용 운영 이슈의 댓글로 남긴다
   ([권한 내역과 break-glass](../../../infra/db/README.md#권한-내역과-break-glass)). RRPD SELECT 객체 감사는 하지 않는다
 - 근거: 앱이 쓰는 감사는 table 권한으로 고칠 수 없게 막고, 권한과 무관하게 감사 행을 지우거나 고치는 부모 삭제·id 변경의 FK
@@ -36,7 +36,58 @@ DB 계정·grant는 [Database operator scripts](../../../infra/db/README.md#cred
 - 이전 선택: 2026-11-04 관리자 행위 감사의 폐기 주체를 정하지 않음(관리자 감사 table 없음). 바꾼 이유: 관리자 감사 table을 만듦(재검토
   조건). 출처 #949, Owner 확인 2026-11-21
 - 재검토 조건: 사람 조회 경로가 SSM 밖으로 늘 때, pgAudit log 양이 CloudWatch 비용 기준을 넘을 때, 백오피스 host에 공개 ingress가 생길 때
-- 출처: #239, #862, #949, Owner 확인 2026-11-04·2026-11-21
+- 출처: #239, #862, #949, #958, Owner 확인 2026-11-04·2026-11-21
+- pack 결정: 없음
+
+#### sec.trust.authz-model/backoffice
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: 선택지 밖: 역할 묶음 + 세부 권한. 세부 권한(`admin:<자원>:<행동>`)은 `@repo/shared/backoffice`에, 역할 묶음은 백오피스 API
+  code에 고정하고 DB에는 계정별 역할 부여(`AdminRoleAssignment`)만 둔다. 세션의 권한은 활성 역할에서 계산하고 전역 guard가 route마다
+  선언한 권한과 대조한다(규칙이 없는 route는 거부). 제한 권한(`admin:restricted:*`)은 어느 역할에도 없다(`OA-R11`). 역할 부여·회수는
+  승인 요청을 거친다(`OA-R9`)
+- 근거: 운영자가 몇 명이고 관리자 기능이 다루는 대상은 운영자 계정·승인 요청·감사라 사용자별 data 소유 관계가 없다. 대상 확인은
+  업무 code가 한다(자기 비활성화 거부, 요청자만 취소, 결정자 ≠ 요청자). 역할 밖 조합이 필요하면 역할을 더한다. 모든 route의 규칙은
+  route 전수 표 test가 고정한다. 역할과 권한 상수를 바꾸는 비용은 크지 않지만 모든 route의 판정과 test를 다시 본다
+- 기각한 대안: 계정마다 세부 권한 직접 부여(권한 조합이 계정마다 흩어져 점검이 어렵다), 구분 없는 관리자(제5조 제1항의 차등 부여에
+  어긋난다), 화면 표시로만 막음(요청을 직접 보내면 막히지 않는다)
+- 재검토 조건: 역할 밖 권한 조합이 세 번 넘게 필요할 때, RRPD 열람 기능이 제한 권한 역할을 만들 때, 사용자 개인정보를 다루는 백오피스
+  화면이 생길 때(대상 단위 확인)
+- 출처: #958, Owner 확인 2026-11-12
+- pack 결정: [sec.trust.authz-model](../../development/agent-workflows/domain/swe-web/security-privacy.md#sectrustauthz-model)
+
+#### sec.trust.admin-authentication
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: [operator-access.md](../../policies/operator-access.md) `OA-R2`~`OA-R5`. 관리자 계정은 사용자 계정과 분리하고 비밀번호와
+  passkey(`@simplewebauthn/server`)를 모두 통과해야 로그인한다. TOTP(RFC 6238, `node:crypto` 직접 구현)·복구 code는 passkey 재등록 전용
+  session만 연다
+- 근거: passkey는 origin에 묶여 phishing에 강하고, 예비 수단이 관리자 권한을 열지 않으므로 TOTP·복구 code가 새어도 새 passkey 등록과
+  로그아웃만 할 수 있다(그때마다 경보). 운영자 계정이 몇 개라 계정 잠금(5회·15분)과 process 안 빈도 제한으로 추측 시도를 막는다
+- 기각한 대안: 비밀번호 + TOTP(phishing에 약하다), 외부 IdP SSO(처리위탁 고지가 늘고 운영자 한 명 규모에 무겁다), TOTP library 도입(RFC
+  6238 test vector로 확인하는 짧은 code라 새 dependency를 들이지 않는다)
+- 재검토 조건: 운영자가 백오피스를 SSM 포트 포워딩 밖에서 열 때, passkey를 쓸 수 없는 운영 환경이 생길 때
+- 출처: #958, Owner 확인 2026-11-04·2026-11-12
+- pack 결정: 없음
+
+#### sec.trust.separation-of-duties
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: [operator-access.md](../../policies/operator-access.md) `OA-R9`~`OA-R11`. 역할 부여·회수와 RRPD 열람은 요청자와 다른 운영자가
+  결정하고, 승인 권한 계정이 요청자 하나뿐일 때만 재인증·사유·자기 승인 표시·경보로 자기 요청을 승인한다(RRPD 열람은 근거 문서 번호도
+  필수). 첫 owner는 SSM 일회성 명령의 15분 1회용 code로 만든다
+- 근거: 운영자가 한 명인 동안 예외가 없으면 첫 역할 부여와 법령상 요청 대응이 막힌다. 예외는 결정 때 승인 계정 수를 세어 둘째 승인
+  계정이 생기면 저절로 꺼지고, 감사 표시와 월 점검(`OA-R8`)이 사후 확인한다. 승인 계정을 요청자 하나만 남기는 비활성화는 거부하고
+  그 역할을 승인 요청으로 먼저 회수하게 해(Owner 2026-11-22) 한 운영자가 다른 승인자를 비활성화해 예외를 다시 여는 길을 막는다.
+  DB CHECK가 상태·결정자·자기 승인 표시의 짝을 지킨다
+- 기각한 대안: 예외 없음(둘째 운영자 전에는 역할 부여와 RRPD 열람을 할 수 없다), 직무 분리 안 함(한 운영자가 자기 권한을 표시 없이
+  넓힌다), 첫 계정을 seed나 환경변수로 만듦(배포 산출물에 관리자 credential이 남는다)
+- 재검토 조건: 운영자가 둘 이상이 될 때(예외는 자동으로 꺼짐), legal 게시 승인이 이 틀에 붙을 때, 승인 계정이 둘일 때 상대가
+  연락되지 않아 앱 안에서 그 역할을 회수할 수 없을 때(앱 밖 처리 절차가 필요)
+- 출처: #958, Owner 확인 2026-11-12·2026-11-21
 - pack 결정: 없음
 
 ## data-privacy-secret

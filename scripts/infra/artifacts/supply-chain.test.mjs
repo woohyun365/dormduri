@@ -173,7 +173,8 @@ test('active local, CI and rehearsal surfaces share one PostgreSQL tag and diges
   const postgresImages = inventory.images.filter(({ name }) => name.startsWith('postgres-'));
   const references = new Set(postgresImages.map((image) => resolveImageReference(repoRoot, image)));
 
-  assert.equal(postgresImages.length, 3);
+  // Local development, full-stack rehearsal, API CI and backoffice CI.
+  assert.equal(postgresImages.length, 4);
   assert.ok(postgresImages.every(({ repository }) => repository === 'postgres'));
   assert.equal(references.size, 1);
 
