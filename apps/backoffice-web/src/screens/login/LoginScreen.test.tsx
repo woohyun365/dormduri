@@ -95,4 +95,11 @@ describe('LoginScreen', () => {
     render(<LoginScreen ended="idle" />);
     expect(screen.getByRole('alert')).toHaveTextContent('15분 동안 활동이 없어 접속이 끝났습니다.');
   });
+
+  it('says when the API could not confirm a logout', () => {
+    render(<LoginScreen ended="unconfirmed" />);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '백오피스 API가 로그아웃을 확인하지 못했습니다.',
+    );
+  });
 });

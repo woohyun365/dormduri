@@ -14,7 +14,7 @@ import type {
 import { postBff, type BffResult } from './bff-client';
 
 /**
- * Passkey ceremonies in the browser (`@simplewebauthn/browser`, D-BF3). The API builds the options
+ * Passkey ceremonies in the browser (`@simplewebauthn/browser`, OA-R2). The API builds the options
  * with SimpleWebAuthn and verifies the answer; the BFF has checked the options against the contract,
  * and the browser library validates every field before it calls `navigator.credentials`.
  */

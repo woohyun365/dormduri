@@ -6,6 +6,7 @@ import { callBackofficeApi } from './upstream';
 import { BFF_ERROR_STATUS, type BffErrorCode } from './bff-errors';
 import { checkMutationRequest } from './request-guard';
 import { clearSessionCookie, SESSION_COOKIE_NAME, setSessionCookie } from './session-cookie';
+import { SESSION_ACTIVITY_HEADER } from './session-activity';
 
 /**
  * Every BFF route (`src/app/api/**`) is a POST built here (README §3). In order: the same-origin
@@ -45,7 +46,10 @@ export interface BffMutationSpec<TBody, TUpstream> {
   readonly response: z.ZodType<TUpstream> | null;
   /** Projection for the page. The default passes the parsed body (or 204) through. */
   readonly onSuccess?: (data: TUpstream) => BffSuccess;
-  /** Logout: an already ended session also counts as logged out. */
+  /**
+   * Logout: the cookie goes in every outcome. An already ended session counts as logged out (204);
+   * when the API could not confirm it, the page gets the error and tells the operator.
+   */
   readonly endsSession?: boolean;
 }
 
@@ -141,11 +145,14 @@ export function bffMutation<TBody, TUpstream>(spec: BffMutationSpec<TBody, TUpst
       responseSchema: spec.response,
     });
 
-    if (result.kind === 'unavailable') {
-      return bffError('upstream_unavailable');
-    }
-    if (result.kind === 'invalid') {
-      return bffError('upstream_invalid');
+    if (result.kind === 'unavailable' || result.kind === 'invalid') {
+      const response = bffError(
+        result.kind === 'unavailable' ? 'upstream_unavailable' : 'upstream_invalid',
+      );
+      if (spec.endsSession) {
+        clearSessionCookie(response);
+      }
+      return response;
     }
     if (result.kind === 'error') {
       if (ENDED_SESSION_CODES.has(result.code)) {
@@ -156,7 +163,13 @@ export function bffMutation<TBody, TUpstream>(spec: BffMutationSpec<TBody, TUpst
         clearSessionCookie(response);
         return response;
       }
-      return bffError(result.code, result.status);
+      const response = bffError(result.code, result.status);
+      if (spec.endsSession) {
+        clearSessionCookie(response);
+      } else if (token) {
+        response.headers.set(SESSION_ACTIVITY_HEADER, '1');
+      }
+      return response;
     }
 
     if (spec.endsSession) {
@@ -173,6 +186,9 @@ export function bffMutation<TBody, TUpstream>(spec: BffMutationSpec<TBody, TUpst
         : NextResponse.json(success.body, { status: 200 });
     if (success.issueSession) {
       setSessionCookie(response, success.issueSession);
+    }
+    if (spec.access === 'session') {
+      response.headers.set(SESSION_ACTIVITY_HEADER, '1');
     }
     return noStore(response);
   };

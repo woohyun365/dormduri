@@ -8,7 +8,7 @@ export type PageRead<T> =
   { readonly kind: 'ok'; readonly data: T } | { readonly kind: 'forbidden' };
 
 /**
- * A server component read of the backoffice API for one page (D-BF1: per request, no cache). An
+ * A server component read of the backoffice API for one page (README §1: per request, no cache). An
  * ended session goes to the login, a missing permission renders the page's refusal, and anything
  * else the screen cannot use goes to the error boundary.
  */

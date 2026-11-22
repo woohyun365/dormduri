@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { readonly children: ReactNode }) {
-  // Every page renders per request: the CSP nonce exists only on a request (D-BF4, src/proxy.ts),
-  // and the screens read the backoffice API per request without a cache (D-BF1).
+  // Every page renders per request: the CSP nonce exists only on a request (README §5, src/proxy.ts),
+  // and the screens read the backoffice API per request without a cache (README §1).
   await connection();
   return (
     <html lang="ko">

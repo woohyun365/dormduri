@@ -5,13 +5,15 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { SESSION_ACTIVITY_EVENT } from '@/client/bff-client';
 
+/** Idle limit of OA-R3; the API enforces it, this copy only restarts the on-screen countdown. */
 export const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 
 /**
- * Idle notice (OA-R3, plan §15): the screen never asks the API whether the session still lives,
+ * Idle notice (OA-R3, README §4): the screen never asks the API whether the session still lives,
  * because every API request moves the last activity and a poll would keep an idle session open.
- * It counts down from the server's last answer instead, and starts over after a BFF call or a
- * navigation (the next page reads the session on the server). The absolute limit does not move.
+ * It counts down from the server's last answer instead, and starts over after a BFF call that
+ * reached the API or a navigation (the next page reads the session on the server). Activity also
+ * clears a notice shown too early. The absolute limit does not move.
  */
 export function IdleNotice({
   idleRemainingMs,
@@ -38,6 +40,7 @@ export function IdleNotice({
     };
     const onActivity = () => {
       idleDeadline = Date.now() + IDLE_TIMEOUT_MS;
+      setEnded(null);
       schedule();
     };
     schedule();

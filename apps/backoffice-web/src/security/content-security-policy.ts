@@ -1,5 +1,5 @@
 /**
- * Content Security Policy of every page (D-BF4, README §5). The proxy makes a fresh nonce per request
+ * Content Security Policy of every page (README §5). The proxy makes a fresh nonce per request
  * and puts this policy on the request (Next.js reads the nonce from it and adds it to its own
  * scripts) and on the response. `'strict-dynamic'` lets those scripts load the page chunks.
  * Development adds `'unsafe-eval'` only because React's dev build needs it.

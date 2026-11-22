@@ -50,8 +50,8 @@ export function RecoveryScreen({ displayName }: { readonly displayName: string }
 
   async function logout() {
     setPending(true);
-    await postBff('/api/auth/logout');
-    router.replace('/login');
+    const result = await postBff('/api/auth/logout');
+    router.replace(result.ok ? '/login' : '/login?ended=unconfirmed');
     router.refresh();
   }
 

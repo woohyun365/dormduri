@@ -15,7 +15,7 @@ function headers(values: Record<string, string | undefined>): Headers {
   return result;
 }
 
-describe('checkMutationRequest (D-BF4 Origin·Fetch Metadata·Host)', () => {
+describe('checkMutationRequest (README §3 Origin·Fetch Metadata·Host)', () => {
   it('accepts a same-origin request to localhost:4300', () => {
     expect(checkMutationRequest(headers(SAME_ORIGIN))).toEqual({ ok: true });
   });

@@ -13,8 +13,9 @@ export function LogoutButton() {
       disabled={pending}
       onClick={async () => {
         setPending(true);
-        await postBff('/api/auth/logout');
-        router.replace('/login');
+        const result = await postBff('/api/auth/logout');
+        // The BFF dropped the cookie either way; say so when the API could not end the session.
+        router.replace(result.ok ? '/login' : '/login?ended=unconfirmed');
         router.refresh();
       }}
     >

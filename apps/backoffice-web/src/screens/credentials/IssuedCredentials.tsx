@@ -7,7 +7,7 @@ import { errorMessage } from '@/ui/error-messages';
 import { Button, FormMessage, TextField } from '@/ui/forms';
 
 /**
- * TOTP secret and recovery codes appear once, right after they are issued (D-BF3). The screen keeps
+ * TOTP secret and recovery codes appear once, right after they are issued (OA-R2, README §3). The screen keeps
  * them only in memory; leaving it drops them.
  */
 export function RecoveryCodeList({ codes }: { readonly codes: readonly string[] }) {

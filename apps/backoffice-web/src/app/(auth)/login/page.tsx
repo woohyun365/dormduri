@@ -12,5 +12,9 @@ export default async function LoginPage({
     redirect(state.session.scope === 'RECOVERY' ? '/recovery' : '/');
   }
   const { ended } = await searchParams;
-  return <LoginScreen ended={ended === 'idle' || ended === 'expired' ? ended : null} />;
+  return (
+    <LoginScreen
+      ended={ended === 'idle' || ended === 'expired' || ended === 'unconfirmed' ? ended : null}
+    />
+  );
 }

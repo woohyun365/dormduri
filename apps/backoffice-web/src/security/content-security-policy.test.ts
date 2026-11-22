@@ -10,7 +10,7 @@ function directives(policy: string): Map<string, string> {
   );
 }
 
-describe('content security policy (D-BF4)', () => {
+describe('content security policy (README §5)', () => {
   it('holds exactly the directives of the plan with the request nonce', () => {
     const policy = directives(buildContentSecurityPolicy('bm9uY2U=', { development: false }));
     expect(Object.fromEntries(policy)).toEqual({

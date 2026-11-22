@@ -87,7 +87,7 @@ repo-policy lane도 켜져 새 읽기를 그 PR에서 잡습니다(Owner 2026-11
 - `Web`: Next.js Web과 BFF, Storybook
 - `Backoffice API`: NestJS 백오피스 API(관리자 인증·권한·감사, 관리자 기록 정리 작업)
 - `Backoffice Web`: Next.js 백오피스 화면과 BFF(운영자 로그인·계정·권한 요청·감사 화면)
-- `Packages-shared`: Web·API·백오피스 API가 함께 쓰는 contract와 schema
+- `Packages-shared`: Web·API·백오피스 API·백오피스 Web이 함께 쓰는 contract와 schema
 - `Packages-database`: API·백오피스 API가 쓰는 Prisma schema·migration·TypedSQL·grant SQL과 생성 client
 - `Packages-config`: 공통 lint·TypeScript 설정 package
 - `Platform`: CI workflow, container·infra 설정, infra·observability script, GitHub 저장소 설정 파일

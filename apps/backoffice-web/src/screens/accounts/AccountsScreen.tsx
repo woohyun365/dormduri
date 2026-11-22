@@ -19,7 +19,7 @@ import { ROLE_LABELS } from '@/ui/labels';
 
 type Message = { readonly tone: 'error' | 'success'; readonly text: string } | null;
 
-/** Operator accounts and invitations (owner role only, §12 disclosure matrix). */
+/** Operator accounts and invitations (owner role only, README §4). */
 export function AccountsScreen({
   data,
   selfAccountId,

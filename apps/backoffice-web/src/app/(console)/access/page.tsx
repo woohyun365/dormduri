@@ -26,7 +26,7 @@ export default async function AccessPage({
   const [requests, roles, accounts] = await Promise.all([
     readBackoffice('/access/requests', accessRequestListResponseSchema, toSearchParams(query)),
     readBackoffice('/access/roles', roleCatalogResponseSchema),
-    // Names are for the owner role only; others see account ids (§12 disclosure matrix).
+    // Names come with the account list, which needs the owner role; others see account ids (README §4).
     hasPermission(session, 'admin:account:invite')
       ? readBackoffice('/accounts', accountListResponseSchema)
       : Promise.resolve(null),

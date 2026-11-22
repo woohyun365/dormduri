@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { buildContentSecurityPolicy, createNonce } from '@/security/content-security-policy';
 
 /**
- * Request entry of every page: a per-request nonce CSP (D-BF4, plan G2 checked against the Next.js
+ * Request entry of every page: a per-request nonce CSP (README §5, checked against the Next.js
  * 16.4 guide `content-security-policy.md`). Pages render per request, so Next.js reads the nonce
  * from the request header. BFF routes (`/api`) answer JSON with `no-store` and need no CSP.
  */

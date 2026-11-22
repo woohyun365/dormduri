@@ -1,10 +1,10 @@
 import type { NextResponse } from 'next/server';
 
 /**
- * The session token lives only in this cookie (D-BF4, README §3). The page never reads it
+ * The session token lives only in this cookie (README §3). The page never reads it
  * (HttpOnly); it has no Domain and no expiry, so the browser drops it when it closes, and the API's
  * idle and absolute limits end it sooner. `__Host-` is not used: browsers differ on whether
- * http://localhost is a secure page for that prefix (plan G1).
+ * http://localhost is a secure page for that prefix.
  */
 export const SESSION_COOKIE_NAME = 'dormduri_bo_session';
 

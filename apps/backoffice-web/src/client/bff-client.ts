@@ -1,4 +1,5 @@
 import type { BffErrorCode } from '@/bff/bff-errors';
+import { SESSION_ACTIVITY_HEADER } from '@/bff/session-activity';
 
 /**
  * Browser calls to this app's BFF (`/api/**`, README §3). The browser never calls the backoffice API.
@@ -8,7 +9,10 @@ export type BffResult<T> =
   | { readonly ok: true; readonly data: T }
   | { readonly ok: false; readonly status: number; readonly code: BffErrorCode | 'network_error' };
 
-/** Fired after a BFF call reached the API with the session, so the idle countdown starts over. */
+/**
+ * Fired after a BFF call reached the API with the session (the BFF says so with
+ * SESSION_ACTIVITY_HEADER), so the idle countdown starts over.
+ */
 export const SESSION_ACTIVITY_EVENT = 'backoffice:session-activity';
 
 export async function postBff<T = undefined>(
@@ -27,7 +31,7 @@ export async function postBff<T = undefined>(
   } catch {
     return { ok: false, status: 0, code: 'network_error' };
   }
-  if (response.status !== 401 && response.status !== 403) {
+  if (response.headers.get(SESSION_ACTIVITY_HEADER) === '1') {
     window.dispatchEvent(new Event(SESSION_ACTIVITY_EVENT));
   }
   if (response.ok) {

@@ -23,7 +23,7 @@ afterEach(() => {
   navigation.search = '';
 });
 
-describe('IdleNotice (OA-R3, plan §15)', () => {
+describe('IdleNotice (OA-R3, README §4)', () => {
   it('shows the idle notice when the server-given time runs out, without asking anyone', () => {
     render(<IdleNotice idleRemainingMs={60_000} absoluteRemainingMs={8 * 3_600_000} />);
     act(() => vi.advanceTimersByTime(59_999));
@@ -66,6 +66,16 @@ describe('IdleNotice (OA-R3, plan §15)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       '로그인한 지 8시간이 지나 접속이 끝났습니다.',
     );
+  });
+
+  it('clears a notice shown too early once activity proves the session is alive', () => {
+    render(<IdleNotice idleRemainingMs={1_000} absoluteRemainingMs={8 * 3_600_000} />);
+    act(() => vi.advanceTimersByTime(1_000));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    act(() => {
+      window.dispatchEvent(new Event(SESSION_ACTIVITY_EVENT));
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('counts a navigation as activity (the next page reads the session on the server)', () => {

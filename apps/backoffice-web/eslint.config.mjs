@@ -25,7 +25,7 @@ const otherAppImportPatterns = [
   },
 ];
 
-// D-BF1: state changes go through route handlers (src/app/api/**), never server actions.
+// README §1: state changes go through route handlers (src/app/api/**), never server actions.
 const serverActionDirective = {
   selector: "ExpressionStatement[directive='use server']",
   message: `server action('use server')은 쓰지 않습니다. 상태 변경은 src/app/api/**의 BFF route handler가 받습니다. ${readme}`,

@@ -260,4 +260,70 @@ describe('bffMutation', () => {
     expect(noCookie.status).toBe(204);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('logout still drops the cookie when the API cannot confirm it, and says so', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'));
+    const unreachable = await logout(
+      post('/api/auth/logout', { cookie: 'session-token' }),
+      noParams,
+    );
+    expect(unreachable.status).toBe(503);
+    expect(await unreachable.json()).toEqual({ error: { code: 'upstream_unavailable' } });
+    expect(unreachable.headers.getSetCookie()[0]).toMatch(/Max-Age=0/u);
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(500, { error: { code: 'internal_error' } }));
+    const failed = await logout(post('/api/auth/logout', { cookie: 'session-token' }), noParams);
+    expect(failed.status).toBe(500);
+    expect(failed.headers.getSetCookie()[0]).toMatch(/Max-Age=0/u);
+  });
+
+  it('marks session activity only when the API answered the session', async () => {
+    const approveCall = () =>
+      approve(
+        post(`/api/access/requests/${ID}/approve`, {
+          cookie: 'session-token',
+          body: { contentDigest: 'a'.repeat(64) },
+        }),
+        { params: Promise.resolve({ requestId: ID }) },
+      );
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, ACCESS_REQUEST));
+    expect((await approveCall()).headers.get('x-backoffice-session-activity')).toBe('1');
+
+    // A permission refusal comes after the API moved the session's activity.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(403, { error: { code: 'reauthentication_required' } }),
+    );
+    expect((await approveCall()).headers.get('x-backoffice-session-activity')).toBe('1');
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(401, { error: { code: 'session_expired' } }));
+    expect((await approveCall()).headers.get('x-backoffice-session-activity')).toBeNull();
+
+    fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'));
+    expect((await approveCall()).headers.get('x-backoffice-session-activity')).toBeNull();
+
+    const refused = await approve(
+      post(`/api/access/requests/${ID}/approve`, {
+        cookie: 'session-token',
+        body: { contentDigest: 'short' },
+      }),
+      { params: Promise.resolve({ requestId: ID }) },
+    );
+    expect(refused.status).toBe(400);
+    expect(refused.headers.get('x-backoffice-session-activity')).toBeNull();
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        session: {
+          token: 't'.repeat(43),
+          scope: 'FULL',
+          absoluteExpiresAt: '2026-11-22T12:00:00.000Z',
+        },
+      }),
+    );
+    const login = await loginPasskey(
+      post('/api/auth/login/passkey', { body: PASSKEY_BODY }),
+      noParams,
+    );
+    expect(login.headers.get('x-backoffice-session-activity')).toBeNull();
+  });
 });

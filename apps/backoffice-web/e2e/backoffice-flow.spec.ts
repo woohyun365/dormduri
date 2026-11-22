@@ -1,12 +1,19 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { totpCode } from './support/totp';
-import { addVirtualAuthenticator } from './support/virtual-authenticator';
+import {
+  addVirtualAuthenticator,
+  replaceVirtualAuthenticator,
+  type VirtualAuthenticator,
+} from './support/virtual-authenticator';
 
 /**
- * Registration → login → access request → approval → audit (plan §1 success criterion 3), with the
- * owner on a platform passkey and the second operator on a security key. Every page is checked for
- * CSP violations; the session cookie and the response headers are checked on the real responses.
+ * Registration → login → access request → approval → audit against the real backoffice API, with
+ * the owner on a platform passkey and the second operator on a security key, then every other BFF
+ * route once (rejection, cancellation, invitation revoke, deactivation, monthly review, credential
+ * reissue, recovery logins and a recovery passkey), so each route meets the real API's status and
+ * body. Every page is checked for CSP violations; the session cookie and the response headers are
+ * checked on the real responses.
  */
 
 const OWNER = {
@@ -20,17 +27,31 @@ const OPERATOR = {
   name: '감사 운영자',
 };
 
+const LEAVER = {
+  email: 'leaver@backoffice.test',
+  password: 'leaver e2e password 2026',
+  name: '퇴직 운영자',
+};
+
+/** BFF routes that answered 2xx in the flow, path ids replaced by `:id`. */
+const reachedRoutes = new Set<string>();
+const UUID_SEGMENT = /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=\/)/gu;
+
 interface Operator {
   readonly context: BrowserContext;
   readonly page: Page;
   readonly cspViolations: string[];
+  authenticator: VirtualAuthenticator;
 }
 
 test.describe.configure({ mode: 'serial' });
 
 let owner: Operator;
 let operator: Operator;
+let leaver: Operator | undefined;
 let operatorCode: string;
+let ownerTotpSecret: string;
+let ownerRecoveryCode: string;
 
 async function openOperator(
   browser: import('@playwright/test').Browser,
@@ -44,8 +65,14 @@ async function openOperator(
       cspViolations.push(message.text());
     }
   });
-  await addVirtualAuthenticator(context, page, transport);
-  return { context, page, cspViolations };
+  page.on('response', (response) => {
+    const url = new URL(response.url());
+    if (url.pathname.startsWith('/api/') && response.status() < 300) {
+      reachedRoutes.add(url.pathname.replace(UUID_SEGMENT, '/:id'));
+    }
+  });
+  const authenticator = await addVirtualAuthenticator(context, page, transport);
+  return { context, page, cspViolations, authenticator };
 }
 
 async function register(
@@ -63,6 +90,7 @@ async function register(
   await expect(page.getByRole('list', { name: '복구 code' }).getByRole('listitem')).toHaveCount(10);
   if (confirmTotp) {
     const secret = (await page.getByTestId('totp-secret').textContent())!.trim();
+    ownerTotpSecret = secret;
     await page.getByLabel('인증 앱의 6자리 code', { exact: true }).fill(totpCode(secret));
     await page.getByRole('button', { name: 'TOTP 확인' }).click();
     await expect(
@@ -82,12 +110,55 @@ test.beforeAll(async ({ browser }) => {
 test.afterEach(() => {
   expect(owner.cspViolations).toEqual([]);
   expect(operator.cspViolations).toEqual([]);
+  expect(leaver?.cspViolations ?? []).toEqual([]);
 });
 
 test.afterAll(async () => {
   await owner?.context.close();
   await operator?.context.close();
+  await leaver?.context.close();
 });
+
+/**
+ * A code the API has not used yet: the next 30-second step. The API accepts ±1 step and each step
+ * once, so a login right after a confirmation with the current code still gets a fresh one.
+ */
+function nextTotpCode(secret: string): string {
+  return totpCode(secret, Date.now() + 30_000);
+}
+
+async function loginWithPassword({ page }: Operator, email: string, password: string) {
+  await page.goto('/login');
+  await page.getByLabel('이메일', { exact: true }).fill(email);
+  await page.getByLabel('비밀번호', { exact: true }).fill(password);
+  await page.getByRole('button', { name: '다음' }).click();
+}
+
+async function requestRole(
+  { page }: Operator,
+  kind: 'ROLE_GRANT' | 'ROLE_REVOKE',
+  role: 'OWNER' | 'AUDITOR' | 'LEGAL_EDITOR',
+) {
+  await page.goto('/access');
+  const form = page.getByRole('form', { name: '권한 요청 만들기' });
+  await form.getByLabel('종류', { exact: true }).selectOption(kind);
+  await form
+    .getByLabel('대상 운영자', { exact: true })
+    .selectOption({ label: `${OPERATOR.name} (${OPERATOR.email})` });
+  await form.getByLabel('역할', { exact: true }).selectOption(role);
+  await form.getByRole('button', { name: '요청 만들기' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: '권한 요청을 만들었습니다.' }),
+  ).toBeVisible();
+}
+
+function pendingRequest(page: Page, kind: string, role: string) {
+  return page
+    .getByRole('listitem')
+    .filter({ hasText: kind })
+    .filter({ hasText: role })
+    .filter({ hasText: '상태 대기' });
+}
 
 test('the first owner registers with a platform passkey and confirms TOTP', async () => {
   const code = process.env.BACKOFFICE_E2E_BOOTSTRAP_CODE;
@@ -133,21 +204,25 @@ test('the owner logs out and logs in again with password and passkey; an idle pa
   await page.getByRole('button', { name: 'passkey로 로그인' }).click();
   await expect(page.getByRole('heading', { name: `${OWNER.name}님, 안녕하세요` })).toBeVisible();
 
-  // No poll and no prefetch: an open page must not keep the idle session alive (plan §15). A fresh
-  // document load mounts the menu links, so a viewport or hover prefetch would show up as an RSC
-  // request, and a poll as a BFF call.
+  // No poll and no prefetch: an open page must not keep the idle session alive (README §4). A
+  // second page of the same session runs a fake clock past the 15-minute limit; every request it
+  // sends after the first render is counted (a poll, a prefetch or any other fetch), and the idle
+  // notice must come from the countdown alone.
+  const idle = await owner.context.newPage();
+  await idle.clock.install();
+  await idle.goto('/');
+  await expect(idle.getByRole('heading', { name: `${OWNER.name}님, 안녕하세요` })).toBeVisible();
   const requests: string[] = [];
-  page.on('request', (request) => {
-    const url = new URL(request.url());
-    if (url.pathname.startsWith('/api/') || url.searchParams.has('_rsc')) {
-      requests.push(`${request.method()} ${url.pathname}`);
-    }
+  idle.on('request', (request) => {
+    requests.push(`${request.method()} ${new URL(request.url()).pathname}`);
   });
-  await page.goto('/');
-  await expect(page.getByRole('heading', { name: `${OWNER.name}님, 안녕하세요` })).toBeVisible();
-  await page.getByRole('link', { name: '권한 요청' }).hover();
-  await page.waitForTimeout(3_000);
+  await idle.getByRole('link', { name: '권한 요청' }).hover();
+  await idle.clock.runFor(16 * 60 * 1000);
+  await expect(
+    idle.getByRole('alert').filter({ hasText: '15분 동안 활동이 없어 접속이 끝났습니다.' }),
+  ).toBeVisible();
   expect(requests).toEqual([]);
+  await idle.close();
 });
 
 test('the owner invites an operator who registers with a security key', async () => {
@@ -214,11 +289,179 @@ test('the operator, now an auditor, finds the approval in the audit list', async
   await expect(grants).toHaveCount(2);
   await expect(grants.filter({ hasText: 'system' })).toHaveCount(1);
   await expect(grants.filter({ hasText: '운영자' })).toHaveCount(1);
-  // The auditor reads actors by id; names are for the owner role (§12 disclosure matrix).
+  // The auditor reads actors by id; names come with the account list, which needs the owner role.
   await expect(table).not.toContainText(OWNER.name);
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
+});
+
+test('a second owner rejects a request and the owner cancels one', async () => {
+  // The auditor becomes a second owner (still a self-approval: the owner is the only approver).
+  await requestRole(owner, 'ROLE_GRANT', 'OWNER');
+  const grant = pendingRequest(owner.page, '역할 부여', '소유자(owner)');
+  await grant.getByLabel('자기 승인 사유(필수)', { exact: true }).fill('둘째 승인자를 둠');
+  await grant.getByRole('button', { name: '승인' }).click();
+  await expect(
+    owner.page.getByRole('status').filter({ hasText: '요청을 승인했습니다.' }),
+  ).toBeVisible();
+
+  // With two approvers the other owner decides, and a rejection needs a reason.
+  await requestRole(owner, 'ROLE_REVOKE', 'AUDITOR');
+  await operator.page.goto('/access');
+  const revoke = pendingRequest(operator.page, '역할 회수', '감사 열람(auditor)');
+  await revoke.getByLabel('결정 사유(거절할 때 필수)', { exact: true }).fill('감사 담당을 유지함');
+  await revoke.getByRole('button', { name: '거절' }).click();
+  await expect(
+    operator.page.getByRole('status').filter({ hasText: '요청을 거절했습니다.' }),
+  ).toBeVisible();
+  await expect(
+    operator.page.getByRole('listitem').filter({ hasText: '결정 사유: 감사 담당을 유지함' }),
+  ).toContainText('상태 거절');
+
+  await requestRole(owner, 'ROLE_GRANT', 'LEGAL_EDITOR');
+  await pendingRequest(owner.page, '역할 부여', '법적 문서 편집(legal-editor)')
+    .getByRole('button', { name: '요청 취소' })
+    .click();
+  await expect(
+    owner.page.getByRole('status').filter({ hasText: '요청을 취소했습니다.' }),
+  ).toBeVisible();
+});
+
+test('the owner revokes an invitation, deactivates an account and records the monthly review', async ({
+  browser,
+}) => {
+  const { page } = owner;
+  await page.goto('/accounts');
+  const invite = page.getByRole('form', { name: '운영자 초대' });
+  await invite.getByLabel('이메일', { exact: true }).fill(LEAVER.email);
+  await invite.getByLabel('이름', { exact: true }).fill(LEAVER.name);
+  await invite.getByRole('button', { name: '초대 code 만들기' }).click();
+  const leaverCode = (await page.getByTestId('invitation-code').textContent())!.trim();
+  leaver = await openOperator(browser, 'usb');
+  await register(leaver, leaverCode, LEAVER.password, { confirmTotp: false });
+  await expect(
+    leaver.page.getByRole('heading', { name: `${LEAVER.name}님, 안녕하세요` }),
+  ).toBeVisible();
+
+  await page.goto('/accounts');
+  await invite.getByLabel('이메일', { exact: true }).fill('unused@backoffice.test');
+  await invite.getByLabel('이름', { exact: true }).fill('쓰지 않을 초대');
+  await invite.getByRole('button', { name: '초대 code 만들기' }).click();
+  await expect(page.getByTestId('invitation-code')).toBeVisible();
+  await page.goto('/accounts');
+  await page
+    .getByRole('listitem')
+    .filter({ hasText: 'unused@backoffice.test' })
+    .getByRole('button', { name: '초대 취소' })
+    .click();
+  await expect(page.getByRole('status').filter({ hasText: '초대를 취소했습니다.' })).toBeVisible();
+
+  await page
+    .getByRole('row')
+    .filter({ hasText: LEAVER.name })
+    .getByRole('button', { name: '비활성화' })
+    .click();
+  const deactivate = page.getByRole('form', { name: '계정 비활성화' });
+  await deactivate.getByLabel('비활성화 사유', { exact: true }).fill('퇴직');
+  await deactivate.getByRole('button', { name: '비활성화' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: '계정을 비활성화했습니다.' }),
+  ).toBeVisible();
+  const leaverRow = page.getByRole('row').filter({ hasText: LEAVER.name });
+  await expect(leaverRow.getByRole('cell', { name: '비활성', exact: true })).toBeVisible();
+  await expect(leaverRow.getByRole('button', { name: '비활성화' })).toHaveCount(0);
+
+  await page.goto('/audit');
+  const review = page.getByRole('form', { name: '월 점검 기록' });
+  await review.getByLabel('점검 메모(선택)', { exact: true }).fill('11월 대조 이상 없음');
+  await review.getByRole('button', { name: '점검 완료 기록' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: '점검 완료를 기록했습니다.' }),
+  ).toBeVisible();
+});
+
+test('the owner reissues TOTP and recovery codes and adds a passkey on another device', async () => {
+  const { page } = owner;
+  await page.goto('/security');
+  await page.getByRole('button', { name: 'TOTP 새로 발급' }).click();
+  ownerTotpSecret = (await page.getByTestId('totp-secret').textContent())!.trim();
+  await page.getByLabel('인증 앱의 6자리 code', { exact: true }).fill(totpCode(ownerTotpSecret));
+  await page.getByRole('button', { name: 'TOTP 확인' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'TOTP를 확인했습니다.' })).toBeVisible();
+
+  await page.getByRole('button', { name: /^복구 code 새로 발급/u }).click();
+  const codes = page.getByRole('list', { name: '복구 code' }).getByRole('listitem');
+  await expect(codes).toHaveCount(10);
+  ownerRecoveryCode = (await codes.first().textContent())!.trim();
+
+  // The re-authentication above is recent, so the new device's passkey needs no second prompt.
+  owner.authenticator = await replaceVirtualAuthenticator(owner.authenticator, 'usb');
+  await page
+    .getByRole('form', { name: 'passkey 추가' })
+    .getByRole('button', { name: 'passkey 추가' })
+    .click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'passkey를 추가했습니다.' }),
+  ).toBeVisible();
+});
+
+test('the owner logs in with TOTP and with a recovery code; a recovery session adds a passkey', async () => {
+  const { page } = owner;
+  await page.getByRole('button', { name: '로그아웃' }).click();
+  await expect(page.getByRole('heading', { name: '백오피스 로그인' })).toBeVisible();
+
+  await loginWithPassword(owner, OWNER.email, OWNER.password);
+  await page.getByRole('button', { name: 'TOTP code로 복구 로그인' }).click();
+  await page.getByLabel('TOTP code(6자리)', { exact: true }).fill(nextTotpCode(ownerTotpSecret));
+  await page.getByRole('button', { name: '복구 로그인' }).click();
+  await expect(page.getByRole('heading', { name: '복구 로그인' })).toBeVisible();
+  owner.authenticator = await replaceVirtualAuthenticator(owner.authenticator, 'internal');
+  await page.getByRole('button', { name: '새 passkey 등록' }).click();
+  await expect(page.getByText('새 passkey를 등록했습니다.')).toBeVisible();
+  await page.getByRole('button', { name: '로그아웃' }).click();
+  await expect(page.getByRole('heading', { name: '백오피스 로그인' })).toBeVisible();
+
+  await loginWithPassword(owner, OWNER.email, OWNER.password);
+  await page.getByRole('button', { name: '복구 code로 복구 로그인' }).click();
+  await page.getByLabel('복구 code', { exact: true }).fill(ownerRecoveryCode);
+  await page.getByRole('button', { name: '복구 로그인' }).click();
+  await expect(page.getByRole('heading', { name: '복구 로그인' })).toBeVisible();
+  await page.getByRole('button', { name: '로그아웃' }).click();
+
+  // The passkey added in the recovery session logs in.
+  await loginWithPassword(owner, OWNER.email, OWNER.password);
+  await page.getByRole('button', { name: 'passkey로 로그인' }).click();
+  await expect(page.getByRole('heading', { name: `${OWNER.name}님, 안녕하세요` })).toBeVisible();
+});
+
+test('the flow reached every BFF route through the real backoffice API', () => {
+  expect([...reachedRoutes].sort()).toEqual(
+    [
+      '/api/access/requests',
+      '/api/access/requests/:id/approve',
+      '/api/access/requests/:id/cancel',
+      '/api/access/requests/:id/reject',
+      '/api/accounts/:id/deactivate',
+      '/api/accounts/invitations',
+      '/api/accounts/invitations/:id/revoke',
+      '/api/audit/reviews',
+      '/api/auth/login/passkey',
+      '/api/auth/login/password',
+      '/api/auth/login/recovery-code',
+      '/api/auth/login/totp',
+      '/api/auth/logout',
+      '/api/auth/passkeys',
+      '/api/auth/passkeys/options',
+      '/api/auth/reauthentication',
+      '/api/auth/reauthentication/options',
+      '/api/auth/recovery-codes',
+      '/api/auth/registration',
+      '/api/auth/registration/options',
+      '/api/auth/totp',
+      '/api/auth/totp/confirm',
+    ].sort(),
+  );
 });
 
 test('state-changing BFF routes refuse forged origins and missing fetch metadata', async ({

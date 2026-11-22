@@ -18,7 +18,7 @@ function attributes(header: string): Map<string, string> {
   );
 }
 
-describe('session cookie (D-BF4)', () => {
+describe('session cookie (README §3)', () => {
   it('is dormduri_bo_session, HttpOnly, Secure, SameSite=Strict, Path=/ with no Domain or expiry', () => {
     const response = NextResponse.json({});
     setSessionCookie(response, 'opaque-token');
