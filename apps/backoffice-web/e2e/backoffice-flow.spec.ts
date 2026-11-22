@@ -386,6 +386,7 @@ test('the owner reissues TOTP and recovery codes and adds a passkey on another d
   await page.goto('/security');
   await page.getByRole('button', { name: 'TOTP 새로 발급' }).click();
   ownerTotpSecret = (await page.getByTestId('totp-secret').textContent())!.trim();
+  await expect(page.getByText('확인한 TOTP가 없습니다.')).toBeVisible();
   await page.getByLabel('인증 앱의 6자리 code', { exact: true }).fill(totpCode(ownerTotpSecret));
   await page.getByRole('button', { name: 'TOTP 확인' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'TOTP를 확인했습니다.' })).toBeVisible();
@@ -482,5 +483,11 @@ test('state-changing BFF routes refuse forged origins and missing fetch metadata
     expect(response.status()).toBe(403);
     expect(await response.json()).toEqual({ error: { code: 'forbidden_origin' } });
   }
+  // A page request another localhost port or site caused never renders (and never reads a session).
+  for (const site of ['same-site', 'cross-site']) {
+    const page = await api.get('/login', { headers: { 'sec-fetch-site': site } });
+    expect(page.status()).toBe(403);
+  }
+  expect((await api.get('/login', { headers: { 'sec-fetch-site': 'none' } })).status()).toBe(200);
   await api.dispose();
 });

@@ -65,6 +65,39 @@ export function bffError(code: BffErrorCode, status?: number): NextResponse {
   return noStore(NextResponse.json({ error: { code } }, { status: resolved }));
 }
 
+/** The body as text, or null past MAX_BODY_BYTES: reading stops there instead of buffering it all. */
+async function readCapped(request: NextRequest): Promise<string | null> {
+  const declared = Number(request.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    return null;
+  }
+  if (!request.body) {
+    return '';
+  }
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    total += value.byteLength;
+    if (total > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
 async function readJsonBody<TBody>(
   request: NextRequest,
   schema: z.ZodType<TBody>,
@@ -73,8 +106,8 @@ async function readJsonBody<TBody>(
   if (!/^application\/json(?:\s*;|$)/iu.test(contentType)) {
     return { ok: false, response: bffError('unsupported_media_type') };
   }
-  const text = await request.text();
-  if (new TextEncoder().encode(text).byteLength > MAX_BODY_BYTES) {
+  const text = await readCapped(request);
+  if (text === null) {
     return { ok: false, response: bffError('invalid_request', 400) };
   }
   let json: unknown;

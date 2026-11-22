@@ -41,7 +41,7 @@
 - 모든 BFF route는 POST다. route wrapper(`src/bff/mutation-route.ts`)는 차례로 ① `Origin`이 `http://localhost:4300`이고
   `Sec-Fetch-Site`가 `same-origin`이며 `Host`가 `localhost:4300`인지(하나라도 없거나 다르면 403 `forbidden_origin`), ② path id가
   UUID인지(아니면 404), ③ session이 필요한 route에 cookie가 있는지(없으면 401), ④ 본문이 `application/json`이고(아니면 415)
-  64 KiB 이하이며 shared 요청 schema에 맞는지(아니면 400)를 본 뒤에만 API를 한 번 부른다. 앞 단계에서 거절한 요청은 API에 닿지
+  64 KiB 이하이며(넘으면 그 자리에서 읽기를 멈춤) shared 요청 schema에 맞는지(아니면 400)를 본 뒤에만 API를 한 번 부른다. 앞 단계에서 거절한 요청은 API에 닿지
   않는다. 모든 응답은 `Cache-Control: no-store`다.
 - `SameSite=Strict`는 같은 site인 다른 localhost port(사용자 Web 개발 server 3000, Grafana 터널 3001)의 요청을 막지 못한다. 위
   출처 대조가 browser가 보내는 위조 요청을 막고, 운영자 컴퓨터 안 process가 cookie를 재사용하는 것은 막지 못한다(전용 browser
@@ -67,6 +67,9 @@
 
 ## 5. 보안 header
 
+- `src/proxy.ts`는 `Sec-Fetch-Site`가 `same-site`·`cross-site`인 page 요청을 403으로 거부한다. 다른 localhost port page의 이미지·
+  링크도 `SameSite=Strict` cookie를 싣고, page를 그리면 session을 읽어 활동 시각을 옮기기 때문이다. 운영자의 page 요청은 직접 연
+  것(`none`)과 앱 안 이동(`same-origin`)뿐이다.
 - `src/proxy.ts`가 요청마다 128 bit nonce를 만들어 CSP를 요청 header(Next.js가 거기서 nonce를 읽어 자기 script에 붙인다)와
   응답 header에 둔다: `default-src 'self'; script-src 'self' 'nonce-…' 'strict-dynamic'; connect-src 'self'; img-src 'self'
 data:; frame-ancestors 'none'; form-action 'self'; base-uri 'none'; object-src 'none'`. 개발 server만 `'unsafe-eval'`을 더한다.

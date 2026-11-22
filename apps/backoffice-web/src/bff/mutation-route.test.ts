@@ -187,6 +187,12 @@ describe('bffMutation', () => {
     ],
     ['malformed JSON', { body: '{', raw: true }, 400, 'invalid_request'],
     [
+      'a body over 64 KiB',
+      { body: { contentDigest: 'a'.repeat(64), reason: 'r'.repeat(70 * 1024) } },
+      400,
+      'invalid_request',
+    ],
+    [
       'a form post',
       { body: 'a=1', raw: true, contentType: 'application/x-www-form-urlencoded' },
       415,
@@ -206,6 +212,37 @@ describe('bffMutation', () => {
     const response = await approve(request, { params: Promise.resolve({ requestId: ID }) });
     expect(response.status).toBe(status);
     expect(await response.json()).toEqual({ error: { code } });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('stops reading a body once it passes 64 KiB instead of buffering all of it', async () => {
+    const chunk = new TextEncoder().encode('a'.repeat(8 * 1024));
+    let pulled = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (pulled >= 10 * 1024 * 1024) {
+          controller.close();
+          return;
+        }
+        pulled += chunk.byteLength;
+        controller.enqueue(chunk);
+      },
+    });
+    // A streamed body (Node needs `duplex` for it); NextRequest wraps the standard Request.
+    const streamed = new Request(`http://localhost:4300/api/access/requests/${ID}/approve`, {
+      method: 'POST',
+      headers: {
+        ...SAME_ORIGIN,
+        'content-type': 'application/json',
+        cookie: `${SESSION_COOKIE_NAME}=session-token`,
+      },
+      body,
+      duplex: 'half',
+    } as RequestInit);
+    const request = new NextRequest(streamed);
+    const response = await approve(request, { params: Promise.resolve({ requestId: ID }) });
+    expect(response.status).toBe(400);
+    expect(pulled).toBeLessThan(128 * 1024);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

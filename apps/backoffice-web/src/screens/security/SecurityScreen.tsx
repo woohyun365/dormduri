@@ -72,6 +72,8 @@ export function SecurityScreen({
       return;
     }
     setTotp(result.data);
+    // The new secret replaces the confirmed one until it is confirmed too.
+    router.refresh();
   }
 
   async function reissueRecoveryCodes() {
