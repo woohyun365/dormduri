@@ -367,3 +367,21 @@ test('both knu-review skills carry the same dispatch steps in the same order (P6
     'step 3 points at the section',
   );
 });
+
+// P6 ③ review round 1 (m1-F1·m2-F1): the review-run paths are the subject paths of the Dispatch 전 단계 section, and
+// that section runs before step 1 registers the dispatch, so a failed check or a self-consistency fix comes before it.
+test('Codex review-run paths are the subject paths and the dispatch steps run before registration', () => {
+  const text = read(skillPath('knu-review'));
+  const steps = text.split(/\n(?=\d+\. )/u);
+  const first = (steps.find((step) => step.startsWith('1. ')) ?? '').replace(/\s+/gu, ' ');
+  const link = first.indexOf('[Dispatch 전 단계](#dispatch-전-단계)');
+  assert.ok(link >= 0, 'step 1 points at the section');
+  assert.ok(link < first.indexOf('codex:delegate -- review-run'), 'before the review-run command');
+  assert.ok(first.includes('그 소비자·실행 경로'), 'step 1 paths name the consumers');
+  const flat = text.replace(/\s+/gu, ' ');
+  assert.ok(
+    !flat.includes('리뷰 대상 경로는 lane이나 Parent가 바꾼 파일입니다.'),
+    'no changed-files-only paths',
+  );
+  assert.ok(!flat.includes('읽기 범위(변경 파일)'), 'the read range is not changed files only');
+});

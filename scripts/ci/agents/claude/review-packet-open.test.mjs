@@ -331,3 +331,33 @@ test('registry entries, expiry, manifest shapes and path errors keep the states 
     assert.equal(errors.length, 1, paths);
   }
 });
+
+// P6 ③ review round 1 (m2-F2·m1-F6): an unreadable registry task may be the basis task of any packet, so the check
+// blocks (exit 1) instead of reading the packet as closed or not open.
+test('an unreadable registry task blocks the check because its packet is unknown', async (t) => {
+  const { checkOpenPackets, main } = await load();
+  const r = registry(t);
+  r.packet('a0000001-00000001', {
+    ...bound,
+    settledBy: r.task('a0000001-00000001', { completed: true, issuedAt: at('09:00') }),
+  });
+  const run = () => {
+    const lines = [];
+    const code = main(['--paths', TARGET, '--root', r.root], {
+      log: (line) => lines.push(line),
+      error: (line) => lines.push(line),
+    });
+    return { code, out: lines.join('\n') };
+  };
+  // Control: every task record is readable and the packet is closed.
+  assert.equal(run().code, 0);
+  // A task record cut short while it was written: the packet may have been registered again.
+  mkdirSync(join(r.root, TASKS, 'ffffffff-cut-short'));
+  writeFileSync(join(r.root, TASKS, 'ffffffff-cut-short', 'task.json'), '{"record":{"version":1,');
+  const result = checkOpenPackets({ root: r.root, paths: [TARGET], now: Date.parse(NOW) });
+  assert.equal(result.summary.unreadableTasks, 1);
+  assert.equal(result.summary.blocking, true);
+  const { code, out } = run();
+  assert.equal(code, 1);
+  assert.match(out, /unreadableTasks 1/u);
+});

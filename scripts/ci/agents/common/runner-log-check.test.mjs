@@ -383,3 +383,41 @@ test('a zero-hit search fragment without a positive control is a warning that ke
   );
   assert.equal(json(failing.out).warnings?.length, 1);
 });
+
+// P6 ③ review round 1 (m1-F3·m2-F4, m2-F3): a suggestion copies the token the fragment is a token of, not the first
+// token holding it as a substring, and a backtick of the log line is not part of a suggestion.
+test('a suggestion copies the token that holds the fragment as a token and leaves out backticks', () => {
+  const lines = [
+    'id 141 count 41',
+    'mutations=118 killed=117 timeout=1 survived=0',
+    'called `y.join(z)` ok',
+    'merged `PR #962` ok',
+  ];
+  const { violations } = json(
+    checkJson(
+      stepsRoot(lines, [
+        'count `41`',
+        'timeouts `1`',
+        'word after a dot `join`',
+        'number only `#962`',
+      ]),
+    ).out,
+  );
+  assert.deepEqual(
+    violations.map(({ record: index, kind, suggestion }) => [index, kind, suggestion]),
+    [
+      [0, 'invalid-fragment', 'count 41'],
+      [1, 'invalid-fragment', 'timeout=1'],
+      [2, 'summary-mismatch', 'y.join(z)'],
+      [3, 'invalid-fragment', 'PR #962'],
+    ],
+  );
+  // Each suggestion passes as the fragment of the same log.
+  const { code } = checkJson(
+    stepsRoot(
+      lines,
+      violations.map(({ suggestion }) => `\`${suggestion}\``),
+    ),
+  );
+  assert.equal(code, 0);
+});

@@ -812,6 +812,10 @@ test('knu-review dispatch steps carry the runner procedure under the shared name
   // review-run runs the runner check; a direct run is only for review run on its own.
   const runnerStep = section.steps.find(({ name }) => name === 'Runner 기록 검사').text;
   assert.ok(runnerStep.includes('`review-run`이 실행'), runnerStep);
+  // P6 ③ review round 1 (m1-F2): review-run keeps a warning in its check output and registers, so the step says where
+  // the warning is and to run the check before review-run to act on it.
+  for (const phrase of ['checks/runner-log-check.json', '`warnings`', '`review-run` 전에'])
+    assert.ok(runnerStep.includes(phrase), `runner check step: ${phrase}`);
   // The Parent subject step points its paths at the subject bullet.
   const flat = skill('knu-review').replace(/\s+/gu, ' ');
   assert.ok(flat.includes('그 소비자·실행 경로'), 'Parent subject paths name the consumers');
