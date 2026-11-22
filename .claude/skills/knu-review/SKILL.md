@@ -141,7 +141,8 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
    연산자, 경계값, 조건 반전)을 돌려 survivor 목록을 runner 기록에 두고, survivor를 동등으로 처분할 때마다 동등을 보이는 재현 입력과
    출력(결과가 달라질 수 있는 입력을 찾아본 범위 포함)을 붙입니다.
 7. Runner 기록 검사: runner evidence의 `runner-log-check.mjs --evidence <JSON> --header "<logHeader>"`는 `review-run`이 실행하고
-   exit 0이 아니면 등록하지 않습니다. 출력은 `<out-dir>/checks/`에 남습니다. `review`를 따로 실행할 때는 그 직전에 같은 option으로
+   exit 0이 아니면 등록하지 않습니다. 출력은 `<out-dir>/checks/`에 남습니다. 경고는 `<out-dir>/checks/runner-log-check.json`의
+   `warnings`에만 남고 등록은 이어지므로, 경고에 대응하려면 `review-run` 전에 같은 option으로 직접 실행해 `warning` 줄을 봅니다. `review`를 따로 실행할 때는 그 직전에 같은 option으로
    직접 실행하고 exit 0이 아니면 dispatch하지 않습니다. 위치 인자는 받지 않고 usage와 함께 exit 2입니다. 이 실행은 같은 evidence의
    record가 될 수 없습니다. 조각 위반의 `suggestion`은 그 log 결과 줄에서 맞는 조각 모양입니다. 경고 `absence-without-control`은
    exit를 바꾸지 않으니 양성 대조를 더하거나, 대조할 수 없으면 그 이유를 그 record의 log에 적습니다.

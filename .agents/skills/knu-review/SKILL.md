@@ -12,15 +12,17 @@ description: 이 저장소에서 code review·"리뷰해줘" 요청이나 Codex 
 ledger reader를 모은 reference는 [Codex same-host review](../../../docs/development/agent-workflows/adapters/codex-same-host-review.md)입니다.
 
 Reviewer에게 기대 결론을 주지 않습니다. QA packet의 요청·acceptance·요구 절에 결론·범위 축소 문구("flag하지 말 것", "최대 low",
-"계획이 그렇게 정함" 등)를 쓰지 않고, 범위는 읽기 범위(변경 파일)·기준 선택으로만 줄입니다.
+"계획이 그렇게 정함" 등)를 쓰지 않고, 범위는 읽기 범위(변경 파일과 그 소비자·실행 경로)·기준 선택으로만 줄입니다.
 
 리뷰 근거는 이 절차로 등록·spawn한 reviewer child의 관측뿐입니다. Host 자체 리뷰(built-in `/review`, Codex Ultra 자식, fork
 자식)의 결과는 보조 의견으로 표시하고 PASS·완료 근거나 finding 처분 근거로 쓰지 않습니다. 보조 의견이 결함을 가리키면 Parent가
 재현해 다음 회차 입력으로 씁니다.
 
-1. `pnpm -s codex:delegate -- review-run --lanes <laneId[,laneId…]> --token <dispatch token> --round <N> --paths <리뷰 대상 경로[,경로…]> --out <출력 디렉터리>`가
+1. 등록 전에 아래 [Dispatch 전 단계](#dispatch-전-단계)를 실행합니다. 그 검사가 실패하거나 자체 정합 점검이 파일을 고치면 그
+   뒤에 등록합니다. `pnpm -s codex:delegate -- review-run --lanes <laneId[,laneId…]> --token <dispatch token> --round <N> --paths <리뷰 대상 경로[,경로…]> --out <출력 디렉터리>`가
    기준 문서 선택, 리뷰어 입력 수집, reviewer dispatch 등록을 한 번에 합니다. Reviewer는 계층과 무관하게 `knu_reviewer`(effort pin
-   xhigh)와 Astra입니다. 리뷰 대상 경로는 lane이나 Parent가 바꾼 파일입니다. 다른 기준 문서가 필요하면
+   xhigh)와 Astra입니다. 리뷰 대상 경로는 lane이나 Parent가 바꾼 파일과 그 소비자·실행 경로입니다(Dispatch 전 단계의
+   Subject 경로). 다른 기준 문서가 필요하면
    `--criteria documents,agent-workflow-tooling`처럼 id를 더해 override하고, PR `## Lifecycle` 초안 파일이 있으면
    `--lifecycle-draft <경로>`를 더합니다. Stdout은 `review-run ok …` 또는 `review-run failed …` 한 줄이고 결과는
    `<출력 디렉터리>/review-run.json`(`sessionId`·`taskName`·`reviewId`·등록 `digest`·`spawnArguments`·`criteria`·`contextInputs`)과
@@ -38,7 +40,7 @@ Reviewer에게 기대 결론을 주지 않습니다. QA packet의 요청·accept
    고른 기준 문서에 걸린 binding `## 고른 값`·`## 저장소 규약` 행은
    `.artifacts/tools/codex-native/<sessionId>/<reviewId>.binding.md`에(걸린 행이 없으면 파일을 만들지 않음), 초안의 `## Lifecycle`
    절만 `.artifacts/tools/codex-native/<sessionId>/<reviewId>.lifecycle.md`에 남습니다.
-3. Spawn 전에 아래 [Dispatch 전 단계](#dispatch-전-단계)를 실행합니다. `spawn-arguments.json`의 내용(`review-run.json`의
+3. 1단계 전에 실행한 [Dispatch 전 단계](#dispatch-전-단계)의 기록을 QA packet `commands`에 넣습니다. `spawn-arguments.json`의 내용(`review-run.json`의
    `spawnArguments`)을 그대로 spawn 도구에 넘깁니다. 메시지는 QA packet입니다. Frozen source 기준(HEAD·변경 파일),
    lane acceptance, 2단계 기록의 기준 문서, 읽기 범위를 담고, 2회차부터는 직전 회차의 finding과 처분, 그 뒤의 수정 diff, 수정이
    닿은 절·함수를 delta로 줍니다. 계획 리뷰의 등급별 리뷰 여부·입력은 [계획 리뷰 등급](../../../docs/development/agent-workflows/session-continuity.md#계획-초안-staging과-promote)이,
@@ -110,7 +112,7 @@ Claude knu-review의 같은 절과 같습니다.
    실행합니다(spec은 계획 증거 위치의 리뷰 디렉터리). 판정 분기의 test 보호를 주장하는 변경은 저장소 밖 독립 clone에서 바뀐 판정
    module의 연산자 mutation sweep(비교·논리 연산자, 경계값, 조건 반전)을 돌려 survivor 목록을 runner 기록에 두고, survivor를 동등으로
    처분할 때마다 동등을 보이는 재현 입력과 출력(결과가 달라질 수 있는 입력을 찾아본 범위 포함)을 붙입니다.
-7. Runner 기록 검사: spawn 전에 `node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header "<logHeader>"`를
-   runner 기록 JSON과 위 header로 실행하고 exit 0이 아니면 spawn하지 않습니다. 위치 인자는 받지 않고 usage와 함께 exit 2입니다.
+7. Runner 기록 검사: 1단계 등록 전에 `node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header "<logHeader>"`를
+   runner 기록 JSON과 위 header로 실행하고 exit 0이 아니면 등록하지 않습니다. 위치 인자는 받지 않고 usage와 함께 exit 2입니다.
    이 실행은 같은 기록의 record가 될 수 없습니다. 조각 위반의 `suggestion`은 그 log 결과 줄에서 맞는 조각 모양입니다. 경고
    `absence-without-control`은 exit를 바꾸지 않으니 양성 대조를 더하거나, 대조할 수 없으면 그 이유를 그 record의 log에 적습니다.

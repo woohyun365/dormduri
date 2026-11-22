@@ -17,7 +17,9 @@
 //
 // Usage: node scripts/agents/claude/review-packet-open.mjs --paths <path>[,<path>...] [--paths ...] [--root <repo>]
 //          [--now <ISO time>] [--json]
-// Exit 0 = no open packet binds a path, 1 = an open packet binds one (open or open-unreadable-inputs), 2 = input error
+// An unreadable registry task record may be the basis task of any packet, so it blocks too (summary `blocking`).
+// Exit 0 = nothing blocks, 1 = an open packet binds a path (open or open-unreadable-inputs) or a registry task record
+// cannot be read, 2 = input error
 // (missing or empty --paths, path outside the repository, invalid --now, missing root, unknown option, positional
 // argument). Input errors never count as a pass.
 
@@ -190,6 +192,7 @@ export function checkOpenPackets({ root, paths, now = Date.now() }) {
     summary: {
       packets: listed.length,
       open: count('open', 'open-unreadable-inputs'),
+      blocking: count('open', 'open-unreadable-inputs') > 0 || counts.unreadableTasks > 0,
       expiredUnlaunched: count('open-expired-unlaunched'),
       closed: count('closed'),
       notOpen: count('not-open'),
@@ -264,7 +267,7 @@ export function main(argv, { cwd = process.cwd(), log = console.log, error = con
     if (Number.isNaN(now)) throw new InputError(`--now ${values.now}: not an ISO time`);
     const result = checkOpenPackets({ root, paths: repositoryPaths(root, values.paths), now });
     log(values.json ? JSON.stringify(result, null, 2) : format(result));
-    return result.summary.open > 0 ? 1 : 0;
+    return result.summary.blocking ? 1 : 0;
   } catch (caught) {
     if (!(caught instanceof InputError)) throw caught;
     error(caught.message);

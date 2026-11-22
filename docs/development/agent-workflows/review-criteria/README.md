@@ -217,7 +217,8 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 요약 조각 작성 규칙: `observedResult`의 backtick 조각은 그 record의 `.log`·`.txt` 출력과 대조합니다.
 
 - 조각은 그 실행의 결과 줄에서 공백으로 나뉜 token 묶음 하나를 로그에 찍힌 라벨과 함께 그대로 옮깁니다(`ℹ pass 873`, `exit=0`,
-  `Install dependencies=28`). 회차마다 바뀌는 개수(전체 test 수 등)는 조각으로 쓰지 않습니다.
+  `Install dependencies=28`). 결과 개수는 그 회차 log에서 옮기고, 주장하는 결과가 아닌데 실행과 무관하게 회차마다 바뀌는
+  개수(남은 항목 수·link 수 등)는 조각으로 쓰지 않습니다.
 - 라벨 없는 조각(공백을 빼면 숫자·hex 문자·구두점·기호만인 `41`·`#961`·`bad=0`), 빈 조각, 짝이 맞지 않는 backtick(조각 안에
   backtick을 둘 수 없음)은 `invalid-fragment`입니다.
 - 조각은 header 줄과 digest 줄(`<64 hex>  <path>` 형식의 `shasum` 출력, `sha256:<64 hex>`를 포함한 줄)을 뺀 줄 하나에
@@ -274,7 +275,8 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
   되므로 `packages/` 아래(정규화한 경로, 대소문자 무시) mutation과 함께 쓰면 입력 오류입니다.
 - 판정 분기의 test 보호를 주장하는 변경은 바뀐 판정 module의 연산자 mutation sweep(비교·논리 연산자, 경계값, 조건 반전)을
   저장소 밖 독립 clone에서 돌려 survivor 목록을 runner 기록에 둡니다. Survivor를 동등으로 처분하면 동등을 보이는 재현 입력과
-  출력을 붙입니다. 결과가 달라질 수 있는 입력을 찾아본 범위가 없으면 동등 판정이 아닙니다.
+  출력을 붙입니다. 결과가 달라질 수 있는 입력을 찾아본 범위가 없으면 동등 판정이 아닙니다. Sweep의 `timeout`(mutant가 test
+  실행을 끝나지 않게 함)은 test가 통과하지 못하므로 감지로 세고, 그 id를 survivor와 따로 runner 기록에 둡니다.
 
 ### 계획 참조
 

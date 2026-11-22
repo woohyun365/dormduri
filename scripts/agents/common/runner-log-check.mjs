@@ -81,18 +81,24 @@ function readLog(root, path) {
 
 const isLabeled = (fragment) => fragment.trim() && !UNLABELED.test(fragment.replace(/\s/gu, ''));
 
-// The whitespace-separated run of a line around [start, end): the token run a fragment should copy.
-const tokenRun = (line, start, end) =>
-  `${/\S*$/u.exec(line.slice(0, start))[0]}${line.slice(start, end)}${/^\S*/u.exec(line.slice(end))[0]}`;
+// Whitespace and backticks split a line into the tokens a suggestion copies: a fragment cannot hold a backtick.
+const TOKEN_SEPARATOR = /[\s`]+/u;
 
-// An unlabeled fragment that is a token on a result line: that token with the token printed before or after it on the
-// line when the pair carries a label (`pass 41` for `41` in `ℹ pass 41`, `bad=0 ok=3` for `bad=0`).
+// The run of a line around [start, end) up to whitespace or a backtick: the token run a fragment should copy.
+const tokenRun = (line, start, end) =>
+  `${/[^\s`]*$/u.exec(line.slice(0, start))[0]}${line.slice(start, end)}${/^[^\s`]*/u.exec(line.slice(end))[0]}`;
+
+// An unlabeled fragment that is a token on a result line: the token it is a token of when that token carries a label
+// (`timeout=1` for `1`), else that token with the token printed before or after it when the pair carries one
+// (`pass 41` for `41` in `ℹ pass 41`, `bad=0 ok=3` for `bad=0`). A token holding the fragment only inside a longer
+// number (`141` for `41`) is not that token.
 function labeledSuggestion(fragment, lines) {
   for (const line of lines) {
     if (!fragmentOnLine(fragment, line)) continue;
-    const tokens = line.trim().split(/\s+/u);
-    // A fragment holding whitespace is in no single token (at -1), and then neither slice is a pair.
-    const at = tokens.findIndex((token) => token.includes(fragment));
+    const tokens = line.split(TOKEN_SEPARATOR).filter(Boolean);
+    // A fragment holding whitespace is a token of no single token (at -1), and then neither slice is a pair.
+    const at = tokens.findIndex((token) => fragmentOnLine(fragment, token));
+    if (at >= 0 && isLabeled(tokens[at])) return tokens[at];
     for (const pair of [tokens.slice(at - 1, at + 1), tokens.slice(at, at + 2)]) {
       const candidate = pair.join(' ');
       if (pair.length === 2 && isLabeled(candidate) && fragmentOnLine(candidate, line))
@@ -127,7 +133,7 @@ function mismatch(fragment, resultLines, otherLines) {
     };
   return {
     detail:
-      'fragment is not a token on a result line of the record logs: copy one whitespace-separated token run of a result line as printed, and leave out counts that change between rounds',
+      'fragment is not a token on a result line of the record logs: copy one whitespace-separated token run of a result line of this round as printed (a count copied from an earlier round no longer matches)',
   };
 }
 
