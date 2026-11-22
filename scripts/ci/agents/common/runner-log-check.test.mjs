@@ -212,3 +212,125 @@ test('a search exit written with its command name is not a step exit (RL-P2 RED 
   // Indented or prefixed lines are not whole-line exits either.
   assert.equal(logCheck(['  note: exit=1 was expected here', 'exit=0']).code, 0);
 });
+
+// P6 ③: one log, one record per summary, so each record's message is judged against the same result lines.
+function stepsRoot(lines, summaries) {
+  const root = fixture({
+    runner: 'parent',
+    records: summaries.map((observedResult) =>
+      record({ outputPaths: ['logs/steps.log'], observedResult }),
+    ),
+  });
+  writeFileSync(resolve(root, 'logs/steps.log'), `${[HEADER, ...lines].join('\n')}\n`);
+  return root;
+}
+const checkJson = (root) =>
+  run(['--json', '--evidence', 'evidence.json', '--header', HEADER], root);
+
+// The log a runner left: a labeled count, a PR number, a label made of hex letters, a word after a dot, a digest line
+// and a plain result word.
+const SHAPE_LINES = [
+  '$ node --test a.test.mjs',
+  'ℹ pass 41',
+  'merged PR #961 into dev',
+  'bad=0 ok=3',
+  'x.concat(y) returned',
+  `basis sha256:${'a'.repeat(64)} install 42`,
+  'Result: PASS',
+  'exit=0',
+];
+
+test('a rejected fragment names its reason and the fragment shape the log line holds (P6 ③ RED 1)', () => {
+  const { code, out } = checkJson(
+    stepsRoot(SHAPE_LINES, [
+      'count only `41`',
+      'number only `#961`',
+      'hex letters as a label `bad=0`',
+      'word after a dot `concat`',
+      'cut count `ℹ pass 4`',
+      'digest line only `install 42`',
+      'emphasis `**PASS**`',
+      'unpaired `ℹ pass 41',
+    ]),
+  );
+  assert.equal(code, 1);
+  const { violations } = json(out);
+  assert.deepEqual(
+    violations.map(({ record: index, kind, suggestion }) => [index, kind, suggestion]),
+    [
+      [0, 'invalid-fragment', 'pass 41'],
+      [1, 'invalid-fragment', 'PR #961'],
+      [2, 'invalid-fragment', 'bad=0 ok=3'],
+      [3, 'summary-mismatch', 'x.concat(y)'],
+      [4, 'summary-mismatch', 'ℹ pass 41'],
+      [5, 'summary-mismatch', undefined],
+      [6, 'summary-mismatch', 'PASS'],
+      [7, 'invalid-fragment', undefined],
+    ],
+  );
+  const detail = (index) => violations.find(({ record: at }) => at === index).detail;
+  assert.match(detail(0), /label/u, 'an unlabeled fragment needs the label printed with it');
+  assert.match(detail(3), /token/u, 'a fragment must start and end at a token boundary');
+  assert.match(detail(4), /token/u);
+  assert.match(detail(5), /digest/u, 'a digest line is not a result line');
+  assert.match(detail(6), /emphasis/u, 'Markdown emphasis is not in the log');
+  assert.match(detail(7), /backtick/u, 'an odd backtick count cannot be split');
+  // The text output carries the suggested fragment too.
+  const text = run(
+    ['--evidence', 'evidence.json', '--header', HEADER],
+    stepsRoot(SHAPE_LINES, ['count only `41`']),
+  );
+  assert.equal(text.code, 1);
+  assert.ok(text.out.includes('`pass 41`'), text.out);
+});
+
+test('a positional evidence argument is refused with the option usage (P6 ③ RED 1)', () => {
+  const { code, err } = run(['evidence.json'], fixture({ runner: 'parent', records: [record()] }));
+  assert.equal(code, 2);
+  assert.ok(err.includes('--evidence <JSON> --header "<logHeader>"'), err);
+});
+
+// P6 ③ RED 2: a zero-hit search exit (`rg exit=1`) claims an absence; the same record needs the positive control that
+// shows the search can hit (`control rg exit=0`). Without one the check warns and keeps its exit.
+const ABSENCE_LINES = [
+  '$ rg -n old-term docs',
+  'rg exit=1',
+  '$ git grep -n old-term -- docs',
+  'git grep exit=1',
+  '$ rg -n old-term docs # the revision before the change',
+  'control rg exit=0',
+  'exit=0',
+];
+
+test('a zero-hit search fragment without a positive control is a warning that keeps the exit (P6 ③ RED 2)', () => {
+  const root = stepsRoot(ABSENCE_LINES, [
+    'absent `rg exit=1`',
+    'absent `rg exit=1`, found before the change `control rg exit=0`',
+    'absent `git grep exit=1`',
+    'no search fragment `exit=0`',
+  ]);
+  const { code, out } = checkJson(root);
+  assert.equal(code, 0, out);
+  const result = json(out);
+  assert.deepEqual(result.violations, []);
+  assert.ok(Array.isArray(result.warnings), 'the JSON output lists warnings');
+  assert.deepEqual(
+    result.warnings.map(({ record: index, kind, fragment }) => [index, kind, fragment]),
+    [
+      [0, 'absence-without-control', 'rg exit=1'],
+      [2, 'absence-without-control', 'git grep exit=1'],
+    ],
+  );
+  assert.match(result.warnings[0].detail, /control rg exit=0/u, 'the warning names the control');
+  const text = run(['--evidence', 'evidence.json', '--header', HEADER], root);
+  assert.equal(text.code, 0);
+  assert.ok(text.out.includes('absence-without-control'), text.out);
+  // A violation in the same record still decides the exit.
+  const failing = checkJson(stepsRoot(ABSENCE_LINES, ['absent `rg exit=1` and `rg exit=2`']));
+  assert.equal(failing.code, 1);
+  assert.deepEqual(
+    json(failing.out).violations.map(({ kind }) => kind),
+    ['summary-mismatch'],
+  );
+  assert.equal(json(failing.out).warnings?.length, 1);
+});

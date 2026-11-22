@@ -3,6 +3,13 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 
+import {
+  DISPATCH_BULLETS,
+  DISPATCH_STEPS,
+  dispatchSection,
+  missingDispatchPhrases,
+} from '../common/fixtures/knu-review-dispatch-steps.mjs';
+
 // Loaded dynamically so a missing module fails only the test that uses it, with its own reason.
 const { buildDelegation } = await import('../../../agents/codex/delegate-spec.mjs').catch(
   () => ({}),
@@ -327,5 +334,36 @@ test('the Codex settle skill names the 40-character SHA and the check at writing
     text,
     /작성한 처분 기록은 \[작성 때 검사\]\(\.\.\/\.\.\/\.\.\/docs\/development\/agent-workflows\/adapters\/codex-same-host-review\.md#처분-기록과-ledger\)가 exit 0인지 확인합니다/u,
     'check at writing time',
+  );
+});
+
+// P6 ③ RED 4·6: the Codex skill carries the dispatch steps the Claude skill does, under the same names in the same
+// order and with the same sentences, before the spawn.
+test('both knu-review skills carry the same dispatch steps in the same order (P6 ③ RED 4·6)', () => {
+  const codex = dispatchSection(read(skillPath('knu-review')));
+  const claude = dispatchSection(read('.claude/skills/knu-review/SKILL.md'));
+  assert.ok(codex, 'Codex knu-review has the Dispatch 전 단계 section');
+  assert.ok(claude, 'Claude knu-review has the Dispatch 전 단계 section');
+  const names = (section) => ({
+    bullets: section.bullets.map(({ name }) => name),
+    steps: section.steps.map(({ name }) => name),
+  });
+  assert.deepEqual(names(codex), names(claude), 'same names in the same order');
+  assert.deepEqual(names(codex), { bullets: DISPATCH_BULLETS, steps: DISPATCH_STEPS });
+  assert.deepEqual(missingDispatchPhrases(codex), [], 'Codex sentences');
+  assert.deepEqual(missingDispatchPhrases(claude), [], 'Claude sentences');
+  // Codex has no helper header: the runner chooses one from the round's HEAD and changed files.
+  const environment = codex.bullets.find(({ name }) => name === 'Runner 환경').text;
+  for (const phrase of [
+    'helper가 logHeader를 주지 않으므로',
+    'HEAD와 변경 파일(새 파일 포함) 내용',
+  ])
+    assert.ok(environment.includes(phrase), `Codex runner header: ${phrase}`);
+  // The spawn step sends the reviewer only after those steps.
+  const steps = read(skillPath('knu-review')).split(/\n(?=\d+\. )/u);
+  const spawn = (steps.find((step) => step.startsWith('3. ')) ?? '').replace(/\s+/gu, ' ');
+  assert.ok(
+    spawn.includes('[Dispatch 전 단계](#dispatch-전-단계)'),
+    'step 3 points at the section',
   );
 });

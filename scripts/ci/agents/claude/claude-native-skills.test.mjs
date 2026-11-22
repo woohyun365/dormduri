@@ -14,6 +14,12 @@ import {
   fixture,
   writeChildTranscript,
 } from './fixtures/claude-native-session-fixture.mjs';
+import {
+  DISPATCH_BULLETS,
+  DISPATCH_STEPS,
+  dispatchSection,
+  missingDispatchPhrases,
+} from '../common/fixtures/knu-review-dispatch-steps.mjs';
 
 const root = resolve(import.meta.dirname, '../../../..');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
@@ -784,4 +790,29 @@ test('the settle skill states the disposition record rules (P6 ② RED 8)', () =
 test('the settle skill names the 40-character commit SHA of a fixRef', () => {
   const text = read('.claude/skills/knu-settle/SKILL.md').replace(/\s+/gu, ' ');
   assert.match(text, /`fixRef`\(수정 commit의 40자 SHA/u, 'fixRef 40-character SHA');
+});
+
+// P6 ③ RED 4: the dispatch steps name the runner check arguments, the line-by-line judgment and sentence list, the
+// hidden-path absence search with its positive control, the runner record limit, the runner environment, the subject
+// consumers and the mutation sweep, under the names the Codex skill uses too (RED 6 compares the two).
+test('knu-review dispatch steps carry the runner procedure under the shared names (P6 ③ RED 4)', () => {
+  const section = dispatchSection(skill('knu-review'));
+  assert.ok(section, 'knu-review has the Dispatch 전 단계 section');
+  assert.deepEqual(
+    section.bullets.map(({ name }) => name),
+    DISPATCH_BULLETS,
+    'lead bullets',
+  );
+  assert.deepEqual(
+    section.steps.map(({ name }) => name),
+    DISPATCH_STEPS,
+    'numbered steps',
+  );
+  assert.deepEqual(missingDispatchPhrases(section), []);
+  // review-run runs the runner check; a direct run is only for review run on its own.
+  const runnerStep = section.steps.find(({ name }) => name === 'Runner 기록 검사').text;
+  assert.ok(runnerStep.includes('`review-run`이 실행'), runnerStep);
+  // The Parent subject step points its paths at the subject bullet.
+  const flat = skill('knu-review').replace(/\s+/gu, ' ');
+  assert.ok(flat.includes('그 소비자·실행 경로'), 'Parent subject paths name the consumers');
 });
