@@ -46,8 +46,9 @@
 - `SameSite=Strict`는 같은 site인 다른 localhost port(사용자 Web 개발 server 3000, Grafana 터널 3001)의 요청을 막지 못한다. 위
   출처 대조가 browser가 보내는 위조 요청을 막고, 운영자 컴퓨터 안 process가 cookie를 재사용하는 것은 막지 못한다(전용 browser
   profile 안내는 배포 runbook).
-- 재인증이 필요한 작업(권한 요청·승인·거절, 계정 비활성화, passkey 추가, TOTP·복구 code 재발급)은 API가
+- 재인증이 필요한 작업(권한 요청·승인·거절, 계정 비활성화, TOTP·복구 code 재발급. 백오피스 API README의 목록과 같다)은 API가
   `reauthentication_required`로 답하면 화면이 passkey 재인증을 한 번 하고 같은 작업을 다시 보낸다(`withReauthentication`).
+  passkey 추가도 같은 wrapper로 보내지만 지금 API는 그 작업에 재인증을 요구하지 않는다.
 - 모든 route는 `src/app/api/bff-route-table.test.ts`의 표와 같아야 한다. 표는 route마다 접근 방식, upstream path, 요청 fixture,
   upstream 성공 응답(본문 200 또는 204)과 page가 받는 본문을 두고, 실제 route module을 upstream fake로 실행한다. 새 route는
   `bffMutation`으로 만들고 표에 행을 더한다. e2e는 모든 route를 실제 API로 한 번씩 지난다(§7).
@@ -69,7 +70,7 @@
 
 - `src/proxy.ts`는 `Sec-Fetch-Site`가 `same-site`·`cross-site`인 page 요청을 403으로 거부한다. 다른 localhost port page의 이미지·
   링크도 `SameSite=Strict` cookie를 싣고, page를 그리면 session을 읽어 활동 시각을 옮기기 때문이다. 운영자의 page 요청은 직접 연
-  것(`none`)과 앱 안 이동(`same-origin`)뿐이다.
+  것(`none`)과 앱 안 이동(`same-origin`)뿐이다. prefetch 요청도 proxy를 지나 같은 판정을 받는다(화면은 prefetch를 끈다).
 - `src/proxy.ts`가 요청마다 128 bit nonce를 만들어 CSP를 요청 header(Next.js가 거기서 nonce를 읽어 자기 script에 붙인다)와
   응답 header에 둔다: `default-src 'self'; script-src 'self' 'nonce-…' 'strict-dynamic'; connect-src 'self'; img-src 'self'
 data:; frame-ancestors 'none'; form-action 'self'; base-uri 'none'; object-src 'none'`. 개발 server만 `'unsafe-eval'`을 더한다.

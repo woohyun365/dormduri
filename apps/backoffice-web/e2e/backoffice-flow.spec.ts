@@ -396,7 +396,8 @@ test('the owner reissues TOTP and recovery codes and adds a passkey on another d
   await expect(codes).toHaveCount(10);
   ownerRecoveryCode = (await codes.first().textContent())!.trim();
 
-  // The re-authentication above is recent, so the new device's passkey needs no second prompt.
+  // Adding a passkey needs no re-authentication (the API asks it for approvals, role requests,
+  // deactivation and the two reissues), so the new, empty device answers only the registration.
   owner.authenticator = await replaceVirtualAuthenticator(owner.authenticator, 'usb');
   await page
     .getByRole('form', { name: 'passkey 추가' })
@@ -486,6 +487,15 @@ test('state-changing BFF routes refuse forged origins and missing fetch metadata
   // A page request another localhost port or site caused never renders (and never reads a session).
   for (const site of ['same-site', 'cross-site']) {
     const page = await api.get('/login', { headers: { 'sec-fetch-site': site } });
+    expect(page.status()).toBe(403);
+  }
+  // A prefetch from that page (`<link rel="prefetch">`) is refused the same way.
+  const prefetches: Record<string, string>[] = [
+    { purpose: 'prefetch' },
+    { 'next-router-prefetch': '1' },
+  ];
+  for (const prefetch of prefetches) {
+    const page = await api.get('/', { headers: { 'sec-fetch-site': 'same-site', ...prefetch } });
     expect(page.status()).toBe(403);
   }
   expect((await api.get('/login', { headers: { 'sec-fetch-site': 'none' } })).status()).toBe(200);

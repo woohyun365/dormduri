@@ -31,14 +31,11 @@ export function proxy(request: NextRequest) {
   return response;
 }
 
+/**
+ * Every page request, prefetches included: the Next.js guide skips prefetch requests, but a skipped
+ * request would also skip the Fetch Metadata refusal (a `<link rel="prefetch">` on another localhost
+ * port sends `Purpose: prefetch`). The screens turn prefetch off, so nothing is lost.
+ */
 export const config = {
-  matcher: [
-    {
-      source: '/((?!api|_next/static|_next/image|favicon.ico).*)',
-      missing: [
-        { type: 'header', key: 'next-router-prefetch' },
-        { type: 'header', key: 'purpose', value: 'prefetch' },
-      ],
-    },
-  ],
+  matcher: [{ source: '/((?!api|_next/static|_next/image|favicon.ico).*)' }],
 };
