@@ -3,9 +3,10 @@
 // Rules and usage: docs/development/agent-workflows/review-criteria/README.md
 //
 // Usage: node scripts/agents/common/red-reason-check.mjs --log <file> --expect <regex> [--expect <regex>...] [--json]
-// Supported format: `node --test` spec reporter output. Exit 0 = no violation, 1 = violations, 2 = input error (missing
-// option or file, empty log, invalid regex or one matching the empty string, log with neither a `✖` marker nor an
-// `ℹ fail` summary, unknown option). Input errors never count as a pass.
+// Supported formats: `node --test` spec reporter output and Vitest default reporter output (read after removing ANSI
+// color codes; the JSON result names the format it read). Exit 0 = no violation, 1 = violations, 2 = input error
+// (missing option or file, empty log, invalid regex or one matching the empty string, log with neither format's
+// markers, unknown option). Input errors never count as a pass.
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -16,12 +17,30 @@ import { splitLines } from './plan-impact-blocks.mjs';
 
 class InputError extends Error {}
 
+const ANSI = /\u001b\[[0-9;]*[A-Za-z]/gu;
 const FAIL_SUMMARY = /^ℹ fail (?<count>\d+)$/u;
 const FAILING_SECTION = /^✖ failing tests:$/u;
 const FAILED = /^✖ (?<title>.*?)(?: \([^()]*\))?$/u;
 // Result lines (test titles, suite starts, summary) and `test at <file>` locations end a failure block. Their text is a
 // test title, not a failure reason, so neither the reason match nor the signature scan reads them.
 const RESULT_LINE = /^(?:[✔✖﹣ℹ▶] |test at )/u;
+// In the default test isolation a module-level error is printed outside the failure blocks, which then only say
+// 'test failed' (or are missing when the output was cut).
+const ISOLATION_HINT =
+  'in the default test isolation a module-level error is printed outside the failure blocks: keep the whole output and rerun with --test-isolation=none, which puts the error in the block';
+const PLACEHOLDER_BODY = /^'test failed'$/u;
+
+// Vitest default reporter: `Test Files`/`Tests` summary, ` FAIL  <file> > <title>` failure headers inside the
+// `⎯ Failed Tests n ⎯`/`⎯ Failed Suites n ⎯` sections, and `⎯⎯[i/n]⎯` separators between error bodies.
+const VITEST_SUMMARY = /^Tests {2}(?<result>.+)$/u;
+const VITEST_FAILED = /^FAIL {2}(?<title>.+)$/u;
+const VITEST_MARKER = /^(?:Test Files {2}|Tests {2}|FAIL {2})/u;
+const VITEST_BLOCK_END = /^(?:⎯|FAIL {2}|Test Files {2}|Tests {2})/u;
+// Tree lines (`❯ file`, `× title`, `✓ title`, `↓ title`), the error location and code frame (`❯ file:line`,
+// `1| source`, `| ^`), separators and summary lines are titles, source or counts, not failure reasons.
+const VITEST_RESULT_LINE =
+  /^(?:[❯×✓↓→] |⎯|\d+\||\||FAIL {2}|PASS {2}|RUN {2}|Test Files {2}|Tests {2}|Start at {2}|Duration {2})/u;
+
 export const UNEXPECTED_SIGNATURES = [
   ['SyntaxError', /SyntaxError/u],
   ['ERR_MODULE_NOT_FOUND', /ERR_MODULE_NOT_FOUND/u],
@@ -33,7 +52,7 @@ export const UNEXPECTED_SIGNATURES = [
 
 // Failure blocks: in the spec reporter only the `✖ failing tests:` section carries error bodies, so blocks are read
 // there; a log without that section has blocks from every `✖` line, whose bodies are then empty and fail the check.
-function failureBlocks(lines) {
+function nodeBlocks(lines) {
   const section = lines.findIndex((line) => FAILING_SECTION.test(line.trim()));
   const blocks = [];
   for (let index = section + 1; index < lines.length; index += 1) {
@@ -48,39 +67,101 @@ function failureBlocks(lines) {
   return blocks;
 }
 
+// Vitest failure blocks: each ` FAIL ` header with the error body after it; consecutive headers share one body (the
+// same error for several tests). Location and code frame lines are left out of the body.
+function vitestBlocks(lines) {
+  const blocks = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!VITEST_FAILED.test(lines[index].trim())) continue;
+    const headers = [];
+    while (index < lines.length && VITEST_FAILED.test(lines[index].trim())) {
+      headers.push({
+        line: index + 1,
+        title: VITEST_FAILED.exec(lines[index].trim()).groups.title,
+      });
+      index += 1;
+    }
+    const body = [];
+    while (index < lines.length && !VITEST_BLOCK_END.test(lines[index].trim())) {
+      if (!VITEST_RESULT_LINE.test(lines[index].trim())) body.push(lines[index]);
+      index += 1;
+    }
+    for (const header of headers) blocks.push({ ...header, body });
+    index -= 1;
+  }
+  return blocks;
+}
+
+const FORMATS = {
+  'node-test': {
+    summary(lines) {
+      const at = lines.findLastIndex((line) => FAIL_SUMMARY.test(line.trim()));
+      if (at < 0) return { at, fail: null };
+      return { at, fail: Number(FAIL_SUMMARY.exec(lines[at].trim()).groups.count) };
+    },
+    missing: 'no `ℹ fail <n>` summary line',
+    noBlocks: (fail) => `ℹ fail ${fail} without ✖ blocks; ${ISOLATION_HINT}`,
+    blocks: nodeBlocks,
+    resultLine: RESULT_LINE,
+  },
+  vitest: {
+    summary(lines) {
+      const at = lines.findLastIndex((line) => VITEST_SUMMARY.test(line.trim()));
+      if (at < 0) return { at, fail: null };
+      const failed = /(?<count>\d+) failed/u.exec(
+        VITEST_SUMMARY.exec(lines[at].trim()).groups.result,
+      );
+      return { at, fail: failed ? Number(failed.groups.count) : 0 };
+    },
+    missing: 'no `Tests` summary line',
+    noBlocks: (fail) => `Tests ${fail} failed without FAIL blocks`,
+    blocks: vitestBlocks,
+    resultLine: VITEST_RESULT_LINE,
+  },
+};
+
+function detectFormat(lines) {
+  if (lines.some((line) => FAIL_SUMMARY.test(line.trim()) || line.trim().startsWith('✖ ')))
+    return 'node-test';
+  if (lines.some((line) => VITEST_MARKER.test(line.trim()))) return 'vitest';
+  throw new InputError(
+    'unsupported log: neither node --test spec reporter markers (`✖`, `ℹ fail`) nor Vitest default reporter markers (`FAIL `, `Tests `, `Test Files `)',
+  );
+}
+
 export function checkRedReason({ text, expect }) {
-  const lines = splitLines(text);
-  const failLine = lines.findLastIndex((line) => FAIL_SUMMARY.test(line.trim()));
-  if (failLine < 0 && !lines.some((line) => line.trim().startsWith('✖ ')))
-    throw new InputError(
-      'unsupported log: neither a `✖` marker nor an `ℹ fail` summary (node --test spec reporter)',
-    );
+  const lines = splitLines(text.replace(ANSI, ''));
+  const format = detectFormat(lines);
+  const reporter = FORMATS[format];
+  const { at: failLine, fail } = reporter.summary(lines);
   const expected = (line) => expect.some((pattern) => pattern.test(line));
   const violations = [];
-  const fail = failLine < 0 ? null : Number(FAIL_SUMMARY.exec(lines[failLine].trim()).groups.count);
   if (fail === null)
-    violations.push({ line: 0, kind: 'missing-summary', detail: 'no `ℹ fail <n>` summary line' });
+    violations.push({ line: 0, kind: 'missing-summary', detail: reporter.missing });
   else if (fail === 0)
-    violations.push({ line: failLine + 1, kind: 'no-failure', detail: 'ℹ fail 0' });
+    violations.push({ line: failLine + 1, kind: 'no-failure', detail: lines[failLine].trim() });
 
-  const blocks = failureBlocks(lines);
+  const blocks = reporter.blocks(lines);
   if (fail > 0 && blocks.length === 0)
     violations.push({
       line: failLine + 1,
       kind: 'no-failure-blocks',
-      detail: `ℹ fail ${fail} without ✖ blocks`,
+      detail: reporter.noBlocks(fail),
     });
   for (const block of blocks)
-    if (!block.body.some(expected))
+    if (!block.body.some(expected)) {
+      const said = block.body.map((line) => line.trim()).filter(Boolean);
+      const placeholder = said.length > 0 && said.every((line) => PLACEHOLDER_BODY.test(line));
       violations.push({
         line: block.line,
         kind: 'unexpected-reason',
         test: block.title,
-        detail: 'no line of the error block matches --expect',
+        detail: `no line of the error block matches --expect${placeholder ? `; the block only says 'test failed': ${ISOLATION_HINT}` : ''}`,
       });
+    }
 
   lines.forEach((line, index) => {
-    if (RESULT_LINE.test(line.trim()) || expected(line)) return;
+    if (reporter.resultLine.test(line.trim()) || expected(line)) return;
     const signature = UNEXPECTED_SIGNATURES.find(([, pattern]) => pattern.test(line));
     if (signature)
       violations.push({
@@ -91,7 +172,11 @@ export function checkRedReason({ text, expect }) {
       });
   });
   violations.sort((left, right) => left.line - right.line);
-  return { summary: { fail, failures: blocks.length, violations: violations.length }, violations };
+  return {
+    format,
+    summary: { fail, failures: blocks.length, violations: violations.length },
+    violations,
+  };
 }
 
 function parseOptions(argv) {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
@@ -11,6 +11,11 @@ const tool = resolve(import.meta.dirname, '../../../agents/common/red-reason-che
 // Node 24 spec reporter output. `assertion.log`: two assertion failures. `mixed-enoent.log`: one assertion failure
 // and one ENOENT. `import-error.log`: one assertion failure and a test file whose import is missing.
 // `all-pass.log`: no failure. `tap.log`: the TAP reporter.
+// Node 26 spec reporter output of a module-level throw: `module-throw.log` in the default test isolation (the error is
+// printed above the block, which only says 'test failed'), `module-throw-isolation-none.log` with
+// `--test-isolation=none` (the error is in the block). Vitest 5.1.1 default reporter output: `vitest-assertion.log`
+// (two assertion failures, one in a describe group) and `vitest-import.log` (a suite whose import is missing, no test
+// ran).
 const fixtures = resolve(import.meta.dirname, 'fixtures/verification-records/red');
 const temporary = [];
 test.after(() => temporary.forEach((path) => rmSync(path, { recursive: true, force: true })));
@@ -167,5 +172,187 @@ test('the command line exits 1 on an unexpected reason and 0 on assertion failur
       encoding: 'utf8',
     });
     assert.equal(result.status, status, result.stderr);
+  }
+});
+
+// P6 ③ RED 3: a Vitest RED log is judged as a node --test log is: the failure count of the `Tests` summary, an expected
+// reason in every `FAIL` block of the failure sections, and no unexpected signature outside those reasons.
+test('a Vitest RED log is judged as a node --test log is (P6 ③ RED 3)', () => {
+  const expected = run(['--json', '--log', 'vitest-assertion.log', '--expect', '^AssertionError']);
+  assert.equal(expected.code, 0, expected.out || expected.err);
+  assert.deepEqual(json(expected.out).summary, { fail: 2, failures: 2, violations: 0 });
+  assert.equal(json(expected.out).format, 'vitest');
+  const other = run(['--json', '--log', 'vitest-assertion.log', '--expect', 'ENOENT']);
+  assert.equal(other.code, 1, other.err);
+  assert.deepEqual(reasons(other.out), [
+    'unexpected-reason:sample.test.js > reports the missing citation',
+    'unexpected-reason:sample.test.js > group > rejects the unknown value',
+  ]);
+});
+
+test('a Vitest suite that fails to import and runs no test is not a RED (P6 ③ RED 3)', () => {
+  const { code, out, err } = run([
+    '--json',
+    '--log',
+    'vitest-import.log',
+    '--expect',
+    'AssertionError',
+  ]);
+  assert.equal(code, 1, err);
+  assert.deepEqual(reasons(out), [
+    'unexpected-reason:imports.test.js [ imports.test.js ]',
+    'unexpected-signature:Cannot find module or package',
+    'no-failure:',
+  ]);
+});
+
+test('Vitest failures sharing one error, colored output and a missing summary (P6 ③ RED 3)', () => {
+  const grouped = run([
+    '--json',
+    '--log',
+    logFile('grouped.log', [
+      ' FAIL  a.test.js > first',
+      ' FAIL  a.test.js > second',
+      'AssertionError: expected 1 to be 2 // Object.is equality',
+      '',
+      '⎯⎯⎯⎯⎯⎯⎯[1/1]⎯',
+      '',
+      ' Test Files  1 failed (1)',
+      '      Tests  2 failed (2)',
+    ]),
+    '--expect',
+    '^AssertionError',
+  ]);
+  assert.equal(grouped.code, 0, grouped.out || grouped.err);
+  assert.deepEqual(json(grouped.out).summary, { fail: 2, failures: 2, violations: 0 });
+  // A terminal that keeps colors writes ANSI escapes around the badges and markers.
+  const colored = readFileSync(resolve(fixtures, 'vitest-assertion.log'), 'utf8')
+    .split('\n')
+    .map((line) => (line ? `\u001b[31m${line}\u001b[39m` : line));
+  const ansi = run([
+    '--json',
+    '--log',
+    logFile('colored.log', colored),
+    '--expect',
+    '^AssertionError',
+  ]);
+  assert.equal(ansi.code, 0, ansi.out || ansi.err);
+  assert.deepEqual(json(ansi.out).summary, { fail: 2, failures: 2, violations: 0 });
+  const unsummarized = run([
+    '--json',
+    '--log',
+    logFile('unsummarized.log', [' FAIL  a.test.js > first', 'AssertionError: expected 1 to be 2']),
+    '--expect',
+    '^AssertionError',
+  ]);
+  assert.equal(unsummarized.code, 1, unsummarized.err);
+  assert.deepEqual(reasons(unsummarized.out), ['missing-summary:']);
+});
+
+// A module-level throw in the default test isolation prints its error outside the failure blocks: the block either
+// is missing (`ℹ fail` only) or only says 'test failed'. The message points at `--test-isolation=none`, which puts the
+// error in the block.
+test('a node --test failure without its reason in a block points at --test-isolation=none (P6 ③ RED 3)', () => {
+  const countOnly = run([
+    '--json',
+    '--log',
+    logFile('count-only.log', ['ℹ tests 1', 'ℹ fail 1']),
+    '--expect',
+    'AssertionError',
+  ]);
+  assert.equal(countOnly.code, 1);
+  const [blocks] = json(countOnly.out).violations;
+  assert.equal(blocks.kind, 'no-failure-blocks');
+  assert.match(blocks.detail, /--test-isolation=none/u);
+  const placeholder = run(['--json', '--log', 'module-throw.log', '--expect', 'SyntaxError']);
+  assert.equal(placeholder.code, 1);
+  assert.deepEqual(reasons(placeholder.out), ['unexpected-reason:throws.test.mjs']);
+  assert.match(json(placeholder.out).violations[0].detail, /--test-isolation=none/u);
+  const isolated = run([
+    '--json',
+    '--log',
+    'module-throw-isolation-none.log',
+    '--expect',
+    'SyntaxError',
+  ]);
+  assert.equal(isolated.code, 0, isolated.out);
+  assert.deepEqual(json(isolated.out).summary, { fail: 1, failures: 1, violations: 0 });
+});
+
+// P6 ③ operator mutation sweep: line numbers, a FAIL header on the last line, a summary on the first line and the
+// placeholder hint only for a body that only says 'test failed' (sweep/survivors.md).
+test('RED reason violations keep their lines and the isolation hint only for a placeholder body', () => {
+  const lineOf = (name, prefix) =>
+    readFileSync(resolve(fixtures, name), 'utf8')
+      .split('\n')
+      .flatMap((line, index) => (line.startsWith(prefix) ? [index + 1] : []));
+  const vitest = run(['--json', '--log', 'vitest-assertion.log', '--expect', 'ENOENT']);
+  assert.deepEqual(
+    json(vitest.out).violations.map(({ line }) => line),
+    lineOf('vitest-assertion.log', ' FAIL  '),
+  );
+  const noTests = run(['--json', '--log', 'vitest-import.log', '--expect', 'AssertionError']);
+  assert.deepEqual(
+    json(noTests.out)
+      .violations.filter(({ kind }) => kind === 'no-failure')
+      .map(({ line }) => line),
+    lineOf('vitest-import.log', '      Tests  '),
+  );
+  // A FAIL header on the last line of a log without a final newline.
+  const last = logFile('last.log', []);
+  writeFileSync(
+    last,
+    [' Test Files  1 failed (1)', '      Tests  1 failed (1)', ' FAIL  a.test.js > last'].join(
+      '\n',
+    ),
+  );
+  assert.deepEqual(
+    json(run(['--json', '--log', last, '--expect', 'AssertionError']).out).violations.map(
+      ({ line, kind, test: title }) => [line, kind, title],
+    ),
+    [[3, 'unexpected-reason', 'a.test.js > last']],
+  );
+  // An `ℹ fail` summary on the first line is still the summary.
+  assert.deepEqual(
+    reasons(
+      run(['--json', '--log', logFile('first.log', ['ℹ fail 1']), '--expect', 'AssertionError'])
+        .out,
+    ),
+    ['no-failure-blocks:'],
+  );
+  // The isolation hint is for a body that only says 'test failed': not an empty body, another reason, or a body that
+  // says more.
+  const hint = /--test-isolation=none/u;
+  const details = (argv) =>
+    json(run(['--json', ...argv]).out)
+      .violations.filter(({ kind }) => kind === 'unexpected-reason')
+      .map(({ detail }) => detail);
+  const empty = details([
+    '--log',
+    logFile('empty.log', ['✖ reports the missing citation (1ms)', 'ℹ fail 1']),
+    '--expect',
+    'AssertionError',
+  ]);
+  const other = details(['--log', 'mixed-enoent.log', '--expect', 'AssertionError']);
+  const more = details([
+    '--log',
+    logFile('more.log', [
+      'ℹ fail 1',
+      '✖ failing tests:',
+      'test at x.test.mjs:1:1',
+      '✖ x (1ms)',
+      "  'test failed'",
+      '    at file:///x.test.mjs:1:1',
+    ]),
+    '--expect',
+    'AssertionError',
+  ]);
+  for (const [label, list] of [
+    ['empty', empty],
+    ['other', other],
+    ['more', more],
+  ]) {
+    assert.equal(list.length, 1, label);
+    assert.doesNotMatch(list[0], hint, label);
   }
 });

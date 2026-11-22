@@ -35,7 +35,8 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
 
 1. Subject 파일은 `{"request": "...", "owner": "parent", "acceptance": ["..."], "paths": ["..."]}` JSON입니다. `request`는 요구사항(사용자
    요청·issue·plan acceptance를 옮긴 문장)이고 구현 설명·추론·자기평가는 넣지 않습니다. `owner`는 작성자 식별자, `acceptance`는 판정
-   기준 문장, `paths`는 리뷰 대상 파일입니다(native task 기록과 local state는 넣을 수 없음). 선택 필드
+   기준 문장, `paths`는 리뷰 대상 파일과 그 소비자·실행 경로입니다([Dispatch 전 단계](#dispatch-전-단계)의 Subject 경로. native task
+   기록과 local state는 넣을 수 없음). 선택 필드
    `requirementSections: [{"path": "<plan 경로>", "headings": ["<절 heading>"]}]`는 plan의 판정 원본 절(acceptance·invariant·Owner 결정
    기록)만 helper가 잘라 reviewer 입력으로 주고, plan 파일은 read path에 넣지 않습니다(`paths`에 그 plan이나 그 위 디렉터리를 함께 주면
    `requirement-path-in-paths`로 거부). Heading은 `#`를 뺀 정확한 문자열이고 plan 안에 한 번만 있어야 합니다. 선택 필드
@@ -89,23 +90,43 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
 
 ## Dispatch 전 단계
 
-해당하는 단계만 실행하고, 각 실행은 runner evidence record로 남깁니다. 명령은 `scripts/agents/common/` 아래 도구입니다.
+해당하는 단계만 실행하고, 각 실행은 runner evidence record로 남깁니다. 명령은 `scripts/agents/common/` 아래 도구이고 위반 종류와
+규칙은 [결정적 검사](../../../docs/development/agent-workflows/review-criteria/README.md#결정적-검사)입니다. 아래 항목 이름과
+순서는 Codex knu-review의 같은 절과 같습니다.
+
+- Subject 경로: subject `paths`에 바뀐 파일과 함께 그 소비자·실행 경로(호출부, 그 동작을 실행하는 test·CLI 진입)를 넣습니다.
+  Acceptance가 근거로 가리키는 절(PR 본문의 절 등)은 `requirementSections`·`lifecycleDraft`로 reviewer 입력에 둡니다.
+- Runner 환경: runner·재현 로그 script는 `bash`로 실행합니다(Bash tool shell이 zsh면 파이프 앞 명령의 exit
+  `${PIPESTATUS[0]}`가 비어 있습니다). 로그 첫 줄 `logHeader` 다음 줄에 `node --version` 출력을 남깁니다. 오래 도는 단계에는
+  시간 상한을 두고, 회차 log는 회차마다 새 경로에 써서 이미 있는 log를 덮지 않으며, script 안에서 앞 출력을 지우는 대신 새
+  디렉터리를 씁니다.
+- Runner 기록 내용: record에는 명령·exit·출력 경로와 log의 결과 조각만 두고, Parent가 의심한 finding 위치나 결론 문장을 넣지
+  않습니다.
 
 1. 자체 정합 점검: 수정이 규칙·수치·범위를 바꾸면 같은 유형의 서술(같은 문서의 다른 절·표, 다른 owner 문서, 개수·합계)을 전 범위에서
    검색합니다. 다음 회차를 요청하기 전에 blocking 전부를 한 번에 고치고, 같은 유형 검색은 문장 단위(줄바꿈·연속 공백을 접는 검색
    또는 `rg -U`)로 저장소 전체 tracked 경로(ignored 원천은 `rg --no-ignore`)에서 하고, 결정적 검사를 통과시킨 뒤 요청합니다.
+   계획 리뷰는 바뀐 결정·관계마다 그것을 말하는 문장 목록(같은 계획의 다른 절, 다른 owner 문서, 다른 언어로 적은 code 주석, 그
+   값을 소유한다고 적은 문서, 그 글을 읽는 test)을 만들어 문장마다 판정합니다. 정합 검색 출력은 줄마다 판정한 기록(줄, 해당
+   여부, 고친 곳)을 log에 남기고 검색 exit 0을 판정으로 쓰지 않습니다.
    로그에는 검색마다 명령과 exit 줄(`rg exit=1`은 0건)을 남기고, record는 검색을 모두 실행한 묶음의 exit 0과
    조각(`` `rg exit=1` `` 등)으로 씁니다. 0건 검색을 실패 record로 남기지 않고 exit를 뒤집는 명령(`|| true`, `!`)도 쓰지 않습니다.
    검색 exit 줄은 명령 이름을 붙여 적습니다(`rg exit=1`). 줄 전체 `exit=` 줄은 묶음의 끝 exit에만 씁니다. 검사는 record의
    log마다 마지막 줄 전체 `exit=` 줄을 record `exit`와 대조하고(`exit-mismatch`), 그 앞의 줄 전체 `exit=` 줄이 0이 아닌데 record가
    0이면 `repeated-step-exit-hidden`으로 실패합니다. 한 묶음을 여러 번 실행했으면 실행마다 record를 나눕니다.
+   0건으로 부재를 주장하는 검색은 같은 검색을 수정 전 판처럼 결과가 있어야 하는 대상에 돌린 양성 대조를 같은 record에 두고 그 exit
+   줄을 `control rg exit=0`처럼 적습니다(없으면 `runner-log-check`가 `absence-without-control` 경고). Ignored·hidden 경로의 부재
+   검색은 `rg --no-ignore --hidden`으로 합니다. macOS `git grep -E`의 `\b`는 조용히 0건이므로 낱말 경계 검색은 `rg`나
+   `git grep -P`로 합니다.
 2. 새 파일: snapshot은 HEAD 기준이라 stage와 무관하고 새 파일은 내용 digest로 들어가므로 stage하지 않습니다. Tracked 파일만
    보는 검사(`pnpm test:repo-policy`)가 새 파일을 보게 하려면 commit한 snapshot에서 실행하고, commit 전이면 저장소 밖 독립
    clone에서 새 파일을 add한 뒤 실행해 record로 남깁니다. 메인 checkout의 stage를 바꾸지 않습니다.
-3. RED 기록이 있으면 `red-reason-check.mjs`로 실패 사유를 대조합니다.
-4. 리뷰 입력에 계획·증거·readiness Markdown이 있으면 `citation-check.mjs`를 실행합니다(staged 계획 파일은 5단계의
+3. RED 사유: RED 기록이 있으면 `red-reason-check.mjs`로 실패 사유를 대조합니다. 입력은 `node --test` spec reporter나 Vitest
+   기본 reporter의 자르지 않은 출력입니다. `no-failure-blocks`이거나 block이 `'test failed'`뿐이면 module 수준 오류가 block 밖에
+   찍힌 것이므로 `--test-isolation=none`으로 다시 실행합니다.
+4. 인용: 리뷰 입력에 계획·증거·readiness Markdown이 있으면 `citation-check.mjs`를 실행합니다(staged 계획 파일은 5단계의
    `review-run`이 실행합니다).
-5. 계획 리뷰면 등급을 선언하고 `plan-shape-check.mjs --revision`을 실행합니다(P0는 리뷰 없음, P1은 reviewer 없음.
+5. 계획 리뷰 등급: 계획 리뷰면 등급을 선언하고 `plan-shape-check.mjs --revision`을 실행합니다(P0는 리뷰 없음, P1은 reviewer 없음.
    [계획 리뷰 등급](../../../docs/development/agent-workflows/session-continuity.md#계획-초안-staging과-promote)). P2·P3면
    `plan-reference-check.mjs`도 그 절 3번의 기준 대비 판정으로 실행합니다. `review-run`에
    `--plan-grade <P2|P3> --plan-drafts <staging 디렉터리> --plan-view <promote view> --plan-baseline <view를 만든 .plans 사본>`을
@@ -115,10 +136,16 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
    기존 위반은 실패가 아님. 새 unavailable 목록은 `checks/plan-reference-check.json`에 남으니 항목마다 확인), staged 계획에
    인용 검사를 돌립니다. P2의 바뀐 절 입력 `<plan>.scope.diff`(바뀐 절의 앞뒤)도 이 명령이 SOURCE-MANIFEST 원본과 staged
    파일로 만들어 `paths`에 더하고(`planScopeDiffs`), 인용한 결정 행은 Parent가 `paths`로 줍니다.
-6. 검사·harness 변경의 test 보호를 주장하면 `mutation-harness.mjs`를 실행합니다(spec은 계획 증거 위치의 리뷰 디렉터리).
-7. Runner evidence의 `runner-log-check.mjs`는 `review-run`이 실행하고 exit 0이 아니면 등록하지 않습니다. 출력은
-   `<out-dir>/checks/`에 남습니다. `review`를 따로 실행할 때는 그 직전에 직접 실행하고 exit 0이 아니면 dispatch하지 않습니다.
-   이 실행은 같은 evidence의 record가 될 수 없습니다.
+6. Mutation: 검사·harness 변경의 test 보호를 주장하면 `mutation-harness.mjs`를 실행합니다(spec은 계획 증거 위치의 리뷰
+   디렉터리). 판정 분기의 test 보호를 주장하는 변경은 저장소 밖 독립 clone에서 바뀐 판정 module의 연산자 mutation sweep(비교·논리
+   연산자, 경계값, 조건 반전)을 돌려 survivor 목록을 runner 기록에 두고, survivor를 동등으로 처분할 때마다 동등을 보이는 재현 입력과
+   출력(결과가 달라질 수 있는 입력을 찾아본 범위 포함)을 붙입니다.
+7. Runner 기록 검사: runner evidence의 `runner-log-check.mjs --evidence <JSON> --header "<logHeader>"`는 `review-run`이 실행하고
+   exit 0이 아니면 등록하지 않습니다. 출력은 `<out-dir>/checks/`에 남습니다. 경고는 `<out-dir>/checks/runner-log-check.json`의
+   `warnings`에만 남고 등록은 이어지므로, 경고에 대응하려면 `review-run` 전에 같은 option으로 직접 실행해 `warning` 줄을 봅니다. `review`를 따로 실행할 때는 그 직전에 같은 option으로
+   직접 실행하고 exit 0이 아니면 dispatch하지 않습니다. 위치 인자는 받지 않고 usage와 함께 exit 2입니다. 이 실행은 같은 evidence의
+   record가 될 수 없습니다. 조각 위반의 `suggestion`은 그 log 결과 줄에서 맞는 조각 모양입니다. 경고 `absence-without-control`은
+   exit를 바꾸지 않으니 양성 대조를 더하거나, 대조할 수 없으면 그 이유를 그 record의 log에 적습니다.
 
 ## 1회차 다중 reviewer
 
