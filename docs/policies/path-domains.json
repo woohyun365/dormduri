@@ -2,8 +2,8 @@
   "schema": "lifecycle-path-domains/v1",
   "confirmedBy": {
     "status": "owner-confirmed",
-    "date": "2026-11-08",
-    "basis": "#874"
+    "date": "2026-11-22",
+    "basis": "#958"
   },
   "productRoots": [
     "apps/**",
@@ -114,12 +114,29 @@
         "packages/database/prisma/sql/*Login*.sql",
         "packages/database/prisma/sql/*Verification*.sql"
       ],
+      "except": ["packages/database/prisma/sql/*Admin*.sql"],
       "domains": ["account-authentication"]
     },
     {
       "globs": [
         "packages/database/prisma/sql/*Retention*.sql",
         "packages/database/prisma/sql/prune*.sql"
+      ],
+      "domains": ["data-retention"]
+    },
+    {
+      "globs": [
+        "apps/backoffice-api/src/**",
+        "packages/shared/src/backoffice/**",
+        "packages/database/prisma/sql/*Admin*.sql"
+      ],
+      "domains": ["operator-access"]
+    },
+    {
+      "globs": [
+        "apps/backoffice-api/src/audit/retention/**",
+        "packages/database/prisma/sql/purge*.sql",
+        "packages/database/prisma/sql/anonymize*.sql"
       ],
       "domains": ["data-retention"]
     },
@@ -390,6 +407,7 @@
     {
       "globs": [
         "apps/api/test/**",
+        "apps/backoffice-api/test/**",
         "apps/web/e2e/**",
         "apps/web/src/test/**",
         "apps/web/src/test-setup.ts",
@@ -417,6 +435,7 @@
         "apps/web/postcss.config.mjs",
         "apps/api/nest-cli.json",
         "apps/api/.swcrc",
+        "apps/backoffice-api/nest-cli.json",
         "apps/web/.env.example",
         "apps/web/.storybook/**"
       ],

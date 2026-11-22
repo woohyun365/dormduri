@@ -146,6 +146,12 @@
       "ownerPath": ".github/workflows/api-ci.yml",
       "repository": "postgres",
       "updateOwner": "renovate"
+    },
+    {
+      "name": "postgres-backoffice-ci",
+      "ownerPath": ".github/workflows/backoffice-ci.yml",
+      "repository": "postgres",
+      "updateOwner": "renovate"
     }
   ]
 }

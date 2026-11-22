@@ -84,9 +84,10 @@ Secret value는 command output, CI log, issue, report에 남기지 않는다. �
 
 관리자 table은 백오피스 role 둘만 쓰고 사용자 API role 셋(`app_runtime`·`retention_worker`·`retention_disclosure`)은 권한이 없다.
 
-- `backoffice_runtime`: 자격 증명 table 넷은 DML(비활성화 때 지움), 계정·초대·session·WebAuthn challenge·역할 부여·승인
-  요청은 SELECT·INSERT와 결정·회수·운영 열만 UPDATE(계정 이메일·이름·익명화 시각은 없음), 감사 `AdminAuditEvent`는
-  SELECT·INSERT(append-only).
+- `backoffice_runtime`: 자격 증명 table 넷은 SELECT·INSERT·DELETE(비활성화 때 지움)와 쓰는 열만 UPDATE(passkey 서명
+  counter·마지막 사용 시각, TOTP 비밀·확인·마지막 시간 단계, 복구 code 사용 시각. 비밀번호 hash는 UPDATE 없음), 계정·초대·
+  session·WebAuthn challenge·역할 부여·승인 요청은 SELECT·INSERT와 결정·회수·운영 열만 UPDATE(계정 이메일·이름·익명화 시각은
+  없음), 감사 `AdminAuditEvent`는 SELECT와 `occurredAt`을 뺀 열의 INSERT(append-only, 감사 시각은 늘 DB 시계).
 - `backoffice_retention`: 정리 조건에 쓰는 열만 SELECT(secret·content·identifier 없음), 감사·역할 부여·승인 요청·session·
   challenge·초대 DELETE(3년 폐기, 끝난 인증 상태 7일 정리), 비활성 계정 익명화 열(`email`·`displayName`·`anonymizedAt`·
   `updatedAt`)만 UPDATE. INSERT는 없다. 감사 FK `Restrict`는 감사가 가리키는 관리자 계정·승인 요청을, 역할 부여의 FK는 승인

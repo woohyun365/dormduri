@@ -31,7 +31,7 @@
 | [data-retention.md](./data-retention.md)                       | 데이터 보유기간  | 제품 | DR             | 데이터 분류별 보유기간, 파기 절차, 탈퇴 시 처리, 법적 근거                                               |
 | [legal-basis.md](./legal-basis.md)                             | 법적 근거        | 제품 | LB             | 적용 법령 계층 구조, 서비스 행위별 법령 매핑, 접속기록 규율 대상 구분                                    |
 | [dependency-security.md](./dependency-security.md)             | Dependency 보안  | 운영 | DS             | 취약점 reachability, remediation, exception, dismissal과 release NO-GO                                   |
-| [operator-access.md](./operator-access.md)                     | 운영자 접근      | 운영 | OA             | 백오피스 운영자 계정·인증·session·재인증·잠금·권한 회수, 접속기록 내용과 월 점검                         |
+| [operator-access.md](./operator-access.md)                     | 운영자 접근      | 운영 | OA             | 백오피스 운영자 계정·인증·session·재인증·잠금·권한 부여와 회수, RRPD 열람 승인, 접속기록과 월 점검       |
 
 ## 규칙 id와 인용
 
@@ -80,7 +80,7 @@ PR diff에 적용하며, 기술 layer 영역(FE·BFF·BE) 판정과는 다른 �
 15. **Production secret, DB, migration, ingress, health, rollback과 release blocker 불변 조건은 `production-runtime-safety.md`가 단독 소유한다.**
 16. **Runtime topology와 관측 도구 선택은 `docs/architecture/platform/`, 지금 적용한 운영 환경의 설명과 실제 청구 비용은 `docs/deploy/`, release gate가 판정에 쓰는 target 입력과 실행 결과는 `infra/runbooks/`가 소유한다.**
 17. **Dependency vulnerability triage, exception, dismissal과 release blocker는 `dependency-security.md`가 단독 소유한다.**
-18. **백오피스 운영자 계정·인증·session·권한 회수와 접속기록의 내용·점검은 `operator-access.md`가 단독 소유한다. 그 기록의 보존 기간은 `data-retention.md`가 소유한다.**
+18. **백오피스 운영자 계정·인증·session·권한 부여와 회수(직무 분리), RRPD 열람 승인, 접속기록의 내용·점검은 `operator-access.md`가 단독 소유한다. 그 기록의 보존 기간과 RRPD 자체의 보존·분리는 `data-retention.md`가 소유한다.**
 
 ## 변경 이력 규칙
 
@@ -125,6 +125,7 @@ PR diff에 적용하며, 기술 layer 영역(FE·BFF·BE) 판정과는 다른 �
 | 2026-10-24 | `사용 순서` 머리 문장에서 Sprint 5를 빼고 목록에 `matching-algorithm.md`·`roommate-searching.md`를 넣어 정책 문서 19개를 모두 담았다                              | #677                                    |
 | 2026-10-31 | 문서 구성 표에 종류 칸(제품·운영·혼합)을 더하고, 정리 원칙 16에 지금 운영 환경·실제 비용(`docs/deploy/`)과 release target 입력(`infra/runbooks/`)의 소유를 나눴다 | #723                                    |
 | 2026-11-21 | `operator-access.md`(운영자 접근, 접두어 `OA`)를 문서 구성 표·정리 원칙 18·사용 순서에 더했다                                                                     | #949                                    |
+| 2026-11-21 | `operator-access.md` 행과 정리 원칙 18에 권한 부여의 직무 분리·첫 계정·RRPD 열람 승인을 더했다                                                                    | #958                                    |
 
 ## 사용 순서
 

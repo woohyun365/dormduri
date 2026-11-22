@@ -38,6 +38,20 @@ API public 명령은 fresh checkout에서 단독 실행할 수 있도록 `ci:pre
 - `jest` runner/dependency를 재도입하지 않는다.
 - TypeScript CLI·stress 도구를 build 없이 실행하는 `package.json` script는 `node --import ./test/support/ts-esm-loader.mjs <file>.ts`를 쓴다. Loader는 `apps/api/tsconfig.json`의 compiler option으로 변환만 하고, type은 `src`도 포함하는 test tsconfig로 `typecheck:test`가 검사한다.
 
+## BE test 기준
+
+사용자 API와 백오피스 API(`apps/backoffice-api`)가 함께 따르는 값이다. 원칙은
+[swe S12](../../../docs/development/agent-workflows/review-criteria/swe.md#s12-동작계약을-고정하는-test)와
+[S6](../../../docs/development/agent-workflows/review-criteria/swe.md#s6-보호-test)이다.
+
+- 동작은 가장 가까운 층에서 검사한다: unit은 domain 규칙과 순수 판정, integration은 DB·transaction·grant, e2e는 route 계약.
+- import 방향과 금지 import는 각 app의 `eslint.config.mjs`가 지키고 test로 복제하지 않는다.
+- 지운 module·옛 이름이 없다는 test는 두지 않는다.
+- negative는 인증·권한·입력 검증·fail-closed 경로에 둔다. route마다의 접근 규칙은 route 전수 표
+  (`test/architecture/security/auth-access-route-matrix.spec.ts`, 백오피스 API `test/architecture/route-access-table.spec.ts`)가 고정한다.
+- DB 권한 경계는 운영과 같은 LOGIN user로 접속한 integration이 확인한다(`DORMDURI_API_INTEGRATION_DATABASE_ROLES=separated`,
+  백오피스 API는 늘 두 LOGIN user로 접속).
+
 ## Runner owner
 
 - 공통 transform: `vitest.config.base.ts`

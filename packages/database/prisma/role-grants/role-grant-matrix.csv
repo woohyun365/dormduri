@@ -148,13 +148,16 @@ AdminAccount,backoffice_runtime,UPDATE,status failedAuthAttemptCount lockedUntil
 AdminAccount,backoffice_retention,SELECT,id status deactivatedAt anonymizedAt
 AdminAccount,backoffice_retention,UPDATE,email displayName anonymizedAt updatedAt
 AdminAccount,app_readonly,SELECT,-secret -content
-AdminPasswordCredential,backoffice_runtime,SELECT INSERT UPDATE DELETE,
+AdminPasswordCredential,backoffice_runtime,SELECT INSERT DELETE,
 AdminPasswordCredential,app_readonly,SELECT,-secret -content
-AdminPasskeyCredential,backoffice_runtime,SELECT INSERT UPDATE DELETE,
+AdminPasskeyCredential,backoffice_runtime,SELECT INSERT DELETE,
+AdminPasskeyCredential,backoffice_runtime,UPDATE,counter lastUsedAt
 AdminPasskeyCredential,app_readonly,SELECT,-secret -content
-AdminTotpCredential,backoffice_runtime,SELECT INSERT UPDATE DELETE,
+AdminTotpCredential,backoffice_runtime,SELECT INSERT DELETE,
+AdminTotpCredential,backoffice_runtime,UPDATE,secretCiphertext lastUsedTimeStep confirmedAt updatedAt
 AdminTotpCredential,app_readonly,SELECT,-secret -content
-AdminRecoveryCode,backoffice_runtime,SELECT INSERT UPDATE DELETE,
+AdminRecoveryCode,backoffice_runtime,SELECT INSERT DELETE,
+AdminRecoveryCode,backoffice_runtime,UPDATE,usedAt
 AdminRecoveryCode,app_readonly,SELECT,-secret -content
 AdminInvitation,backoffice_runtime,SELECT INSERT,
 AdminInvitation,backoffice_runtime,UPDATE,usedAt acceptedAccountId revokedAt
@@ -181,7 +184,8 @@ AdminApprovalRequest,backoffice_runtime,UPDATE,status decidedByAccountId closedA
 AdminApprovalRequest,backoffice_retention,SELECT,id status expiresAt closedAt
 AdminApprovalRequest,backoffice_retention,DELETE,
 AdminApprovalRequest,app_readonly,SELECT,-secret -content
-AdminAuditEvent,backoffice_runtime,SELECT INSERT,
+AdminAuditEvent,backoffice_runtime,SELECT,
+AdminAuditEvent,backoffice_runtime,INSERT,id actorType actorAccountId sessionId accessPath action targetType targetId approvalRequestId result selfApproved reason requestId metadata
 AdminAuditEvent,backoffice_retention,SELECT,id occurredAt actorAccountId targetType targetId approvalRequestId
 AdminAuditEvent,backoffice_retention,DELETE,
 AdminAuditEvent,app_readonly,SELECT,-secret -content

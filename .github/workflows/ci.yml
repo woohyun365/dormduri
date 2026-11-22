@@ -21,6 +21,7 @@ jobs:
     outputs:
       web: ${{ steps.changes.outputs.web }}
       api: ${{ steps.changes.outputs.api }}
+      backoffice: ${{ steps.changes.outputs.backoffice }}
       shared: ${{ steps.changes.outputs.shared }}
       storybook: ${{ steps.changes.outputs.storybook }}
       infra: ${{ steps.changes.outputs.infra }}
@@ -103,6 +104,12 @@ jobs:
     needs: classify
     if: ${{ needs.classify.outputs.api == 'true' }}
     uses: ./.github/workflows/api-ci.yml
+
+  backoffice:
+    name: Backoffice validation
+    needs: classify
+    if: ${{ needs.classify.outputs.backoffice == 'true' }}
+    uses: ./.github/workflows/backoffice-ci.yml
 
   web:
     name: Web validation
@@ -211,6 +218,7 @@ jobs:
       - classify
       - shared
       - api
+      - backoffice
       - web
       - infra
       - repo_policy
@@ -227,6 +235,8 @@ jobs:
           SHARED_RESULT: ${{ needs.shared.result }}
           API_SELECTED: ${{ needs.classify.outputs.api }}
           API_RESULT: ${{ needs.api.result }}
+          BACKOFFICE_SELECTED: ${{ needs.classify.outputs.backoffice }}
+          BACKOFFICE_RESULT: ${{ needs.backoffice.result }}
           WEB_SELECTED: ${{ needs.classify.outputs.web }}
           WEB_RESULT: ${{ needs.web.result }}
           INFRA_SELECTED: ${{ needs.classify.outputs.infra }}
@@ -265,6 +275,7 @@ jobs:
 
           require_selected_lane "shared" "$SHARED_SELECTED" "$SHARED_RESULT"
           require_selected_lane "api" "$API_SELECTED" "$API_RESULT"
+          require_selected_lane "backoffice" "$BACKOFFICE_SELECTED" "$BACKOFFICE_RESULT"
           require_selected_lane "web" "$WEB_SELECTED" "$WEB_RESULT"
           require_selected_lane "infra" "$INFRA_SELECTED" "$INFRA_RESULT"
           require_selected_lane "repo-policy" "$REPO_POLICY_SELECTED" "$REPO_POLICY_RESULT"
@@ -278,6 +289,7 @@ jobs:
             echo "| classify | true | ${CLASSIFY_RESULT} |"
             echo "| shared | ${SHARED_SELECTED} | ${SHARED_RESULT} |"
             echo "| api | ${API_SELECTED} | ${API_RESULT} |"
+            echo "| backoffice | ${BACKOFFICE_SELECTED} | ${BACKOFFICE_RESULT} |"
             echo "| web | ${WEB_SELECTED} | ${WEB_RESULT} |"
             echo "| infra | ${INFRA_SELECTED} | ${INFRA_RESULT} |"
             echo "| repo-policy | ${REPO_POLICY_SELECTED} | ${REPO_POLICY_RESULT} |"
