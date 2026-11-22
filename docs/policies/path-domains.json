@@ -3,7 +3,7 @@
   "confirmedBy": {
     "status": "owner-confirmed",
     "date": "2026-11-22",
-    "basis": "#958"
+    "basis": "#966"
   },
   "productRoots": [
     "apps/**",
@@ -127,6 +127,8 @@
     {
       "globs": [
         "apps/backoffice-api/src/**",
+        "apps/backoffice-web/src/**",
+        "apps/backoffice-web/next.config.ts",
         "packages/shared/src/backoffice/**",
         "packages/database/prisma/sql/*Admin*.sql"
       ],
@@ -408,6 +410,7 @@
       "globs": [
         "apps/api/test/**",
         "apps/backoffice-api/test/**",
+        "apps/backoffice-web/e2e/**",
         "apps/web/e2e/**",
         "apps/web/src/test/**",
         "apps/web/src/test-setup.ts",
@@ -432,6 +435,8 @@
         "packages/shared/vitest.config.ts",
         "apps/web/react-compiler.config.ts",
         "apps/web/playwright*.ts",
+        "apps/backoffice-web/playwright.config.ts",
+        "apps/backoffice-web/postcss.config.mjs",
         "apps/web/postcss.config.mjs",
         "apps/api/nest-cli.json",
         "apps/api/.swcrc",

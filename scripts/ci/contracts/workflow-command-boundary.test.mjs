@@ -189,6 +189,12 @@ test('root commands expose prepared aggregate capabilities', () => {
     'backoffice-api:test:prepared',
     'backoffice-api:test:integration:prepared',
     'backoffice-api:build:prepared',
+    'backoffice-web:prepare',
+    'backoffice-web:check',
+    'backoffice-web:check:prepared',
+    'backoffice-web:test:prepared',
+    'backoffice-web:build:prepared',
+    'backoffice-web:e2e:prepared',
     'web:prepare',
     'web:check',
     'web:check:prepared',
@@ -236,13 +242,19 @@ for (const workflow of [
   },
   {
     path: '.github/workflows/backoffice-ci.yml',
+    // Two runners (API gate, Web gate); the Web e2e drives the API build, so both prepare the API.
     prepare: 'pnpm backoffice-api:prepare',
-    prepareCount: 1,
+    prepareCount: 2,
     required: [
       'pnpm backoffice-api:check:prepared',
       'pnpm backoffice-api:test:prepared',
       'pnpm backoffice-api:test:integration:prepared',
       'pnpm backoffice-api:build:prepared',
+      'pnpm backoffice-web:lint:prepared',
+      'pnpm backoffice-web:typecheck:prepared',
+      'pnpm backoffice-web:test:prepared',
+      'pnpm backoffice-web:build:prepared',
+      'pnpm backoffice-web:e2e:prepared',
     ],
     forbidden: ['pnpm shared:build', 'pnpm api:prisma:generate', 'pnpm api:prepare'],
   },
@@ -522,24 +534,41 @@ test('API CI migrates its fresh public schema before generating TypedSQL artifac
 
 test('Backoffice CI migrates the public schema before TypedSQL and times every stage', () => {
   const backofficeWorkflow = read('.github/workflows/backoffice-ci.yml');
+  const webStart = backofficeWorkflow.indexOf('\n  backoffice-web:');
+  assert.ok(webStart > 0, 'the backoffice Web job must be found');
+  const jobs = {
+    api: backofficeWorkflow.slice(0, webStart),
+    web: backofficeWorkflow.slice(webStart),
+  };
+  const stages = {
+    api: ['install', 'schema', 'prepare', 'static', 'unit', 'integration-db', 'build'],
+    web: [
+      'install',
+      'schema',
+      'prepare',
+      'static',
+      'typecheck',
+      'unit',
+      'build',
+      'api-build',
+      'browser-install',
+      'e2e',
+    ],
+  };
 
-  assertIncludesAll(backofficeWorkflow, [
-    'pnpm --dir packages/database exec prisma migrate deploy --schema prisma/schema.prisma',
-    '--stage=install',
-    '--stage=schema',
-    '--stage=prepare',
-    '--stage=static',
-    '--stage=unit',
-    '--stage=integration-db',
-    '--stage=build',
-    'total_duration_seconds',
-    'pnpm_store_cache',
-  ]);
-  assert.ok(
-    backofficeWorkflow.indexOf('prisma migrate deploy') <
-      backofficeWorkflow.indexOf('pnpm backoffice-api:prepare'),
-  );
-  assert.equal(occurrences(backofficeWorkflow, 'services:'), 1);
+  for (const [name, job] of Object.entries(jobs)) {
+    assertIncludesAll(job, [
+      'pnpm --dir packages/database exec prisma migrate deploy --schema prisma/schema.prisma',
+      ...stages[name].map((stage) => `--stage=${stage}`),
+      'total_duration_seconds',
+      'pnpm_store_cache',
+    ]);
+    assert.ok(
+      job.indexOf('prisma migrate deploy') < job.indexOf('pnpm backoffice-api:prepare'),
+      `${name}: migrate before the TypedSQL prepare`,
+    );
+    assert.equal(occurrences(job, 'services:'), 1, `${name}: one PostgreSQL service`);
+  }
 });
 
 test('API integration shards own isolated runners and PostgreSQL services', () => {
