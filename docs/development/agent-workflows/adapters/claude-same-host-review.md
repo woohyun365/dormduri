@@ -263,7 +263,9 @@ reviewer task(Parent reviewer는 prompt의 `KNU_REVIEW_PACKET_FILE:` 줄, native
 닫고, Parent reviewer는 그 task의 정산이 `review-packet-settled`로 닫힘 기록을 쓰지 않으므로 그 task를 release해 닫습니다. 열림 기록이 없는 packet은
 열림 기록을 쓰기 전 helper가 등록한 것이라 닫힘 기록이 생기지 않을 수 있으므로, 닫힘 기록의 `taskId`가 기준 task이거나 기준
 task에 완료 관측(`completion.json`)이 있으면 닫힌 것으로 봅니다. 정산하지 않을 task는 release해 기준 task에서 뺍니다. `.plans`
-promote·상태 정정 전 결속 확인은 이 규칙으로 열린 packet의 `.inputs.json`을 봅니다.
+promote·상태 정정 전 결속 확인은 이 규칙으로 열린 packet의 `.inputs.json`을 봅니다
+(`node scripts/agents/claude/review-packet-open.mjs --paths <경로>[,<경로>…]`가 그 경로를 결속한 packet마다 상태를 내고 열린 packet이
+있거나 읽을 수 없는 task 기록(어느 packet의 기준 task인지 알 수 없음)이 있으면 exit 1이며, 다른 checkout root로 등록된 task(저장소 경로가 바뀌기 전 등록 등, registry가 `foreign task`로 읽지 않음)는 기준 task에서 빼고, launch 없이 만료된 기준 task의 packet은 `open-expired-unlaunched`로 따로 세고 막지 않습니다).
 
 ### 리뷰 입력 사본
 
