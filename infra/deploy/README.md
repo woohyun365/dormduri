@@ -26,8 +26,15 @@ infra/deploy/
 │   ├── ingress/                     # ingress image: nginx.conf, conf.d/, snippets/, html/(정적 안내 화면 넷)
 │   ├── ssm/                         # lib.sh(두 document 공통), deploy.sh(원본)와 dormduri-web-deploy.json(생성본)
 │   └── api/
-│       ├── compose.yml              # API 묶음 조각: api service, migrate one-off(profile migrate), 관측 service 다섯
+│       ├── compose.yml              # API 묶음 조각: api service, migrate one-off(profile migrate), 관측 service 다섯, 수신 gateway
 │       └── ssm/                     # deploy-api.sh·secret_bundle.py(원본)와 dormduri-api-deploy.json(생성본)
+├── backoffice-api/                  # 백오피스 API image: Dockerfile, entrypoint.sh, secret-mount.contract.json
+├── backoffice-web/Dockerfile        # 백오피스 Web standalone image
+├── backoffice/                      # 백오피스 host 묶음
+│   ├── compose.yml                  # admin ingress·backoffice-web·backoffice-api·bootstrap-owner one-off·Alloy
+│   ├── ingress/                     # admin ingress image: Dockerfile, nginx.conf
+│   ├── alloy/config.alloy           # 백오피스 host 관측 수집(user host 수신 gateway로 보냄)
+│   └── ssm/                         # lib.sh·deploy.sh·bootstrap-owner.sh(원본)와 document 생성본 둘
 ├── compose.api.yml                  # API + nginx runtime candidate
 ├── .env.api.example                 # API runtime env projection
 ├── .env.api.lightsail.example       # Lightsail non-secret runtime projection
@@ -94,17 +101,21 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
 
 - Compose project는 `dormduri-web` 하나다. 두 document는 지금 기록된 두 조각을 함께 넘겨 compose를 부르되 자기 묶음의
   service만 `up`·`stop`·`rm`하고 project 전체 `down`은 쓰지 않는다. `--remove-orphans`는 두 조각을 다 넘긴 `up`에서만 쓴다.
-  관측 service 다섯(Prometheus·Loki·Alloy·Alertmanager·Grafana)은 API 조각에 있어 API 묶음 service다. Web document의 `up`에서도
+  관측 service 다섯(Prometheus·Loki·Alloy·Alertmanager·Grafana)과 수신 gateway(`obs-gateway`)는 API 조각에 있어 API 묶음 service다. Web document의 `up`에서도
   orphan이 아니고, API document가 API rollout 뒤 따로 다시 띄운다(실패해도 API 결과는 그대로, fail-open).
 - Web transit(`web-transit`, Web과 ingress에 고정 주소)은 Web 조각이 만들고, API transit(`dormduri-api-transit`, external)은
   두 document가 compose 전에 없을 때만 고정 subnet으로 만든다. 값은 `user/compose.yml`(Web)·`user/ssm/lib.sh`(API)에 있고
   `scripts/infra/user-host/compose-contract.mjs`가 render 결과와 lib.sh 값을 계약과 대조하며, 두 대역이 서로·Docker 기본 주소
   pool·AWS 기본 VPC 대역과 겹치지 않는지 본다. 이름은 같은데 subnet이 다르면 아무것도 바꾸지 않고 exit 2다.
-- 관측 network(`observability`, 고정 subnet)는 API 조각이 정의하는 묶음 안 network다. Prometheus만 API transit에도 붙는다. 관측
-  UI(Prometheus·Alertmanager·Grafana)는 host `127.0.0.1`에만 publish한다.
+- 관측 network(`observability`, 고정 subnet)는 API 조각이 정의하는 묶음 안 network다. 수신 gateway(`obs-gateway`)만 API transit에도
+  붙고 Prometheus는 붙지 않는다(API container가 Prometheus의 remote write 수신에 닿지 않게, backoffice-foundation D-BF15). Prometheus는
+  API 지표를 gateway의 관측 network 전용 listener(9482)로 긁는다. 관측 UI(Prometheus·Alertmanager·Grafana)는 host `127.0.0.1`에만
+  publish하고, gateway만 host 모든 주소에 9480을 publish한다(백오피스 host Alloy의 log push·remote write만, 보낸 주소가 백오피스
+  host 사설 /32이고 Bearer token이 맞을 때만, `infra/observability/gateway/nginx.conf`). Lightsail 방화벽은 9480을 열지 않는다(같은
+  계정 사설 IP traffic은 방화벽이 거르지 않는다, F7).
 - Host 경로: `/opt/dormduri/state`(root 0700, 기록·lock·host log), `/opt/dormduri/releases/{web,api}/<release>`(release마다
   쓴 compose 조각), `/opt/dormduri/secrets/api/releases/<release>`(API secret, `infra/aws/secrets-manager-checklist.md`),
-  `/opt/dormduri/secrets/observability/`(관측 secret 파일 셋, 파일마다 읽는 container UID 소유 0400),
+  `/opt/dormduri/secrets/observability/`(관측 secret 파일 셋과 gateway 접근 include, 파일마다 읽는 container UID 소유 0400),
   `/opt/dormduri/observability/config/<digest>/`(관측 설정 image에서 꺼낸 설정, root 소유), `/opt/dormduri/{tls,acme-webroot,mode}`
   (Web 묶음). 운영 관측은 [운영 관측 runbook](../runbooks/operations/observability/production-stack.md)이 소유한다.
 
@@ -140,7 +151,7 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
   남는다. 관측 단계의 network 호출은 SSM step 상한(900초)보다 60초 이른 상한 안에서 끝나고 남은 시간이 없으면 건너뛴다.
   실패 처리와 DB 경계는 `infra/db/README.md` Release order와 `infra/runbooks/incidents/release-rollback.md`가 소유한다.
 - `rollback`은 host의 `previous`와 세 digest가 모두 같을 때만, migrate 단계 없이 되돌리고 관측도 그 묶음의 설정으로 다시
-  만든다. `maintenance`는 API를 내리고 관측 stack은 건드리지 않는다. 관측 배치·접근·대응은
+  만든다(수신 gateway를 처음 들인 묶음의 앞 묶음으로 되돌릴 때는 관측이 그대로 남고 `observability=failed`다, 운영 관측 runbook). `maintenance`는 API를 내리고 관측 stack은 건드리지 않는다. 관측 배치·접근·대응은
   [운영 관측 runbook](../runbooks/operations/observability/production-stack.md)이 소유한다.
 
 ### Local rehearsal과 검사
@@ -161,6 +172,34 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
   상한·남은 시간 없음에도 API 결과가 그대로인지, 다시 만든 관측 container의 설정 경로가 정리에서 남는지를 판정한다. 같은 document 실행은
   `node scripts/infra/user-host/ssm-document-runtime.mjs`로 따로 돌릴 수 있다.
 - 실제 Web image로 같은 smoke를 돌릴 때: `node scripts/infra/user-host/ingress-smoke.mjs --web-image=<local image>`.
+
+## 백오피스 host 묶음
+
+백오피스 host(user host와 따로 둔 Lightsail 2 GB instance)에 올리는 묶음이다(backoffice-foundation D-BF2·D-BF13·D-BF15·D-BF16). 배포
+절차·운영자 접속·경보 대응은 [백오피스 단계 배포](../runbooks/release/backoffice-stage-deploy.md)가 소유한다.
+
+- Compose project `dormduri-backoffice`(`backoffice/compose.yml`): admin ingress(`backoffice/ingress`, nginx), `backoffice-web`
+  (Next.js standalone, `backoffice-web/Dockerfile`), `backoffice-api`(`backoffice-api/Dockerfile`, migration 없음), one-off
+  `bootstrap-owner`(profile `bootstrap`, 같은 API image, log driver none), Alloy(upstream pin, Docker socket·host 경로 읽기 전용).
+- Host publish는 admin ingress의 `127.0.0.1:4300 → 8080` 한 줄뿐이다. 운영자는 SSM 포트 포워딩으로 `http://localhost:4300`에
+  닿는다. Admin ingress는 Host가 정확히 `localhost:4300`일 때만 Web에 넘기고(다른 Host 421), Host를 port까지 그대로, Origin·
+  Sec-Fetch-*·Cookie를 받은 그대로 넘기며 forwarding header를 비운다. 접속 log에는 주소·query string을 쓰지 않는다.
+- Network는 고정 subnet 넷이다: `backoffice-publish`(10.217.20.0/28, ingress의 publish), `backoffice-front`(10.217.21.0/28,
+  internal, ingress↔Web), `backoffice-app`(10.217.22.0/28, internal, Web↔API), `backoffice-egress`(10.217.23.0/28, API·one-off·
+  Alloy의 RDS·AWS·user host 수신 경로). User host 대역(10.217.10~12.0/28)·Docker 기본 pool·AWS 기본 VPC와 겹치지 않는다.
+- Secret은 Secrets Manager `/dormduri/production/backoffice` 하나를 host role이 꺼내 release마다 파일로 둔다: key 여섯
+  (`/opt/dormduri/secrets/backoffice/releases/<release>`, UID 10001 소유 0400, 디렉터리 0500, API container는 그 가운데 넷만 파일 단위로
+  mount)과 Alloy가 읽는 셋의 사본(metrics token, 수신 주소·token, `.../observability/<release>`, root 소유 0400). contract는 `backoffice-api/secret-mount.contract.json`이다.
+- Host 경로: `/opt/dormduri/state`(root 0700, 기록 `current`·`previous`·lock·host log), `/opt/dormduri/releases/backoffice/<release>`
+  (compose·Alloy 설정·기록 사본).
+- Document 둘(`backoffice/ssm/`, 생성기 `scripts/infra/backoffice-host/ssm-document.mjs`, `--check`로 생성본 대조):
+  `dormduri-backoffice-deploy`(입력 `action`과 digest 셋 `backofficeApiDigest`·`backofficeWebDigest`·`backofficeIngressDigest`)와
+  `dormduri-backoffice-bootstrap-owner`(입력 email·표시 이름, Owner만 보낸다). 두 document는 같은 host lock을 쓴다. Deploy document는
+  Docker Engine 하한(28, iptables backend, loopback 보호를 끄는 설정 없음)을 먼저 보고, rollout 뒤 host 안 smoke가 실패하면 직전 묶음으로
+  되돌린다.
+- 검사: compose 계약 `scripts/infra/backoffice-host/compose-contract.mjs`(publish 한 줄·hardening·network·secret mount, validate-compose가
+  실제 render에 적용), document 실행 harness `ssm-document-runtime.mjs`, admin ingress runtime smoke `ingress-smoke.mjs`, workflow 계약
+  `backoffice-cd-contract.test.mjs`.
 
 ## 정적 안내 화면
 

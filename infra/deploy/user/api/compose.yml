@@ -1,4 +1,4 @@
-# User host API 묶음 compose 조각(api·migrate one-off·관측 다섯, 동작 설명: infra/deploy/README.md 'User host 묶음'). API 배포
+# User host API 묶음 compose 조각(api·migrate one-off·관측 다섯·수신 gateway, 동작 설명: infra/deploy/README.md 'User host 묶음'). API 배포
 # document(ssm/deploy-api.sh)가 이 조각을 document 안에 담아 `/opt/dormduri/releases/api/<release>/compose.yml`에 쓰고,
 # 그 release의 기록이 이 조각을 가리킨다. web 묶음 조각(../compose.yml)과 같은 project(`dormduri-web`)로 함께 넘기므로
 # 이 조각은 top-level `name:`을 두지 않는다. 경로는 host 절대 경로만 쓴다.
@@ -178,6 +178,7 @@ services:
         --storage.tsdb.path=/prometheus,
         --storage.tsdb.retention.time=15d,
         --web.listen-address=0.0.0.0:9090,
+        --web.enable-remote-write-receiver,
       ]
     volumes:
       - {
@@ -196,7 +197,9 @@ services:
         }
       - { type: volume, source: prometheus-data, target: /prometheus }
     ports: ['127.0.0.1:9090:9090']
-    networks: { observability: {}, api-transit: {} }
+    # API 지표는 obs-gateway의 관측 network 전용 listener로 긁는다. Prometheus는 api-transit에 붙지 않아 API container가
+    # remote write 수신(백오피스 지표)에 닿지 않는다(backoffice-foundation D-BF15, Owner 2026-11-22).
+    networks: { observability: {} }
     healthcheck:
       {
         test: ['CMD', '/bin/wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:9090/-/ready'],
@@ -363,6 +366,42 @@ services:
         start_period: 20s,
       }
     deploy: { resources: { limits: { cpus: '0.20', memory: 320M, pids: 192 } } }
+
+  # 관측 수신 gateway(backoffice-foundation D-BF15). 9480은 백오피스 host Alloy의 log push·remote write만 받고(보낸 주소 /32와
+  # Bearer token, include는 document가 관측 묶음으로 쓴다), 9482는 Prometheus의 API scrape 대행이다(관측 network만). 설정은 관측
+  # 설정 image의 gateway/nginx.conf다. Lightsail 방화벽은 9480을 열지 않는다(사설 IP 경로만, F7).
+  obs-gateway:
+    <<: *obs
+    image: nginx:1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+    user: '101:101'
+    entrypoint: []
+    command: [nginx, -c, /etc/dormduri-gateway/nginx.conf, -g, 'daemon off;']
+    volumes:
+      - {
+          type: bind,
+          source: '${OBSERVABILITY_CONFIG_DIR:?required}/gateway',
+          target: /etc/dormduri-gateway,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+      - {
+          type: bind,
+          source: /opt/dormduri/secrets/observability/gateway-access.conf,
+          target: /run/secrets/dormduri-observability/gateway-access.conf,
+          read_only: true,
+          bind: { create_host_path: false },
+        }
+    ports: ['9480:9480']
+    networks: { observability: {}, api-transit: {} }
+    healthcheck:
+      {
+        test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:9481/__gateway/health'],
+        interval: 15s,
+        timeout: 3s,
+        retries: 3,
+        start_period: 5s,
+      }
+    deploy: { resources: { limits: { cpus: '0.10', memory: 64M, pids: 64 } } }
 
 networks:
   api-transit:

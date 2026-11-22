@@ -128,7 +128,7 @@ redaction_confirmed: false
 
 | 필드                           | 적는 값                                                                                                                                                     |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stage`                        | 단계 이름(`web`·`api`)                                                                                                                                      |
+| `stage`                        | 단계 이름(`web`·`api`·`backoffice`)                                                                                                                         |
 | `action`                       | 그 실행의 동작(`deploy`·`rollback`·`maintenance`). `rollback`의 `images`는 되돌린 쌍이고, `maintenance`는 지금 쌍과 직전 안전 쌍을 바꾸지 않는다            |
 | `release_id`                   | 배포 tag 이름                                                                                                                                               |
 | `release_commit_sha`           | 배포한 source commit SHA                                                                                                                                    |
@@ -158,7 +158,12 @@ evidence를 본 뒤 고친다.
   `해당 없음(이 실행은 DB를 바꾸지 않음)`이다. API 묶음은 관측 설정 image도 담으므로 `deploy`·`rollback`은 관측 stack·Slack
   경보·host 지표 줄을 두고 operator가 host 결과의 `observability` 값, Grafana·Slack 시험, Alloy Docker socket 위험 수용을 적는다
   ([운영 관측 runbook](../operations/observability/production-stack.md)). `maintenance`는 관측을 바꾸지 않아 `해당 없음`이다.
-- 두 단계의 Release는 tag 이름으로 갈린다. 지금 묶음·직전 안전 묶음과 dispatch 대조는 그 단계의 Release만 읽는다.
+- `stage: backoffice`(`backoffice-cd.yml`, Release `deploy-backoffice-*`): Infrastructure target(백오피스 host), 백오피스 Secrets
+  Manager, Lightsail runtime(백오피스 묶음, Docker Engine 하한 포함), Rollback, DB credential(백오피스 role), 관측(백오피스 Alloy →
+  user host 수신)·보안 경보. 백오피스 묶음은 migration을 실행하지 않으므로 DB migration·role grant는 언제나 `해당 없음`이다. 공개
+  주소가 없어 외부 smoke가 없고, `smoke`는 host 안 smoke가 든 SSM command 결과(`host smoke (backoffice): SSM command Success`)다
+  ([백오피스 단계 배포](./backoffice-stage-deploy.md)).
+- 세 단계의 Release는 tag 이름으로 갈린다. 지금 묶음·직전 안전 묶음과 dispatch 대조는 그 단계의 Release만 읽는다.
 
 ## Secret-free 규칙
 

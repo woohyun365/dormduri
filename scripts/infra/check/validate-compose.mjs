@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { loadImageInventory, resolveImageReference } from '../artifacts/image-inventory.mjs';
+import {
+  BACKOFFICE_RENDER_ENVIRONMENT,
+  checkBackofficeCompose,
+  readSecretContract,
+} from '../backoffice-host/compose-contract.mjs';
 import { buildComposeArgs, loadComposeInventory } from '../compose/profile.mjs';
 import {
   apiEnvironmentFromExamples,
@@ -165,6 +170,38 @@ for (const problem of fragmentTextProblems({
 if (userHost && userHostRehearsal) {
   for (const problem of rehearsalDifferenceProblems(userHost, userHostRehearsal)) {
     failures.push(`user-host-rehearsal: ${problem}`);
+  }
+}
+
+// 백오피스 host 묶음(backoffice-foundation D-BF2·D-BF16): bootstrap profile까지 render해 one-off service도 본다.
+const backofficeRender = spawnSync(
+  'docker',
+  [
+    'compose',
+    '-f',
+    'infra/deploy/backoffice/compose.yml',
+    '--profile',
+    'bootstrap',
+    'config',
+    '--format',
+    'json',
+  ],
+  { cwd: repoRoot, encoding: 'utf8', env: { ...process.env, ...BACKOFFICE_RENDER_ENVIRONMENT } },
+);
+if (backofficeRender.status !== 0) {
+  failures.push(`backoffice-host render: ${backofficeRender.stderr}`);
+} else {
+  // 백오피스 Alloy는 local 관측 compose와 같은 pin이다(image inventory `backoffice-alloy`·`alloy`).
+  const alloyPin = resolveImageReference(
+    repoRoot,
+    loadImageInventory(repoRoot).images.find((image) => image.name === 'alloy'),
+  );
+  for (const problem of checkBackofficeCompose(JSON.parse(backofficeRender.stdout), {
+    contract: readSecretContract(repoRoot),
+    pins: { alloy: alloyPin },
+    environment: BACKOFFICE_RENDER_ENVIRONMENT,
+  })) {
+    failures.push(`backoffice-host: ${problem}`);
   }
 }
 

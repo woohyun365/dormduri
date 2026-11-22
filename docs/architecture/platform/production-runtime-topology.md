@@ -170,7 +170,9 @@ flowchart TB
 
 - 사용자 Web/API와 public ingress를 소유한다.
 - API의 auth hash와 제품 transaction이 우선 resource owner다.
-- Observability는 제품 요청을 방해하지 않는 limit와 fail-open 경계를 사용한다.
+- Observability는 제품 요청을 방해하지 않는 limit와 fail-open 경계를 사용한다. 관측 수신 gateway(`obs-gateway`)가 백오피스 host의
+  log push와 지표 remote write를 백오피스 host 사설 주소와 token으로만 받고, Prometheus 대신 API 지표를 긁는다(Prometheus는 API
+  network에 붙지 않는다).
 - BackOffice Web/API를 배치하지 않는다.
 
 #### User public ingress와 BFF trust
@@ -196,10 +198,55 @@ forwarding trust는 이용자 API를 여는 단계가 더한다([repository 구�
 
 #### BackOffice host
 
-- 운영자 Web/API와 제한된 admin ingress만 소유한다.
+- 운영자 Web/API와 제한된 admin ingress만 소유한다. 공개 port·도메인이 없다. 운영자는 SSM 포트 포워딩으로 `http://localhost:4300`에
+  닿고, host publish는 admin ingress의 `127.0.0.1:4300` 하나다. Lightsail 방화벽은 같은 계정 사설 IP traffic을 거르지 않으므로
+  loopback publish를 다른 host의 직접 route에서 막는 Docker Engine 28 이상을 배포마다 확인한다
+  ([백오피스 단계 배포](../../../infra/runbooks/release/backoffice-stage-deploy.md#docker-engine-하한)).
 - 사용자 session/capability를 그대로 재사용하지 않고 별도 admin authorization과 audit을 적용한다.
-- 사용자 제품과 별도의 health, rollout과 previous-safe rollback 경로를 사용한다.
-- 중앙 관측 stack으로 로그와 metric을 전달하되 raw 관측 query를 제품 API로 재노출하지 않는다.
+- 사용자 제품과 별도의 health, rollout과 previous-safe rollback 경로를 사용한다(`backoffice-cd`, environment
+  `production-backoffice`, 직전 digest 묶음으로 되돌림).
+- 중앙 관측 stack으로 로그와 metric을 전달하되 raw 관측 query를 제품 API로 재노출하지 않는다. 백오피스 Alloy가 user host 수신
+  gateway로 밀어 넣는 한 방향이고 user host에서 백오피스 host로 여는 연결은 없다.
+
+```mermaid
+flowchart LR
+    Operator[운영자 노트북<br/>localhost:4300]:::external
+    SSM[SSM 포트 포워딩<br/>Identity Center 단기 credential]:::cloud
+    RDS[(관리형 PostgreSQL 18)]:::database
+
+    subgraph BackofficeHost[백오피스 host · 2GiB · 방화벽 규칙 없음]
+        direction LR
+        AdminIngress[admin nginx<br/>127.0.0.1:4300만 publish<br/>Host localhost:4300만]:::security
+        BoWeb[BackOffice Web<br/>BFF]:::frontend
+        BoApi[BackOffice API<br/>인증 · 권한 · 감사]:::backend
+        BoAlloy[Alloy]:::ops
+        AdminIngress --> BoWeb --> BoApi
+        BoAlloy -. log · 지표 · probe .-> BoApi
+    end
+
+    subgraph UserHostObs[user host 관측 stack]
+        direction LR
+        Gateway[수신 gateway<br/>백오피스 주소 + token만]:::security
+        Prom[Prometheus]:::ops
+        LokiU[Loki]:::ops
+        Gateway --> Prom
+        Gateway --> LokiU
+    end
+
+    Operator --> SSM --> AdminIngress
+    BoApi -->|private network + TLS| RDS
+    BoAlloy -->|사설 주소 · push| Gateway
+
+    classDef frontend fill:#def8fc,stroke:#0891b2,color:#111827
+    classDef backend fill:#daf7ed,stroke:#059669,color:#111827
+    classDef database fill:#ede8fe,stroke:#7c3aed,color:#111827
+    classDef cloud fill:#fef4d8,stroke:#d97706,color:#111827
+    classDef security fill:#feeaed,stroke:#e11d48,color:#111827
+    classDef external fill:#eceef2,stroke:#64748b,color:#111827
+    classDef ops fill:#f8fafc,stroke:#94a3b8,color:#111827
+    style BackofficeHost fill:#ffffff,stroke:#64748b,stroke-dasharray:6 4,color:#111827
+    style UserHostObs fill:#f8fafc,stroke:#cbd5e1,stroke-dasharray:4 4,color:#475569
+```
 
 #### Managed PostgreSQL
 
@@ -225,10 +272,13 @@ infra/
 │   │   ├── ingress/         # host 전용 ingress image(nginx 설정·정적 화면)
 │   │   ├── ssm/             # Web 배포 명령 원본·공통 lib와 그것으로 만든 SSM Command document
 │   │   └── api/             # API 묶음 조각(api·migrate one-off)과 그 배포 명령·document
-│   └── backoffice/          # BackOffice host 묶음(deployable이 생길 때)
+│   ├── backoffice-web/      # app image: 백오피스 Web(Dockerfile)
+│   ├── backoffice-api/      # app image: 백오피스 API(Dockerfile·entrypoint·secret mount 계약)
+│   └── backoffice/          # 백오피스 host 한 대의 실행 묶음(compose·admin ingress·Alloy 설정·SSM document)
 ├── aws/                     # 계정 resource: IAM·ECR 정책 template과 설정 checklist
 └── rehearsal/               # local rehearsal 덮어쓰기
 scripts/infra/user-host/     # user host 묶음의 구조 계약·ingress smoke·SSM document 생성
+scripts/infra/backoffice-host/ # 백오피스 host 묶음의 구조 계약·ingress smoke·SSM document 생성·schema gate
 ```
 
 - App image 정의는 `infra/deploy/<app>/`에, 한 host에서 함께 도는 구성은 `infra/deploy/<host>/` 하나에 둔다. 그 host만
@@ -241,8 +291,9 @@ scripts/infra/user-host/     # user host 묶음의 구조 계약·ingress smoke�
   document를 따로 두어 Web과 API를 따로 배포·되돌린다. 두 조각은 compose project 하나로 합치고 document마다 자기 service만
   바꾼다. `ingress/`에는 private BFF 경로를 더한다. `infra/deploy/compose.api.yml`·`infra/deploy/nginx/`는 API 개발
   rehearsal(stress, full-stack)이 쓰는 후보로 남는다.
-- BackOffice deployable이 생기기 전에는 빈 디렉터리나 가짜 compose를 만들지 않는다. 구현 시 caller, CI path filter, image
-  inventory, environment manifest와 rollback 경계를 함께 이전한다.
+- 백오피스 host 묶음은 user host 묶음과 같은 배치 규칙을 따르고 CD workflow·경로 filter·image inventory 항목·environment·
+  role·rollback 기록을 따로 둔다. 백오피스 API는 migration을 돌리지 않는다. schema가 바뀐 push는 `api-cd`가 migrate한 뒤에만
+  `backoffice-cd`가 rollout한다.
 
 ## Capacity 근거와 변경 trigger
 
@@ -269,3 +320,4 @@ Release gate가 쓰는 container limit과 이후 단계 planning budget은
 | 2026-10-31 | 지금 적용한 Web 단계 배치를 첫 절로 두고 기존 결정·구성도·책임 경계를 이후 목표 절로 옮겼다.                                 |
 | 2026-11-03 | 구조 목표를 app image·host 묶음·계정 resource·rehearsal 덮어쓰기로 나누고 API 단계가 user host 묶음에 합쳐지게 했다.         |
 | 2026-11-10 | API 묶음을 같은 host 묶음 안의 따로 배포하는 조각으로 두고, private listener를 주소 허용 방식으로, 지금 단계에 RDS를 더했다. |
+| 2026-11-22 | 백오피스 host 묶음의 접속·publish 경계, 관측 수신 gateway, repository 구조를 실제 구성으로 바꿨다.                           |

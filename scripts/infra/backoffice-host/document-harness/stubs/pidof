@@ -1,0 +1,5 @@
+#!/bin/bash
+# 가짜 pidof: PIDOF_DOCKERD=parent면 document shell(명령 치환 subshell의 부모)의 PID를 dockerd PID처럼 낸다. subshell은 곧
+# 끝나므로 그 부모를 /proc/<pid>/stat 넷째 칸으로 찾는다.
+[ "${PIDOF_DOCKERD:-}" = parent ] && awk '{ print $4 }' "/proc/${PPID}/stat"
+exit 0

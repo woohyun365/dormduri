@@ -12,8 +12,7 @@
 
 ## 실행 경로
 
-복원 DB는 원본과 같은 DB subnet group과 security group으로 만든다. 그 security group은 user host 주소 하나에서 오는
-5432만 받으므로(`infra/aws/rds-setup-checklist.md` Security group) GitHub-hosted runner나 operator 노트북은 복원 DB에
+복원 DB는 원본과 같은 DB subnet group과 security group으로 만든다. 그 security group은 user host와 백오피스 host 주소 둘(/32)에서 오는 5432만 받으므로(`infra/aws/rds-setup-checklist.md` Security group) GitHub-hosted runner나 operator 노트북은 복원 DB에
 바로 닿지 않는다. 그래서 drill은 operator가 user host를 거쳐 수동으로 하고, GitHub Actions workflow는 두지 않는다.
 복원 instance의 생성·삭제는 Owner console에서 한다. Production migration·runtime credential은 host role만 꺼내 user host의
 임시 파일에 두고, 노트북에는 자기 사람 조회 user 비밀번호만 둔다.
@@ -68,7 +67,7 @@
    새 instance로 만든다. 복원 시각이 latest restorable time 안인지 기록한다.
 5. Temporary restored DB가 available이 된 시각을 기록한다.
 6. Temporary restored DB의 public access가 off인지 확인한다.
-7. Temporary restored DB가 원본과 같은 DB subnet group·security group(user host 주소 하나의 5432)·parameter group
+7. Temporary restored DB가 원본과 같은 DB subnet group·security group(user host와 백오피스 host 주소 둘의 5432)·parameter group
    (`infra/aws/rds-setup-checklist.md`, `pgaudit` preload)을 쓰는지 확인한다. 복원 화면의 기본 parameter group이면
    `pgaudit`이 load되지 않아 11의 smoke가 실패한다. drill 때문에 inbound를 넓히지 않는다.
 8. Restored DB connection string이 서버 인증서와 host 이름을 검증하는지 확인한다(runtime `verify-full` + 단일 루트,

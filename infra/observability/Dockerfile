@@ -13,3 +13,4 @@ COPY alertmanager/alertmanager.production.yml /dormduri-observability/alertmanag
 COPY alertmanager/templates/ /dormduri-observability/alertmanager/templates/
 COPY grafana/provisioning/ /dormduri-observability/grafana/provisioning/
 COPY grafana/dashboards/ /dormduri-observability/grafana/dashboards/
+COPY gateway/nginx.conf /dormduri-observability/gateway/

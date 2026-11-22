@@ -1,0 +1,27 @@
+#!/bin/bash
+# 백오피스 document harness의 가짜 curl(host 안 smoke). admin ingress처럼 Host가 localhost:4300이 아니면 421, 상태 변경 BFF는
+# 고정 origin이 아니면 403이다. 묶음이 내려가 있으면 연결 실패(000). BAD_SMOKE label이면 로그인 화면이 500,
+# BAD_INGRESS_HOST label이면 다른 Host도 받는다(ingress Host 대조가 빠진 판).
+host='' origin='' method=GET url=''
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -H)
+      case "$2" in Host:*) host=${2#Host: } ;; Origin:*) origin=${2#Origin: } ;; esac
+      shift 2
+      ;;
+    -X) method=$2; shift 2 ;;
+    -o | -w | --max-time | --data) shift 2 ;;
+    -*) shift ;;
+    *) url=$1; shift ;;
+  esac
+done
+echo "curl ${method} ${host} ${origin} ${url}" >>/tmp/curl.log
+running=$(cat /tmp/running 2>/dev/null || printf none)
+if [ "${running}" = none ]; then printf '000'; exit 7; fi
+code=200
+if [ "${host}" != localhost:4300 ] && [ "${BAD_INGRESS_HOST:-none}" != "${running}" ]; then code=421
+elif [ "${method}" = POST ]; then
+  if [ "${origin}" = http://localhost:4300 ]; then code=204; else code=403; fi
+elif [ "${BAD_SMOKE:-none}" = "${running}" ]; then code=500
+fi
+printf '%s' "${code}"

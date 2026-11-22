@@ -38,6 +38,7 @@ on:
       - infra/observability/alertmanager/templates/**
       - infra/observability/grafana/provisioning/**
       - infra/observability/grafana/dashboards/**
+      - infra/observability/gateway/**
       - .github/workflows/api-cd.yml
   workflow_dispatch:
     inputs:

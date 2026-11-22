@@ -144,7 +144,56 @@ test('an unknown stage is refused before comparing', () => {
   const { root, promote, cleanup } = fixture();
   try {
     const merge = promote('apps/api/src/main.ts', 'b\n');
-    assert.equal(check(root, merge, 'main', 'backoffice').status, 2);
+    assert.equal(check(root, merge, 'main', 'admin').status, 2);
+  } finally {
+    cleanup();
+  }
+});
+
+// 백오피스 단계(backoffice-foundation D-BF16): 백오피스 image 셋·document의 입력만 백오피스 실행을 낡게 한다. 공유 package·
+// lockfile·document가 담는 secret 묶음 script는 셋 모두의 입력이다.
+test('a backoffice run is stale only after a newer backoffice deploy input change', () => {
+  const { root, promote, cleanup } = fixture();
+  try {
+    const older = promote('apps/backoffice-api/src/main.ts', 'a\n');
+    for (const path of [
+      'apps/web/page.tsx',
+      'apps/api/src/main.ts',
+      'infra/deploy/user/compose.yml',
+      'infra/deploy/user/api/compose.yml',
+      'infra/deploy/user/api/ssm/deploy-api.sh',
+      'infra/deploy/api/Dockerfile',
+      'infra/observability/prometheus/rules/backoffice-alerts.yml',
+      'scripts/infra/backoffice-host/ssm-document.mjs',
+    ])
+      promote(path, 'b\n');
+    assert.equal(check(root, older, 'main', 'backoffice').status, 0, 'other stage changes');
+    for (const path of [
+      'apps/backoffice-api/src/main.ts',
+      'apps/backoffice-web/src/proxy.ts',
+      'packages/database/prisma/schema.prisma',
+      'packages/eslint-config/base.mjs',
+      'pnpm-lock.yaml',
+      '.dockerignore',
+      'infra/deploy/api/rds-ca-bundle.sha256',
+      'infra/deploy/backoffice/compose.yml',
+      'infra/deploy/backoffice/ssm/deploy.sh',
+      'infra/deploy/backoffice-api/Dockerfile',
+      'infra/deploy/backoffice-web/Dockerfile',
+      'infra/deploy/user/api/ssm/secret_bundle.py',
+      '.github/workflows/backoffice-cd.yml',
+    ]) {
+      const run = promote('docs/readme.md', `${path}\n`);
+      promote(path, `${path} changed\n`);
+      assert.equal(check(root, run, 'main', 'backoffice').status, 1, path);
+    }
+    const api = promote('apps/api/src/main.ts', 'd\n');
+    promote('apps/backoffice-web/src/proxy.ts', 'later\n');
+    assert.equal(
+      check(root, api, 'main', 'api').status,
+      0,
+      'a backoffice change keeps an API run current',
+    );
   } finally {
     cleanup();
   }

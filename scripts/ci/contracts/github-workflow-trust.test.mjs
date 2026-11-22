@@ -50,9 +50,10 @@ function usesLiteralRepositoryTemporaryPath(source) {
   return /\/tmp\/(?:dormduri|knu)-[^\s'"`]+/u.test(source);
 }
 
-// Write scopes are allowed only in these jobs (production-web-baseline D-WB5, production-api-baseline D-AB12): OIDC for
-// the AWS roles, provenance attestation after approval, and the deploy tag and Release. The two CD workflows have the same
-// job shape. Every other job and workflow stays read-only.
+// Write scopes are allowed only in these jobs (production-web-baseline D-WB5, production-api-baseline D-AB12,
+// backoffice-foundation D-BF16): OIDC for the AWS roles, provenance attestation after approval, and the deploy tag and
+// Release. The three CD workflows have the same job shape (backoffice-cd adds a read-only schema gate job). Every other job
+// and workflow stays read-only.
 const CD_WRITE_SCOPES = Object.freeze({
   build: Object.freeze(['id-token']),
   deploy: Object.freeze(['id-token', 'attestations']),
@@ -62,6 +63,7 @@ const CD_WRITE_SCOPES = Object.freeze({
 export const DESIGNATED_WRITE_SCOPES = Object.freeze({
   'web-cd.yml': CD_WRITE_SCOPES,
   'api-cd.yml': CD_WRITE_SCOPES,
+  'backoffice-cd.yml': CD_WRITE_SCOPES,
 });
 
 // Every `<scope>: write` line with the job whose permissions block holds it ('' outside a job permissions block).
@@ -274,6 +276,9 @@ test('a write scope outside the designated api-cd jobs is rejected', () => {
     // YAML gives the same write scope to a quoted value or a line with a trailing comment.
     ['api-cd.yml', workflow(job('record', ['contents: write', 'packages: write # ghcr'])), 1],
     ['api-cd.yml', workflow(job('record', ["contents: 'write'", 'packages: "write"'])), 1],
+    // backoffice-cd의 schema gate job은 Actions 실행을 읽기만 한다.
+    ['backoffice-cd.yml', workflow(job('schema', ['actions: write'])), 1],
+    ['backoffice-cd.yml', workflow(job('schema', ['id-token: write'])), 1],
     ['ci.yml', workflow(job('build', ['contents: write  # needed'])), 1],
     [
       'ci.yml',
@@ -296,8 +301,12 @@ test('a write scope outside the designated api-cd jobs is rejected', () => {
   }
   assert.deepEqual(
     Object.keys(DESIGNATED_WRITE_SCOPES).sort(),
-    ['api-cd.yml', 'web-cd.yml'],
-    'only the two CD workflows hold designated write scopes',
+    ['api-cd.yml', 'backoffice-cd.yml', 'web-cd.yml'],
+    'only the three CD workflows hold designated write scopes',
   );
   assert.deepEqual(DESIGNATED_WRITE_SCOPES['api-cd.yml'], DESIGNATED_WRITE_SCOPES['web-cd.yml']);
+  assert.deepEqual(
+    DESIGNATED_WRITE_SCOPES['backoffice-cd.yml'],
+    DESIGNATED_WRITE_SCOPES['web-cd.yml'],
+  );
 });

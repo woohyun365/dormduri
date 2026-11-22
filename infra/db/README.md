@@ -285,17 +285,18 @@ Dry-run output도 secret value를 출력하지 않는다.
 
 RDS parameter group의 `rds.force_ssl = 1`이 평문 연결을 거부하고, 모든 client가 서버 인증서와 host 이름을 검증한다.
 
-- CA: API·migrate image가 AWS RDS 서울 regional CA 묶음(`ap-northeast-2-bundle.pem`)에서 꺼낸 단일 루트를 `/etc/dormduri/rds-ca/root.pem`(0444)에 둔다.
+- CA: API·migrate image와 백오피스 API image(`infra/deploy/backoffice-api/Dockerfile`의 같은 `rds-ca` stage)가 AWS RDS 서울 regional CA 묶음(`ap-northeast-2-bundle.pem`)에서 꺼낸 단일 루트를 `/etc/dormduri/rds-ca/root.pem`(0444)에 둔다.
   `infra/deploy/api/Dockerfile`의 `rds-ca` stage가 묶음을 받아 `infra/deploy/api/rds-ca-bundle.sha256`(묶음과 꺼낸
   루트)으로 대조하므로 묶음이 바뀌면 build가 멈춘다. CA 파일은 repo에 넣지 않는다. 여러 인증서 묶음은 Prisma CLI가
   읽지 못해 단일 루트를 쓴다.
 - Secret에 저장하는 URL 형식:
 
-  | 연결                                            | client                              | TLS 인자                                                                 |
-  | ----------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------ |
-  | runtime 셋(`DATABASE_URL`, `RETENTION_*`)       | `@prisma/adapter-pg`(node-postgres) | `sslmode=verify-full&sslrootcert=/etc/dormduri/rds-ca/root.pem`          |
-  | migration(`MIGRATION_DATABASE_URL`)             | Prisma CLI(`migrate deploy`)        | `sslmode=require&sslcert=/etc/dormduri/rds-ca/root.pem&sslaccept=strict` |
-  | `infra/db/*.sh`의 psql(위 두 URL을 그대로 받음) | libpq(`infra/db/psql-tls.sh`)       | URL의 TLS 인자를 떼고 `PGSSLMODE=verify-full`·`PGSSLROOTCERT`로 준다     |
+  | 연결                                                                        | client                              | TLS 인자                                                                 |
+  | --------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------ |
+  | runtime 셋(`DATABASE_URL`, `RETENTION_*`)                                   | `@prisma/adapter-pg`(node-postgres) | `sslmode=verify-full&sslrootcert=/etc/dormduri/rds-ca/root.pem`          |
+  | 백오피스 둘(`BACKOFFICE_DATABASE_URL`, `BACKOFFICE_RETENTION_DATABASE_URL`) | `@prisma/adapter-pg`(node-postgres) | runtime 셋과 같음                                                        |
+  | migration(`MIGRATION_DATABASE_URL`)                                         | Prisma CLI(`migrate deploy`)        | `sslmode=require&sslcert=/etc/dormduri/rds-ca/root.pem&sslaccept=strict` |
+  | `infra/db/*.sh`의 psql(위 두 URL을 그대로 받음)                             | libpq(`infra/db/psql-tls.sh`)       | URL의 TLS 인자를 떼고 `PGSSLMODE=verify-full`·`PGSSLROOTCERT`로 준다     |
 
 - Prisma CLI는 `sslmode=verify-full&sslrootcert`로는 서버 인증서를 검증하지 않았다(잘못된 CA·다른 host에도 붙음).
   migration URL의 형식에서 Prisma는 `sslcert`를 신뢰할 CA로 읽고 `sslaccept=strict`로 인증서와 이름을 검증한다. libpq는

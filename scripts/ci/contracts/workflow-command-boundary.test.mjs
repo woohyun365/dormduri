@@ -671,9 +671,10 @@ test('orchestration jobs use the one-core runner and every other job shares one 
 });
 
 // Only the CD workflows assume AWS roles through OIDC (production-web-baseline D-WB4·D-WB5, production-api-baseline
-// D-AB12); every validation workflow stays without deployment authority. web-cd-contract.test.mjs and
-// api-cd-contract.test.mjs own which jobs of each CD workflow hold it.
-const DEPLOYMENT_WORKFLOWS = ['web-cd.yml', 'api-cd.yml'];
+// D-AB12, backoffice-foundation D-BF16); every validation workflow stays without deployment authority.
+// web-cd-contract.test.mjs, api-cd-contract.test.mjs and scripts/infra/backoffice-host/backoffice-cd-contract.test.mjs own
+// which jobs of each CD workflow hold it.
+const DEPLOYMENT_WORKFLOWS = ['web-cd.yml', 'api-cd.yml', 'backoffice-cd.yml'];
 
 test('current workflows validate changes without claiming production deployment authority', () => {
   const workflowDirectory = resolve(repoRoot, '.github/workflows');

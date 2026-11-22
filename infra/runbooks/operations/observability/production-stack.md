@@ -17,28 +17,29 @@ port·secret 파일)은 `scripts/infra/user-host/compose-contract.mjs`, 운영 �
 
 ## User host 배치
 
-| 항목         | 값                                                                                                                                                                                                                                                               |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Image        | upstream 다섯은 `infra/observability/compose.base.yml`의 pin(`infra/image-inventory.json`)과 같은 digest                                                                                                                                                         |
-| 설정         | ECR `dormduri/observability-config`(설정 파일만 담은 `FROM scratch` image, [Dockerfile](../../../observability/Dockerfile)). document가 `docker create`·`docker cp`로 `/opt/dormduri/observability/config/<digest>/`에 펼치고 각 container가 읽기 전용으로 mount |
-| Secret       | `/opt/dormduri/secrets/observability/`의 파일 셋. 각 파일은 그것을 읽는 container UID 소유 0400이고 그 container에만 파일 단위로 mount                                                                                                                           |
-| Network      | 관측 network(고정 subnet, 묶음 안). Prometheus만 API transit에도 붙어 API metrics를 긁는다                                                                                                                                                                       |
-| 공개 port    | 없음. Prometheus `127.0.0.1:9090`, Alertmanager `127.0.0.1:9093`, Grafana `127.0.0.1:3001`만 host loopback에 bind                                                                                                                                                |
-| 보존         | Prometheus 15일, Loki 30일(compactor), Alertmanager 120h                                                                                                                                                                                                         |
-| Memory limit | Prometheus 256 MiB, Loki 320 MiB, Alloy 160 MiB, Alertmanager 96 MiB, Grafana 320 MiB                                                                                                                                                                            |
+| 항목         | 값                                                                                                                                                                                                                                                                                  |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Image        | upstream 다섯은 `infra/observability/compose.base.yml`의 pin(`infra/image-inventory.json`)과 같은 digest. 수신 gateway는 inventory `user-host-obs-gateway`(nginx) pin                                                                                                               |
+| 설정         | ECR `dormduri/observability-config`(설정 파일만 담은 `FROM scratch` image, [Dockerfile](../../../observability/Dockerfile)). document가 `docker create`·`docker cp`로 `/opt/dormduri/observability/config/<digest>/`에 펼치고 각 container가 읽기 전용으로 mount                    |
+| Secret       | `/opt/dormduri/secrets/observability/`의 파일 셋. 각 파일은 그것을 읽는 container UID 소유 0400이고 그 container에만 파일 단위로 mount                                                                                                                                              |
+| Network      | 관측 network(고정 subnet, 묶음 안). 수신 gateway만 API transit에도 붙는다. Prometheus는 gateway의 관측 network 전용 listener(9482)로 API metrics를 긁고 API transit에 붙지 않는다                                                                                                   |
+| 공개 port    | 없음. Prometheus `127.0.0.1:9090`, Alertmanager `127.0.0.1:9093`, Grafana `127.0.0.1:3001`만 host loopback에 bind. 수신 gateway만 9480을 host 모든 주소에 publish하고 백오피스 host 사설 `/32`와 token이 맞는 log push·remote write만 넘긴다. Lightsail 방화벽은 9480을 열지 않는다 |
+| 보존         | Prometheus 15일, Loki 30일(compactor), Alertmanager 120h                                                                                                                                                                                                                            |
+| Memory limit | Prometheus 256 MiB, Loki 320 MiB, Alloy 160 MiB, Alertmanager 96 MiB, Grafana 320 MiB, 수신 gateway 64 MiB                                                                                                                                                                          |
 
 Secret 파일과 원본:
 
-| 파일                       | 읽는 container(UID) | 원본                                                                        |
-| -------------------------- | ------------------- | --------------------------------------------------------------------------- |
-| `api-metrics-bearer-token` | Prometheus(65534)   | API runtime secret release의 `METRICS_BEARER_TOKEN`(API가 검사하는 같은 값) |
-| `slack-webhook-url`        | Alertmanager(65534) | Secrets Manager 관측 묶음 `SLACK_ALERT_WEBHOOK_URL`                         |
-| `grafana-admin-password`   | Grafana(472)        | Secrets Manager 관측 묶음 `GRAFANA_ADMIN_PASSWORD`                          |
+| 파일                       | 읽는 container(UID) | 원본                                                                                                                                 |
+| -------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `api-metrics-bearer-token` | Prometheus(65534)   | API runtime secret release의 `METRICS_BEARER_TOKEN`(API가 검사하는 같은 값)                                                          |
+| `slack-webhook-url`        | Alertmanager(65534) | Secrets Manager 관측 묶음 `SLACK_ALERT_WEBHOOK_URL`                                                                                  |
+| `grafana-admin-password`   | Grafana(472)        | Secrets Manager 관측 묶음 `GRAFANA_ADMIN_PASSWORD`                                                                                   |
+| `gateway-access.conf`      | 수신 gateway(101)   | 관측 묶음 선택 key `BACKOFFICE_HOST_PRIVATE_IP`·`BACKOFFICE_INGEST_TOKEN`으로 document가 쓴 nginx include. 두 key가 없으면 모두 거부 |
 
 ## 배포·rollback과 fail-open
 
 API 배포 document는 API rollout과 host 안 smoke가 끝난 뒤 관측 단계를 돈다. 순서는 설정 image 받기·펼치기 → 관측 secret 파일
-쓰기 → upstream 관측 image 받기 → 관측 다섯 다시 만들기(`--wait`, 120초)다. 이 단계의 실패는 API 결과를 바꾸지 않는다(fail-open).
+쓰기 → upstream 관측 image 받기 → 관측 다섯과 수신 gateway 다시 만들기(`--wait`, 120초)다. 이 단계의 실패는 API 결과를 바꾸지 않는다(fail-open).
 성공한 `deploy`·`rollback`의 host `RESULT` 줄에 있는 `observability` 값이 결과다. 다른 결과 줄(rollout 전 실패·되돌림·
 `maintenance`)은 관측 단계에 닿지 않아 관측을 바꾸지 않는다. 관측 단계는 API `current` 갱신 뒤 같은 SSM step(상한 900초) 안에서
 돌므로, network를 쓰는 호출(설정 image·upstream image 받기, 관측 secret 꺼내기, 다시 만들기)은 step 시작부터 840초 안에 끝나게
@@ -49,7 +50,10 @@ API 배포 document는 API rollout과 host 안 smoke가 끝난 뒤 관측 단계
 | `ok`            | 설정·secret을 쓰고 다섯이 healthy                                                          | 단계 기록의 관측 줄에 옮겨 적고 Grafana·Slack 시험을 한다                                                     |
 | `failed`        | 설정 받기·펼치기, secret 쓰기, image 받기, 다섯 기동 중 하나가 실패하거나 시간 상한에 걸림 | host 안 document log(root만 읽음)의 `observability` 줄에서 실패 단계를 보고 고친 뒤 같은 묶음을 다시 배포한다 |
 
-- 설정 digest는 API 묶음 release 기록에 들어간다. `rollback`은 직전 묶음의 설정 digest로 관측 설정을 되돌린다.
+- 설정 digest는 API 묶음 release 기록에 들어간다. `rollback`은 직전 묶음의 설정 digest로 관측 설정을 되돌린다. 예외는 수신
+  gateway(`obs-gateway`)를 처음 들인 묶음의 바로 앞 묶음으로 되돌릴 때다. 그 묶음의 compose 조각과 설정 image에는 gateway가
+  없어 관측 단계가 실패하므로 API만 되돌아가고, 관측은 지금 구성(Prometheus가 gateway로 API를 긁음)으로 남으며 결과는
+  `observability=failed`다. 관측까지 되돌려야 하면 gateway 변경을 revert한 묶음을 새로 배포한다.
 - `maintenance`는 API만 내리고 관측 stack은 그대로 둔다.
 - 설정 디렉터리는 지금·직전 묶음의 digest와 관측 container가 쓰고 있을 수 있는 digest(api state의 `observability` 파일)만
   남기고 정리한다. 다시 만들기가 실패하면 container가 어느 설정으로 다시 만들어졌는지 모르므로 이전 설정과 새 설정을 모두
@@ -113,9 +117,13 @@ API·Web·ingress는 관측 service에 의존하지 않는다(`depends_on` 없�
 | `HostDiskUsageHigh`·`HostDiskUsageCritical`·`HostInodeUsage*`              | warning / critical | Grafana host 지표. Docker image·json-file log·관측 volume 증가를 보고, 보존 기간을 줄이기 전에 Owner와 정한다                                                          |
 | `HostRootFilesystemMetricsMissing`                                         | warning            | root filesystem(`mountpoint="/"`) 지표가 없어 disk·inode 경보가 꺼진 상태. Alloy의 host `/` mount와 fs type을 본다                                                     |
 | `HostMemoryAvailableLow`                                                   | critical           | container별 memory(Grafana)와 limit. API 응답이 늦으면 API 단계 runbook의 rollback을 먼저 본다                                                                         |
-| `ApiMetricsTargetDown`                                                     | critical           | API readiness와 scrape token 파일(document가 API secret release에서 다시 씀). API가 내려갔으면 API 단계 runbook                                                        |
+| `ApiMetricsTargetDown`                                                     | critical           | API readiness, 수신 gateway 상태(Prometheus가 gateway를 거쳐 긁음)와 scrape token 파일(document가 API secret release에서 다시 씀). API가 내려갔으면 API 단계 runbook   |
 | `ObservabilityTargetDown`·`PrometheusAlertmanagerUnreachable`              | warning            | 그 관측 container의 상태. 같은 묶음을 다시 배포하면 관측 단계가 다시 띄운다                                                                                            |
 | `AlertmanagerNotificationsFailing`                                         | warning            | Slack 전달 실패. [alert delivery incident](../../incidents/observability-alert-delivery.md)                                                                            |
+
+백오피스 경보(`Backoffice*`, rule `backoffice-alerts.yml`)는 백오피스 host Alloy가 수신 gateway로 보낸 지표로 울리고 대응은
+[백오피스 단계 배포](../../release/backoffice-stage-deploy.md#경보-대응)가 소유한다. `ObservabilityTargetDown`은 백오피스 job을 세지
+않는다. 수신 gateway가 멈추면 API 지표도 긁지 못해 `ApiMetricsTargetDown`과 `BackofficeTelemetryAbsent`가 함께 온다(gateway 자신은 scrape 대상이 아님).
 
 경보를 끄거나 기준을 바꾸려면 rule 파일과 그 promtool test(`infra/observability/prometheus/tests`)를 같은 PR에서 고친다.
 
@@ -141,7 +149,9 @@ no-new-privileges, root filesystem 읽기 전용). 수집 대상은 compose proj
 
 `read_only` mount는 파일 mount 변경을 막을 뿐 Docker API 권한을 조회 전용으로 축소하지 않는다. 따라서 immutable image, private
 port, resource/capability 제한, service allowlist, fail-open 검증을 compensating control로 사용하고, socket 사용과 위험 수용을 API
-단계 배포 기록의 관측 component 줄에 적는다.
+단계 배포 기록의 관측 component 줄에 적는다. 백오피스 host Alloy도 같은 이유로 socket을 읽고 root로 돈다. 수집 대상은 compose
+project `dormduri-backoffice`의 세 service이고, 그 host에는 Alloy를 긁는 쪽이 없어 HTTP server를 container 안 loopback에만 연다.
+위험 수용은 백오피스 단계 배포 기록의 관측 component 줄에 적는다.
 
 다른 신뢰 경계의 workload, multi-tenant host, collector supply-chain risk 또는 security incident가 발생하면 host-level
 journald/file tail, Docker logging driver, managed logging 중 하나로 전환한다.

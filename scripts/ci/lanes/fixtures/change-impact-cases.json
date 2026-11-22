@@ -827,5 +827,33 @@
       "repoPolicy": true,
       "agentWorkflow": true
     }
+  },
+  {
+    "name": "backoffice-cd-workflow-selects-infra-and-policy",
+    "paths": [".github/workflows/backoffice-cd.yml"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "backoffice": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "backoffice-host-bundle-selects-infra-and-policy",
+    "paths": ["infra/deploy/backoffice/compose.yml"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "backoffice": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
   }
 ]

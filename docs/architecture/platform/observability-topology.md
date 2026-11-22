@@ -63,15 +63,25 @@ Grafana는 Loki나 Prometheus를 대신하는 저장소가 아니다. Loki는 lo
 ### 데이터 흐름
 
 ```text
-API/Web/Ingress/BackOffice stdout
+API/Web/Ingress stdout
   → Alloy
     → Loki
       → Grafana
 
-API/BackOffice /internal/metrics
-  ← Prometheus scrape
+API /internal/metrics
+  ← Prometheus scrape (user host 수신 gateway의 관측 network 전용 listener 경유)
     → Grafana
     → Alertmanager → Slack
+
+BackOffice admin ingress·Web·API stdout
+  → 백오피스 host Alloy (주소 모양 가림)
+    → user host 수신 gateway (백오피스 host 사설 /32 + Bearer token만)
+      → Loki
+
+BackOffice API /internal/metrics (bearer token)·readiness probe 둘·host 지표
+  ← 백오피스 host Alloy scrape
+    → remote write → user host 수신 gateway → Prometheus (remote-write receiver)
+      → 백오피스 경보 규칙 → Alertmanager → Slack
 
 Browser runtime error / sampled performance
   → Sentry intake
@@ -91,7 +101,12 @@ RDS CPU / connection / memory / IOPS
 ### 배치와 접근 경계
 
 - 초기 User App 4GiB host에는 bounded Prometheus/Loki/Alloy/Alertmanager/Grafana를 함께 배치한다.
-- BackOffice host는 local collector만 두고 중앙 Loki/Prometheus에 service label과 scrape job을 분리한다.
+- BackOffice host는 local collector(Alloy)만 두고 user host 관측 stack으로 밀어 넣는다. 백오피스 host에는 들어오는 port가 없어 user
+  host가 긁지 않는다. 지표 job은 `backoffice-api`·`backoffice-probe`·`backoffice-host`, log label `service`는 `backoffice-*`라 user
+  host series와 갈리고 경보도 따로 둔다(`infra/observability/prometheus/rules/backoffice-alerts.yml`, 지표가 15분 끊기면 critical).
+- 받는 곳은 user host API 묶음의 수신 gateway(`obs-gateway`) 하나다. 백오피스 host 사설 주소와 token이 맞는 log push와 remote write만
+  넘긴다. Prometheus는 API network에 붙지 않고 API 지표를 gateway를 거쳐 긁는다. 그래서 API container는 Prometheus의 수신에 닿지
+  않아 백오피스 지표를 위조하거나 버리게 할 수 없다.
 - Observability port는 loopback 또는 private network에만 열고 public ingress에 직접 노출하지 않는다.
 - Alloy Docker socket 사용은 single-tenant VPS와 service allowlist를 전제로 하는 제한적 결정이다.
 - Collector 또는 저장소 장애는 제품 요청에 대해 fail-open이어야 한다.
@@ -132,7 +147,8 @@ Ingress(nginx)와 Web의 요청 log는 [운영 관측 정책](../../policies/ope
 - Single VPS disk와 retention이 승인된 RPO/RTO를 만족하지 못한다.
 - Docker socket risk를 수용할 수 없거나 multi-tenant host로 전환한다.
 - Managed logging/metrics의 비용과 운영 부담이 self-hosted stack보다 유리해진다.
-- BackOffice나 다중 instance 도입으로 중앙 수집과 label cardinality 요구가 달라진다.
+- BackOffice나 다중 instance 도입으로 중앙 수집과 label cardinality 요구가 달라진다. 백오피스 host가 늘거나 수신 gateway가 user
+  host resource를 침범하면 받는 방식을 다시 본다.
 
 ## 변경 이력
 
@@ -144,3 +160,4 @@ Ingress(nginx)와 Web의 요청 log는 [운영 관측 정책](../../policies/ope
 | 2026-10-31 | 지금 Web 단계의 외부 가용성 경보 경로를 첫 절로 두고 수집 stack·Sentry·DB 지표 구성을 이후 목표 절로 옮겼다.        |
 | 2026-11-20 | API 단계 첫 배포 뒤 첫 절을 지금 API 단계(관측 stack 다섯·Slack·RDS 경보·외부 가용성 경보, Web Sentry 끔)로 고쳤다. |
 | 2026-11-08 | nginx·Web 요청 log를 운영 log로 분류하고 지금과 이후의 원본 IP 위치, 목표 구성의 ingress 수집을 적었다(#759·#869).  |
+| 2026-11-22 | BackOffice 관측을 Alloy push와 user host 수신 gateway로 정하고 API scrape를 gateway 경유로 바꿨다(#974).            |
