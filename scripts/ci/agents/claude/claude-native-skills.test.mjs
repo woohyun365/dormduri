@@ -750,3 +750,38 @@ test('review documents state one rule for a changed input original and for ignor
     );
   }
 });
+
+// P6 ② RED 8 and Owner 2026-11-21 1.2·1.3: the settle skill states the disposition record rules: a finding is
+// recorded fixed only after the fix and with its fixRef, the record subject is one change name for every round, later
+// rounds need an origin, a rebase leaves earlier records as they are, same-type locations are fixed or named in the
+// reason, every unjudged line takes one of five values by what the Parent found, and a Parent reviewer's record names
+// the result file settle wrote instead of a saved response string.
+test('the settle skill states the disposition record rules (P6 ② RED 8)', () => {
+  const text = read('.claude/skills/knu-settle/SKILL.md').replace(/\s+/gu, ' ');
+  for (const [pattern, label] of [
+    [/재현되면 고친 뒤 `fixed`와 `fixRef`/u, 'fixed only after the fix, with its fixRef'],
+    [/고치기 전에는 `fixed`를 쓰지 않습니다/u, 'no fixed before the fix'],
+    [
+      /처분 기록 `subject`는 회차와 무관한 변경 이름이고 같은 변경의 모든 회차가 같은 문자열을 씁니다/u,
+      'one subject name for every round',
+    ],
+    [/2회차부터 finding마다 `origin`\(`fix-induced`·`previously-missed`·`re-raised`\)/u, 'origin'],
+    [/rebase·squash로 SHA가 바뀌면 앞 회차 기록은 그대로 두고/u, 'rebase'],
+    [
+      /`sameTypeLocations`는 모두 고치거나 고치지 않은 위치를 그 finding 처분 `reason`에 남깁니다/u,
+      'same type',
+    ],
+    [/`parent-checked`/u, 'parent-checked'],
+    [/`pre-existing`/u, 'pre-existing'],
+    [/`resultPath`/u, 'result file of settle'],
+    [/출력 `response` 문자열을 그대로 저장하지 않습니다/u, 'no saved response string'],
+  ])
+    assert.match(text, pattern, label);
+  assert.ok(!text.includes('재현되면 `fixed`이고'), 'older wording: fixed when reproduced');
+});
+
+// Review 1 m1-F6: a short SHA is no fixRef, so the settle skill names the 40-character commit SHA.
+test('the settle skill names the 40-character commit SHA of a fixRef', () => {
+  const text = read('.claude/skills/knu-settle/SKILL.md').replace(/\s+/gu, ' ');
+  assert.match(text, /`fixRef`\(수정 commit의 40자 SHA/u, 'fixRef 40-character SHA');
+});
