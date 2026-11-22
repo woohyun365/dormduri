@@ -392,6 +392,7 @@ test('a suggestion copies the token that holds the fragment as a token and leave
     'mutations=118 killed=117 timeout=1 survived=0',
     'called `y.join(z)` ok',
     'merged `PR #962` ok',
+    'skipped=2 total',
   ];
   const { violations } = json(
     checkJson(
@@ -400,6 +401,7 @@ test('a suggestion copies the token that holds the fragment as a token and leave
         'timeouts `1`',
         'word after a dot `join`',
         'number only `#962`',
+        'first token `2`',
       ]),
     ).out,
   );
@@ -410,6 +412,7 @@ test('a suggestion copies the token that holds the fragment as a token and leave
       [1, 'invalid-fragment', 'timeout=1'],
       [2, 'summary-mismatch', 'y.join(z)'],
       [3, 'invalid-fragment', 'PR #962'],
+      [4, 'invalid-fragment', 'skipped=2'],
     ],
   );
   // Each suggestion passes as the fragment of the same log.
