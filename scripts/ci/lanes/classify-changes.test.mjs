@@ -513,7 +513,11 @@ test('scripts run or referenced by lane jobs and their imports select that lane'
   const infra = laneEntries([read('.github/workflows/infra-ci.yml')]);
   const lanes = {
     api: laneEntries([read('.github/workflows/api-ci.yml')], 'apps/api'),
-    backoffice: laneEntries([read('.github/workflows/backoffice-ci.yml')], 'apps/backoffice-api'),
+    backoffice: (() => {
+      const api = laneEntries([read('.github/workflows/backoffice-ci.yml')], 'apps/backoffice-api');
+      const web = laneEntries([], 'apps/backoffice-web');
+      return { run: [...api.run, ...web.run], named: [...api.named, ...web.named] };
+    })(),
     web: laneEntries([webWorkflow, read('infra/deploy/web/Dockerfile')], 'apps/web'),
     storybook: laneEntries(storybookSteps),
     shared: laneEntries([sharedJob], 'packages/shared'),

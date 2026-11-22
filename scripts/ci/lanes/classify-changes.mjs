@@ -360,7 +360,8 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
-    if (path.startsWith('apps/backoffice-api/')) {
+    // The backoffice lane builds and tests both backoffice apps; the Web e2e runs against the API build.
+    if (path.startsWith('apps/backoffice-api/') || path.startsWith('apps/backoffice-web/')) {
       result.backoffice = true;
       matched = true;
     }

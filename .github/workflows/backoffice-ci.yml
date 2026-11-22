@@ -84,3 +84,108 @@ jobs:
           duration_seconds=$(($(date +%s) - STARTED_AT))
           echo "- total_duration_seconds: ${duration_seconds}" >> "$GITHUB_STEP_SUMMARY"
           echo "- pnpm_store_cache: setup-node managed; install timing is the observable signal" >> "$GITHUB_STEP_SUMMARY"
+
+  backoffice-web:
+    name: Backoffice Web gate
+    runs-on: ubuntu-26.04
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public
+      DIRECT_URL: postgresql://dormduri_dev:dormduri_dev_password@localhost:5432/dormduri?schema=public
+    services:
+      postgres:
+        image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+        env:
+          POSTGRES_USER: dormduri_dev
+          POSTGRES_PASSWORD: dormduri_dev_password
+          POSTGRES_DB: dormduri
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dormduri_dev -d dormduri"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Start CI timing
+        id: timing
+        run: echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: 12.16.1
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=install -- pnpm install --frozen-lockfile
+
+      # The e2e drives the real backoffice API build, whose TypedSQL generation reads the migrated schema.
+      - name: Prepare CI database schema
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=schema -- pnpm --dir packages/database exec prisma migrate deploy --schema prisma/schema.prisma
+
+      - name: Prepare backoffice dependencies
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=prepare -- pnpm backoffice-api:prepare
+
+      - name: Backoffice Web static checks
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=static -- pnpm backoffice-web:lint:prepared
+
+      - name: Backoffice Web typecheck
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=typecheck -- pnpm backoffice-web:typecheck:prepared
+
+      - name: Backoffice Web BFF and component tests
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=unit -- pnpm backoffice-web:test:prepared
+
+      - name: Backoffice Web production build
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=build -- pnpm backoffice-web:build:prepared
+
+      - name: Backoffice API production build for the e2e
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=api-build -- pnpm backoffice-api:build:prepared
+
+      - name: Install Playwright Chromium
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=browser-install -- pnpm --dir apps/backoffice-web exec playwright install --with-deps chromium
+
+      # The e2e global setup applies the role bootstrap, migrations and grants to its own schema and
+      # starts the API as dormduri_backoffice; the Web serves the fixed origin http://localhost:4300.
+      - name: Backoffice Web e2e with virtual authenticators
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=e2e -- pnpm backoffice-web:e2e:prepared
+
+      - name: Upload Playwright report
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backoffice-web-playwright-report
+          path: apps/backoffice-web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload Playwright failure evidence
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backoffice-web-playwright-test-results
+          path: apps/backoffice-web/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Summarize backoffice Web CI duration
+        if: ${{ always() && !cancelled() }}
+        env:
+          STARTED_AT: ${{ steps.timing.outputs.started_at }}
+        run: |
+          duration_seconds=$(($(date +%s) - STARTED_AT))
+          echo "- total_duration_seconds: ${duration_seconds}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- pnpm_store_cache: setup-node managed; install timing is the observable signal" >> "$GITHUB_STEP_SUMMARY"
