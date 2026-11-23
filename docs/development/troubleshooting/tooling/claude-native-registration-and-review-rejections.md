@@ -74,7 +74,12 @@
   invalid review request: unsafe-path:nativeRequest.task.readScope:<path>
   invalid review request: review-input-not-a-file: <path> cannot be copied
   invalid review request: delta-scope-required: a later round of a Parent subject is built by review-run, which makes the delta scope or records why the full scope is read again
+  invalid review request: reviewer-prompt-exceeds-12000-chars (13456; instructions 3400, runner records 8800, acceptance and criteria 600, context 120, round 160, files 376): …
+  invalid review request: requirement-source-in-paths: <path> is a subject read path
+  invalid review request: requirement-source-invalid: <path> is not a repository file
+  invalid review request: reference-path-changed: <path> changed since --basis <ref>
   invalid runner evidence: records[1].command repeats records[0]; give each a distinct label ("label": "<what differs between the runs>")
+  invalid runner evidence: runner identifier required: an ASCII letter or digit, then letters, digits, _ or - (64 at most)
   ```
 
 - `review-run`이 exit 1이고 stdout 한 줄이 `review-run failed`로 시작합니다. `checks=` 뒤는 실패한 결정적 검사, `refused=` 뒤는
@@ -91,8 +96,8 @@
 
 - `review`나 Codex `review-run`이 `binding-values-invalid: …`로 멈추거나, `review-context-inputs.mjs` CLI가
   `context-output-missing`·`context-output-invalid`로 exit 1입니다.
-- `review --parent-subject`가 subject의 경로나 `requirementSections`를 거부하거나, 출력 `warnings`에
-  `request-implementation-marker`가 나옵니다.
+- `review --parent-subject`가 subject의 경로·`requirementSections`·`requirementSources`·`referencePaths`를 거부하거나, 출력
+  `warnings`에 `request-implementation-marker`·`reference-paths-unchecked`가 나옵니다.
 
   ```text
   invalid parentSubject: local-state-path:.omc/notepad.md
@@ -102,6 +107,14 @@
   invalid parentSubject: requirement-path-unreadable: .plans/<plan>.md
   invalid parentSubject: requirement-path-in-paths: .plans/<plan>.md
   invalid parentSubject: requirementSections-invalid: [{"path": "<plan path>", "headings": ["<heading text>", ...]}]
+  invalid parentSubject: requirement-sources-invalid: a list of distinct repository file paths
+  invalid parentSubject: requirement-source-invalid: <path> is not a repository file
+  invalid parentSubject: requirement-source-in-paths: <path> is a subject read path
+  invalid parentSubject: reference-paths-invalid: a list of distinct repository paths
+  invalid parentSubject: reference-path-invalid: <path> is not a repository file or directory
+  invalid parentSubject: reference-path-in-paths: <path> overlaps a subject path
+  invalid parentSubject: reference-path-changed: <path> differs from HEAD (dirty or untracked)
+  reference-paths-unchecked: --basis <ref> names no commit, so referencePaths (<paths>) were not compared with it; a changed file belongs in paths
   ```
 
 - 1회차 그룹의 PASS 구성원을 연결한 builder 완료가 `review-adjudication-required`, `review-group-mismatch`,
@@ -117,9 +130,14 @@
   수 없는 정산의 바뀐 원본 경로입니다.
 - Parent reviewer의 `settle --task` `observationErrors`에 `review-requirements-changed`·`review-binding-changed`·
   `review-lifecycle-changed`·`review-verification-changed`·`review-scope-changed`·`review-runner-file-changed`·
-  `review-previous-result-changed` 중 하나가 있습니다.
-  Native subject reviewer는 `observationErrors`에 `review-binding-changed`나 `review-runner-file-changed`가 있고
-  `settle --task --judgment`도 그 사유로 거부됩니다.
+  `review-template-changed`·`review-previous-result-changed` 중 하나가 있습니다.
+  Native subject reviewer는 `observationErrors`에 `review-binding-changed`·`review-runner-file-changed`·`review-template-changed`가
+  있고 `settle --task --judgment`도 그 사유로 거부됩니다. 그 reviewer를 연결한 subject의 `settle --task --judgment`도 같은 사유로
+  거부됩니다.
+- Reviewer child의 Grep·Glob이 `KNU review read: a Grep without a path searches the whole repository; …`,
+  `KNU review read: Grep path <path> is the repository root or a directory above it; …`,
+  `KNU review read: Grep path <path> is outside packet.boundaries.allowedReadPaths; give a path inside them` 꼴로 거부됩니다.
+  또는 settle 출력 `readOutsidePaths`(read 범위 밖 Read 대상)에 경로가 있습니다.
 - Parent reviewer의 `settle --task` `observationErrors`에 `review-result-unparsed`나 `review-packet-settled`가 있고 출력
   `resultPath`가 null입니다.
 - 정산·완료가 `adapter/role/settings drift`로 거부됩니다. 또는 거부 없이 settle 결과의 `identityOutsideChanges`·
@@ -194,8 +212,8 @@
 - 공통 PASS 규칙은 `notRun`·`knownGaps`·coverage gap이 하나라도 있으면 PASS를 거부합니다. 읽기 전용 reviewer에게 검증 명령을
   실행하지 말라고 하면서 실행 결과 칸을 비우게 하면, 실행하지 않은 검증이 `notRun`으로 들어가 PASS가 거부됩니다.
 - 읽기 전용 reviewer는 packet의 runner(`authority.runnerOwner`)가 될 수 없습니다.
-- Helper가 만든 review는 결과 template(runner 기록 포함)을 등록 prompt에 결속합니다. Reviewer 결과의 `commandsActuallyRun`이
-  그 기록과 하나라도 다르면(추가·삭제·변경) 정산을 거부합니다.
+- Helper가 만든 review는 결과 template 파일과 runner 파일(runner 기록)의 digest를 등록 prompt에 결속합니다. Reviewer 결과의
+  `commandsActuallyRun`이 runner 파일의 기록과 하나라도 다르면(추가·삭제·변경) 정산을 거부합니다.
 - `parent-adjudication` reviewer는 native subject가 없어 `settle --judgment`로 정산할 수 없습니다.
 - Read-only subject의 응답은 helper가 `subject-response.txt`에 한 번 쓰고 reviewer 등록 때 정산된 응답과 대조합니다. 파일을 고치면
   거부됩니다. 다른 native task 기록은 대소문자를 바꾼 경로,
@@ -233,13 +251,26 @@
   `KNU_REVIEW_RUNNER_FILE:<path> <sha256>`과 prompt 기록으로 결속합니다. 등록 뒤 그 파일이 바뀌거나 사라지면
   `review-runner-file-changed`입니다. Reviewer 결과의 `commandsActuallyRun`이 그 파일의 기록과 다르면 지금처럼
   `review commandsActuallyRun differs from the bound runner records`입니다. 같은 `command`의 기록 둘은 `label`이 달라야 하고,
-  `label` 없이 같으면 `records[<n>].command repeats records[<m>]`으로 거부합니다.
+  `label` 없이 같으면 `records[<n>].command repeats records[<m>]`으로 거부합니다. Runner 식별자는 ASCII 글자·숫자로 시작해 글자·숫자·
+  `_`·`-`만 쓰는 64자 이하 이름이라, 한글 세션 이름은 `runner identifier required: …`로 거부합니다.
+- 결과 template 파일: `review`는 결과 template을 `<reviewId>.template.json`에 쓰고 prompt 줄
+  `KNU_REVIEW_RESULT_TEMPLATE_FILE:<path> <sha256>`과 prompt 기록(`template`)으로 결속합니다. 등록 뒤 그 파일이 바뀌거나 사라지면 `review-template-changed`입니다. Native
+  subject는 그 reviewer를 연결한 subject 정산이 reviewer의 helper 디렉터리 추출(requirement·binding·초안 절·범위 기록·runner·template)을
+  다시 대조하므로, reviewer 정산 뒤 추출이 바뀌거나 prompt 기록이 사라져도 subject 정산이 거부됩니다.
+- Prompt 한도: reviewer prompt는 12,000자까지입니다. 넘으면 부분별 글자 수(`instructions`·`runner records`·`acceptance and criteria`·
+  `context`·`round`·`files`)가 사유에 붙습니다. 결과 template과 packet은 파일이라 acceptance가 많아도 prompt가 길어지지 않고, 보통은
+  runner 기록 줄(`runner records`)이나 기준 문서 줄이 큽니다.
+- Review-read hook: `knu_reviewer` 역할 frontmatter의 PreToolUse hook이 path 없는·빈 path·저장소 root와 그 상위·read 범위 밖
+  Grep·Glob을 거부하고 task 디렉터리 `review-read-denials.jsonl`에 줄로 남깁니다. 정산은 그 기록에 있는 호출만 의존 판정에서 빼므로
+  저장소 전체 판정(`basis: repository`)이 되지 않습니다. 기록에 읽지 못하는 줄이 있으면 기록 전체를 쓰지 않습니다. Read는 거부하지
+  않고 read 범위 밖 대상을 `readOutsidePaths`에 기록만 합니다. Child task를 찾지 못하면(transcript·marker·task 기록이 맞지 않을 때)
+  path 없음·root·상위만 거부하고 기록을 남기지 않습니다. 신뢰하지 않은 폴더 세션처럼 hook이 돌지 않으면 거부도 기록도 없습니다.
 - Adapter identity: 등록 때와 hook·정산 때의 identity가 다르면 `adapter/role/settings drift`입니다. Source digest는
   `native-session.mjs`와 `native-task-helper.mjs`에서 시작하는 정적 import 닫힘의 파일들이고 역할 파일과 settings digest가 함께
   듭니다. 닫힘 밖 `scripts/agents/claude`·`scripts/agents/common` script(dispatch 전 검사 도구 등)의 변경은 거부하지 않고
   `identityOutsideChanges`에 기록합니다.
 - 2회차 범위: Parent subject의 2회차 이상은 `review-run`이 직전 회차의 범위 기록과 지금 tree를 비교해 `deltaScope`를 정합니다.
-  `review`를 직접 부르면 범위가 없어 `delta-scope-required`입니다. Reviewer가 읽는 범위 기록(delta 경로가 12개를 넘을 때)이 등록 뒤
+  `review`를 직접 부르면 범위가 없어 `delta-scope-required`입니다. Reviewer가 읽는 범위 기록(delta 회차면 늘 read path)이 등록 뒤
   바뀌면 `review-scope-changed`, 초안의 `## Verification` 절 추출이 바뀌면 `review-verification-changed`입니다.
 - Runner log 검사: `runner-log-check.mjs`는 record가 가리키는 log마다 마지막 줄 전체 `exit=<n>` 줄을 record `exit`와 대조합니다
   (`exit-mismatch`). 그 앞에 줄 전체 `exit=<n>` 줄이 더 있고 0이 아닌 값이 있는데 record `exit`가 0이면, 한 log에 여러 실행을 이어
@@ -257,7 +288,9 @@
 - Parent subject 입력: `paths`의 `.omc/`·`.omx/`·`.codex/state/`·`.claude/projects/` 아래 경로는 host·세션
   상태라 `local-state-path:<path>`로, Home(`~`) 경로와 절대 경로는 저장소 기준 상대 경로가 아니라
   `path-not-repository-relative:<path>`로 거부합니다(`lifecycleDraft`도 같음). 추적 `.claude/` 설정·skill·역할 파일은 해당하지
-  않습니다. 등록이 `unsafe-path`로 거부할 read path(추적 파일의 한글 이름 등)는 `review`가 파일을 쓰기 전에 같은 사유로 거부합니다.
+  않습니다. 등록이 `unsafe-path`로 거부할 read path(Unicode 글자·숫자, `.`·`_`·`-`·괄호·대괄호 밖 문자가 든 경로 조각, NFC가 아닌 경로 등)는 `review`가
+  파일을 쓰기 전에 같은 사유로 거부합니다. Untracked 경로의 `[`·`]`는 snapshot 검사(`adapter-contract.mjs`)가 그대로 막아 commit한
+  경로만 등록됩니다.
   Ignored 입력은 사본 경로로 읽으므로 이름과 무관하게 등록됩니다. `request`에 완료형 구현
   서술 문장(`고쳤다`·`구현했다` 등)이 있으면 `request-implementation-marker` 경고와 packet `evidence.environment`의 문장 수만 남고
   리뷰는 진행됩니다. 걸린 문장은 packet `objective`(request 요약)에 그대로 남습니다.
@@ -266,12 +299,21 @@
   `requirement-heading-duplicate`, root 안의 일반 파일이 아니면 `requirement-path-unreadable`, 형식이 `[{path, headings}]`가 아니면
   `requirementSections-invalid`, `paths`가 그 plan이나 그 위 디렉터리를 가리키면 `requirement-path-in-paths`입니다. 정산은 등록한 prompt나
   read 범위가 추출을 가리킬 때 추출이 prompt 기록의 digest와 다르거나 기록이 없으면 `review-requirements-changed`입니다.
+- 요구 원본과 참조 경로: native subject `--requirement-source`와 Parent subject `requirementSources`는 사용자 요구 원본 파일을 packet
+  요구 원천과 read path에 넣습니다. subject read path와 겹치면 `requirement-source-in-paths`, 저장소 파일이 아니면
+  `requirement-source-invalid`, Parent subject에 `--requirement-source`를 주면 `requirement-source-native-only`입니다. Parent subject
+  `referencePaths`는 read path에만 들고, `paths`와 겹치면 `reference-path-in-paths`, dirty·untracked 변경이 있거나 `--basis` commit부터
+  HEAD까지 바뀌면 `reference-path-changed`입니다. `--basis`가 commit이 아니면(plan 참조) 비교하지 않고 출력 `warnings`에
+  `reference-paths-unchecked`가 나옵니다. 목록이 서로 다른 경로의 배열이 아니면 `requirement-sources-invalid`·`reference-paths-invalid`,
+  참조 경로가 저장소 파일·디렉터리가 아니면 `reference-path-invalid`입니다.
 - 리뷰어 입력 추출: `review`는 고른 기준 문서에 걸린 binding 행을 `<reviewId>.binding.md`로, `lifecycleDraft`의 `## Lifecycle` 절을
   `<reviewId>.lifecycle.md`로 reviewer마다 쓰고 prompt 기록이 그 digest를 결속합니다. 정산은 등록한 prompt나 read 범위가 추출을 가리킬
   때 추출이 기록의 digest와 다르거나 기록이 없으면 `review-binding-changed`·`review-lifecycle-changed`입니다. Native subject
   reviewer는 review id를 packet id에서 얻어 binding 추출을 같은 방식으로 대조하고, `--judgment` 정산도 같은 사유로 거부합니다.
   binding이나 pack이 추출 규칙([리뷰어 입력](../../agent-workflows/review-criteria/README.md#리뷰어-입력)의 멈춤 조건)과 맞지 않으면
-  0행으로 넘기지 않고 `binding-values-invalid`로 리뷰를 만들지 않습니다. CLI 출력 경로가 없거나 규칙에 맞지 않으면
+  0행으로 넘기지 않고 `binding-values-invalid`로 리뷰를 만들지 않습니다. 이 검사는 binding 전체의 형식(절 heading·표 머리·규약 행이
+  기준 항목을 가리키는지·pack 발견)을 보므로, 리뷰 대상 경로가 걸리지 않는 행이 틀려도 관련 없는 리뷰까지 멈춥니다. 틀린 행 하나를
+  0행으로 넘기면 걸려야 할 리뷰에서 그 규약이 조용히 빠지기 때문입니다. CLI 출력 경로가 없거나 규칙에 맞지 않으면
   `context-output-missing`·`context-output-invalid`입니다.
 - RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 가져야 합니다. 실패한 프로세스 exit는 이 범위뿐이므로 한쪽만 있거나
   다른 값이면 거부합니다.
@@ -321,8 +363,9 @@
 - Parent가 직접 작성한 변경은 native subject task가 없습니다. `review --parent-subject <file> --session <session_id>`는 `settlement:"parent-adjudication"`을
   표시하고 QA가 필요한 일반 review task spec을 만듭니다. 이 reviewer는 `complete`로 PASS 정산되지 않습니다. Parent가
   reviewer의 `settle --task` 출력에서 `observationErrors`가 비었는지(effort 사유 포함)와 모델·변경 경로, finding 재현으로
-  판정하고, `finalSnapshot`의 digest가 review `logHeader`의 digest와 같은지 확인합니다. `completion.json`의 `valid`만으로는
-  판정하지 않습니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.
+  판정합니다. Source 대조는 settle이 합니다: `review-snapshot-mismatch`·`post-completion-source-drift`가 없으면 logHeader의 source와
+  같습니다(저장소 전체 판정은 같은 tree의 fast-forward·squash merge도 같은 source로 보고 `headChanged`만 남기므로 `finalSnapshot`
+  digest를 logHeader digest와 손으로 비교하지 않습니다). `completion.json`의 `valid`만으로는 판정하지 않습니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.
 - Parent review의 settle `observationErrors`에 `review-packet-unread`가 있으면 reviewer가 prompt의 packet 파일을 성공적으로
   읽지 않은 것입니다. `review-packet-changed`는 packet 파일이 prompt의 digest와 다른 것입니다. `review-packet-missing`은 Parent reviewer spec의
   prompt에서 packet 파일 줄이 빠진 것입니다. 그런 prompt는 지금 등록부터 `review-prompt-unbound`로 거부되므로, Helper가 packet 파일 줄을 쓰기 전 버전으로 등록한 Parent reviewer를 지금 정산할 때 나옵니다. 세 사유 모두 결과를 쓰지 말고 파일을
@@ -348,13 +391,18 @@
   `#`를 뺀 그대로 적거나, 같은 heading이 두 번 있으면 plan heading을 고유하게 만든 뒤 다시 실행합니다. `requirement-path-in-paths`는 그
   plan이나 디렉터리를 `paths`에서 빼고 판정 원본 절은 `requirementSections`로만 줍니다.
 - `binding-values-invalid`는 메시지가 가리키는 binding 절 heading·표 머리·행이나 pack을 고친 뒤 `review`를 다시 실행합니다(binding·pack을
-  고치는 변경이면 그 수정도 리뷰 대상에 넣음). `context-output-missing`은 추출 kind의 `-out` flag를 더하고,
+  고치는 변경이면 그 수정도 리뷰 대상에 넣음). 관련 없는 리뷰가 멈췄으면 그 행을 고친 commit을 먼저 두고(또는 그 행을 고치는 PR이
+  merge된 뒤) 리뷰를 다시 만듭니다. 검사를 건너뛰는 option은 없습니다. `context-output-missing`은 추출 kind의 `-out` flag를 더하고,
   `context-output-invalid`는 리뷰 대상·원본과 겹치지 않는 저장소 안 새 상대 경로(Codex는
   `.artifacts/tools/codex-native/<sessionId>/<reviewId>.binding.md`·`<reviewId>.lifecycle.md`)를 줍니다.
 - `commandsActuallyRun` 불일치는 reviewer가 runner 기록을 바꾼 것입니다. 결과를 고치지 말고 `review-run`으로 새 review를 만들어 다시
   review합니다.
-  `review-runner-file-changed`·`review-scope-changed`·`review-verification-changed`도 파일을 되돌려 맞추지 않고 `review-run`을
-  다시 실행해 재리뷰합니다. 같은 `command` 기록의 거부는 기록마다 `label`(두 실행의 차이)을 더합니다.
+  `review-runner-file-changed`·`review-scope-changed`·`review-verification-changed`·`review-template-changed`도 파일을 되돌려 맞추지
+  않고 `review-run`을 다시 실행해 재리뷰합니다. `reviewer-prompt-exceeds-12000-chars`는 사유의 부분별 글자 수에서 큰 부분(보통
+  `runner records`)을 줄입니다: runner 기록을 합치거나 `observedResult`를 결과 조각으로 줄입니다. `requirement-source-in-paths`·
+  `reference-path-in-paths`는 그 경로를 한쪽에만 두고, `reference-path-changed`는 그 파일을 `paths`로 옮겨 리뷰 대상에 넣습니다.
+  `runner identifier required`는 한글 세션 이름 대신 ASCII 별칭(예: `oss-review-p6-pr4`)을 runner 식별자로 씁니다. Review-read
+  hook 거부는 reviewer가 path를 read 범위 안 경로로 주어 다시 부르면 되고, 거부 기록이 정산을 막지 않습니다. 같은 `command` 기록의 거부는 기록마다 `label`(두 실행의 차이)을 더합니다.
 - `review-run failed checks=…`는 `review-run.json`의 `checks[].outputPath` 출력을 읽고 원인을 고친 뒤 runner부터 다시 실행합니다.
   등록된 task가 없으므로 release할 것이 없습니다. `refused=…`는 `error`의 사유를 이 문서에서 찾아 해소하고, `registered`에 task id가
   있으면 `release --task <taskId> --not-dispatched`로 닫은 뒤 다시 실행합니다. `error=…`(`unexpected: true`)는 `error`의 Git·파일

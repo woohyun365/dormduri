@@ -721,8 +721,8 @@ test('the repository binding yields rows for an API service path and a renamed h
       to,
     );
   }
-  // A renamed section heading and a convention row naming no criteria document stop the extract instead of
-  // dropping rows. A binding without the sections has none (the default fixture).
+  // A renamed section heading, a convention row naming no criteria item and one naming an unknown criteria document
+  // stop the extract instead of dropping rows. A binding without the sections has none (the default fixture).
   for (const [binding, reason] of [
     [
       BINDING_WITH_VALUES.replace('\n## 고른 값\n', '\n## 고른 값(L3)\n'),
@@ -738,6 +738,14 @@ test('the repository binding yields rows for an API service path and a renamed h
         BE_CONVENTION.replace('web-be-service-layer', 'web-be-gone'),
       ),
       /names web-be-gone, not a criteria document/u,
+    ],
+    // A row whose criteria item cell has no `<document>.md <item>` names nothing a review could check (P6 PR ④ RED 9).
+    [
+      BINDING_WITH_VALUES.replace(
+        BE_CONVENTION,
+        BE_CONVENTION.replace('`web-be-service-layer.md X1`', '관련 항목 없음'),
+      ),
+      /row API 경로는 `api\/<resource>` 접두다 names no criteria item$/u,
     ],
   ]) {
     write(root, BINDING, binding);
@@ -756,21 +764,14 @@ test('the repository binding yields rows for an API service path and a renamed h
   );
 });
 
-// The subject paths of the held-out rescore set as of usage record ho-003 (review criteria README `### 재채점`): r07 S-BFF
-// and r11 E3 from the calibration designation, r13 E5 that replaced r03 S-infra. The designation and usage records are
-// ignored evidence a CI run cannot read, so the paths are copied here. The selection reads only the path, so a later
-// subject keeps this protection while it stays under the same `.artifacts/**` copy shape; copy its paths here when the
-// set changes.
+// The subject paths of the held-out rescore set as of usage record ho-005 (review criteria README `### 재채점`): r11 E3
+// from the calibration designation, r14 (ho-004) and r15 (ho-005) that replaced r07 and r13. The designation and usage
+// records are ignored evidence a CI run cannot read, so the paths are copied here from the subject records (their
+// `paths` and the copy directory file names only). The selection reads only the path, so a later subject keeps this
+// protection while it stays under the same `.artifacts/**` copy shape; the next PR that runs a rescore copies the set of
+// its start here (README `### 재채점`).
 const HELD_OUT = '.artifacts/plans/agent-workflow-oss-program/code-review-system';
 const HELD_OUT_COPY_PATHS = {
-  r07: [
-    'files/apps/web/src/app/api/_bff/server-read.test.ts',
-    'files/apps/web/src/app/api/_bff/server-read.ts',
-    'files/apps/web/src/auth/server/index.ts',
-    'files/apps/web/src/auth/server/read-session.test.ts',
-    'files/apps/web/src/auth/server/read-session.ts',
-    'change.diff',
-  ].map((path) => `${HELD_OUT}/p3/subjects/r07/${path}`),
   r11: [
     'files/apps/api/src/chat/realtime/chat-realtime-proxy-boundary.spec.ts',
     'files/apps/api/src/chat/realtime/chat-realtime.gateway.spec.ts',
@@ -778,9 +779,19 @@ const HELD_OUT_COPY_PATHS = {
     'files/apps/api/src/chat/realtime/chat-realtime.metrics.spec.ts',
     'change.diff',
   ].map((path) => `${HELD_OUT}/p3/subjects/r11/${path}`),
-  r13: ['files/scripts/ci/agents/codex/codex-native-skills.test.mjs', 'change.diff'].map(
-    (path) => `${HELD_OUT}/held-out/ho-003/subjects/r13/${path}`,
-  ),
+  r14: [
+    'files/docs/architecture/platform/dependency-automation.md',
+    'files/docs/development/github/dependency-updates.md',
+    'files/docs/development/github/renovate-provider-readiness.md',
+    'change.diff',
+  ].map((path) => `${HELD_OUT}/held-out/ho-004/subjects/r14/${path}`),
+  r15: [
+    'files/apps/web/react-compiler.config.ts',
+    'files/apps/web/next.config.ts',
+    'files/apps/web/vitest.config.ts',
+    'files/apps/web/.storybook/main.ts',
+    'change.diff',
+  ].map((path) => `${HELD_OUT}/held-out/ho-005/subjects/r15/${path}`),
 };
 
 // The repository binding and pack tie no row to the criteria documents the automatic selection picks for the

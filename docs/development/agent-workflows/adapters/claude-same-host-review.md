@@ -6,23 +6,38 @@
 
 Reviewer 입력은 `pnpm claude:native review`로 만듭니다. `--subject <taskId>`만 주면 관측이 정산된 subject의 이번 회차
 `snapshotDigest`와 `logHeader`를 출력하고, 완료 관측이 없으면 거부합니다. Runner는 `logHeader`를 검증 로그 첫 줄에 두고
-각 실행을 `{command, exit, environment, observedResult, outputPaths, sourceDigest}` 기록으로 남깁니다. 수정 전 실패를 보이는
+각 실행을 `{command, exit, environment, observedResult, outputPaths, sourceDigest}` 기록으로 남깁니다. Review id 앞 8자는 native
+subject면 task id, Parent subject면 snapshot digest라 같은 snapshot(commit·dirty diff·untracked 입력)이면 세션 사이에도 같고 뒤 8자만 무작위입니다. 같은 snapshot을 다시
+리뷰하면 logHeader(같은 digest)도 같고 packet id만 다릅니다. Ignored 입력만 바뀐 회차도 snapshot digest가 같아 같은 logHeader라
+header 검사는 회차를 가르지 못하므로, runner log는 회차마다 새 경로에 둡니다. 수정 전 실패를 보이는
 RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 두며, 실제 exit가 기대와 같을 때만 known failure가 아닙니다.
 다른 exit(0 포함)는 known failure이고 기대·실제 exit는 packet `tests`와 결과 template에 함께 보입니다. Exit를 뒤집는 명령으로 기록하지 않습니다. 같은
 `command`를 두 번 실행한 기록은 `label`로 구별하고(packet `tests`와 prompt에 `command (label)`로 보임), `label` 없이 `command`가
 같은 기록은 `label`을 안내하며 거부합니다. `--runner-evidence`·
 `--basis`·`--reviewer-model`을 더하면 packet, reviewer prompt, 결과 template, reviewer용 prepare spec이 나옵니다. Runner 기록의
 `sourceDigest`가 이번 회차 digest가 아니거나 필드가 다르면 거부합니다. `--basis`가 안전한 참조 형식이 아니면 packet 파일을 쓰기 전에
-`unsafe-reference:selectionBasisRef`로 거부합니다. 등록이 `unsafe-path`로 거부할 read path(추적 파일의 한글 이름 등)도 같은 사유
-(`unsafe-path:nativeRequest.task.readScope:<path>`)로 파일을 쓰기 전에 거부합니다. Native subject(읽기 전용)의 read path는 subject `readScope`와
+`unsafe-reference:selectionBasisRef`로 거부합니다. 등록이 `unsafe-path`로 거부할 read path(경로 조각에 Unicode 글자·숫자와 `.`·`_`·`-`·
+괄호·대괄호 밖 문자가 있거나 `.`·`..`·빈 조각이거나 NFC가 아닌 경로)도 같은 사유(`unsafe-path:nativeRequest.task.readScope:<path>`)로 파일을 쓰기
+전에 거부합니다. 괄호·대괄호 경로는 Git `ls-files`에 literal pathspec(`:(literal)`)으로 넘겨 glob으로 읽지 않습니다. Native subject(읽기 전용)의 read path는 subject `readScope`와
 runner 출력 경로이고, Parent subject의 read path도 subject `paths`와 runner 출력 경로를 함께 담습니다(ignored 경로는 아래
-[입력 사본](#리뷰-입력-사본)으로 바뀝니다). Native subject는 응답이
+[입력 사본](#리뷰-입력-사본)으로 바뀝니다). Native subject의 `--requirement-source <저장소 안 파일>`(반복)과 Parent subject
+`requirementSources`는 사용자 요구 원본 파일(ignored 증거 파일 가능)을 packet `sources.requirements`(경로 하나가 acceptanceCoverage
+기준 하나)와 read path에 넣고, subject read path와 겹치면 `requirement-source-in-paths`, 저장소 파일이 아니면
+`requirement-source-invalid`로 거부합니다. Parent subject `referencePaths`는 바뀌지 않은 배경 파일·디렉터리를 read path에만 넣고 기준
+자동 선택과 subject `paths`에는 넣지 않습니다. `paths`와 겹치면 `reference-path-in-paths`, snapshot의 dirty diff·untracked 입력에
+들거나 `--basis`(commit을 가리킬 때)부터 HEAD까지 바뀐 경로면 `reference-path-changed`로 거부합니다. `--basis`가 commit이 아니면 비교하지 않고 출력 `warnings`에 `reference-paths-unchecked`를 냅니다. Ignored 파일의 바뀜은 Git이
+알 수 없어 바뀐 파일은 `paths`에 둡니다. Native subject는 응답이
 산출물이므로 helper가 정산된 응답을 subject task 디렉터리의 `subject-response.txt`에 한 번 쓰고 read path 맨 앞에 두며, prompt는
 그 주장과 자기평가가 근거가 아니라고 적습니다. Parent가 응답을 옮겨 적는 parent-adjudication으로 우회하지 않습니다. 결과의
 `commandsActuallyRun`은 runner 기록에서만 채웁니다. Helper는 그 배열을 `.artifacts/tools/claude-review-packets/<reviewId>.runner.json`
-(runner 파일)에 쓰고, prompt에는 `KNU_REVIEW_RUNNER_FILE:<경로> <sha256 digest>` 한 줄(결과 template 줄 뒤)과 기록마다 `command`·
-`exit`·`observedResult` 한 줄만 둡니다(`environment`·`outputPaths`는 runner 파일에만 있음). Prompt의 결과 template은 `commandsActuallyRun`
-자리에 runner 파일의 배열을 그대로 옮기라는 문장을 두고, 정산 때 reviewer 결과가 runner 파일의 기록과 같아야 합니다. Runner 파일은
+(runner 파일)에 쓰고, prompt에는 `KNU_REVIEW_RUNNER_FILE:<경로> <sha256 digest>` 한 줄(결과 template 파일 줄 뒤)과 기록마다 `command`·
+`exit`·`observedResult` 한 줄만 둡니다(`environment`·`outputPaths`는 runner 파일에만 있음). 결과 template은
+`.artifacts/tools/claude-review-packets/<reviewId>.template.json`(template 파일)에 쓰고, prompt에는
+`KNU_REVIEW_RESULT_TEMPLATE_FILE:<경로> <sha256 digest>` 한 줄과 먼저 읽으라는 지시만 둡니다. Template 파일은 packet 파일처럼 reviewer `allowedReadPaths`에 들고 prompt 기록
+(`template`)이 digest를 결속하므로, 등록 뒤 바뀌면 정산이 `review-template-changed`로 거부합니다. Template의 `commandsActuallyRun`
+자리는 runner 파일의 배열을 그대로 옮기라는 문장이고, 정산 때 reviewer 결과가 runner 파일의 기록과 같아야 합니다. Prompt가
+12,000자를 넘으면 두 subject 경로 모두 `reviewer-prompt-exceeds-12000-chars (<글자 수>; instructions <n>, runner records <n>,
+acceptance and criteria <n>, context <n>, round <n>, files <n>)`처럼 부분별 글자 수(줄바꿈 포함, 합이 글자 수)를 내고 파일을 쓰지 않습니다. Runner 파일은
 reviewer read path에 들어가고 prompt 기록이 digest를 결속하므로, 등록 뒤 파일이 바뀌면 `review-runner-file-changed`로 정산을
 거부합니다. Runner 파일 줄이 없는 이전 형식 prompt는 template의 기록과 대조합니다. Reviewer spec은 유일한 reviewer 조합(`knu_reviewer`·`complex-critical`)과
 review 필수 facts를 `--basis` 출처로 채운 초안이며, Lead가 확인한 뒤 `prepare`에 넘깁니다. 역할은
@@ -99,8 +114,10 @@ Packet을 만들 때 [QA 리뷰 회차](../qa.md#리뷰-회차)의 입력을 함
 packet `sources.owners`와 read path에 들어가고, 출력 `criteriaSelection`이 문서·항목 수와 경로 키가 맞지 않은 경로를, helper 디렉터리의
 `<reviewId>.criteria.json`(read path 아님)이 선택 이유와 override 때의 자동 선택 결과를 남깁니다. 직전 result도
 read path에 들어가고(ignored 경로면 입력 사본으로) prompt에 경로와 sha256 digest가 남습니다. Reviewer prompt는 회차에 따라 보고 범위를 다르게 지시합니다.
-1회차는 넓게 보고하고 low를 5건까지, 2회차부터는 blocking finding만 보고합니다. 두 경우 모두 finding 0건을 허용하고, 기준
-문서가 있으면 미충족 항목 id를 finding `criteriaItem`에 하나만 적고 기본 severity를 쓰게 합니다.
+1회차는 넓게 보고하고 low를 5건까지, 2회차부터는 blocking finding만 보고합니다. 두 경우 모두 finding 0건을 허용하고, low를 포함한
+모든 finding은 `findings`에 두고 coverage 근거는 finding id로 가리키게 합니다. 기준 문서가 있으면 디렉터리를 한 번 쓰고 문서 id를
+나열한 줄로 알리고, 미충족 항목 id를 finding `criteriaItem`에 하나만 적고 기본 severity를 쓰게 합니다. 직전 입력이 처분 기록이면 그
+처분과 이유(미판정 줄의 `parent-checked` 등 포함)를 근거가 아닌 Parent 주장으로 적습니다.
 
 Parent subject의 2회차 이상은 [리뷰 회차](../qa.md#리뷰-회차)의 읽을 범위를 `review-run`이 정합니다. Helper는 Parent subject의
 회차마다 범위 기록 `<reviewId>.scope.json`(HEAD, HEAD와 다른 tracked·untracked 파일의 digest, subject `paths`, staged 계획 파일의
@@ -108,12 +125,12 @@ digest)을 남기고, 다음 회차의 `review-run`이 직전 result의 `packetI
 subject `paths` 안이면 `deltaScope`는 `{mode: "delta", reason: "changed-within-previous-paths", paths}`이고 `paths`는 바뀐 파일과 직전
 result의 blocking finding 위치 파일입니다. `--risk-trigger <qa.md trigger 항목>`을 선언했거나(`risk-trigger: <항목>`), 직전 범위 기록이
 없거나(`previous-scope-record-missing`), 새 파일이 있거나(`new-file: <path>`), 직전 `paths` 밖 파일이 바뀌었으면
-(`outside-previous-paths: <path>`) `{mode: "full", reason}`입니다(이 순서로 판정). Subject `paths` 안 ignored 파일은 tree 비교에
-보이지 않으므로 직전 회차 입력 manifest(`<reviewId>.inputs.json`)의 원본 digest와 지금 원본을 비교해 같은 규칙으로 판정합니다(바뀌거나
-사라지면 `delta`의 경로, 새로 생기면 `new-file`). `--plan-drafts`의 staged 계획 파일도 subject 파일로 봅니다. Read path와 기준 선택 경로는 줄이지 않고 prompt의 회차 줄이 범위를
-지시합니다. `delta`는 직전 result와 바뀐 경로를 읽고 다른 경로는 그 판정에 필요한 만큼만 읽게 하며(경로가 12개를 넘으면 나머지는
-read path에 넣은 범위 기록을 가리킴. Reviewer가 사본으로 읽는 ignored 경로는 회차 줄에 사본 경로로 적고, 범위 기록의 경로는 원본
-경로라 prompt의 사본 안내 줄을 따라 읽음), `full`은 이유와 함께 전 범위를 다시 읽게 합니다. `deltaScope`는 출력과 prompt 기록, 범위
+(`outside-previous-paths: <path>`) `{mode: "full", reason}`입니다(이 순서로 판정). 직전과 이번 회차 subject `paths` 안 ignored 파일은
+tree 비교에 보이지 않으므로 직전 회차 입력 manifest(`<reviewId>.inputs.json`)의 원본 digest와 지금 원본을 비교해 같은 규칙으로
+판정합니다(바뀌거나 사라지면 `delta`의 경로, manifest에 없던 파일이면 `new-file`, 직전 `paths` 밖이면 `outside-previous-paths`). `--plan-drafts`의 staged 계획 파일도 subject 파일로 봅니다. Read path와 기준 선택 경로는 줄이지 않고 prompt의 회차 줄이 범위를
+지시합니다. `delta`는 직전 result와 바뀐 경로를 읽고 다른 경로는 그 판정에 필요한 만큼만 읽게 하며(회차 줄은 바뀐 경로 수와 read
+path에 넣은 범위 기록만 가리킴. 범위 기록의 경로는 원본 경로라 ignored 경로는 prompt의 사본 안내 줄을 따라 사본으로 읽음), `full`은
+이유와 함께 전 범위를 다시 읽게 합니다. `deltaScope`는 출력과 prompt 기록, 범위
 기록에 남습니다. `review`를 직접 부른 Parent subject의 2회차 이상은 `delta-scope-required`로 packet 파일을 쓰기 전에 거부합니다.
 Native subject의 회차 줄은 그대로입니다.
 
@@ -228,13 +245,19 @@ host 인증이나 권한 grant가 아닙니다. Parent가 직접 작성한 diff�
 `reviewLifecycle`(경로, 기록·현재 digest)을 더하고, 추출이 prompt 기록의 digest와 다르거나 기록이 없으면
 `review-requirements-changed`·`review-binding-changed`·`review-lifecycle-changed`를 넣습니다. 초안의 `## Verification` 절 추출
 (`reviewVerification`, `review-verification-changed`), reviewer가 읽는 2회차 범위 기록(`reviewScope`, `review-scope-changed`),
-runner 파일(`reviewRunner`, `review-runner-file-changed`)도 같은 방식으로 대조합니다(native subject reviewer는 review id를
+runner 파일(`reviewRunner`, `review-runner-file-changed`), 결과 template 파일(`reviewTemplate`, `review-template-changed`)도 같은 방식으로
+대조합니다. Native subject의 subject task를 연결 reviewer와 `settle --task --judgment`로 정산할 때도 그 reviewer의 추출을 다시 대조해,
+바뀌었거나 prompt 기록이 없으면 거부합니다(native subject reviewer는 review id를
 packet id에서 얻어 binding 행 추출을 같은 방식으로 대조하고, 바뀐 추출은 `settle --task --judgment`도 거부합니다. 다만 native
 subject는 읽기 전용이라 관측 변경 경로가 없어 기준 자동 선택과 binding 행 추출이 비고, `--criteria`를 줘도 binding 행 추출은 생기지 않습니다). 그 reviewer는
 `complete`로 PASS 정산되지 않으며, Parent가 reviewer의 `settle --task` 출력에서 `observationErrors`가
 비었는지(effort 판정 포함)와 모델·변경 경로, finding 재현으로 판정합니다. Settle은 prompt 첫 줄 `logHeader`의 snapshot을 의존 집합
 안 변경이 없으면 등록 snapshot과, 있거나 저장소 전체 판정이면 `finalSnapshot`과 대조해 다르면 `review-snapshot-mismatch`를 넣고,
-판정을 `dependencyJudgment`로 냅니다. Effort는 관측 때 판정하므로 `completion.json`의 `valid`만으로는 판정하지 않습니다. Review prompt 첫 줄의 회차 digest가
+판정을 `dependencyJudgment`로 냅니다. 저장소 전체 판정(`basis: repository`)은 logHeader가 등록 snapshot이고 `finalSnapshot`과 HEAD
+tree·dirty diff·untracked 입력 digest가 같으면(같은 tree의 fast-forward·squash merge처럼 commit만 다름) mismatch를 넣지 않고
+`headChanged`는 그대로 기록합니다. 저장소 전체 판정 reviewer의 `post-completion-source-drift`도 같은 tree 비교입니다. Reviewer
+transcript의 Read 대상 가운데 read 범위(등록 read scope와 native subject packet `allowedReadPaths`) 밖 경로는 출력 `readOutsidePaths`에
+기록만 하고 판정은 그대로입니다. Effort는 관측 때 판정하므로 `completion.json`의 `valid`만으로는 판정하지 않습니다. Review prompt 첫 줄의 회차 digest가
 현재 source와 다르면 `prepare`가 `review-snapshot-stale`로 거부합니다. 이 경로는 새 binding이나 gate 완화가 아닙니다.
 
 ### 정산 결과 파일과 packet 닫힘
@@ -272,16 +295,18 @@ promote·상태 정정 전 결속 확인은 이 규칙으로 열린 packet의 `.
 Review snapshot은 tracked·비ignored 파일만 결속하므로 ignored 리뷰 입력(계획, 증거, runner 출력, 2회차 직전 결과와 처분 기록)은 helper가
 따로 고정합니다. 대상은 reviewer read path 중 ignored read path 아래 파일과, 어느 read path든 그 아래 `.plans/`·`.artifacts/`·
 `.local-docs/`(기록 위치) 안의 ignored 파일입니다. Helper 디렉터리의 파일(packet·manifest는 prompt 줄이, requirement 추출·binding 행
-추출·초안 절 추출·runner 파일과 직전 결과로 준 Parent reviewer 결과 파일은 prompt 기록이 결속)과 native task 기록은 빠지고, 그 밖의 비ignored
+추출·초안 절 추출·범위 기록·runner 파일·결과 template 파일과 직전 결과로 준 Parent reviewer 결과 파일은 prompt 기록이 결속)과 native task 기록은 빠지고, 그 밖의 비ignored
 디렉터리 안 ignored 파일(package 의존성·build 산출물)은 결속하지 않습니다(known limit).
 
 Ignored read path(파일이나 디렉터리) 아래 대상은 helper가 `.artifacts/tools/claude-review-packets/<reviewId>.inputs/` 아래에 원래
 경로 그대로 복사하고(mode 유지, symlink는 링크 문자열 그대로), 그 read path 대신 사본 디렉터리를 reviewer read path로 줍니다. 그래서
 reviewer는 `review`를 만든 시점의 판을 읽고, 원본은 리뷰 중에도 다른 세션이 고칠 수 있습니다. Prompt의 입력 줄은 사본 경로를 쓰고
 사본 디렉터리를 알리는 한 줄을 둡니다. Ignored가 아닌 read path 아래의 대상(기록 위치 안 ignored 파일)은 read path가 그대로라 사본을
-만들지 않고 원본을 결속합니다. Helper는 파일마다 digest(mode·bytes, symlink는 링크 문자열)를
+만들지 않고 원본을 결속합니다. Helper는 파일마다 digest(일반 파일은 `sha256(JSON.stringify({ mode: st.mode & 0o777, bytes:
+sha256(파일 bytes) }))`, symlink는 `sha256(JSON.stringify({ link: 링크 문자열 }))`, sha256 값은 `sha256:<hex>` 문자열)를
 `.artifacts/tools/claude-review-packets/<reviewId>.inputs.json`에 한 번 쓰고 prompt 마지막 줄에
-`KNU_REVIEW_INPUTS_FILE:<경로> <sha256 digest>`를 둡니다. Manifest의 `files`는 원본으로 결속한 파일이고, 사본이 있으면
+`KNU_REVIEW_INPUTS_FILE:<경로> <sha256 digest>`(manifest 파일 bytes의 sha256)를 둡니다. 그 앞 줄은 manifest의 파일 digest가 정산이
+계산하는 이 값이라 runner 로그의 파일 sha256과 다르다고 적습니다. Manifest의 `files`는 원본으로 결속한 파일이고, 사본이 있으면
 `copies`가 사본 경로마다 원본 경로와 digest를 담습니다(schema `claude-review-inputs/v2`). 대상이 없으면 줄도 없습니다. 2,000개·파일
 8 MiB·합계 32 MiB를 넘으면 `review-input-too-large`로, 일반 파일도 symlink도 아닌 대상을 복사해야 하면 `review-input-not-a-file`로
 review를 만들지 않습니다. 1회차 그룹은 구성원마다 자기 manifest와 사본 디렉터리를 갖습니다.

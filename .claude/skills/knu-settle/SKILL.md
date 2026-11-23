@@ -21,6 +21,9 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
    `quoteCheck.candidates`(`found`)만 evidence 후보로, `excluded`는 사유와 함께 제외로 남깁니다.
 4. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native settle --task <taskId> --judgment <absolute-template-path>`로 판정합니다.
 
+helper 명령(pnpm `-s`) 출력의 첫 줄은 pnpm이 내는 `$ node …` 줄이고 JSON은 그 다음 줄부터입니다(또는
+`scripts/agents/claude/native-session.mjs`를 node로 직접 실행).
+
 ## Reviewer 종류
 
 - Native subject reviewer: 위와 같이 template을 채워 `--judgment`로 정산합니다. 결과 JSON은
@@ -29,11 +32,14 @@ description: 이 저장소에서 KNU native task가 끝난 뒤(background는 완
   비었는지(모델·변경 경로 포함)와 finding 재현으로 판정합니다. Helper가 reviewer prompt 첫 줄 `logHeader`의 snapshot을 대조해
   다르면 `review-snapshot-mismatch`를 넣습니다. 읽기 전용 reviewer는 의존 집합(read path·결속 입력·transcript가 보인 읽기)
   안 변경이 없으면 등록 snapshot과, 있으면 `finalSnapshot`과 대조하므로 다른 세션의 집합 밖 편집·commit은 settle 결과
-  `dependencyJudgment`에 기록만 남습니다. Packet 파일 review는 settle 결과의 `reviewPacket`을 함께 봅니다. Reviewer가 packet 파일을 성공적으로 읽지 않았으면
+  `dependencyJudgment`에 기록만 남습니다. 저장소 전체 판정(`basis: repository`)이면 HEAD tree·dirty diff·untracked 입력 digest로
+  대조해, 같은 tree의 fast-forward·squash merge처럼 commit만 바뀌었으면 mismatch를 넣지 않고 `headChanged: true`만 남습니다.
+  Review-read hook이 거부한 Grep·Glob(task 디렉터리 `review-read-denials.jsonl`)은 의존 판정에서 빠지고, read 범위 밖 Read 대상은
+  `readOutsidePaths`에 기록만 남습니다. Packet 파일 review는 settle 결과의 `reviewPacket`을 함께 봅니다. Reviewer가 packet 파일을 성공적으로 읽지 않았으면
   `review-packet-unread`, 파일이 prompt의 digest와 다르면 `review-packet-changed`, prompt에서 packet 파일 줄이 빠졌으면
   `review-packet-missing`이 `observationErrors`에 들어가므로 재리뷰합니다. 리뷰 입력 사본이나 그 manifest가 바뀌었거나
-  빠졌으면 `review-input-*`가, runner 파일이 등록 뒤 바뀌었으면 `review-runner-file-changed`가 들어가므로 역시 결과를 쓰지 않고
-  `review-run`을 다시 실행해 재리뷰합니다.
+  빠졌으면 `review-input-*`가, runner 파일이 등록 뒤 바뀌었으면 `review-runner-file-changed`가, 결과 template 파일이 바뀌었으면
+  `review-template-changed`가 들어가므로 역시 결과를 쓰지 않고 `review-run`을 다시 실행해 재리뷰합니다.
 - 기록만 남는 관측(이 기록만으로는 거부하지 않음): settle 결과의 `reviewInputOriginalsChanged`는 사본을 만든 뒤 바뀐 ignored 입력
   원본 경로입니다. Reviewer는 사본을 읽었으므로 거부하지 않습니다. 그 회차가 읽은 판은
   `.artifacts/tools/claude-review-packets/<reviewId>.inputs/<원본 경로>`에 있으니 finding을 재현하거나 다음 회차 입력을 만들 때
