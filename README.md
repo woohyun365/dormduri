@@ -2,7 +2,7 @@
 
 강원대학교 재학생이 **생활패턴이 맞는 기숙사 룸메이트를 찾고, 대화와 매칭 신청으로 한 학기의 룸메이트를 정하도록 돕는 시즌 기반 웹 서비스**입니다.
 
-> **현재 상태**: Web 단계 배포 준비 · 운영 host·도메인·TLS·메일 준비 완료, Web CD와 첫 배포 전 · API·DB·관측 스택은 이후 단계 · 실제 사용자 검증은 아직 하지 않음
+> **현재 상태**: Landing 공개(Web 단계) · 관리형 PostgreSQL·API·관측 스택 배포(API 단계, 공개 API 주소 없음) · 운영자 BackOffice 배포(백오피스 단계, SSM 포트 포워딩으로만 접속) · 가입·로그인과 실제 사용자 검증은 아직 하지 않음
 
 [서비스 소개](./SERVICE.md) · [제품 정책](./docs/policies/README.md) · [아키텍처](./docs/architecture/README.md) · [개선 기록](./docs/evidence/README.md) · [AI 에이전트 하네스](#ai-에이전트-하네스) · [기여 안내](./CONTRIBUTING.md) · [처음 참여하기](./docs/development/onboarding.md) · [운영 환경](./docs/deploy/README.md) · [운영 Runbook](./infra/runbooks/README.md)
 
@@ -44,13 +44,13 @@ flowchart LR
 - **API 도메인 owner**는 기능 가능 여부, 트랜잭션 전제 조건과 종료 사유를 계산합니다. 같은 DB schema를 써도 다른 도메인의 상태는 그 도메인이 연 service·port로만 바꿉니다([도메인 데이터 소유권](./docs/architecture/backend/domain-data-ownership.md)).
 - **PostgreSQL**은 UNIQUE 제약과 트랜잭션으로 최종 경쟁 상태를 판정합니다.
 
-지금 단계에는 AWS 서울 region의 Lightsail 사용자 앱 host 하나에 nginx ingress·Web·API·관측 스택을 두고, API는 공개 주소 없이 Web BFF에서만 받으며 private 관리형 PostgreSQL에 붙습니다. 운영자 BackOffice는 공개 주소가 없는 2 GB host에 따로 두고 SSM 포트 포워딩으로만 엽니다. 가입·로그인은 아직 닫혀 있습니다([운영 환경](./docs/deploy/production-environment.md)). 브라우저 Sentry를 더한 이후 목표 구성은 아직 배포하지 않은 계획과 로컬 리허설의 기준입니다. 구성도와 설명은 [운영 runtime 구성](./docs/architecture/platform/production-runtime-topology.md)에 있습니다.
+지금 단계에는 AWS 서울 region의 Lightsail 사용자 앱 host 하나에 nginx ingress·Web·API·관측 스택을 두고, API는 공개 주소 없이 Web BFF에서만 받으며 private 관리형 PostgreSQL에 붙습니다. 운영자 BackOffice는 공개 port·도메인이 없는 2 GB host에 따로 두고 SSM 포트 포워딩으로만 엽니다. 가입·로그인은 아직 닫혀 있습니다([운영 환경](./docs/deploy/production-environment.md)). 브라우저 Sentry를 더한 이후 목표 구성은 아직 배포하지 않은 계획과 로컬 리허설의 기준입니다. 구성도와 설명은 [운영 runtime 구성](./docs/architecture/platform/production-runtime-topology.md)에 있습니다.
 
 ## 대표 설계 결정
 
 1. **화면 상태가 아니라 시즌 참여 aggregate를 기준으로 삼았습니다.** 탐색·상세·매칭·채팅은 화면별 boolean이 아니라 `SeasonParticipant`, 등록 확정 트랜잭션과 서버 capability로 판단합니다([시즌 참여 정책](./docs/policies/season-participation.md) · [룸메이트 탐색 정책](./docs/policies/roommate-searching.md) · [기능 가능 여부 설계](./docs/architecture/frontend/action-capability-source-of-truth.md)).
 2. **사전 확인 API와 최종 트랜잭션의 책임을 나눴습니다.** 닉네임 확인 성공을 예약으로 보지 않고 회원가입 트랜잭션과 DB 제약이 최종 판정하며, 인증은 1회용 grant, Argon2id, DB에 저장하는 opaque session과 rotation·revoke 경계를 씁니다([계정 인증 정책](./docs/policies/account-authentication.md) · [opaque session 결정](./docs/architecture/backend/auth/jwt-vs-opaque-session-transport-decision.md)).
-3. **서버 크기보다 자원 owner와 실패 경계를 먼저 정했습니다.** 2 vCPU / 4 GiB 사용자 앱 host 하나에 API·Web·관측을 함께 올리는 구성(지금 단계)에서 제품 container limit 합계를 2,976 MiB로 묶고, 관측 스택이 멈춰도 사용자 요청은 막히지 않게 했습니다. 실제 운영 성능 주장이 아니라 리허설 기준입니다([운영 runtime 구성](./docs/architecture/platform/production-runtime-topology.md) · [풀스택 리허설 자원 예산](./infra/runbooks/rehearsal/full-stack.md) · [출시 준비 상태](./infra/runbooks/release/components/infrastructure-target/readiness.md)).
+3. **서버 크기보다 자원 owner와 실패 경계를 먼저 정했습니다.** 2 vCPU / 4 GiB 사용자 앱 host 하나에 API·Web·관측을 함께 올리는 구성에서 full-stack 리허설의 container limit 합계를 2,976 MiB로 묶고(지금 운영 묶음은 백오피스 관측 수신 gateway를 더해 3,040 MiB), 관측 스택이 멈춰도 사용자 요청은 막히지 않게 했습니다. 실제 운영 성능 주장이 아니라 리허설 기준입니다([운영 runtime 구성](./docs/architecture/platform/production-runtime-topology.md) · [풀스택 리허설 자원 예산](./infra/runbooks/rehearsal/full-stack.md) · [출시 준비 상태](./infra/runbooks/release/components/infrastructure-target/readiness.md)).
 
 ## 측정으로 확인한 개선
 
@@ -119,19 +119,19 @@ AI가 실제 팀 협업이나 운영 경험을 대신한다고 보지 않습니�
 
 ## 기술 스택
 
-| 영역     | 현재 기준                                                                                         | 선택 목적                                      |
-| -------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Runtime  | Node.js 26, pnpm 12                                                                               | workspace와 CI runtime 일치                    |
-| 언어     | TypeScript 6                                                                                      | FE·BE·shared contract의 정적 경계              |
-| Web      | Next.js 16, React 19, Tailwind CSS 4                                                              | App Router, BFF, 반응형 제품 UI                |
-| API      | NestJS 12, Joi, Pino                                                                              | DI 기반 도메인 owner, 런타임 설정, 구조화 로그 |
-| Contract | Zod 4 (`packages/shared`)                                                                         | 요청·응답 런타임 검증과 타입 공유              |
-| 저장소   | PostgreSQL 18, Prisma 7, `pg`                                                                     | 관계·제약·트랜잭션과 타입 있는 query           |
-| 보안     | Argon2id, HMAC·envelope 암호화, opaque session                                                    | 자격 증명과 session lifecycle 보호             |
-| 검증     | Vitest 5, Testing Library, Supertest, Playwright 1.63, Storybook 10                               | unit부터 브라우저·화면까지 계층 분리           |
-| 관측     | Prometheus, Loki, Alloy, Grafana, Alertmanager, Sentry                                            | 지표·로그·브라우저 신호의 책임 분리            |
-| 전달     | Docker Compose, GitHub Actions                                                                    | 재현 가능한 로컬 리허설과 선택 실행 CI         |
-| 운영     | 지금 AWS Lightsail·Route 53·ECR·Systems Manager·SES, API 단계에 관리형 PostgreSQL·Secrets Manager | Web 단계 운영 환경과 API 단계 목표             |
+| 영역     | 현재 기준                                                                                                            | 선택 목적                                      |
+| -------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Runtime  | Node.js 26, pnpm 12                                                                                                  | workspace와 CI runtime 일치                    |
+| 언어     | TypeScript 6                                                                                                         | FE·BE·shared contract의 정적 경계              |
+| Web      | Next.js 16, React 19, Tailwind CSS 4                                                                                 | App Router, BFF, 반응형 제품 UI                |
+| API      | NestJS 12, Joi, Pino                                                                                                 | DI 기반 도메인 owner, 런타임 설정, 구조화 로그 |
+| Contract | Zod 4 (`packages/shared`)                                                                                            | 요청·응답 런타임 검증과 타입 공유              |
+| 저장소   | PostgreSQL 18, Prisma 7, `pg`                                                                                        | 관계·제약·트랜잭션과 타입 있는 query           |
+| 보안     | Argon2id, HMAC·envelope 암호화, opaque session                                                                       | 자격 증명과 session lifecycle 보호             |
+| 검증     | Vitest 5, Testing Library, Supertest, Playwright 1.63, Storybook 10                                                  | unit부터 브라우저·화면까지 계층 분리           |
+| 관측     | Prometheus, Loki, Alloy, Grafana, Alertmanager, Sentry                                                               | 지표·로그·브라우저 신호의 책임 분리            |
+| 전달     | Docker Compose, GitHub Actions                                                                                       | 재현 가능한 로컬 리허설과 선택 실행 CI         |
+| 운영     | AWS Lightsail(사용자 앱·백오피스 host)·Route 53·ECR·Systems Manager·SES·관리형 PostgreSQL·Secrets Manager·CloudTrail | 지금 운영 환경(Web·API·백오피스 단계)          |
 
 버전의 기준은 [`package.json`](./package.json), [`pnpm-workspace.yaml`](./pnpm-workspace.yaml)의 catalog, 각 app package와 고정된 container image입니다.
 
@@ -206,15 +206,15 @@ dormduri/
 
 ## 현재 상태와 한계
 
-| 항목                           | 상태                  | 의미                                                                                           |
-| ------------------------------ | --------------------- | ---------------------------------------------------------------------------------------------- |
-| 제품 기능·contract·DB baseline | 구현됨                | 저장소 코드와 자동 테스트로 검증 가능                                                          |
-| Monorepo CI와 로컬 검증        | 구현됨                | 바뀐 경로별 검증 명령과 workflow 존재                                                          |
-| 풀스택 로컬 리허설             | 리허설 가능           | 제한된 Docker 자원에서 재현할 수 있는 harness와 runbook                                        |
-| Web 단계 운영 환경             | 준비 완료, 첫 배포 전 | AWS 서울 region에 host·도메인·TLS·메일을 준비하고 점검 mode로 둠. Web CD와 첫 배포는 다음 작업 |
-| API·DB·관측 운영               | 이후 단계             | 실제 환경에서 private DB, 백업·복원, rollback과 관측 내구성을 검증해야 함                      |
-| 실사용자 UX·운영 지표          | 아직 없음             | 실제 사용자 데이터와 운영 장애 경험이 없음. 출시와 사용자 검증 이후 측정                       |
-| BackOffice                     | 설계 결정만           | 별도 host·배포·권한 경계만 정했고 제품은 미구현                                                |
+| 항목                           | 상태         | 의미                                                                                                                                    |
+| ------------------------------ | ------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 제품 기능·contract·DB baseline | 구현됨       | 저장소 코드와 자동 테스트로 검증 가능                                                                                                   |
+| Monorepo CI와 로컬 검증        | 구현됨       | 바뀐 경로별 검증 명령과 workflow 존재                                                                                                   |
+| 풀스택 로컬 리허설             | 리허설 가능  | 제한된 Docker 자원에서 재현할 수 있는 harness와 runbook                                                                                 |
+| Web 단계 운영 환경             | 배포됨       | AWS 서울 region의 host·도메인·TLS로 Landing을 공개하고 Web CD로 배포. 가입·로그인은 닫혀 있음                                           |
+| API·DB·관측 운영               | 배포됨(단계) | private 관리형 PostgreSQL·API·관측 stack·경보를 올리고 restore drill과 Web·API rollback을 확인함. 공개 API 주소는 없음                  |
+| 실사용자 UX·운영 지표          | 아직 없음    | 실제 사용자 데이터와 운영 장애 경험이 없음. 출시와 사용자 검증 이후 측정                                                                |
+| BackOffice                     | 배포됨(단계) | 운영자 Web·API(계정·권한·직무 분리·감사)를 공개 port 없는 2 GB host에 올리고 SSM 포트 포워딩으로만 엶. 신고·Legal 운영 화면은 다음 단계 |
 
 - 강원대학교 공식 서비스가 아니며, 학교의 기숙사 배정·호실 선택 결과를 보장하지 않습니다.
 - 사용자 행동 분석과 매칭 품질 평가는 운영 로그가 아니라, 목적·동의·schema를 따로 갖춘 제품 분석으로 설계해야 합니다.

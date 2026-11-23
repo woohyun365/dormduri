@@ -1,7 +1,7 @@
 # AWS Secrets Manager checklist
 
-이 문서는 API production secret을 AWS Secrets Manager에 묶음으로 저장하고, Lightsail user host의 API 배포 document가
-host credential로 꺼내 read-only 파일로 설치하는 운영 checklist다. 실제 secret 원문은 이 문서, Git commit, issue, CI log,
+이 문서는 API·백오피스 production secret을 AWS Secrets Manager에 묶음으로 저장하고, Lightsail host(user host·백오피스 host)의
+배포 document가 host credential로 꺼내 read-only 파일로 설치하는 운영 checklist다. 실제 secret 원문은 이 문서, Git commit, issue, CI log,
 `.artifacts/`에 남기지 않는다.
 
 ## 책임 용어
