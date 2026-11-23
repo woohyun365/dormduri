@@ -34,6 +34,21 @@ export const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     rationale: 'shared advisory lock helper is transaction-scoped and never session-scoped.',
   }),
   sqlEntry({
+    path: 'prisma/sql/anonymizeDeactivatedAdminAccounts.sql',
+    owner: 'backoffice-api/audit-retention',
+    category: 'typedsql-query',
+    requiredPatterns: [
+      /UPDATE\s+"AdminAccount"\s+account/i,
+      /account\."status"\s+=\s+'DEACTIVATED'\s+AND\s+account\."anonymizedAt"\s+IS\s+NULL\s+AND\s+NOT\s+EXISTS/i,
+      /event\."actorAccountId"\s+=\s+account\."id"/i,
+      /event\."targetType"\s+=\s+'ADMIN_ACCOUNT'\s+AND\s+event\."targetId"\s+=\s+account\."id"/i,
+      /LIMIT\s+\$2::int/i,
+      /WHERE\s+account\."id"\s+=\s+target\."id"\s+AND\s+account\."status"\s+=\s+'DEACTIVATED'\s+AND\s+account\."anonymizedAt"\s+IS\s+NULL/i,
+    ],
+    rationale:
+      'backoffice cleanup step 4 anonymizes a deactivated account once no audit row names it, repeating the conditions on the UPDATE so a rerun or an overlapping run changes nothing.',
+  }),
+  sqlEntry({
     path: 'prisma/sql/claimAuthMailOutboxEvents.sql',
     owner: 'auth/mail',
     category: 'worker-claim',
@@ -280,11 +295,44 @@ export const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
       'verification retry-after is calculated against DB time and latest request ordering.',
   }),
   sqlEntry({
+    path: 'prisma/sql/insertAdminAuditEvent.sql',
+    owner: 'backoffice-api/audit',
+    category: 'typedsql-query',
+    requiredPatterns: [
+      /INSERT INTO "AdminAuditEvent" \( "id", "actorType", "actorAccountId", "sessionId", "accessPath", "action", "targetType", "targetId", "approvalRequestId", "result", "selfApproved", "reason", "requestId", "metadata" \) VALUES/,
+      /RETURNING\s+"id"/i,
+    ],
+    rationale:
+      'backoffice audit rows take occurredAt from the column default (DB clock): the column list leaves it out and backoffice_runtime has no INSERT privilege on it.',
+  }),
+  sqlEntry({
     path: 'prisma/sql/lockActiveMatchRow.sql',
     owner: 'matches/active',
     category: 'row-lock',
     requiredPatterns: [/FROM\s+"ActiveMatch"/i, /WHERE\s+id\s+=\s+\$1/i, /FOR\s+UPDATE/i],
     rationale: 'active match mutation paths explicitly lock the aggregate row.',
+  }),
+  sqlEntry({
+    path: 'prisma/sql/lockAdminAccountRow.sql',
+    owner: 'backoffice-api/admin-identity',
+    category: 'row-lock',
+    requiredPatterns: [
+      /FROM\s+"AdminAccount"/i,
+      /WHERE\s+id\s+=\s+\$1/i,
+      /FOR\s+NO\s+KEY\s+UPDATE/i,
+    ],
+    rationale: 'backoffice login attempts and credential reissues serialize on the account row.',
+  }),
+  sqlEntry({
+    path: 'prisma/sql/lockAdminSessionRow.sql',
+    owner: 'backoffice-api/admin-identity',
+    category: 'row-lock',
+    requiredPatterns: [
+      /FROM\s+"AdminSession"/i,
+      /WHERE\s+id\s+=\s+\$1/i,
+      /FOR\s+NO\s+KEY\s+UPDATE/i,
+    ],
+    rationale: 'the expiry audit of one backoffice session is written once under its row lock.',
   }),
   sqlEntry({
     path: 'prisma/sql/lockMatchRequestRow.sql',
@@ -303,6 +351,51 @@ export const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
       /RETURNING\s+id/i,
     ],
     rationale: 'verification success timestamp and expiry are DB-time based.',
+  }),
+  sqlEntry({
+    path: 'prisma/sql/pruneEndedAdminInvitations.sql',
+    owner: 'backoffice-api/audit-retention',
+    category: 'cleanup-delete',
+    requiredPatterns: [
+      /FROM\s+"AdminInvitation"/i,
+      /"usedAt"\s+<\s+\$1\s+OR\s+"expiresAt"\s+<\s+\$1\s+OR\s+"revokedAt"\s+<\s+\$1/i,
+      /ORDER\s+BY\s+"expiresAt"\s+ASC,\s*"id"\s+ASC/i,
+      /LIMIT\s+\$2::int/i,
+      /DELETE\s+FROM\s+"AdminInvitation"\s+invitation\s+USING\s+target/i,
+      /COUNT\(\*\)::int\s+AS\s+"deletedCount"/i,
+    ],
+    rationale:
+      'backoffice cleanup step 7 deletes invitations used, expired or revoked before the seven-day cutoff in bounded batches.',
+  }),
+  sqlEntry({
+    path: 'prisma/sql/pruneEndedAdminSessions.sql',
+    owner: 'backoffice-api/audit-retention',
+    category: 'cleanup-delete',
+    requiredPatterns: [
+      /FROM\s+"AdminSession"/i,
+      /"revokedAt"\s+<\s+\$1\s+OR\s+"absoluteExpiresAt"\s+<\s+\$1\s+OR\s+"lastActivityAt"\s+<\s+\$1/i,
+      /ORDER\s+BY\s+"lastActivityAt"\s+ASC,\s*"id"\s+ASC/i,
+      /LIMIT\s+\$2::int/i,
+      /DELETE\s+FROM\s+"AdminSession"\s+session\s+USING\s+target/i,
+      /COUNT\(\*\)::int\s+AS\s+"deletedCount"/i,
+    ],
+    rationale:
+      'backoffice cleanup step 5 deletes sessions that ended (revoked, absolute or idle expiry) before the seven-day cutoff in bounded batches.',
+  }),
+  sqlEntry({
+    path: 'prisma/sql/pruneEndedAdminWebAuthnChallenges.sql',
+    owner: 'backoffice-api/audit-retention',
+    category: 'cleanup-delete',
+    requiredPatterns: [
+      /FROM\s+"AdminWebAuthnChallenge"/i,
+      /"usedAt"\s+<\s+\$1\s+OR\s+"expiresAt"\s+<\s+\$1/i,
+      /ORDER\s+BY\s+"expiresAt"\s+ASC,\s*"id"\s+ASC/i,
+      /LIMIT\s+\$2::int/i,
+      /DELETE\s+FROM\s+"AdminWebAuthnChallenge"\s+challenge\s+USING\s+target/i,
+      /COUNT\(\*\)::int\s+AS\s+"deletedCount"/i,
+    ],
+    rationale:
+      'backoffice cleanup step 6 deletes WebAuthn challenges used or expired before the seven-day cutoff in bounded batches.',
   }),
   sqlEntry({
     path: 'prisma/sql/pruneExpiredAuthSessions.sql',
@@ -374,6 +467,56 @@ export const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
       /DELETE\s+FROM\s+"VerificationCodeRequestLog"/i,
     ],
     rationale: 'verification request-log cleanup deletes bounded deterministic batches.',
+  }),
+  sqlEntry({
+    path: 'prisma/sql/purgeClosedAdminApprovalRequests.sql',
+    owner: 'backoffice-api/audit-retention',
+    category: 'cleanup-delete',
+    requiredPatterns: [
+      /FROM\s+"AdminApprovalRequest"\s+request/i,
+      /request\."closedAt"\s+<\s+\$1\s+OR\s+\(request\."status"\s+=\s+'PENDING'\s+AND\s+request\."expiresAt"\s+<\s+\$1\)/i,
+      /event\."approvalRequestId"\s+=\s+request\."id"/i,
+      /event\."targetType"\s+=\s+'ADMIN_APPROVAL_REQUEST'\s+AND\s+event\."targetId"\s+=\s+request\."id"/i,
+      /assignment\."grantedByApprovalRequestId"\s+=\s+request\."id"/i,
+      /assignment\."revokedByApprovalRequestId"\s+=\s+request\."id"/i,
+      /ORDER\s+BY\s+COALESCE\(request\."closedAt",\s*request\."expiresAt"\)\s+ASC,\s*request\."id"\s+ASC/i,
+      /LIMIT\s+\$2::int/i,
+      /DELETE\s+FROM\s+"AdminApprovalRequest"\s+request\s+USING\s+target/i,
+      /COUNT\(\*\)::int\s+AS\s+"deletedCount"/i,
+    ],
+    rationale:
+      'backoffice cleanup step 3 deletes requests closed (or left pending and expired) before the three-year cutoff only when no audit row or role assignment still points at them.',
+  }),
+  sqlEntry({
+    path: 'prisma/sql/purgeExpiredAdminAuditEvents.sql',
+    owner: 'backoffice-api/audit-retention',
+    category: 'cleanup-delete',
+    requiredPatterns: [
+      /FROM\s+"AdminAuditEvent"\s+WHERE\s+"occurredAt"\s+<\s+\$1/i,
+      /ORDER\s+BY\s+"occurredAt"\s+ASC,\s*"id"\s+ASC/i,
+      /LIMIT\s+\$2::int/i,
+      /DELETE\s+FROM\s+"AdminAuditEvent"\s+event\s+USING\s+target/i,
+      /AND\s+event\."occurredAt"\s+<\s+\$1/i,
+      /COUNT\(\*\)::int\s+AS\s+"deletedCount"/i,
+    ],
+    rationale:
+      'backoffice cleanup step 1 deletes audit rows older than the three-year cutoff in bounded batches, rechecking the cutoff on the DELETE.',
+  }),
+  sqlEntry({
+    path: 'prisma/sql/purgeRevokedAdminRoleAssignments.sql',
+    owner: 'backoffice-api/audit-retention',
+    category: 'cleanup-delete',
+    requiredPatterns: [
+      /FROM\s+"AdminRoleAssignment"\s+assignment/i,
+      /assignment\."revokedAt"\s+<\s+\$1\s+AND\s+NOT\s+EXISTS/i,
+      /event\."targetType"\s+=\s+'ADMIN_ROLE_ASSIGNMENT'\s+AND\s+event\."targetId"\s+=\s+assignment\."id"/i,
+      /ORDER\s+BY\s+assignment\."revokedAt"\s+ASC,\s*assignment\."id"\s+ASC/i,
+      /LIMIT\s+\$2::int/i,
+      /DELETE\s+FROM\s+"AdminRoleAssignment"\s+assignment\s+USING\s+target/i,
+      /COUNT\(\*\)::int\s+AS\s+"deletedCount"/i,
+    ],
+    rationale:
+      'backoffice cleanup step 2 deletes role assignments revoked before the three-year cutoff once no audit row targets them.',
   }),
   sqlEntry({
     path: 'prisma/sql/recordLoginFailure.sql',

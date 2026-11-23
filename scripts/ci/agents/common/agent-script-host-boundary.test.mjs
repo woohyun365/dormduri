@@ -10,6 +10,7 @@ const codexOwners = [
   'child-task-contract',
   'orchestration-policy',
   'session-contract',
+  'review-ledger-source',
 ];
 // Callerless advisory modules stay removed; hook records and the package CLIs carry their observations.
 const removedCodexModules = ['fresh-session-smoke', 'model-run-evidence'];
@@ -117,8 +118,13 @@ test('common import graph cannot acquire Codex, Claude, model or OMX policy', ()
     'common/review-criteria-selection.mjs',
     'common/review-context-inputs.mjs',
     'common/discovery-questions.mjs',
+    'common/edit-sensors.mjs',
+    'common/review-prejudgment-phrases.mjs',
+    'common/review-adjudication.mjs',
+    'common/review-ledger.mjs',
   ];
   for (const file of neutralFiles) {
+    assert.ok(existsSync(resolve(root, 'scripts/agents', file)), `${file} is missing`);
     const source = readFileSync(resolve(root, 'scripts/agents', file), 'utf8');
     assert.doesNotMatch(
       source,
@@ -126,6 +132,25 @@ test('common import graph cannot acquire Codex, Claude, model or OMX policy', ()
       file,
     );
     assert.doesNotMatch(source, /gpt-\d|reasoning_effort|\.omx\//iu, file);
+  }
+});
+
+// P6 ② RED 5: each host has its own review ledger reader over the same common record and ledger modules, and neither
+// reader imports the other host.
+test('each host review ledger reader imports the common modules and no other host', () => {
+  for (const [file, other] of [
+    ['claude/review-ledger-source.mjs', '/codex/'],
+    ['codex/review-ledger-source.mjs', '/claude/'],
+  ]) {
+    assert.ok(existsSync(resolve(root, 'scripts/agents', file)), `${file} is missing`);
+    const source = readFileSync(resolve(root, 'scripts/agents', file), 'utf8');
+    for (const common of ['review-adjudication', 'review-ledger'])
+      assert.match(
+        source,
+        new RegExp(`from '\\.\\./common/${common}\\.mjs'`, 'u'),
+        `${file}: ${common}`,
+      );
+    assert.doesNotMatch(source, new RegExp(`from '[^']*${other}`, 'u'), `${file} imports ${other}`);
   }
 });
 

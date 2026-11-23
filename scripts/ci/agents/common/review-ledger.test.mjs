@@ -79,6 +79,43 @@ test('the ledger counts statuses, verdicts, severities, rounds, dispositions and
     adjudication: { recorded: 2, invalid: 1, missing: 4 },
     dispositions: { fixed: 2, rejected: 1, deferred: 1 },
     origins: { 'fix-induced': 1 },
+    hosts: { 'test-host': 7 },
+    // Rows without a subject size fall in one bucket; rounds count only rows whose round is known.
+    subjectSizes: {
+      unknown: { subjects: 3, runs: 7, rounds: 3, origins: { 'fix-induced': 1 } },
+    },
+    subjectRows: [
+      {
+        subjectKey: 'subject-a',
+        paths: null,
+        documents: null,
+        runs: 3,
+        rounds: 3,
+        origins: { 'fix-induced': 1 },
+        trailingNonPass: 0,
+        snapshots: 0,
+      },
+      {
+        subjectKey: 'subject-b',
+        paths: null,
+        documents: null,
+        runs: 3,
+        rounds: 0,
+        origins: {},
+        trailingNonPass: 0,
+        snapshots: 0,
+      },
+      {
+        subjectKey: 'subject-c',
+        paths: null,
+        documents: null,
+        runs: 1,
+        rounds: 0,
+        origins: {},
+        trailingNonPass: 0,
+        snapshots: 0,
+      },
+    ],
   });
   assert.equal(ledger.rows.length, 7);
 });
@@ -146,6 +183,156 @@ test('a row finding keeps its location and a malformed location rejects the row'
     [
       ['bad-location', 'location must be a string or null'],
       ['no-location', 'location must be a string or null'],
+    ],
+  );
+});
+
+// P6 ② RED 7 (#730 measurement, Owner 1.4) and Owner 2026-11-21 1.1: a reader may give a row its subject size
+// (subject paths and criteria documents of that review) and the snapshot it reviewed. The summary counts runs, rounds
+// and origins by subject size, with the per-subject rows they come from, and each subject's trailing non-PASS rounds
+// and distinct snapshots.
+const sized = (fields) =>
+  row({ subjectSize: { paths: 12, documents: 2 }, snapshot: 'sha256:s1', ...fields });
+const SIZED = [
+  // Big plan: round 1 has two reviewers and is non-PASS because one member failed; round 2 fails; round 3 passes.
+  sized({ taskId: 'b1', subjectKey: 'big', round: 1, verdict: 'PASS' }),
+  sized({
+    taskId: 'b2',
+    subjectKey: 'big',
+    round: 1,
+    adjudication: { status: 'recorded', dispositions: ['fixed'], origins: [] },
+  }),
+  sized({
+    taskId: 'b3',
+    subjectKey: 'big',
+    round: 2,
+    snapshot: 'sha256:s2',
+    subjectSize: { paths: 3, documents: 2 },
+    adjudication: {
+      status: 'recorded',
+      dispositions: ['fixed'],
+      origins: ['fix-induced', 'previously-missed'],
+    },
+  }),
+  sized({ taskId: 'b4', subjectKey: 'big', round: 3, snapshot: 'sha256:s3', verdict: 'PASS' }),
+  // Small change: two non-PASS rounds in a row so far, the second on the same snapshot as the first.
+  row({
+    taskId: 's1',
+    subjectKey: 'small',
+    round: 1,
+    subjectSize: { paths: 1, documents: 1 },
+    snapshot: 'sha256:t1',
+    adjudication: { status: 'recorded', dispositions: ['fixed'], origins: [] },
+  }),
+  row({
+    taskId: 's2',
+    subjectKey: 'small',
+    round: 2,
+    subjectSize: { paths: 1, documents: 1 },
+    snapshot: 'sha256:t1',
+    adjudication: { status: 'recorded', dispositions: ['fixed'], origins: ['re-raised'] },
+  }),
+  // Another small change of the same size whose only round has no completion: it is not a PASS round.
+  row({
+    taskId: 'o1',
+    subjectKey: 'other-small',
+    round: 1,
+    status: 'completion-missing',
+    verdict: null,
+    subjectSize: { paths: 1, documents: 1 },
+    snapshot: null,
+  }),
+];
+
+test('the summary counts rounds and origins by subject size with the per-subject rows (P6 ② RED 7)', () => {
+  const ledger = buildLedger(SIZED);
+  assert.deepEqual(ledger.rejected, []);
+  assert.deepEqual(ledger.summary.subjectRows, [
+    {
+      subjectKey: 'big',
+      paths: 12,
+      documents: 2,
+      runs: 4,
+      rounds: 3,
+      origins: { 'fix-induced': 1, 'previously-missed': 1 },
+      trailingNonPass: 0,
+      snapshots: 3,
+    },
+    {
+      subjectKey: 'other-small',
+      paths: 1,
+      documents: 1,
+      runs: 1,
+      rounds: 1,
+      origins: {},
+      trailingNonPass: 1,
+      snapshots: 0,
+    },
+    {
+      subjectKey: 'small',
+      paths: 1,
+      documents: 1,
+      runs: 2,
+      rounds: 2,
+      origins: { 're-raised': 1 },
+      trailingNonPass: 2,
+      snapshots: 1,
+    },
+  ]);
+  // A subject takes the size of its first round (the delta rounds read less).
+  assert.deepEqual(ledger.summary.subjectSizes, {
+    'paths:12,documents:2': {
+      subjects: 1,
+      runs: 4,
+      rounds: 3,
+      origins: { 'fix-induced': 1, 'previously-missed': 1 },
+    },
+    'paths:1,documents:1': { subjects: 2, runs: 3, rounds: 3, origins: { 're-raised': 1 } },
+  });
+});
+
+test('rows of two hosts are counted together and by host (P6 ② RED 5)', () => {
+  const ledger = buildLedger([
+    row({ taskId: 'c1', host: 'claude' }),
+    row({ taskId: 'x1', host: 'codex', subjectKey: 'subject-x' }),
+    row({ taskId: 'x2', host: 'codex', subjectKey: 'subject-x', verdict: 'PASS' }),
+  ]);
+  assert.equal(ledger.summary.count, 3);
+  assert.equal(ledger.summary.subjects, 2);
+  assert.deepEqual(ledger.summary.hosts, { claude: 1, codex: 2 });
+  assert.deepEqual(ledger.summary.verdicts, { FAIL: 2, PASS: 1 });
+});
+
+test('a malformed subject size or snapshot rejects the row; absent or null is accepted', () => {
+  const ledger = buildLedger([
+    row({ taskId: 'absent' }),
+    row({ taskId: 'nulls', subjectSize: null, snapshot: null }),
+    row({ taskId: 'size-text', subjectSize: '12' }),
+    row({ taskId: 'size-negative', subjectSize: { paths: -1, documents: 0 } }),
+    row({ taskId: 'size-partial', subjectSize: { paths: 2 } }),
+    row({ taskId: 'size-fraction', subjectSize: { paths: 1.5, documents: 1 } }),
+    row({ taskId: 'snapshot-number', snapshot: 7 }),
+    row({ taskId: 'snapshot-empty', snapshot: '' }),
+  ]);
+  assert.deepEqual(
+    ledger.rows.map(({ taskId }) => taskId),
+    ['absent', 'nulls'],
+  );
+  assert.deepEqual(
+    ledger.rejected.map(({ taskId, reason }) => [taskId, reason]),
+    [
+      ['size-text', 'subjectSize must be null or { paths, documents } of non-negative integers'],
+      [
+        'size-negative',
+        'subjectSize must be null or { paths, documents } of non-negative integers',
+      ],
+      ['size-partial', 'subjectSize must be null or { paths, documents } of non-negative integers'],
+      [
+        'size-fraction',
+        'subjectSize must be null or { paths, documents } of non-negative integers',
+      ],
+      ['snapshot-number', 'snapshot must be a non-empty string or null'],
+      ['snapshot-empty', 'snapshot must be a non-empty string or null'],
     ],
   );
 });

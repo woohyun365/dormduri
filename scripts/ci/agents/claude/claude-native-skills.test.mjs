@@ -14,6 +14,12 @@ import {
   fixture,
   writeChildTranscript,
 } from './fixtures/claude-native-session-fixture.mjs';
+import {
+  DISPATCH_BULLETS,
+  DISPATCH_STEPS,
+  dispatchSection,
+  missingDispatchPhrases,
+} from '../common/fixtures/knu-review-dispatch-steps.mjs';
 
 const root = resolve(import.meta.dirname, '../../../..');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
@@ -749,4 +755,68 @@ test('review documents state one rule for a changed input original and for ignor
       `${path}: older delta rule`,
     );
   }
+});
+
+// P6 ② RED 8 and Owner 2026-11-21 1.2·1.3: the settle skill states the disposition record rules: a finding is
+// recorded fixed only after the fix and with its fixRef, the record subject is one change name for every round, later
+// rounds need an origin, a rebase leaves earlier records as they are, same-type locations are fixed or named in the
+// reason, every unjudged line takes one of five values by what the Parent found, and a Parent reviewer's record names
+// the result file settle wrote instead of a saved response string.
+test('the settle skill states the disposition record rules (P6 ② RED 8)', () => {
+  const text = read('.claude/skills/knu-settle/SKILL.md').replace(/\s+/gu, ' ');
+  for (const [pattern, label] of [
+    [/재현되면 고친 뒤 `fixed`와 `fixRef`/u, 'fixed only after the fix, with its fixRef'],
+    [/고치기 전에는 `fixed`를 쓰지 않습니다/u, 'no fixed before the fix'],
+    [
+      /처분 기록 `subject`는 회차와 무관한 변경 이름이고 같은 변경의 모든 회차가 같은 문자열을 씁니다/u,
+      'one subject name for every round',
+    ],
+    [/2회차부터 finding마다 `origin`\(`fix-induced`·`previously-missed`·`re-raised`\)/u, 'origin'],
+    [/rebase·squash로 SHA가 바뀌면 앞 회차 기록은 그대로 두고/u, 'rebase'],
+    [
+      /`sameTypeLocations`는 모두 고치거나 고치지 않은 위치를 그 finding 처분 `reason`에 남깁니다/u,
+      'same type',
+    ],
+    [/`parent-checked`/u, 'parent-checked'],
+    [/`pre-existing`/u, 'pre-existing'],
+    [/`resultPath`/u, 'result file of settle'],
+    [/출력 `response` 문자열을 그대로 저장하지 않습니다/u, 'no saved response string'],
+  ])
+    assert.match(text, pattern, label);
+  assert.ok(!text.includes('재현되면 `fixed`이고'), 'older wording: fixed when reproduced');
+});
+
+// Review 1 m1-F6: a short SHA is no fixRef, so the settle skill names the 40-character commit SHA.
+test('the settle skill names the 40-character commit SHA of a fixRef', () => {
+  const text = read('.claude/skills/knu-settle/SKILL.md').replace(/\s+/gu, ' ');
+  assert.match(text, /`fixRef`\(수정 commit의 40자 SHA/u, 'fixRef 40-character SHA');
+});
+
+// P6 ③ RED 4: the dispatch steps name the runner check arguments, the line-by-line judgment and sentence list, the
+// hidden-path absence search with its positive control, the runner record limit, the runner environment, the subject
+// consumers and the mutation sweep, under the names the Codex skill uses too (RED 6 compares the two).
+test('knu-review dispatch steps carry the runner procedure under the shared names (P6 ③ RED 4)', () => {
+  const section = dispatchSection(skill('knu-review'));
+  assert.ok(section, 'knu-review has the Dispatch 전 단계 section');
+  assert.deepEqual(
+    section.bullets.map(({ name }) => name),
+    DISPATCH_BULLETS,
+    'lead bullets',
+  );
+  assert.deepEqual(
+    section.steps.map(({ name }) => name),
+    DISPATCH_STEPS,
+    'numbered steps',
+  );
+  assert.deepEqual(missingDispatchPhrases(section), []);
+  // review-run runs the runner check; a direct run is only for review run on its own.
+  const runnerStep = section.steps.find(({ name }) => name === 'Runner 기록 검사').text;
+  assert.ok(runnerStep.includes('`review-run`이 실행'), runnerStep);
+  // P6 ③ review round 1 (m1-F2): review-run keeps a warning in its check output and registers, so the step says where
+  // the warning is and to run the check before review-run to act on it.
+  for (const phrase of ['checks/runner-log-check.json', '`warnings`', '`review-run` 전에'])
+    assert.ok(runnerStep.includes(phrase), `runner check step: ${phrase}`);
+  // The Parent subject step points its paths at the subject bullet.
+  const flat = skill('knu-review').replace(/\s+/gu, ' ');
+  assert.ok(flat.includes('그 소비자·실행 경로'), 'Parent subject paths name the consumers');
 });

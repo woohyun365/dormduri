@@ -29,6 +29,11 @@ test('full-stack local rehearsal owns the disposable PostgreSQL 18 safety bounda
   assert.match(init, /CREATE ROLE app_runtime NOLOGIN/u);
   assert.match(init, /CREATE ROLE retention_worker NOLOGIN/u);
   assert.match(init, /CREATE ROLE retention_disclosure NOLOGIN/u);
+  // Every managed group role must exist before the grant table applies (role-grant-inputs.sql).
+  assert.match(init, /CREATE ROLE app_readonly NOLOGIN/u);
+  assert.match(init, /CREATE ROLE migration_owner NOLOGIN/u);
+  assert.match(init, /CREATE ROLE backoffice_runtime NOLOGIN/u);
+  assert.match(init, /CREATE ROLE backoffice_retention NOLOGIN/u);
 });
 
 test('full-stack runner proves product, observability, secret and cleanup boundaries', () => {

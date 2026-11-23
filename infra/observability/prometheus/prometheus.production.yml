@@ -18,8 +18,9 @@ rule_files:
   - /etc/prometheus/rules/*.yml
 
 scrape_configs:
-  # API는 API transit으로 닿는다. token은 runtime secret 묶음의 METRICS_BEARER_TOKEN을 document가 이 container UID 소유 0400
-  # 파일로 한 번 더 쓴 것이다(D-AB7).
+  # API는 수신 gateway의 관측 network 전용 listener(obs-gateway:9482)를 거쳐 긁는다. Prometheus는 api-transit에 붙지 않는다
+  # (backoffice-foundation D-BF15). instance는 API 주소로 둬 series가 이어진다. token은 runtime secret 묶음의
+  # METRICS_BEARER_TOKEN을 document가 이 container UID 소유 0400 파일로 한 번 더 쓴 것이고 gateway는 그대로 넘긴다(D-AB7).
   - job_name: api
     metrics_path: /internal/metrics
     scrape_timeout: 5s
@@ -27,10 +28,13 @@ scrape_configs:
       type: Bearer
       credentials_file: /run/secrets/dormduri-observability/api-metrics-bearer-token
     static_configs:
-      - targets: [api:4000]
+      - targets: [obs-gateway:9482]
         labels:
           service: api
           env: production
+    relabel_configs:
+      - target_label: instance
+        replacement: api:4000
 
   # host memory·disk·inode(Alloy prometheus.exporter.unix "host", config.alloy).
   - job_name: host

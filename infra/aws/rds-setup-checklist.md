@@ -7,8 +7,8 @@
 - [ ] Engine: Amazon RDS for PostgreSQL 18(Single-AZ) 또는 동등한 managed PostgreSQL을 사용한다.
 - [ ] Network: DB subnet group의 private subnet에 두고, Lightsail user host는 Lightsail VPC peering으로 닿는다.
 - [ ] Public access: public access를 비활성화한다.
-- [ ] Security group: DB port(5432)를 user host 주소 하나(/32)에만 연다. migrate one-off와 사람 조회도 user host를 거친다
-      (사람은 SSM 포트 포워딩).
+- [ ] Security group: DB port(5432)를 user host와 백오피스 host 주소 둘(/32)에만 연다. 백오피스 host에서는 백오피스 API만 붙는다.
+      migrate one-off와 사람 조회는 user host를 거친다(사람은 SSM 포트 포워딩).
 - [ ] Credentials: role과 LOGIN user는 master user가 `pnpm api:db:bootstrap-roles`로 만들고, 서비스마다 자기 LOGIN user URL을 쓴다(`infra/db/README.md` Credential boundary). master user는 bootstrap·break-glass에만 쓴다.
 - [ ] Runtime credential: `DATABASE_URL`은 app runtime LOGIN user로 제한한다.
 - [ ] Migration credential: `MIGRATION_DATABASE_URL`은 one-off migration/admin 경로에서만 사용한다.

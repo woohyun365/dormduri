@@ -1,0 +1,56 @@
+{
+  "name": "backoffice-web",
+  "version": "0.0.1",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=26 <27"
+  },
+  "scripts": {
+    "dev": "next dev -p 4300",
+    "build": "pnpm run ci:prepare && pnpm run ci:build",
+    "start": "next start -p 4300",
+    "lint": "pnpm run ci:prepare && pnpm run ci:lint",
+    "typecheck": "pnpm run ci:prepare && pnpm run ci:typecheck",
+    "test": "pnpm run ci:prepare && pnpm run ci:test",
+    "e2e": "pnpm run ci:prepare && pnpm run ci:build && pnpm run ci:e2e",
+    "ci:prepare": "pnpm --filter @repo/shared build",
+    "ci:build": "next build",
+    "ci:lint": "eslint",
+    "ci:test": "vitest run",
+    "ci:typegen": "next typegen",
+    "ci:typecheck": "pnpm run ci:typegen && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit && tsc -p tsconfig.e2e.json --noEmit",
+    "ci:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@repo/shared": "workspace:*",
+    "@simplewebauthn/browser": "^14.0.0",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "catalog:",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/tsconfig": "workspace:*",
+    "@tailwindcss/postcss": "catalog:",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "catalog:",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-next": "catalog:",
+    "jsdom": "^30.1.3",
+    "pg": "^8.23.1",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

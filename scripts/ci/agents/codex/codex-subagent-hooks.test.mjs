@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -16,6 +18,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 
 import { ALLOWED_CHILD_MODELS, ROLE_EFFORTS } from '../../../agents/codex/model-profiles.mjs';
+import { stubCommand } from '../common/fixtures/edit-sensors-repo.mjs';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 const hookPath = resolve(repoRoot, '.codex/hooks/knu-subagent-hooks.mjs');
@@ -1312,4 +1315,233 @@ test('the installed hook reads the review seal from its own records, not from th
     ],
   );
   assert.doesNotMatch(JSON.stringify(lines()), /one more thing/u);
+});
+
+// OSS-REVIEW P5 PR ②: an apply_patch PostToolUse and a Stop run the edit sensors inside `codex sandbox`, never in the
+// hook process. The hook writes only its own results (codex missing, sandbox failure, limit, spawn error) and only
+// under .codex/state, which a workspace-write child cannot write.
+const SENSOR_RECORDS = '.codex/state/knu-edit-sensors';
+function sensorHookRoot(t) {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'knu-sensor-hook-')));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, '.codex/hooks'), { recursive: true });
+  copyFileSync(hookPath, join(root, '.codex/hooks/knu-subagent-hooks.mjs'));
+  copyFileSync(policyPath, join(root, '.codex/hooks/knu-hook-policy.json'));
+  // A sensor module that leaves a mark if the hook process ever runs it itself.
+  mkdirSync(join(root, 'scripts/agents/common'), { recursive: true });
+  writeFileSync(
+    join(root, 'scripts/agents/common/edit-sensors.mjs'),
+    "import { writeFileSync } from 'node:fs';\nwriteFileSync(new URL('../../../ran-directly.txt', import.meta.url), 'x');\n",
+  );
+  const hookRecords = () => {
+    const file = join(root, SENSOR_RECORDS, `${SESSION}.jsonl`);
+    return existsSync(file)
+      ? readFileSync(file, 'utf8')
+          .trim()
+          .split('\n')
+          .map((line) => JSON.parse(line))
+      : [];
+  };
+  return { root, hookRecords };
+}
+const PATCH = [
+  '*** Begin Patch',
+  '*** Add File: docs/new.md',
+  '+x',
+  '*** Update File: src/a.ts',
+  '@@',
+  '-a',
+  '+b',
+  '*** Update File: src/old.ts',
+  '*** Move to: src/moved.ts',
+  '*** Delete File: src/gone.test.ts',
+  '*** End Patch',
+].join('\n');
+const sensorPayload = (root, event, extra = {}) => ({
+  session_id: SESSION,
+  turn_id: 'turn-1',
+  hook_event_name: event,
+  cwd: root,
+  ...(event === 'PostToolUse'
+    ? { tool_name: 'apply_patch', tool_use_id: 'exec-1', tool_input: { command: PATCH } }
+    : { stop_hook_active: false }),
+  ...extra,
+});
+const argAfter = (call, flag) => {
+  const parts = call.split(' ');
+  return parts[parts.indexOf(flag) + 1];
+};
+
+test('an apply_patch PostToolUse runs the sensor CLI inside codex sandbox and returns its feedback (P5 RED 7)', async (t) => {
+  const { runHook } = await hooks();
+  const { root, hookRecords } = sensorHookRoot(t);
+  const context = 'KNU edit sensor sensor.lint failed: src/a.ts';
+  const codex = stubCommand(t, 'codex', { stdout: JSON.stringify({ additionalContext: context }) });
+  const { stdout } = runHook({
+    payload: sensorPayload(root, 'PostToolUse'),
+    root,
+    env: { ...process.env, PATH: codex.path },
+  });
+  assert.deepEqual(JSON.parse(stdout || '{}'), {
+    hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: context },
+  });
+  const [call, ...more] = codex.calls();
+  assert.deepEqual(more, []);
+  assert.ok(
+    call.startsWith(
+      `sandbox -P :workspace -C ${root} -- node ${root}/scripts/agents/common/edit-sensors.mjs codex `,
+    ),
+    call,
+  );
+  assert.equal(argAfter(call, '--event'), 'PostToolUse');
+  assert.equal(argAfter(call, '--session'), SESSION);
+  // Add, Update and the Move target are edited files; the Move source and a Delete File are deleted ones.
+  assert.deepEqual(JSON.parse(argAfter(call, '--files')), [
+    'docs/new.md',
+    'src/a.ts',
+    'src/moved.ts',
+  ]);
+  assert.deepEqual(JSON.parse(argAfter(call, '--deleted')), ['src/old.ts', 'src/gone.test.ts']);
+  assert.equal(
+    existsSync(join(root, 'ran-directly.txt')),
+    false,
+    'the hook never runs the sensor module',
+  );
+  assert.deepEqual(hookRecords(), [], 'a sandbox run that answered leaves no hook-side record');
+});
+
+// Review round 1 F4: a session whose cwd reaches the repository through a symlink still names the patched files.
+test('an apply_patch whose payload cwd is a symlink to the repository still runs the sensors on its files', async (t) => {
+  const { runHook } = await hooks();
+  const { root } = sensorHookRoot(t);
+  const links = realpathSync(mkdtempSync(join(tmpdir(), 'knu-sensor-link-')));
+  t.after(() => rmSync(links, { recursive: true, force: true }));
+  const link = join(links, 'repo');
+  symlinkSync(root, link);
+  const codex = stubCommand(t, 'codex', { stdout: '{}' });
+  runHook({
+    payload: sensorPayload(link, 'PostToolUse'),
+    root,
+    env: { ...process.env, PATH: codex.path },
+  });
+  const [call] = codex.calls();
+  assert.ok(call, 'the sandbox runs for a symlinked cwd');
+  assert.deepEqual(JSON.parse(argAfter(call, '--files')), [
+    'docs/new.md',
+    'src/a.ts',
+    'src/moved.ts',
+  ]);
+});
+
+// Review round 2 unjudged u1: a Codex agent shell gets no variable whose name has KEY, SECRET or TOKEN by default
+// (shell_environment_policy), and `codex sandbox` passes the environment through, so the hook drops those names before
+// the sensor CLI, which is repository code the agent can edit, runs.
+test('the sensor sandbox gets no environment variable whose name has KEY, SECRET or TOKEN', async (t) => {
+  const { runHook } = await hooks();
+  const { root } = sensorHookRoot(t);
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'stub-codex-env-')));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(
+    join(dir, 'codex'),
+    `#!/bin/sh\n/usr/bin/env > '${join(dir, 'env.txt')}'\nprintf '{}'\n`,
+  );
+  chmodSync(join(dir, 'codex'), 0o755);
+  runHook({
+    payload: sensorPayload(root, 'PostToolUse'),
+    root,
+    env: {
+      PATH: `${dir}:${process.env.PATH}`,
+      PROBE_API_KEY: 'k',
+      PROBE_SECRET: 's',
+      probe_token: 't',
+      PROBE_PLAIN: 'p',
+      KNU_EDIT_REMINDERS: '1',
+    },
+  });
+  const names = readFileSync(join(dir, 'env.txt'), 'utf8')
+    .split('\n')
+    .map((line) => line.split('=')[0]);
+  assert.deepEqual(
+    names.filter((name) => name.startsWith('PROBE_') || name.startsWith('probe_')),
+    ['PROBE_PLAIN'],
+  );
+  assert.ok(names.includes('PATH') && names.includes('KNU_EDIT_REMINDERS'), names.join(' '));
+});
+
+test('a missing codex is skipped and an overrun is a timeout, both recorded only under .codex/state (P5 RED 7)', async (t) => {
+  const { runHook } = await hooks();
+  const { root, hookRecords } = sensorHookRoot(t);
+  // A link the child could plant where the in-sandbox records go: the hook writes neither it nor its target.
+  const outside = realpathSync(mkdtempSync(join(tmpdir(), 'knu-sensor-outside-')));
+  t.after(() => rmSync(outside, { recursive: true, force: true }));
+  writeFileSync(join(outside, 'target.jsonl'), 'untouched\n');
+  mkdirSync(join(root, '.artifacts/tools/edit-sensors'), { recursive: true });
+  symlinkSync(
+    join(outside, 'target.jsonl'),
+    join(root, '.artifacts/tools/edit-sensors', `${SESSION}.jsonl`),
+  );
+  const empty = realpathSync(mkdtempSync(join(tmpdir(), 'knu-no-codex-')));
+  t.after(() => rmSync(empty, { recursive: true, force: true }));
+  const missing = runHook({
+    payload: sensorPayload(root, 'PostToolUse'),
+    root,
+    env: { PATH: empty },
+  });
+  assert.equal(missing.stdout, '');
+  const slow = stubCommand(t, 'codex', { sleepSeconds: 3, stdout: '{}' });
+  const started = Date.now();
+  const timed = runHook({
+    payload: sensorPayload(root, 'Stop'),
+    root,
+    env: { ...process.env, PATH: slow.path },
+    limits: { PostToolUse: 300, Stop: 300 },
+  });
+  assert.ok(Date.now() - started < 2500, 'the hook stops the sandbox at its limit');
+  assert.equal(timed.stdout, '');
+  assert.deepEqual(
+    hookRecords().map(({ schema, host, point, result }) => [schema, host, point, result]),
+    [
+      ['edit-sensor-activation/v1', 'codex', '직후', 'skipped'],
+      ['edit-sensor-activation/v1', 'codex', '끝', 'timeout'],
+    ],
+  );
+  assert.equal(readFileSync(join(outside, 'target.jsonl'), 'utf8'), 'untouched\n');
+});
+
+test('a Stop runs the end check in the sandbox and answers with systemMessage only (P5 RED 7)', async (t) => {
+  const { runHook } = await hooks();
+  const { root, hookRecords } = sensorHookRoot(t);
+  const message = 'KNU edit sensors: sensor.typecheck failed in a workspace';
+  const codex = stubCommand(t, 'codex', { stdout: JSON.stringify({ systemMessage: message }) });
+  const { stdout } = runHook({
+    payload: sensorPayload(root, 'Stop', { stop_hook_active: true }),
+    root,
+    env: { ...process.env, PATH: codex.path },
+  });
+  assert.deepEqual(JSON.parse(stdout || '{}'), { systemMessage: message });
+  const [call] = codex.calls();
+  assert.equal(argAfter(call ?? '', '--event'), 'Stop');
+  assert.equal(argAfter(call ?? '', '--stop-hook-active'), '1');
+  assert.deepEqual(hookRecords(), []);
+});
+
+test('KNU_EDIT_SENSORS=0 starts no sandbox and prints nothing; the switches reach the CLI as arguments (P5 RED 5)', async (t) => {
+  const { runHook } = await hooks();
+  const { root, hookRecords } = sensorHookRoot(t);
+  const codex = stubCommand(t, 'codex', { stdout: '{}' });
+  const env = { ...process.env, PATH: codex.path };
+  const off = runHook({
+    payload: sensorPayload(root, 'PostToolUse'),
+    root,
+    env: { ...env, KNU_EDIT_SENSORS: '0' },
+  });
+  assert.equal(off.stdout, '');
+  assert.deepEqual(codex.calls(), []);
+  assert.deepEqual(hookRecords(), []);
+  runHook({
+    payload: sensorPayload(root, 'PostToolUse'),
+    root,
+    env: { ...env, KNU_EDIT_REMINDERS: '1' },
+  });
+  assert.equal(argAfter(codex.calls()[0] ?? '', '--reminders'), '1');
 });

@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 const ALL_PRODUCT_LANES = {
   web: true,
   api: true,
+  backoffice: true,
   shared: true,
   storybook: true,
   infra: true,
@@ -87,7 +88,7 @@ const LANE_SCRIPT_PATHS = new Map([
   ['scripts/artifacts/workspace-layout.knu.json', ['api']],
   ['scripts/ci/product/prepare-next-standalone.mjs', ['web']],
   ['scripts/ci/lanes/repo-policy-test-files.mjs', ['infra']],
-  ['scripts/ci/lanes/run-timed-command.mjs', ['web', 'api', 'storybook']],
+  ['scripts/ci/lanes/run-timed-command.mjs', ['web', 'api', 'backoffice', 'storybook']],
   ['scripts/infra/compose/profile.mjs', ['api']],
   ['scripts/observability/production/environment.mjs', ['api']],
   ['scripts/observability/sentry/check-build.mjs', ['web']],
@@ -151,6 +152,7 @@ export const API_TEST_REPOSITORY_INPUTS = {
     'infra/runbooks/rehearsal/api-observability.md',
     'infra/runbooks/rehearsal/full-stack.md',
     'infra/runbooks/release/api-stage-deploy.md',
+    'infra/runbooks/release/backoffice-stage-deploy.md',
     'infra/runbooks/release/components/api-secrets-manager/evidence.md',
     'infra/runbooks/release/components/api-secrets-manager/readiness.md',
     'infra/runbooks/release/components/auth/password-reset-evidence.md',
@@ -320,6 +322,7 @@ function emptyClassification() {
   return {
     web: false,
     api: false,
+    backoffice: false,
     shared: false,
     storybook: false,
     infra: false,
@@ -358,17 +361,26 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
+    // The backoffice lane builds and tests both backoffice apps; the Web e2e runs against the API build.
+    if (path.startsWith('apps/backoffice-api/') || path.startsWith('apps/backoffice-web/')) {
+      result.backoffice = true;
+      matched = true;
+    }
+
     if (path.startsWith('packages/shared/')) {
       result.shared = true;
       result.web = true;
       result.api = true;
+      result.backoffice = true;
       matched = true;
     }
 
     // The shared database package (Prisma schema, migrations, TypedSQL, grant SQL and the generated client) is built
-    // and tested by the API lane, its only consumer.
+    // and tested by its two consumers: the API lane and the backoffice lane (whose integration tests apply the grant
+    // SQL and run the backoffice TypedSQL as its LOGIN users).
     if (path.startsWith('packages/database/')) {
       result.api = true;
+      result.backoffice = true;
       matched = true;
     }
 
@@ -435,6 +447,12 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
+    if (path === '.github/workflows/backoffice-ci.yml') {
+      result.backoffice = true;
+      result.repoPolicy = true;
+      matched = true;
+    }
+
     if (path === '.github/workflows/web-ci.yml') {
       result.web = true;
       result.repoPolicy = true;
@@ -447,11 +465,13 @@ export function classifyChanges(paths) {
       matched = true;
     }
 
-    // Web CD, API CD and the daily TLS check run only from main or a schedule. A change to them is checked by the infra
-    // lane (user-host scripts they call and their contract tests) and the repo-policy lane (workflow trust tests).
+    // Web CD, API CD, Backoffice CD and the daily TLS check run only from main or a schedule. A change to them is checked
+    // by the infra lane (user-host and backoffice-host scripts they call and their contract tests) and the repo-policy
+    // lane (workflow trust tests).
     if (
       path === '.github/workflows/web-cd.yml' ||
       path === '.github/workflows/api-cd.yml' ||
+      path === '.github/workflows/backoffice-cd.yml' ||
       path === '.github/workflows/web-tls-check.yml'
     ) {
       result.infra = true;

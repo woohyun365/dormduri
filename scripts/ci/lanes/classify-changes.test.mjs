@@ -26,7 +26,16 @@ const fixtureUrl = new URL('./fixtures/change-impact-cases.json', import.meta.ur
 const cases = JSON.parse(await readFile(fixtureUrl, 'utf8'));
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const surfaceDocPath = 'docs/development/ci/ci-surface-ownership.md';
-const LANES = ['web', 'api', 'shared', 'storybook', 'infra', 'repoPolicy', 'agentWorkflow'];
+const LANES = [
+  'web',
+  'api',
+  'backoffice',
+  'shared',
+  'storybook',
+  'infra',
+  'repoPolicy',
+  'agentWorkflow',
+];
 const STATUSES = ['분류됨', '의도한 fan-out'];
 const tracked = new Set(
   execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'utf8' }).split('\0'),
@@ -80,6 +89,7 @@ test('keeps an empty comparison visible through the repo-policy lane', () => {
   assert.deepEqual(classifyChanges([]), {
     web: false,
     api: false,
+    backoffice: false,
     shared: false,
     storybook: false,
     infra: false,
@@ -98,6 +108,7 @@ test('tracked Claude project adapter files select policy checks without unrelate
     assert.deepEqual(classifyChanges(paths), {
       web: false,
       api: false,
+      backoffice: false,
       shared: false,
       storybook: false,
       infra: false,
@@ -153,6 +164,7 @@ test('unknown paths outside every surface keep the conservative fail-open', () =
     assert.deepEqual(classifyChanges([path]), {
       web: true,
       api: true,
+      backoffice: true,
       shared: true,
       storybook: true,
       infra: true,
@@ -171,6 +183,7 @@ test('common agent workflow scripts select only the repo-policy lane', () => {
     assert.deepEqual(classifyChanges([path]), {
       web: false,
       api: false,
+      backoffice: false,
       shared: false,
       storybook: false,
       infra: false,
@@ -190,6 +203,7 @@ test('agent surface changes select the agent workflow lane with the repo-policy 
     assert.deepEqual(classifyChanges([path]), {
       web: false,
       api: false,
+      backoffice: false,
       shared: false,
       storybook: false,
       infra: false,
@@ -215,6 +229,7 @@ test('token, new screen and Storybook check paths select the storybook lane', ()
       {
         web: true,
         api: false,
+        backoffice: false,
         shared: false,
         storybook: true,
         infra: false,
@@ -242,6 +257,7 @@ test('token, new screen and Storybook check paths select the storybook lane', ()
       {
         web: true,
         api: false,
+        backoffice: false,
         shared: false,
         storybook: true,
         infra: false,
@@ -269,6 +285,7 @@ test('product files that agent tests read select the agent workflow lane, other 
   assert.deepEqual(classifyChanges(['apps/web/src/legal/components/LegalDocumentLayout.tsx']), {
     web: true,
     api: false,
+    backoffice: false,
     shared: false,
     storybook: false,
     infra: false,
@@ -496,12 +513,17 @@ test('scripts run or referenced by lane jobs and their imports select that lane'
   const infra = laneEntries([read('.github/workflows/infra-ci.yml')]);
   const lanes = {
     api: laneEntries([read('.github/workflows/api-ci.yml')], 'apps/api'),
+    backoffice: (() => {
+      const api = laneEntries([read('.github/workflows/backoffice-ci.yml')], 'apps/backoffice-api');
+      const web = laneEntries([], 'apps/backoffice-web');
+      return { run: [...api.run, ...web.run], named: [...api.named, ...web.named] };
+    })(),
     web: laneEntries([webWorkflow, read('infra/deploy/web/Dockerfile')], 'apps/web'),
     storybook: laneEntries(storybookSteps),
     shared: laneEntries([sharedJob], 'packages/shared'),
     infra: { run: [...infra.run, ...infraChecks], named: [] },
   };
-  for (const lane of ['api', 'web', 'storybook', 'infra'])
+  for (const lane of ['api', 'backoffice', 'web', 'storybook', 'infra'])
     assert.ok(lanes[lane].run.length > 0, `${lane} lane must run at least one repository script`);
   const missing = [];
   for (const [lane, { run, named }] of Object.entries(lanes))

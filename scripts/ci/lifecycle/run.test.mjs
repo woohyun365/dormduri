@@ -6,7 +6,14 @@ import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { AREA_PRODUCT_FILES, catalogFiles } from './fixtures/area/catalog-repo.mjs';
+import {
+  AREA_PRODUCT_FILES,
+  BINDING_FILE,
+  bindingText,
+  catalogFiles,
+  LEGACY_PAGE,
+  TWO_GLOB_KEYS,
+} from './fixtures/area/catalog-repo.mjs';
 import { defaultFiles, prBody } from './fixtures/policy-repo.mjs';
 import { LIFECYCLE_CHECKS, renderSummary, runLifecycleGate } from './run.mjs';
 
@@ -345,6 +352,77 @@ test('local mode writes the area criteria rows to the summary', (t) => {
   );
   assert.match(outside.stdout, /^\| W-AREA \| pass \| 제품 경로 없음 \|$/mu);
   assert.equal(outside.status, 0, outside.stderr);
+});
+
+// Deleted paths through git: the fork point's FE key also lists LEGACY_PAGE, so a branch can delete the page with its
+// glob. A rename is a deleted source and an added destination (--no-renames).
+const twoGlobInitial = () => ({
+  ...catalogFiles({ keys: TWO_GLOB_KEYS }),
+  ...Object.fromEntries([...AREA_PRODUCT_FILES, LEGACY_PAGE].map((path) => [path, `// ${path}\n`])),
+});
+const localWithoutSection = (repo, headSha = repo.headSha) =>
+  spawnSync(
+    process.execPath,
+    [
+      runScript,
+      '--body-file',
+      bodyFixture('without-section.md'),
+      '--base',
+      repo.baseSha,
+      '--head',
+      headSha,
+    ],
+    { cwd: repo.root, encoding: 'utf8' },
+  );
+
+test('local mode passes a branch that deletes a file with its binding glob and judges a moved file on both sides', (t) => {
+  const deleted = localWithoutSection(
+    fixtureRepository(t, {
+      initial: twoGlobInitial(),
+      head: { [LEGACY_PAGE]: null, [BINDING_FILE]: bindingText() },
+    }),
+  );
+  assert.match(deleted.stdout, /^\| W-AREA \| pass \| 삭제한 제품 경로 1개, base 영역 fe \|$/mu);
+  assert.doesNotMatch(deleted.stdout, /^\| W-AREA \| fail \|/mu);
+  assert.equal(deleted.status, 0, deleted.stderr);
+
+  const moved = localWithoutSection(
+    fixtureRepository(t, {
+      initial: twoGlobInitial(),
+      head: {
+        'apps/web/src/app/page.tsx': null,
+        'apps/web/src/app/home/page.tsx': '// apps/web/src/app/page.tsx\n',
+      },
+    }),
+  );
+  assert.match(moved.stdout, /^\| W-AREA \| pass \| 제품 경로 1개, 영역 fe \|$/mu);
+  assert.match(moved.stdout, /^\| W-AREA \| pass \| 삭제한 제품 경로 1개, base 영역 fe \|$/mu);
+  assert.doesNotMatch(moved.stdout, /^\| W-AREA \| fail \|/mu);
+  assert.equal(moved.status, 0, moved.stderr);
+});
+
+test('local mode fails an older branch that deletes a path the base deleted first with its glob until it takes the base', (t) => {
+  const repo = fixtureRepository(t, {
+    initial: twoGlobInitial(),
+    head: { [LEGACY_PAGE]: null },
+    moved: { [LEGACY_PAGE]: null, [BINDING_FILE]: bindingText() },
+  });
+
+  const stale = localWithoutSection(repo);
+  assert.match(
+    stale.stdout,
+    /^\| W-AREA \| fail \| 영역 기준 없는 제품 경로: apps\/web\/src\/legacy-page\.tsx\(삭제한 경로, base에 영역 키 없음\) — head에만 있는 영역 키는 삭제한 경로에 적용하지 않음\(이 PR이 더했거나 분기 뒤 base에서 지운 키\) \|$/mu,
+  );
+  assert.equal(stale.status, 1, stale.stderr);
+
+  // Taking the base drops the path from the changed paths.
+  git(repo.root, 'switch', '-q', 'feature');
+  git(repo.root, 'merge', '-q', '--no-edit', 'dev');
+  const updatedHead = git(repo.root, 'rev-parse', 'HEAD');
+  git(repo.root, 'switch', '-q', 'dev');
+  const updated = localWithoutSection(repo, updatedHead);
+  assert.match(updated.stdout, /^\| W-AREA \| pass \| 제품 경로 없음 \|$/mu);
+  assert.equal(updated.status, 0, updated.stderr);
 });
 
 test('local mode writes the review snapshot rows and a body whose only findings are those warnings exits 0', (t) => {

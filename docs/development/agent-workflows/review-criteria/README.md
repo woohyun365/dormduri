@@ -177,17 +177,17 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한 적용은 runner가 실행하고 그 출력을 기록할 때만 효력이
 있습니다. CI는 ignored 입력을 보지 못합니다.
 
-| 검사        | 명령                                                                                                           | 위반 종류                                                                                                                                                                                                                                        |
-| ----------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 인용        | `node scripts/agents/common/citation-check.mjs [--root <repo>] [--json] <md file...>`                          | `unresolved`·`ambiguous`·`invalid-range`·`out-of-range`·`unreadable`·`invalid-expectation`·`content-mismatch`                                                                                                                                    |
-| Runner 기록 | `node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header <첫 줄> [--root <repo>] [--json]`  | `invalid-record`·`missing-output`·`output-missing`·`digest-mismatch`·`header-mismatch`·`exit-mismatch`·`invalid-fragment`·`summary-mismatch`                                                                                                     |
-| RED 사유    | `node scripts/agents/common/red-reason-check.mjs --log <file> --expect <regex> [--expect <regex>...] [--json]` | `missing-summary`·`no-failure`·`no-failure-blocks`·`unexpected-reason`·`unexpected-signature`                                                                                                                                                    |
-| Mutation    | `node scripts/agents/common/mutation-harness.mjs --spec <JSON> [--link-node-modules] [--root <repo>] [--json]` | `baseline-failed`·`survived`·`target-missing`·`ambiguous`·`wrong-reason`·`timeout`                                                                                                                                                               |
-| 계획 참조   | `node scripts/agents/common/plan-reference-check.mjs [--root <repo>] [--report-only] [--json] <plan md...>`    | `unresolved`·`unresolved-target`·`duplicate-definition`·`broken-link`                                                                                                                                                                            |
-| 처분 기록   | `node scripts/agents/common/review-adjudication.mjs [--root <repo>] [--json] <adjudication.json...>`           | `invalid-field`·`unknown-key`·`result-unreadable`·`missing-finding`·`duplicate-finding`·`unknown-finding`·`missing-reason`·`missing-origin`·`invalid-duplicate`·`duplicate-result-id`·`missing-unjudged`·`duplicate-unjudged`·`unknown-unjudged` |
+| 검사        | 명령                                                                                                                | 위반 종류                                                                                                                                                                                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 인용        | `node scripts/agents/common/citation-check.mjs [--root <repo>] [--json] <md file...>`                               | `unresolved`·`ambiguous`·`invalid-range`·`out-of-range`·`unreadable`·`invalid-expectation`·`content-mismatch`                                                                                                                                    |
+| Runner 기록 | `node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header "<logHeader>" [--root <repo>] [--json]` | `invalid-record`·`missing-output`·`output-missing`·`digest-mismatch`·`header-mismatch`·`exit-mismatch`·`repeated-step-exit-hidden`·`invalid-fragment`·`summary-mismatch`(경고 `absence-without-control`)                                         |
+| RED 사유    | `node scripts/agents/common/red-reason-check.mjs --log <file> --expect <regex> [--expect <regex>...] [--json]`      | `missing-summary`·`no-failure`·`no-failure-blocks`·`unexpected-reason`·`unexpected-signature`                                                                                                                                                    |
+| Mutation    | `node scripts/agents/common/mutation-harness.mjs --spec <JSON> [--link-node-modules] [--root <repo>] [--json]`      | `baseline-failed`·`survived`·`target-missing`·`ambiguous`·`wrong-reason`·`timeout`                                                                                                                                                               |
+| 계획 참조   | `node scripts/agents/common/plan-reference-check.mjs [--root <repo>] [--report-only] [--json] <plan md...>`         | `unresolved`·`unresolved-target`·`duplicate-definition`·`broken-link`                                                                                                                                                                            |
+| 처분 기록   | `node scripts/agents/common/review-adjudication.mjs [--root <repo>] [--json] <adjudication.json...>`                | `invalid-field`·`unknown-key`·`result-unreadable`·`missing-finding`·`duplicate-finding`·`unknown-finding`·`missing-reason`·`missing-origin`·`invalid-duplicate`·`duplicate-result-id`·`missing-unjudged`·`duplicate-unjudged`·`unknown-unjudged` |
 
 - Exit 0은 위반 없음, 1은 위반, 2는 입력 오류(option·파일·root 없음, 읽기 실패, 빈 입력, 형식이 틀린 header·regex·spec·JSON,
-  git 저장소 밖의 root, 알 수 없는 option·spec key, 지원하지 않는 형식, 만들 수 없는 mutation 사본)입니다. 입력 오류를 통과로 세지 않습니다. `--json`은 summary와 위반 목록을 JSON으로 냅니다.
+  git 저장소 밖의 root, 알 수 없는 option·spec key·위치 인자, 지원하지 않는 형식, 만들 수 없는 mutation 사본)입니다. 입력 오류를 통과로 세지 않습니다. `--json`은 summary와 위반 목록을 JSON으로 냅니다(runner 기록은 경고 목록 `warnings`, RED 사유는 읽은 형식 `format`도).
 - 명령줄의 입력 파일은 현재 디렉터리 기준이고, 인용·runner 기록·처분 기록 안의 경로는 `--root`(기본: 현재 git 저장소 root)
   기준입니다. Mutation spec의 경로는 [Mutation](#mutation)을 따릅니다.
 - 인용 검사는 존재와 줄 범위만 봅니다. 고친 줄 번호가 같은 내용을 가리키는지는 내용 대조(아래)가 있을 때만 판정되므로,
@@ -209,25 +209,37 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 - Header는 `<문구> sha256:<64 hex>` 형식이고 마지막 token이 digest입니다. Record의 공통 필드만 읽습니다: `exit`(정수),
   `outputPaths`(비어 있지 않은 배열), `observedResult`(문자열), 있으면 `sourceDigest`(header digest와 같아야 함). 필드 형식
   전체는 각 host의 runner helper가 검사합니다.
-- `.log`·`.txt` 출력은 첫 줄이 header와 같아야 하고, 마지막 `exit=<n>` 줄이 있으면 record의 `exit`와 같아야 합니다. 다른
-  형식 출력은 존재만 확인합니다.
+- `.log`·`.txt` 출력마다 첫 줄이 header와 같아야 하고, 그 출력의 마지막 줄 전체 `exit=<n>` 줄이 있으면 record의 `exit`와
+  같아야 합니다(`exit-mismatch`). 그 앞의 줄 전체 `exit=` 줄이 0이 아닌데 record `exit`가 0이면 반복한 단계의 실패를 끝 exit가
+  가린 것이므로 `repeated-step-exit-hidden`입니다. 검색 exit는 명령 이름을 붙여 적으면(`rg exit=1`) 줄 전체 `exit=` 줄이 아닙니다.
+  다른 형식 출력은 존재만 확인합니다.
 
 요약 조각 작성 규칙: `observedResult`의 backtick 조각은 그 record의 `.log`·`.txt` 출력과 대조합니다.
 
-- 조각은 그 실행의 결과 줄에서 로그에 찍힌 라벨과 함께 그대로 옮깁니다(`ℹ pass 873`, `exit=0`, `Install dependencies=28`).
-- 라벨 없는 조각(공백을 빼면 숫자·hex 문자·구두점·기호만인 `41`·`208`), 빈 조각, 짝이 맞지 않는 backtick은
-  `invalid-fragment`입니다.
+- 조각은 그 실행의 결과 줄에서 공백으로 나뉜 token 묶음 하나를 로그에 찍힌 라벨과 함께 그대로 옮깁니다(`ℹ pass 873`, `exit=0`,
+  `Install dependencies=28`). 결과 개수는 그 회차 log에서 옮기고, 주장하는 결과가 아닌데 실행과 무관하게 회차마다 바뀌는
+  개수(남은 항목 수·link 수 등)는 조각으로 쓰지 않습니다.
+- 라벨 없는 조각(공백을 빼면 숫자·hex 문자·구두점·기호만인 `41`·`#961`·`bad=0`), 빈 조각, 짝이 맞지 않는 backtick(조각 안에
+  backtick을 둘 수 없음)은 `invalid-fragment`입니다.
 - 조각은 header 줄과 digest 줄(`<64 hex>  <path>` 형식의 `shasum` 출력, `sha256:<64 hex>`를 포함한 줄)을 뺀 줄 하나에
   token으로 있어야 합니다. 조각 앞뒤는 줄 시작·끝이거나 영숫자·`_`·`.`·`-`가 아닌 문자여야 하므로 `ℹ pass 87`은
-  `ℹ pass 873`과 맞지 않습니다. 없으면 `summary-mismatch`입니다.
+  `ℹ pass 873`과 맞지 않고 `x.concat(y)`의 `concat`도 token이 아닙니다. Markdown 강조(`**PASS**`)는 로그에 없는 글자입니다. 없으면
+  `summary-mismatch`입니다.
+- 위반에는 거부 이유(`detail`)와, 로그 결과 줄에 맞는 모양이 있으면 그 조각(`suggestion`)이 붙습니다. 예: 로그 줄
+  `ℹ pass 41`에서 조각 `` `41` ``은 `invalid-fragment`이고 `suggestion`은 `pass 41`, 조각 `` `ℹ pass 4` ``는 `summary-mismatch`이고
+  `suggestion`은 `ℹ pass 41`입니다. Header·digest 줄에만 있는 조각은 `suggestion` 없이 그 이유를 냅니다.
+- 부재 주장 조각(`rg exit=1`·`grep exit=1`·`git grep exit=1`)이 있는 record에 같은 record의 양성 대조 조각(같은 검색을 결과가
+  있어야 하는 대상에 돌린 `control rg exit=0` 형식)이 없으면 경고 `absence-without-control`입니다. 경고는 exit와 summary를 바꾸지
+  않고 text 출력의 `warning` 줄과 JSON `warnings`에 남습니다.
 - Backtick 조각이 없는 요약은 대조하지 않고 건수(`unverifiedSummaries`)만 셉니다.
 - 한 로그에는 한 실행만 둡니다. 같은 라벨이 echo된 명령 문구나 같은 로그의 이전 실행 출력에 있으면 우연히 일치할 수
   있습니다(known limit).
 
 ### RED 사유
 
-- 입력은 `node --test` spec reporter 출력이고, `--expect`는 기대 실패 사유 regex(Unicode mode)이며 하나 이상 필요합니다. 빈
-  문자열과 맞는 pattern(`''`, `.*`)은 모든 줄과 맞으므로 입력 오류입니다.
+- 입력은 `node --test` spec reporter 출력이나 Vitest 기본 reporter 출력이고(ANSI 색 코드는 지우고 읽음, 결과 `format`은
+  `node-test`·`vitest`), `--expect`는 기대 실패 사유 regex(Unicode mode)이며 하나 이상 필요합니다. 빈 문자열과 맞는
+  pattern(`''`, `.*`)은 모든 줄과 맞으므로 입력 오류입니다.
 - `ℹ fail` 값이 0보다 커야 하고, `✖ failing tests:` 절의 실패 block마다 오류 본문(`✖` 줄 다음부터 다음 결과 줄 전까지)에
   `--expect`와 맞는 줄이 있어야 합니다. Block이 하나도 없으면 위반입니다.
 - Block 수는 `ℹ fail`과 비교하지 않습니다. 하위 test 실패로 실패한 상위 test는 `ℹ fail`에 세지만 그 절에 block이 없기
@@ -236,6 +248,14 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 - 기대 밖 사유 signature(`SyntaxError`, `ERR_MODULE_NOT_FOUND`, `Cannot find module`·`Cannot find package`, `ReferenceError`,
   `does not provide an export`, `ENOENT`)가 `--expect`와 맞지 않는 줄에 있으면 위반입니다. 실패 block 밖(예: import 오류의
   stderr)도 검사합니다. 결과 줄(`✔`·`✖`·`﹣`·`ℹ`·`▶`로 시작하는 줄과 `test at` 줄)은 test 제목이므로 사유로 읽지 않습니다.
+- `node --test` 기본 test isolation에서 module 수준 throw(import 오류, 최상위 `JSON.parse` 실패 등)는 오류를 실패 block 밖에
+  찍고 block에는 `'test failed'`만 남습니다. 그 block의 `unexpected-reason`과 block 없는 `no-failure-blocks` 메시지는
+  `--test-isolation=none`으로 다시 실행하라고 안내합니다. 그 option이면 오류가 block 안에 찍힙니다.
+- Vitest는 마지막 `Tests` summary 줄의 `<n> failed`를 `ℹ fail` 값으로 읽고(`no tests`나 실패 없는 summary는 0), `FAIL` 줄마다
+  실패 block입니다. 오류 본문은 그 줄 다음부터 구분선(`⎯`), 다음 `FAIL` 줄, summary 전까지이고, 연달아 나온 `FAIL` 줄은 같은
+  본문을 씁니다. 실행 tree(`❯`·`×`·`✓`), 위치(`❯ <file>:<줄>`)·code frame(`<n>|`), 구분선과 summary 줄은 사유로 읽지 않습니다.
+  Import에 실패해 test를 하나도 실행하지 않은 suite는 `Tests  no tests`라 `no-failure`이고, 그 오류가 `--expect`와 맞지 않으면
+  `unexpected-reason`, 기대 밖 signature면 `unexpected-signature`도 냅니다.
 
 ### Mutation
 
@@ -253,6 +273,10 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
   없으면 `ambiguous`입니다. `timeout`은 명령의 process group 전체를 멈춥니다.
 - `--link-node-modules`는 root와 workspace의 `node_modules`를 사본에 symlink합니다. Workspace package는 원 checkout을 읽게
   되므로 `packages/` 아래(정규화한 경로, 대소문자 무시) mutation과 함께 쓰면 입력 오류입니다.
+- 판정 분기의 test 보호를 주장하는 변경은 바뀐 판정 module의 연산자 mutation sweep(비교·논리 연산자, 경계값, 조건 반전)을
+  저장소 밖 독립 clone에서 돌려 survivor 목록을 runner 기록에 둡니다. Survivor를 동등으로 처분하면 동등을 보이는 재현 입력과
+  출력을 붙입니다. 결과가 달라질 수 있는 입력을 찾아본 범위가 없으면 동등 판정이 아닙니다. Sweep의 `timeout`(mutant가 test
+  실행을 끝나지 않게 함)은 test가 통과하지 못하므로 감지로 세고, 그 id를 survivor와 따로 runner 기록에 둡니다.
 
 ### 계획 참조
 
@@ -261,8 +285,9 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 
 ### 처분 기록
 
-- [QA 리뷰 회차](../qa.md#리뷰-회차)의 finding별 처분을 기계로 검사할 수 있게 쓰는 형식입니다. 파일은 reviewer result 옆의
-  `<회차>-adjudication.json`입니다.
+- [QA 리뷰 회차](../qa.md#리뷰-회차)의 finding별 처분을 기계로 검사할 수 있게 쓰는 형식입니다. 파일은 계획 증거 위치의
+  `<회차>-adjudication.json`입니다. `reviews[].resultPath`는 Parent reviewer면 정산이 쓴 결과 파일, native subject
+  reviewer면 Parent가 저장한 result입니다.
 
 ```json
 {
@@ -271,7 +296,13 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
   "round": 2,
   "reviews": [{ "taskId": "<reviewer task id>", "resultPath": "<--root 기준 result JSON 경로>" }],
   "findings": [
-    { "id": "<task id>#0", "severity": "medium", "disposition": "fixed", "origin": "fix-induced" }
+    {
+      "id": "<task id>#0",
+      "severity": "medium",
+      "disposition": "fixed",
+      "origin": "fix-induced",
+      "fixRef": "<수정 commit의 40자 SHA>"
+    }
   ]
 }
 ```
@@ -284,27 +315,92 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
   PASS 뒤의 구분은 검사하지 않습니다.
 - `duplicateOf`는 같은 기록의 다른 finding(다른 reviewer가 낸 같은 결함)이고 그 finding의 disposition을 따릅니다. 중복의
   중복은 위반입니다.
+- `subject`는 회차와 무관한 변경 이름이고 같은 변경의 모든 회차가 같은 문자열을 씁니다.
 - 2회차부터 `origin`이 필요합니다: `fix-induced`(수정이 들여온 결함), `previously-missed`(이전 회차가 놓친 결함),
-  `re-raised`(다시 제기된 결함). `fixRef`는 선택입니다.
+  `re-raised`(다시 제기된 결함).
+- `fixed`·`fixed-mechanical`은 고친 것을 가리키는 `fixRef`가 필요합니다(`duplicateOf`가 있는 finding은 그 finding을
+  따릅니다). 형식은 `--root` 저장소에 있는 40자 commit SHA, `sha256:<64자 16진수>` snapshot digest, 있는 저장소 상대
+  경로(저장소 root 자체는 아님) 가운데 하나입니다. 없으면 `missing-fix-ref`, 형식 밖이거나 없는 commit·경로면 `invalid-fix-ref`입니다. 고치기 전에는
+  `fixed`를 쓰지 않습니다. Rebase·squash로 SHA가 바뀌면 앞 회차 기록은 그대로 두고 다음 회차부터 새 SHA나 snapshot digest를
+  씁니다.
 - 나열한 result에 `unjudgedBehaviors`(판정하지 않은 동작) 줄이 있으면 선택 key `unjudged`에 줄마다
   `{ "id": "<task id>#u<index>", "disposition": "...", "reason": "..." }`를 둡니다. Index는 result `unjudgedBehaviors` 배열
   index(0부터)입니다. `disposition`은 `out-of-scope`(이 변경 범위 밖)·`raised`(Parent가 finding으로 올림)·`follow-up`(후속
-  작업)이고 모두 `reason`이 필요합니다. 줄마다 정확히 한 번 나와야 하며 처분이 빠진 줄(`missing-unjudged`), 같은 줄의 두 번째
+  작업)·`parent-checked`(Parent가 재현·대조해 결함 없음을 확인)·`pre-existing`(이 변경 전부터 있던 결함)이고 모두 `reason`이
+  필요합니다. `parent-checked`의 `reason`은 그 재현·대조 log를 backtick 안 저장소 상대 경로(있는 파일·디렉터리, root 자체는 아님)로 가리키고,
+  없으면 `missing-reason`입니다. 줄마다 정확히 한 번 나와야 하며 처분이 빠진 줄(`missing-unjudged`), 같은 줄의 두 번째
   처분(`duplicate-unjudged`), result에 없는 id(`unknown-unjudged`)는 위반입니다.
+- `fixRef`와 `parent-checked` 경로 검사는 작성 때 검사와 ledger reader가 합니다. 작성 때 검사는
+  `node scripts/agents/common/review-adjudication.mjs [--root <repo>] <파일>`입니다. 2회차 리뷰 입력과 builder 완료 그룹처럼
+  저장소 root 없이 기록을 읽는 검사는 앞 규칙만 봅니다.
 
 ### 리뷰 측정
 
-[공통 ledger](../../../../scripts/agents/common/review-ledger.mjs)는 host reader가 준 행에서 상태·verdict·severity·기준
+[공통 ledger](../../../../scripts/agents/common/review-ledger.mjs)는 host reader가 준 행에서 host·상태·verdict·severity·기준
 항목·회차·처분·기원 건수를 셉니다. 측정이며 판정이 아닙니다. 형식이 틀린 행은 이유와 함께 건수에서 뺍니다.
 
 - Claude: `node scripts/agents/claude/review-ledger-source.mjs [--root <repo>] [--adjudications <dir>]... [--until <ISO 시각>] [--json]`.
-  Native registry의 `knu_reviewer` task를 읽고, `--adjudications` 아래 `*-adjudication.json`과 task id로 연결합니다. 처분
-  기록이 틀리거나(JSON이 아닌 기록, 한 task를 두 기록이 처분한 경우 포함) 형식이 틀린 행이 있으면 exit 1입니다. `--until`은
-  발행 시각이 그 시각 이전인 task만 세고, 발행 시각을 읽지 못한 task는 빼고 그 수를 `excludedWithoutIssuedAt`으로 냅니다.
+  Native registry의 `knu_reviewer` task를 읽고, `--adjudications` 아래 `*-adjudication.json`과 task id로 연결합니다. 아래
+  legacy 셈 밖의 처분 기록 위반(JSON이 아닌 기록 포함)이나 형식이 틀린 행이 있으면 exit 1입니다. 한 task를 두 기록이
+  처분하면 뒤 기록에 `duplicate-review`가 나고 그 task는 앞 기록으로만 셉니다. `--until`은 발행 시각이 그 시각 이전인 task만
+  세고, 발행 시각을 읽지 못한 task는 빼고 그 수를 `excludedWithoutIssuedAt`으로 냅니다.
+- Codex: `node scripts/agents/codex/review-ledger-source.mjs`(같은 옵션). 행은 `host: 'codex'`이고 입력과 행 상태는
+  [Codex same-host review](../adapters/codex-same-host-review.md#처분-기록과-ledger)가 소유합니다.
+- 두 reader는 위반이 모두 옛 기록 종류(`unknown-key`·`invalid-field`·`unknown-finding`·`unknown-unjudged`·
+  `result-unreadable`·`duplicate-review`와 `missing-fix-ref`·`invalid-fix-ref`)인 기록을 `legacyAdjudications`(기록 수와
+  사유별 위반 수)로 세고 exit를 바꾸지 않습니다. `fixRef` 두 사유만 있는 기록은 처분을 지금처럼 셉니다. 그 밖의 위반은
+  `adjudicationViolations`이고 exit 1입니다.
 - 행 상태: `parsed`, `parse-failed`(마지막 응답에 result JSON 없음), `completion-missing`, `task-unreadable`(task 기록을 읽지
-  못해 reviewer인지 모르는 task도 행으로 셈). 회차는 reviewer
-  prompt의 `Review round N`에서 읽고, 회차 입력 전 기록은 `unknown`입니다.
+  못해 reviewer인지 모르는 task도 행으로 셈). Parent reviewer task가 정산해 닫은 packet(`<reviewId>.settled.json`의 `taskId`가 그
+  task)이면 응답 대신 그 정산의 결과 파일(`<reviewId>.result.json`)로 읽고, 결과 파일이 없으면(`review-result-unparsed`)
+  `parse-failed`입니다. 닫힘 기록이 다른 task를 가리키면(같은 reviewerSpec을 다시 등록한 task) 응답으로 읽습니다. 회차는
+  reviewer prompt의 `Review round N`에서 읽고, 회차 입력 전 기록은 `unknown`입니다.
 - 행의 finding은 id·severity·기준 항목(`criteriaItem`)과 result finding의 위치(`location`, 없으면 null)를 담습니다.
+- 행의 선택 field `subjectSize`는 그 리뷰 기준 기록(`<reviewId>.criteria.json`)의 subject 경로 수·기준 문서 수(`paths`·
+  `documents`), `snapshot`은 그 reviewer가 리뷰한 snapshot digest이고 reader가 찾지 못하면 null입니다.
+- Summary의 `subjectRows`는 subject 키별 경로 수·기준 문서 수(가장 앞 회차 기준 기록)·run 수·회차 수·origin 수·끝에서 이어진
+  non-PASS 회차 수(회차의 모든 행이 `parsed` PASS면 PASS 회차)·서로 다른 snapshot 수이고, `subjectSizes`는 그 행을 크기
+  (`paths:<수>,documents:<수>`, 모르면 `unknown`)별로 더한 subject 수·run 수·회차 수·origin 수입니다.
+
+## 센서 동작
+
+[KNU domain binding의 센서 절](../domain/knu-binding.md#센서)에서 실행 시점에 `편집`이 있는 행은 두 host의 project hook이
+[`edit-sensors.mjs`](../../../../scripts/agents/common/edit-sensors.mjs)로 검사 모드에서 돌립니다. 파일을 고치지 않고 막지도
+않는 피드백이며, 같은 검사는 `pnpm check`·CI가 다시 합니다.
+
+- 편집 직후(Claude `Edit`·`Write`, Codex `apply_patch`): 바뀐 파일의 `sensor.format`(Prettier check)과, JS/TS 파일이면 그
+  workspace의 `sensor.lint`(ESLint)입니다. HEAD에 있는 test 파일을 고치면 `sensor.test-change`가 표시합니다.
+- 끝내기 직전(Parent의 Stop): 그 agent가 편집 직후 처리에서 모은 파일의 workspace마다 제품 tsconfig `sensor.typecheck`와,
+  세션 첫 hook 처리 때의 기준선(`git diff --name-status HEAD`의 삭제 행)에 없던 test 삭제 표시입니다. Child의 편집은 편집 직후
+  피드백만 받고 Parent의 끝내기 직전 검사 대상이 아닙니다(지금 `knu_*` 역할은 모두 읽기 전용입니다).
+- 상한은 그 행의 지점과 상한 칸입니다. 넘으면 `timeout`, 필요한 생성물(shared build·Prisma client·Next type)이나 도구가 없으면
+  `skipped`로 기록하고 통과합니다. 센서는 그 생성물을 만들지 않습니다.
+- 돌려주는 곳: Claude는 편집 직후 PostToolUse `additionalContext`, 끝내기 직전 Stop `hookSpecificOutput.additionalContext`
+  한 번이고 `stop_hook_active`가 true인 Stop은 기록만 합니다. Codex는 편집 직후 PostToolUse `additionalContext`, Stop은
+  `systemMessage`(사용자 표시)입니다. 메시지는 센서 키, 도구 출력 요약, 그 센서를 `- 센서:`로 가리키는 항목의 `- 지침:`과
+  문서 경로·id입니다. 같은 test 파일 표시는 세션당 한 번입니다.
+- Codex hook은 sandbox 밖에서 돌므로 센서를 직접 실행하지 않고 `codex sandbox -P :workspace -C <repo>` 안에서
+  `node scripts/agents/common/edit-sensors.mjs codex …`로 부릅니다. `codex`가 없거나 sandbox가 실패하면 `skipped`입니다.
+- 스위치: `KNU_EDIT_SENSORS=0`이 두 host의 센서를 끄고(기본 켬), `KNU_EDIT_REMINDERS=1`이 리마인더를 켭니다(기본 끔).
+  리마인더는 편집 직후 그 파일을 고르는 기준 문서 항목의 `- 질문:`이고(`- trigger:`가 있는 항목은 그 경로에 맞을 때만),
+  한 지점에 세 항목까지이고 같은 항목은 세션당 한 번입니다.
+- 발동 기록: 통과가 아닌 결과마다 `edit-sensor-activation/v1` 한 줄을 도구 출력 kind `edit-sensors`의 `<session>.jsonl`에
+  씁니다(Codex hook 자신의 결과는 hook 상태 디렉터리, [Codex native registry](../adapters/codex-native-registry.md)). 결과는 `fail`·`timeout`·`skipped`·
+  `error`·`reminder`·`warning`이고, 편집 직후 `fail` 뒤 끝내기 직전까지 파일이 그대로면 `unchangedSince`가 붙은 줄이
+  더해집니다(오탐 후보). `node scripts/agents/common/edit-sensors.mjs --summary`가 두 위치를 센서·기준 항목별로 셉니다.
+  기록은 평가 입력이며 완료 근거가 아닙니다.
+- Hook 오류는 판정을 바꾸지 않습니다. Claude `--hook --sensor`는 모든 오류를 exit 0과 `error` 기록(기록할 수 없으면 stderr 한
+  줄)으로 끝내고, SessionStart의 기준선은 그 분기의 판정·출력 뒤에 5초 안에서 남깁니다.
+
+### 사전 판단 문구 경고
+
+Parent 작성 변경의 리뷰 subject에서 요구(`request`)·acceptance·요구 발췌가 reviewer에게 무엇을 지적하지 말지, severity
+상한, 계획이 이미 골랐다는 것을 미리 정하는 문장
+([`review-prejudgment-phrases.mjs`](../../../../scripts/agents/common/review-prejudgment-phrases.mjs)의 문구 묶음)은
+경고(`review-prejudgment-phrase: N …`)와 packet `environment`의 `review-prejudgment-phrase=N`으로 남고, 기록 지점 `리뷰`의
+`warning` 한 줄이 됩니다. 막거나 subject를 바꾸지 않으며 reviewer는 항목마다 source로 판정합니다. 일반적인 "무시"·범위를
+좁히는 문장은 해당하지 않습니다. Claude는 `pnpm claude:native review`가, Codex는 knu-review skill의
+`node scripts/agents/common/review-prejudgment-phrases.mjs --input <subject JSON> --session <id> --host codex`가 셉니다.
 
 ## 누적 이탈 점검
 
@@ -351,8 +447,8 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
 - 원자료
   - [리뷰 측정](#리뷰-측정) ledger에서 같은 기준 항목(`criteriaItem`)이 서로 다른 subject 2개 이상에 나온 finding과 그 `location`.
     subject는 처분 기록의 subject(ledger를 `--adjudications`로 뽑을 때의 행 subject 키)로 묶고, 처분 기록이 없는 행 수를 따로
-    적습니다. 교정·재채점·실험처럼 사본으로 재는 측정 run은 뺍니다. Codex 리뷰는 ledger reader가 없으므로 Parent가 그 작업 증거의
-    결과 JSON과 정산 보고에서 직접 모읍니다.
+    적습니다. 교정·재채점·실험처럼 사본으로 재는 측정 run은 뺍니다. Codex 리뷰는 Codex reader의 행으로 모읍니다(처분 기록이
+    가리키는 결과 JSON을 읽습니다).
   - non-PASS 회차.
   - PR `Lifecycle` 절의 `override` 줄.
   - `원인 PR`로 찾은 놓친 결함. 원인 PR의 리뷰 기준 기록(`<reviewId>.criteria.json`)·ledger와 대조해 "기준이 있었는데 놓침"과

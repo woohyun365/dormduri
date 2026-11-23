@@ -10,6 +10,7 @@ const expectedVersion = manifest.packageManager?.match(/^pnpm@(\d+\.\d+\.\d+)$/u
 // The Docker images install the root packageManager themselves, so they carry no version to compare.
 const workflowPaths = [
   '.github/workflows/api-ci.yml',
+  '.github/workflows/backoffice-ci.yml',
   '.github/workflows/ci.yml',
   '.github/workflows/infra-ci.yml',
   '.github/workflows/web-ci.yml',

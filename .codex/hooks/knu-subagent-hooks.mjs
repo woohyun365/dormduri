@@ -8,11 +8,15 @@
 // seals the registration; SubagentStart/SubagentStop record the child identity, model, task path and own-turn effort
 // that completion checks compare with that bind. Records go to `.codex/state/knu-subagent-hooks/<parent session>.jsonl`,
 // which read-only children cannot write; a child can edit a registration, but the fields the task name spells
-// must spell it and the seal keeps what the guard compared. Imports stay inside `node:` so no child-editable module
-// decides a result.
+// must spell it and the seal keeps what the guard compared. PostToolUse `apply_patch` and Stop run the edit-time
+// sensors (scripts/agents/common/edit-sensors.mjs) inside `codex sandbox -P :workspace`, never in this process: the
+// sensors run child-editable workspace code, and the sandbox cannot write `.codex` or `.git`. This hook writes only
+// its own sensor results (codex missing, sandbox failure, limit) to `.codex/state/knu-edit-sensors/`. Imports stay
+// inside `node:` so no child-editable module decides a result.
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, mkdirSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const HOOK_RECORD_SCHEMA = 'knu-codex-subagent-hook/v1';
@@ -242,7 +246,8 @@ function readRollout(path) {
   };
 }
 
-export function runHook({ payload, root, now }) {
+export function runHook({ payload, root, now, env = process.env, limits = SENSOR_LIMITS }) {
+  if (isSensorEvent(payload)) return { stdout: runSensors({ payload, root, now, env, limits }) };
   const policyText = readFileSync(join(root, POLICY_PATH), 'utf8');
   const policy = parsePolicy(policyText);
   const record = buildHookRecord(payload, {
@@ -374,6 +379,164 @@ function parsePolicy(text) {
 
 function digest(content) {
   return `sha256:${createHash('sha256').update(content).digest('hex')}`;
+}
+
+// Edit-time sensors: the point limits of the binding `## 센서` rows (직후 8초, 끝 30초); hooks.json gives each five
+// seconds more. A sandbox answer is the feedback; anything else is one hook-side record and no output.
+// Next to the subagent records, under the same hook state root.
+export const SENSOR_RECORD_DIRECTORY = join(dirname(RECORD_DIRECTORY), 'knu-edit-sensors');
+const SENSOR_SCHEMA = 'edit-sensor-activation/v1';
+const SENSOR_LIMITS = { PostToolUse: 8000, Stop: 30000 };
+const SENSOR_START_MS = 500;
+// A Codex agent shell gets no variable whose name has KEY, SECRET or TOKEN by default (shell_environment_policy), and
+// `codex sandbox` passes the environment through. The sensor CLI is repository code the agent can edit, so it gets no
+// more than the agent shell would.
+const SECRET_NAME = /KEY|SECRET|TOKEN/iu;
+const sensorEnv = (env) =>
+  Object.fromEntries(Object.entries(env).filter(([name]) => !SECRET_NAME.test(name)));
+const isSensorEvent = (payload) =>
+  (payload?.hook_event_name === 'PostToolUse' && payload.tool_name === 'apply_patch') ||
+  payload?.hook_event_name === 'Stop';
+
+// The file headers of an apply_patch body: added, updated and moved-to files are edited, a moved-from or deleted file
+// is deleted. Paths outside the repository are dropped.
+export function patchFiles(patch, { root, cwd }) {
+  const files = [];
+  const deleted = [];
+  // The root is a real path, so a cwd through a symlink is resolved the same way before the paths are compared.
+  let base = root;
+  if (typeof cwd === 'string' && isAbsolute(cwd))
+    try {
+      base = realpathSync(cwd);
+    } catch {
+      base = cwd;
+    }
+  const inside = (path) => {
+    const relativePath = relative(root, resolve(base, path.trim()));
+    return !relativePath || relativePath.startsWith('..') || isAbsolute(relativePath)
+      ? null
+      : relativePath.split('\\').join('/');
+  };
+  let updating = null;
+  for (const line of String(patch ?? '').split('\n')) {
+    const header = /^\*\*\* (Add File|Update File|Delete File|Move to): (.+)$/u.exec(line);
+    if (!header) continue;
+    const path = inside(header[2]);
+    if (header[1] === 'Update File') updating = path;
+    if (!path) continue;
+    if (header[1] === 'Add File') files.push(path);
+    if (header[1] === 'Delete File') deleted.push(path);
+    if (header[1] === 'Update File') files.push(path);
+    if (header[1] === 'Move to') {
+      // The updated file moved: its old path is gone and the target is the edited file.
+      if (updating && files.at(-1) === updating) files.pop();
+      if (updating) deleted.push(updating);
+      files.push(path);
+    }
+  }
+  return { files: [...new Set(files)], deleted: [...new Set(deleted)] };
+}
+
+function runSensors({ payload, root, now, env, limits }) {
+  const event = payload.hook_event_name;
+  const sessionId = payload.session_id;
+  if (env.KNU_EDIT_SENSORS === '0' || !SESSION_ID.test(sessionId ?? '')) return '';
+  root = realpathSync(root);
+  const agent = typeof payload.agent_id === 'string' ? payload.agent_id : 'parent';
+  const point = event === 'Stop' ? '끝' : '직후';
+  const record = (result, detail) =>
+    appendSensorRecord(root, {
+      schema: SENSOR_SCHEMA,
+      at: now ?? new Date().toISOString(),
+      host: 'codex',
+      sessionId,
+      agent,
+      point,
+      sensor: null,
+      criteria: [],
+      file: null,
+      sha256: null,
+      result,
+      detail,
+    });
+  const { files, deleted } =
+    event === 'Stop'
+      ? { files: [], deleted: [] }
+      : patchFiles(payload.tool_input?.command, { root, cwd: payload.cwd });
+  if (event !== 'Stop' && !files.length && !deleted.length) return '';
+  const limit = limits[event];
+  const run = spawnSync(
+    'codex',
+    [
+      'sandbox',
+      '-P',
+      ':workspace',
+      '-C',
+      root,
+      '--',
+      'node',
+      `${root}/scripts/agents/common/edit-sensors.mjs`,
+      'codex',
+      '--root',
+      root,
+      '--event',
+      event,
+      '--session',
+      sessionId,
+      '--agent',
+      agent,
+      '--files',
+      JSON.stringify(files),
+      '--deleted',
+      JSON.stringify(deleted),
+      '--reminders',
+      env.KNU_EDIT_REMINDERS === '1' ? '1' : '0',
+      '--stop-hook-active',
+      payload.stop_hook_active === true ? '1' : '0',
+      '--deadline-ms',
+      String(Math.max(limit - SENSOR_START_MS, 0)),
+    ],
+    { cwd: root, env: sensorEnv(env), encoding: 'utf8', timeout: limit, maxBuffer: 1024 * 1024 },
+  );
+  const failure =
+    run.error?.code === 'ENOENT'
+      ? ['skipped', 'codex-not-found']
+      : run.error?.code === 'ETIMEDOUT'
+        ? ['timeout', 'codex sandbox']
+        : run.error
+          ? ['error', run.error.message.slice(0, 200)]
+          : run.status !== 0
+            ? ['skipped', `codex sandbox exit ${run.status}`]
+            : null;
+  if (failure) {
+    record(...failure);
+    return '';
+  }
+  let answer;
+  try {
+    answer = JSON.parse(run.stdout || '{}');
+  } catch {
+    record('error', 'sensor output is not JSON');
+    return '';
+  }
+  if (event === 'Stop')
+    return typeof answer?.systemMessage === 'string' && answer.systemMessage
+      ? JSON.stringify({ systemMessage: answer.systemMessage })
+      : '';
+  return typeof answer?.additionalContext === 'string' && answer.additionalContext
+    ? JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PostToolUse',
+          additionalContext: answer.additionalContext,
+        },
+      })
+    : '';
+}
+
+function appendSensorRecord(root, record) {
+  const directory = join(root, SENSOR_RECORD_DIRECTORY);
+  mkdirSync(directory, { recursive: true });
+  appendFileSync(join(directory, `${record.sessionId}.jsonl`), `${JSON.stringify(record)}\n`);
 }
 
 function appendRecord(root, record) {

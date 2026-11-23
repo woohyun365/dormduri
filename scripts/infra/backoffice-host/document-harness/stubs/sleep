@@ -1,0 +1,3 @@
+#!/bin/bash
+# 가짜 sleep: smoke 재시도 대기를 건너뛴다.
+exit 0

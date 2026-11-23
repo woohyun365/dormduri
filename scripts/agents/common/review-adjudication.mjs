@@ -5,6 +5,9 @@
 // Usage: node scripts/agents/common/review-adjudication.mjs [--root <repo>] [--json] <adjudication.json...>
 // Exit 0 = every record is valid, 1 = violations, 2 = input error (no file, missing file, not a JSON object, unknown
 // option, root outside a git repository). `resultPath` is resolved from --root (default: the current git repository).
+// This command is the check at writing time: with a root it also checks the fixRef of every fixed finding and the log
+// path of every parent-checked line. A caller that passes no root (round 2 review inputs, the builder group check)
+// keeps the older rules.
 //
 // Record: { schema: 'review-adjudication/v1', subject, round, reviews: [{ taskId, resultPath }],
 //           findings: [{ id, severity, disposition, reason?, duplicateOf?, origin?, fixRef? }],
@@ -13,8 +16,8 @@
 // Unjudged ids: `<taskId>#u<index in the result unjudgedBehaviors array, from 0>`; every line needs one disposition.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
-import { relative, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { isAbsolute, normalize, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -25,9 +28,34 @@ export const SCHEMA = 'review-adjudication/v1';
 export const SEVERITIES = ['critical', 'high', 'medium', 'low'];
 // `fixed` closes a finding during the review rounds; the other four are the QA dispositions after PASS.
 export const DISPOSITIONS = ['fixed', 'fixed-mechanical', 'deferred', 'rejected', 'pre-existing'];
+// A fixed finding names what fixed it (fixRef): a 40-character commit SHA the root repository has, a `sha256:` snapshot
+// digest or a repository-relative path that exists (not the root itself). A duplicate follows the fix of the finding it duplicates.
+export const FIX_DISPOSITIONS = ['fixed', 'fixed-mechanical'];
 export const ORIGINS = ['fix-induced', 'previously-missed', 're-raised'];
-// A behavior the reviewer left unjudged is outside this change, raised as a finding, or a follow-up.
-export const UNJUDGED_DISPOSITIONS = ['out-of-scope', 'raised', 'follow-up'];
+// A behavior the reviewer left unjudged is outside this change, raised as a finding, a follow-up, checked by the
+// Parent with no defect found (its reason names that reproduction or comparison log by a repository path in
+// backticks), or a defect that was there before this change.
+export const UNJUDGED_DISPOSITIONS = [
+  'out-of-scope',
+  'raised',
+  'follow-up',
+  'parent-checked',
+  'pre-existing',
+];
+// The two fixRef kinds: a ledger reader counts them as legacy and keeps building rows from such a record.
+export const FIX_REF_KINDS = ['missing-fix-ref', 'invalid-fix-ref'];
+// Violation kinds of records written before today's rules (measured on the real records at P6 PR ② start: pre-schema
+// records, an old checkout path, results under a clone root and copied records) plus the two fixRef kinds. A ledger
+// reader counts a record whose violations are all of these kinds as legacy instead of failing (Owner 7.2).
+export const LEGACY_VIOLATION_KINDS = [
+  'unknown-key',
+  'invalid-field',
+  'unknown-finding',
+  'unknown-unjudged',
+  'result-unreadable',
+  'duplicate-review',
+  ...FIX_REF_KINDS,
+];
 const RECORD_KEYS = ['schema', 'subject', 'round', 'reviews', 'findings', 'unjudged'];
 const FINDING_KEYS = ['id', 'severity', 'disposition', 'reason', 'duplicateOf', 'origin', 'fixRef'];
 const UNJUDGED_KEYS = ['id', 'disposition', 'reason'];
@@ -48,8 +76,46 @@ export function resultUnjudgedIds(taskId, result) {
     : [];
 }
 
+const COMMIT = /^[0-9a-f]{40}$/u;
+const SNAPSHOT_DIGEST = /^sha256:[0-9a-f]{64}$/u;
+const commits = new Map();
+
+function commitExists(root, sha) {
+  const key = `${root}\0${sha}`;
+  if (!commits.has(key))
+    try {
+      execFileSync('git', ['cat-file', '-e', `${sha}^{commit}`], { cwd: root, stdio: 'ignore' });
+      commits.set(key, true);
+    } catch {
+      commits.set(key, false);
+    }
+  return commits.get(key);
+}
+
+// A repository-relative path that exists under root: not absolute, no `..` segment and not the root itself.
+function repositoryPath(root, value) {
+  if (typeof value !== 'string' || !value.trim() || isAbsolute(value)) return false;
+  const path = normalize(value);
+  if (path === '.' || path === `.${sep}` || path.split(sep).includes('..')) return false;
+  return existsSync(resolve(root, value));
+}
+
+function fixRefProblem(root, fixRef) {
+  if (typeof fixRef !== 'string' || !fixRef.trim()) return 'fixRef must be a non-empty string';
+  if (COMMIT.test(fixRef))
+    return commitExists(root, fixRef) ? null : `commit ${fixRef} is not in the root repository`;
+  if (SNAPSHOT_DIGEST.test(fixRef) || repositoryPath(root, fixRef)) return null;
+  return 'fixRef must be a 40-character commit SHA, a sha256:<64 hex> snapshot digest or an existing repository path';
+}
+
+// A backtick span of the reason that is an existing repository path.
+const namesRepositoryPath = (root, reason) =>
+  [...reason.matchAll(/`([^`]+)`/gu)].some(([, span]) => repositoryPath(root, span.trim()));
+
 // `readResult(resultPath)` returns the parsed result or throws. Returns violations `{ kind, id?, detail }`.
-export function validateAdjudication(record, readResult) {
+// With `root` (the repository fixRef and log paths resolve against) the fixRef and parent-checked rules apply;
+// without it only the older rules do.
+export function validateAdjudication(record, readResult, { root } = {}) {
   const violations = [];
   const add = (kind, detail, id) => violations.push(id ? { kind, id, detail } : { kind, detail });
   for (const key of Object.keys(record))
@@ -121,8 +187,18 @@ export function validateAdjudication(record, readResult) {
       add('missing-reason', `${finding.disposition} needs a reason`, id);
     if (finding.reason !== undefined && typeof finding.reason !== 'string')
       add('invalid-field', 'reason must be a string', id);
-    if (finding.fixRef !== undefined && !isText(finding.fixRef))
-      add('invalid-field', 'fixRef must be a non-empty string', id);
+    if (root === undefined) {
+      if (finding.fixRef !== undefined && !isText(finding.fixRef))
+        add('invalid-field', 'fixRef must be a non-empty string', id);
+    } else if (finding.fixRef !== undefined) {
+      const problem = fixRefProblem(root, finding.fixRef);
+      if (problem) add('invalid-fix-ref', problem, id);
+    } else if (FIX_DISPOSITIONS.includes(finding.disposition) && finding.duplicateOf === undefined)
+      add(
+        'missing-fix-ref',
+        `${finding.disposition} needs a fixRef: a 40-character commit SHA, a sha256 snapshot digest or a repository path`,
+        id,
+      );
     if (finding.origin !== undefined && !ORIGINS.includes(finding.origin))
       add('invalid-field', `origin must be one of ${ORIGINS.join(', ')}`, id);
     else if (finding.origin === undefined && record.round >= 2)
@@ -168,10 +244,76 @@ export function validateAdjudication(record, readResult) {
         line.id,
       );
     if (!isText(line.reason)) add('missing-reason', 'an unjudged line needs a reason', line.id);
+    else if (
+      line.disposition === 'parent-checked' &&
+      root !== undefined &&
+      !namesRepositoryPath(root, line.reason)
+    )
+      add(
+        'missing-reason',
+        'parent-checked needs a reason naming its reproduction or comparison log by a repository path in backticks',
+        line.id,
+      );
   }
   for (const id of knownUnjudged)
     if (!unjudged.has(id)) add('missing-unjudged', 'unjudged line has no disposition', id);
   return violations;
+}
+
+function adjudicationFiles(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) return adjudicationFiles(path);
+    return entry.isFile() && entry.name.endsWith('-adjudication.json') ? [path] : [];
+  });
+}
+
+// Reads every `*-adjudication.json` under the directories for a ledger reader (both hosts). Returns the record of each
+// reviewer task it names (`valid` as before the fixRef rules, so such a record keeps its counted dispositions), the
+// violations of records that are not legacy, and the legacy count: records whose violations are all of
+// LEGACY_VIOLATION_KINDS, with their violations by kind. A task two records name is a violation of the later one.
+export function readAdjudicationRecords(root, directories) {
+  const byTask = new Map();
+  const byFile = new Map();
+  const add = (file, violation) => byFile.get(file).push({ file, ...violation });
+  for (const path of directories.flatMap(adjudicationFiles).sort()) {
+    const file = relative(root, path);
+    byFile.set(file, []);
+    let record;
+    try {
+      record = JSON.parse(readFileSync(path, 'utf8'));
+    } catch (error) {
+      add(file, { kind: 'record-unreadable', detail: error.message });
+      continue;
+    }
+    const readResult = (resultPath) => JSON.parse(readFileSync(resolve(root, resultPath), 'utf8'));
+    const found = isObject(record)
+      ? validateAdjudication(record, readResult, { root })
+      : [{ kind: 'record-unreadable', detail: 'not a JSON object' }];
+    for (const violation of found) add(file, violation);
+    const valid = found.every(({ kind }) => FIX_REF_KINDS.includes(kind));
+    for (const review of Array.isArray(record?.reviews) ? record.reviews : []) {
+      if (typeof review?.taskId !== 'string') continue;
+      if (byTask.has(review.taskId)) {
+        add(file, {
+          kind: 'duplicate-review',
+          id: review.taskId,
+          detail: `already adjudicated in ${byTask.get(review.taskId).file}`,
+        });
+        continue;
+      }
+      byTask.set(review.taskId, { file, record, valid });
+    }
+  }
+  const violations = [];
+  const legacy = { records: 0, reasons: {} };
+  for (const found of byFile.values()) {
+    if (found.length && found.every(({ kind }) => LEGACY_VIOLATION_KINDS.includes(kind))) {
+      legacy.records += 1;
+      for (const { kind } of found) legacy.reasons[kind] = (legacy.reasons[kind] ?? 0) + 1;
+    } else violations.push(...found);
+  }
+  return { byTask, violations, legacy };
 }
 
 function gitRoot(cwd) {
@@ -244,8 +386,10 @@ export function main(argv, { cwd = process.cwd(), log = console.log, error = con
     for (const { path, record } of records) {
       if (Array.isArray(record.findings)) findings += record.findings.length;
       const file = relative(root, resolve(cwd, path)) || path;
-      for (const violation of validateAdjudication(record, (resultPath) =>
-        readJson(resolve(root, resultPath)),
+      for (const violation of validateAdjudication(
+        record,
+        (resultPath) => readJson(resolve(root, resultPath)),
+        { root },
       ))
         violations.push({ file, ...violation });
     }

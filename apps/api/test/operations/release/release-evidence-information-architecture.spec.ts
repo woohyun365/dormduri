@@ -195,7 +195,7 @@ describe('production release evidence information architecture', () => {
     ]);
 
     expectContainsAll(readRepoFile(releaseFiles.backofficeReadiness), [
-      'FUTURE_COMPONENT',
+      'Repository state: `PENDING_TARGET`',
       'User App 4GiB host + BackOffice 2GiB host',
       '목표 repository 구조',
       'Database와 migration 경계',

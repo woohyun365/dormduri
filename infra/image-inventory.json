@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "updatedAt": "2026-11-11",
-  "policy": "External images are pinned in their owner file with a readable exact tag and an immutable digest; Renovate updates that file, and readers resolve the reference from it. Internal stage images are built and pushed with the tag sha-<source commit> by their CD workflow: dormduri/web and dormduri/ingress by .github/workflows/web-cd.yml, dormduri/api, dormduri/api-migrate and the observability config image dormduri/observability-config by .github/workflows/api-cd.yml. Each deploy Release records the image digests of its stage.",
+  "updatedAt": "2026-11-22",
+  "policy": "External images are pinned in their owner file with a readable exact tag and an immutable digest; Renovate updates that file, and readers resolve the reference from it. Internal stage images are built and pushed with the tag sha-<source commit> by their CD workflow: dormduri/web and dormduri/ingress by .github/workflows/web-cd.yml, dormduri/api, dormduri/api-migrate and the observability config image dormduri/observability-config by .github/workflows/api-cd.yml, dormduri/backoffice-api, dormduri/backoffice-web and dormduri/backoffice-ingress by .github/workflows/backoffice-cd.yml. Each deploy Release records the image digests of its stage.",
   "images": [
     {
       "name": "api-build-node",
@@ -28,6 +28,30 @@
       "updateOwner": "renovate"
     },
     {
+      "name": "backoffice-api-build-node",
+      "ownerPath": "infra/deploy/backoffice-api/Dockerfile",
+      "repository": "node",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "backoffice-api-dockerfile-syntax",
+      "ownerPath": "infra/deploy/backoffice-api/Dockerfile",
+      "repository": "docker/dockerfile",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "backoffice-web-build-node",
+      "ownerPath": "infra/deploy/backoffice-web/Dockerfile",
+      "repository": "node",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "backoffice-web-dockerfile-syntax",
+      "ownerPath": "infra/deploy/backoffice-web/Dockerfile",
+      "repository": "docker/dockerfile",
+      "updateOwner": "renovate"
+    },
+    {
       "name": "api-ingress",
       "ownerPath": "infra/deploy/compose.api.yml",
       "repository": "nginx",
@@ -36,6 +60,12 @@
     {
       "name": "user-host-ingress",
       "ownerPath": "infra/deploy/user/ingress/Dockerfile",
+      "repository": "nginx",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "backoffice-ingress",
+      "ownerPath": "infra/deploy/backoffice/ingress/Dockerfile",
       "repository": "nginx",
       "updateOwner": "renovate"
     },
@@ -66,6 +96,24 @@
     {
       "name": "api-cd-postgres",
       "ownerPath": ".github/workflows/api-cd.yml",
+      "repository": "postgres",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "backoffice-cd-buildkit",
+      "ownerPath": ".github/workflows/backoffice-cd.yml",
+      "repository": "moby/buildkit",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "backoffice-cd-sbom-scanner",
+      "ownerPath": ".github/workflows/backoffice-cd.yml",
+      "repository": "docker/buildkit-syft-scanner",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "backoffice-cd-postgres",
+      "ownerPath": ".github/workflows/backoffice-cd.yml",
       "repository": "postgres",
       "updateOwner": "renovate"
     },
@@ -130,6 +178,18 @@
       "updateOwner": "renovate"
     },
     {
+      "name": "user-host-obs-gateway",
+      "ownerPath": "infra/deploy/user/api/compose.yml",
+      "repository": "nginx",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "backoffice-alloy",
+      "ownerPath": "infra/deploy/backoffice/compose.yml",
+      "repository": "grafana/alloy",
+      "updateOwner": "renovate"
+    },
+    {
       "name": "postgres-development",
       "ownerPath": "docker-compose.dev.yml",
       "repository": "postgres",
@@ -144,6 +204,12 @@
     {
       "name": "postgres-ci",
       "ownerPath": ".github/workflows/api-ci.yml",
+      "repository": "postgres",
+      "updateOwner": "renovate"
+    },
+    {
+      "name": "postgres-backoffice-ci",
+      "ownerPath": ".github/workflows/backoffice-ci.yml",
       "repository": "postgres",
       "updateOwner": "renovate"
     }

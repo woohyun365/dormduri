@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
 # CD deploy job이 SSM deploy document를 배포 대상 tag의 managed node에 보내고 command 단위 상태를 기다린다.
 # usage: ssm-send.sh <deploy|rollback|maintenance> <digest>... <document sha256>
-# document(DEPLOY_DOCUMENT)가 digest parameter 이름과 수를 정한다(web-cd·api-cd):
-#   dormduri-web-deploy: <web digest> <ingress digest>
-#   dormduri-api-deploy: <api digest> <api-migrate digest> <observability-config digest>
+# document(DEPLOY_DOCUMENT)가 digest parameter 이름과 수, 배포 대상 tag 값을 정한다(web-cd·api-cd·backoffice-cd):
+#   dormduri-web-deploy: <web digest> <ingress digest>                                       대상 user-app
+#   dormduri-api-deploy: <api digest> <api-migrate digest> <observability-config digest>     대상 user-app
+#   dormduri-backoffice-deploy: <backoffice-api> <backoffice-web> <backoffice-ingress digest> 대상 backoffice-app
 # 결과는 command 단위 집계 상태(ListCommands)로만 본다. node별 invocation 조회는 node ID를 내므로 하지 않는다(D-WB7).
 # 실패 원인(입력 거부 exit 2, host lock exit 75, 자동 복귀 exit 1)은 operator가 console에서 본다(runbook).
 set -euo pipefail
 
 document=${DEPLOY_DOCUMENT:-}
 case "$document" in
-  dormduri-web-deploy) workflow=web-cd images=(web ingress) names=(webDigest ingressDigest) ;;
+  dormduri-web-deploy) workflow=web-cd target=user-app images=(web ingress) names=(webDigest ingressDigest) ;;
   dormduri-api-deploy)
-    workflow=api-cd images=(api api-migrate observability-config)
+    workflow=api-cd target=user-app images=(api api-migrate observability-config)
     names=(apiDigest apiMigrateDigest observabilityConfigDigest)
+    ;;
+  dormduri-backoffice-deploy)
+    workflow=backoffice-cd target=backoffice-app images=(backoffice-api backoffice-web backoffice-ingress)
+    names=(backofficeApiDigest backofficeWebDigest backofficeIngressDigest)
     ;;
   *) echo "DEPLOY_DOCUMENT names no known deploy document" >&2; exit 2 ;;
 esac
@@ -40,7 +45,7 @@ command_id=$(aws ssm send-command \
   --document-name "$document" \
   --document-hash "$hash" \
   --document-hash-type Sha256 \
-  --targets Key=tag:dormduri-deploy-target,Values=user-app \
+  --targets "Key=tag:dormduri-deploy-target,Values=$target" \
   --parameters "$parameters" \
   --timeout-seconds 900 \
   --comment "$workflow ${GITHUB_RUN_ID:-local} $action" \

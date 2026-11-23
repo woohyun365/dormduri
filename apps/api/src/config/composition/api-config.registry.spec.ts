@@ -20,8 +20,8 @@ describe('API config registry', () => {
 
     expect(API_CONFIG_SLICES).toHaveLength(14);
     expect(API_CONFIG_FACTORIES).toHaveLength(10);
-    expect(API_ENV_KEYS).toHaveLength(104);
-    expect(Object.keys(schemaDescription.keys ?? {})).toHaveLength(104);
+    expect(API_ENV_KEYS).toHaveLength(112);
+    expect(Object.keys(schemaDescription.keys ?? {})).toHaveLength(112);
   });
 
   it('rejects duplicate env metadata keys', () => {

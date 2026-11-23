@@ -46,8 +46,8 @@ export function stripCommentLines(text) {
     .join('\n');
 }
 
-// 한 줄 marker를 heredoc 본문으로 바꾼다. 본문에 heredoc 종료 줄이 있으면 뜻이 바뀌므로 거부한다.
-function embed(body, marker, content, terminator) {
+// 한 줄 marker를 heredoc 본문으로 바꾼다. 본문에 heredoc 종료 줄이 있으면 뜻이 바뀌므로 거부한다(백오피스 document 생성기도 쓴다).
+export function embed(body, marker, content, terminator) {
   if (body.split(marker).length !== 2) throw new Error(`${marker} marker must appear exactly once`);
   const text = content.replace(/\n+$/u, '');
   if (terminator && text.split('\n').some((line) => line.trim() === terminator)) {
@@ -56,7 +56,7 @@ function embed(body, marker, content, terminator) {
   return body.replace(marker, () => text);
 }
 
-function finish(body, sources) {
+export function finish(body, sources) {
   if (body.split(SOURCE_MARKER).length !== 2)
     throw new Error('document source marker must appear exactly once');
   const source = sha256(JSON.stringify(sources));

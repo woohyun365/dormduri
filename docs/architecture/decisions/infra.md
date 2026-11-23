@@ -1,9 +1,9 @@
 # Infra 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-11
-**확인 근거**: [#696](https://github.com/woohyun365/dormduri/issues/696)의 Web 단계 결정 기록 댓글(topology-runtime-config의 `infra.topo.runtime-platform`: Lightsail 4 GB host 하나, ci-cd의 `infra.ci.deploy-authority`: 승인 뒤 배포 전용 job), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`infra.topo.runtime-platform`의 managed PostgreSQL 위치, data-durability-recovery의 `infra.dr.backup-mode`), [#890의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/890#issuecomment-6785250115)(ci-cd의 `infra.ci.deploy-authority` API 단계 재검토)
-**근거**: [Production runtime topology](../platform/production-runtime-topology.md), [Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md), [API 단계 배포](../../../infra/runbooks/release/api-stage-deploy.md), [Production environment](../../deploy/production-environment.md), [Domain/SWE/Web/infra pack](../../development/agent-workflows/domain/swe-web/infra.md)
+**확인일**: 2026-11-22
+**확인 근거**: [#696](https://github.com/woohyun365/dormduri/issues/696)의 Web 단계 결정 기록 댓글(topology-runtime-config의 `infra.topo.runtime-platform`: Lightsail 4 GB host 하나, ci-cd의 `infra.ci.deploy-authority`: 승인 뒤 배포 전용 job), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`infra.topo.runtime-platform`의 managed PostgreSQL 위치, data-durability-recovery의 `infra.dr.backup-mode`), [#890의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/890#issuecomment-6785250115)(ci-cd의 `infra.ci.deploy-authority` API 단계 재검토), [#974의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/974#issuecomment-7081174825)(topology-runtime-config의 `infra.topo.runtime-platform/backoffice`, ci-cd의 `infra.ci.deploy-authority` 백오피스 재검토, 2026-11-04·2026-11-22)
+**근거**: [Production runtime topology](../platform/production-runtime-topology.md), [Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md), [API 단계 배포](../../../infra/runbooks/release/api-stage-deploy.md), [백오피스 단계 배포](../../../infra/runbooks/release/backoffice-stage-deploy.md), [Production environment](../../deploy/production-environment.md), [Domain/SWE/Web/infra pack](../../development/agent-workflows/domain/swe-web/infra.md)
 
 `Domain/SWE/Web/infra` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
 
@@ -19,8 +19,7 @@
 - 고른 선택지: 단일 host의 container compose(topology의 기존 결정). Web 단계에서 Owner가 provider와 크기를 서울 Lightsail
   Linux 4 GB host 하나로 정했고, 그 host에서 ingress(nginx)와 Web을 compose(`infra/deploy/user/compose.yml`)로 띄운다. API
   단계는 같은 host에 API 조각(`infra/deploy/user/api/compose.yml`)을 더한다. Managed PostgreSQL은 host 밖의 RDS for
-  PostgreSQL 18이고, 같은 Region default VPC에 public access 없이 두고 Lightsail VPC peering으로 붙인다(security group은 host
-  주소 하나만 받음)
+  PostgreSQL 18이고, 같은 Region default VPC에 public access 없이 두고 Lightsail VPC peering으로 붙인다(security group은 5432를 user host와 백오피스 host 주소 둘(/32)에서만 받음)
 - 근거: 출시 전이라 이용자가 적어 host 한 대로 충분하고 월 비용이 작다(실제 금액은 [서버 비용](../../deploy/server-costs.md)).
   Host가 멈추면 서비스 전체가 멈추지만 Web 단계는 공개 출시 전이라 점검 mode와 외부 가용성 경보로 받아들인다. 배포·network·
   secret·관측 경로를 모두 다시 구성해야 해서 되돌리기 어렵다(`one-way`)
@@ -31,6 +30,31 @@
 - 재검토 조건: 측정한 CPU·memory·latency 포화가 [Capacity 근거와 변경 trigger](../platform/production-runtime-topology.md#capacity-근거와-변경-trigger)를
   넘을 때, Lightsail VPC peering이나 RDS 연결 방식이 host 선택과 충돌할 때, Lightsail bundle·가격이 바뀔 때
 - 출처: #696, #886, Owner 확인 2026-10-27(host)·2026-11-04(RDS + Lightsail VPC peering)
+- pack 결정: [infra.topo.runtime-platform](../../development/agent-workflows/domain/swe-web/infra.md#infratoporuntime-platform)
+
+#### infra.topo.runtime-platform/backoffice
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: 백오피스는 user host와 따로 둔 Lightsail Linux 2 GB host 하나의 container compose(`infra/deploy/backoffice/compose.yml`:
+  admin ingress·Web·API·Alloy)다. 공개 port·도메인을 두지 않고 운영자는 SSM 포트 포워딩으로 `http://localhost:4300`에만 닿는다. Host
+  publish는 admin ingress의 `127.0.0.1:4300` 한 줄이고(compose 계약 test), Lightsail 방화벽 규칙은 없고 sshd는 mask했다. 같은 계정
+  사설 IP traffic을 방화벽이 거르지 않으므로 loopback publish를 다른 host의 직접 route에서 막는 Docker Engine 28 이상을 배포 document가
+  매번 확인한다. 같은 RDS에 백오피스 LOGIN user 둘로 붙고 RDS security group은 두 host의 `/32`만 받는다. 관측은 백오피스 Alloy가 user
+  host API 묶음의 수신 gateway로 밀어 넣는 한 방향이고, gateway는 백오피스 host 주소와 token만 받으며 Prometheus 대신 API 지표를 긁어
+  API container가 Prometheus에 닿지 않게 한다
+- 근거: 관리자 기능에 공개 주소가 없어 들어오는 길이 SSM 인증(Identity Center 단기 credential·MFA) 하나로 준다. user host의 장애·
+  memory 압박·침해가 운영자 기능과 갈린다. 백오피스 host에 들어오는 port가 없으므로 user host가 긁지 않고 백오피스가 보낸다. 받는
+  쪽은 API 묶음 service라 `api-cd`가 배포하고 직전 묶음으로 되돌린다
+- 기각한 대안: 공개 서브도메인과 인증서·IP 허용(공개 주소가 드러나고 운영자 IP 변경에 약함), Cloudflare Access(DNS zone 이전 또는 별도
+  도메인), user host에 container로 함께 실행(host 장애·권한 침해가 격리되지 않음), host의 모든 interface에 publish(같은 계정 resource가
+  닿음), user host Prometheus가 백오피스 host를 scrape(백오피스 host에 port를 열어야 함), 수신 경로를 user 공개 ingress listener에
+  둠(공개 ingress 묶음이 관측 수신을 갖고 되돌림 단위가 갈림), Prometheus가 remote write를 받으면서 API network에 남음(API container가
+  백오피스 지표를 위조하거나 버리게 할 수 있음)
+- 재검토 조건: 운영자가 둘 이상이 되거나 browser 직접 접속이 필요할 때(Cloudflare Access·VPN), Docker가 loopback publish 보호를 바꾸거나
+  nftables backend로 옮길 때, 백오피스 container 실측 memory가 [시작값](../../../infra/runbooks/release/components/infrastructure-target/readiness.md#backoffice-2gib-resource-시작값)을
+  넘을 때
+- 출처: #974, Owner 확인 2026-11-04(공개 ingress 없이 SSM 포트 포워딩)·2026-11-22(수신 gateway를 API 묶음에 두고 API 지표를 대신 긁음)
 - pack 결정: [infra.topo.runtime-platform](../../development/agent-workflows/domain/swe-web/infra.md#infratoporuntime-platform)
 
 ## data-durability-recovery
@@ -59,7 +83,7 @@ RPO·RTO 목표는 [DB 결정 기록](./db.md#dbintegrityrecovery-target)이, �
 
 CI와 CD의 책임 경계는 [Monorepo CI](../platform/monorepo-ci.md#책임)가, 실행 절차는
 [Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md)와 [API 단계 배포](../../../infra/runbooks/release/api-stage-deploy.md)가
-소유합니다. CD는 서비스마다 workflow·경로 filter·environment·role·dispatch rollback을 따로 둡니다.
+소유합니다. 백오피스 CD 절차는 [백오피스 단계 배포](../../../infra/runbooks/release/backoffice-stage-deploy.md)가 소유합니다. CD는 서비스마다 workflow·경로 filter·environment·role·dispatch rollback을 따로 둡니다.
 
 #### infra.ci.deploy-authority
 
@@ -70,7 +94,11 @@ CI와 CD의 책임 경계는 [Monorepo CI](../platform/monorepo-ci.md#책임)가
   `web-cd.yml`의 deploy job이 environment `production`의, API 단계는 `api-cd.yml`의 deploy job이 environment
   `production-api`의 승인(required reviewer Owner, `main`만) 뒤에만 그 서비스의 OIDC deploy role을 받는다. build·tag job은 그
   서비스의 publish role만, record job은 `contents: write`만 갖는다. API 단계의 migrate·grant·role smoke는 승인 뒤 host의 SSM
-  document가 rollout 전에 one-off container로 돌리고, secret은 host role이 꺼내므로 workflow는 secret과 DB에 닿지 않는다
+  document가 rollout 전에 one-off container로 돌리고, secret은 host role이 꺼내므로 workflow는 secret과 DB에 닿지 않는다. 백오피스
+  단계는 `backoffice-cd.yml`의 deploy job이 environment `production-backoffice`의 승인 뒤에만 백오피스 deploy role을 받는다. 백오피스
+  API는 migration을 돌리지 않는다. 같은 DB schema를 쓰므로 승인 전에 schema gate job(`actions: read`)이 이 commit의
+  `packages/database/prisma`가 마지막으로 host 배포에 성공한 `api-cd` push commit과 같은지 보고, 다르면 같은 commit의 `api-cd` 배포
+  성공을 기다리며(상한 90분) 실패·취소·없음이면 멈춘다
 - 근거: 검증 권한과 배포 권한이 갈리고, 되돌릴 수 없는 적용 전에 Owner가 build log의 mask와 실행을 본다. 승인 지점 하나가 image
   rollout과 migration을 함께 지킨다. Migration은 앞으로만 가므로(forward-fix) 되돌리는 대신 승인 전에 변경을 본다. 승인은 직무
   분리가 아니라 의도적으로 멈추는 지점이라 self-approval을 허용한다. Long-lived access key 없이 OIDC 단기 credential만 쓴다
@@ -80,6 +108,7 @@ CI와 CD의 책임 경계는 [Monorepo CI](../platform/monorepo-ci.md#책임)가
   최소 권한이 없다)
 - 재검토 조건: 배포하는 사람이 Owner 밖으로 늘어 직무 분리가 필요할 때, 다른 서비스 CD가 같은 DB schema를 쓰게 될 때(migrate
   완료 확인과 순서), 사용자 release 선언 뒤 expand-contract가 한 배포를 여러 단계로 나눌 때
-- 출처: #696, #890(재검토 조건 "API 단계가 DB migration을 CD에 넣을 때"가 걸려 다시 보고 같은 선택지를 유지), Owner 확인
-  2026-10-27·2026-11-04(서비스별 workflow)·2026-11-11
+- 출처: #696, #890(재검토 조건 "API 단계가 DB migration을 CD에 넣을 때"가 걸려 다시 보고 같은 선택지를 유지), #974(재검토 조건
+  "다른 서비스 CD가 같은 DB schema를 쓰게 될 때"가 걸려 다시 보고 같은 선택지를 유지하고 schema gate를 더함), Owner 확인
+  2026-10-27·2026-11-04(서비스별 workflow, schema가 바뀐 push는 `api-cd` migrate 뒤 백오피스 rollout)·2026-11-11
 - pack 결정: [infra.ci.deploy-authority](../../development/agent-workflows/domain/swe-web/infra.md#infracideploy-authority)

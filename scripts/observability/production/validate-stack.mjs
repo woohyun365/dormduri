@@ -8,6 +8,7 @@ import { buildComposeArgs, loadComposeInventory } from '../../infra/compose/prof
 import {
   OBSERVABILITY_SECRET_TARGET,
   OBSERVABILITY_SERVICES,
+  PUBLIC_OBSERVABILITY_SERVICES,
   USER_HOST_RENDER_ENVIRONMENT,
 } from '../../infra/user-host/compose-contract.mjs';
 import { validateProductionObservabilityEnvironmentFile } from './environment.mjs';
@@ -161,8 +162,18 @@ function validateUserHostStack(config, operations) {
   for (const [name, service] of Object.entries(services)) {
     assert(service, `user host bundle: missing ${name}`);
     assert(/:[^@\s]+@sha256:[a-f0-9]{64}$/u.test(service.image), `${name}: mutable image`);
+    // 관측 UI는 loopback에만 publish한다. 수신 gateway만 계약의 수신 listener 한 줄을 모든 주소에 publish한다(백오피스 host 사설
+    // 주소와 token만 넘김, infra/observability/gateway/nginx.conf).
     for (const port of service.ports ?? []) {
-      assert(port.host_ip === '127.0.0.1', `${name}: non-loopback published port`);
+      if (PUBLIC_OBSERVABILITY_SERVICES.includes(name)) {
+        const text = `${port.host_ip ?? ''}:${port.published}:${port.target}`;
+        assert(
+          OBSERVABILITY_SERVICES[name].ports.includes(text),
+          `${name}: published port ${text} is not the receive listener`,
+        );
+      } else {
+        assert(port.host_ip === '127.0.0.1', `${name}: non-loopback published port`);
+      }
     }
     assert(service.logging?.options?.['max-size'] === '10m', `${name}: unbounded stdout log size`);
   }

@@ -44,13 +44,13 @@ flowchart LR
 - **API 도메인 owner**는 기능 가능 여부, 트랜잭션 전제 조건과 종료 사유를 계산합니다. 같은 DB schema를 써도 다른 도메인의 상태는 그 도메인이 연 service·port로만 바꿉니다([도메인 데이터 소유권](./docs/architecture/backend/domain-data-ownership.md)).
 - **PostgreSQL**은 UNIQUE 제약과 트랜잭션으로 최종 경쟁 상태를 판정합니다.
 
-지금 Web 단계에는 AWS 서울 region의 Lightsail host 하나에 nginx ingress를 두고 점검 mode로 운영하며, Web image는 아직 배포하지 않았습니다([운영 환경](./docs/deploy/production-environment.md)). API를 올린 이후 목표 구성(사용자 앱 host + private 관리형 PostgreSQL, 관측 스택 장애 격리)은 아직 배포하지 않은 계획과 로컬 리허설의 기준입니다. 구성도와 설명은 [운영 runtime 구성](./docs/architecture/platform/production-runtime-topology.md)에 있습니다.
+지금 API 단계에는 AWS 서울 region의 Lightsail host 하나에 nginx ingress·Web·API·관측 스택을 두고, API는 공개 주소 없이 Web BFF에서만 받으며 private 관리형 PostgreSQL에 붙습니다. 가입·로그인은 아직 닫혀 있습니다([운영 환경](./docs/deploy/production-environment.md)). BackOffice host와 브라우저 Sentry를 더한 이후 목표 구성은 아직 배포하지 않은 계획과 로컬 리허설의 기준입니다. 구성도와 설명은 [운영 runtime 구성](./docs/architecture/platform/production-runtime-topology.md)에 있습니다.
 
 ## 대표 설계 결정
 
 1. **화면 상태가 아니라 시즌 참여 aggregate를 기준으로 삼았습니다.** 탐색·상세·매칭·채팅은 화면별 boolean이 아니라 `SeasonParticipant`, 등록 확정 트랜잭션과 서버 capability로 판단합니다([시즌 참여 정책](./docs/policies/season-participation.md) · [룸메이트 탐색 정책](./docs/policies/roommate-searching.md) · [기능 가능 여부 설계](./docs/architecture/frontend/action-capability-source-of-truth.md)).
 2. **사전 확인 API와 최종 트랜잭션의 책임을 나눴습니다.** 닉네임 확인 성공을 예약으로 보지 않고 회원가입 트랜잭션과 DB 제약이 최종 판정하며, 인증은 1회용 grant, Argon2id, DB에 저장하는 opaque session과 rotation·revoke 경계를 씁니다([계정 인증 정책](./docs/policies/account-authentication.md) · [opaque session 결정](./docs/architecture/backend/auth/jwt-vs-opaque-session-transport-decision.md)).
-3. **서버 크기보다 자원 owner와 실패 경계를 먼저 정했습니다.** 2 vCPU / 4 GiB 사용자 앱 host(지금 Web 단계 host와 같은 크기)에 API·Web·관측을 함께 올리는 이후 목표에서 제품 container limit 합계를 2,976 MiB로 묶고, 관측 스택이 멈춰도 사용자 요청은 막히지 않게 했습니다. 실제 운영 성능 주장이 아니라 리허설 기준입니다([운영 runtime 구성](./docs/architecture/platform/production-runtime-topology.md) · [풀스택 리허설 자원 예산](./infra/runbooks/rehearsal/full-stack.md) · [출시 준비 상태](./infra/runbooks/release/components/infrastructure-target/readiness.md)).
+3. **서버 크기보다 자원 owner와 실패 경계를 먼저 정했습니다.** 2 vCPU / 4 GiB 사용자 앱 host 하나에 API·Web·관측을 함께 올리는 구성(지금 API 단계)에서 제품 container limit 합계를 2,976 MiB로 묶고, 관측 스택이 멈춰도 사용자 요청은 막히지 않게 했습니다. 실제 운영 성능 주장이 아니라 리허설 기준입니다([운영 runtime 구성](./docs/architecture/platform/production-runtime-topology.md) · [풀스택 리허설 자원 예산](./infra/runbooks/rehearsal/full-stack.md) · [출시 준비 상태](./infra/runbooks/release/components/infrastructure-target/readiness.md)).
 
 ## 측정으로 확인한 개선
 
@@ -113,7 +113,7 @@ AI가 실제 팀 협업이나 운영 경험을 대신한다고 보지 않습니�
 
 ## 운영과 관측
 
-지금 Web 단계의 관측은 외부 가용성 경보(Route 53 HTTPS health check → CloudWatch alarm → SNS email)뿐입니다. 아래 수집 구성은 API 단계에서 켜는 목표입니다.
+지금 API 단계에는 아래 구성 가운데 Loki·Prometheus·Grafana와 Slack 경보, CloudWatch DB 경보, 외부 가용성 경보(Route 53 HTTPS health check → CloudWatch alarm → SNS email)를 켰고 브라우저 Sentry는 아직 끕니다.
 
 관측은 배포 뒤 **사용자가 겪은 실패를 재현하고 변경의 영향을 판단하기 위한 제품 경계**로 설계했습니다. API·BFF 구조화 로그는 Loki, 런타임·도메인 지표는 Prometheus, 브라우저 오류·성능은 Sentry, 관리형 DB 자원은 CloudWatch로 나누고, 수집기 장애가 제품 요청을 막지 않게 합니다. 로그와 지표는 매칭 성공률 같은 제품 분석을 대신하지 않습니다. 도구 책임은 [관측 구성](./docs/architecture/platform/observability-topology.md), 개인정보·보존·접근 범위는 [운영 관측 정책](./docs/policies/operational-observability.md)이 정합니다.
 

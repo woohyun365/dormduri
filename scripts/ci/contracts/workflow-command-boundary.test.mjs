@@ -183,6 +183,18 @@ test('root commands expose prepared aggregate capabilities', () => {
     'api:test:ci:prepared',
     'api:build',
     'api:build:prepared',
+    'backoffice-api:prepare',
+    'backoffice-api:check',
+    'backoffice-api:check:prepared',
+    'backoffice-api:test:prepared',
+    'backoffice-api:test:integration:prepared',
+    'backoffice-api:build:prepared',
+    'backoffice-web:prepare',
+    'backoffice-web:check',
+    'backoffice-web:check:prepared',
+    'backoffice-web:test:prepared',
+    'backoffice-web:build:prepared',
+    'backoffice-web:e2e:prepared',
     'web:prepare',
     'web:check',
     'web:check:prepared',
@@ -229,6 +241,24 @@ for (const workflow of [
     forbidden: ['pnpm shared:build', 'pnpm api:prisma:generate'],
   },
   {
+    path: '.github/workflows/backoffice-ci.yml',
+    // Two runners (API gate, Web gate); the Web e2e drives the API build, so both prepare the API.
+    prepare: 'pnpm backoffice-api:prepare',
+    prepareCount: 2,
+    required: [
+      'pnpm backoffice-api:check:prepared',
+      'pnpm backoffice-api:test:prepared',
+      'pnpm backoffice-api:test:integration:prepared',
+      'pnpm backoffice-api:build:prepared',
+      'pnpm backoffice-web:lint:prepared',
+      'pnpm backoffice-web:typecheck:prepared',
+      'pnpm backoffice-web:test:prepared',
+      'pnpm backoffice-web:build:prepared',
+      'pnpm backoffice-web:e2e:prepared',
+    ],
+    forbidden: ['pnpm shared:build', 'pnpm api:prisma:generate', 'pnpm api:prepare'],
+  },
+  {
     path: '.github/workflows/web-ci.yml',
     prepare: 'pnpm web:prepare',
     prepareCount: 2,
@@ -255,6 +285,7 @@ for (const workflow of [
 test('the monorepo orchestrator always produces a fail-closed summary', () => {
   const orchestrator = read('.github/workflows/ci.yml');
   const apiWorkflow = read('.github/workflows/api-ci.yml');
+  const backofficeWorkflow = read('.github/workflows/backoffice-ci.yml');
   const webWorkflow = read('.github/workflows/web-ci.yml');
   const infraWorkflow = read('.github/workflows/infra-ci.yml');
 
@@ -264,6 +295,7 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
     'node scripts/ci/lanes/classify-changes.mjs',
     'node scripts/ci/lanes/run-repo-policy.mjs',
     'uses: ./.github/workflows/api-ci.yml',
+    'uses: ./.github/workflows/backoffice-ci.yml',
     'uses: ./.github/workflows/web-ci.yml',
     'uses: ./.github/workflows/infra-ci.yml',
     'Shared contract gate',
@@ -280,9 +312,11 @@ test('the monorepo orchestrator always produces a fail-closed summary', () => {
     'node scripts/ci/lanes/check-formatting.mjs',
   ]);
   assertIncludesAll(apiWorkflow, ['workflow_call:', 'cache: pnpm']);
+  assertIncludesAll(backofficeWorkflow, ['workflow_call:', 'cache: pnpm']);
   assertIncludesAll(webWorkflow, ['workflow_call:', 'cache: pnpm']);
   assertIncludesAll(infraWorkflow, ['workflow_call:', 'permissions:', 'contents: read']);
   assert.ok(!apiWorkflow.includes('pull_request:'));
+  assert.ok(!backofficeWorkflow.includes('pull_request:'));
   assert.ok(!webWorkflow.includes('pull_request:'));
   assert.ok(!infraWorkflow.includes('pull_request:'));
 });
@@ -498,6 +532,45 @@ test('API CI migrates its fresh public schema before generating TypedSQL artifac
   assert.ok(apiWorkflow.indexOf('prisma migrate diff') < apiWorkflow.indexOf('pnpm api:prepare'));
 });
 
+test('Backoffice CI migrates the public schema before TypedSQL and times every stage', () => {
+  const backofficeWorkflow = read('.github/workflows/backoffice-ci.yml');
+  const webStart = backofficeWorkflow.indexOf('\n  backoffice-web:');
+  assert.ok(webStart > 0, 'the backoffice Web job must be found');
+  const jobs = {
+    api: backofficeWorkflow.slice(0, webStart),
+    web: backofficeWorkflow.slice(webStart),
+  };
+  const stages = {
+    api: ['install', 'schema', 'prepare', 'static', 'unit', 'integration-db', 'build'],
+    web: [
+      'install',
+      'schema',
+      'prepare',
+      'static',
+      'typecheck',
+      'unit',
+      'build',
+      'api-build',
+      'browser-install',
+      'e2e',
+    ],
+  };
+
+  for (const [name, job] of Object.entries(jobs)) {
+    assertIncludesAll(job, [
+      'pnpm --dir packages/database exec prisma migrate deploy --schema prisma/schema.prisma',
+      ...stages[name].map((stage) => `--stage=${stage}`),
+      'total_duration_seconds',
+      'pnpm_store_cache',
+    ]);
+    assert.ok(
+      job.indexOf('prisma migrate deploy') < job.indexOf('pnpm backoffice-api:prepare'),
+      `${name}: migrate before the TypedSQL prepare`,
+    );
+    assert.equal(occurrences(job, 'services:'), 1, `${name}: one PostgreSQL service`);
+  }
+});
+
 test('API integration shards own isolated runners and PostgreSQL services', () => {
   const apiWorkflow = read('.github/workflows/api-ci.yml');
 
@@ -598,9 +671,10 @@ test('orchestration jobs use the one-core runner and every other job shares one 
 });
 
 // Only the CD workflows assume AWS roles through OIDC (production-web-baseline D-WB4·D-WB5, production-api-baseline
-// D-AB12); every validation workflow stays without deployment authority. web-cd-contract.test.mjs and
-// api-cd-contract.test.mjs own which jobs of each CD workflow hold it.
-const DEPLOYMENT_WORKFLOWS = ['web-cd.yml', 'api-cd.yml'];
+// D-AB12, backoffice-foundation D-BF16); every validation workflow stays without deployment authority.
+// web-cd-contract.test.mjs, api-cd-contract.test.mjs and scripts/infra/backoffice-host/backoffice-cd-contract.test.mjs own
+// which jobs of each CD workflow hold it.
+const DEPLOYMENT_WORKFLOWS = ['web-cd.yml', 'api-cd.yml', 'backoffice-cd.yml'];
 
 test('current workflows validate changes without claiming production deployment authority', () => {
   const workflowDirectory = resolve(repoRoot, '.github/workflows');

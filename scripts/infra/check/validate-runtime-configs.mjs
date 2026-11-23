@@ -14,6 +14,9 @@ import { fileURLToPath } from 'node:url';
 
 import { resolveArtifactPath } from '../../artifacts/paths.mjs';
 import { loadImageInventory, resolveImageReference } from '../artifacts/image-inventory.mjs';
+import { runBackofficeIngressSmoke } from '../backoffice-host/ingress-smoke.mjs';
+import { runAllBackofficeDocumentChecks } from '../backoffice-host/ssm-document-runtime.mjs';
+import { runGatewaySmoke } from '../user-host/gateway-smoke.mjs';
 import { renderMarkdownTable, runIngressSmoke } from '../user-host/ingress-smoke.mjs';
 import { runAllDocumentChecks } from '../user-host/ssm-document-runtime.mjs';
 import { runAlertmanagerRenderCheck } from '../../observability/production/alertmanager-render.mjs';
@@ -37,6 +40,8 @@ try {
   validateNginx();
   await validateUserHostIngress();
   validateUserHostDocument();
+  validateUserHostGateway();
+  validateBackofficeHost();
   validatePrometheus();
   validateLoki();
   validateAlloy();
@@ -133,6 +138,55 @@ function validateUserHostDocument() {
   for (const { name } of results) checks.push({ name, image });
 }
 
+// User host 관측 수신 gateway(backoffice-foundation D-BF15): 백오피스 host 주소·token 경계, 관측 network 전용 API scrape 대행.
+function validateUserHostGateway() {
+  const gateway = runGatewaySmoke({ repoRoot });
+  if (gateway.problems.length) {
+    console.error(gateway.problems.join('\n'));
+    fail('user-host obs-gateway runtime validation failed');
+  }
+  checks.push({
+    name: 'user-host-obs-gateway',
+    image: gateway.image,
+    requests: gateway.rows.length,
+    rows: gateway.rows.map(({ name, status }) => ({ name, status })),
+  });
+}
+
+// 백오피스 host 묶음(backoffice-foundation D-BF2·D-BF16): admin ingress의 Host·header 경계, document 둘의 실행 경로, Alloy 설정.
+function validateBackofficeHost() {
+  const ingress = runBackofficeIngressSmoke({ repoRoot });
+  if (ingress.problems.length) {
+    console.error(ingress.problems.join('\n'));
+    fail('backoffice-ingress runtime validation failed');
+  }
+  checks.push({
+    name: 'backoffice-ingress',
+    image: requiredImage('backoffice-ingress'),
+    requests: ingress.rows.length,
+    rows: ingress.rows.map(({ name, status }) => ({ name, status })),
+  });
+  const image = requiredImage('web-build-node');
+  const results = runAllBackofficeDocumentChecks({ repoRoot, baseImage: image });
+  const problems = results.flatMap(({ name, problems: found }) =>
+    found.map((problem) => `${name}: ${problem}`),
+  );
+  if (problems.length) {
+    console.error(problems.join('\n'));
+    fail('backoffice-document runtime validation failed');
+  }
+  for (const { name } of results) checks.push({ name, image });
+  runDocker('backoffice-alloy', [
+    '--volume',
+    `${resolve(repoRoot, 'infra/deploy/backoffice/alloy')}:/etc/alloy:ro`,
+    '--entrypoint',
+    '/bin/alloy',
+    requiredImage('alloy'),
+    'validate',
+    '/etc/alloy/config.alloy',
+  ]);
+}
+
 function validatePrometheus() {
   const renderedConfig = readFileSync(
     resolve(repoRoot, 'infra/observability/prometheus/prometheus.yml'),
@@ -217,6 +271,7 @@ function extractObservabilityConfig() {
     'loki/loki.yml',
     'prometheus/prometheus.production.yml',
     'alertmanager/alertmanager.production.yml',
+    'gateway/nginx.conf',
     ...[
       'loki/rules',
       'prometheus/rules',

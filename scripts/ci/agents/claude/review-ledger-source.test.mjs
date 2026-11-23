@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
@@ -63,6 +63,8 @@ test('reviewer records become ledger rows with status, round, subject, findings 
       { id: 't1#1', severity: 'low', criteriaItem: null, location: 'a.mjs:1' },
     ],
     adjudication: { status: 'recorded', dispositions: ['fixed', 'rejected'], origins: [] },
+    subjectSize: null,
+    snapshot: null,
   });
   assert.equal(tasks.t2.status, 'parse-failed');
   assert.equal(tasks.t2.subjectKey, 'basis:abc1234');
@@ -109,7 +111,14 @@ test('an invalid adjudication record marks its rows invalid and exits 1', () => 
       subject: 'feature-x',
       round: 1,
       reviews: [{ taskId: 't1', resultPath: 'evidence/r1-result.json' }],
-      findings: [{ id: 't1#0', severity: 'medium', disposition: 'fixed' }],
+      findings: [
+        {
+          id: 't1#0',
+          severity: 'medium',
+          disposition: 'fixed',
+          fixRef: 'evidence/r1-result.json',
+        },
+      ],
     }),
   );
   const { code, out } = run(['--json', '--root', root, '--adjudications', 'evidence'], root);
@@ -122,7 +131,7 @@ test('an invalid adjudication record marks its rows invalid and exits 1', () => 
   );
 });
 
-test('an unreadable record and a task adjudicated twice are violations', () => {
+test('an unreadable record is a violation and a task adjudicated twice counts as legacy', () => {
   const root = fixture();
   writeFileSync(resolve(root, 'evidence/broken-adjudication.json'), '{');
   cpSync(
@@ -131,13 +140,17 @@ test('an unreadable record and a task adjudicated twice are violations', () => {
   );
   const { code, out } = run(['--json', '--root', root, '--adjudications', 'evidence'], root);
   assert.equal(code, 1);
+  const result = json(out);
+  // A copied record is an old-record violation (measured at P6 ② start) and counts as legacy; an unreadable
+  // record still exits 1.
   assert.deepEqual(
-    json(out).adjudicationViolations.map(({ file, kind }) => `${kind}:${file}`),
-    [
-      'record-unreadable:evidence/broken-adjudication.json',
-      'duplicate-review:evidence/r1-copy-adjudication.json',
-    ],
+    result.adjudicationViolations.map(({ file, kind }) => `${kind}:${file}`),
+    ['record-unreadable:evidence/broken-adjudication.json'],
   );
+  assert.deepEqual(result.legacyAdjudications.reasons, {
+    'duplicate-review': 1,
+    'missing-fix-ref': 2,
+  });
 });
 
 test('input errors exit 2 instead of passing', () => {
@@ -169,4 +182,268 @@ test('the command line prints the ledger summary', () => {
   );
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /count 5/u);
+});
+
+// P6 ② RED 6 (Owner 7.2): a record whose violations are all of the old-record kinds (measured on the real records at
+// P6 ② start, plus missing-fix-ref and invalid-fix-ref) counts as legacy and the reader exits 0; its rows are built as
+// before, so a record that only lacks fixRef stays recorded. Any other violation exits 1 as before.
+const oldRecord = (patch = {}) => ({
+  schema: 'review-adjudication/v1',
+  subject: 'feature-x',
+  round: 1,
+  reviews: [{ taskId: 't1', resultPath: 'evidence/r1-result.json' }],
+  findings: [
+    { id: 't1#0', severity: 'medium', disposition: 'fixed' },
+    { id: 't1#1', severity: 'low', disposition: 'rejected', reason: 'not reproduced' },
+  ],
+  ...patch,
+});
+
+test('a record that only lacks fixRef counts as legacy, stays recorded and exits 0 (P6 ② RED 6)', () => {
+  const root = fixture();
+  const { code, out } = run(['--json', '--root', root, '--adjudications', 'evidence'], root);
+  assert.equal(code, 0);
+  const result = json(out);
+  assert.deepEqual(result.adjudicationViolations, []);
+  assert.deepEqual(result.legacyAdjudications, {
+    records: 1,
+    reasons: { 'missing-fix-ref': 1 },
+  });
+  assert.deepEqual(byTask(result.rows).t1.adjudication, {
+    status: 'recorded',
+    dispositions: ['fixed', 'rejected'],
+    origins: [],
+  });
+});
+
+test('old-record violations are legacy and exit 0; a current violation exits 1 (P6 ② RED 6)', () => {
+  const root = fixture();
+  const oldKeys = oldRecord({
+    findings: [
+      { id: 't1#0', severity: 'medium', disposition: 'fixed', claim: 'old field' },
+      { id: 't1#1', severity: 'low', disposition: 'rejected', reason: 'r', reproduced: false },
+    ],
+  });
+  writeFileSync(resolve(root, 'evidence/r1-adjudication.json'), JSON.stringify(oldKeys));
+  let { code, out } = run(['--json', '--root', root, '--adjudications', 'evidence'], root);
+  assert.equal(code, 0);
+  assert.deepEqual(json(out).legacyAdjudications, {
+    records: 1,
+    reasons: { 'unknown-key': 2, 'missing-fix-ref': 1 },
+  });
+  assert.equal(byTask(json(out).rows).t1.adjudication.status, 'invalid');
+  // The same record with one more violation of a current rule is not legacy.
+  writeFileSync(
+    resolve(root, 'evidence/r1-adjudication.json'),
+    JSON.stringify({ ...oldKeys, findings: oldKeys.findings.slice(0, 1) }),
+  );
+  ({ code, out } = run(['--json', '--root', root, '--adjudications', 'evidence'], root));
+  assert.equal(code, 1);
+  const result = json(out);
+  assert.deepEqual(
+    result.adjudicationViolations.map(({ kind, id }) => `${kind}:${id ?? ''}`),
+    ['unknown-key:t1#0', 'missing-fix-ref:t1#0', 'missing-finding:t1#1'],
+  );
+  assert.deepEqual(result.legacyAdjudications, { records: 0, reasons: {} });
+});
+
+test('the command line prints the violation and legacy counts', () => {
+  const root = fixture();
+  const result = spawnSync(
+    process.execPath,
+    [tool, '--root', root, '--adjudications', 'evidence'],
+    { cwd: root, encoding: 'utf8', env: { ...process.env, KNU_ARTIFACTS_DIR: '' } },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^adjudicationViolations 0$/mu, 'violation count line');
+  assert.match(
+    result.stdout,
+    /^legacyAdjudications \{"records":1,"reasons":\{"missing-fix-ref":1\}\}$/mu,
+    'legacy count line',
+  );
+});
+
+// P6 ② RED 7: a row's subject size comes from the criteria record of its review (subject paths and criteria
+// documents), found through the packet file line of a Parent reviewer or the packet id of a native subject reviewer.
+// Its snapshot is the digest on the first prompt line (t2 and t3 of the fixture share one; t1 and t6 have none).
+const DIGEST = (c) => `sha256:${c.repeat(64)}`;
+function sizedFixture() {
+  const root = fixture();
+  const packets = resolve(root, '.artifacts/tools/claude-review-packets');
+  mkdirSync(packets, { recursive: true });
+  const task = (taskId, record) => {
+    const dir = resolve(root, '.artifacts/tools/claude-native', taskId);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(resolve(dir, 'task.json'), JSON.stringify({ record: { taskId, ...record } }));
+  };
+  const request = (issuedAt) => ({
+    request: 'Review',
+    nativeRequest: { issuedAt, selectionBasisRef: 'abc1234', task: { role: 'knu_reviewer' } },
+  });
+  task('t7', {
+    input: request('2026-10-06T00:00:00.000Z'),
+    prompt: [
+      `KNU review snapshot ${DIGEST('c')}`,
+      '- Review round 1: report broadly.',
+      `KNU_REVIEW_PACKET_FILE:.artifacts/tools/claude-review-packets/aaaa1111-bbbb2222.json ${DIGEST('d')}`,
+    ].join('\n'),
+    independentReview: null,
+  });
+  task('t8', {
+    input: request('2026-10-07T00:00:00.000Z'),
+    prompt: `KNU review snapshot ${DIGEST('e')}\n- Review round 1: report broadly.`,
+    independentReview: {
+      subjectTaskId: 's2',
+      packet: { packetId: 'review-cccc3333-dddd4444' },
+    },
+  });
+  const criteria = (reviewId, paths, documentCount) =>
+    writeFileSync(
+      resolve(packets, `${reviewId}.criteria.json`),
+      JSON.stringify({
+        schema: 'review-criteria-selection/v1',
+        paths,
+        documents: [],
+        documentCount,
+        itemCount: 0,
+        reviewId,
+      }),
+    );
+  criteria('aaaa1111-bbbb2222', ['a.mjs', 'b.mjs', 'docs/c.md'], 2);
+  criteria('cccc3333-dddd4444', ['a.mjs'], 1);
+  return root;
+}
+
+test('a row carries the subject size of its review and the snapshot it reviewed (P6 ② RED 7)', () => {
+  const root = sizedFixture();
+  const { code, out } = run(['--json', '--root', root, '--adjudications', 'evidence'], root);
+  assert.equal(code, 0);
+  const { rows, summary } = json(out);
+  const tasks = byTask(rows);
+  assert.deepEqual(tasks.t7.subjectSize, { paths: 3, documents: 2 });
+  assert.equal(tasks.t7.snapshot, DIGEST('c'));
+  assert.deepEqual(tasks.t8.subjectSize, { paths: 1, documents: 1 });
+  assert.equal(tasks.t8.snapshot, DIGEST('e'));
+  // A review whose criteria record is gone, or a prompt without a digest, gives null.
+  assert.equal(tasks.t1.subjectSize, null);
+  assert.equal(tasks.t1.snapshot, null);
+  assert.equal(tasks.t6.subjectSize, null);
+  assert.deepEqual(
+    summary.subjectRows.find(({ subjectKey }) => subjectKey === 'basis:abc1234'),
+    {
+      subjectKey: 'basis:abc1234',
+      paths: 3,
+      documents: 2,
+      runs: 3,
+      rounds: 1,
+      origins: {},
+      trailingNonPass: 1,
+      snapshots: 2,
+    },
+  );
+  assert.equal(summary.subjectSizes['paths:3,documents:2'].subjects, 1);
+  assert.equal(summary.subjectSizes['paths:1,documents:1'].subjects, 1);
+});
+
+// Review 1 m1-F4·m2-F3: once settle closed a Parent reviewer packet (<reviewId>.settled.json), the row follows that
+// settlement: the result file settle wrote is the result, and no result file is parse-failed even when the old parse
+// would cut a JSON object out of the response. A packet without the closure record keeps the old parse.
+test('a settled Parent reviewer row reads the result file settle wrote, not the response', () => {
+  const root = sizedFixture();
+  const packets = resolve(root, '.artifacts/tools/claude-review-packets');
+  const completion = (verdict) =>
+    writeFileSync(
+      resolve(root, '.artifacts/tools/claude-native/t7/completion.json'),
+      JSON.stringify({
+        response: {
+          content: [
+            { type: 'text', text: `Final result:\n${JSON.stringify({ verdict, findings: [] })}` },
+          ],
+        },
+      }),
+    );
+  completion('PASS');
+  const rowOf = () => byTask(json(run(['--json', '--root', root], root).out).rows).t7;
+  assert.equal(rowOf().status, 'parsed', 'no closure record: the old parse');
+  writeFileSync(
+    resolve(packets, 'aaaa1111-bbbb2222.settled.json'),
+    JSON.stringify({
+      taskId: 't7',
+      settledAt: '2026-11-22T00:00:00.000Z',
+      valid: false,
+      observationErrors: ['review-result-unparsed'],
+    }),
+  );
+  assert.deepEqual(
+    [rowOf().status, rowOf().verdict],
+    ['parse-failed', null],
+    'closure record without result file: parse-failed',
+  );
+  writeFileSync(
+    resolve(packets, 'aaaa1111-bbbb2222.result.json'),
+    JSON.stringify({
+      schemaVersion: 'cross-model-handoff/v1',
+      packetId: 'review-aaaa1111-bbbb2222',
+      verdict: 'FAIL',
+      findings: [{ severity: 'low' }],
+    }),
+  );
+  const row = rowOf();
+  assert.deepEqual(
+    [row.status, row.verdict, row.findings.length],
+    ['parsed', 'FAIL', 1],
+    'closure record with result file: that result',
+  );
+});
+
+// Review 4 F1: the closure names the task that settled the packet. Another task whose prompt names the same packet
+// (its reviewerSpec registered again) is read from its own response, not from that settlement's result file.
+test('a task the closure does not name reads its own response', () => {
+  const root = sizedFixture();
+  const packets = resolve(root, '.artifacts/tools/claude-review-packets');
+  const registry = resolve(root, '.artifacts/tools/claude-native');
+  const t7 = JSON.parse(readFileSync(resolve(registry, 't7/task.json'), 'utf8')).record;
+  mkdirSync(resolve(registry, 't9'), { recursive: true });
+  writeFileSync(
+    resolve(registry, 't9/task.json'),
+    JSON.stringify({ record: { ...t7, taskId: 't9' } }),
+  );
+  const completion = (taskId, verdict) =>
+    writeFileSync(
+      resolve(registry, taskId, 'completion.json'),
+      JSON.stringify({
+        response: { content: [{ type: 'text', text: JSON.stringify({ verdict, findings: [] }) }] },
+      }),
+    );
+  completion('t7', 'FAIL');
+  completion('t9', 'PASS');
+  writeFileSync(
+    resolve(packets, 'aaaa1111-bbbb2222.settled.json'),
+    JSON.stringify({
+      taskId: 't7',
+      settledAt: '2026-11-22T00:00:00.000Z',
+      valid: true,
+      observationErrors: [],
+    }),
+  );
+  writeFileSync(
+    resolve(packets, 'aaaa1111-bbbb2222.result.json'),
+    JSON.stringify({
+      schemaVersion: 'cross-model-handoff/v1',
+      packetId: 'review-aaaa1111-bbbb2222',
+      verdict: 'FAIL',
+      findings: [{ severity: 'low' }],
+    }),
+  );
+  const rows = byTask(json(run(['--json', '--root', root], root).out).rows);
+  assert.deepEqual(
+    [rows.t7.status, rows.t7.verdict, rows.t7.findings.length],
+    ['parsed', 'FAIL', 1],
+    'the settled task reads the result file',
+  );
+  assert.deepEqual(
+    [rows.t9.status, rows.t9.verdict, rows.t9.findings.length],
+    ['parsed', 'PASS', 0],
+    'another task reads its own response',
+  );
 });

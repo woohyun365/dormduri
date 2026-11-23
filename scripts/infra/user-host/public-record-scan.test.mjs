@@ -137,11 +137,7 @@ test('every stage tag the record helper makes is an allowed value, and only that
     assert.equal(removed(tag), true, `${tag} is an allowed git deploy tag`);
   }
   assert.equal(removed(imageDeployTag(date, 123)), true);
-  for (const tag of [
-    'deploy-backoffice-20261111-7',
-    'deploy-api-2026111-7',
-    'deploy-api-20261111',
-  ]) {
+  for (const tag of ['deploy-admin-20261111-7', 'deploy-api-2026111-7', 'deploy-api-20261111']) {
     assert.equal(removed(tag), false, `${tag} is not a stage tag`);
   }
   for (const line of [

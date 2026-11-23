@@ -5,6 +5,7 @@
     "expected": {
       "web": true,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -18,6 +19,7 @@
     "expected": {
       "web": true,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -31,6 +33,7 @@
     "expected": {
       "web": true,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -44,6 +47,7 @@
     "expected": {
       "web": true,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": true,
       "infra": false,
@@ -57,6 +61,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -70,6 +75,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -83,6 +89,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -96,6 +103,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -109,6 +117,7 @@
     "expected": {
       "web": true,
       "api": true,
+      "backoffice": true,
       "shared": true,
       "storybook": false,
       "infra": false,
@@ -122,6 +131,7 @@
     "expected": {
       "web": true,
       "api": true,
+      "backoffice": true,
       "shared": true,
       "storybook": true,
       "infra": true,
@@ -135,6 +145,7 @@
     "expected": {
       "web": true,
       "api": true,
+      "backoffice": true,
       "shared": true,
       "storybook": true,
       "infra": true,
@@ -148,6 +159,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -161,6 +173,7 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -174,6 +187,7 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -187,6 +201,7 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -200,6 +215,7 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -213,6 +229,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -226,6 +243,7 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -239,6 +257,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -252,6 +271,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -265,6 +285,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -278,6 +299,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -291,6 +313,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -304,6 +327,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -317,6 +341,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -330,6 +355,7 @@
     "expected": {
       "web": true,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -343,6 +369,7 @@
     "expected": {
       "web": true,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -356,6 +383,7 @@
     "expected": {
       "web": true,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -369,6 +397,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -382,6 +411,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -408,6 +438,7 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -425,6 +456,7 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -438,6 +470,7 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -451,6 +484,7 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -464,6 +498,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -477,6 +512,7 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -490,6 +526,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -503,6 +540,7 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -516,6 +554,7 @@
     "expected": {
       "web": true,
       "api": true,
+      "backoffice": true,
       "shared": false,
       "storybook": true,
       "infra": false,
@@ -529,6 +568,7 @@
     "expected": {
       "web": true,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -542,6 +582,7 @@
     "expected": {
       "web": true,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -555,6 +596,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -568,6 +610,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -581,6 +624,7 @@
     "expected": {
       "web": true,
       "api": true,
+      "backoffice": true,
       "shared": true,
       "storybook": true,
       "infra": true,
@@ -594,6 +638,7 @@
     "expected": {
       "web": true,
       "api": true,
+      "backoffice": true,
       "shared": true,
       "storybook": true,
       "infra": true,
@@ -607,6 +652,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -620,6 +666,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -633,6 +680,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,
@@ -646,6 +694,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -659,6 +708,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -672,6 +722,7 @@
     "expected": {
       "web": false,
       "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -685,6 +736,7 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": false,
@@ -698,6 +750,105 @@
     "expected": {
       "web": false,
       "api": false,
+      "backoffice": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "backoffice-api-only",
+    "paths": ["apps/backoffice-api/src/main.ts"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "backoffice": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": false,
+      "agentWorkflow": false
+    }
+  },
+  {
+    "name": "backoffice-api-test-only",
+    "paths": ["apps/backoffice-api/test/integration/auth-flow.integration.spec.ts"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "backoffice": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": false,
+      "agentWorkflow": false
+    }
+  },
+  {
+    "name": "backoffice-web-only",
+    "paths": ["apps/backoffice-web/src/app/api/auth/login/password/route.ts"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "backoffice": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": false,
+      "agentWorkflow": false
+    }
+  },
+  {
+    "name": "backoffice-web-e2e-only",
+    "paths": ["apps/backoffice-web/e2e/backoffice-flow.spec.ts"],
+    "expected": {
+      "web": false,
+      "api": false,
+      "backoffice": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": false,
+      "agentWorkflow": false
+    }
+  },
+  {
+    "name": "backoffice-workflow-only",
+    "paths": [".github/workflows/backoffice-ci.yml"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "backoffice": true,
+      "shared": false,
+      "storybook": false,
+      "infra": false,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "backoffice-cd-workflow-selects-infra-and-policy",
+    "paths": [".github/workflows/backoffice-cd.yml"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "backoffice": false,
+      "shared": false,
+      "storybook": false,
+      "infra": true,
+      "repoPolicy": true,
+      "agentWorkflow": true
+    }
+  },
+  {
+    "name": "backoffice-host-bundle-selects-infra-and-policy",
+    "paths": ["infra/deploy/backoffice/compose.yml"],
+    "expected": {
+      "web": false,
+      "api": true,
+      "backoffice": false,
       "shared": false,
       "storybook": false,
       "infra": true,

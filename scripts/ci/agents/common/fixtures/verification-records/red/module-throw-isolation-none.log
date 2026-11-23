@@ -1,0 +1,22 @@
+✖ throws.test.mjs (0.241ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4.984167
+
+✖ failing tests:
+
+test at throws.test.mjs:1:1
+✖ throws.test.mjs (0.241ms)
+  SyntaxError: Unexpected end of JSON input
+      at JSON.parse (<anonymous>)
+      at file:///tmp/red-fixture/throws.test.mjs:3:22
+      at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+      at async node:internal/modules/esm/loader:650:26
+      at async node:internal/test_runner/runner:1158:15
+      at async runFiles (node:internal/test_runner/runner:1124:9)
+      at async runChain (node:internal/test_runner/runner:1202:5)

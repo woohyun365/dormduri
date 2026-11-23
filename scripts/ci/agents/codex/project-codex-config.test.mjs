@@ -525,14 +525,26 @@ test('executor retirement: Codex hooks register no Parent write guard and the po
 test('project hooks register the spawn guard and the subagent recorder from the git root', () => {
   const config = JSON.parse(readFileSync(resolve(repoRoot, '.codex/hooks.json'), 'utf8'));
   assert.deepEqual(Object.keys(config.hooks).sort(), [
+    'PostToolUse',
     'PreToolUse',
+    'Stop',
     'SubagentStart',
     'SubagentStop',
   ]);
   const matchers = {
     PreToolUse: ['(spawn_agent|followup_task|send_message)$'],
+    PostToolUse: ['^apply_patch$'],
+    Stop: [undefined],
     SubagentStart: [undefined],
     SubagentStop: [undefined],
+  };
+  // The edit-time sensors (OSS-REVIEW P5 PR ②) get their limit plus five seconds; the guard and recorders keep 10.
+  const timeouts = {
+    PreToolUse: 10,
+    PostToolUse: 13,
+    Stop: 35,
+    SubagentStart: 10,
+    SubagentStop: 10,
   };
   for (const [event, groups] of Object.entries(config.hooks)) {
     assert.deepEqual(
@@ -543,7 +555,7 @@ test('project hooks register the spawn guard and the subagent recorder from the 
     for (const group of groups)
       assert.deepEqual(
         group.hooks,
-        [{ type: 'command', command: hookCommand, timeout: 10 }],
+        [{ type: 'command', command: hookCommand, timeout: timeouts[event] }],
         event,
       );
   }
