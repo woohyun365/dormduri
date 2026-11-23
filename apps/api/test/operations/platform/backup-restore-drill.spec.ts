@@ -116,11 +116,12 @@ describe('backup and restore drill readiness boundary', () => {
     });
   });
 
-  // The RDS security group admits the user host only (D-AB5), so a GitHub-hosted runner cannot reach a restored DB.
-  // The drill runs from the operator through the user host: the migrate image one-off for the DB smoke, a temporary API
-  // container outside the compose project for readiness, and SSM port forwarding only for the operator's own read-only
-  // user. Production migration and runtime credentials stay with the host role.
-  it('runs the restore drill through the user host and keeps no GitHub-hosted restore drill workflow', () => {
+  // The RDS security group admits only the user host and the backoffice host (two /32, D-AB5), so a GitHub-hosted runner
+  // cannot reach a restored DB. The operator runs the drill by hand: the migrate image one-off on the user host for the DB
+  // smoke, a temporary API container there outside the compose project for readiness, and SSM port forwarding through the
+  // backoffice host only for the operator's own read-only user. Production migration and runtime credentials stay with
+  // the host role.
+  it('runs the restore drill by hand on the user host and keeps no GitHub-hosted restore drill workflow', () => {
     expect(existsSync(join(workflowsRoot, 'api-restore-drill-manual.yml'))).toBe(false);
     const workflowsWithDrill = readdirSync(workflowsRoot)
       .filter((name) => /\.ya?ml$/u.test(name))

@@ -46,8 +46,8 @@ planning budget)은
 - **PRS-R13** Release principal은 GitHub protected environment의 OIDC 임시 role이며, Lightsail host와 application
   container에는 장기 AWS access key를 저장하지 않는다.
 - **PRS-R14** `secret origin`(Secrets Manager), `application read source`(mounted files), `release principal`(OIDC
-  role)을 서로 다른 책임으로 유지한다. Release plane 안에서 secret을 꺼내는 주체는 host role(SSM이 user host에 주는 1시간
-  임시 credential)이고, release principal은 배포 document를 부를 뿐 secret을 읽지 않는다.
+  role)을 서로 다른 책임으로 유지한다. Release plane 안에서 secret을 꺼내는 주체는 host role(SSM이 user host와 백오피스 host에 주는 1시간
+  임시 credential, host마다 자기 묶음만 읽음)이고, release principal은 배포 document를 부를 뿐 secret을 읽지 않는다.
 - **PRS-R15** Secret reader, parser와 domain consumer의 책임을 분리한다.
 - **PRS-R16** DB URL, token, HMAC material, verification code, raw provider error를 log나 evidence에 기록하지 않는다.
 - **PRS-R17** Secret rotation owner와 rollback 절차가 없으면 production release를 진행하지 않는다.
@@ -72,8 +72,8 @@ planning budget)은
 - **PRS-R30** Migration, role grant 또는 credential smoke 실패는 rollout blocker다.
 - **PRS-R31** Backup/restore drill은 release 전에 실행하고 restored DB의 migration baseline, grant와 readiness를 검증한다.
   단계 배포에는 DB를 들이는 단계부터 적용한다.
-- **PRS-R32** Restore drill은 operator가 user host를 거쳐 수동으로 실행한다(DB smoke는 user host의 migrate image one-off,
-  API readiness는 user host의 임시 API container, 사람 조회는 SSM 포트 포워딩과 자기 사람 조회 user). RDS security group이
+- **PRS-R32** Restore drill은 operator가 수동으로 실행한다(DB smoke는 user host의 migrate image one-off,
+  API readiness는 user host의 임시 API container, 사람 조회는 백오피스 host를 거치는 SSM 포트 포워딩과 자기 사람 조회 user). RDS security group이
   user host와 백오피스 host 주소(/32 둘)만 받으므로 GitHub-hosted runner workflow는 두지 않는다. Production migration·runtime credential은 host role만
   꺼내고, 복원 instance의 생성·삭제는 Owner console이 소유한다.
 
@@ -130,14 +130,15 @@ blocker로 승격한다.
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                       | 관련 범위                 |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| 2026-06-17 | API·managed PostgreSQL 배포 준비, secret, mail, DB, ingress, readiness, backup과 rollback 안전 기준을 신설했다.                 | production runtime safety |
-| 2026-08-06 | Production target 미확정 상태를 `PENDING_TARGET`로 다루고 CI와 CD의 책임을 분리했다.                                            | release responsibility    |
-| 2026-08-11 | 변동 가능한 topology·비용·resource·rehearsal evidence를 architecture와 release handoff로 분리했다.                              | documentation ownership   |
-| 2026-08-12 | Lightsail production의 Secrets Manager origin, OIDC release principal, mounted-file application read source를 확정했다.         | secret delivery           |
-| 2026-11-01 | 문서 범위 문장의 옛 제품 이름을 서비스 이름 돔두리로 바꿨다(불변 조건·범위 서술 변경 없음)                                      | service name (#803)       |
-| 2026-11-02 | 규칙 id(`PRS-R1`~`PRS-R55`)를 붙이고 단계 배포 적용 범위와 넓힌 `PENDING_TARGET`, `docs/deploy/` 소유 나눔을 반영했다.          | stage rollout (#699·#700) |
-| 2026-11-10 | `PRS-R14`에 release plane 안의 secret reader가 host role이고 release principal은 secret을 읽지 않는다는 문장을 더했다.          | secret delivery (#886)    |
-| 2026-11-11 | `PRS-R32`의 restore drill 경로를 GitHub-hosted runner workflow에서 user host 경유 수동 실행(credential은 host role)으로 바꿨다. | restore drill (#894)      |
-| 2026-11-22 | `PRS-R32`의 RDS security group 문장에 백오피스 host 주소를 더했다(runner가 닿지 않는다는 뜻은 그대로).                          | backoffice host (#974)    |
+| 날짜       | 변경 내용                                                                                                                                                                              | 관련 범위                 |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| 2026-06-17 | API·managed PostgreSQL 배포 준비, secret, mail, DB, ingress, readiness, backup과 rollback 안전 기준을 신설했다.                                                                        | production runtime safety |
+| 2026-08-06 | Production target 미확정 상태를 `PENDING_TARGET`로 다루고 CI와 CD의 책임을 분리했다.                                                                                                   | release responsibility    |
+| 2026-08-11 | 변동 가능한 topology·비용·resource·rehearsal evidence를 architecture와 release handoff로 분리했다.                                                                                     | documentation ownership   |
+| 2026-08-12 | Lightsail production의 Secrets Manager origin, OIDC release principal, mounted-file application read source를 확정했다.                                                                | secret delivery           |
+| 2026-11-01 | 문서 범위 문장의 옛 제품 이름을 서비스 이름 돔두리로 바꿨다(불변 조건·범위 서술 변경 없음)                                                                                             | service name (#803)       |
+| 2026-11-02 | 규칙 id(`PRS-R1`~`PRS-R55`)를 붙이고 단계 배포 적용 범위와 넓힌 `PENDING_TARGET`, `docs/deploy/` 소유 나눔을 반영했다.                                                                 | stage rollout (#699·#700) |
+| 2026-11-10 | `PRS-R14`에 release plane 안의 secret reader가 host role이고 release principal은 secret을 읽지 않는다는 문장을 더했다.                                                                 | secret delivery (#886)    |
+| 2026-11-11 | `PRS-R32`의 restore drill 경로를 GitHub-hosted runner workflow에서 user host 경유 수동 실행(credential은 host role)으로 바꿨다.                                                        | restore drill (#894)      |
+| 2026-11-22 | `PRS-R32`의 RDS security group 문장에 백오피스 host 주소를 더했다(runner가 닿지 않는다는 뜻은 그대로).                                                                                 | backoffice host (#974)    |
+| 2026-11-24 | `PRS-R32`의 사람 조회 경로를 백오피스 host 경유로 적고(user host 경유는 관리 permission set의 Deny로 막음) 주절의 user host 경유를 뺐다. `PRS-R14` host role에 백오피스 host를 더했다. | backoffice stage (#82)    |
