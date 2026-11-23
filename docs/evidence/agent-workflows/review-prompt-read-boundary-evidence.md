@@ -34,7 +34,9 @@ Node 26.13.1에서 했습니다. 로컬 registry 기록을 센 값은 그렇다�
   helper test 파일 끝에 측정 test 하나를 붙여 실행했습니다. Fixture는 셋입니다: 작은 subject(acceptance 한 줄, runner 기록 한 개), 과밀
   subject(기준 문서 21개, runner 기록 8개, Parent subject acceptance 16줄), runner 기록 60개(기록마다 command 120자·observedResult 160자).
 - Prompt 글자 수(기록 모의): 기록된 reviewer prompt 860개에서 결과 template 줄과 옛 마지막 줄을 빼고, 사본 fixture로 잰 새 고정 줄 길이 합(688자,
-  review id 길이 포함)을 더했습니다. 실제 등록이 아니라 계산입니다. 기준 문서 줄의 짧아짐과 사본 안내 줄 변화는 넣지 않았습니다.
+  review id 길이 포함)을 더했습니다. 실제 등록이 아니라 계산입니다. 기준 문서 줄의 짧아짐과 사본 안내 줄 변화는 넣지 않았습니다. 집계는
+  로컬 registry의 task 기록에서 `knu_reviewer` prompt 가운데 결과 template 줄이 prompt 안에 있는 옛 형식만 세는 일회성 script로 냈고, 그
+  실행 log는 리뷰 runner 기록에 있습니다(공개 재현은 되지 않음). 순위 값은 정렬한 표본의 가장 가까운 순위입니다.
 - Held-out 사본 모양 fixture: 재채점 사본 subject의 prompt를 글자까지 고정한 fixture 파일의 변경 전후 byte 수입니다.
 - Tree 비교: 저장소 전체 판정 reviewer를 등록한 뒤 같은 tree의 fast-forward, 같은 tree의 squash merge, tree를 바꾸는 commit을 리뷰 중과 reviewer
   종료 뒤에 각각 만들고 정산 오류를 셌습니다(6 사례, 같은 두 clone).
@@ -42,10 +44,11 @@ Node 26.13.1에서 했습니다. 로컬 registry 기록을 센 값은 그렇다�
   실행했습니다.
 
 ```bash
-# 바뀐 test 세 파일
+# 바뀐 test 네 파일
 node --test scripts/ci/agents/claude/claude-native-task-helper.test.mjs \
-  scripts/ci/agents/claude/claude-native-skills.test.mjs \
-  scripts/ci/agents/common/agent-native-adapter-contract.test.mjs
+  scripts/ci/agents/claude/claude-subagent-model-routing.test.mjs \
+  scripts/ci/agents/common/agent-native-adapter-contract.test.mjs \
+  scripts/ci/agents/common/review-context-inputs.test.mjs
 
 # 과밀 fixture가 한도 안에 들고 결과 template이 파일인지
 node --test --test-name-pattern='P6 ④ RED 1' scripts/ci/agents/claude/claude-native-task-helper.test.mjs
@@ -123,13 +126,14 @@ git ls-tree -r --name-only ead56b6b | grep -c '[][()]'
 | path 없는 Grep, 저장소 root·상위·read 범위 밖 Grep·Glob | 허용, 정산이 저장소 전체 판정 | hook이 이유와 함께 거부, 거부 기록에 남은 호출은 의존 판정에서 빠짐 |
 | read 범위 밖 Read                                       | 판정만 바뀌지 않음            | `readOutsidePaths`에 기록, 판정 그대로                              |
 
-- 같은 tree 사례 4건의 mismatch가 0건이 됐고, tree를 바꾸는 commit 2건은 그대로 mismatch입니다.
+- 같은 tree 사례 4건의 mismatch가 0건이 됐고, tree를 바꾸는 commit 2건은 그대로 mismatch입니다. 판정이 없는 recovery 결속은 지금처럼
+  commit으로 대조해, 같은 tree commit 뒤에도 재시도를 결속하지 않습니다.
 - 거부 기록(task 디렉터리 `review-read-denials.jsonl`)에 없는 path 없는 검색은 지금처럼 저장소 전체 판정입니다. 기록에 읽지 못하는 줄이
   있으면 기록 전체를 쓰지 않습니다.
 
 ### 입력 경로
 
-- 경로 조각은 Unicode 글자·결합 부호·숫자와 `.`·`_`·`-`·괄호·대괄호를 받습니다(등록 policy와 helper가 같은 규칙). 리뷰 입력을 고르는 Git
+- 경로 조각은 Unicode 글자·결합 부호·숫자와 `.`·`_`·`-`·괄호·대괄호를 받고, 경로는 Git이 파일 이름을 내는 NFC여야 합니다(등록 policy와 helper가 같은 규칙). 리뷰 입력을 고르는 Git
   `ls-files` 호출 세 곳은 `:(literal)` pathspec을 써 `[requestId]`를 glob으로 읽지 않습니다. `git check-ignore`는 pathspec magic을 받지 않고
   (exit 128) 인자를 literal로 다루므로 그대로 둡니다. Untracked 경로의 `[`·`]`는 snapshot 검사가 그대로 막아, 괄호·대괄호 경로는 commit한
   경로만 리뷰 입력이 됩니다.
@@ -152,7 +156,8 @@ git ls-tree -r --name-only ead56b6b | grep -c '[][()]'
 ### 재채점
 
 - 이 변경은 reviewer prompt 원본(helper와 `knu_reviewer` 역할 파일)을 바꾸므로 merge 전에 held-out 사본으로 재채점합니다. 결과(통과/실패, 더 놓친
-  칸 수, 부분 감소 칸 수, 판정 가능 칸 수, 사용 기록 id)는 PR 본문 `재채점` 줄과 Review evidence 줄이 소유합니다.
+  칸 수, 부분 감소 칸 수, 판정 가능 칸 수, 사용 기록 id)는 재채점이 끝나면 이 소절에 적고, PR 본문 `재채점` 줄과 Review evidence 줄에도
+  같은 값을 둡니다.
 
 ## 7. 한계와 재측정 조건
 

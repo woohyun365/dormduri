@@ -834,9 +834,10 @@ function safePaths(value, nonEmpty) {
   require(
     value.every(
       (item) =>
+        // The same rule as native-session safePath (NFC; segments of letters, marks, digits, . _ - ( ) [ ]).
+        item === item.normalize('NFC') &&
         !item.startsWith('/') &&
         !item.endsWith('/') &&
-        // The same segment rule as native-session safePath (letters, marks, digits, . _ - ( ) [ ]).
         item
           .split('/')
           .every((segment) => /^(?!\.{1,2}$)[\p{L}\p{M}\p{N}._()[\]-]+$/u.test(segment)),

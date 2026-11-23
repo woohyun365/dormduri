@@ -1114,3 +1114,13 @@ test('a read scope segment takes letters, marks, digits and . _ - ( ) [ ] and ev
   for (const path of ['docs/(guide)/a b.md', 'docs/a;b/qa.md', 'docs/../qa.md', './docs', 'docs/'])
     assert.deepEqual(withScope([path]), ['invalid-input'], path);
 });
+
+test('a read scope path must be in NFC like native-session safePath (P6 ④ 1회차 m1-F6)', () => {
+  const withScope = (readScope) => {
+    const input = researchInput();
+    input.task.readScope = readScope;
+    return evaluateClaudeProfileEligibility(input).reasons;
+  };
+  assert.deepEqual(withScope(['문서/설명.md']), []);
+  assert.deepEqual(withScope(['문서/설명.md'.normalize('NFD')]), ['invalid-input']);
+});

@@ -96,8 +96,8 @@
 
 - `review`나 Codex `review-run`이 `binding-values-invalid: …`로 멈추거나, `review-context-inputs.mjs` CLI가
   `context-output-missing`·`context-output-invalid`로 exit 1입니다.
-- `review --parent-subject`가 subject의 경로나 `requirementSections`를 거부하거나, 출력 `warnings`에
-  `request-implementation-marker`가 나옵니다.
+- `review --parent-subject`가 subject의 경로·`requirementSections`·`requirementSources`·`referencePaths`를 거부하거나, 출력
+  `warnings`에 `request-implementation-marker`·`reference-paths-unchecked`가 나옵니다.
 
   ```text
   invalid parentSubject: local-state-path:.omc/notepad.md
@@ -107,8 +107,14 @@
   invalid parentSubject: requirement-path-unreadable: .plans/<plan>.md
   invalid parentSubject: requirement-path-in-paths: .plans/<plan>.md
   invalid parentSubject: requirementSections-invalid: [{"path": "<plan path>", "headings": ["<heading text>", ...]}]
+  invalid parentSubject: requirement-sources-invalid: a list of distinct repository file paths
+  invalid parentSubject: requirement-source-invalid: <path> is not a repository file
+  invalid parentSubject: requirement-source-in-paths: <path> is a subject read path
+  invalid parentSubject: reference-paths-invalid: a list of distinct repository paths
+  invalid parentSubject: reference-path-invalid: <path> is not a repository file or directory
   invalid parentSubject: reference-path-in-paths: <path> overlaps a subject path
   invalid parentSubject: reference-path-changed: <path> differs from HEAD (dirty or untracked)
+  reference-paths-unchecked: --basis <ref> names no commit, so referencePaths (<paths>) were not compared with it; a changed file belongs in paths
   ```
 
 - 1회차 그룹의 PASS 구성원을 연결한 builder 완료가 `review-adjudication-required`, `review-group-mismatch`,
@@ -128,8 +134,10 @@
   Native subject reviewer는 `observationErrors`에 `review-binding-changed`·`review-runner-file-changed`·`review-template-changed`가
   있고 `settle --task --judgment`도 그 사유로 거부됩니다. 그 reviewer를 연결한 subject의 `settle --task --judgment`도 같은 사유로
   거부됩니다.
-- Reviewer child가 Grep·Glob을 부르면 `KNU review read: …; give a path inside packet.boundaries.allowedReadPaths`로 거부되고, settle
-  출력 `readOutsidePaths`에 경로가 있습니다.
+- Reviewer child의 Grep·Glob이 `KNU review read: a Grep without a path searches the whole repository; …`,
+  `KNU review read: Grep path <path> is the repository root or a directory above it; …`,
+  `KNU review read: Grep path <path> is outside packet.boundaries.allowedReadPaths; give a path inside them` 꼴로 거부됩니다.
+  또는 settle 출력 `readOutsidePaths`(read 범위 밖 Read 대상)에 경로가 있습니다.
 - Parent reviewer의 `settle --task` `observationErrors`에 `review-result-unparsed`나 `review-packet-settled`가 있고 출력
   `resultPath`가 null입니다.
 - 정산·완료가 `adapter/role/settings drift`로 거부됩니다. 또는 거부 없이 settle 결과의 `identityOutsideChanges`·
@@ -204,8 +212,8 @@
 - 공통 PASS 규칙은 `notRun`·`knownGaps`·coverage gap이 하나라도 있으면 PASS를 거부합니다. 읽기 전용 reviewer에게 검증 명령을
   실행하지 말라고 하면서 실행 결과 칸을 비우게 하면, 실행하지 않은 검증이 `notRun`으로 들어가 PASS가 거부됩니다.
 - 읽기 전용 reviewer는 packet의 runner(`authority.runnerOwner`)가 될 수 없습니다.
-- Helper가 만든 review는 결과 template(runner 기록 포함)을 등록 prompt에 결속합니다. Reviewer 결과의 `commandsActuallyRun`이
-  그 기록과 하나라도 다르면(추가·삭제·변경) 정산을 거부합니다.
+- Helper가 만든 review는 결과 template 파일과 runner 파일(runner 기록)의 digest를 등록 prompt에 결속합니다. Reviewer 결과의
+  `commandsActuallyRun`이 runner 파일의 기록과 하나라도 다르면(추가·삭제·변경) 정산을 거부합니다.
 - `parent-adjudication` reviewer는 native subject가 없어 `settle --judgment`로 정산할 수 없습니다.
 - Read-only subject의 응답은 helper가 `subject-response.txt`에 한 번 쓰고 reviewer 등록 때 정산된 응답과 대조합니다. 파일을 고치면
   거부됩니다. 다른 native task 기록은 대소문자를 바꾼 경로,
@@ -280,7 +288,7 @@
 - Parent subject 입력: `paths`의 `.omc/`·`.omx/`·`.codex/state/`·`.claude/projects/` 아래 경로는 host·세션
   상태라 `local-state-path:<path>`로, Home(`~`) 경로와 절대 경로는 저장소 기준 상대 경로가 아니라
   `path-not-repository-relative:<path>`로 거부합니다(`lifecycleDraft`도 같음). 추적 `.claude/` 설정·skill·역할 파일은 해당하지
-  않습니다. 등록이 `unsafe-path`로 거부할 read path(Unicode 글자·숫자, `.`·`_`·`-`·괄호·대괄호 밖 문자가 든 경로 조각 등)는 `review`가
+  않습니다. 등록이 `unsafe-path`로 거부할 read path(Unicode 글자·숫자, `.`·`_`·`-`·괄호·대괄호 밖 문자가 든 경로 조각, NFC가 아닌 경로 등)는 `review`가
   파일을 쓰기 전에 같은 사유로 거부합니다. Untracked 경로의 `[`·`]`는 snapshot 검사(`adapter-contract.mjs`)가 그대로 막아 commit한
   경로만 등록됩니다.
   Ignored 입력은 사본 경로로 읽으므로 이름과 무관하게 등록됩니다. `request`에 완료형 구현
@@ -295,7 +303,9 @@
   요구 원천과 read path에 넣습니다. subject read path와 겹치면 `requirement-source-in-paths`, 저장소 파일이 아니면
   `requirement-source-invalid`, Parent subject에 `--requirement-source`를 주면 `requirement-source-native-only`입니다. Parent subject
   `referencePaths`는 read path에만 들고, `paths`와 겹치면 `reference-path-in-paths`, dirty·untracked 변경이 있거나 `--basis` commit부터
-  HEAD까지 바뀌면 `reference-path-changed`입니다.
+  HEAD까지 바뀌면 `reference-path-changed`입니다. `--basis`가 commit이 아니면(plan 참조) 비교하지 않고 출력 `warnings`에
+  `reference-paths-unchecked`가 나옵니다. 목록이 서로 다른 경로의 배열이 아니면 `requirement-sources-invalid`·`reference-paths-invalid`,
+  참조 경로가 저장소 파일·디렉터리가 아니면 `reference-path-invalid`입니다.
 - 리뷰어 입력 추출: `review`는 고른 기준 문서에 걸린 binding 행을 `<reviewId>.binding.md`로, `lifecycleDraft`의 `## Lifecycle` 절을
   `<reviewId>.lifecycle.md`로 reviewer마다 쓰고 prompt 기록이 그 digest를 결속합니다. 정산은 등록한 prompt나 read 범위가 추출을 가리킬
   때 추출이 기록의 digest와 다르거나 기록이 없으면 `review-binding-changed`·`review-lifecycle-changed`입니다. Native subject
@@ -353,8 +363,9 @@
 - Parent가 직접 작성한 변경은 native subject task가 없습니다. `review --parent-subject <file> --session <session_id>`는 `settlement:"parent-adjudication"`을
   표시하고 QA가 필요한 일반 review task spec을 만듭니다. 이 reviewer는 `complete`로 PASS 정산되지 않습니다. Parent가
   reviewer의 `settle --task` 출력에서 `observationErrors`가 비었는지(effort 사유 포함)와 모델·변경 경로, finding 재현으로
-  판정하고, `finalSnapshot`의 digest가 review `logHeader`의 digest와 같은지 확인합니다. `completion.json`의 `valid`만으로는
-  판정하지 않습니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.
+  판정합니다. Source 대조는 settle이 합니다: `review-snapshot-mismatch`·`post-completion-source-drift`가 없으면 logHeader의 source와
+  같습니다(저장소 전체 판정은 같은 tree의 fast-forward·squash merge도 같은 source로 보고 `headChanged`만 남기므로 `finalSnapshot`
+  digest를 logHeader digest와 손으로 비교하지 않습니다). `completion.json`의 `valid`만으로는 판정하지 않습니다. Review를 만든 뒤 source가 바뀌면 `prepare`가 `review-snapshot-stale`로 거부합니다.
 - Parent review의 settle `observationErrors`에 `review-packet-unread`가 있으면 reviewer가 prompt의 packet 파일을 성공적으로
   읽지 않은 것입니다. `review-packet-changed`는 packet 파일이 prompt의 digest와 다른 것입니다. `review-packet-missing`은 Parent reviewer spec의
   prompt에서 packet 파일 줄이 빠진 것입니다. 그런 prompt는 지금 등록부터 `review-prompt-unbound`로 거부되므로, Helper가 packet 파일 줄을 쓰기 전 버전으로 등록한 Parent reviewer를 지금 정산할 때 나옵니다. 세 사유 모두 결과를 쓰지 말고 파일을

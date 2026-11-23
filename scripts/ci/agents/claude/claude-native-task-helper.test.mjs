@@ -6896,3 +6896,113 @@ test('the part sizes of a prompt over the limit add up to its length (P6 ④ swe
     );
   }
 });
+
+// Review round 1 findings (P6 ④ 1회차).
+test('a reviewer recovery binding still compares commits: a same-tree commit after the first task forfeits the retry (P6 ④ 1회차 m1-F5)', (t) => {
+  const r = repo(t);
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  gitIn(r.root, 'add', '.');
+  gitIn(r.root, 'commit', '-qm', 'subject');
+  const review = parentReview(r, SMALL_PARENT_SUBJECT);
+  const reviewer = prepareClaudeNativeTask(review.reviewerSpec, { root: r.root });
+  dispatch(r, reviewer, 'review-1');
+  const transcriptPath = writeChildTranscript(r.root, {
+    sessionId: r.sessionId,
+    agentId: 'review-1-agent',
+    prompt: reviewer.invocation.prompt,
+    model: 'claude-opus-4-6',
+    effort: ROLE_EFFORT.knu_reviewer,
+    tools: [{ name: 'Read', input: { file_path: join(r.root, review.packetFile.path) } }],
+  });
+  completeReviewerAgent(r, reviewer, transcriptPath, passing(review));
+  gitIn(r.root, 'commit', '--allow-empty', '-qm', 'same tree');
+  // The registry binds a retry the way `register --input` reaches it; prepare refuses the moved snapshot first.
+  assert.throws(
+    () =>
+      registerClaudeNativeTask({
+        ...reviewer.registerInput,
+        recovery: { of: reviewer.taskId, cause: 'context-missing' },
+      }),
+    /recovery-not-ran: .*post-completion-source-drift/u,
+  );
+});
+
+test('a read path must be in NFC, the form Git names files in (P6 ④ 1회차 m1-F6)', (t) => {
+  const r = repo(t);
+  mkdirSync(join(r.root, '문서'), { recursive: true });
+  writeFileSync(join(r.root, '문서/설명.md'), 'x\n');
+  gitIn(r.root, 'add', '.');
+  gitIn(r.root, 'commit', '-qm', 'names');
+  const nfd = '문서'.normalize('NFD');
+  assert.notEqual(nfd, '문서');
+  for (const path of [nfd, `${nfd}/설명.md`, `문서/${'설명.md'.normalize('NFD')}`])
+    assert.throws(
+      () => prepareClaudeNativeTask(explorerSpec(r, { readScope: [path] }), { root: r.root }),
+      /unsafe-path/u,
+      JSON.stringify(path),
+    );
+  const prepared = prepareClaudeNativeTask(explorerSpec(r, { readScope: ['문서'] }), {
+    root: r.root,
+  });
+  assert.deepEqual(prepared.registerInput.workflowInput.nativeRequest.task.readScope, ['문서']);
+});
+
+test('a basis that names no commit leaves referencePaths unchecked and the review warns (P6 ④ 1회차 m1-F2)', (t) => {
+  const r = repo(t);
+  mkdirSync(join(r.root, 'ref'), { recursive: true });
+  writeFileSync(join(r.root, 'ref/background.md'), '# background\n');
+  gitIn(r.root, 'add', '.');
+  gitIn(r.root, 'commit', '-qm', 'base');
+  const basis = gitIn(r.root, 'rev-parse', 'HEAD');
+  writeFileSync(join(r.root, 'ref/background.md'), '# background, committed\n');
+  gitIn(r.root, 'commit', '-qm', 'reference edit', '--', 'ref/background.md');
+  writeFileSync(join(r.root, 'sample.txt'), 'parent edit');
+  const build = (parentSubject, selectionBasisRef) =>
+    kindReview(r, 'parent', { parentSubject, selectionBasisRef });
+  const unchecked = (review) =>
+    (review.warnings ?? []).filter((warning) => warning.startsWith('reference-paths-unchecked:'));
+  const referenced = { ...SMALL_PARENT_SUBJECT, referencePaths: ['ref/background.md'] };
+  const plan = build(referenced, 'plan:helper-test/p6-pr4');
+  assert.equal(unchecked(plan).length, 1, (plan.warnings ?? []).join('\n'));
+  assert.match(
+    unchecked(plan)[0],
+    /plan:helper-test\/p6-pr4 names no commit.*ref\/background\.md/u,
+  );
+  // A commit basis compares instead, and a subject without referencePaths has nothing to warn about.
+  assert.throws(() => build(referenced, basis), /reference-path-changed: ref\/background\.md/u);
+  assert.deepEqual(unchecked(build(referenced, gitIn(r.root, 'rev-parse', 'HEAD'))), []);
+  assert.deepEqual(unchecked(build(SMALL_PARENT_SUBJECT, 'plan:helper-test/p6-pr4')), []);
+});
+
+test('the over-limit refusal points at prompt parts, not acceptance or read paths that are files (P6 ④ 1회차 m1-F3)', (t) => {
+  const r = repo(t);
+  const parentSubject = {
+    request: 'sample.txt 변경을 구현해줘.',
+    owner: 'parent',
+    acceptance: ['sample.txt updated'],
+    paths: ['sample.txt'],
+  };
+  const { snapshotDigest } = buildClaudeNativeReview({ parentSubject }, { root: r.root });
+  let message = '';
+  try {
+    buildClaudeNativeReview(
+      {
+        parentSubject,
+        runnerEvidence: LONG_LINE_RECORDS(snapshotDigest),
+        selectionBasisRef: 'plan:helper-test/review',
+        reviewerModel: 'claude-opus-4-6',
+        reviewRound: 1,
+        sessionId: r.sessionId,
+      },
+      { root: r.root },
+    );
+  } catch (error) {
+    message = error.message;
+  }
+  assert.match(
+    message,
+    /reviewer-prompt-exceeds-12000-chars \(\d+; [^)]*\): shorten the largest part/u,
+  );
+  assert.match(message, /runner records/u);
+  assert.doesNotMatch(message, /acceptance criteria|read paths|already files/u);
+});

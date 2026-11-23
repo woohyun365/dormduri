@@ -7,7 +7,7 @@
 Reviewer 입력은 `pnpm claude:native review`로 만듭니다. `--subject <taskId>`만 주면 관측이 정산된 subject의 이번 회차
 `snapshotDigest`와 `logHeader`를 출력하고, 완료 관측이 없으면 거부합니다. Runner는 `logHeader`를 검증 로그 첫 줄에 두고
 각 실행을 `{command, exit, environment, observedResult, outputPaths, sourceDigest}` 기록으로 남깁니다. Review id 앞 8자는 native
-subject면 task id, Parent subject면 snapshot digest라 같은 tree면 세션 사이에도 같고 뒤 8자만 무작위입니다. 같은 snapshot을 다시
+subject면 task id, Parent subject면 snapshot digest라 같은 snapshot(commit·dirty diff·untracked 입력)이면 세션 사이에도 같고 뒤 8자만 무작위입니다. 같은 snapshot을 다시
 리뷰하면 logHeader(같은 digest)도 같고 packet id만 다릅니다. Ignored 입력만 바뀐 회차도 snapshot digest가 같아 같은 logHeader라
 header 검사는 회차를 가르지 못하므로, runner log는 회차마다 새 경로에 둡니다. 수정 전 실패를 보이는
 RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 두며, 실제 exit가 기대와 같을 때만 known failure가 아닙니다.
@@ -17,7 +17,7 @@ RED 기록은 `purpose:"red"`와 1~255의 `expectedExit`를 함께 두며, 실�
 `--basis`·`--reviewer-model`을 더하면 packet, reviewer prompt, 결과 template, reviewer용 prepare spec이 나옵니다. Runner 기록의
 `sourceDigest`가 이번 회차 digest가 아니거나 필드가 다르면 거부합니다. `--basis`가 안전한 참조 형식이 아니면 packet 파일을 쓰기 전에
 `unsafe-reference:selectionBasisRef`로 거부합니다. 등록이 `unsafe-path`로 거부할 read path(경로 조각에 Unicode 글자·숫자와 `.`·`_`·`-`·
-괄호·대괄호 밖 문자가 있거나 `.`·`..`·빈 조각인 경로)도 같은 사유(`unsafe-path:nativeRequest.task.readScope:<path>`)로 파일을 쓰기
+괄호·대괄호 밖 문자가 있거나 `.`·`..`·빈 조각이거나 NFC가 아닌 경로)도 같은 사유(`unsafe-path:nativeRequest.task.readScope:<path>`)로 파일을 쓰기
 전에 거부합니다. 괄호·대괄호 경로는 Git `ls-files`에 literal pathspec(`:(literal)`)으로 넘겨 glob으로 읽지 않습니다. Native subject(읽기 전용)의 read path는 subject `readScope`와
 runner 출력 경로이고, Parent subject의 read path도 subject `paths`와 runner 출력 경로를 함께 담습니다(ignored 경로는 아래
 [입력 사본](#리뷰-입력-사본)으로 바뀝니다). Native subject의 `--requirement-source <저장소 안 파일>`(반복)과 Parent subject
@@ -25,7 +25,7 @@ runner 출력 경로이고, Parent subject의 read path도 subject `paths`와 ru
 기준 하나)와 read path에 넣고, subject read path와 겹치면 `requirement-source-in-paths`, 저장소 파일이 아니면
 `requirement-source-invalid`로 거부합니다. Parent subject `referencePaths`는 바뀌지 않은 배경 파일·디렉터리를 read path에만 넣고 기준
 자동 선택과 subject `paths`에는 넣지 않습니다. `paths`와 겹치면 `reference-path-in-paths`, snapshot의 dirty diff·untracked 입력에
-들거나 `--basis`(commit을 가리킬 때)부터 HEAD까지 바뀐 경로면 `reference-path-changed`로 거부합니다. Ignored 파일의 바뀜은 Git이
+들거나 `--basis`(commit을 가리킬 때)부터 HEAD까지 바뀐 경로면 `reference-path-changed`로 거부합니다. `--basis`가 commit이 아니면 비교하지 않고 출력 `warnings`에 `reference-paths-unchecked`를 냅니다. Ignored 파일의 바뀜은 Git이
 알 수 없어 바뀐 파일은 `paths`에 둡니다. Native subject는 응답이
 산출물이므로 helper가 정산된 응답을 subject task 디렉터리의 `subject-response.txt`에 한 번 쓰고 read path 맨 앞에 두며, prompt는
 그 주장과 자기평가가 근거가 아니라고 적습니다. Parent가 응답을 옮겨 적는 parent-adjudication으로 우회하지 않습니다. 결과의

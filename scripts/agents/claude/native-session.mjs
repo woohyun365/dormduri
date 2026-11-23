@@ -610,9 +610,11 @@ export const safeRef = (value) =>
 // A repository-relative path: segments of letters and digits (Unicode, with their combining marks), `.`, `_`, `-`,
 // parentheses and brackets (Next.js route groups and dynamic segments). An absolute path, `.`, `..` or empty segment, a
 // trailing `/`, control characters, `\`, `*`, `?`, `{` and `}` stay refused. Git reads these paths literally where they
-// become pathspecs (literalPathspec below), so a bracket never acts as a glob.
+// become pathspecs (literalPathspec below), so a bracket never acts as a glob. A path not in NFC is refused: Git names
+// files in NFC, and a decomposed read path would match none of them as a string.
 export const safePath = (value) =>
   typeof value === 'string' &&
+  value === value.normalize('NFC') &&
   !value.startsWith('/') &&
   !value.endsWith('/') &&
   value.split('/').every((segment) => /^(?!\.{1,2}$)[\p{L}\p{M}\p{N}._()[\]-]+$/u.test(segment));
@@ -1300,12 +1302,17 @@ function currentObservation(task, { dependency = true } = {}) {
   )
     errors.push('adapter/role/settings drift');
   // A reviewer judged over the whole repository compares trees: a commit that keeps the tree (a fast-forward of an
-  // empty commit, a squash merge of the reviewed tree) is no drift. headChanged still records the new HEAD.
+  // empty commit, a squash merge of the reviewed tree) is no drift. headChanged still records the new HEAD. A
+  // recovery binding has no judgment and still compares commits.
   const reviewerRole = record.input.nativeRequest.task.role === 'knu_reviewer';
   if (
     !isDeepStrictEqual(current, observation.finalSnapshot) &&
     !(filtering && judgment.inside.length === 0) &&
-    !(reviewerRole && sameClaudeSourceTree(record.root, current, observation.finalSnapshot))
+    !(
+      reviewerRole &&
+      judgment?.basis === 'repository' &&
+      sameClaudeSourceTree(record.root, current, observation.finalSnapshot)
+    )
   )
     errors.push('post-completion-source-drift');
   // An original changed after its copy was made is reported only: the reviewer read the copy. One a

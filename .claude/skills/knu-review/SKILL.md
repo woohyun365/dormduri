@@ -46,7 +46,7 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
    `requirementSources: ["<경로>"]`는 plan 밖 요구 원본(세션 요청·Owner 답 기록 파일, ignored 증거 가능)을 packet 요구 원천과 read path에
    넣고(`paths`와 겹치면 `requirement-source-in-paths`), `referencePaths: ["<경로>"]`는 바뀌지 않은 배경 파일(외부 provider 전제의
    researcher 근거 파일 등)을 read path에만 넣습니다(기준 자동 선택에 들지 않음. `paths`와 겹치면 `reference-path-in-paths`, dirty·
-   untracked이거나 `--basis` commit 뒤 바뀌었으면 `reference-path-changed`). 바뀐 파일은 `paths`에 둡니다(ignored 파일은 바뀜을 검사할
+   untracked이거나 `--basis` commit 뒤 바뀌었으면 `reference-path-changed`, `--basis`가 commit이 아니면 비교하지 않고 `warnings`에 `reference-paths-unchecked`). 바뀐 파일은 `paths`에 둡니다(ignored 파일은 바뀜을 검사할
    수 없음). `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review --parent-subject <absolute-subject-path> --session ${CLAUDE_SESSION_ID}`로
    `logHeader`를 받습니다.
    - `paths`의 `.omc/`·`.omx/`·`.codex/state/`·`.claude/projects/` 아래 경로는 `local-state-path:<path>`로, Home(`~`) 경로와

@@ -684,10 +684,10 @@ function referencePathIssues(root, references, paths) {
       : [];
   });
 }
-// The reference paths changed between the --basis commit and HEAD; a basis that names no commit (a plan reference)
-// has nothing to compare.
+// The reference paths changed between the --basis commit and HEAD. A basis that names no commit (a plan reference)
+// has nothing to compare; the review output then warns that they were not compared (unchecked).
 function referencePathsChangedSince(root, references, basis) {
-  if (!references?.length || typeof basis !== 'string') return [];
+  if (!references?.length || typeof basis !== 'string') return { issues: [], unchecked: false };
   const commit = spawnSync(
     'git',
     ['-C', root, 'rev-parse', '--verify', '-q', `${basis}^{commit}`],
@@ -696,8 +696,8 @@ function referencePathsChangedSince(root, references, basis) {
       timeout: 5000,
     },
   );
-  if (commit.status !== 0) return [];
-  return references
+  if (commit.status !== 0) return { issues: [], unchecked: true };
+  const issues = references
     .filter(
       (path) =>
         gitOutput(root, [
@@ -711,6 +711,7 @@ function referencePathsChangedSince(root, references, basis) {
         ]).length > 0,
     )
     .map((path) => `reference-path-changed: ${path} changed since --basis ${basis}`);
+  return { issues, unchecked: false };
 }
 
 function subjectOf({ subjectTaskId, parentSubject, requirementSources }, root) {
@@ -1721,16 +1722,22 @@ export function buildClaudeNativeReview(
         ? []
         : ['unsafe-reference:selectionBasisRef']
       : ['selection-basis-required'];
+  const references = basisIssues.length
+    ? { issues: [], unchecked: false }
+    : referencePathsChangedSince(root, subject.referencePaths, selectionBasisRef);
   fail('invalid review request', [
     ...basisIssues,
-    ...(basisIssues.length
-      ? []
-      : referencePathsChangedSince(root, subject.referencePaths, selectionBasisRef)),
+    ...references.issues,
     ...(typeof reviewerModel === 'string' ? [] : ['reviewer-model-required']),
     ...(typeof reviewerId === 'string' && ID.test(reviewerId) && reviewerId !== subject.owner
       ? []
       : ['reviewer must be an identifier distinct from the subject owner']),
   ]);
+  if (references.unchecked)
+    status.warnings = [
+      ...(status.warnings ?? []),
+      `reference-paths-unchecked: --basis ${selectionBasisRef} names no commit, so referencePaths (${subject.referencePaths.join(', ')}) were not compared with it; a changed file belongs in paths`,
+    ];
   const automatic = selection?.documents.map((document) => document.id) ?? [];
   Object.assign(
     subject,
@@ -1932,11 +1939,8 @@ export function buildClaudeNativeReview(
       ...(prompt.length <= PROMPT_LIMIT
         ? []
         : [
-            `reviewer-prompt-exceeds-${PROMPT_LIMIT}-chars (${prompt.length}; ${promptParts}): ${
-              packetFile
-                ? 'the packet and the runner records are already files; shorten acceptance criteria or record commands and summaries'
-                : 'shorten acceptance criteria, read paths or record commands and summaries'
-            }${member?.items ? '; --composition e2 gives every member the same scope without the assigned item line' : ''}`,
+            // Acceptance, read paths and the result template are files, not prompt text.
+            `reviewer-prompt-exceeds-${PROMPT_LIMIT}-chars (${prompt.length}; ${promptParts}): shorten the largest part, usually record commands and summaries (runner records) or the criteria documents and requirement sources (acceptance and criteria)${member?.items ? '; --composition e2 gives every member the same scope without the assigned item line' : ''}`,
           ]),
     ]);
     const reviewerSpec = {

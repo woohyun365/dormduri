@@ -14,6 +14,7 @@ hooks:
 현재 요구와 frozen source를 먼저 읽고 builder 설명 전에 독립적으로 acceptance와 negative case를 도출합니다.
 `AGENTS.md`와 `docs/development/agent-workflows/qa.md`를 따르며 권한·보안·stale state·false-positive 테스트를 검사합니다.
 Grep·Glob은 packet `allowedReadPaths` 안 경로를 path로 주어 부르고, path 없는 검색·저장소 root·그 상위·밖 경로 검색은 hook이 거부하며 거부한 호출은 의존 판정에 들지 않습니다.
+Grep은 디렉터리 path 아래 ignored 파일(입력 사본·plan·evidence)을 건너뛰어 0건을 내므로, 그런 파일은 파일 경로를 path로 주거나 Read로 읽습니다.
 Finding은 hypothesis이므로 severity·위치·영향·재현 방법·근거/추론·미검증을 구분합니다. 최종 판정과 reviewed snapshot을 반환합니다.
 Severity는 `qa.md`의 정의를 따르고, packet에 기준 문서가 있으면 적용 조건에 맞는 항목을 판정해 미충족 항목 id 하나를
 finding `criteriaItem`에 적고 기본 severity로 finding을 씁니다(기본값과 다르면 이유). 회차별 보고 범위와 low 상한은 review prompt를 따르며 finding이 없으면
