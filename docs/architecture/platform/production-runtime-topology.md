@@ -9,10 +9,11 @@ planning budget)과 release 결과는 infrastructure-target readiness/evidence�
 불변 조건은 [Production runtime safety](../../policies/production-runtime-safety.md)가 소유한다. 식별자는
 [식별자 규칙](../../deploy/README.md#식별자-규칙)을 따른다.
 
-## 지금 API 단계
+## 지금 단계
 
-지금은 사용자 Web(Landing)을 공개하고 API를 같은 user host에 올린 API 단계다. API는 공개 주소 없이 ingress의 private
-listener로 Web BFF에서만 받고, 공개 `/api/**`는 JSON 503이다. 가입·로그인은 닫혀 있다. BackOffice는 없다.
+지금은 사용자 Web(Landing)을 공개하고 API를 같은 user host에 올린 API 단계와, 운영자 BackOffice를 따로 둔 2 GB host에 올린
+백오피스 단계다. API는 공개 주소 없이 ingress의 private listener로 Web BFF에서만 받고, 공개 `/api/**`는 JSON 503이다. 가입·로그인은
+닫혀 있다. BackOffice는 공개 주소 없이 운영자 SSM 포트 포워딩(`http://localhost:4300`)으로만 열린다.
 Resource 종류·상태와 확인하는 Owner console 위치는 [Production environment](../../deploy/production-environment.md)가
 소유하고, 이 절은 배치만 적는다.
 
@@ -23,9 +24,19 @@ Route 53 dormduri.com (apex, www → apex redirect)
     │   ├── Web (Next.js standalone, UI + BFF)
     │   └── API (NestJS, private listener로 Web BFF에서만)
     ├── migrate one-off (API 배포 때만, rollout 전)
-    └── 관측 stack 다섯 (Prometheus·Loki·Alloy·Alertmanager·Grafana, host loopback bind)
+    ├── 관측 stack 다섯 (Prometheus·Loki·Alloy·Alertmanager·Grafana, host loopback bind)
+    └── 수신 gateway obs-gateway (백오피스 host 사설 /32 + token만, API scrape 대행)
 
-RDS for PostgreSQL 18 (서울, private, Lightsail VPC peering으로 host에서만 5432)   ← API·migrate one-off
+Lightsail host 2 GB 백오피스 (서울, 같은 가용 영역, static IP 없음, firewall 규칙 없음, sshd 끔)
+├── admin ingress (host 127.0.0.1:4300 하나만 publish)
+│   └── BackOffice Web (Next.js, UI + BFF) → BackOffice API (NestJS)
+├── bootstrap-owner one-off (첫 owner 등록 code 때만)
+└── Alloy (log·지표 → user host 수신 gateway)
+
+Owner 노트북 localhost:4300 → SSM 포트 포워딩(운영자 permission set) → 백오피스 host 127.0.0.1:4300
+
+RDS for PostgreSQL 18 (서울, private, Lightsail VPC peering으로 두 host에서만 5432)
+  ← API·migrate one-off·BackOffice API, 사람 조회는 백오피스 host를 거친 SSM 포트 포워딩
 
 GitHub Actions web-cd (main, production 승인)
 ├── build → ECR 비공개 dormduri/web·dormduri/ingress (digest, SBOM attestation manifest)
@@ -34,6 +45,10 @@ GitHub Actions web-cd (main, production 승인)
 GitHub Actions api-cd (main, production-api 승인)
 ├── build → ECR 비공개 dormduri/api·dormduri/api-migrate·dormduri/observability-config
 └── deploy → Run Command(document dormduri-api-deploy) → migrate one-off → API rollout → 관측 stack
+
+GitHub Actions backoffice-cd (main, schema gate, production-backoffice 승인)
+├── build → ECR 비공개 dormduri/backoffice-api·dormduri/backoffice-web·dormduri/backoffice-ingress
+└── deploy → Run Command(document dormduri-backoffice-deploy) → rollout → host 안 smoke → Alloy
 ```
 
 - 공개 진입: `dormduri.com` apex·`www` A record가 host static IP를 가리킨다. Canonical Web host는 apex이고 `www`는
@@ -42,22 +57,24 @@ GitHub Actions api-cd (main, production-api 승인)
 - 배포 전달: host는 Systems Manager hybrid managed node이고, CD(`web-cd.yml`·`api-cd.yml`)가 서비스마다 OIDC deploy role로
   document `dormduri-web-deploy`·`dormduri-api-deploy`를 배포 대상 tag에 보낸다. 두 document는 같은 host lock을 쓴다. Host는
   host role로 ECR에서 digest 묶음을 받아 compose로 올리고 health·내부 smoke가 실패하면 직전 묶음으로 되돌린다. API document는
-  host role로 Secrets Manager 묶음을 꺼내 rollout 전에 migrate one-off를 돌린다. SSH는 쓰지 않는다. 절차는
-  [Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md)와
-  [API 단계 배포](../../../infra/runbooks/release/api-stage-deploy.md)다.
-- 지금 상태: Landing을 공개하고 API를 배포했다. 마지막 배포 기록은 [Production environment](../../deploy/production-environment.md#지금-상태)가 적는다.
+  host role로 Secrets Manager 묶음을 꺼내 rollout 전에 migrate one-off를 돌린다. 백오피스 host는 따로 된 CD(`backoffice-cd.yml`)·
+  OIDC role·document `dormduri-backoffice-deploy`·host lock을 쓰고, schema gate가 같은 commit의 API 배포 성공을 기다린 뒤에만
+  rollout한다. SSH는 쓰지 않는다. 절차는 [Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md),
+  [API 단계 배포](../../../infra/runbooks/release/api-stage-deploy.md),
+  [백오피스 단계 배포](../../../infra/runbooks/release/backoffice-stage-deploy.md)다.
+- 지금 상태: Landing을 공개하고 API와 BackOffice를 배포했다. 마지막 배포 기록은 [Production environment](../../deploy/production-environment.md#지금-상태)가 적는다.
 - 관측: 관측 stack 다섯, Slack 경보, RDS 경보, 외부 가용성 경보의 흐름은
-  [Observability topology](./observability-topology.md#지금-api-단계)가 적는다.
+  [Observability topology](./observability-topology.md#지금-단계)가 적는다.
 - 메일: SES(서울) domain identity와 구성 세트가 있고 계정은 sandbox다. 가입·비밀번호 재설정이 닫혀 API는 메일을 보내지 않고,
   API container에는 AWS credential이 없다. 준비·시험 절차는 [SES setup checklist](../../../infra/aws/ses-setup-checklist.md)가
   소유한다.
-- 이 단계는 아래 이후 목표의 User App host 구성(ingress·Web·API·관측 stack)을 4 GB host 하나에 올린 단계다. BackOffice host와
-  Sentry는 아직 없다.
+- 이 단계는 아래 이후 목표의 User App host 구성(ingress·Web·API·관측 stack)을 4 GB host 하나에, BackOffice host 구성(admin
+  ingress·BackOffice Web·API·collector)을 2 GB host 하나에 올린 단계다. Sentry는 아직 없다.
 
 ## 이후 목표
 
 API 단계부터 BackOffice 출시까지의 목표 배치다. 아래 결정은 2026-08-11에 정했고, 각 단계의 준비 작업이 실제 구성으로
-옮기며 그때 위 [지금 API 단계](#지금-api-단계) 절과 [Production environment](../../deploy/production-environment.md)를
+옮기며 그때 위 [지금 단계](#지금-단계) 절과 [Production environment](../../deploy/production-environment.md)를
 고친다. 아직 정하지 않은 입력은 [이후 단계에서 정할 입력](../../deploy/production-environment.md#이후-단계에서-정할-입력)에
 있다.
 
@@ -86,9 +103,10 @@ Managed PostgreSQL
 ### 목표 배포 구성도
 
 아래 그림은 API·관측 stack·managed PostgreSQL을 더한 목표 구성이고 로컬 리허설의 기준이다. 지금 적용한 것은 위
-[지금 API 단계](#지금-api-단계)의 User App host 구성이다. Web 단계에서 apex의 TLS 종료를, API 단계(2026-11-20 배포 기록)에서
-공개 ingress의 Web·API 경로 분리(공개 `/api/**` JSON 503, private listener), DB·secret 전달과 관측 경로를 실제 운영 환경으로
-확인했다. 그림의 Sentry와 BackOffice는 아직 켜지 않았다.
+[지금 단계](#지금-단계)의 User App host와 BackOffice host 구성이다. Web 단계에서 apex의 TLS 종료를, API 단계(2026-11-20 배포
+기록)에서 공개 ingress의 Web·API 경로 분리(공개 `/api/**` JSON 503, private listener), DB·secret 전달과 관측 경로를, 백오피스
+단계(2026-11-23 배포 기록)에서 BackOffice host 묶음·SSM 포트 포워딩 접속·관측 수신을 실제 운영 환경으로 확인했다. 그림의 Sentry는
+아직 켜지 않았다.
 
 다이어그램 색은 역할을 뜻한다: <b>청록</b> 사용자 화면 · <b>초록</b> 서버 애플리케이션 · <b>보라</b> 데이터베이스 · <b>주황</b> 관리형 클라우드 · <b>장미색</b> 보안·경계 · <b>회색</b> 사용자·운영 도구.
 
@@ -321,3 +339,4 @@ Release gate가 쓰는 container limit과 이후 단계 planning budget은
 | 2026-11-03 | 구조 목표를 app image·host 묶음·계정 resource·rehearsal 덮어쓰기로 나누고 API 단계가 user host 묶음에 합쳐지게 했다.         |
 | 2026-11-10 | API 묶음을 같은 host 묶음 안의 따로 배포하는 조각으로 두고, private listener를 주소 허용 방식으로, 지금 단계에 RDS를 더했다. |
 | 2026-11-22 | 백오피스 host 묶음의 접속·publish 경계, 관측 수신 gateway, repository 구조를 실제 구성으로 바꿨다.                           |
+| 2026-11-23 | 백오피스 단계 첫 배포 뒤 첫 절을 지금 단계(BackOffice host·운영자 포트 포워딩·backoffice-cd·사람 DB 조회 경로)로 고쳤다.     |

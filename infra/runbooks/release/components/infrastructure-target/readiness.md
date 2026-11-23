@@ -42,18 +42,20 @@ Prometheus에 더하는 series는 약 1,200개다(2026-11-22 local rehearsal). C
 ### BackOffice 2GiB resource 시작값
 
 Limit은 `infra/deploy/backoffice/compose.yml`의 값이고(compose 계약 test가 고정), 측정 peak는 2026-11-22~23 local rehearsal(arm64,
-wrong-password 로그인 동시 4개와 화면 요청 반복, 약 3분, cgroup `memory.peak`)의 세 번 값이다. 운영 host는 x86_64라 근사치다.
+wrong-password 로그인 동시 4개와 화면 요청 반복, 약 3분, cgroup `memory.peak`)의 세 번 값이다. 운영 peak는 x86_64 운영 host의 첫
+배포·smoke(첫 owner 등록, 로그인·권한 요청·경보 시험) 뒤 cgroup `memory.peak`와 회수되지 않는 `anon`이다(2026-11-23).
 
-| Container               | CPU limit |  Limit | 측정 peak                        |
-| ----------------------- | --------: | -----: | -------------------------------- |
-| admin nginx             |      없음 |  96MiB | 8MiB                             |
-| BackOffice Web          |      없음 | 256MiB | 107~140MiB                       |
-| BackOffice API          |      없음 | 512MiB | 261~311MiB                       |
-| Alloy                   |      0.10 |  96MiB | 96MiB(page cache, anon 18~47MiB) |
-| bootstrap-owner one-off |      없음 | 256MiB | 124~133MiB(등록 code를 낼 때만)  |
+| Container               | CPU limit |  Limit | 측정 peak(local)                 | 운영 peak                        |
+| ----------------------- | --------: | -----: | -------------------------------- | -------------------------------- |
+| admin nginx             |      없음 |  96MiB | 8MiB                             | 8MiB                             |
+| BackOffice Web          |      없음 | 256MiB | 107~140MiB                       | 156MiB(anon 86MiB)               |
+| BackOffice API          |      없음 | 512MiB | 261~311MiB                       | 193MiB(anon 148MiB)              |
+| Alloy                   |      0.10 |  96MiB | 96MiB(page cache, anon 18~47MiB) | 96MiB(page cache, anon 55MiB)    |
+| bootstrap-owner one-off |      없음 | 256MiB | 124~133MiB(등록 code를 낼 때만)  | 재지 않음(one-off가 끝나 지워짐) |
 
 상시 limit 합계는 960MiB이고 one-off가 돌 때 1216MiB다. 2GB host의 사용 가능 memory(약 1.9GiB)에서 약 900MiB 이상이 남는다. Alloy의
-peak는 WAL page cache가 limit까지 찬 것이라 cgroup이 되찾는다. 실제 host 지표가 이 표와 어긋나면
+peak는 WAL page cache가 limit까지 찬 것이라 cgroup이 되찾는다. 운영에서도 limit에서 page cache를 되찾으며 OOM이 0이라 96MiB를
+유지하고, `anon`이 limit의 80%(77MiB)를 넘거나 OOM·restart가 생기면 128MiB로 올린다(상시 합계 992MiB). 실제 host 지표가 이 표와 어긋나면
 [백오피스 단계 배포의 경보 대응](../../backoffice-stage-deploy.md#경보-대응)에 따라 limit을 다시 정한다.
 
 ### 월 비용 planning input

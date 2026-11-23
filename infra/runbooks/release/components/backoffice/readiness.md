@@ -2,9 +2,10 @@
 
 ## 상태와 책임
 
-- Repository state: `PENDING_TARGET`(운영 target에 아직 배포하지 않았다는 뜻이고 실패가 아니다)
+- Repository state: `PENDING_TARGET`(최종 release 판정 전이라는 뜻이고 실패가 아니다). 2026-11-23에 운영 백오피스 host에 첫 배포했다
+  (단계 기록 Release `deploy-backoffice-20261123-1`).
 - 구현: BackOffice Web(`apps/backoffice-web`)·API(`apps/backoffice-api`), 백오피스 host 묶음(`infra/deploy/backoffice/`)과 CD
-  (`.github/workflows/backoffice-cd.yml`)가 저장소에 있다. 운영 배포 전이다.
+  (`.github/workflows/backoffice-cd.yml`)가 저장소에 있다.
 - 결정된 target topology: **User App 4GiB host + BackOffice 2GiB host + managed PostgreSQL**
 - 비용·resource source of truth:
   [`infrastructure-target-release-readiness.md`](../infrastructure-target/readiness.md)
@@ -76,16 +77,16 @@ BackOffice container resource(local rehearsal 측정값 포함), host headroom, 
 - Loki/Prometheus raw query를 BackOffice 제품 API로 재노출하지 않는다. 필요한 경우 Grafana dashboard deep link만 제한적으로
   제공한다.
 
-## 배포 전 checklist
+## 배포 checklist
 
-저장소 쪽 준비(앱·host 묶음·CD·경보·local rehearsal)는 끝났다. 남은 것은 운영 계정과 host 쪽이다.
+저장소 쪽 준비(앱·host 묶음·CD·경보·local rehearsal)와 첫 배포는 끝났다(2026-11-23).
 
 1. [백오피스 단계 배포](../../backoffice-stage-deploy.md#첫-실행-전-owner-확인)의 첫 실행 전 Owner 확인(ECR·role·environment·
-   document·secret 묶음·수신 gateway·bootstrap SQL 재실행)을 마친다.
-2. 첫 배포 뒤 첫 owner 등록, 로그인·재인증·권한 요청·감사 smoke, 외부에서 백오피스 host 공인 IP의 모든 TCP port 닫힘, CloudTrail의
-   `StartSession` 기록, 경보 시험(잠금·recovery 로그인)을 단계 기록에 남긴다.
-3. 실제 월 예산, digest와 rollback evidence를 release evidence 형식으로 실제 값의 기록 위치에 남기고, 식별자는 식별자 규칙을
-   따른다.
+   document·secret 묶음·수신 gateway·bootstrap SQL 재실행·host의 AWS CLI·운영자 permission set). 끝남.
+2. 첫 배포 뒤 첫 owner 등록, 로그인·재인증·권한 요청·감사 smoke, 외부에서 백오피스 host 공인 IP의 TCP port 닫힘, CloudTrail의
+   `StartSession` 기록, 경보 시험(잠금·recovery 로그인). 단계 기록 Release와 단계 이슈 댓글에 남겼다.
+3. 남은 것: rollback 확인(직전 묶음이 생기는 두 번째 배포 뒤 `rollback` 실행), 첫 전체 달 청구서의 실제 월 비용, 그리고 최종
+   release 때 digest·rollback evidence를 release evidence 형식으로 실제 값의 기록 위치에 남긴다. 식별자는 식별자 규칙을 따른다.
 
 ## 중단 조건
 

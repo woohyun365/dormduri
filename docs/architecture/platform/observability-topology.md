@@ -7,17 +7,19 @@
 [운영 관측 정책](../../policies/operational-observability.md)이 소유한다. 지금 적용한 resource의 종류와 상태는
 [Production environment](../../deploy/production-environment.md)가 소유한다.
 
-## 지금 API 단계
+## 지금 단계
 
 지금 운영 관측은 user host의 관측 stack 다섯(Alloy·Loki·Prometheus·Grafana·Alertmanager)과 Slack 경보, RDS CloudWatch 경보,
-외부 가용성 경보다. Web Sentry는 끄고 API에는 Sentry dependency가 없다. 배치·보존·접근·가림·경보 대응 절차는
+외부 가용성 경보다. 백오피스 host Alloy가 백오피스 log·지표를 user host 수신 gateway로 보낸다. Web Sentry는 끄고 API에는 Sentry dependency가 없다. 배치·보존·접근·가림·경보 대응 절차는
 [Observability production operations](../../../infra/runbooks/operations/observability/production-stack.md)가 소유한다.
 
 ```text
 container stdout (compose service api·ingress·web만) → Alloy (가림) → Loki → Grafana
-API /internal/metrics (bearer token) ← Prometheus scrape → Grafana
+API /internal/metrics (bearer token) ← 수신 gateway 관측 전용 listener ← Prometheus scrape → Grafana
 Alloy host exporter (host /·/proc·/sys 읽기 전용) ← Prometheus job host
-Prometheus rules → Alertmanager → Slack channel 하나
+백오피스 host Alloy (admin ingress·Web·API stdout 가림, API metrics·readiness probe 둘·host 지표 scrape)
+  → user host 수신 gateway (백오피스 host 사설 /32 + token만) → Loki·Prometheus remote write
+Prometheus rules (user·백오피스) → Alertmanager → Slack channel 하나
 
 RDS 지표 → CloudWatch alarm 다섯 (서울) → SNS 주제 → email 구독
 
@@ -30,6 +32,8 @@ Route 53 HTTPS health check (apex /, SNI)
 - 관측 stack은 API 묶음으로 배포하고 설정은 image `dormduri/observability-config` 하나로 결속한다. Grafana·Prometheus·
   Alertmanager는 host loopback에만 bind하고 공개 경로가 없으며, operator는 Identity Center 단기 credential로 SSM port
   forwarding을 연다.
+- 백오피스 host에는 들어오는 port가 없어 user host가 긁지 않는다. 백오피스 Alloy도 Docker socket을 읽고 root로 돌며, 그 위험
+  수용은 백오피스 단계 기록(`deploy-backoffice-*` Release의 관측 줄)에 있다.
 - 관측은 제품 요청에 fail-open이다. API 배포의 관측 단계가 실패해도 배포 결과를 바꾸지 않고 host `RESULT` 줄의
   `observability` 값으로 남는다.
 - Health check는 밖에서 본 공개 HTTPS 응답만 확인한다. Host 안 container 상태와 로그는 관측 stack이 본다.
@@ -43,7 +47,7 @@ Route 53 HTTPS health check (apex /, SNI)
 
 API 단계부터 BackOffice까지의 관측 구성이다. 아래 구성은 2026-08-08·2026-08-11에 정했다. 관측 stack의 위치와 접근
 경로, 경보 채널(Slack channel 하나), Web Sentry 끔은 API 단계 준비에서 정했고(Owner 2026-11-05) 위
-[지금 API 단계](#지금-api-단계)가 적용한 구성이다. 아래 표의 Sentry 두 행은 Web Sentry를 켤 때의 목표다.
+[지금 단계](#지금-단계)가 적용한 구성이다. BackOffice 수집 흐름은 백오피스 단계 배포(2026-11-23)가 적용했다. 아래 표의 Sentry 두 행은 Web Sentry를 켤 때의 목표다.
 
 ### 목표 구성
 
@@ -133,7 +137,7 @@ Ingress(nginx)와 Web의 요청 log는 [운영 관측 정책](../../policies/ope
 이 log로 대신하지 않는다. 장애 분석에 원본 IP가 필요하지 않고, 이용자 로그기록은 채팅을 실제 사용자에게 여는 변경이 저장 위치와
 방식을 따로 정하기 때문이다.
 
-- 지금 API 단계: ingress log 형식이 client IP를 가린 값(IPv4 /24·IPv6 /48)으로 쓰고 query string과 referer를 남기지 않는다. Alloy는 옛
+- 지금 단계(user host ingress): ingress log 형식이 client IP를 가린 값(IPv4 /24·IPv6 /48)으로 쓰고 query string과 referer를 남기지 않는다. Alloy는 옛
   형식 log가 들어와도 저장소 기준을 지키도록 IP를 한 번 더 가리고 query string과 referer를 지우며 경로 속 식별자를 가린다. 그래서
   host json-file(10MB × 3)과 Loki에 원본 IP가 없고 Loki에는 query string·referer와 경로 속 식별자도 없다.
 - 이 형식 전의 ingress image(2026-11-20 API 단계 배포 전 쌍)로 rollback하면 그 동안 host json-file에 원본 IP가 다시 쌓이고, Loki에는
@@ -161,3 +165,4 @@ Ingress(nginx)와 Web의 요청 log는 [운영 관측 정책](../../policies/ope
 | 2026-11-20 | API 단계 첫 배포 뒤 첫 절을 지금 API 단계(관측 stack 다섯·Slack·RDS 경보·외부 가용성 경보, Web Sentry 끔)로 고쳤다. |
 | 2026-11-08 | nginx·Web 요청 log를 운영 log로 분류하고 지금과 이후의 원본 IP 위치, 목표 구성의 ingress 수집을 적었다(#759·#869).  |
 | 2026-11-22 | BackOffice 관측을 Alloy push와 user host 수신 gateway로 정하고 API scrape를 gateway 경유로 바꿨다(#974).            |
+| 2026-11-23 | 백오피스 단계 첫 배포 뒤 첫 절을 지금 단계(백오피스 Alloy push·gateway 경유 API scrape)로 고쳤다.                   |

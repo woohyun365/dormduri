@@ -73,7 +73,7 @@ planning budget)은
 - **PRS-R31** Backup/restore drill은 release 전에 실행하고 restored DB의 migration baseline, grant와 readiness를 검증한다.
   단계 배포에는 DB를 들이는 단계부터 적용한다.
 - **PRS-R32** Restore drill은 operator가 user host를 거쳐 수동으로 실행한다(DB smoke는 user host의 migrate image one-off,
-  API readiness는 user host의 임시 API container, 사람 조회는 SSM 포트 포워딩과 자기 사람 조회 user). RDS security group이
+  API readiness는 user host의 임시 API container, 사람 조회는 백오피스 host를 거치는 SSM 포트 포워딩과 자기 사람 조회 user). RDS security group이
   user host와 백오피스 host 주소(/32 둘)만 받으므로 GitHub-hosted runner workflow는 두지 않는다. Production migration·runtime credential은 host role만
   꺼내고, 복원 instance의 생성·삭제는 Owner console이 소유한다.
 
@@ -141,3 +141,4 @@ blocker로 승격한다.
 | 2026-11-10 | `PRS-R14`에 release plane 안의 secret reader가 host role이고 release principal은 secret을 읽지 않는다는 문장을 더했다.          | secret delivery (#886)    |
 | 2026-11-11 | `PRS-R32`의 restore drill 경로를 GitHub-hosted runner workflow에서 user host 경유 수동 실행(credential은 host role)으로 바꿨다. | restore drill (#894)      |
 | 2026-11-22 | `PRS-R32`의 RDS security group 문장에 백오피스 host 주소를 더했다(runner가 닿지 않는다는 뜻은 그대로).                          | backoffice host (#974)    |
+| 2026-11-23 | `PRS-R32`의 사람 조회 경로를 백오피스 host 경유로 적었다(user host 경유는 관리 permission set의 Deny로 막음).                   | backoffice stage (#82)    |

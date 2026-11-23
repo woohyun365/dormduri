@@ -101,6 +101,13 @@ Admin ingress는 host `127.0.0.1:4300`에만 publish한다. Lightsail 방화벽�
    않는다(백오피스 host가 사설 IP로 닿는다).
 7. Bootstrap SQL 재실행으로 `dormduri_backoffice`·`dormduri_backoffice_retention` LOGIN user가 있고 묶음의 두 URL이 그 user와
    `sslmode=verify-full`을 쓴다([DB operator scripts](../../db/README.md)). master 사용은 #883에 댓글로 남긴다.
+8. 백오피스 host에 AWS CLI v2가 있다(user host 준비와 같은 snap `aws-cli --classic`, `/usr/local/bin/aws`). Document는 image를
+   받기 전에 `aws sts get-caller-identity`로 host role credential을 보므로 CLI가 없으면 `reason=sts`로 멈춘다(host는 그대로).
+9. Identity Center에 운영자 permission set이 있고 Owner에게 할당돼 있다. 대상은 배포 대상 tag `dormduri-deploy-target=backoffice-app`
+   node뿐이고, 문서는 `AWS-StartPortForwardingSession`(백오피스 화면)과 `AWS-StartPortForwardingSessionToRemoteHost`(사람 DB 조회)
+   둘뿐이며, node·RDS endpoint 조회와 자기 session 종료·재개만 더한다. 관리 permission set은
+   `AWS-StartPortForwardingSessionToRemoteHost`를 Deny해 사람 DB 조회가 user host를 거치지 않는다. 바꾼 날과 내용(식별자 없이)은
+   #883에 댓글로 남긴다.
 
 ## 배포
 
@@ -116,12 +123,19 @@ Admin ingress는 host `127.0.0.1:4300`에만 publish한다. Lightsail 방화벽�
 ## 운영자 접속
 
 - 접속은 SSM 포트 포워딩 하나다: Owner 노트북 `localhost:4300` → 백오피스 host `127.0.0.1:4300` → admin ingress → Web → API.
+  운영자 permission set(첫 실행 전 확인 9)의 단기 credential로
   `aws ssm start-session --target <node> --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["4300"],"localPortNumber":["4300"]}'`
-  (대상 node는 console에서 고르고 기록하지 않는다).
+  (대상 node는 console에서 고르고 기록하지 않는다). 사람 DB 조회도 같은 permission set으로 백오피스 host를 거친다
+  ([백업·복구](../operations/database/backup-restore.md#실행-경로)).
 - 주소창은 `http://localhost:4300`만 쓴다. WebAuthn RP ID가 `localhost`이고 BFF가 Origin·Host를 port까지 정확히 대조하므로 다른
   이름·port(`127.0.0.1:4300`, 다른 local port)는 421이거나 상태 변경이 403이다.
-- 백오피스 전용 browser profile을 쓴다(확장 프로그램 없음, 다른 탭의 `localhost` 개발 서버와 cookie를 나누지 않음). 끝나면
-  로그아웃하고 session을 닫는다.
+- 백오피스 전용 browser profile을 쓰고(확장 프로그램 없음) 그 profile에서는 다른 사이트와 다른 port의 `localhost` 앱을 열지 않는다.
+  Cookie는 port를 가리지 않아 같은 profile의 `localhost` 개발 서버에도 백오피스 session cookie가 간다. 끝나면 로그아웃하고
+  session을 닫는다.
+- Passkey는 기기를 잃어도 남는 곳(OS 계정에 동기화되는 저장소)에 두거나 내 보안 설정에서 둘 이상 등록한다. 한 browser profile에만
+  둔 passkey는 그 profile을 지우면 사라지고, 그때는 복구 로그인으로 새 passkey만 등록할 수 있다.
+- 로그인 화면은 잘못된 비밀번호·잠긴 계정·없는 계정에 같은 문구를 낸다. 잠금은 `BackofficeAccountLocked`와 감사 기록의 `거부`
+  줄로 알고 15분 기다린다. 역할을 회수하면 대상 계정의 session이 모두 끝난다(자기 역할 회수면 지금 session도 끝나 다시 로그인한다).
 
 ## 첫 owner 등록 code
 
@@ -130,7 +144,8 @@ Admin ingress는 host `127.0.0.1:4300`에만 publish한다. Lightsail 방화벽�
    docker log에는 남지 않는다(one-off의 log driver none, Alloy 수집 밖).
 2. 바로 포트 포워딩으로 접속해 code로 등록하고 passkey·TOTP를 등록한다. 복구 code와 TOTP 비밀 사본은 오프라인(종이·암호화된
    오프라인 저장소)에만 두고 이 저장소·이슈·노트에 쓰지 않는다. `BACKOFFICE_TOTP_ENCRYPTION_KEY`의 Owner 오프라인 사본도 같다.
-3. 등록이 끝나면 `BackofficeBootstrapOwnerUsed` critical 경보가 온다(정상). 경보 시각과 등록 시각이 맞는지 본다.
+3. 비밀번호·passkey 단계를 마쳐 계정이 생기면 `BackofficeBootstrapOwnerUsed` critical 경보가 온다(정상, 그 뒤 TOTP 확인과 복구 code
+   저장이 이어진다). 경보 시각과 등록 시각이 맞는지 본다.
 4. 첫 초대 전 선행(Owner 2026-11-22 Q4): 앱 밖에서 owner 역할을 회수하는 절차(유일한 owner가 기기·TOTP·복구 code를 모두 잃었거나
    계정이 탈취됐을 때)를 정하기 전에는 다른 운영자를 초대하지 않는다. 그 절차가 생기기 전의 break-glass는 아래
    [Break-glass](#break-glass)의 master 경계뿐이다.
@@ -166,6 +181,9 @@ DB migration은 되돌리지 않는다. 옛 백오피스 image가 새 schema와 
 - `docker-engine-below-28`·`docker-firewall-backend`·`docker-daemon-config`(exit 2): host는 그대로다. Docker 설정을
   [Docker Engine 하한](#docker-engine-하한) 안으로 되돌린 뒤 다시 보낸다. 보호를 끄는 설정을 두고 배포하지 않는다. `docker info`가
   firewall backend를 알리지 않는 판도 `docker-firewall-backend`로 멈추므로 그때는 Engine을 올린다.
+- `sts`: image를 받기 전에 host role credential 확인(`aws sts get-caller-identity`)이 실패했다. Host는 그대로다. AWS CLI(첫 실행 전
+  확인 8)와 SSM agent가 쓰는 credential 파일(`/root/.aws/credentials`)을 Run Command로 읽어(값은 출력하지 않음) 고친 뒤 그 run을
+  Re-run failed jobs로 다시 돌린다(승인을 다시 받는다).
 - `secret-fetch`·`secret-invalid`: Owner가 host role 정책과 묶음 key를 checklist와 대조한다. 값은 기록하지 않는다.
 - `rolled-back-to-current`·`entered-maintenance`: host 안 smoke나 readiness가 실패했다. Owner가 Session Manager로 host log
   (`/opt/dormduri/state/deploy-backoffice.log`, `SMOKE` 줄)를 읽고 원인을 고친 묶음을 다시 배포한다.
@@ -177,28 +195,30 @@ DB migration은 되돌리지 않는다. 옛 백오피스 image가 새 schema와 
 ## 경보 대응
 
 경보는 백오피스 host Alloy → user host 수신 gateway(`obs-gateway`, 백오피스 host 사설 /32와 token만 받음) → Prometheus·Loki →
-Alertmanager → Slack 고정 형식으로 온다(규칙 `infra/observability/prometheus/rules/backoffice-alerts.yml`).
+Alertmanager → Slack 고정 형식으로 온다(규칙 `infra/observability/prometheus/rules/backoffice-alerts.yml`). 사건 경보
+(`increase(…[10m]) > 0`)의 울림은 사건 뒤 약 1분 안에 오고, 해제는 사건 10분 뒤 판정된 다음 Alertmanager의 5분 간격 차례에 와서
+10~15분 뒤다. 10분 안에 같은 사건이 또 나면 새 울림 없이 이어진다. `@channel`은 critical 울림에만 붙어 warning은 알림 없이 온다.
 
-| 경보                                                             | 등급             | 대응                                                                                                                                |
-| ---------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `BackofficeRecoveryLogin`                                        | critical         | 복구 code 로그인이 본인인지 Owner가 바로 확인한다. 아니면 그 계정 session을 끊고 비밀번호·passkey를 다시 등록한다                   |
-| `BackofficeBootstrapOwnerUsed`                                   | critical         | 첫 owner 등록이 계획된 것인지 본다. 아니면 백오피스를 `maintenance`로 내리고 감사 행을 읽는다                                       |
-| `BackofficeAuditWriteFailed`                                     | critical         | 감사 쓰기 실패는 그 작업도 되돌린다. DB 연결·권한을 보고 고칠 때까지 권한 변경을 멈춘다                                             |
-| `BackofficeAccountLocked`                                        | warning          | 로그인 실패가 본인 것인지 확인한다. 아니면 비밀번호를 바꾼다                                                                        |
-| `BackofficeRoleChanged`·`BackofficeSelfApproval`                 | warning          | 감사 화면에서 그 변경과 승인 사유를 확인한다                                                                                        |
-| `BackofficePermissionDeniedBurst`                                | warning          | 10분에 5번 이상 권한 밖 기능을 시도했다. 감사 화면과 log에서 그 계정을 보고 의도하지 않았으면 session을 끊는다                      |
-| `BackofficeNotReady`·`BackofficeApiMetricsDown`                  | critical         | host log와 container 상태를 본다. 배포 직후면 직전 묶음으로 `rollback`한다                                                          |
-| `BackofficeTelemetryAbsent`                                      | critical         | 백오피스 host·Alloy·user host gateway 가운데 무엇이 멈췄는지 본다(gateway health, 관측 묶음 두 key, 백오피스 host 상태)             |
-| `BackofficeRetentionFailed`·`BackofficeRetentionStalled`         | warning          | 관리자 기록 정리가 실패하거나 3시간 성공하지 않았다. DB 연결과 `backoffice_retention` 권한을 본다. 다음 실행이 밀린 것을 따라잡는다 |
-| `BackofficeHostDiskUsageHigh`·`BackofficeHostMemoryAvailableLow` | warning·critical | 백오피스 host image·log 정리, container memory 표([readiness](./components/backoffice/readiness.md))와 대조                         |
+| 경보                                                             | 등급             | 대응                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BackofficeRecoveryLogin`                                        | critical         | 복구 로그인(TOTP 또는 복구 code)이 본인인지 Owner가 감사 기록의 그 시각 `로그인`과 CloudTrail `StartSession`으로 바로 확인한다. 아니면 `maintenance`로 내려 운영자 접속을 닫고 감사 기록의 `passkey 등록` 줄을 본다. 앱 안에는 비밀번호 변경이 없으므로 자격 증명은 [Break-glass](#break-glass)의 master 경계로 바꾼다                                               |
+| `BackofficeBootstrapOwnerUsed`                                   | critical         | 첫 owner 등록이 계획된 것인지 본다. 아니면 백오피스를 `maintenance`로 내리고 감사 행을 읽는다                                                                                                                                                                                                                                                                        |
+| `BackofficeAuditWriteFailed`                                     | critical         | 감사 쓰기 실패는 그 작업도 되돌린다. DB 연결·권한을 보고 고칠 때까지 권한 변경을 멈춘다                                                                                                                                                                                                                                                                              |
+| `BackofficeAccountLocked`                                        | warning          | 로그인 실패가 본인 것인지 감사 기록(`로그인` `실패` 다섯, `계정 잠금`, 잠긴 동안의 `거부`)과 그 시각의 CloudTrail `StartSession`으로 확인한다. 본인이면 15분 뒤 다시 로그인한다. 아니면 비밀번호를 아는 사람이 운영자 터널까지 들어온 것이므로 `maintenance`로 내리고 운영자 permission set 할당을 본다. 앱 안에는 비밀번호 변경이 없다([Break-glass](#break-glass)) |
+| `BackofficeRoleChanged`·`BackofficeSelfApproval`                 | warning          | 감사 화면에서 그 변경과 승인 사유를 확인한다                                                                                                                                                                                                                                                                                                                         |
+| `BackofficePermissionDeniedBurst`                                | warning          | 10분에 5번 이상 권한 밖 기능을 시도했다. 감사 화면과 log에서 그 계정을 보고 의도하지 않았으면 session을 끊는다                                                                                                                                                                                                                                                       |
+| `BackofficeNotReady`·`BackofficeApiMetricsDown`                  | critical         | host log와 container 상태를 본다. 배포 직후면 직전 묶음으로 `rollback`한다                                                                                                                                                                                                                                                                                           |
+| `BackofficeTelemetryAbsent`                                      | critical         | 백오피스 host·Alloy·user host gateway 가운데 무엇이 멈췄는지 본다(gateway health, 관측 묶음 두 key, 백오피스 host 상태)                                                                                                                                                                                                                                              |
+| `BackofficeRetentionFailed`·`BackofficeRetentionStalled`         | warning          | 관리자 기록 정리가 실패하거나 3시간 성공하지 않았다. DB 연결과 `backoffice_retention` 권한을 본다. 다음 실행이 밀린 것을 따라잡는다                                                                                                                                                                                                                                  |
+| `BackofficeHostDiskUsageHigh`·`BackofficeHostMemoryAvailableLow` | warning·critical | 백오피스 host image·log 정리, container memory 표([readiness](./components/backoffice/readiness.md))와 대조                                                                                                                                                                                                                                                          |
 
 ## 비상 절차
 
 - 백오피스 host는 sshd(`ssh.socket`·`ssh.service`)를 끄고 mask했고 Lightsail 방화벽 규칙이 없다. SSM agent 연결이 끊기면 host 안으로
   들어갈 길이 없다. 그때는 그 host를 고치지 않고 Owner가 console에서 새 host로 바꾼다(식별자는 기록하지 않는다).
   1. 같은 Region·가용 영역에 Lightsail Linux 2 GB(Ubuntu 24.04, dual-stack, 고정 IP·자동 snapshot 없음)를 만든다.
-  2. User host와 같은 Docker·unattended-upgrades 설치를 하고 기본 SSH key 등록과 password 인증을 끈다. Docker는
-     [Docker Engine 하한](#docker-engine-하한) 안이어야 한다.
+  2. User host와 같은 Docker·AWS CLI v2(snap `aws-cli --classic`, `/usr/local/bin/aws`)·unattended-upgrades 설치를 하고 기본 SSH
+     key 등록과 password 인증을 끈다. Docker는 [Docker Engine 하한](#docker-engine-하한) 안이어야 한다.
   3. 한 번만 쓰는 hybrid activation으로 SSM에 host role `dormduri-backoffice-host-ssm`을 등록하고 activation을 지운다. Session
      Manager로 접속되는지 본다.
   4. Lightsail 방화벽 규칙을 모두 지우고(IPv4·IPv6) sshd 둘을 disable·mask한다. SSM이 Online인지 다시 본다.

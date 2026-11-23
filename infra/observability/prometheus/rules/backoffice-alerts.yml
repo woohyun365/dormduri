@@ -21,7 +21,7 @@ groups:
           severity: critical
           service: backoffice
         annotations:
-          summary: 백오피스에 복구 code 로그인이 있었습니다.
+          summary: 백오피스에 복구 로그인(TOTP 또는 복구 code)이 있었습니다.
           runbook: infra/runbooks/release/backoffice-stage-deploy.md#경보-대응
 
       - alert: BackofficeBootstrapOwnerUsed
