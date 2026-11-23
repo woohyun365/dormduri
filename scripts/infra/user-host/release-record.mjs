@@ -91,7 +91,8 @@ export const STAGES = Object.freeze({
     images: Object.freeze(['backoffice-api', 'backoffice-web', 'backoffice-ingress']),
     gitTag: /^deploy-backoffice-[0-9]{8}-[0-9]+$/u,
     workflow: '.github/workflows/backoffice-cd.yml',
-    smoke: new RegExp(`^${BACKOFFICE_SMOKE.replace(/[()]/gu, '\\$&')}$`, 'u'),
+    // 고정 문장 하나와 글자 그대로 같을 때만 받는다(정규식으로 바꾸지 않아 escape할 글자가 없다).
+    smoke: Object.freeze({ test: (value) => value === BACKOFFICE_SMOKE }),
     components: (action) => [
       ...[
         'Infrastructure target(백오피스 host)',
