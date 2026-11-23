@@ -16,8 +16,9 @@ Node 26.13.1에서 했습니다. 로컬 registry 기록을 센 값은 그렇다�
 
 - Reviewer prompt는 12,000자를 넘으면 등록되지 않습니다. 이 저장소의 도구 작업용 checkout에 남은 reviewer 등록 호출 860개(2026-09-29~11-22)의
   prompt는 p50 7,919자, p95 11,888자였고 105개가 11,500자 이상이었습니다. 이 길이는 등록이 끝에 붙이는 task marker 줄(126자)까지 든 호출
-  prompt 길이라 한도가 검사하는 prompt보다 그만큼 깁니다. 한도 검사 prompt는 860개 모두 12,000자 이하(최대 11,998자)였고, 호출 prompt가
-  12,000자를 넘는 21개는 marker 때문인 19개와 packet을 prompt에 붙이던 옛 형식 native subject 리뷰 2개(최대 14,555자)입니다. Prompt 안의 결과 template 한 줄(packet 형식의 JSON)이 p50 4,441자, prompt의
+  prompt 길이입니다. 860개 가운데 841개는 한도가 검사하는 prompt보다 126자 길고, 등록이 packet도 호출 prompt에 붙이는 native subject 리뷰
+  19개는 그보다 깁니다. 한도 검사 prompt는 860개 모두 12,000자 이하(최대 11,998자)였고, 호출 prompt가 12,000자를 넘는 21개는 marker 때문인
+  19개와 packet이 붙은 native subject 리뷰 2개(최대 14,555자)입니다. Prompt 안의 결과 template 한 줄(packet 형식의 JSON)이 p50 4,441자, prompt의
   p50 63.9%였습니다(로컬 registry 기록 집계). 한도를 넘은 prompt는 등록되지 않아 기록에 없습니다. 기준 문서 20개인 1회차 3인 리뷰는
   19,193자로 거부됐고 acceptance·runner 기록을 줄여도 12,017자라 2인 구성으로 내렸습니다(#850). 거부 메시지는 길이 하나만 내 어느 부분을
   줄일지 알 수 없었습니다.
@@ -39,7 +40,8 @@ Node 26.13.1에서 했습니다. 로컬 registry 기록을 센 값은 그렇다�
   review id 길이 포함)을 더했습니다. 실제 등록이 아니라 계산입니다. 기준 문서 줄의 짧아짐과 사본 안내 줄 변화는 넣지 않았습니다. 집계는
   로컬 registry의 task 기록에서 `knu_reviewer` prompt 가운데 결과 template 줄이 prompt 안에 있는 옛 형식만 세는 일회성 script로 냈고, 그
   실행 log는 리뷰 runner 기록에 있습니다(공개 재현은 되지 않음). 순위 값은 정렬한 표본의 가장 가까운 순위입니다. 길이는 호출 prompt(task
-  marker 줄 포함) 기준이고, 한도 검사 prompt와의 차이는 같은 표본을 두 길이로 잰 대조 script로 확인했습니다(실행 log는 리뷰 runner 기록).
+  marker 줄 포함, native subject 리뷰는 packet도 포함) 기준이고, 한도 검사 prompt와의 차이는 같은 표본을 두 길이로 잰 대조 script로
+  확인했습니다(실행 log는 리뷰 runner 기록).
 - Held-out 사본 모양 fixture: 재채점 사본 subject의 prompt를 글자까지 고정한 fixture 파일의 변경 전후 byte 수입니다.
 - Tree 비교: 저장소 전체 판정 reviewer를 등록한 뒤 같은 tree의 fast-forward, 같은 tree의 squash merge, tree를 바꾸는 commit을 리뷰 중과 reviewer
   종료 뒤에 각각 만들고 정산 오류를 셌습니다(6 사례, 같은 두 clone).
