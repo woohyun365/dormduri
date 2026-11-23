@@ -41,7 +41,8 @@ Node 26.13.1에서 했습니다. 로컬 registry 기록을 센 값은 그렇다�
   로컬 registry의 task 기록에서 `knu_reviewer` prompt 가운데 결과 template 줄이 prompt 안에 있는 옛 형식만 세는 일회성 script로 냈고, 그
   실행 log는 리뷰 runner 기록에 있습니다(공개 재현은 되지 않음). 순위 값은 정렬한 표본의 가장 가까운 순위입니다. 길이는 호출 prompt(task
   marker 줄 포함, native subject 리뷰는 packet도 포함) 기준이고, 한도 검사 prompt와의 차이는 같은 표본을 두 길이로 잰 대조 script로
-  확인했습니다(실행 log는 리뷰 runner 기록).
+  확인했습니다(실행 log는 리뷰 runner 기록). Parent subject와 native subject는 registry 기록의 처분 주체(Parent가 처분하는 리뷰인지)로
+  나눴습니다. Prompt의 packet 파일 줄로 나누면 그 줄이 생기기 전(2026-09-29~10-01)의 Parent subject 리뷰 68개가 native로 들어갑니다.
 - Held-out 사본 모양 fixture: 재채점 사본 subject의 prompt를 글자까지 고정한 fixture 파일의 변경 전후 byte 수입니다.
 - Tree 비교: 저장소 전체 판정 reviewer를 등록한 뒤 같은 tree의 fast-forward, 같은 tree의 squash merge, tree를 바꾸는 commit을 리뷰 중과 reviewer
   종료 뒤에 각각 만들고 정산 오류를 셌습니다(6 사례, 같은 두 clone).
@@ -118,7 +119,7 @@ git ls-tree -r --name-only ead56b6b | grep -c '[][()]'
 - Runner 기록 60개 fixture는 여전히 거부되고, 거부 사유가 그 가운데 runner 기록이 18,031자라는 것을 보여 줍니다. 기록 줄은 이번 변경에서
   측정만 하고 파일로 옮기지 않았습니다.
 - 기록 모의(로컬 registry 기록 860개, 호출 prompt 길이): 결과 template 줄을 뺀 새 형식 prompt는 p50 3,541자, p95 7,810자, 최대 11,057자로 계산됩니다(변경 전
-  p50 7,919자, 11,500자 이상 105개 → 0개). Parent subject 773개는 p50 7,452 → 3,417자, native subject 87개는 p50 10,693 → 7,411자입니다.
+  p50 7,919자, 11,500자 이상 105개 → 0개). Parent subject 841개는 p50 7,822 → 3,504자, native subject 19개는 p50 9,826 → 7,985자입니다.
 - Prompt는 기준 문서 줄을 디렉터리 한 번과 문서 id 나열로 줄이고, delta 회차는 늘 범위 기록 파일을 가리키며 줄에는 경로 수만 적습니다.
 
 ### 읽기 경계와 tree 비교
