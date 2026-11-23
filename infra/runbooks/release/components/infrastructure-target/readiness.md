@@ -61,7 +61,7 @@ peak는 WAL page cache가 limit까지 찬 것이라 cgroup이 되찾는다. 운�
 ### 월 비용 planning input
 
 지금 적용한 단계의 실제 월 비용과 항목별 단가는 [서버 비용](../../../../../docs/deploy/server-costs.md)이 소유한다. 아래 표는
-DB를 들이는 단계(지금 API 단계)부터의 planning 값이고, 2026-07-27 공개 AWS 가격과 planning 환율 `1 USD = 1,400 KRW`를 사용한
+DB를 들이는 단계(API 단계)부터의 planning 값이고, 2026-07-27 공개 AWS 가격과 planning 환율 `1 USD = 1,400 KRW`를 사용한
 입력이다.
 
 | 단계               | 구성                                                                     |     기본 월 비용 | 예비비 포함 planning budget |

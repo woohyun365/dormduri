@@ -13,7 +13,7 @@
   [`production-runtime-topology.md`](../../../../../docs/architecture/platform/production-runtime-topology.md)
 - 배포·rollback·운영자 접속·경보 대응 절차: [백오피스 단계 배포](../../backoffice-stage-deploy.md)
 
-이 문서는 사용자 제품과 운영자 제품을 같은 host에 관성적으로 합치지 않도록 경계를 전달하고 운영 배포 전 남은 확인을 적는다. 실제
+이 문서는 사용자 제품과 운영자 제품을 같은 host에 관성적으로 합치지 않도록 경계를 전달하고 최종 release 전 남은 확인을 적는다. 실제
 provider, instance, network와 비용은 배포 때 다시 확인하고 target evidence 형식으로
 [실제 값의 기록 위치](../../production-release-evidence.md#실제-값의-기록-위치)에 남긴다. 식별자는
 [식별자 규칙](../../../../../docs/deploy/README.md#식별자-규칙)을 따른다.
