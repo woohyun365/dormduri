@@ -3,8 +3,8 @@
 // 실행은 source commit, dispatch 실행은 실행한 main commit)에 git tag `deploy-<stage>-<UTC YYYYMMDD>-<run number>`와 GitHub
 // Release를 만들고, 본문과 run 요약에 같은 단계 기록을 남긴다. 배포한 source commit은 본문 release_commit_sha다. 형식은
 // infra/runbooks/release/production-release-evidence.md "단계 배포 기록"의 YAML template이다.
-// stage는 web(web-cd: web·ingress)과 api(api-cd: api·api-migrate·observability-config)다. CLI는 `--stage=<stage>`로 고르고 기본은
-// web이다.
+// stage는 web(web-cd: web·ingress), api(api-cd: api·api-migrate·observability-config), backoffice(backoffice-cd:
+// backoffice-api·backoffice-web·backoffice-ingress)다. CLI는 `--stage=<stage>`로 고르고 기본은 web이다.
 // deploy job은 이 기록으로 host의 지금 쌍과 직전 안전 쌍을 알고(외부 smoke 실패 때 되돌릴 쌍), dispatch 입력 쌍이 그
 // source commit의 기록과 같은지 대조한다(D-WB3). 두 stage의 Release는 tag 이름으로 갈려 서로의 계산에 들지 않는다. 기록에는
 // registry host·ARN·node ID 자리가 없고 image는 `dormduri/<name>@sha256:…`로만 적는다(D-WB7).
@@ -18,6 +18,8 @@ const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const COMMIT = /^[a-f0-9]{40}$/u;
 const RUN_URL = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/actions\/runs\/[0-9]+$/u;
 const SMOKE = /^external smoke \((?:serving|maintenance)\): [0-9]+\/[0-9]+ passed$/u;
+// 백오피스 host는 공개 주소가 없어(D-BF2) 외부 smoke가 없다. smoke 칸은 host 안 smoke를 담은 SSM command 결과다.
+export const BACKOFFICE_SMOKE = 'host smoke (backoffice): SSM command Success';
 const OPERATOR = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:\[bot\])?$/u;
 const TIMESTAMP = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/u;
 export const SBOM_PREDICATE = 'https://spdx.dev/Document';
@@ -82,6 +84,38 @@ export const STAGES = Object.freeze({
       `이 실행이 host의 직전 API 묶음으로 되돌리고 외부 smoke 통과(${runUrl})`,
     maintenanceCheck: '해당 없음(API를 내림)',
   }),
+  // 백오피스 host 묶음(backoffice-foundation D-BF16). migration은 api-cd가 먼저 적용하고(schema gate) 이 묶음은 실행하지
+  // 않는다. 외부 smoke 대신 host 안 smoke가 SSM command 결과에 든다.
+  backoffice: Object.freeze({
+    title: '백오피스 단계 배포 기록',
+    images: Object.freeze(['backoffice-api', 'backoffice-web', 'backoffice-ingress']),
+    gitTag: /^deploy-backoffice-[0-9]{8}-[0-9]+$/u,
+    workflow: '.github/workflows/backoffice-cd.yml',
+    // 고정 문장 하나와 글자 그대로 같을 때만 받는다(정규식으로 바꾸지 않아 escape할 글자가 없다).
+    smoke: Object.freeze({ test: (value) => value === BACKOFFICE_SMOKE }),
+    components: (action) => [
+      ...[
+        'Infrastructure target(백오피스 host)',
+        '백오피스 Secrets Manager',
+        'Lightsail runtime(백오피스 묶음, Docker Engine 하한 포함)',
+        'Rollback',
+      ].map((name) => `${name}: ${NOT_JUDGED}`),
+      `DB migration·role grant: 해당 없음(백오피스 묶음은 migration을 실행하지 않음, api-cd가 먼저 적용)`,
+      action === 'maintenance'
+        ? 'DB credential: 해당 없음(이 실행은 백오피스 묶음을 내림)'
+        : `DB credential(백오피스 role): ${NOT_JUDGED}`,
+      action === 'maintenance'
+        ? '관측(백오피스 Alloy): 해당 없음(이 실행은 관측을 바꾸지 않음)'
+        : '관측(백오피스 Alloy → user host 수신)·보안 경보: 미판정(operator가 host RESULT 줄의 observability 값, Grafana의 백오피스 log·지표, 경보 시험, Alloy Docker socket 위험 수용을 확인한 뒤 고친다)',
+    ],
+    hostSmoke: (action) =>
+      action === 'maintenance'
+        ? 'host 안 smoke 해당 없음(세 service를 내림)'
+        : '고정 Host만 화면·다른 Host 421·다른 Origin 403·metric token·publish 127.0.0.1:4300 하나',
+    rollbackCheck: (runUrl) =>
+      `이 실행이 host의 직전 백오피스 묶음으로 되돌리고 host 안 smoke 통과(${runUrl})`,
+    maintenanceCheck: '해당 없음(백오피스 묶음을 내림)',
+  }),
 });
 
 function stageOf(name = 'web') {
@@ -104,7 +138,7 @@ export function gitDeployTag(date, runNumber, stage = 'web') {
   return `deploy-${stage}-${utcDay(date)}-${runNumber}`;
 }
 
-// 배포 묶음(Web 둘, API 셋): 그 stage의 image 이름만 key로 갖고 값이 모두 digest다.
+// 배포 묶음(Web 둘, API 셋, 백오피스 셋): 그 stage의 image 이름만 key로 갖고 값이 모두 digest다.
 const isPair = (pair, images) =>
   Boolean(pair) &&
   Object.keys(pair).length === images.length &&
@@ -161,7 +195,10 @@ export function renderStageRecord(input) {
   );
   ensure(['push', 'workflow_dispatch'].includes(event), `unknown event: ${event}`);
   ensure(RUN_URL.test(runUrl ?? ''), 'run URL is not a workflow run URL');
-  ensure(SMOKE.test(smoke ?? ''), 'smoke is not an external smoke summary');
+  ensure(
+    (stage.smoke ?? SMOKE).test(smoke ?? ''),
+    stage.smoke ? `smoke is not "${BACKOFFICE_SMOKE}"` : 'smoke is not an external smoke summary',
+  );
   ensure(previousSafe === null || isPair(previousSafe, images), 'previous safe pair is malformed');
   ensure(OPERATOR.test(operator ?? ''), 'operator is not a GitHub account name');
   ensure(TIMESTAMP.test(collectedAt ?? ''), 'collected_at is not a UTC timestamp');
@@ -261,7 +298,8 @@ export function servingState(releases, stageName = 'web') {
 }
 
 // 이 실행 뒤 host previous가 될 쌍(단계 기록의 previous_safe)과, deploy가 외부 smoke에서 실패했을 때 되돌릴 쌍.
-// host 배포 script(web: infra/deploy/user/ssm/deploy.sh, api: infra/deploy/user/api/ssm/deploy-api.sh)와 같은 규칙이다:
+// host 배포 script(web: infra/deploy/user/ssm/deploy.sh, api: infra/deploy/user/api/ssm/deploy-api.sh, backoffice:
+// infra/deploy/backoffice/ssm/deploy.sh)와 같은 규칙이다:
 // deploy는 다른 쌍을 올리면 current를 previous로 두고, 같은 쌍이면 previous를 그대로 둔다. rollback은 previous와 같은 쌍만
 // 받고 성공하면 previous를 비운다.
 export function planRun({ action, pair }, releases, stageName = 'web') {
@@ -415,7 +453,7 @@ if (isDirectExecution()) {
       console.log(`git_tag=${gitDeployTag(date, run, stage)}`);
     } else {
       console.error(
-        'usage: release-record.mjs plan|match|attestation-manifest|check-sbom|record|tags [file] [--stage=web|api] [--options]',
+        'usage: release-record.mjs plan|match|attestation-manifest|check-sbom|record|tags [file] [--stage=web|api|backoffice] [--options]',
       );
       process.exit(2);
     }

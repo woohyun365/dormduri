@@ -15,6 +15,7 @@ import {
   planRun,
   renderStageRecord,
   servingState,
+  BACKOFFICE_SMOKE,
   STAGE_WINDOW,
   stageReleases,
 } from './release-record.mjs';
@@ -399,7 +400,7 @@ test('the API stage refuses the Web release ID, image names and SBOM keys', () =
     ],
     [{ sbom: { web: digest('5'), ingress: digest('6') } }, /SBOM manifest digest is missing/u],
     [{ previousSafe: pair('d', 'e') }, /previous safe pair is malformed/u],
-    [{ stage: 'backoffice' }, /unknown stage: backoffice/u],
+    [{ stage: 'admin' }, /unknown stage: admin/u],
   ]) {
     assert.throws(() => renderStageRecord(apiInput(overrides)), reason, JSON.stringify(overrides));
   }
@@ -427,7 +428,7 @@ test('a stage keeps its own recent Releases however many the other stage adds', 
   assert.equal(web.length, STAGE_WINDOW);
   assert.equal(web[0].tagName, 'deploy-web-20261111-300');
   assert.ok(web.every((release) => release.tagName.startsWith('deploy-web-')));
-  assert.throws(() => stageReleases(newestFirst, 'backoffice'), /unknown stage: backoffice/u);
+  assert.throws(() => stageReleases(newestFirst, 'admin'), /unknown stage: admin/u);
 });
 
 test('each stage parses and plans only its own Releases', () => {
@@ -477,5 +478,138 @@ test('each stage parses and plans only its own Releases', () => {
     false,
   );
   assert.equal(gitDeployTag(new Date('2026-11-11T15:30:00Z'), 7, 'api'), 'deploy-api-20261111-7');
-  assert.throws(() => gitDeployTag(new Date('2026-11-11T15:30:00Z'), 7, 'backoffice'));
+  assert.throws(() => gitDeployTag(new Date('2026-11-11T15:30:00Z'), 7, 'admin'));
+});
+
+// 백오피스 단계(backoffice-foundation D-BF16). 묶음은 backoffice-api·backoffice-web·backoffice-ingress이고, 공개 주소가 없어
+// smoke 칸은 host 안 smoke를 담은 SSM command 결과 한 줄이다. migration은 api-cd가 먼저 적용하므로 DB migration은 해당 없음이다.
+const boPair = (api, web, ingress) => ({
+  'backoffice-api': digest(api),
+  'backoffice-web': digest(web),
+  'backoffice-ingress': digest(ingress),
+});
+const boInput = (overrides = {}) =>
+  input({
+    stage: 'backoffice',
+    releaseId: 'deploy-backoffice-20261122-3',
+    pair: boPair('a', 'b', 'c'),
+    sbom: {
+      'backoffice-api': digest('5'),
+      'backoffice-web': digest('6'),
+      'backoffice-ingress': digest('7'),
+    },
+    smoke: BACKOFFICE_SMOKE,
+    previousSafe: boPair('d', 'e', 'f'),
+    ...overrides,
+  });
+
+test('the backoffice stage record keeps the template fields, names its bundle and passes the public record scan', () => {
+  const evidence = readFileSync(
+    resolve(repoRoot, 'infra/runbooks/release/production-release-evidence.md'),
+    'utf8',
+  );
+  const template = /## 단계 배포 기록[\s\S]*?```yaml\n([\s\S]*?)```/u.exec(evidence)[1];
+  const fields = (yaml) => yaml.match(/^[a-z_]+(?=:)/gmu);
+  for (const action of ['deploy', 'rollback', 'maintenance']) {
+    const body = renderStageRecord(boInput({ action }));
+    const yaml = yamlOf(body);
+    assert.deepEqual(fields(yaml), fields(template), action);
+    for (const line of [
+      'stage: backoffice',
+      'release_id: deploy-backoffice-20261122-3',
+      `  - dormduri/backoffice-api@${digest('a')}`,
+      `  - dormduri/backoffice-web@${digest('b')}`,
+      `  - dormduri/backoffice-ingress@${digest('c')}`,
+      '  - DB migration·role grant: 해당 없음(백오피스 묶음은 migration을 실행하지 않음, api-cd가 먼저 적용)',
+    ]) {
+      assert.ok(yaml.split('\n').includes(line), `${action}: ${line}`);
+    }
+    assert.match(yaml, /signer \.github\/workflows\/backoffice-cd\.yml, refs\/heads\/main/u);
+    const smoke = yaml.split('\n').find((line) => line.startsWith('smoke: '));
+    assert.ok(smoke.startsWith(`smoke: ${BACKOFFICE_SMOKE}, `), action);
+    if (action === 'maintenance') assert.match(smoke, /host 안 smoke 해당 없음/u);
+    else
+      assert.match(
+        smoke,
+        /다른 Host 421·다른 Origin 403·metric token·publish 127\.0\.0\.1:4300 하나/u,
+      );
+    assert.doesNotMatch(
+      yaml,
+      /external smoke|api-cd\.yml|web-cd\.yml|dormduri\/(?:api|web|ingress)@/u,
+      action,
+    );
+    assert.doesNotMatch(yaml, /: PASS\b/u);
+    assert.match(body, /^백오피스 단계 배포 기록\. 형식: /u);
+    assert.deepEqual(scanText(body), [], action);
+  }
+});
+
+test('the backoffice stage refuses an external smoke summary and the other stage bundles', () => {
+  for (const [overrides, reason] of [
+    [
+      { smoke: 'external smoke (serving): 21/21 passed' },
+      /smoke is not "host smoke \(backoffice\)/u,
+    ],
+    [{ smoke: `${BACKOFFICE_SMOKE} ` }, /smoke is not/u],
+    [{ releaseId: 'deploy-api-20261122-3' }, /release ID is not a deploy-backoffice tag/u],
+    [
+      { pair: apiPair('a', 'b') },
+      /image pair is not backoffice-api and backoffice-web and backoffice-ingress/u,
+    ],
+    [{ previousSafe: pair('d', 'e') }, /previous safe pair is malformed/u],
+  ]) {
+    assert.throws(() => renderStageRecord(boInput(overrides)), reason, JSON.stringify(overrides));
+  }
+  assert.throws(
+    () => renderStageRecord(input({ smoke: BACKOFFICE_SMOKE })),
+    /external smoke summary/u,
+  );
+});
+
+test('the backoffice stage plans from its own Releases with the host deploy and rollback rules', () => {
+  let n = 0;
+  const boRelease = (overrides) => {
+    n += 1;
+    return {
+      tagName: `deploy-backoffice-20261122-${n}`,
+      createdAt: `2026-11-22T0${n}:00:00Z`,
+      tagCommit: commit('c'),
+      body: renderStageRecord(boInput(overrides)),
+    };
+  };
+  const first = boRelease({ previousSafe: null });
+  const mixed = [release({ previousSafe: null }), apiRelease({ previousSafe: null }), first];
+  assert.deepEqual(servingState(mixed, 'backoffice'), {
+    current: boPair('a', 'b', 'c'),
+    previousSafe: null,
+  });
+  // 셋 가운데 하나만 바뀌어도 다른 묶음이라 지금 묶음이 직전 안전 묶음이 된다(host deploy.sh와 같음).
+  assert.deepEqual(
+    planRun({ action: 'deploy', pair: boPair('a', 'b', '8') }, mixed, 'backoffice').rollbackTarget,
+    boPair('a', 'b', 'c'),
+  );
+  assert.equal(
+    planRun({ action: 'deploy', pair: boPair('a', 'b', 'c') }, mixed, 'backoffice').previousSafe,
+    null,
+  );
+  const second = boRelease({ pair: boPair('1', '2', '3'), previousSafe: boPair('a', 'b', 'c') });
+  assert.throws(() =>
+    planRun({ action: 'rollback', pair: boPair('1', '2', '3') }, [...mixed, second], 'backoffice'),
+  );
+  assert.deepEqual(
+    planRun({ action: 'rollback', pair: boPair('a', 'b', 'c') }, [...mixed, second], 'backoffice'),
+    {
+      previousSafe: null,
+      rollbackTarget: null,
+    },
+  );
+  assert.equal(parseStageRecord(first.body, 'api'), null);
+  assert.equal(
+    matchesRecord(mixed, { sourceCommit: commit('c'), pair: boPair('a', 'b', 'c') }, 'backoffice'),
+    true,
+  );
+  assert.equal(
+    gitDeployTag(new Date('2026-11-22T15:30:00Z'), 3, 'backoffice'),
+    'deploy-backoffice-20261122-3',
+  );
 });

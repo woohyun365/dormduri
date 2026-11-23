@@ -101,6 +101,10 @@ describe('roles, approval requests and separation of duties (OA-R6, OA-R9)', () 
     await test.http.get('/audit/events').set(bearer(auditor.token)).expect(200);
     const denied = await test.http.get('/accounts').set(bearer(auditor.token)).expect(403);
     expect(denied.body.error.code).toBe('permission_denied');
+    // The guard counts the denial for the burst alert (backoffice-alerts.yml), with no account label.
+    expect(await test.metrics.render()).toMatch(
+      /backoffice_security_events_total\{event="permission_denied"[^}]*\} [1-9]/u,
+    );
   });
 
   it('refuses to revoke the owner role of the last approver, even by self approval', async () => {

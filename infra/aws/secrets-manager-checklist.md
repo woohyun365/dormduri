@@ -29,12 +29,13 @@ Lightsail instance는 EC2 instance profile과 같은 workload service role을 �
 
 ## Secret 묶음
 
-| Secret 이름                          | Key                                                                  | 읽는 주체                                   |
-| ------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------- |
-| `/dormduri/production/api/runtime`   | `infra/deploy/api/secret-mount.contract.json`의 `requiredFiles` 17개 | host role(API 배포 document, restore drill) |
-| `/dormduri/production/api/migration` | `MIGRATION_DATABASE_URL`                                             | host role(migrate one-off, restore drill)   |
-| `/dormduri/production/observability` | `SLACK_ALERT_WEBHOOK_URL`, `GRAFANA_ADMIN_PASSWORD`                  | host role(관측 배포)                        |
-| RDS 관리 master secret(이름은 RDS)   | master user                                                          | 사람(break-glass)만                         |
+| Secret 이름                          | Key                                                                                                              | 읽는 주체                                   |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `/dormduri/production/api/runtime`   | `infra/deploy/api/secret-mount.contract.json`의 `requiredFiles` 17개                                             | host role(API 배포 document, restore drill) |
+| `/dormduri/production/api/migration` | `MIGRATION_DATABASE_URL`                                                                                         | host role(migrate one-off, restore drill)   |
+| `/dormduri/production/observability` | `SLACK_ALERT_WEBHOOK_URL`, `GRAFANA_ADMIN_PASSWORD`, 선택 `BACKOFFICE_HOST_PRIVATE_IP`·`BACKOFFICE_INGEST_TOKEN` | host role(관측 배포)                        |
+| `/dormduri/production/backoffice`    | `infra/deploy/backoffice-api/secret-mount.contract.json`의 `requiredFiles` 6개                                   | 백오피스 host role(백오피스 배포 document)  |
+| RDS 관리 master secret(이름은 RDS)   | master user                                                                                                      | 사람(break-glass)만                         |
 
 - 각 묶음의 `SecretString`은 key를 이름으로 갖는 JSON object다. 값은 비어 있지 않은 문자열이다.
 - runtime 묶음의 key 목록은 contract가 원본이고, contract는 `apps/api/src/config/composition/api-config.registry.ts`의 production
@@ -46,6 +47,16 @@ Lightsail instance는 EC2 instance profile과 같은 workload service role을 �
 - DB URL 형식: runtime 셋은 `sslmode=verify-full&sslrootcert=/etc/dormduri/rds-ca/root.pem`, migration은
   `sslmode=require&sslcert=/etc/dormduri/rds-ca/root.pem&sslaccept=strict`(`infra/db/README.md` RDS SSL / CA bundle).
 - Prometheus scrape token은 runtime 묶음의 `METRICS_BEARER_TOKEN` 값을 같이 쓴다.
+- 관측 묶음의 `BACKOFFICE_HOST_PRIVATE_IP`(백오피스 host 사설 IPv4)와 `BACKOFFICE_INGEST_TOKEN`(base64url 32~256자)은 둘 다 두거나
+  둘 다 빼야 한다. 둘이 있으면 API 배포 document가 user host 수신 gateway의 접근 include(`gateway-access.conf`, 그 /32와 Bearer
+  token만 받음)를 쓰고, 없으면 모두 거부하는 include를 쓴다. 한쪽만 있거나 형식이 틀리면 관측 단계가 실패한다(fail-open, API는
+  그대로). Token은 백오피스 묶음의 `OBSERVABILITY_INGEST_TOKEN`과 같은 값이어야 한다. 바꿀 때는 두 묶음을 함께 바꾸고 `api-cd`·
+  `backoffice-cd`를 차례로 다시 배포한다(그 사이 백오피스 지표·log가 401로 끊겨 `BackofficeTelemetryAbsent`가 올 수 있다).
+- 백오피스 묶음 key: `BACKOFFICE_DATABASE_URL`(`dormduri_backoffice` LOGIN user), `BACKOFFICE_RETENTION_DATABASE_URL`
+  (`dormduri_backoffice_retention`, 앞 값과 달라야 함), 두 URL 모두 runtime 셋과 같은 `sslmode=verify-full` 형식.
+  `BACKOFFICE_TOTP_ENCRYPTION_KEY`(32 byte base64, 잃으면 모든 TOTP 재등록이라 Owner 오프라인 사본을 둔다),
+  `BACKOFFICE_METRICS_BEARER_TOKEN`(32자 이상, 백오피스 Alloy가 같은 값으로 긁는다), `OBSERVABILITY_INGEST_URL`(`http://<user host
+사설 IP>:9480`, 공개 저장소에 두지 않음), `OBSERVABILITY_INGEST_TOKEN`(위 관측 묶음 token과 같음).
 - KMS: Secrets Manager의 AWS managed key `aws/secretsmanager`를 쓴다. Customer-managed CMK는 key policy, rotation, 비용,
   break-glass 운영 절차가 준비된 뒤 별도 변경으로 도입하고, 그때 host role에 그 key의 `kms:Decrypt`를 더한다.
 
@@ -71,9 +82,11 @@ API 배포 document(`infra/deploy/user/api/ssm/deploy-api.sh`)가 rollout 전에
 
 ## IAM
 
-- Host role: `infra/aws/iam/host-role.secrets-read.json`. 위 묶음 셋의 `secretsmanager:GetSecretValue`만 허용한다(resource는 이름
-  뒤에 Secrets Manager가 붙이는 6자 suffix를 받는 `-??????`). RDS 관리 master secret과 다른 secret은 읽지 못한다.
-- GitHub OIDC role(web·api의 publish·deploy): secret 읽기 권한이 없다. `scripts/infra/aws/policy-templates.mjs`가 정책 원본을
+- Host role: `infra/aws/iam/host-role.secrets-read.json`. 위 user host 묶음 셋의 `secretsmanager:GetSecretValue`만 허용한다(resource는
+  이름 뒤에 Secrets Manager가 붙이는 6자 suffix를 받는 `-??????`). RDS 관리 master secret과 다른 secret은 읽지 못한다.
+- 백오피스 host role: `infra/aws/iam/backoffice-host-role.secrets-read.json`. 백오피스 묶음 하나만 읽는다. User host 묶음은 읽지
+  못하고, user host role도 백오피스 묶음을 읽지 못한다.
+- GitHub OIDC role(web·api·백오피스의 publish·deploy): secret 읽기 권한이 없다. `scripts/infra/aws/policy-templates.mjs`가 정책 원본을
   대조한다.
 
 ## 만들기·값 바꾸기

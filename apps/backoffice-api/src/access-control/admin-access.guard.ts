@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { AdminSessionService } from '../admin-identity/session/admin-session.service.js';
 import { isRecentlyReauthenticated } from '../admin-identity/session/session-policy.js';
 import { BackofficeApiError } from '../platform/http/api-error.js';
+import { BackofficeMetrics } from '../platform/observability/backoffice-metrics.js';
 import {
   readBearerToken,
   resolveRequestId,
@@ -38,7 +39,8 @@ export function assertRouteAccess(
 /**
  * Global guard (default deny, README §4): a route without a declared access rule is refused, a public
  * route passes, and every other route needs a resolved session that satisfies its rule. The UI may
- * hide buttons from the permission list, but this guard decides.
+ * hide buttons from the permission list, but this guard decides. Each permission refusal is counted as
+ * the `permission_denied` security event (the burst alert reads it); other refusals are not.
  */
 @Injectable()
 export class AdminAccessGuard implements CanActivate {
@@ -46,6 +48,7 @@ export class AdminAccessGuard implements CanActivate {
     private readonly reflector: Reflector,
     @Inject(AdminSessionService) private readonly sessions: AdminSessionService,
     @Inject(Clock) private readonly clock: Clock,
+    @Inject(BackofficeMetrics) private readonly metrics: BackofficeMetrics,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -54,6 +57,7 @@ export class AdminAccessGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
     if (!access) {
+      this.metrics.securityEvent('permission_denied');
       throw new BackofficeApiError('permission_denied', 'route declares no access rule');
     }
     if (access.kind === 'public') {
@@ -65,7 +69,14 @@ export class AdminAccessGuard implements CanActivate {
       throw new BackofficeApiError('session_required');
     }
     const session = await this.sessions.resolve(token, resolveRequestId(request));
-    assertRouteAccess(access, session, this.clock.now());
+    try {
+      assertRouteAccess(access, session, this.clock.now());
+    } catch (error) {
+      if (error instanceof BackofficeApiError && error.code === 'permission_denied') {
+        this.metrics.securityEvent('permission_denied');
+      }
+      throw error;
+    }
     request.adminSession = session;
     return true;
   }

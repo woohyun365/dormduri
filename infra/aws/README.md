@@ -19,8 +19,15 @@ Web 단계 CD가 쓰는 계정 resource의 정책 원본도 여기 둔다. Accou
 - `iam/api-publish-role.*`·`iam/api-deploy-role.*`: API 묶음(`api-cd`)이 쓰는 같은 모양의 두 OIDC role. 세 API repository만
   다루고, deploy role은 environment `production-api`에서만 `dormduri-api-deploy` document를 부른다. 어느 OIDC role도 secret을
   읽지 않는다
-- `iam/github-oidc-sub-template.json`: 저장소의 GitHub OIDC `sub` claim 설정. 네 OIDC role trust가 이 형식으로 대조한다
-- `ecr/lifecycle-policy.json`: 다섯 ECR repository에 같이 쓰는 image 보존 규칙
+- `iam/backoffice-publish-role.*`·`iam/backoffice-deploy-role.*`: 백오피스 묶음(`backoffice-cd`)이 쓰는 같은 모양의 두 OIDC role.
+  세 백오피스 repository(`dormduri/backoffice-api`·`backoffice-web`·`backoffice-ingress`)만 다루고, deploy role은 environment
+  `production-backoffice`에서만 `dormduri-backoffice-deploy` document를 tag `dormduri-deploy-target=backoffice-app` node에 부른다.
+  첫 owner 등록 code document(`dormduri-backoffice-bootstrap-owner`)는 어느 OIDC role도 부르지 못한다
+- `iam/backoffice-host-role.ecr-pull.json`·`iam/backoffice-host-role.secrets-read.json`: 백오피스 host role
+  (`dormduri-backoffice-host-ssm`, trust는 `host-role.trust.json`과 같음)이 세 백오피스 repository에서 image를 받고 Secrets Manager
+  `/dormduri/production/backoffice` 하나만 읽는 권한. User host role과 서로의 repository·secret에 닿지 않는다
+- `iam/github-oidc-sub-template.json`: 저장소의 GitHub OIDC `sub` claim 설정. 여섯 OIDC role trust가 이 형식으로 대조한다
+- `ecr/lifecycle-policy.json`: 여덟 ECR repository에 같이 쓰는 image 보존 규칙
 
 - `rds-setup-checklist.md`: PostgreSQL 18, private network, backup/PITR, SSL, connection budget
 - `secrets-manager-checklist.md`: Secrets Manager 묶음, host role secret reader, secret을 읽지 않는 OIDC release principal,

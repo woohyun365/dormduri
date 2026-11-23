@@ -1,0 +1,20 @@
+#!/bin/bash
+# 백오피스 document harness의 가짜 aws CLI: 호출 이름만 기록하고(값 없음) 고정 응답을 낸다. 백오피스 묶음 값은 contract의 key마다
+# 다른 가짜 값이다(BAD_SECRET이면 key 하나를 뺀다, BAD_FETCH면 조회가 실패한다).
+printf 'aws %s %s %s\n' "$1" "$2" "${4:-}" >>/tmp/aws.log
+case "$1 $2" in
+  "sts get-caller-identity") echo 000000000000 ;;
+  "ecr get-login-password") echo stub-password ;;
+  "secretsmanager get-secret-value")
+    [ -z "${BAD_FETCH:-}" ] || { echo 'An error occurred (AccessDeniedException)' >&2; exit 255; }
+    [ "$4" = /dormduri/production/backoffice ] || exit 254
+    python3 -I -c '
+import json, os, sys
+names = json.load(open(sys.argv[1]))["requiredFiles"]
+if os.environ.get("BAD_SECRET"):
+    names = names[1:]
+print(json.dumps({name: "fakesecretvalue-%s" % name for name in names}))
+' /work/contract.json
+    ;;
+  *) exit 1 ;;
+esac

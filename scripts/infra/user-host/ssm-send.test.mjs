@@ -118,7 +118,7 @@ test('the API document gets the API bundle parameters and an unknown document is
   );
   const web = run(valid, 'Success\t1\t1\t0');
   assert.match(web.calls, /--comment web-cd 41573137218 deploy/u);
-  for (const document of ['dormduri-backoffice-deploy', '']) {
+  for (const document of ['dormduri-admin-deploy', '']) {
     const result = run(valid, 'Success\t1\t1\t0', { document });
     assert.equal(result.status, 2, document);
     assert.equal(result.calls, '');
@@ -137,4 +137,36 @@ test('the API document gets the API bundle parameters and an unknown document is
   );
   assert.equal(badObservability.status, 2, 'the observability config digest is checked too');
   assert.equal(badObservability.calls, '');
+});
+
+// 백오피스 host는 다른 배포 대상 tag(backoffice-app)로 고른다(backoffice-foundation D-BF16). user host 대상은 그대로다.
+test('the backoffice document gets its bundle parameters and the backoffice target tag only', () => {
+  const args = ['rollback', digest('a'), digest('b'), digest('d'), 'c'.repeat(64)];
+  const backoffice = run(args, 'Success\t1\t1\t0', { document: 'dormduri-backoffice-deploy' });
+  assert.equal(backoffice.status, 0, backoffice.stderr);
+  assert.match(
+    backoffice.calls,
+    /send-command --document-name dormduri-backoffice-deploy --document-hash c{64} --document-hash-type Sha256 --targets Key=tag:dormduri-deploy-target,Values=backoffice-app /u,
+  );
+  assert.doesNotMatch(backoffice.calls, /user-app/u);
+  assert.match(
+    backoffice.calls,
+    new RegExp(
+      `--parameters \\{"action":\\["rollback"\\],"backofficeApiDigest":\\["${digest('a')}"\\],"backofficeWebDigest":\\["${digest('b')}"\\],"backofficeIngressDigest":\\["${digest('d')}"\\]\\}`,
+      'u',
+    ),
+  );
+  assert.match(backoffice.calls, /--comment backoffice-cd 41573137218 rollback/u);
+  for (const document of ['dormduri-web-deploy', 'dormduri-api-deploy']) {
+    const user = run(
+      document === 'dormduri-web-deploy' ? valid : [...args.slice(0, 4), args[4]],
+      'Success\t1\t1\t0',
+      { document },
+    );
+    assert.match(user.calls, /Values=user-app /u, document);
+    assert.doesNotMatch(user.calls, /backoffice-app/u, document);
+  }
+  const short = run(valid, 'Success\t1\t1\t0', { document: 'dormduri-backoffice-deploy' });
+  assert.equal(short.status, 2, 'two digests are refused for the backoffice bundle');
+  assert.equal(short.calls, '');
 });

@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
 import type { AdminSessionService } from '../admin-identity/session/admin-session.service.js';
 import type { AdminRequestSession } from '../platform/http/request-context.js';
+import type { BackofficeMetrics } from '../platform/observability/backoffice-metrics.js';
 import { SystemClock } from '../platform/time/clock.js';
 import { AdminAccessGuard, assertRouteAccess } from './admin-access.guard.js';
 import { permissionsForRoles } from './permissions.js';
@@ -121,17 +122,21 @@ function contextFor(handler: keyof FixtureController, headers: Record<string, st
 describe('AdminAccessGuard (default deny)', () => {
   const token = 'a'.repeat(43);
   const resolve = vi.fn<AdminSessionService['resolve']>();
+  const securityEvent = vi.fn<BackofficeMetrics['securityEvent']>();
   const guard = new AdminAccessGuard(
     new Reflector(),
     { resolve } as unknown as AdminSessionService,
     new SystemClock(),
+    { securityEvent } as unknown as BackofficeMetrics,
   );
 
   it('refuses a route that declares no access rule, even with a valid session', async () => {
     resolve.mockResolvedValue(session());
     const { context } = contextFor('undeclared', { authorization: `Bearer ${token}` });
+    securityEvent.mockClear();
     await expect(guard.canActivate(context)).rejects.toMatchObject({ code: 'permission_denied' });
     expect(resolve).not.toHaveBeenCalled();
+    expect(securityEvent).toHaveBeenCalledWith('permission_denied');
   });
 
   it('lets a public route through without a session', async () => {
@@ -152,12 +157,28 @@ describe('AdminAccessGuard (default deny)', () => {
       session({ roles: ['AUDITOR'], permissions: permissionsForRoles(['AUDITOR']) }),
     );
     const allowed = contextFor('audit', { authorization: `Bearer ${token}` });
+    securityEvent.mockClear();
     await expect(guard.canActivate(allowed.context)).resolves.toBe(true);
     expect(allowed.request.adminSession?.roles).toEqual(['AUDITOR']);
+    expect(securityEvent).not.toHaveBeenCalled();
 
     resolve.mockResolvedValue(session({ roles: [], permissions: new Set() }));
     await expect(
       guard.canActivate(contextFor('audit', { authorization: `Bearer ${token}` }).context),
     ).rejects.toThrow('permission_denied');
+    // 권한 거부는 경보 지표로 센다(BackofficePermissionDeniedBurst). 다른 거부(session·재인증)는 세지 않는다.
+    expect(securityEvent).toHaveBeenCalledExactlyOnceWith('permission_denied');
+  });
+
+  it('counts only permission refusals, not a missing session or an old re-authentication', async () => {
+    securityEvent.mockClear();
+    await expect(guard.canActivate(contextFor('current').context)).rejects.toThrow(
+      'session_required',
+    );
+    resolve.mockResolvedValue(session({ scope: 'RECOVERY', permissions: new Set() }));
+    await expect(
+      guard.canActivate(contextFor('audit', { authorization: `Bearer ${token}` }).context),
+    ).rejects.toThrow('recovery_scope');
+    expect(securityEvent).not.toHaveBeenCalled();
   });
 });

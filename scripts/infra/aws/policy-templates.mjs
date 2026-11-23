@@ -5,6 +5,10 @@
 // D-AB12). publish는 자기 repository push만, deploy는 tag 붙은 managed node와 자기 document 하나에만 SendCommand(document
 // 갱신 권한 없음)와 provenance 검증용 manifest 읽기. host role은 다섯 repository pull과 user host 묶음 secret 셋의
 // GetSecretValue만(D-AB7, 이름 뒤 Secrets Manager suffix 6자만 wildcard). 식별자는 placeholder(docs/deploy/README.md 식별자 규칙).
+// 백오피스(backoffice-foundation D-BF16): backoffice-cd(`backoffice-publish-role.*`·`backoffice-deploy-role.*`, 백오피스 세
+// repository와 `dormduri-backoffice-deploy`, 대상 tag `backoffice-app`)와 백오피스 host role(`backoffice-host-role.*`, 세
+// repository pull과 `/dormduri/production/backoffice` 하나). 백오피스 host role의 신뢰 정책은 host-role.trust.json과 같다.
+// 첫 owner 등록 code document(`dormduri-backoffice-bootstrap-owner`)는 어느 CD role도 보낼 수 없다(Owner 관리 권한만).
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -22,6 +26,15 @@ export const HOST_SECRETS = Object.freeze([
   '/dormduri/production/api/migration',
   '/dormduri/production/observability',
 ]);
+export const BACKOFFICE_REPOSITORIES = Object.freeze([
+  'dormduri/backoffice-api',
+  'dormduri/backoffice-web',
+  'dormduri/backoffice-ingress',
+]);
+export const BACKOFFICE_DEPLOY_DOCUMENT = 'dormduri-backoffice-deploy';
+export const BACKOFFICE_HOST_SECRETS = Object.freeze(['/dormduri/production/backoffice']);
+export const USER_HOST_TARGET = 'user-app';
+export const BACKOFFICE_HOST_TARGET = 'backoffice-app';
 export const PLACEHOLDERS = Object.freeze([
   '<ACCOUNT_ID>',
   '<GITHUB_OWNER_ID>',
@@ -35,12 +48,16 @@ export const OIDC_CONTEXTS = Object.freeze({
   deploy: 'environment:production',
   'api-publish': 'ref:refs/heads/main',
   'api-deploy': 'environment:production-api',
+  'backoffice-publish': 'ref:refs/heads/main',
+  'backoffice-deploy': 'environment:production-backoffice',
 });
 const OIDC_WORKFLOWS = Object.freeze({
   publish: 'web-cd.yml',
   deploy: 'web-cd.yml',
   'api-publish': 'api-cd.yml',
   'api-deploy': 'api-cd.yml',
+  'backoffice-publish': 'backoffice-cd.yml',
+  'backoffice-deploy': 'backoffice-cd.yml',
 });
 export const PUBLISH_ACTIONS = Object.freeze([
   'ecr:BatchCheckLayerAvailability',
@@ -154,7 +171,12 @@ export function publishPermissionProblems(
 
 export function deployPermissionProblems(
   policy,
-  { name = 'deploy permissions', repositories = REPOSITORIES, document = DEPLOY_DOCUMENT } = {},
+  {
+    name = 'deploy permissions',
+    repositories = REPOSITORIES,
+    document = DEPLOY_DOCUMENT,
+    target = USER_HOST_TARGET,
+  } = {},
 ) {
   const problems = [];
   const documentArn = documentArnOf(document);
@@ -172,7 +194,7 @@ export function deployPermissionProblems(
         (sameSet(resources, [documentArn]) && !condition) ||
         (sameSet(resources, [nodeArn]) &&
           sameSet(Object.keys(condition ?? {}), ['StringEquals']) &&
-          condition.StringEquals['ssm:resourceTag/dormduri-deploy-target'] === 'user-app'),
+          condition.StringEquals['ssm:resourceTag/dormduri-deploy-target'] === target),
       'ssm:DescribeDocument': exactly([documentArn]),
       'ssm:ListCommands': anyResource,
       'ecr:DescribeImages': repositoryRule,
@@ -197,9 +219,12 @@ export function hostTrustProblems(policy) {
   return problems;
 }
 
-export function hostPermissionProblems(policy) {
-  const repositoryRule = exactly(repositoryArnsOf([...REPOSITORIES, ...API_REPOSITORIES]));
-  return allowedStatements('host permissions', policy, {
+export function hostPermissionProblems(
+  policy,
+  { name = 'host permissions', repositories = [...REPOSITORIES, ...API_REPOSITORIES] } = {},
+) {
+  const repositoryRule = exactly(repositoryArnsOf(repositories));
+  return allowedStatements(name, policy, {
     'ecr:GetAuthorizationToken': anyResource,
     'ecr:BatchGetImage': repositoryRule,
     'ecr:GetDownloadUrlForLayer': repositoryRule,
@@ -208,17 +233,17 @@ export function hostPermissionProblems(policy) {
 
 // host role은 user host 묶음 secret 셋만 읽는다. Secrets Manager가 이름 뒤에 붙이는 `-` + 6자 suffix만 `?`로 받는다
 // (`*`이면 같은 접두의 다른 secret, RDS 관리 master secret까지 닿을 수 있다).
-export function hostSecretProblems(policy) {
-  const expected = HOST_SECRETS.map(
-    (name) => `arn:aws:secretsmanager:${REGION}:<ACCOUNT_ID>:secret:${name}-??????`,
+export function hostSecretProblems(policy, { name = 'host secrets', secrets = HOST_SECRETS } = {}) {
+  const expected = secrets.map(
+    (secret) => `arn:aws:secretsmanager:${REGION}:<ACCOUNT_ID>:secret:${secret}-??????`,
   );
-  const problems = allowedStatements('host secrets', policy, {
+  const problems = allowedStatements(name, policy, {
     'secretsmanager:GetSecretValue': exactly(expected),
   });
   for (const resource of asList(policy.Statement).flatMap((statement) =>
     asList(statement.Resource),
   ))
-    if (resource.includes('*')) problems.push(`host secrets: ${resource} has a * wildcard`);
+    if (resource.includes('*')) problems.push(`${name}: ${resource} has a * wildcard`);
   return problems;
 }
 
@@ -269,6 +294,12 @@ export function checkPolicyTemplates(files) {
     'iam/api-deploy-role.trust.json',
     'iam/api-publish-role.permissions.json',
     'iam/api-publish-role.trust.json',
+    'iam/backoffice-deploy-role.permissions.json',
+    'iam/backoffice-deploy-role.trust.json',
+    'iam/backoffice-host-role.ecr-pull.json',
+    'iam/backoffice-host-role.secrets-read.json',
+    'iam/backoffice-publish-role.permissions.json',
+    'iam/backoffice-publish-role.trust.json',
     'iam/deploy-role.permissions.json',
     'iam/deploy-role.trust.json',
     'iam/github-oidc-sub-template.json',
@@ -299,6 +330,26 @@ export function checkPolicyTemplates(files) {
       name: 'api deploy permissions',
       repositories: API_REPOSITORIES,
       document: API_DEPLOY_DOCUMENT,
+    }),
+    ...oidcTrustProblems('backoffice-publish', json('iam/backoffice-publish-role.trust.json')),
+    ...oidcTrustProblems('backoffice-deploy', json('iam/backoffice-deploy-role.trust.json')),
+    ...publishPermissionProblems(json('iam/backoffice-publish-role.permissions.json'), {
+      name: 'backoffice publish permissions',
+      repositories: BACKOFFICE_REPOSITORIES,
+    }),
+    ...deployPermissionProblems(json('iam/backoffice-deploy-role.permissions.json'), {
+      name: 'backoffice deploy permissions',
+      repositories: BACKOFFICE_REPOSITORIES,
+      document: BACKOFFICE_DEPLOY_DOCUMENT,
+      target: BACKOFFICE_HOST_TARGET,
+    }),
+    ...hostPermissionProblems(json('iam/backoffice-host-role.ecr-pull.json'), {
+      name: 'backoffice host permissions',
+      repositories: BACKOFFICE_REPOSITORIES,
+    }),
+    ...hostSecretProblems(json('iam/backoffice-host-role.secrets-read.json'), {
+      name: 'backoffice host secrets',
+      secrets: BACKOFFICE_HOST_SECRETS,
     }),
     ...hostTrustProblems(json('iam/host-role.trust.json')),
     ...hostPermissionProblems(json('iam/host-role.ecr-pull.json')),

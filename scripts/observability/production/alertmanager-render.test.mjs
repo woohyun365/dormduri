@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
@@ -38,6 +38,29 @@ test('the fixtures carry the secret, content and identifier column names as labe
   assert.equal(critical.labels.severity, 'critical');
   assert.equal(warning.labels.severity, 'warning');
   assert.ok(sentinels.length > columns.length);
+});
+
+// rule의 service label이 template의 닫힌 값 밖이면 Slack에 service=redacted로 나가 경보를 service로 가르지 못한다.
+test('every service label in the alert rules passes the Slack template service filter', () => {
+  const template = readFileSync(
+    resolve(repoRoot, 'infra/observability/alertmanager/templates/slack.tmpl'),
+    'utf8',
+  );
+  const filter = template.match(/define "dormduri\.slack\.service" \}\}\{\{ if match "([^"]+)"/u);
+  assert.ok(filter, 'the template defines the service filter');
+  const pattern = new RegExp(filter[1], 'u');
+  const services = new Set();
+  for (const directory of ['prometheus/rules', 'loki/rules']) {
+    const root = resolve(repoRoot, 'infra/observability', directory);
+    for (const name of readdirSync(root).filter((file) => file.endsWith('.yml'))) {
+      const source = readFileSync(resolve(root, name), 'utf8');
+      for (const [, service] of source.matchAll(/^\s+service:\s*(\S+)\s*$/gmu))
+        services.add(service);
+    }
+  }
+  for (const expected of ['api', 'web', 'host', 'observability', 'backoffice'])
+    assert.ok(services.has(expected), `rules use service ${expected}`);
+  for (const service of services) assert.match(service, pattern, service);
 });
 
 test('the judge passes the redacted payloads and rejects every leak or a wrong mention', () => {
