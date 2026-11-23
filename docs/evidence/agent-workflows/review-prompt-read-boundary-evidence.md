@@ -133,6 +133,8 @@ git ls-tree -r --name-only ead56b6b | grep -c '[][()]'
   commit으로 대조해, 같은 tree commit 뒤에도 재시도를 결속하지 않습니다.
 - 거부 기록(task 디렉터리 `review-read-denials.jsonl`)에 없는 path 없는 검색은 지금처럼 저장소 전체 판정입니다. 기록에 읽지 못하는 줄이
   있으면 기록 전체를 쓰지 않습니다.
+- Live 관측: 이 변경의 독립 리뷰 1·2회차 reviewer 3명은 reviewer마다 read 범위 밖 디렉터리 Grep이 1건씩 이유와 함께 거부되고 거부 기록에
+  남았으며, 정산은 모두 의존 판정(`basis: dependency`)이었습니다. 재채점 reviewer 12명은 거부된 호출이 없었고 모두 의존 판정이었습니다.
 
 ### 입력 경로
 
@@ -160,9 +162,10 @@ git ls-tree -r --name-only ead56b6b | grep -c '[][()]'
 
 ### 재채점
 
-- 이 변경은 reviewer prompt 원본(helper와 `knu_reviewer` 역할 파일)을 바꾸므로 merge 전에 held-out 사본으로 재채점합니다. 결과(통과/실패, 더 놓친
-  칸 수, 부분 감소 칸 수, 판정 가능 칸 수, 사용 기록 id)는 재채점이 끝나면 이 소절에 적고, PR 본문 `재채점` 줄과 Review evidence 줄에도
-  같은 값을 둡니다.
+- 이 변경은 reviewer prompt 원본(helper와 `knu_reviewer` 역할 파일)을 바꾸므로 merge 전에 held-out 사본으로 재채점했습니다(사용 기록
+  `ho-006`, 2026-11-23, PR head `3e824b3c`, reviewer 12회). 결과는 통과입니다: 더 놓친 칸 0, 부분 감소 칸 0(입력 불변 0), 판정 가능 칸 4.
+  오염으로 다시 돈 run과 base run은 없었습니다. PR 본문 `재채점` 줄과 Review evidence 줄에도 같은 값을 둡니다. 재채점 set은 공개 주장의
+  근거로 쓰지 않습니다.
 
 ## 7. 한계와 재측정 조건
 
@@ -172,6 +175,8 @@ git ls-tree -r --name-only ead56b6b | grep -c '[][()]'
   보이면 기록 줄도 파일로 옮길지 다시 봅니다.
 - Review-read hook은 역할 frontmatter hook이라 신뢰하지 않은 폴더 세션에서는 돌지 않을 수 있습니다. 그때 정산은 거부 기록이 없으므로 변경
   전처럼 저장소 전체 판정입니다.
+- path 없는 Grep·Glob과 저장소 root 대상 거부는 live run 15건(리뷰 reviewer 3명, 재채점 reviewer 12명)에서 한 번도 나오지 않아 test
+  fixture로만 확인했습니다. 실제 리뷰에서 그런 거부가 생기면 거부 문구가 transcript에 보이는지와 정산 판정을 다시 봅니다.
 - 이 저장소의 local 검증은 바뀐 test 파일, agent-workflow suite, `pnpm test:repo-policy`, `pnpm check:fast`, `pnpm exec prettier . -c`입니다. DB가
   필요한 `pnpm check`·`pnpm lint`·`pnpm typecheck`·`pnpm build`는 PR CI 결과로 대신했습니다.
 - 생산성·token 절감은 비교군이 없어 주장하지 않습니다. Prompt 글자 수는 reviewer 입력 크기의 신호일 뿐 리뷰 품질의 근거가 아니며, 품질은
