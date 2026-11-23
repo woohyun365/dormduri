@@ -1,7 +1,7 @@
 # 백오피스 admin ingress image(backoffice-foundation D-BF2). 고정 nginx base 위에 설정 하나만 담는다. host에는
 # `127.0.0.1:4300`으로만 publish되고(compose), SSM 포트 포워딩으로 들어온 요청을 backoffice-web에 넘긴다.
 # base pin은 Renovate가 갱신한다(infra/image-inventory.json `backoffice-ingress`).
-FROM nginx:1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+FROM nginx:1.31.9-alpine@sha256:fb4658584bd9a916ffb6f6e365f97c25cfdb2923801f551ea08356e695f14ff7
 
 RUN rm -f /etc/nginx/conf.d/*.conf
 COPY nginx.conf /etc/nginx/nginx.conf
