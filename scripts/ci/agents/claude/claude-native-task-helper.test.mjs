@@ -7439,7 +7439,11 @@ test('a carried round whose confirm runs differ at the result unit cannot be use
     ],
   ]) {
     c.confirm(lines, options);
-    assert.ok(carryReasons(c.settle()).includes(reason), label);
+    // The mismatch is the only error and no result is written: the response is a parsed PASS.
+    const status = c.settle();
+    assert.deepEqual(status.observationErrors, [reason], label);
+    assert.equal(status.resultPath, null, label);
+    assert.ok(!existsSync(join(c.r.root, `${PACKET_DIR}/${c.id}.result.json`)), label);
   }
   // Owner 1.2: the carry record the prompt record binds is required and must be unchanged.
   const carryFile = join(c.r.root, `${PACKET_DIR}/${c.id}.carry.json`);
@@ -8067,6 +8071,11 @@ test('evidence warnings stay off without a commit basis, an evidence change or a
   // A basis that names no commit.
   const plan = e.build(claimSubject([doc]), records, 'plan:helper-test/evidence');
   assert.deepEqual(evidenceWarnings(plan, 'evidence-claim-source-missing'), []);
+  // A basis that is no safe reference: the same build refuses it, so no warning leaves the build.
+  assert.throws(
+    () => e.build(claimSubject([doc]), records, 'HEAD~0'),
+    (error) => error.message === 'invalid review request: unsafe-reference:selectionBasisRef',
+  );
   // No docs/evidence change since the basis.
   assert.deepEqual(
     evidenceWarnings(
