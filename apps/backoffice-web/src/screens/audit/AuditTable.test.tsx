@@ -23,11 +23,15 @@ function login(id: string, metadata: unknown): AuditEvent {
   };
 }
 
-/** The action cell (third column) of each body row, in order. */
+/** The cell under the `행동` column header in each body row, in order. */
 function actionCells(): string[] {
   const table = screen.getByRole('table', { name: '관리자 감사 기록, 최신순' });
-  const [, ...rows] = within(table).getAllByRole('row');
-  return rows.map((row) => within(row).getAllByRole('cell')[2]!.textContent ?? '');
+  const [header, ...rows] = within(table).getAllByRole('row');
+  const column = within(header!)
+    .getAllByRole('columnheader')
+    .findIndex((cell) => cell.textContent === '행동');
+  expect(column).not.toBe(-1);
+  return rows.map((row) => within(row).getAllByRole('cell')[column]!.textContent ?? '');
 }
 
 describe('AuditTable (OA-R7)', () => {

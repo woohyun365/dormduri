@@ -2,7 +2,7 @@ import type { AuditEvent } from '@repo/shared/backoffice';
 import { describe, expect, it } from 'vitest';
 import { recoveryLoginMethod } from './audit-display';
 
-// The audit list reads only `scope` and `method` of a LOGIN row's metadata (design plan D-OD10 2); the
+// The audit list reads only `scope` and `method` of a LOGIN row's metadata (README §4); the
 // API writes `{ scope, method }` when a login opens a session (admin-login.service.ts).
 function event(action: string, metadata: unknown): AuditEvent {
   return {

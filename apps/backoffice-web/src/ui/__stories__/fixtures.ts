@@ -224,7 +224,7 @@ export const auditEvents: readonly AuditEvent[] = [
     selfApproved: false,
     reason: null,
   },
-  // Recovery logins, named by their second factor in the action cell (design plan D-OD10 2).
+  // Recovery logins, named by their second factor in the action cell (README §4).
   {
     ...baseEvent,
     id: '00000000-0000-4000-8000-000000000305',

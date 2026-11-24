@@ -8,7 +8,8 @@ import { SESSION_ACTIVITY_EVENT, SESSION_CLOSED_EVENT } from '@/client/bff-clien
 /** Idle limit of OA-R3; the API enforces it, this copy only restarts the on-screen countdown. */
 export const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 
-// Each notice is the login page's notice for the same `ended` value without its last sentence, which the link stands for.
+// The idle and closed notices are the login page's notice for the same `ended` value without its last sentence, which
+// the link stands for. The 8-hour notice names its own limit; the login page's `expired` notice names both limits.
 const NOTICES = {
   idle: { text: '15분 동안 활동이 없어 접속이 끝났습니다.', ended: 'idle' },
   absolute: { text: '로그인한 지 8시간이 지나 접속이 끝났습니다.', ended: 'expired' },
