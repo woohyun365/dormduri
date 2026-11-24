@@ -576,6 +576,10 @@ test('C3: a carried log whose first line is not the producing round header is ca
   );
   assert.equal(notProducer.code, 1, notProducer.out);
   assert.deepEqual(carryKinds(notProducer.out), ['carried-header-mismatch']);
+  // The log starts with this round's header: it was run again, not carried.
+  const thisRound = carryCheck(carryRoot([carried()], { logHeader: HEADER }));
+  assert.equal(thisRound.code, 1, thisRound.out);
+  assert.deepEqual(carryKinds(thisRound.out), ['carried-header-mismatch']);
 });
 
 test('C4: a round diff with a non-.md path, a new .md or a removed .md is carry-round-diff-not-docs (OSS-RL P5 RED 3)', () => {

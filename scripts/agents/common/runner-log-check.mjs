@@ -243,14 +243,11 @@ function roundDiffChecks(root, roundId, round) {
     });
   else
     for (const { path } of diff) {
-      const search = spawnSync(
-        'git',
-        ['grep', '-F', '-l', '-e', path, '-e', basename(path), '--', 'scripts'],
-        {
-          cwd: root,
-          encoding: 'utf8',
-        },
-      );
+      // The file name ends the path, so a line naming the path names the file name too: one search finds both.
+      const search = spawnSync('git', ['grep', '-F', '-l', '-e', basename(path), '--', 'scripts'], {
+        cwd: root,
+        encoding: 'utf8',
+      });
       if (search.status === 1) continue;
       found.push({
         kind: 'carry-doc-referenced',
