@@ -6,20 +6,31 @@
 // such a line. A rejected fragment's message says why and, when the log holds one, the fragment shape that would match
 // (`suggestion`). A zero-hit search fragment (`rg exit=1`) without a positive control fragment (`control rg exit=0`)
 // in the same record is the warning `absence-without-control`; warnings never change the exit.
+// A carried record (`carriedFrom`, the review id of the round that made its log) is taken only with a carry basis
+// (`--carry-basis`, written by Claude review-run) that names that round (C1 `carry-basis-missing`), when that round's
+// runner file holds the same record and its outputs are unchanged since (C2 `carried-record-mismatch`), its log starts
+// with that round's header (C3 `carried-header-mismatch`), the round diff since that round is changed `.md` files only
+// (C4 `carry-round-diff-not-docs`) and no tracked `scripts/` file names a changed document by path or file name (C5
+// `carry-doc-referenced`). `--confirm <carry record>` compares the confirm runs of the carried records (`--evidence`)
+// with them at the result unit: the same record name, this round's runner record rules, exit, the carried fragments and
+// the test result lines (name lines with durations masked and the summary counts). Its reasons are
+// `carry-confirm-missing: <record>` and `carry-confirm-mismatch: <record>`.
 // Rules and usage: docs/development/agent-workflows/review-criteria/README.md
 //
-// Usage: node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header "<logHeader>" [--root <repo>] [--json]
+// Usage: node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header "<logHeader>" [--carry-basis <JSON>]
+//          [--confirm <carry record JSON>] [--root <repo>] [--json]
 // Exit 0 = no violation, 1 = violations, 2 = input error (missing option or file, positional argument, header without a
-// trailing `sha256:<64 hex>`, evidence that is not JSON or has no records, missing root, unknown option). Input errors
-// never count as a pass.
-// Only the common record fields are read (`exit`, `outputPaths`, `observedResult`, optional `sourceDigest`); the full
-// field format stays with each host's runner helper.
+// trailing `sha256:<64 hex>`, evidence that is not JSON or has no records, a carry basis or carry record that is not
+// one, missing root, unknown option). Input errors never count as a pass.
+// Only the common record fields are read (`exit`, `outputPaths`, `observedResult`, optional `sourceDigest`, and for a
+// carried record `command`, `label`, `environment`, `purpose`, `expectedExit`, `carriedFrom`); the full field format
+// stays with each host's runner helper.
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, realpathSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { parseArgs } from 'node:util';
+import { isDeepStrictEqual, parseArgs } from 'node:util';
 
 import { splitLines } from './plan-impact-blocks.mjs';
 
@@ -35,7 +46,26 @@ const DIGEST_LINE = [/^[0-9a-f]{64} {2}\S/u, /sha256:[0-9a-f]{64}/u];
 const UNLABELED = /^[0-9A-Fa-f\p{P}\p{S}]*$/u;
 const TOKEN_CHAR = '[\\p{L}\\p{N}_.-]';
 const USAGE =
-  'usage: runner-log-check --evidence <JSON> --header "<logHeader>" [--root <repo>] [--json]';
+  'usage: runner-log-check --evidence <JSON> --header "<logHeader>" [--carry-basis <JSON>] [--confirm <carry record JSON>] [--root <repo>] [--json]';
+const CARRY_BASIS_SCHEMA = 'claude-review-carry-basis/v1';
+const CARRY_SCHEMA = 'claude-review-carry/v1';
+const REVIEW_ID = /^[a-z0-9]{8}-[a-f0-9]{8}$/u;
+const recordName = (record) =>
+  record.label === undefined ? record.command : `${record.command} (${record.label})`;
+// The runner file fields (commandsActuallyRun) a carried record keeps from the round that made it.
+const CARRIED_FIELDS = [
+  'exit',
+  'purpose',
+  'expectedExit',
+  'observedResult',
+  'environment',
+  'outputPaths',
+];
+// Test result lines of `node --test` output: a spec name line (`✔`, `✖`, `﹣`) or a TAP line (`ok`, `not ok`), and an
+// `ℹ` summary count. Durations are masked; `ℹ duration_ms` is no count.
+const DURATION = / \(\d+(?:\.\d+)?ms\)/gu;
+const NAME_LINE = /^\s*(?:(?:✔|✖|﹣) .*|(?:ok|not ok) \d+ - .*)$/u;
+const SUMMARY_LINE = /^ℹ (?:tests|suites|pass|fail|cancelled|skipped|todo) \d+$/u;
 // A zero-hit search exit claims an absence; its positive control is the same kind of search where it must hit, written
 // with `control` in front of its exit line.
 const ABSENCE = /^(?:rg|grep|git grep) exit=1$/u;
@@ -137,7 +167,104 @@ function mismatch(fragment, resultLines, otherLines) {
   };
 }
 
-function checkRecord(root, header, digest, record, index) {
+// The producing round of a carried record (C1) and its runner file record (C2), before its outputs are read.
+function carriedRecordChecks(record, basis, add) {
+  if (typeof record.carriedFrom !== 'string' || !REVIEW_ID.test(record.carriedFrom)) {
+    add(
+      'invalid-record',
+      'carriedFrom must be the review id (8 base36, a dash, 8 hex) of the round that made the log',
+    );
+    return null;
+  }
+  const round = basis?.rounds?.[record.carriedFrom];
+  if (!round || typeof round !== 'object') {
+    add(
+      'carry-basis-missing',
+      basis
+        ? `the carry basis has no round ${record.carriedFrom}`
+        : 'a carried record needs --carry-basis (only Claude review-run writes one; Codex does not carry records)',
+    );
+    return null;
+  }
+  const name = typeof record.command === 'string' ? recordName(record) : undefined;
+  const at = Array.isArray(round.commands) ? round.commands.indexOf(name) : -1;
+  const produced = at >= 0 ? round.commandsActuallyRun?.[at] : undefined;
+  if (!produced)
+    add(
+      'carried-record-mismatch',
+      `the runner file of round ${record.carriedFrom} has no record ${JSON.stringify(name)}`,
+    );
+  else
+    for (const field of CARRIED_FIELDS)
+      if (!isDeepStrictEqual(record[field], produced[field]))
+        add(
+          'carried-record-mismatch',
+          `${field} ${JSON.stringify(record[field])} is not ${JSON.stringify(produced[field])} in the runner file of round ${record.carriedFrom}`,
+        );
+  for (const path of Array.isArray(record.outputPaths) ? record.outputPaths : []) {
+    const digests = round.outputDigests?.[path];
+    if (!digests?.produced || digests.current !== digests.produced)
+      add(
+        'carried-record-mismatch',
+        digests?.produced
+          ? `the output changed after round ${record.carriedFrom}`
+          : `round ${record.carriedFrom} bound no digest of this output`,
+        { path },
+      );
+  }
+  return round;
+}
+
+// C4 and C5 for one producing round: the round diff is changed `.md` files only, and no tracked `scripts/` file names
+// one of them by path or file name. Checked once per round.
+function roundDiffChecks(root, roundId, round) {
+  const found = [];
+  const diff = Array.isArray(round.roundDiff) ? round.roundDiff : null;
+  const notDocs = diff
+    ? diff.filter(
+        (entry) =>
+          typeof entry?.path !== 'string' ||
+          !entry.path.endsWith('.md') ||
+          entry.created !== false ||
+          entry.deleted !== false,
+      )
+    : [];
+  if (!diff || notDocs.length)
+    found.push({
+      kind: 'carry-round-diff-not-docs',
+      detail: diff
+        ? `the round diff since ${roundId} is not changed .md files only: ${notDocs
+            .map(
+              ({ path, created, deleted }) =>
+                `${path}${created ? ' (new)' : deleted ? ' (removed)' : ''}`,
+            )
+            .join(', ')}`
+        : `the carry basis has no round diff since ${roundId}`,
+    });
+  else
+    for (const { path } of diff) {
+      const search = spawnSync(
+        'git',
+        ['grep', '-F', '-l', '-e', path, '-e', basename(path), '--', 'scripts'],
+        {
+          cwd: root,
+          encoding: 'utf8',
+        },
+      );
+      if (search.status === 1) continue;
+      found.push({
+        kind: 'carry-doc-referenced',
+        detail:
+          search.status === 0
+            ? `${path} is named by ${search.stdout.trim().split('\n').join(', ')}: a check reading it may change`
+            : `${path}: git grep exit ${search.status ?? search.signal} while looking for scripts naming it`,
+        path,
+      });
+    }
+  return found;
+}
+
+function checkRecord(root, header, digest, record, index, basis) {
   const violations = [];
   const warnings = [];
   const add = (kind, detail, extra = {}) =>
@@ -146,6 +273,15 @@ function checkRecord(root, header, digest, record, index) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) {
     add('invalid-record', 'record must be an object');
     return { violations, warnings, counts };
+  }
+  // A carried record keeps the log of its producing round: that round's header is its first line (C3).
+  let expectedHeader = header;
+  let headerKind = 'header-mismatch';
+  let round = null;
+  if (record.carriedFrom !== undefined) {
+    round = carriedRecordChecks(record, basis, add);
+    expectedHeader = typeof round?.header === 'string' ? round.header : null;
+    headerKind = 'carried-header-mismatch';
   }
   const exitValid = Number.isInteger(record.exit);
   if (!exitValid) add('invalid-record', 'exit must be an integer');
@@ -175,8 +311,8 @@ function checkRecord(root, header, digest, record, index) {
         add('output-missing', 'not readable as text', { path });
         continue;
       }
-      if (lines[0] !== header)
-        add('header-mismatch', `first line is ${JSON.stringify(lines[0])}`, { path });
+      if (expectedHeader !== null && lines[0] !== expectedHeader)
+        add(headerKind, `first line is ${JSON.stringify(lines[0])}`, { path });
       const exits = lines.flatMap((line, at) => {
         const exit = EXIT_LINE.exec(line.trim())?.groups.exit;
         return exit === undefined ? [] : [{ line: at + 1, exit: Number(exit) }];
@@ -202,12 +338,12 @@ function checkRecord(root, header, digest, record, index) {
   const summary = typeof record.observedResult === 'string' ? record.observedResult : '';
   if (!summary.includes('`')) {
     counts.unverifiedSummaries += 1;
-    return { violations, warnings, counts };
+    return { violations, warnings, counts, round };
   }
   const parsed = fragments(summary);
   if (parsed.error) {
     add('invalid-fragment', parsed.error);
-    return { violations, warnings, counts };
+    return { violations, warnings, counts, round };
   }
   for (const fragment of parsed.fragments) {
     if (!fragment.trim()) {
@@ -243,10 +379,10 @@ function checkRecord(root, header, digest, record, index) {
       detail:
         'a zero-hit search exit claims an absence: run the same search where it must hit (the revision before the change) in this record and quote its exit line as `control rg exit=0`',
     });
-  return { violations, warnings, counts };
+  return { violations, warnings, counts, round };
 }
 
-export function checkRunnerLog({ root, header, evidence }) {
+export function checkRunnerLog({ root, header, evidence, basis }) {
   const digest = HEADER.exec(header).groups.digest;
   const summary = {
     records: evidence.records.length,
@@ -257,14 +393,88 @@ export function checkRunnerLog({ root, header, evidence }) {
   };
   const violations = [];
   const warnings = [];
+  const rounds = new Map();
   evidence.records.forEach((record, index) => {
-    const checked = checkRecord(root, header, digest, record, index);
+    const checked = checkRecord(root, header, digest, record, index, basis);
     violations.push(...checked.violations);
     warnings.push(...checked.warnings);
     for (const [key, value] of Object.entries(checked.counts)) summary[key] += value;
+    if (checked.round) {
+      if (!rounds.has(record.carriedFrom))
+        rounds.set(record.carriedFrom, roundDiffChecks(root, record.carriedFrom, checked.round));
+      for (const found of rounds.get(record.carriedFrom))
+        violations.push({ record: index, ...found });
+    }
   });
   summary.violations = violations.length;
   return { summary, violations, warnings };
+}
+
+// The result unit of a record's text outputs: its result lines, the test name lines with durations masked (a multiset,
+// sorted) and the summary counts (sorted). Null when an output is missing or unreadable.
+function resultUnit(root, outputPaths) {
+  const lines = [];
+  for (const path of Array.isArray(outputPaths) ? outputPaths : []) {
+    if (typeof path !== 'string' || !TEXT_OUTPUT.test(path)) continue;
+    const read = readLog(root, path);
+    if (!read) return null;
+    lines.push(
+      ...read.slice(1).filter((line) => !DIGEST_LINE.some((pattern) => pattern.test(line))),
+    );
+  }
+  const sorted = (values) => values.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return {
+    lines,
+    names: sorted(
+      lines.filter((line) => NAME_LINE.test(line)).map((line) => line.replace(DURATION, '').trim()),
+    ),
+    summary: sorted(
+      lines.filter((line) => SUMMARY_LINE.test(line.trim())).map((line) => line.trim()),
+    ),
+  };
+}
+
+// The confirm runs (this round's records) against the carried records of the carry record, at the result unit.
+export function confirmCarry({ root, header, evidence, carry }) {
+  const result = checkRunnerLog({ root, header, evidence });
+  const reasons = new Set();
+  const names = evidence.records.map((record) =>
+    record && typeof record.command === 'string' ? recordName(record) : undefined,
+  );
+  for (const { record } of result.violations)
+    reasons.add(`carry-confirm-mismatch: ${names[record] ?? `record ${record}`}`);
+  for (const carried of carry.records) {
+    const at = names.indexOf(carried.recordName);
+    if (at < 0) {
+      reasons.add(`carry-confirm-missing: ${carried.recordName}`);
+      continue;
+    }
+    const confirm = evidence.records[at];
+    const mismatch = () => reasons.add(`carry-confirm-mismatch: ${carried.recordName}`);
+    if (confirm.exit !== carried.exit) mismatch();
+    const before = resultUnit(root, carried.outputPaths);
+    const after = resultUnit(root, confirm.outputPaths);
+    if (!before || !after) {
+      mismatch();
+      continue;
+    }
+    const parsed = fragments(
+      typeof carried.observedResult === 'string' ? carried.observedResult : '',
+    );
+    if (
+      parsed.error ||
+      !(parsed.fragments ?? []).every((fragment) =>
+        after.lines.some((line) => fragmentOnLine(fragment, line)),
+      )
+    )
+      mismatch();
+    if (
+      !isDeepStrictEqual(before.names, after.names) ||
+      !isDeepStrictEqual(before.summary, after.summary)
+    )
+      mismatch();
+  }
+  return { ...result, reasons: [...reasons] };
 }
 
 function gitRoot(cwd) {
@@ -286,6 +496,8 @@ function parseOptions(argv) {
       options: {
         evidence: { type: 'string' },
         header: { type: 'string' },
+        'carry-basis': { type: 'string' },
+        confirm: { type: 'string' },
         root: { type: 'string' },
         json: { type: 'boolean' },
       },
@@ -307,6 +519,35 @@ function readEvidence(path) {
   return evidence;
 }
 
+function readJson(path) {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch (error) {
+    throw new InputError(`${path}: ${error.message}`);
+  }
+}
+
+function readCarryBasis(path) {
+  const basis = readJson(path);
+  if (basis?.schema !== CARRY_BASIS_SCHEMA || !basis.rounds || typeof basis.rounds !== 'object')
+    throw new InputError(`${path}: a carry basis is { schema: ${CARRY_BASIS_SCHEMA}, rounds: {} }`);
+  return basis;
+}
+
+function readCarry(path) {
+  const carry = readJson(path);
+  if (
+    carry?.schema !== CARRY_SCHEMA ||
+    !Array.isArray(carry.records) ||
+    carry.records.length === 0 ||
+    !carry.records.every((record) => typeof record?.recordName === 'string')
+  )
+    throw new InputError(
+      `${path}: a carry record is { schema: ${CARRY_SCHEMA}, records: [{ recordName, ... }] }`,
+    );
+  return carry;
+}
+
 function format(result) {
   const lines = result.violations.map(
     ({ record, kind, path, fragment, detail, suggestion }) =>
@@ -314,6 +555,7 @@ function format(result) {
   );
   for (const { record, kind, fragment, detail } of result.warnings)
     lines.push(`record ${record}\twarning ${kind}\t\`${fragment}\`\t${detail}`);
+  for (const reason of result.reasons ?? []) lines.push(`reason\t${reason}`);
   lines.push(
     Object.entries(result.summary)
       .map(([key, value]) => `${key} ${value}`)
@@ -338,7 +580,16 @@ export function main(argv, { cwd = process.cwd(), log = console.log, error = con
       throw new InputError(`${values.root}: no such directory`);
     }
     const evidence = readEvidence(resolve(cwd, values.evidence));
-    const result = checkRunnerLog({ root, header: values.header, evidence });
+    if (values.confirm) {
+      const carry = readCarry(resolve(cwd, values.confirm));
+      const result = confirmCarry({ root, header: values.header, evidence, carry });
+      log(values.json ? JSON.stringify({ root, ...result }, null, 2) : format(result));
+      return result.reasons.length ? 1 : 0;
+    }
+    const basis = values['carry-basis']
+      ? readCarryBasis(resolve(cwd, values['carry-basis']))
+      : undefined;
+    const result = checkRunnerLog({ root, header: values.header, evidence, basis });
     log(values.json ? JSON.stringify({ root, ...result }, null, 2) : format(result));
     return result.violations.length ? 1 : 0;
   } catch (caught) {

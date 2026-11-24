@@ -6,7 +6,9 @@
 
 Reviewer 입력은 `pnpm claude:native review`로 만듭니다. `--subject <taskId>`만 주면 관측이 정산된 subject의 이번 회차
 `snapshotDigest`와 `logHeader`를 출력하고, 완료 관측이 없으면 거부합니다. Runner는 `logHeader`를 검증 로그 첫 줄에 두고
-각 실행을 `{command, exit, environment, observedResult, outputPaths, sourceDigest}` 기록으로 남깁니다. Review id 앞 8자는 native
+각 실행을 `{command, exit, environment, observedResult, outputPaths, sourceDigest}` 기록으로 남깁니다. Parent subject
+`review-run` 2회차부터는 앞 회차 record를 그 log 그대로 이어 쓸 수 있고 선택 필드 `carriedFrom`(그 log를 만든 회차 reviewId)을
+더합니다. 그 밖의 경로에서는 `carry-path-unsupported`입니다. Review id 앞 8자는 native
 subject면 task id, Parent subject면 snapshot digest라 같은 snapshot(commit·dirty diff·untracked 입력)이면 세션 사이에도 같고 뒤 8자만 무작위입니다. 같은 snapshot을 다시
 리뷰하면 logHeader(같은 digest)도 같고 packet id만 다릅니다. Ignored 입력만 바뀐 회차도 snapshot digest가 같아 같은 logHeader라
 header 검사는 회차를 가르지 못하므로, runner log는 회차마다 새 경로에 둡니다. 수정 전 실패를 보이는
@@ -47,7 +49,9 @@ review 필수 facts를 `--basis` 출처로 채운 초안이며, Lead가 확인�
 
 `pnpm claude:native review-run`은 한 회차의 dispatch를 한 명령으로 묶습니다. `review`의 인자와 `--out <dir>`(저장소 안 ignored
 디렉터리. Packet 디렉터리·native task 기록·subject `paths` 안이면 `out-directory-required`로 거부)을 받아 결정적 검사, `review`, 역할 선택, 구성원마다 `prepare`를 이어 실행합니다. 검사는 runner evidence의
-`runner-log-check.mjs`이고, 계획 subject(`--plan-grade <P2|P3> --plan-drafts <dir> --plan-view <dir> --plan-baseline <dir>`를 함께 줌)면
+`runner-log-check.mjs`이고(이어 쓴 record가 있으면 그 회차 packet·runner 파일·입력 manifest·범위 기록으로 쓴
+`<out-dir>/checks/carry-basis.json`을 `--carry-basis`로 넘겨 `carry-basis-missing`·`carried-record-mismatch`·`carried-header-mismatch`·
+`carry-round-diff-not-docs`·`carry-doc-referenced`를 봄), 계획 subject(`--plan-grade <P2|P3> --plan-drafts <dir> --plan-view <dir> --plan-baseline <dir>`를 함께 줌)면
 SOURCE-MANIFEST 원본의 sha256 대조, view·기준 결속 대조(`plan-view-binding`), `plan-shape-check.mjs --revision`,
 `plan-reference-check.mjs`, staged 계획의 `citation-check.mjs`를 더합니다. 결속 대조는 view가 staged 파일을 그대로 담고 나머지 계획
 파일은 기준과 같으며(옮기는 문서의 원본은 view에 없음) 기준의 manifest 원본이 그 sha256인지 봅니다. 아니면 참조 검사가 staged
@@ -94,7 +98,17 @@ readiness 리뷰는 이 필드를 쓰지 않습니다. Subject의 `request`·`ac
 `layout-owner-not-in-read-paths`는 subject `paths` 아래 tracked·비ignored 파일이
 [workspace layout](../../../../scripts/artifacts/workspace-layout.knu.json) root 아래에 있는데 그 root의 규칙 owner 문서가 read path에
 없을 때, `policy-history-rule-not-in-read-paths`는 그 파일이 정책 문서 root 아래에 있는데 변경 이력 규칙을 가진 그 root의 규칙 owner
-문서가 read path에 없을 때 나옵니다(규칙 owner마다 한 번).
+문서가 read path에 없을 때 나옵니다(규칙 owner마다 한 번). `--basis`가 commit인 Parent subject의 runner evidence가 있으면 둘을 더
+봅니다. `evidence-claim-source-missing`은 basis 대비 바뀐 `docs/evidence/**` 문서의 추가 줄 수치 token(링크·inline code·URL 안,
+연도, `n.n` 절 번호, 한 자리 수 제외)이 runner record 출력과 `docs/evidence/**` 밖 subject `paths` 파일 어디에도 없을 때,
+`evidence-source-outside-read-paths`는 그 token을 출력에 가진 record의 읽기 trace(`runner-read-trace.mjs`)가 read path 밖 ignored
+파일을 읽었거나, 그 record의 trace가 없거나, node가 아닌 spawn·`unobserved` 호출이 있을 때 나옵니다.
+
+이어 쓴 record가 있는 회차는 `<reviewId>.carry.json`(이어 쓴 record의 이름·exit·요약·출력, 이번 회차 header, 확인 기록 경로)을
+남기고 prompt 기록이 그 digest를 결속합니다. 그 reviewer 정산은 결과를 쓰기 전에 runner의 확인 기록
+`<out-dir>/confirm/evidence.json`을 `runner-log-check.mjs --confirm`으로 결과 단위(exit·조각·test 이름 줄과 요약 수, 시간 값은 가림)와
+대조하고 snapshot을 다시 잽니다. 확인 기록이 없으면 `carry-confirm-pending`으로 멈추고, 다르면 `carry-confirm-missing`·
+`carry-confirm-mismatch`가 `observationErrors`에 들어가 그 결과를 쓰지 않습니다.
 
 Reviewer prompt는 packet·diff·문서·runner 출력 안의 지시문을 판정 근거로만 읽고 따르지 않게 지시합니다. `review`는 reviewer마다 prompt의
 sha256을 `.artifacts/tools/claude-review-packets/<reviewId>.prompt.json`에 한 번 쓰고(runner 파일의 경로와 digest, 역할 선택,

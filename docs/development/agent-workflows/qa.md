@@ -109,8 +109,10 @@ acceptance coverage gap 0**이 merge 조건입니다. 보고된 blocking finding
   finding 목록, 직전 회차 snapshot 뒤의 수정 diff, 수정이 닿은 절·함수이고, reviewer는 그 finding의 해소 여부와 그 범위의 새
   blocking을 보고합니다. `low`는 보고하지 않습니다. 수정이 직전 subject paths 밖 파일을 고치거나 새 파일을 만들었거나, 변경이
   [Independent review disposition](#independent-review-disposition)의 trigger를 충족하면 전 범위를 다시 읽습니다. Trigger
-  충족은 Parent가 정해 회차 기록에 적고, diff 크기로는 정하지 않습니다. 결정적 검사는 매 회차 전 범위로 실행하고, 직전 회차
-  결과는 리뷰 입력으로 함께 줍니다.
+  충족은 Parent가 정해 회차 기록에 적고, diff 크기로는 정하지 않습니다. 결정적 검사는 매 회차 다시 실행합니다. 회차 diff가
+  문서(`.md`)뿐이면 앞 회차에 오래 걸린 code 검사 record는 앞 결과로 리뷰를 먼저 보내고, 리뷰 중 다시 돌려 정산 전에 결과 단위로
+  대조합니다(Claude `review-run`만, [`/knu-review`](../../../.claude/skills/knu-review/SKILL.md)). 문서 검사·같은 유형 검색·evidence
+  재현은 매 회차 다시 돕니다. 직전 회차 결과는 리뷰 입력으로 함께 줍니다.
 - 모든 회차에서 finding 0건은 정상 결과입니다. 채우려고 finding을 만들지 않습니다.
 - 여러 reviewer 중 한 명만 낸 blocking finding은 다수결로 버리지 않습니다. Parent가 재현해 반영하거나, 재현 근거를 기록하고
   기각합니다. 한 명만 낸 비차단 finding은 처분 기록에 남깁니다.
@@ -198,7 +200,9 @@ Result
 Reviewer는 요구가 말하지 않은 동작을 intent·결정 기록과 합리적 사용자 기대로 판정하고, 판정하지 않고 둔 동작은
 `unjudgedBehaviors`에 줄마다 이유와 함께 적습니다. 같은 유형의 결함이 다른 위치에도 있으면 그 finding의 `sameTypeLocations`에
 `path:line`으로 적습니다. 두 필드는 선택이고 `unjudgedBehaviors`는 coverage gap·`knownGaps`와 달리 PASS를 막지 않으며, Parent가
-정산 때 줄마다 처분합니다(`out-of-scope`·`raised`·`follow-up`과 이유). Reviewer가 읽을 intent·결정 기록·정책 문서·변경 등급 기록은
+정산 때 줄마다 처분합니다(`out-of-scope`·`raised`·`follow-up`과 이유). 미판정 줄을 처분할 때는 그 줄의 주장과 같은 원천(같은
+명령 출력·같은 기록)을 쓰는 주장과 같은 문단의 주장을 한 번에 대조합니다. `raised`가 하나라도 있으면 그 문단 전체를 다시 대조한
+뒤 다음 회차를 요청합니다. 대조한 주장과 결과는 처분 근거 log에 남깁니다. Reviewer가 읽을 intent·결정 기록·정책 문서·변경 등급 기록은
 [리뷰어 입력](./review-criteria/README.md#리뷰어-입력)이 고릅니다.
 
 1. 요구사항·현재 policy/public contract와 전체 in-scope source/diff를 먼저 제공해 reviewer가 acceptance를 도출하게 합니다.

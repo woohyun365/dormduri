@@ -116,3 +116,5 @@ Claude knu-review의 같은 절과 같습니다.
    runner 기록 JSON과 위 header로 실행하고 exit 0이 아니면 등록하지 않습니다. 위치 인자는 받지 않고 usage와 함께 exit 2입니다.
    이 실행은 같은 기록의 record가 될 수 없습니다. 조각 위반의 `suggestion`은 그 log 결과 줄에서 맞는 조각 모양입니다. 경고
    `absence-without-control`은 exit를 바꾸지 않으니 양성 대조를 더하거나, 대조할 수 없으면 그 이유를 그 record의 log에 적습니다.
+   Codex는 이어 쓰지 않습니다. 이 실행에는 carry basis가 없으므로 앞 회차 log를 이어 쓴 record(Claude `review-run` 필드
+   `carriedFrom`)는 `carry-basis-missing`으로 실패합니다.

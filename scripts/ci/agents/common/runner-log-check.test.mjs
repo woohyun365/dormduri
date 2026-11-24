@@ -618,11 +618,14 @@ const CARRY_RECORD = {
     },
   ],
 };
-function confirmRoot({ lines = CARRY_LOG, header = HEADER, confirm = {} } = {}) {
+function confirmRoot({ lines = CARRY_LOG, header = HEADER, confirm = {}, carry = {} } = {}) {
   const root = carryRoot([carried()]);
   mkdirSync(resolve(root, 'confirm'));
   writeFileSync(resolve(root, 'logs/confirm.log'), `${[header, ...lines].join('\n')}\n`);
-  writeFileSync(resolve(root, 'carry.json'), JSON.stringify(CARRY_RECORD));
+  writeFileSync(
+    resolve(root, 'carry.json'),
+    JSON.stringify({ ...CARRY_RECORD, records: [{ ...CARRY_RECORD.records[0], ...carry }] }),
+  );
   writeFileSync(
     resolve(root, 'confirm/evidence.json'),
     JSON.stringify({
@@ -696,6 +699,18 @@ test('the confirm comparison names the carried record that is missing or differs
       {
         lines: replaced('ℹ pass 2', 'ℹ pass 1'),
         confirm: { observedResult: 'suite passes `ℹ pass 1`' },
+      },
+      `carry-confirm-mismatch: ${name}`,
+    ],
+    [
+      // Only the fragment differs: the test result lines and the exit are the same.
+      'a carried fragment on a line outside the test result lines is not in the confirm log',
+      {
+        lines: replaced(
+          '$ node --test scripts/ci/sample.test.mjs',
+          '$ node --test scripts/ci/other.test.mjs',
+        ),
+        carry: { observedResult: 'suite runs `--test scripts/ci/sample.test.mjs`' },
       },
       `carry-confirm-mismatch: ${name}`,
     ],

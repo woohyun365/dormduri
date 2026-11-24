@@ -278,6 +278,8 @@ test('the review skill names real composition flags and dispatch-step tools', ()
       'plan-shape-check.mjs',
       'red-reason-check.mjs',
       'runner-log-check.mjs',
+      // OSS-RL P5: the Runner environment bullet wraps an evidence reproduction record with the read trace.
+      'runner-read-trace.mjs',
     ],
     'plan review grade: dispatch-step tools',
   );

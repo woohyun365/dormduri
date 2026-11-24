@@ -22,7 +22,9 @@ Builder 판정에 reviewer를 연결하는 규칙은 [`/knu-settle`](../knu-sett
 2. Runner(Parent)가 `logHeader`를 첫 줄에 둔 검증 로그를 남기고 runner evidence JSON을 만듭니다. 각 기록은
    `{command, exit, environment, observedResult, outputPaths, sourceDigest}`이고 수정 전 실패(RED)는
    `purpose:"red"`·`expectedExit`를 더합니다. Exit를 뒤집어 기록하지 않습니다. 같은 `command`를 두 번 실행했으면 기록마다
-   `label`(두 실행의 차이)을 더합니다. `label` 없이 `command`가 같은 기록은 거부됩니다.
+   `label`(두 실행의 차이)을 더합니다. `label` 없이 `command`가 같은 기록은 거부됩니다. 선택 필드
+   `carriedFrom`(그 log를 만든 회차 reviewId)은 Parent subject `review-run` 2회차부터 앞 회차 record를 이어 쓸 때만 둡니다(아래
+   Runner 환경). 그 밖의 경로는 `carry-path-unsupported`로 거부합니다.
 3. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review-run --subject <taskId> --runner-evidence <absolute-evidence-path> --basis <ref> --reviewer-model <model-id> --round <N> --out <out-dir> --session ${CLAUDE_SESSION_ID}`
    이 명령이 결정적 검사, `review`, `prepare`를 이어 실행합니다. 출력과 실패 처리는 아래 [review-run 결과](#review-run-결과)를
    따릅니다. 사용자 요구 원본 파일(세션 요청을 옮긴 파일 등)이 있으면 `--requirement-source <저장소 안 경로>`(반복)로 packet 요구
@@ -63,6 +65,10 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
      `requirementSections` 절의 문장과 글자로 같지 않음)는 plan 문장을 그대로 옮기고, `lifecycle-draft-verification-missing`
      (초안에 `Not tested` 줄이 있는 `## Verification` 절이 없음)은 초안에 검증 절을 채웁니다. `layout-owner-not-in-read-paths`·
      `policy-history-rule-not-in-read-paths`는 경고가 가리키는 규칙 owner 문서를 `paths`에 더할지 판단합니다.
+     `evidence-claim-source-missing`(`--basis` commit 대비 바뀐 `docs/evidence/**` 문서의 추가 줄 수치가 runner 출력과
+     `docs/evidence/**` 밖 subject `paths` 파일 어디에도 없음)은 그 원천 출력 파일을 `paths`에 더하고,
+     `evidence-source-outside-read-paths`(그 수치를 출력에 가진 record의 읽기 trace가 read path 밖 ignored 파일을 읽었거나, trace가
+     없거나, node가 아닌 process·worker 읽기를 보지 못함)는 그 원천을 `paths`에 더하거나 record를 읽기 trace로 감쌉니다.
 2. 그 digest로 runner evidence를 만듭니다(기록 형식은 native subject 경로 2단계와 같습니다).
 3. `pnpm -C "${CLAUDE_PROJECT_DIR}" -s claude:native review-run --parent-subject <absolute-subject-path> --runner-evidence <absolute-evidence-path> --basis <ref> --reviewer-model <model-id> --round <N> --out <out-dir> --session ${CLAUDE_SESSION_ID}`
    이 명령이 결정적 검사, `review`, `prepare`를 이어 실행합니다. 출력과 실패 처리는 아래 [review-run 결과](#review-run-결과)를
@@ -108,7 +114,14 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
   `${PIPESTATUS[0]}`가 비어 있습니다). 로그 첫 줄 `logHeader` 다음 줄에 `node --version` 출력을 남깁니다. 오래 도는 단계에는
   시간 상한을 두고, 회차 log는 회차마다 새 경로에 써서 이미 있는 log를 덮지 않으며, script 안에서 앞 출력을 지우는 대신 새
   디렉터리를 씁니다. Runner 식별자(`runner`)는 ASCII 이름(글자·숫자로 시작, `_`·`-`)이라 한글 세션 이름은 ASCII 별칭(예:
-  `oss-review-p6-pr4`)을 씁니다.
+  `oss-review-p6-pr4`)을 씁니다. 회차 diff가 문서(`.md`)뿐인 Parent subject 2회차부터는 앞 회차 실행 시간이 60초 이상인 code 검사
+  record(test·검사 도구 실행)를 그 회차 log 그대로 `carriedFrom`으로 이어 써 리뷰를 먼저 보내고, runner 시작 때 그 record의 확인
+  실행을 1~2갈래로 시작합니다. 확인 실행은 같은 `command`로 첫 줄이 이번 회차 `logHeader`인 새 log를 쓰고, 모두 끝나면 그 record들을
+  runner evidence 모양으로 `<out-dir>/confirm/evidence.json`에 한 번에 씁니다(다른 이름으로 쓴 뒤 옮김). 확인 실행은 새 출력
+  경로에만 쓰고 tracked 파일과 리뷰 read path를 바꾸지 않습니다. 문서 검사·같은 유형 검색·evidence 재현·diff record는 매 회차 다시
+  돌립니다. Evidence 재현 record는 `runner-read-trace.mjs`로 감쌉니다. 감싼 실행
+  `node scripts/agents/common/runner-read-trace.mjs --header "<logHeader>" --out <trace.json> --log <log> -- <명령>`이 log를 쓰고,
+  record `command`는 감싼 명령(argv를 공백으로 이은 문자열), `outputPaths`는 그 log와 trace입니다.
 - Runner 기록 내용: record에는 명령·exit·출력 경로와 log의 결과 조각만 두고, Parent가 의심한 finding 위치나 결론 문장을 넣지
   않습니다.
 
@@ -154,7 +167,12 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
    `warnings`에만 남고 등록은 이어지므로, 경고에 대응하려면 `review-run` 전에 같은 option으로 직접 실행해 `warning` 줄을 봅니다. `review`를 따로 실행할 때는 그 직전에 같은 option으로
    직접 실행하고 exit 0이 아니면 dispatch하지 않습니다. 위치 인자는 받지 않고 usage와 함께 exit 2입니다. 이 실행은 같은 evidence의
    record가 될 수 없습니다. 조각 위반의 `suggestion`은 그 log 결과 줄에서 맞는 조각 모양입니다. 경고 `absence-without-control`은
-   exit를 바꾸지 않으니 양성 대조를 더하거나, 대조할 수 없으면 그 이유를 그 record의 log에 적습니다.
+   exit를 바꾸지 않으니 양성 대조를 더하거나, 대조할 수 없으면 그 이유를 그 record의 log에 적습니다. 이어 쓴 record(`carriedFrom`)가
+   있으면 `review-run`이 그 회차의 packet·runner 파일·입력 manifest·범위 기록으로 `<out-dir>/checks/carry-basis.json`을 써서
+   `--carry-basis`로 넘깁니다. Basis에 그 회차가 없으면 `carry-basis-missing`, 그 회차 runner 파일 record와 다르거나 출력이 바뀌었으면
+   `carried-record-mismatch`, log 첫 줄이 그 회차 header가 아니면 `carried-header-mismatch`, 그 회차 뒤 diff가 바뀐 `.md`만이 아니면
+   `carry-round-diff-not-docs`, tracked `scripts/` 파일이 바뀐 `.md`의 경로나 파일 이름을 가지면 `carry-doc-referenced`로 등록하지
+   않습니다. 1회차·native subject·`review` 직접 실행의 이어 쓴 record는 `carry-path-unsupported`입니다.
 
 ## 1회차 다중 reviewer
 
@@ -185,8 +203,9 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
   규칙입니다. 직전 회차 입력 manifest의 원본 digest와 지금 원본을 비교해 바뀐 파일은 `delta`에 들고 manifest에 없던 파일은
   `new-file`입니다. Delta 경로는 prompt 회차 줄이 아니라 범위 기록 `<reviewId>.scope.json`에 있고 줄은 경로 수만 적습니다. 그래서 회차마다
   새로 생기는 runner 출력·재현 로그는 subject `paths` 밖에 둡니다. Read path는 줄이지 않고 prompt의 회차 줄이 읽을 범위를
-  지시합니다. `review`를 직접 부른 Parent subject의 2회차 이상은 `delta-scope-required`로 거부됩니다. Runner 검사는 매 회차 전
-  범위로 다시 실행합니다.
+  지시합니다. `review`를 직접 부른 Parent subject의 2회차 이상은 `delta-scope-required`로 거부됩니다. Runner 검사는 매 회차 다시
+  실행합니다. 회차 diff가 문서(`.md`)뿐이면 앞 회차에 오래 걸린 code 검사 record는 앞 결과로 이어 써 리뷰를 먼저 보내고, 리뷰 중
+  다시 돌려 정산 전에 결과 단위로 대조합니다(Runner 환경, 7단계, [`/knu-settle`](../knu-settle/SKILL.md)).
 - 기준 문서: `review`가 리뷰 대상 경로(Parent subject `paths`, native subject의 관측 변경 경로)로 고르고
   ([자동 선택](../../../docs/development/agent-workflows/review-criteria/README.md#자동-선택)) 출력 `criteriaSelection`에 문서·
   항목 수와 경로 키가 맞지 않은 경로(`unmatchedPaths`)를, `.artifacts/tools/claude-review-packets/<reviewId>.criteria.json`에

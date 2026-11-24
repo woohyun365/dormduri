@@ -93,6 +93,10 @@
 
 - `runner-log-check.mjs`(직접 실행이나 `review-run`의 `checks/runner-log-check.json`)가 `exit-mismatch`나
   `repeated-step-exit-hidden`을 냅니다.
+- 이어 쓴 record(`carriedFrom`)가 `carry-path-unsupported`로 거부되거나, `runner-log-check`가 `carry-basis-missing`·
+  `carried-record-mismatch`·`carried-header-mismatch`·`carry-round-diff-not-docs`·`carry-doc-referenced`를 냅니다.
+- Parent reviewer 정산이 `cannot settle yet (carry-confirm-pending): …`로 멈추거나 `observationErrors`에 `carry-confirm-missing`·
+  `carry-confirm-mismatch`가 있습니다.
 
 - `review`나 Codex `review-run`이 `binding-values-invalid: …`로 멈추거나, `review-context-inputs.mjs` CLI가
   `context-output-missing`·`context-output-invalid`로 exit 1입니다.
@@ -275,6 +279,16 @@
 - Runner log 검사: `runner-log-check.mjs`는 record가 가리키는 log마다 마지막 줄 전체 `exit=<n>` 줄을 record `exit`와 대조합니다
   (`exit-mismatch`). 그 앞에 줄 전체 `exit=<n>` 줄이 더 있고 0이 아닌 값이 있는데 record `exit`가 0이면, 한 log에 여러 실행을 이어
   적어 앞선 실패가 끝 exit에 가려진 것으로 보고 `repeated-step-exit-hidden`입니다. `rg exit=1`처럼 명령 이름을 붙인 줄은 세지 않습니다.
+- 이어 쓴 record: `carriedFrom`은 Parent subject `review-run` 2회차부터(`--previous-result` 필요)만 받고 1회차·native subject·
+  `review` 직접 실행·Codex 경로는 `carry-path-unsupported`나 `carry-basis-missing`입니다. `carried-record-mismatch`는 record가 만든
+  회차 runner 파일과 다르거나 그 log가 그 뒤 바뀐 것, `carried-header-mismatch`는 `carriedFrom`이 log를 만든 회차가 아닌 것,
+  `carry-round-diff-not-docs`는 그 회차 뒤 `.md` 아닌 변경·새 `.md`·지운 `.md`가 있는 것, `carry-doc-referenced`는 `scripts/`
+  파일이 바뀐 문서를 이름으로 가진 것입니다. 모두 그 record를 이번 회차에 다시 실행해 기록하면 풀립니다.
+- 확인 대조: `carry-confirm-pending`은 runner가 `<out-dir>/confirm/evidence.json`을 아직 쓰지 않은 것이라 확인 실행이 끝난 뒤 같은
+  명령으로 다시 정산합니다. `carry-confirm-missing: <record>`는 그 이름의 확인 record가 없고, `carry-confirm-mismatch: <record>`는
+  확인 실행의 exit·조각·test 결과 줄이 이어 쓴 결과와 다르며, `carry record`는 `<reviewId>.carry.json`이 없거나 prompt 기록 digest와
+  다르고, `snapshot`은 확인 실행 중 checkout이 바뀐 것입니다. 결과를 쓰지 않으므로 확인 기록을 이번 회차 record로 써서
+  `review-run`을 다시 실행합니다.
 - `review-run`의 참조 검사: `plan-reference-check`는 exit code가 아니라 기준 대비로 판정합니다. 기준(`--plan-baseline`)과 view
   (`--plan-view`)에 함께 돌려, 옮긴 계획은 목적지 경로로 맞춘 뒤 기준에 없던 위반이 있거나 새 unavailable 대상이 checkout에 없으면
   실패입니다.
@@ -354,7 +368,8 @@
   `outputPaths`는 `.artifacts/` 아래). 이어서 `--runner-evidence <file> --basis <ref> --reviewer-model <model ID>`를 더하면
   packet·reviewer prompt·결과 template·reviewer spec이 나옵니다. 결과 template의 `commandsActuallyRun`은 runner 기록에서만
   채워지고 builder의 응답·추론은 packet에 들어가지 않습니다. Reviewer는 자신이 실행했다고 주장하지 않으며, 실행하지 않은 검증을
-  PASS로 바꾸지 않습니다. 다른 회차의 digest나 추가 필드가 있는 기록은 거부됩니다.
+  PASS로 바꾸지 않습니다. 다른 회차의 digest나 추가 필드가 있는 기록은 거부됩니다. 선택 필드 `carriedFrom`(앞 회차 log를 이어 쓴
+  record)은 Parent subject `review-run` 2회차부터만 받습니다(그 밖은 `carry-path-unsupported`).
 - 수정 전 실패(RED)는 exit를 뒤집지 말고 `purpose:"red"`·`expectedExit`로 기록합니다. 기대와 같은 exit만 known failure에서
   빠지고, 다른 exit(0 포함)는 known failure로 남아 PASS를 막습니다.
 - Read-only subject는 `review --subject <taskId>`로 그대로 review합니다. 응답을 Parent가 파일로 옮겨 `--parent-subject`로

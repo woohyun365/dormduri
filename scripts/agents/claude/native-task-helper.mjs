@@ -119,6 +119,16 @@ const RUNNER_RECORD_FIELDS = [
 const RED_RECORD_FIELDS = ['purpose', 'expectedExit'];
 // Records that share a command (a check run before and after a fix) are told apart by a label.
 const OPTIONAL_RECORD_FIELDS = [...RED_RECORD_FIELDS, 'label'];
+// A carried record keeps the log of an earlier round of the same Parent subject: carriedFrom is the review id of the
+// round that made it. Only review-run takes one, from round 2 with a previous result, because only it writes the carry
+// basis the runner check reads (runner-log-check --carry-basis) and the carry record the settlement compares the
+// confirm runs with (<reviewId>.carry.json).
+const CARRIED_FROM = 'carriedFrom';
+const CARRY_PATH_UNSUPPORTED =
+  'carry-path-unsupported: a carried record (carriedFrom) is taken only from round 2 of a Parent subject through review-run with --previous-result; run the check again for this round';
+const CARRY_SUFFIX = '.carry.json';
+const CARRY_SCHEMA = 'claude-review-carry/v1';
+const CARRY_BASIS_SCHEMA = 'claude-review-carry-basis/v1';
 const recordName = (record) =>
   record.label === undefined ? record.command : `${record.command} (${record.label})`;
 const red = (record) => record.purpose === 'red';
@@ -432,7 +442,13 @@ function reviewComposition({ composition, reviewers, round, criteriaPaths }, roo
   return { composition, size: reviewers, items };
 }
 
-function validateRunnerEvidence(evidence, snapshotDigest, reviewerId, root) {
+function validateRunnerEvidence(
+  evidence,
+  snapshotDigest,
+  reviewerId,
+  root,
+  { carry = false } = {},
+) {
   const issues = [];
   if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence))
     fail('invalid runner evidence', ['object required']);
@@ -455,7 +471,7 @@ function validateRunnerEvidence(evidence, snapshotDigest, reviewerId, root) {
       !record ||
       typeof record !== 'object' ||
       !isDeepStrictEqual(
-        keys.filter((key) => !OPTIONAL_RECORD_FIELDS.includes(key)).sort(),
+        keys.filter((key) => !OPTIONAL_RECORD_FIELDS.includes(key) && key !== CARRIED_FROM).sort(),
         [...RUNNER_RECORD_FIELDS].sort(),
       )
     ) {
@@ -466,6 +482,15 @@ function validateRunnerEvidence(evidence, snapshotDigest, reviewerId, root) {
     }
     if (record.label !== undefined && (typeof record.label !== 'string' || !record.label.trim()))
       issues.push(`records[${index}].label text`);
+    if (record.carriedFrom !== undefined && !carry)
+      issues.push(`records[${index}].carriedFrom: ${CARRY_PATH_UNSUPPORTED}`);
+    else if (
+      record.carriedFrom !== undefined &&
+      (typeof record.carriedFrom !== 'string' || !REVIEW_PACKET_ID.test(record.carriedFrom))
+    )
+      issues.push(
+        `records[${index}].carriedFrom must be the review id (8 base36, a dash, 8 hex) of the round that made its log`,
+      );
     const same = evidence.records.findIndex(
       (other, at) =>
         at < index &&
@@ -955,8 +980,10 @@ const oneLine = (text) => String(text).replace(/\s*\n\s*/gu, ' ');
 const runnerRecordLines = (evidence) =>
   evidence.records.map(
     (record, index) =>
-      `  ${index + 1}. [exit ${record.exit}${red(record) ? `, red expected ${record.expectedExit}` : ''}] ${oneLine(recordName(record))} — ${oneLine(record.observedResult)}`,
+      `  ${index + 1}. [exit ${record.exit}${red(record) ? `, red expected ${record.expectedExit}` : ''}] ${oneLine(recordName(record))} — ${oneLine(record.observedResult)}${record.carriedFrom === undefined ? '' : ` (carried from ${record.carriedFrom})`}`,
   );
+// A carried record line of a registered prompt: settlement asks for the carry record whenever one is there.
+const CARRIED_LINE = /^ {2}\d+\. \[exit [^\]]*\] .* \(carried from [a-z0-9]{8}-[a-f0-9]{8}\)$/mu;
 
 // Reviewer role choice. Until role selection rules exist every input maps to the one reviewer role;
 // the reason keeps the inputs, so a later rule can be compared with what was dispatched.
@@ -1046,7 +1073,197 @@ function verificationExtract(root, draft) {
     lines.length;
   return `${lines.slice(start.index, end).join('\n').replace(/\s+$/u, '')}\n`;
 }
-function completenessWarnings(root, subject, verification) {
+// Evidence claim numbers (L12): the numeric tokens of the lines a change adds to a docs/evidence document, outside
+// links, inline code and URLs. Years, n.n section numbers and one-digit numbers are no claims. A source holds a token
+// (or its form without commas) when no digit, and no `.` or `,` continuing one, is next to it.
+const CLAIM_LINK = /\]\([^)]*\)|`[^`]*`|https?:\/\/\S+/gu;
+const CLAIM_TOKEN =
+  /(?<![\p{L}\p{N}_.#/-])\p{Nd}[\p{Nd},.]*(?:%|자|개|분|초|회|건|줄|칸|명|KB|MiB)?(?![\p{L}\p{N}_/-])/gu;
+const CLAIM_SKIP = /^(?:20\p{Nd}\p{Nd}|\p{Nd}{1,2}\.\p{Nd}{1,2})$/u;
+const EVIDENCE_DOCS = 'docs/evidence/';
+const TRACE_SCHEMA = 'runner-read-trace/v1';
+const SOURCE_FILE_LIMIT = 8 * 1024 * 1024;
+const lineList = (text) => text.split(/\r?\n/u);
+const claimHeld = (text, token) =>
+  [token, token.replaceAll(',', '')].some((form) =>
+    new RegExp(
+      `(?<!\\p{Nd})(?<!\\p{Nd}[.,])${form.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}(?!\\p{Nd})(?![.,]\\p{Nd})`,
+      'u',
+    ).test(text),
+  );
+function readSourceText(root, path) {
+  try {
+    const full = join(root, path);
+    const st = lstatSync(full);
+    return st.isFile() && st.size <= SOURCE_FILE_LIMIT ? readFileSync(full, 'utf8') : '';
+  } catch {
+    return '';
+  }
+}
+// The claim numbers of a Parent subject's docs/evidence changes since a --basis commit, in document order, and the
+// documents they come from.
+function evidenceClaims(root, subject, commit) {
+  const pathspecs = subject.selectionPaths.map(literalPathspec);
+  const tracked = nulList(
+    gitOutput(root, ['diff', '--name-only', '-z', commit, '--', ...pathspecs]),
+  );
+  const untracked = nulList(
+    gitOutput(root, ['ls-files', '-z', '--others', '--exclude-standard', '--', ...pathspecs]),
+  );
+  const documents = [...new Set([...tracked, ...untracked])]
+    .filter((path) => path.startsWith(EVIDENCE_DOCS))
+    .sort();
+  const tokens = [];
+  for (const path of documents) {
+    const added = tracked.includes(path)
+      ? lineList(gitOutput(root, ['diff', '-U0', commit, '--', literalPathspec(path)]).toString())
+          .filter((line) => line.startsWith('+') && !line.startsWith('+++'))
+          .map((line) => line.slice(1))
+      : lineList(readSourceText(root, path));
+    for (const line of added)
+      for (const [token] of line.replace(CLAIM_LINK, ' ').matchAll(CLAIM_TOKEN)) {
+        const core = token.replace(/[%자개분초회건줄칸명KBMi]+$/u, '').replace(/[.,]+$/u, '');
+        if (core && !CLAIM_SKIP.test(core) && core.replaceAll(',', '').length >= 2)
+          tokens.push(core);
+      }
+  }
+  return { documents, tokens: [...new Set(tokens)] };
+}
+// The files under the subject paths that are no claim document: tracked, untracked and ignored.
+function subjectSourceFiles(root, subject) {
+  return [
+    ...new Set(
+      nulList(
+        gitOutput(root, [
+          '-c',
+          'core.fsmonitor=false',
+          'ls-files',
+          '-z',
+          '--cached',
+          '--others',
+          '--',
+          ...subject.selectionPaths.map(literalPathspec),
+        ]),
+      ),
+    ),
+  ].filter((path) => !path.startsWith(EVIDENCE_DOCS));
+}
+// The read trace of a record (runner-read-trace.mjs): a trace file in its outputs whose log is in its outputs with the
+// digest the trace binds and whose argv is its command.
+function recordTrace(root, record) {
+  for (const path of record.outputPaths) {
+    let trace;
+    try {
+      trace = JSON.parse(readSourceText(root, path));
+    } catch {
+      continue;
+    }
+    if (trace?.schema !== TRACE_SCHEMA) continue;
+    const log = trace.log?.path;
+    let logDigest = null;
+    try {
+      logDigest = packetDigest(readFileSync(join(root, log)));
+    } catch {
+      logDigest = null;
+    }
+    if (
+      typeof log === 'string' &&
+      record.outputPaths.includes(log) &&
+      logDigest === trace.log.sha256 &&
+      Array.isArray(trace.argv) &&
+      trace.argv.join(' ') === record.command &&
+      Array.isArray(trace.reads)
+    )
+      return trace;
+  }
+  return null;
+}
+function ignoredPaths(root, paths) {
+  if (!paths.length) return [];
+  const run = spawnSync('git', ['-C', root, 'check-ignore', '-z', '--stdin'], {
+    input: `${paths.join('\0')}\0`,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: 10000,
+  });
+  return run.status === 0 ? run.stdout.split('\0').filter(Boolean) : [];
+}
+// The two evidence source warnings of a Parent subject whose --basis is a commit (D-OSS-37 ①). Neither refuses the
+// review or reaches the prompt.
+function evidenceSourceWarnings(root, subject, runnerEvidence, selectionBasisRef) {
+  const records = Array.isArray(runnerEvidence?.records)
+    ? runnerEvidence.records.filter(
+        (record) =>
+          record &&
+          typeof record === 'object' &&
+          typeof record.command === 'string' &&
+          textList(record.outputPaths),
+      )
+    : [];
+  if (!records.length || typeof selectionBasisRef !== 'string' || !safeRef(selectionBasisRef))
+    return [];
+  const commit = spawnSync(
+    'git',
+    ['-C', root, 'rev-parse', '--verify', '-q', `${selectionBasisRef}^{commit}`],
+    { encoding: 'utf8', timeout: 5000 },
+  );
+  if (commit.status !== 0) return [];
+  const claims = evidenceClaims(root, subject, commit.stdout.trim());
+  if (!claims.tokens.length) return [];
+  const outputs = records.map((record) =>
+    record.outputPaths.map((path) => readSourceText(root, path)).join('\n'),
+  );
+  const sources = [
+    ...outputs,
+    ...subjectSourceFiles(root, subject).map((path) => readSourceText(root, path)),
+  ].join('\n');
+  const warnings = [];
+  const missing = claims.tokens.filter((token) => !claimHeld(sources, token));
+  if (missing.length)
+    warnings.push(
+      `evidence-claim-source-missing: numbers ${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} in no runner output and no subject path file outside ${EVIDENCE_DOCS} (added lines of ${claims.documents.join(', ')}); put the output files the claims come from in the subject paths`,
+    );
+  const readPaths = [...subject.readPaths, ...records.flatMap((record) => record.outputPaths)];
+  const inRead = (path) =>
+    readPaths.some((p) => path === p || path.startsWith(`${p.replace(/\/+$/u, '')}/`));
+  records.forEach((record, index) => {
+    if (!claims.tokens.some((token) => claimHeld(outputs[index], token))) return;
+    const name = `record ${index + 1} (${oneLine(recordName(record))})`;
+    const trace = recordTrace(root, record);
+    if (!trace) {
+      warnings.push(
+        `evidence-source-outside-read-paths: ${name} holds claim numbers and its reads are not observed (no read trace of this record: its log and runner-read-trace.mjs trace in outputPaths, the log digest and the command bound); wrap the command with runner-read-trace.mjs`,
+      );
+      return;
+    }
+    const outside = ignoredPaths(
+      root,
+      trace.reads
+        .map((entry) => entry?.path)
+        .filter((path) => typeof path === 'string' && !inRead(path)),
+    );
+    const spawns = Number.isInteger(trace.nonNodeSpawns) ? trace.nonNodeSpawns : 0;
+    const calls = Array.isArray(trace.unobserved)
+      ? [...new Set(trace.unobserved.map((entry) => entry?.call).filter(Boolean))]
+      : [];
+    const parts = [
+      ...(outside.length
+        ? [`read ignored files outside the reviewer read paths: ${outside.join(', ')}`]
+        : []),
+      ...(spawns || calls.length
+        ? [
+            `reads of processes that are not node and of unobserved calls are not observed (spawns that are not node ${spawns}${calls.length ? `, unobserved ${calls.join(', ')}` : ''})`,
+          ]
+        : []),
+    ];
+    if (parts.length)
+      warnings.push(
+        `evidence-source-outside-read-paths: ${name} holds claim numbers and ${parts.join('; ')}; put the files its claims come from in the subject paths`,
+      );
+  });
+  return warnings;
+}
+function completenessWarnings(root, subject, verification, evidence = {}) {
   const warnings = [];
   if (subject.requirements) {
     const missing = subject.acceptance
@@ -1108,6 +1325,9 @@ function completenessWarnings(root, subject, verification) {
         : `${name}: ${file} is under ${owner.path} and its rule owner ${owner.ruleOwner} is not a read path`,
     );
   }
+  warnings.push(
+    ...evidenceSourceWarnings(root, subject, evidence.runnerEvidence, evidence.selectionBasisRef),
+  );
   return warnings;
 }
 
@@ -1564,7 +1784,106 @@ function ignoredSubjectChanges(root, previous, skip, subjectPaths = []) {
   return [...new Set([...Object.keys(before), ...Object.keys(after)])]
     .sort()
     .filter((path) => before[path] !== after[path])
-    .map((path) => ({ path, before: before[path] ?? null }));
+    .map((path) => ({ path, before: before[path] ?? null, after: after[path] ?? null }));
+}
+// The files changed since a round's scope record (the commit, the dirty tree, staged plan files and the ignored
+// inputs under the subject paths), each with its digest then (null: new) and now (null: removed). The delta scope of the
+// next round and the round diff of a carry basis both read it.
+function roundChanges(root, previous, { planFiles, subjectPaths = [] }) {
+  const now = workingTreeState(root);
+  const committed =
+    previous.headSHA === now.headSHA
+      ? []
+      : nulList(gitOutput(root, ['diff', '--name-only', '-z', previous.headSHA, now.headSHA]));
+  const changed = [
+    ...new Set([...Object.keys(previous.dirty), ...Object.keys(now.dirty), ...committed]),
+  ]
+    .sort()
+    .map((path) => ({
+      path,
+      before: Object.hasOwn(previous.dirty, path)
+        ? previous.dirty[path]
+        : committedFileDigest(root, previous.headSHA, path),
+      after: workingFileDigest(root, path),
+    }))
+    .filter(({ before, after }) => before !== after);
+  // Staged plan files are ignored, so the tree comparison never sees them; they are subject files too.
+  const plans = Object.keys(planFiles ?? {})
+    .sort()
+    .filter((path) => previous.plans?.[path] !== planFiles[path])
+    .map((path) => ({ path, before: previous.plans?.[path] ?? null, after: planFiles[path] }));
+  const ignored = ignoredSubjectChanges(
+    root,
+    previous,
+    (path) => Object.hasOwn(planFiles ?? {}, path) || Object.hasOwn(previous.plans ?? {}, path),
+    subjectPaths,
+  );
+  return [...changed, ...plans, ...ignored];
+}
+// The carry basis runner-log-check --carry-basis reads: for each round a carried record names, the header recomputed
+// from its packet snapshot, its runner file records, the digest its inputs manifest bound for each carried output and
+// that output's digest now, and the round diff since its scope record. A round whose packet or runner file cannot be
+// read is left out, so its records are carry-basis-missing.
+function carryBasis(root, records, { planFiles, subjectPaths }) {
+  const rounds = {};
+  for (const reviewId of new Set(records.map((record) => record.carriedFrom))) {
+    const read = (suffix) => {
+      try {
+        return JSON.parse(
+          readFileSync(join(root, reviewPacketPath(root, reviewId, suffix).path), 'utf8'),
+        );
+      } catch {
+        return null;
+      }
+    };
+    const packet = read('.json');
+    const runner = read('.runner.json');
+    if (!packet?.snapshot || runner?.schema !== RUNNER_SCHEMA || runner.reviewId !== reviewId)
+      continue;
+    const scope = read('.scope.json');
+    const inputs = read('.inputs.json');
+    const produced = {
+      ...(inputs?.files ?? {}),
+      ...Object.fromEntries(
+        Object.values(inputs?.copies ?? {}).map(({ original, digest }) => [original, digest]),
+      ),
+    };
+    const outputs = [
+      ...new Set(
+        records
+          .filter((record) => record.carriedFrom === reviewId)
+          .flatMap((record) => (Array.isArray(record.outputPaths) ? record.outputPaths : [])),
+      ),
+    ];
+    let current = {};
+    try {
+      current = claudeReviewInputs(root, outputs);
+    } catch {
+      current = {};
+    }
+    rounds[reviewId] = {
+      header: `KNU review snapshot ${claudeNativeSnapshotDigest(packet.snapshot)}`,
+      commands: runner.commands,
+      commandsActuallyRun: runner.commandsActuallyRun,
+      outputDigests: Object.fromEntries(
+        outputs
+          .filter((path) => typeof produced[path] === 'string')
+          .map((path) => [path, { produced: produced[path], current: current[path] ?? null }]),
+      ),
+      ...(scope?.schema === SCOPE_SCHEMA && scope.reviewId === reviewId
+        ? {
+            roundDiff: roundChanges(root, scope, { planFiles, subjectPaths }).map(
+              ({ path, before, after }) => ({
+                path,
+                created: before === null,
+                deleted: after === null,
+              }),
+            ),
+          }
+        : {}),
+    };
+  }
+  return { schema: CARRY_BASIS_SCHEMA, rounds };
 }
 // The scope of a later round of a Parent subject. The delta is the files changed since the previous
 // round's tree, which must all lie inside the previous subject paths, and the files its blocking
@@ -1589,35 +1908,7 @@ function roundDeltaScope(root, { previousResults, riskTrigger, planFiles, subjec
     })
     .find(Boolean);
   if (!previous) return { mode: 'full', reason: 'previous-scope-record-missing' };
-  const now = workingTreeState(root);
-  const committed =
-    previous.headSHA === now.headSHA
-      ? []
-      : nulList(gitOutput(root, ['diff', '--name-only', '-z', previous.headSHA, now.headSHA]));
-  const changed = [
-    ...new Set([...Object.keys(previous.dirty), ...Object.keys(now.dirty), ...committed]),
-  ]
-    .sort()
-    .map((path) => ({
-      path,
-      before: Object.hasOwn(previous.dirty, path)
-        ? previous.dirty[path]
-        : committedFileDigest(root, previous.headSHA, path),
-      after: workingFileDigest(root, path),
-    }))
-    .filter(({ before, after }) => before !== after);
-  // Staged plan files are ignored, so the tree comparison never sees them; they are subject files too.
-  const plans = Object.keys(planFiles ?? {})
-    .sort()
-    .filter((path) => previous.plans?.[path] !== planFiles[path])
-    .map((path) => ({ path, before: previous.plans?.[path] ?? null }));
-  const ignored = ignoredSubjectChanges(
-    root,
-    previous,
-    (path) => Object.hasOwn(planFiles ?? {}, path) || Object.hasOwn(previous.plans ?? {}, path),
-    subjectPaths,
-  );
-  const all = [...changed, ...plans, ...ignored];
+  const all = roundChanges(root, previous, { planFiles, subjectPaths });
   const created = all.find(({ before }) => before === null);
   if (created) return { mode: 'full', reason: `new-file: ${created.path}` };
   const covered = (path) =>
@@ -1666,6 +1957,8 @@ export function buildClaudeNativeReview(
     planGrade,
     riskTrigger,
     planFiles,
+    // review-run only: the run's out directory when a runner record is carried (carriedFrom).
+    carry,
   } = {},
   { root = process.cwd() } = {},
 ) {
@@ -1698,7 +1991,7 @@ export function buildClaudeNativeReview(
           `request-implementation-marker: ${subject.requestMarkers} sentence(s) read as implementation narrative; request carries requirements only (knu-review)`,
         ]
       : []),
-    ...completenessWarnings(root, subject, verification),
+    ...completenessWarnings(root, subject, verification, { runnerEvidence, selectionBasisRef }),
     ...(subject.prejudgment?.length ? [prejudgmentWarning(subject.prejudgment.length)] : []),
   ];
   const status = {
@@ -1787,7 +2080,12 @@ export function buildClaudeNativeReview(
   const reviewerIds = group
     ? Array.from({ length: group.size }, (_, i) => `${reviewerId}-${i + 1}`)
     : [reviewerId];
-  for (const id of reviewerIds) validateRunnerEvidence(runnerEvidence, snapshotDigest, id, root);
+  const carryTaken = carry !== undefined && laterParentRound;
+  for (const id of reviewerIds)
+    validateRunnerEvidence(runnerEvidence, snapshotDigest, id, root, { carry: carryTaken });
+  const carriedRecords = runnerEvidence.records.filter(
+    (record) => record.carriedFrom !== undefined,
+  );
   if (subject.settlement === 'native-subject') {
     // The reviewer can check a read-only subject's claims against its read scope; the response
     // itself is read from a file bound to the settled response.
@@ -1908,6 +2206,30 @@ export function buildClaudeNativeReview(
       })}\n`,
     );
     const runnerFile = { path: runnerPath, digest: packetDigest(runnerBytes) };
+    // The carry record: what the settlement compares the confirm runs of the carried records with.
+    const carryBytes = carriedRecords.length
+      ? Buffer.from(
+          `${JSON.stringify({
+            schema: CARRY_SCHEMA,
+            reviewId,
+            header: logHeader,
+            confirmPath: `${carry.outPath}/confirm/evidence.json`,
+            records: carriedRecords.map((record) => ({
+              recordName: recordName(record),
+              carriedFrom: record.carriedFrom,
+              exit: record.exit,
+              observedResult: record.observedResult,
+              outputPaths: record.outputPaths,
+            })),
+          })}\n`,
+        )
+      : null;
+    const carryFile = carryBytes
+      ? {
+          path: reviewPacketPath(root, reviewId, CARRY_SUFFIX).path,
+          digest: packetDigest(carryBytes),
+        }
+      : undefined;
     // The reviewer's ignored inputs, bound now; registration and settlement compute them again.
     const inputsPath = reviewPacketPath(root, reviewId, '.inputs.json').path;
     const copied = Object.keys(copies.copies).length > 0;
@@ -2011,6 +2333,7 @@ export function buildClaudeNativeReview(
         ...(verificationFile ? { [VERIFICATION_EXTRACT.key]: verificationFile } : {}),
         ...(scopeRead ? { scope: { path: scopePath, digest: packetDigest(scopeBytes) } } : {}),
         ...(previousResults.length ? { previousResults } : {}),
+        ...(carryFile ? { carry: carryFile } : {}),
         runner: runnerFile,
         [TEMPLATE_EXTRACT.key]: templateFile,
         reviewerRole,
@@ -2051,6 +2374,8 @@ export function buildClaudeNativeReview(
       verificationFile,
       runnerBytes,
       runnerFile,
+      carryBytes,
+      carryFile,
       templateBytes,
       templateFile,
       copies,
@@ -2078,6 +2403,8 @@ export function buildClaudeNativeReview(
       );
     if (member.packetFile) writeClaudeReviewPacket(root, member.reviewId, member.packetBytes);
     writeClaudeReviewPacket(root, member.reviewId, member.runnerBytes, '.runner.json');
+    if (member.carryFile)
+      writeClaudeReviewPacket(root, member.reviewId, member.carryBytes, CARRY_SUFFIX);
     writeClaudeReviewPacket(root, member.reviewId, member.templateBytes, TEMPLATE_EXTRACT.suffix);
     if (member.inputsFile)
       writeClaudeReviewPacket(root, member.reviewId, member.inputsBytes, '.inputs.json');
@@ -2314,13 +2641,79 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
     checks.push(check);
     return { check, stdout: run.stdout ?? '' };
   };
+  // Carried records (carriedFrom) are taken from round 2 of a Parent subject with a previous result: only there is a
+  // carry basis for the runner check and a carry record for the settlement comparison.
+  const carried = (
+    Array.isArray(review.runnerEvidence?.records) ? review.runnerEvidence.records : []
+  )
+    .map((record, index) => ({ record, index }))
+    .filter(
+      ({ record }) =>
+        record && typeof record === 'object' && !Array.isArray(record) && CARRIED_FROM in record,
+    );
+  const carryEligible =
+    review.parentSubject !== undefined &&
+    Number.isInteger(round) &&
+    round > 1 &&
+    review.previousResult !== undefined;
+  let carryBasisPath = null;
+  if (carried.length) {
+    try {
+      fail(
+        'invalid runner evidence',
+        carried.flatMap(({ record, index }) =>
+          !carryEligible
+            ? [`records[${index}].carriedFrom: ${CARRY_PATH_UNSUPPORTED}`]
+            : typeof record.carriedFrom === 'string' && REVIEW_PACKET_ID.test(record.carriedFrom)
+              ? []
+              : [
+                  `records[${index}].carriedFrom must be the review id (8 base36, a dash, 8 hex) of the round that made its log`,
+                ],
+        ),
+      );
+      const staged = planDrafts === undefined ? null : stagedPlans(root, planDrafts).staged;
+      carryBasisPath = file('carry-basis.json');
+      writeFileSync(
+        join(root, carryBasisPath),
+        `${JSON.stringify(
+          carryBasis(
+            root,
+            carried.map(({ record }) => record),
+            {
+              planFiles: staged
+                ? Object.fromEntries(
+                    staged.map((plan) => [plan.path, workingFileDigest(root, plan.path)]),
+                  )
+                : undefined,
+              subjectPaths: Array.isArray(review.parentSubject?.paths)
+                ? review.parentSubject.paths
+                : [],
+            },
+          ),
+          null,
+          2,
+        )}\n`,
+      );
+    } catch (error) {
+      return refused(error, { round });
+    }
+  }
   // Runner records: outputs exist, logs start with this round's header and end with the record's exit.
   const evidencePath = file('runner-evidence.json');
   writeFileSync(join(root, evidencePath), `${JSON.stringify(review.runnerEvidence, null, 2)}\n`);
   tool(
     'runner-log-check',
     'runner-log-check.mjs',
-    ['--evidence', join(root, evidencePath), '--header', logHeader, '--root', root, '--json'],
+    [
+      '--evidence',
+      join(root, evidencePath),
+      '--header',
+      logHeader,
+      '--root',
+      root,
+      '--json',
+      ...(carryBasisPath ? ['--carry-basis', join(root, carryBasisPath)] : []),
+    ],
     file('runner-log-check.json'),
   );
   let planReferences;
@@ -2557,6 +2950,7 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
             }
           : {}),
         ...(deltaScope ? { deltaScope } : {}),
+        ...(carryBasisPath ? { carry: { outPath } } : {}),
         planGrade,
         riskTrigger,
         planFiles,
@@ -2850,6 +3244,84 @@ function closeReviewPacket(root, reviewId, taskId, { valid, errors }) {
   else writeClaudeReviewPacket(root, reviewId, bytes, SETTLED_SUFFIX);
   return path;
 }
+// The confirm comparison of a carried round (carriedFrom): a registered prompt with a carried record line, a prompt
+// record binding a carry record or a carry record in the packet directory asks for the carry record its prompt record
+// binds, then for the confirm record it names (pending until there), then runner-log-check --confirm and the snapshot
+// measured again. The reasons are observation errors: the result of the round cannot be used.
+function carryConfirmErrors(root, prompt, reviewId) {
+  const { path } = reviewPacketPath(root, reviewId, CARRY_SUFFIX);
+  const full = join(root, path);
+  const promptRecord = claudeReviewPromptRecord(root, reviewId);
+  const bound =
+    promptRecord?.promptDigest === packetDigest(Buffer.from(prompt))
+      ? promptRecord.carry
+      : undefined;
+  const tail = CARRIED_LINE.test(prompt);
+  const present = existsSync(full);
+  if (!tail && bound === undefined && !present) return [];
+  let bytes = null;
+  try {
+    bytes = present && lstatSync(full).isFile() ? readFileSync(full) : null;
+  } catch {
+    bytes = null;
+  }
+  if (bytes === null) return ['carry-confirm-missing: carry record'];
+  let carry = null;
+  try {
+    carry = JSON.parse(bytes.toString());
+  } catch {
+    carry = null;
+  }
+  if (
+    !tail ||
+    bound?.path !== path ||
+    bound.digest !== packetDigest(bytes) ||
+    carry?.schema !== CARRY_SCHEMA ||
+    carry.reviewId !== reviewId ||
+    typeof carry.confirmPath !== 'string' ||
+    typeof carry.header !== 'string'
+  )
+    return ['carry-confirm-mismatch: carry record'];
+  const confirm = join(root, carry.confirmPath);
+  if (!existsSync(confirm))
+    throw new TypeError(
+      `cannot settle yet (carry-confirm-pending): the confirm runs of the carried records have not written ${carry.confirmPath}; settle again when the runner has written it`,
+    );
+  const run = spawnSync(
+    process.execPath,
+    [
+      checkTool('runner-log-check.mjs'),
+      '--json',
+      '--confirm',
+      full,
+      '--evidence',
+      confirm,
+      '--header',
+      carry.header,
+      '--root',
+      root,
+    ],
+    { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+  );
+  let reasons = null;
+  try {
+    ({ reasons } = JSON.parse(run.stdout));
+  } catch {
+    reasons = null;
+  }
+  const errors =
+    [0, 1].includes(run.status) && Array.isArray(reasons)
+      ? reasons.filter((reason) => typeof reason === 'string')
+      : [
+          `carry-confirm-mismatch: confirm record (runner-log-check exit ${run.status ?? run.signal}: ${oneLine(run.stderr ?? '').slice(0, 200)})`,
+        ];
+  if (
+    `KNU review snapshot ${claudeNativeSnapshotDigest(currentClaudeNativeSnapshot(root))}` !==
+    carry.header
+  )
+    errors.push('carry-confirm-mismatch: snapshot');
+  return errors;
+}
 function settlementStatus(taskId, root) {
   const state = observeClaudeNativeTask(taskId, { root });
   if (state.errors.includes('no-completion-observation'))
@@ -2902,9 +3374,17 @@ function settlementStatus(taskId, root) {
   const settledBy =
     parentReviewId === undefined ? undefined : packetSettledBy(root, parentReviewId);
   const packetTaken = settledBy !== undefined && settledBy !== taskId;
+  // A carried round is compared before its result is written; a mismatch writes no result.
+  const carryErrors =
+    parentReviewer && !packetTaken && parentReviewId !== undefined
+      ? carryConfirmErrors(root, record.prompt, parentReviewId)
+      : [];
+  state.errors.push(...carryErrors);
   if (parentReviewer && packetTaken) {
     resultPath = null;
     state.errors.push('review-packet-settled');
+  } else if (parentReviewer && carryErrors.length) {
+    resultPath = null;
   } else if (parentReviewer) {
     const result =
       parentReviewId === undefined ? null : parentReviewResult(content, parentReviewId);
