@@ -1343,8 +1343,9 @@ const packetDigest = (bytes) => `sha256:${createHash('sha256').update(bytes).dig
 // their manifest (<reviewId>.inputs.json) and copies (<reviewId>.inputs/), when a Parent subject
 // names plan sections their extract (<reviewId>.requirements.md), the context extracts it has: binding
 // rows (<reviewId>.binding.md), the draft's Lifecycle section (<reviewId>.lifecycle.md) and its
-// Verification section (<reviewId>.verification.md), and for a Parent subject the round's scope
-// record (<reviewId>.scope.json), and the packet's opening record (<reviewId>.open.json: the settled record closes
+// Verification section (<reviewId>.verification.md), for a Parent subject the round's scope
+// record (<reviewId>.scope.json), for a round with a carried runner record its carry record (<reviewId>.carry.json),
+// and the packet's opening record (<reviewId>.open.json: the settled record closes
 // this packet, which tells it apart from a packet an earlier helper registered). Settling a reviewer adds, for a
 // Parent reviewer, its parsed result (<reviewId>.result.json) and, for both paths, the record that closes the packet
 // (<reviewId>.settled.json).
