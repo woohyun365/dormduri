@@ -91,9 +91,9 @@
   `src/ui/__stories__/fixtures.ts`가 공용 fixture이고, API 응답을 대신하는 fixture는
   [`story-fixtures.test.ts`](./story-fixtures.test.ts)가 BFF와 같은 공유 schema로 확인합니다. story 파일은 상대 경로로
   import합니다(`tsconfig.json` 밖이라 `@/` 경로가 story 파일에 적용되지 않습니다).
-- BFF 응답 뒤에 열리는 단계(로그인 둘째 단계·복구 로그인, 등록 비밀번호·passkey)는 운영자처럼 엽니다. story의 `beforeEach`가
-  `bff-stub.ts`로 그 단계가 부르는 BFF 경로에 fixture를 답하고, `play`가 입력·누름 뒤 다음 단계가 보일 때까지 기다립니다. passkey
-  같은 실제 인증기가 필요한 뒤 단계는 그 부품 story(`Credentials/*`)로 봅니다.
+- 상호작용 뒤에 열리는 단계(로그인 둘째 단계·복구 로그인, 등록 비밀번호·passkey, 한 번 보는 초대 code, 비활성화 form)는
+  운영자처럼 엽니다. story의 `beforeEach`가 `bff-stub.ts`로 그 단계가 부르는 BFF 경로에 fixture를 답하고, `play`가 입력·누름 뒤
+  다음 단계가 보일 때까지 기다립니다. passkey 같은 실제 인증기가 필요한 뒤 단계는 그 부품 story(`Credentials/*`)로 봅니다.
 - story 검사(`playwright.storybook.config.ts`, `e2e/storybook/`)는 static build의 모든 story를 Chromium으로 열어 `play`까지 끝난
   뒤 render 오류 0과 axe(`wcag2a`·`wcag2aa`·`wcag21a`·`wcag21aa`·`wcag22aa`) 위반 0을 봅니다. 스크린샷 비교와 기준 이미지는 두지
   않습니다. Backoffice Web gate가 돌립니다.

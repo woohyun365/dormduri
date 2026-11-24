@@ -3,6 +3,7 @@ import type {
   AccountListResponse,
   AuditEvent,
   BackofficePermission,
+  InvitationCreatedResponse,
   LoginPasswordResponse,
   RegistrationOptionsResponse,
   RoleCatalogResponse,
@@ -261,4 +262,11 @@ export const registrationInvitation: RegistrationOptionsResponse = {
   options: { challenge: 'c3RvcnktcmVnaXN0ZXItY2hhbGxlbmdl' },
   email: 'operator@example.test',
   displayName: '새 운영자',
+};
+
+/** The invite form's answer: the one-time code the owner hands over (shown once). */
+export const invitationCreated: InvitationCreatedResponse = {
+  invitationId: '00000000-0000-4000-8000-000000000403',
+  code: 'STORY-INVITATION-CODE-0000',
+  expiresAt: '2026-11-24T10:15:00+09:00',
 };
