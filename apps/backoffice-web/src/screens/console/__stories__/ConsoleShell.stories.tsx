@@ -22,6 +22,11 @@ export const Owner: Story = {};
 /** An auditor sees only the menu items its permission grants. */
 export const Auditor: Story = { args: { active: activeAuditor } };
 
+/** The notice appears after the countdown's zero-delay timer; the check runs once it is there. */
+const noticeShown: NonNullable<Story['play']> = async ({ canvas }) => {
+  await canvas.findByRole('alert');
+};
+
 /** The idle countdown ran out: the notice from the server's last answer, without asking the API. */
 export const IdleEnded: Story = {
   render: () => (
@@ -29,6 +34,7 @@ export const IdleEnded: Story = {
       <IdleNotice idleRemainingMs={0} absoluteRemainingMs={8 * 60 * 60 * 1000} />
     </div>
   ),
+  play: noticeShown,
 };
 
 /** The absolute limit came before the idle limit. */
@@ -38,4 +44,5 @@ export const AbsoluteEnded: Story = {
       <IdleNotice idleRemainingMs={15 * 60 * 1000} absoluteRemainingMs={0} />
     </div>
   ),
+  play: noticeShown,
 };

@@ -92,14 +92,14 @@ Origin(`http://localhost:4300`)과 Host는 code 상수다. 바꾸면 WebAuthn RP
 
 ## 7. Test
 
-| 명령(root)                                     | 범위                                                                                                        |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `pnpm backoffice-web:check`                    | 준비(shared build) 뒤 lint·typecheck·unit                                                                   |
-| `pnpm backoffice-web:test:prepared`            | BFF(출처 대조, cookie 속성, route wrapper와 upstream fake, route 전수 표), CSP, component(role·label query) |
-| `pnpm backoffice-web:build:prepared`           | `next build`                                                                                                |
-| `pnpm backoffice-web:e2e:prepared`             | Playwright Chromium e2e(아래)                                                                               |
-| `pnpm backoffice-web:storybook:build:prepared` | Storybook static build(`storybook-static/`)                                                                 |
-| `pnpm backoffice-web:storybook:check:prepared` | story 검사: 모든 story의 render 오류 0·axe 위반 0(디자인 지침 ⑨)                                            |
+| 명령(root)                                     | 범위                                                                                                                                                                         |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm backoffice-web:check`                    | 준비(shared build) 뒤 lint·typecheck·unit                                                                                                                                    |
+| `pnpm backoffice-web:test:prepared`            | BFF(출처 대조, cookie 속성, route wrapper와 upstream fake, route 전수 표), CSP, component(role·label query), token·server action lint 실효 설정, story fixture의 공유 schema |
+| `pnpm backoffice-web:build:prepared`           | `next build`                                                                                                                                                                 |
+| `pnpm backoffice-web:e2e:prepared`             | Playwright Chromium e2e(아래)                                                                                                                                                |
+| `pnpm backoffice-web:storybook:build:prepared` | Storybook static build(`storybook-static/`)                                                                                                                                  |
+| `pnpm backoffice-web:storybook:check:prepared` | story 검사: 모든 story의 render 오류 0·axe 위반 0(디자인 지침 ⑨)                                                                                                             |
 
 E2e(`e2e/backoffice-flow.spec.ts`)는 production build를 고정 origin `http://localhost:4300`에 띄우고, global setup이 일회용
 schema에 운영과 같은 role bootstrap·migration·grant 표를 적용한 뒤 실제 백오피스 API build를 `dormduri_backoffice`로 띄워

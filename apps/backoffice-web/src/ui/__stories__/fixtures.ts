@@ -3,6 +3,8 @@ import type {
   AccountListResponse,
   AuditEvent,
   BackofficePermission,
+  LoginPasswordResponse,
+  RegistrationOptionsResponse,
   RoleCatalogResponse,
   SessionInfoResponse,
 } from '@repo/shared/backoffice';
@@ -14,6 +16,10 @@ export const OWNER_ID = '00000000-0000-4000-8000-000000000001';
 export const AUDITOR_ID = '00000000-0000-4000-8000-000000000002';
 export const LOCKED_ID = '00000000-0000-4000-8000-000000000003';
 export const LEAVER_ID = '00000000-0000-4000-8000-000000000004';
+export const OWNER_EMAIL = 'owner@example.test';
+/** What the login and registration stories type as a password and an invitation code. */
+export const STORY_PASSWORD = 'story-password-0000';
+export const STORY_INVITATION_CODE = 'story-invitation-code-0000';
 
 const OWNER_PERMISSIONS: readonly BackofficePermission[] = [
   'admin:account:invite',
@@ -25,7 +31,7 @@ const OWNER_PERMISSIONS: readonly BackofficePermission[] = [
 ];
 
 const ownerSession: SessionInfoResponse = {
-  account: { id: OWNER_ID, email: 'owner@example.test', displayName: '시험 운영자' },
+  account: { id: OWNER_ID, email: OWNER_EMAIL, displayName: '시험 운영자' },
   scope: 'FULL',
   roles: ['OWNER'],
   permissions: [...OWNER_PERMISSIONS],
@@ -58,7 +64,7 @@ export const accountList: AccountListResponse = {
   accounts: [
     {
       id: OWNER_ID,
-      email: 'owner@example.test',
+      email: OWNER_EMAIL,
       displayName: '시험 운영자',
       status: 'ACTIVE',
       locked: false,
@@ -241,3 +247,18 @@ export const recoveryCodes = [
   'QQQQQ-RRRRR',
   'SSSSS-TTTTT',
 ];
+
+/** The password step's answer: the passkey challenge and the recovery logins the account can use. */
+export const loginChallenge: LoginPasswordResponse = {
+  challengeId: '00000000-0000-4000-8000-000000000401',
+  options: { challenge: 'c3RvcnktbG9naW4tY2hhbGxlbmdl' },
+  recovery: { totp: true, recoveryCode: true },
+};
+
+/** The invitation code's answer: the invited account and the passkey challenge. */
+export const registrationInvitation: RegistrationOptionsResponse = {
+  challengeId: '00000000-0000-4000-8000-000000000402',
+  options: { challenge: 'c3RvcnktcmVnaXN0ZXItY2hhbGxlbmdl' },
+  email: 'operator@example.test',
+  displayName: '새 운영자',
+};

@@ -565,7 +565,8 @@ test('Backoffice CI migrates the public schema before TypedSQL and times every s
   for (const [name, job] of Object.entries(jobs)) {
     assertIncludesAll(job, [
       'pnpm --dir packages/database exec prisma migrate deploy --schema prisma/schema.prisma',
-      ...stages[name].map((stage) => `--stage=${stage}`),
+      // The `--` after the stage name keeps one stage from matching another that starts with it (`storybook`).
+      ...stages[name].map((stage) => `--stage=${stage} -- `),
       'total_duration_seconds',
       'pnpm_store_cache',
     ]);

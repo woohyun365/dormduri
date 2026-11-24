@@ -53,17 +53,19 @@ test('a page on another localhost port gets 403 for its same-site image and pref
     records.set(requestId, found);
     return found;
   };
+  // A redirect keeps the request id and sends each hop again, so only the first hop is kept: the request the page
+  // made and the answer it got (a proxy that let it through would answer the session-less `/` with a redirect).
   const cdp = await page.context().newCDPSession(page);
   cdp.on('Network.requestWillBeSent', (event) => {
-    record(event.requestId).url = event.request.url;
+    record(event.requestId).url ??= event.request.url;
   });
   cdp.on('Network.requestWillBeSentExtraInfo', (event) => {
-    record(event.requestId).headers = Object.fromEntries(
+    record(event.requestId).headers ??= Object.fromEntries(
       Object.entries(event.headers).map(([name, value]) => [name.toLowerCase(), String(value)]),
     );
   });
   cdp.on('Network.responseReceivedExtraInfo', (event) => {
-    record(event.requestId).status = event.statusCode;
+    record(event.requestId).status ??= event.statusCode;
   });
   await cdp.send('Network.enable');
 
