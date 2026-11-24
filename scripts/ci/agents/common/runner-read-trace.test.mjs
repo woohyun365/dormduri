@@ -121,7 +121,8 @@ test('the source of a copy is in the trace with kind copy', () => {
 });
 
 test('a module load of a repository file is in the trace with kind module', () => {
-  const trace = traced(run(fixture(`await import('./lib/mod.mjs');\n`)));
+  // The specifier is built at run time so the suite's import closure scan does not read it as an import of this file.
+  const trace = traced(run(fixture("await import('./' + 'lib/mod.mjs');\n")));
   assert.deepEqual(kindsOf(trace, 'lib/mod.mjs'), ['module']);
   assert.ok(kindsOf(trace, 'probe.mjs').includes('module'), 'the entry script is a module load');
 });
