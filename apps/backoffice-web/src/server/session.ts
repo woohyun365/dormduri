@@ -19,9 +19,15 @@ export interface ActiveSession {
   readonly absoluteRemainingMs: number;
 }
 
+/**
+ * `none`: no cookie. `ended`: the API says the session expired (idle or 8 hours). `closed`: there is a cookie but the
+ * API no longer knows the session (a role revoke, a deactivation or a logout in another window ended it; the API does
+ * not say which, README §4).
+ */
 export type SessionState =
   | { readonly kind: 'none' }
   | { readonly kind: 'ended' }
+  | { readonly kind: 'closed' }
   | ({ readonly kind: 'active' } & ActiveSession);
 
 export class BackofficeUnavailableError extends Error {
@@ -59,7 +65,7 @@ export const readSession = cache(async (): Promise<SessionState> => {
     return { kind: 'ended' };
   }
   if (result.kind === 'error' && result.code === 'session_required') {
-    return { kind: 'none' };
+    return { kind: 'closed' };
   }
   throw new BackofficeUnavailableError();
 });
@@ -72,6 +78,9 @@ export async function requireFullSession(): Promise<ActiveSession> {
   }
   if (state.kind === 'ended') {
     redirect('/login?ended=expired');
+  }
+  if (state.kind === 'closed') {
+    redirect('/login?ended=closed');
   }
   if (state.session.scope === 'RECOVERY') {
     redirect('/recovery');
@@ -87,6 +96,9 @@ export async function requireRecoverySession(): Promise<ActiveSession> {
   }
   if (state.kind === 'ended') {
     redirect('/login?ended=expired');
+  }
+  if (state.kind === 'closed') {
+    redirect('/login?ended=closed');
   }
   if (state.session.scope === 'FULL') {
     redirect('/');

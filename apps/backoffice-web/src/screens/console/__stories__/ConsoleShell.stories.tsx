@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, waitFor } from 'storybook/test';
+import { SESSION_CLOSED_EVENT } from '../../../client/bff-client';
 import { activeAuditor, activeOwner } from '../../../ui/__stories__/fixtures';
 import { ConsoleShell } from '../ConsoleShell';
 import { SessionEndNotice } from '../SessionEndNotice';
 
-// The console shell (menu hidden by the session's permissions) and the idle notice. Fixture sessions only.
+// The console shell (menu hidden by the session's permissions) and its session end notice. Fixture sessions only.
 
 const meta = {
   title: 'Console/Shell',
@@ -45,4 +47,23 @@ export const AbsoluteEnded: Story = {
     </div>
   ),
   play: noticeShown,
+};
+
+/**
+ * A BFF call found the session closed (another operator's role revoke, a deactivation or a logout in another window):
+ * the same place and look as the idle notice, with the closed wording.
+ */
+export const SessionClosed: Story = {
+  render: () => (
+    <div className="p-6">
+      <SessionEndNotice idleRemainingMs={15 * 60 * 1000} absoluteRemainingMs={8 * 60 * 60 * 1000} />
+    </div>
+  ),
+  // The notice listens from an effect, which may run after play starts: send the event until the notice is there.
+  play: async ({ canvas }) => {
+    await waitFor(() => {
+      window.dispatchEvent(new Event(SESSION_CLOSED_EVENT));
+      expect(canvas.getByRole('alert')).toBeInTheDocument();
+    });
+  },
 };

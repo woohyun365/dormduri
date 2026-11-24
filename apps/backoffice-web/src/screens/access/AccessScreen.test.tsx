@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccessRequest } from '@repo/shared/backoffice';
 import { AccessScreen } from './AccessScreen';
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => router }));
 const browser = vi.hoisted(() => ({ startAuthentication: vi.fn(), startRegistration: vi.fn() }));
 vi.mock('@simplewebauthn/browser', () => browser);
 
@@ -55,7 +56,16 @@ beforeEach(() => {
 
 afterEach(() => {
   fetchMock.mockReset();
+  router.replace.mockReset();
+  router.refresh.mockReset();
 });
+
+function approved(body: AccessRequest) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+}
 
 describe('AccessScreen (OA-R9)', () => {
   it('asks for a reason before the requester approves their own request, and sends the shown digest', async () => {
@@ -119,5 +129,34 @@ describe('AccessScreen (OA-R9)', () => {
       APPROVE_URL,
     ]);
     expect(browser.startAuthentication).toHaveBeenCalledTimes(1);
+  });
+
+  it('goes to /login?ended=self-revoked after approving the revoke of my own role', async () => {
+    const revokeMine = request({
+      kind: 'ROLE_REVOKE',
+      targetAccountId: SELF,
+      requestedByAccountId: OTHER,
+    });
+    fetchMock.mockResolvedValue(approved({ ...revokeMine, status: 'APPROVED' }));
+    renderScreen([revokeMine]);
+    const decision = screen.getByRole('form', { name: /결정$/u });
+    await userEvent.click(within(decision).getByRole('button', { name: '승인' }));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/login?ended=self-revoked'));
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("refreshes after approving another operator's request", async () => {
+    const revokeOther = request({
+      kind: 'ROLE_REVOKE',
+      targetAccountId: OTHER,
+      requestedByAccountId: OTHER,
+    });
+    fetchMock.mockResolvedValue(approved({ ...revokeOther, status: 'APPROVED' }));
+    renderScreen([revokeOther]);
+    const decision = screen.getByRole('form', { name: /결정$/u });
+    await userEvent.click(within(decision).getByRole('button', { name: '승인' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('요청을 승인했습니다.');
+    expect(router.refresh).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
   });
 });

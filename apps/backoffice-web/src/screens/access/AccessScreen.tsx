@@ -62,7 +62,11 @@ export function AccessScreen({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<Message>(null);
 
-  async function run(action: () => ReturnType<typeof postBff>, success: string) {
+  async function run(
+    action: () => ReturnType<typeof postBff>,
+    success: string,
+    endsMySession = false,
+  ) {
     setPending(true);
     setMessage(null);
     const result = await withReauthentication(action);
@@ -72,7 +76,12 @@ export function AccessScreen({
         ? { tone: 'success', text: success }
         : { tone: 'error', text: errorMessage(result.code) },
     );
-    if (result.ok) router.refresh();
+    if (result.ok) {
+      // Revoking my own role ends my sessions in the same transaction (README §4), so a refresh would only find the
+      // session gone; the login page says why instead.
+      if (endsMySession) router.replace('/login?ended=self-revoked');
+      else router.refresh();
+    }
     return result.ok;
   }
 
@@ -240,6 +249,9 @@ export function AccessScreen({
                 <PendingActions
                   request={request}
                   self={request.requestedByAccountId === selfAccountId}
+                  revokesMine={
+                    request.kind === 'ROLE_REVOKE' && request.targetAccountId === selfAccountId
+                  }
                   canApprove={canApprove}
                   canCancel={canRequest && request.requestedByAccountId === selfAccountId}
                   pending={pending}
@@ -266,6 +278,7 @@ export function AccessScreen({
 function PendingActions({
   request,
   self,
+  revokesMine,
   canApprove,
   canCancel,
   pending,
@@ -273,10 +286,16 @@ function PendingActions({
 }: {
   readonly request: AccessRequest;
   readonly self: boolean;
+  /** A revoke of the viewer's own role: approving it ends the viewer's session. */
+  readonly revokesMine: boolean;
   readonly canApprove: boolean;
   readonly canCancel: boolean;
   readonly pending: boolean;
-  readonly run: (action: () => ReturnType<typeof postBff>, success: string) => Promise<boolean>;
+  readonly run: (
+    action: () => ReturnType<typeof postBff>,
+    success: string,
+    endsMySession?: boolean,
+  ) => Promise<boolean>;
 }) {
   const reasonId = `decision-reason-${request.id}`;
   const [missingReason, setMissingReason] = useState(false);
@@ -299,6 +318,7 @@ function PendingActions({
           ...(reason ? { reason } : {}),
         }),
       approve ? '요청을 승인했습니다.' : '요청을 거절했습니다.',
+      approve && revokesMine,
     );
   }
 

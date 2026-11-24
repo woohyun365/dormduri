@@ -33,6 +33,11 @@ const LEAVER = {
   name: '퇴직 운영자',
 };
 
+/** Ended access notices (README §4): the login page's, and the console shell's without the last sentence. */
+const CLOSED_SHELL_NOTICE =
+  '이 접속은 끝났습니다. 다른 창에서 로그아웃했거나 역할·계정 상태가 바뀌었을 수 있습니다.';
+const CLOSED_LOGIN_NOTICE = `${CLOSED_SHELL_NOTICE} 다시 로그인하세요.`;
+
 /** BFF routes that answered 2xx in the flow, path ids replaced by `:id`. */
 const reachedRoutes = new Set<string>();
 const UUID_SEGMENT = /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=\/)/gu;
@@ -73,6 +78,17 @@ async function openOperator(
   });
   const authenticator = await addVirtualAuthenticator(context, page, transport);
   return { context, page, cspViolations, authenticator };
+}
+
+/** The CSP violations of a page opened after `openOperator`, collected the same way. */
+function watchCspViolations(page: Page): string[] {
+  const violations: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /Content Security Policy/iu.test(message.text())) {
+      violations.push(message.text());
+    }
+  });
+  return violations;
 }
 
 async function register(
@@ -357,6 +373,10 @@ test('the owner revokes an invitation, deactivates an account and records the mo
     .click();
   await expect(page.getByRole('status').filter({ hasText: '초대를 취소했습니다.' })).toBeVisible();
 
+  // The leaver keeps a console page open while the account is deactivated (README §4, ended access).
+  await leaver.page.goto('/security');
+  await expect(leaver.page.getByRole('heading', { name: '내 보안 설정' })).toBeVisible();
+
   await page
     .getByRole('row')
     .filter({ hasText: LEAVER.name })
@@ -371,6 +391,31 @@ test('the owner revokes an invitation, deactivates an account and records the mo
   const leaverRow = page.getByRole('row').filter({ hasText: LEAVER.name });
   await expect(leaverRow.getByRole('cell', { name: '비활성', exact: true })).toBeVisible();
   await expect(leaverRow.getByRole('button', { name: '비활성화' })).toHaveCount(0);
+
+  // (a) A new page in the leaver's browser: the cookie is still there but the API no longer knows the session.
+  const reopened = await leaver.context.newPage();
+  const reopenedCspViolations = watchCspViolations(reopened);
+  await reopened.goto('/');
+  await expect(reopened).toHaveURL(/\/login\?ended=closed$/u);
+  // Next.js keeps an empty route announcer with the alert role on every page, so the notice is picked by its text.
+  await expect(reopened.getByRole('alert').filter({ hasText: CLOSED_SHELL_NOTICE })).toHaveText(
+    CLOSED_LOGIN_NOTICE,
+  );
+  expect(reopenedCspViolations).toEqual([]);
+  await reopened.close();
+
+  // (b) The page left open: its next BFF call finds the session closed. That answer clears the cookie, so it comes
+  // after (a), whose page would otherwise go to the plain /login of a browser without a cookie.
+  await leaver.page
+    .getByRole('form', { name: 'passkey 추가' })
+    .getByRole('button', { name: 'passkey 추가' })
+    .click();
+  const closedNotice = leaver.page.getByRole('alert').filter({ hasText: CLOSED_SHELL_NOTICE });
+  await expect(closedNotice).toBeVisible();
+  await expect(closedNotice.getByRole('link', { name: '다시 로그인' })).toHaveAttribute(
+    'href',
+    '/login?ended=closed',
+  );
 
   await page.goto('/audit');
   const review = page.getByRole('form', { name: '월 점검 기록' });
@@ -435,6 +480,16 @@ test('the owner logs in with TOTP and with a recovery code; a recovery session a
   await loginWithPassword(owner, OWNER.email, OWNER.password);
   await page.getByRole('button', { name: 'passkey로 로그인' }).click();
   await expect(page.getByRole('heading', { name: `${OWNER.name}님, 안녕하세요` })).toBeVisible();
+
+  // (c) The audit list names both recovery logins by their second factor, from the LOGIN metadata the API writes.
+  await page.goto('/audit');
+  const events = page.getByRole('table', { name: '관리자 감사 기록, 최신순' });
+  await expect(
+    events.getByRole('row').filter({ hasText: '복구 로그인(TOTP)' }).first(),
+  ).toBeVisible();
+  await expect(
+    events.getByRole('row').filter({ hasText: '복구 로그인(복구 code)' }).first(),
+  ).toBeVisible();
 });
 
 test('the flow reached every BFF route through the real backoffice API', () => {

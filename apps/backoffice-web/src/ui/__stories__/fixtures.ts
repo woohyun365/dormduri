@@ -224,6 +224,33 @@ export const auditEvents: readonly AuditEvent[] = [
     selfApproved: false,
     reason: null,
   },
+  // Recovery logins, named by their second factor in the action cell (design plan D-OD10 2).
+  {
+    ...baseEvent,
+    id: '00000000-0000-4000-8000-000000000305',
+    occurredAt: '2026-11-24T08:50:00+09:00',
+    sessionId: '00000000-0000-4000-8000-000000000403',
+    action: 'LOGIN',
+    targetType: 'ADMIN_SESSION',
+    targetId: '00000000-0000-4000-8000-000000000403',
+    approvalRequestId: null,
+    selfApproved: false,
+    reason: null,
+    metadata: { scope: 'RECOVERY', method: 'totp' },
+  },
+  {
+    ...baseEvent,
+    id: '00000000-0000-4000-8000-000000000306',
+    occurredAt: '2026-11-24T08:40:00+09:00',
+    sessionId: '00000000-0000-4000-8000-000000000404',
+    action: 'LOGIN',
+    targetType: 'ADMIN_SESSION',
+    targetId: '00000000-0000-4000-8000-000000000404',
+    approvalRequestId: null,
+    selfApproved: false,
+    reason: null,
+    metadata: { scope: 'RECOVERY', method: 'recovery_code' },
+  },
 ];
 
 export const auditNames: Readonly<Record<string, string>> = {
