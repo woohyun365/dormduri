@@ -41,7 +41,8 @@ helper 명령(pnpm `-s`) 출력의 첫 줄은 pnpm이 내는 `$ node …` 줄이
   빠졌으면 `review-input-*`가, runner 파일이 등록 뒤 바뀌었으면 `review-runner-file-changed`가, 결과 template 파일이 바뀌었으면
   `review-template-changed`가 들어가므로 역시 결과를 쓰지 않고 `review-run`을 다시 실행해 재리뷰합니다. 이어 쓴 record가 있는
   회차(prompt runner 줄 끝 `(carried from <reviewId>)`, packet 디렉터리 `<reviewId>.carry.json`)는 결과를 쓰기 전에 runner의 확인
-  기록(`<out-dir>/confirm/evidence.json`)을 결과 단위(exit·조각·test 결과 줄)와 snapshot으로 대조합니다.
+  기록(`<out-dir>/confirm/evidence.json`)을 결과 단위(exit·조각·test 결과 줄)와 snapshot으로 대조하고, 이어 쓴 출력이 등록 때 carry
+  기록 digest와 다르면(확인 실행이 그 log에 덮어씀 포함) 그 record를 불일치로 봅니다.
   `carry-confirm-pending`이면 확인 실행이 끝난 뒤 같은 명령으로 다시 정산합니다(결과 파일·packet 닫기는 아직 없음).
   `carry-confirm-missing`·`carry-confirm-mismatch`면 결과를 쓰지 않고, 확인 기록을 이번 회차 record로 써서 같은 회차를 다시
   리뷰합니다(`review-run` 다시 실행, 이어 쓰지 않음). 사유 끝은 record 이름이고, `carry record`는 carry 기록이 없거나 prompt 기록의

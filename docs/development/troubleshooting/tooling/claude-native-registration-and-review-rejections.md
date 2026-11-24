@@ -282,11 +282,12 @@
 - 이어 쓴 record: `carriedFrom`은 Parent subject `review-run` 2회차부터(`--previous-result` 필요)만 받고 1회차·native subject·
   `review` 직접 실행·Codex 경로는 `carry-path-unsupported`나 `carry-basis-missing`입니다. `carried-record-mismatch`는 record가 만든
   회차 runner 파일과 다르거나 그 log가 그 뒤 바뀐 것, `carried-header-mismatch`는 `carriedFrom`이 log를 만든 회차가 아닌 것,
-  `carry-round-diff-not-docs`는 그 회차 뒤 `.md` 아닌 변경·새 `.md`·지운 `.md`가 있는 것, `carry-doc-referenced`는 `scripts/`
+  `carry-round-diff-not-docs`는 그 회차 뒤 `.md` 아닌 변경·새 `.md`·지운 `.md`가 있거나 그 회차 범위 기록이 없어 회차 diff를 알 수
+  없는 것, `carry-doc-referenced`는 `scripts/`
   파일이 바뀐 문서를 이름으로 가진 것입니다. 모두 그 record를 이번 회차에 다시 실행해 기록하면 풀립니다.
 - 확인 대조: `carry-confirm-pending`은 runner가 `<out-dir>/confirm/evidence.json`을 아직 쓰지 않은 것이라 확인 실행이 끝난 뒤 같은
   명령으로 다시 정산합니다. `carry-confirm-missing: <record>`는 그 이름의 확인 record가 없고, `carry-confirm-mismatch: <record>`는
-  확인 실행의 exit·조각·test 결과 줄이 이어 쓴 결과와 다르며, `carry record`는 `<reviewId>.carry.json`이 없거나 prompt 기록 digest와
+  확인 실행의 exit·조각·test 결과 줄이 이어 쓴 결과와 다르거나 이어 쓴 출력이 등록 뒤 바뀐 것(확인 실행이 그 log에 덮어씀 포함)이며, `carry record`는 `<reviewId>.carry.json`이 없거나 prompt 기록 digest와
   다르고, `snapshot`은 확인 실행 중 checkout이 바뀐 것입니다. 결과를 쓰지 않으므로 확인 기록을 이번 회차 record로 써서
   `review-run`을 다시 실행합니다.
 - `review-run`의 참조 검사: `plan-reference-check`는 exit code가 아니라 기준 대비로 판정합니다. 기준(`--plan-baseline`)과 view

@@ -7181,6 +7181,7 @@ test('review-run takes a carried record from round 2 of a Parent subject and wri
         exit: 0,
         observedResult: f.long1.observedResult,
         outputPaths: f.long1.outputPaths,
+        outputDigests: { [f.long1.outputPaths[0]]: digests.produced },
       },
     ],
   });
@@ -7465,6 +7466,38 @@ test('a carried round whose confirm runs differ at the result unit cannot be use
   // The subject changed after registration: the confirm runs saw another source.
   writeFileSync(join(c.r.root, 'sample.txt'), 'edited after registration');
   assert.ok(carryReasons(c.settle()).includes('carry-confirm-mismatch: snapshot'), 'snapshot');
+});
+
+// Review round 1 (m1-F1): the comparison reads the carried log the reviewer read. The carry record binds the digest of
+// each carried output, so a confirm run that wrote over the carried log, or a carried log edited after registration,
+// is a mismatch and not a comparison of a log with itself.
+test('a carried output changed after registration is carry-confirm-mismatch, also when the confirm run wrote over it (OSS-RL P5 RED 5)', (t) => {
+  const c = carriedReviewer(t);
+  const resultFile = join(c.r.root, `${PACKET_DIR}/${c.id}.result.json`);
+  const carriedPath = c.long1.outputPaths[0];
+  const carriedLog = join(c.r.root, carriedPath);
+  const carriedBytes = readFileSync(carriedLog);
+  const renamed = swap('✔ beta works (3ms)', '✔ beta renamed (3ms)');
+  // The confirm run wrote its log over the carried log: the reviewed log said `beta works`.
+  writeFileSync(carriedLog, `${[c.h2.logHeader, ...renamed].join('\n')}\n`);
+  c.confirm(renamed, { fields: { outputPaths: [carriedPath] } });
+  const over = c.settle();
+  assert.deepEqual(over.observationErrors, [`carry-confirm-mismatch: ${LONG}`]);
+  assert.equal(over.resultPath, null);
+  assert.ok(!existsSync(resultFile));
+  // The carried log edited after registration, and a confirm log on a new path that matches the edit.
+  writeFileSync(carriedLog, `${[c.first.record.logHeader, ...renamed].join('\n')}\n`);
+  c.confirm(renamed);
+  assert.deepEqual(c.settle().observationErrors, [`carry-confirm-mismatch: ${LONG}`]);
+  assert.ok(!existsSync(resultFile));
+  // Edited, with a confirm log of the registered result: the result unit differs too, and the record is named once.
+  c.confirm();
+  assert.deepEqual(c.settle().observationErrors, [`carry-confirm-mismatch: ${LONG}`]);
+  // The carried log as registered and a confirm log on a new path: the result is written.
+  writeFileSync(carriedLog, carriedBytes);
+  c.confirm();
+  assert.deepEqual(c.settle().observationErrors, []);
+  assert.ok(existsSync(resultFile));
 });
 
 // Round 2 through review-run without a carried record, its reviewer dispatched and its rows read.
@@ -7859,6 +7892,34 @@ test('evidence-claim-source-missing lists the added numbers no source holds (OSS
     ),
     [],
   );
+});
+
+// Review round 1 (m1-F2, m2-F1): a number followed by a Korean particle or another word is a claim number too, and a
+// number with a unit is a measurement even in the shape of a year or of n.n.
+test('evidence-claim-source-missing takes a number followed by a Korean particle or a unit (OSS-RL P5 RED 7 (a))', (t) => {
+  const e = evidenceRepo(t);
+  const doc = e.file(
+    'docs/evidence/ko.md',
+    [
+      '# 수치',
+      '',
+      '수치 token 47개는 원천에 없고, task 기록 1,015개를 읽었으며 17 record 34쌍 가운데 2136줄이다.',
+      '회차당 12.2분이 줄었고 12.5%가 남았으며 3.5절과 2026년 기록, 3회차는 주장이 아니다.',
+      '',
+    ].join('\n'),
+  );
+  const missing = (logText) => {
+    const log = e.file(`${RUN_DIR}/ko-${randomUUID().slice(0, 8)}.log`, logText);
+    const [warning] = evidenceWarnings(
+      e.build(claimSubject([doc]), [{ command: 'node scripts/census.mjs', outputPaths: [log] }]),
+      'evidence-claim-source-missing',
+    );
+    return warning ? /numbers (?<list>[^;]+?) (?:are|is) in no/u.exec(warning).groups.list : null;
+  };
+  assert.equal(missing('nothing\n'), '47, 1,015, 17, 34, 2136, 12.2, 12.5');
+  // 12.2 in the output holds the claim 12.2; a 12 cut off at its point would not be held by it.
+  assert.equal(missing('47 1015 17 34 2136 saved 12.2 min 12.5\n'), null);
+  assert.equal(missing('47 1015 17 34 2136 12.5\n'), '12.2');
 });
 
 test('evidence-source-outside-read-paths reads the bound trace of each record holding a claim number (OSS-RL P5 RED 7 (b))', (t) => {

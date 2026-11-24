@@ -244,7 +244,8 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
   `exit`·`purpose`·`expectedExit`·`observedResult`·`environment`·`outputPaths`가 그 record와 다르거나, 출력이 만든 회차 입력
   manifest가 결속한 digest와 지금 다릅니다.
 - C3 `carried-header-mismatch`: log 첫 줄이 basis가 만든 회차 packet snapshot으로 다시 계산한 header가 아닙니다.
-- C4 `carry-round-diff-not-docs`: 만든 회차 범위 기록 뒤 바뀐 경로에 `.md`가 아닌 경로, 새 `.md`, 지운 `.md`가 있습니다.
+- C4 `carry-round-diff-not-docs`: 만든 회차 범위 기록 뒤 바뀐 경로에 `.md`가 아닌 경로, 새 `.md`, 지운 `.md`가 있거나, 그 회차의 범위
+  기록이 없어(basis에 회차 diff가 없음) 회차 diff를 알 수 없습니다.
 - C5 `carry-doc-referenced: <path>`: tracked `scripts/` 파일이 바뀐 `.md`의 저장소 상대 경로나 파일 이름을 `git grep -F`로 가집니다.
 
 확인 대조(`--confirm <carry.json>`, `claude-review-carry/v1`)는 `--evidence`의 확인 기록을 지금 규칙으로 검사한 뒤 carry 기록의 이어 쓴

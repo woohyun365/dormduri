@@ -114,9 +114,9 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
   `${PIPESTATUS[0]}`가 비어 있습니다). 로그 첫 줄 `logHeader` 다음 줄에 `node --version` 출력을 남깁니다. 오래 도는 단계에는
   시간 상한을 두고, 회차 log는 회차마다 새 경로에 써서 이미 있는 log를 덮지 않으며, script 안에서 앞 출력을 지우는 대신 새
   디렉터리를 씁니다. Runner 식별자(`runner`)는 ASCII 이름(글자·숫자로 시작, `_`·`-`)이라 한글 세션 이름은 ASCII 별칭(예:
-  `oss-review-p6-pr4`)을 씁니다. 회차 diff가 문서(`.md`)뿐인 Parent subject 2회차부터는 앞 회차 실행 시간이 60초 이상인 code 검사
-  record(test·검사 도구 실행)를 그 회차 log 그대로 `carriedFrom`으로 이어 써 리뷰를 먼저 보내고, runner 시작 때 그 record의 확인
-  실행을 1~2갈래로 시작합니다. 확인 실행은 같은 `command`로 첫 줄이 이번 회차 `logHeader`인 새 log를 쓰고, 모두 끝나면 그 record들을
+  `oss-review-p6-pr4`)을 씁니다. 회차 diff가 바뀐 문서(`.md`)뿐이고 새로 만들거나 지운 `.md`가 없고 바뀐 `.md`의 경로나 파일 이름을
+  가진 tracked `scripts/` 파일이 없는 Parent subject 2회차부터는 앞 회차 실행 시간이 60초 이상인 code 검사 record(test·검사 도구
+  실행)를 그 회차 log 그대로 `carriedFrom`으로 이어 써 리뷰를 먼저 보내고, runner 시작 때 그 record의 확인 실행을 1~2갈래로 시작합니다. 확인 실행은 같은 `command`로 첫 줄이 이번 회차 `logHeader`인 새 log를 쓰고, 모두 끝나면 그 record들을
   runner evidence 모양으로 `<out-dir>/confirm/evidence.json`에 한 번에 씁니다(다른 이름으로 쓴 뒤 옮김). 확인 실행은 새 출력
   경로에만 쓰고 tracked 파일과 리뷰 read path를 바꾸지 않습니다. 문서 검사·같은 유형 검색·evidence 재현·diff record는 매 회차 다시
   돌립니다. Evidence 재현 record는 `runner-read-trace.mjs`로 감쌉니다. 감싼 실행
@@ -204,7 +204,7 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
   `new-file`입니다. Delta 경로는 prompt 회차 줄이 아니라 범위 기록 `<reviewId>.scope.json`에 있고 줄은 경로 수만 적습니다. 그래서 회차마다
   새로 생기는 runner 출력·재현 로그는 subject `paths` 밖에 둡니다. Read path는 줄이지 않고 prompt의 회차 줄이 읽을 범위를
   지시합니다. `review`를 직접 부른 Parent subject의 2회차 이상은 `delta-scope-required`로 거부됩니다. Runner 검사는 매 회차 다시
-  실행합니다. 회차 diff가 문서(`.md`)뿐이면 앞 회차에 오래 걸린 code 검사 record는 앞 결과로 이어 써 리뷰를 먼저 보내고, 리뷰 중
+  실행합니다. 회차 diff가 문서(`.md`)뿐이면(새·지운 `.md` 없음, 그 문서를 글자로 가진 `scripts/` 파일 없음) 앞 회차에 오래 걸린 code 검사 record는 앞 결과로 이어 써 리뷰를 먼저 보내고, 리뷰 중
   다시 돌려 정산 전에 결과 단위로 대조합니다(Runner 환경, 7단계, [`/knu-settle`](../knu-settle/SKILL.md)).
 - 기준 문서: `review`가 리뷰 대상 경로(Parent subject `paths`, native subject의 관측 변경 경로)로 고르고
   ([자동 선택](../../../docs/development/agent-workflows/review-criteria/README.md#자동-선택)) 출력 `criteriaSelection`에 문서·

@@ -1074,11 +1074,13 @@ function verificationExtract(root, draft) {
   return `${lines.slice(start.index, end).join('\n').replace(/\s+$/u, '')}\n`;
 }
 // Evidence claim numbers (L12): the numeric tokens of the lines a change adds to a docs/evidence document, outside
-// links, inline code and URLs. Years, n.n section numbers and one-digit numbers are no claims. A source holds a token
-// (or its form without commas) when no digit, and no `.` or `,` continuing one, is next to it.
+// links, inline code and URLs, also when a Korean particle or word follows (`47개는`, `34쌍`). Years, n.n section
+// numbers and one-digit numbers are no claims; a number with a unit (`12.2분`, `12.5%`) is a measurement and stays one.
+// A source holds a token (or its form without commas) when no digit, and no `.` or `,` continuing one, is next to it.
 const CLAIM_LINK = /\]\([^)]*\)|`[^`]*`|https?:\/\/\S+/gu;
 const CLAIM_TOKEN =
-  /(?<![\p{L}\p{N}_.#/-])\p{Nd}[\p{Nd},.]*(?:%|자|개|분|초|회|건|줄|칸|명|KB|MiB)?(?![\p{L}\p{N}_/-])/gu;
+  /(?<![\p{L}\p{N}_.#/-])\p{Nd}[\p{Nd},.]*(?:%|자|개|분|초|회|건|줄|칸|명|KB|MiB)?(?![\p{N}_/-])(?!(?!\p{Script=Hangul})\p{L})/gu;
+const CLAIM_UNIT = /[%자개분초회건줄칸명KBMi]+$/u;
 const CLAIM_SKIP = /^(?:20\p{Nd}\p{Nd}|\p{Nd}{1,2}\.\p{Nd}{1,2})$/u;
 const EVIDENCE_DOCS = 'docs/evidence/';
 const TRACE_SCHEMA = 'runner-read-trace/v1';
@@ -1122,8 +1124,12 @@ function evidenceClaims(root, subject, commit) {
       : lineList(readSourceText(root, path));
     for (const line of added)
       for (const [token] of line.replace(CLAIM_LINK, ' ').matchAll(CLAIM_TOKEN)) {
-        const core = token.replace(/[%자개분초회건줄칸명KBMi]+$/u, '').replace(/[.,]+$/u, '');
-        if (core && !CLAIM_SKIP.test(core) && core.replaceAll(',', '').length >= 2)
+        const core = token.replace(CLAIM_UNIT, '').replace(/[.,]+$/u, '');
+        if (
+          core &&
+          (CLAIM_UNIT.test(token) || !CLAIM_SKIP.test(core)) &&
+          core.replaceAll(',', '').length >= 2
+        )
           tokens.push(core);
       }
   }
@@ -1158,8 +1164,9 @@ function recordTrace(root, record) {
     } catch {
       continue;
     }
-    if (trace?.schema !== TRACE_SCHEMA) continue;
-    const log = trace.log?.path;
+    const log = trace?.schema === TRACE_SCHEMA ? trace.log?.path : undefined;
+    // Only a log among the record's outputs is read: a trace naming another file reads nothing.
+    if (!record.outputPaths.includes(log)) continue;
     let logDigest = null;
     try {
       logDigest = packetDigest(readFileSync(join(root, log)));
@@ -1167,8 +1174,6 @@ function recordTrace(root, record) {
       logDigest = null;
     }
     if (
-      typeof log === 'string' &&
-      record.outputPaths.includes(log) &&
       logDigest === trace.log.sha256 &&
       Array.isArray(trace.argv) &&
       trace.argv.join(' ') === record.command &&
@@ -1213,12 +1218,16 @@ function evidenceSourceWarnings(root, subject, runnerEvidence, selectionBasisRef
   const outputs = records.map((record) =>
     record.outputPaths.map((path) => readSourceText(root, path)).join('\n'),
   );
-  const sources = [
-    ...outputs,
-    ...subjectSourceFiles(root, subject).map((path) => readSourceText(root, path)),
-  ].join('\n');
+  // Each source is matched on its own, so the subject files never have to fit one string.
+  const unheld = new Set(
+    claims.tokens.filter((token) => !outputs.some((text) => claimHeld(text, token))),
+  );
+  for (const path of subjectSourceFiles(root, subject)) {
+    const text = readSourceText(root, path);
+    for (const token of [...unheld]) if (claimHeld(text, token)) unheld.delete(token);
+  }
   const warnings = [];
-  const missing = claims.tokens.filter((token) => !claimHeld(sources, token));
+  const missing = claims.tokens.filter((token) => unheld.has(token));
   if (missing.length)
     warnings.push(
       `evidence-claim-source-missing: numbers ${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} in no runner output and no subject path file outside ${EVIDENCE_DOCS} (added lines of ${claims.documents.join(', ')}); put the output files the claims come from in the subject paths`,
@@ -2215,12 +2224,14 @@ export function buildClaudeNativeReview(
             reviewId,
             header: logHeader,
             confirmPath: `${carry.outPath}/confirm/evidence.json`,
+            // The carried outputs as the reviewer reads them, so the settlement compares the logs it judged.
             records: carriedRecords.map((record) => ({
               recordName: recordName(record),
               carriedFrom: record.carriedFrom,
               exit: record.exit,
               observedResult: record.observedResult,
               outputPaths: record.outputPaths,
+              outputDigests: claudeReviewInputs(root, record.outputPaths),
             })),
           })}\n`,
         )
@@ -3316,6 +3327,25 @@ function carryConfirmErrors(root, prompt, reviewId) {
     : [
         `carry-confirm-mismatch: confirm record (runner-log-check exit ${run.status ?? run.signal}: ${oneLine(run.stderr ?? '').slice(0, 200)})`,
       ];
+  // A carried output that is no longer the one the reviewer read (a confirm run wrote over it, or it was edited) would
+  // have the comparison read the changed log on both sides.
+  for (const entry of Array.isArray(carry.records) ? carry.records : []) {
+    const paths = Array.isArray(entry?.outputPaths) ? entry.outputPaths : [];
+    let current = null;
+    try {
+      current = claudeReviewInputs(root, paths);
+    } catch {
+      current = null;
+    }
+    const reason = `carry-confirm-mismatch: ${entry?.recordName}`;
+    if (
+      paths.some(
+        (path) => current?.[path] === undefined || current[path] !== entry.outputDigests?.[path],
+      ) &&
+      !errors.includes(reason)
+    )
+      errors.push(reason);
+  }
   if (
     `KNU review snapshot ${claudeNativeSnapshotDigest(currentClaudeNativeSnapshot(root))}` !==
     carry.header

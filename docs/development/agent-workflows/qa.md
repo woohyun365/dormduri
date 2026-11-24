@@ -110,7 +110,7 @@ acceptance coverage gap 0**이 merge 조건입니다. 보고된 blocking finding
   blocking을 보고합니다. `low`는 보고하지 않습니다. 수정이 직전 subject paths 밖 파일을 고치거나 새 파일을 만들었거나, 변경이
   [Independent review disposition](#independent-review-disposition)의 trigger를 충족하면 전 범위를 다시 읽습니다. Trigger
   충족은 Parent가 정해 회차 기록에 적고, diff 크기로는 정하지 않습니다. 결정적 검사는 매 회차 다시 실행합니다. 회차 diff가
-  문서(`.md`)뿐이면 앞 회차에 오래 걸린 code 검사 record는 앞 결과로 리뷰를 먼저 보내고, 리뷰 중 다시 돌려 정산 전에 결과 단위로
+  문서(`.md`)뿐이면(새·지운 `.md` 없음, 그 문서를 글자로 가진 `scripts/` 파일 없음) 앞 회차에 오래 걸린 code 검사 record는 앞 결과로 리뷰를 먼저 보내고, 리뷰 중 다시 돌려 정산 전에 결과 단위로
   대조합니다(Claude `review-run`만, [`/knu-review`](../../../.claude/skills/knu-review/SKILL.md)). 문서 검사·같은 유형 검색·evidence
   재현은 매 회차 다시 돕니다. 직전 회차 결과는 리뷰 입력으로 함께 줍니다.
 - 모든 회차에서 finding 0건은 정상 결과입니다. 채우려고 finding을 만들지 않습니다.

@@ -865,6 +865,7 @@ test('qa.md and the Claude review skill carry a documents-only round ahead and c
   for (const phrase of [
     '결정적 검사는 매 회차 다시 실행합니다',
     '회차 diff가 문서(`.md`)뿐이면',
+    '새·지운 `.md` 없음, 그 문서를 글자로 가진 `scripts/` 파일 없음',
     '리뷰 중 다시 돌려 정산 전에 결과 단위로 대조',
     '문서 검사·같은 유형 검색·evidence 재현은 매 회차 다시',
   ])
@@ -879,6 +880,9 @@ test('qa.md and the Claude review skill carry a documents-only round ahead and c
   const environment = section.bullets.find(({ name }) => name === 'Runner 환경').text;
   for (const phrase of [
     '60초 이상',
+    // The cost rule of the plan: changed `.md` files only (C4) that no tracked scripts file names (C5).
+    '새로 만들거나 지운 `.md`가 없고',
+    '바뀐 `.md`의 경로나 파일 이름을 가진 tracked `scripts/` 파일이 없는',
     '`carriedFrom`',
     '확인 실행을 1~2갈래로',
     '`<out-dir>/confirm/evidence.json`',
@@ -932,6 +936,9 @@ test('the review owner documents name the carry rules and the evidence source wa
     '`carry-confirm-mismatch`',
     '`evidence-claim-source-missing`',
     '`evidence-source-outside-read-paths`',
+    // Review round 1: the carried outputs are bound by digest (m1-F1) and the token rule takes Korean particles (m1-F2).
+    '이어 쓴 출력을 carry 기록의 digest와 다시 재고',
+    '수 바로 뒤의 한글 조사·낱말은 token을 막지 않고',
   ])
     assert.ok(adapter.includes(phrase), `claude-same-host-review.md: ${phrase}`);
   const criteria = flat('docs/development/agent-workflows/review-criteria/README.md');
@@ -940,6 +947,8 @@ test('the review owner documents name the carry rules and the evidence source wa
     '`--carry-basis`',
     '`--confirm`',
     '`runner-read-trace.mjs`',
+    // C4 also when the producing round left no scope record (review round 1 m2-F5).
+    '그 회차의 범위 기록이 없어(basis에 회차 diff가 없음)',
   ])
     assert.ok(criteria.includes(phrase), `review criteria README: ${phrase}`);
   const tooling = flat(
@@ -951,6 +960,19 @@ test('the review owner documents name the carry rules and the evidence source wa
     w5.includes('결과 단위(exit·조각·test 결과 줄)로만 판정 근거에 쓴다'),
     'W5: a carried record is judged by its result unit only',
   );
+  // Owner 3.1: the question, the defect patterns, the guideline and the avoid cell each hold the exception, so no
+  // cell reads a carried record as a defect (review round 1 m2-F2).
+  const toolingText = read(
+    'docs/development/agent-workflows/review-criteria/agent-workflow-tooling.md',
+  );
+  const w5Lines = toolingText
+    .slice(toolingText.indexOf('### W5.'), toolingText.indexOf('### W6.'))
+    .split('\n');
+  for (const cell of ['- 질문:', '- 결함 패턴:', '- 지침:', '- 피함:'])
+    assert.ok(
+      w5Lines.find((line) => line.startsWith(cell))?.includes('`runner-log-check`가 받'),
+      `W5 ${cell} holds the carried record exception`,
+    );
   const rejections = flat(REJECTIONS);
   for (const reason of [
     'carry-path-unsupported',
