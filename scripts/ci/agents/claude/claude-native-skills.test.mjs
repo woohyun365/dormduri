@@ -820,3 +820,146 @@ test('knu-review dispatch steps carry the runner procedure under the shared name
   const flat = skill('knu-review').replace(/\s+/gu, ' ');
   assert.ok(flat.includes('그 소비자·실행 경로'), 'Parent subject paths name the consumers');
 });
+
+// OSS-RL P5 RED 1 (L9, D-OSS-37 ②): the unjudged-line disposition paragraphs check a claim together with the claims
+// that use the same source and the claims of the same paragraph, and check the whole paragraph again before the next
+// round when one is raised.
+const L9_PHRASES = [
+  '같은 원천(같은 명령 출력·같은 기록)을 쓰는 주장',
+  '같은 문단의 주장을 한 번에 대조',
+  '`raised`가 하나라도 있으면 그 문단 전체를 다시 대조한 뒤 다음 회차를 요청',
+  '처분 근거 log',
+];
+test('the Claude settle skill and qa.md check unjudged lines by source and paragraph together (OSS-RL P5 RED 1)', () => {
+  const flat = (path) => read(path).replace(/\s+/gu, ' ');
+  const settle = flat('.claude/skills/knu-settle/SKILL.md');
+  const unjudged = settle.slice(settle.indexOf('Result에 `unjudgedBehaviors`'));
+  for (const phrase of L9_PHRASES)
+    assert.ok(unjudged.includes(phrase), `knu-settle unjudged paragraph: ${phrase}`);
+  const qa = flat('docs/development/agent-workflows/qa.md');
+  const paragraph = qa.slice(qa.indexOf('Reviewer는 요구가 말하지 않은 동작을'));
+  for (const phrase of L9_PHRASES)
+    assert.ok(paragraph.includes(phrase), `qa.md unjudgedBehaviors paragraph: ${phrase}`);
+  // The five disposition values stay as they are.
+  for (const value of [
+    '`parent-checked`',
+    '`raised`',
+    '`pre-existing`',
+    '`out-of-scope`',
+    '`follow-up`',
+  ])
+    assert.ok(unjudged.includes(value), `knu-settle keeps ${value}`);
+});
+
+// OSS-RL P5 goal 2 (h): a documents-only round sends the long code check records ahead with the previous result and
+// confirms them during the review; the qa.md round rule and the Claude review skill say so instead of a full rerun.
+test('qa.md and the Claude review skill carry a documents-only round ahead and confirm it before settling (OSS-RL P5)', () => {
+  const flat = (path) => read(path).replace(/\s+/gu, ' ');
+  const qa = flat('docs/development/agent-workflows/qa.md');
+  assert.ok(
+    !qa.includes('결정적 검사는 매 회차 전 범위로 실행'),
+    'qa.md: older full-rerun sentence',
+  );
+  for (const phrase of [
+    '결정적 검사는 매 회차 다시 실행합니다',
+    '회차 diff가 문서(`.md`)뿐이면',
+    '리뷰 중 다시 돌려 정산 전에 결과 단위로 대조',
+    '문서 검사·같은 유형 검색·evidence 재현은 매 회차 다시',
+  ])
+    assert.ok(qa.includes(phrase), `qa.md: ${phrase}`);
+  const review = flat('.claude/skills/knu-review/SKILL.md');
+  assert.ok(
+    !review.includes('Runner 검사는 매 회차 전 범위로 다시 실행'),
+    'knu-review: older full-rerun sentence',
+  );
+  assert.ok(review.includes('회차 diff가 문서(`.md`)뿐이면'), 'knu-review: documents-only round');
+  const section = dispatchSection(skill('knu-review'));
+  const environment = section.bullets.find(({ name }) => name === 'Runner 환경').text;
+  for (const phrase of [
+    '60초 이상',
+    '`carriedFrom`',
+    '확인 실행을 1~2갈래로',
+    '`<out-dir>/confirm/evidence.json`',
+    'tracked 파일과 리뷰 read path를 바꾸지 않습니다',
+    '`runner-read-trace.mjs`로 감쌉니다',
+  ])
+    assert.ok(environment.includes(phrase), `Runner 환경: ${phrase}`);
+  const runnerStep = section.steps.find(({ name }) => name === 'Runner 기록 검사').text;
+  for (const phrase of [
+    '`<out-dir>/checks/carry-basis.json`',
+    '`--carry-basis`',
+    '`carried-record-mismatch`',
+    '`carried-header-mismatch`',
+    '`carry-round-diff-not-docs`',
+    '`carry-doc-referenced`',
+    '`carry-path-unsupported`',
+  ])
+    assert.ok(runnerStep.includes(phrase), `Runner 기록 검사: ${phrase}`);
+  // The record format names the optional field and where it is taken.
+  assert.ok(
+    review.includes('`carriedFrom`(그 log를 만든 회차 reviewId)'),
+    'knu-review record format: carriedFrom',
+  );
+  // The Parent subject warning list names the two evidence warnings.
+  for (const name of ['`evidence-claim-source-missing`', '`evidence-source-outside-read-paths`'])
+    assert.ok(review.includes(name), `knu-review warnings: ${name}`);
+});
+
+test('the Claude settle skill names the confirm reasons of a carried round (OSS-RL P5)', () => {
+  const settle = read('.claude/skills/knu-settle/SKILL.md').replace(/\s+/gu, ' ');
+  const parent = settle.slice(
+    settle.indexOf('- `parent-adjudication` reviewer'),
+    settle.indexOf('- 기록만 남는 관측'),
+  );
+  for (const phrase of [
+    '`(carried from <reviewId>)`',
+    '`<reviewId>.carry.json`',
+    '`carry-confirm-pending`이면 확인 실행이 끝난 뒤',
+    '`carry-confirm-missing`·`carry-confirm-mismatch`면 결과를 쓰지 않고',
+    '확인 기록을 이번 회차 record로 써서 같은 회차를 다시 리뷰',
+  ])
+    assert.ok(parent.includes(phrase), `parent-adjudication reviewer: ${phrase}`);
+});
+
+test('the review owner documents name the carry rules and the evidence source warnings (OSS-RL P5)', () => {
+  const flat = (path) => read(path).replace(/\s+/gu, ' ');
+  const adapter = flat('docs/development/agent-workflows/adapters/claude-same-host-review.md');
+  for (const phrase of [
+    '`carriedFrom`',
+    '`--carry-basis`',
+    '`carry-confirm-mismatch`',
+    '`evidence-claim-source-missing`',
+    '`evidence-source-outside-read-paths`',
+  ])
+    assert.ok(adapter.includes(phrase), `claude-same-host-review.md: ${phrase}`);
+  const criteria = flat('docs/development/agent-workflows/review-criteria/README.md');
+  for (const phrase of [
+    '`carriedFrom`',
+    '`--carry-basis`',
+    '`--confirm`',
+    '`runner-read-trace.mjs`',
+  ])
+    assert.ok(criteria.includes(phrase), `review criteria README: ${phrase}`);
+  const tooling = flat(
+    'docs/development/agent-workflows/review-criteria/agent-workflow-tooling.md',
+  );
+  const w5 = tooling.slice(tooling.indexOf('### W5.'), tooling.indexOf('### W6.'));
+  assert.ok(w5.includes('`carriedFrom`'), 'W5 names the carried record exception');
+  assert.ok(
+    w5.includes('결과 단위(exit·조각·test 결과 줄)로만 판정 근거에 쓴다'),
+    'W5: a carried record is judged by its result unit only',
+  );
+  const rejections = flat(REJECTIONS);
+  for (const reason of [
+    'carry-path-unsupported',
+    'carry-basis-missing',
+    'carried-record-mismatch',
+    'carried-header-mismatch',
+    'carry-round-diff-not-docs',
+    'carry-doc-referenced',
+    'carry-confirm-pending',
+    'carry-confirm-missing',
+    'carry-confirm-mismatch',
+  ])
+    assert.ok(rejections.includes(`\`${reason}`), `rejection guide: ${reason}`);
+});

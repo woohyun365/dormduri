@@ -66,6 +66,9 @@ export const DISPATCH_PHRASES = {
     'runner-log-check.mjs --evidence <JSON> --header "<logHeader>"',
     '위치 인자는 받지 않',
     '`suggestion`',
+    // OSS-RL P5 goal 2: both hosts name the carried record field and the reason a run without a basis gives.
+    '`carriedFrom`',
+    '`carry-basis-missing`',
   ],
 };
 
