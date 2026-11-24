@@ -2652,7 +2652,8 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
       ({ record }) =>
         record && typeof record === 'object' && !Array.isArray(record) && CARRIED_FROM in record,
     );
-  const carryEligible =
+  // A later round of a Parent subject: its delta scope is computed and its records may be carried.
+  const laterParentRound =
     review.parentSubject !== undefined &&
     Number.isInteger(round) &&
     round > 1 &&
@@ -2663,7 +2664,7 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
       fail(
         'invalid runner evidence',
         carried.flatMap(({ record, index }) =>
-          !carryEligible
+          !laterParentRound
             ? [`records[${index}].carriedFrom: ${CARRY_PATH_UNSUPPORTED}`]
             : typeof record.carriedFrom === 'string' && REVIEW_PACKET_ID.test(record.carriedFrom)
               ? []
@@ -2919,14 +2920,13 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
         plans.staged.map((plan) => [plan.path, workingFileDigest(root, plan.path)]),
       )
     : undefined;
-  const parent = review.parentSubject !== undefined;
   const reviewers = [];
   // Every member prepare registered, whether or not its files were written afterwards.
   const registered = [];
   let built;
   try {
     let deltaScope;
-    if (parent && Number.isInteger(round) && round > 1 && review.previousResult !== undefined) {
+    if (laterParentRound) {
       const read = previousRound(root, review.previousResult);
       // review reports an unreadable previous result with its own reason below.
       if (!read.issue)
@@ -3310,12 +3310,12 @@ function carryConfirmErrors(root, prompt, reviewId) {
   } catch {
     reasons = null;
   }
-  const errors =
-    [0, 1].includes(run.status) && Array.isArray(reasons)
-      ? reasons.filter((reason) => typeof reason === 'string')
-      : [
-          `carry-confirm-mismatch: confirm record (runner-log-check exit ${run.status ?? run.signal}: ${oneLine(run.stderr ?? '').slice(0, 200)})`,
-        ];
+  // runner-log-check prints its JSON only on exit 0 or 1; an input error (exit 2) prints to stderr.
+  const errors = Array.isArray(reasons)
+    ? reasons.filter((reason) => typeof reason === 'string')
+    : [
+        `carry-confirm-mismatch: confirm record (runner-log-check exit ${run.status ?? run.signal}: ${oneLine(run.stderr ?? '').slice(0, 200)})`,
+      ];
   if (
     `KNU review snapshot ${claudeNativeSnapshotDigest(currentClaudeNativeSnapshot(root))}` !==
     carry.header
@@ -3375,20 +3375,18 @@ function settlementStatus(taskId, root) {
   const settledBy =
     parentReviewId === undefined ? undefined : packetSettledBy(root, parentReviewId);
   const packetTaken = settledBy !== undefined && settledBy !== taskId;
-  // A carried round is compared before its result is written; a mismatch writes no result.
-  const carryErrors =
-    parentReviewer && !packetTaken && parentReviewId !== undefined
-      ? carryConfirmErrors(root, record.prompt, parentReviewId)
-      : [];
-  state.errors.push(...carryErrors);
   if (parentReviewer && packetTaken) {
     resultPath = null;
     state.errors.push('review-packet-settled');
-  } else if (parentReviewer && carryErrors.length) {
-    resultPath = null;
   } else if (parentReviewer) {
+    // A carried round is compared before its result is written; a mismatch writes no result.
+    const carryErrors =
+      parentReviewId === undefined ? [] : carryConfirmErrors(root, record.prompt, parentReviewId);
+    state.errors.push(...carryErrors);
     const result =
-      parentReviewId === undefined ? null : parentReviewResult(content, parentReviewId);
+      parentReviewId === undefined || carryErrors.length
+        ? null
+        : parentReviewResult(content, parentReviewId);
     resultPath = result
       ? writeClaudeReviewPacket(
           root,
@@ -3397,7 +3395,7 @@ function settlementStatus(taskId, root) {
           RESULT_SUFFIX,
         ).path
       : null;
-    if (!result) state.errors.push('review-result-unparsed');
+    if (!result && !carryErrors.length) state.errors.push('review-result-unparsed');
   }
   let judgmentTemplatePath = null;
   let quoteCheckResponsePath = null;

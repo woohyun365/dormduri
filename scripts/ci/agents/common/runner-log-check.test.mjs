@@ -749,3 +749,174 @@ test('the confirm comparison names the carried record that is missing or differs
     assert.ok(reasonsOf(out)?.includes(reason), `${label}: ${out}`);
   }
 });
+
+// Operator sweep: the carry checks of each record and round, and the confirm comparison of each carried record.
+test('C1: a carriedFrom that is no review id is invalid-record and a basis round that is no object is carry-basis-missing (OSS-RL P5 RED 3)', () => {
+  const notId = carryCheck(carryRoot([carried({ carriedFrom: 'round-one' })]));
+  assert.equal(notId.code, 1, notId.out);
+  assert.deepEqual(carryKinds(notId.out), ['invalid-record']);
+  for (const value of [null, 'round', true]) {
+    const { code, out } = carryCheck(carryRoot([carried()], { basis: { [PRODUCED]: value } }));
+    assert.equal(code, 1, `${value}: ${out}`);
+    assert.deepEqual(carryKinds(out), ['carry-basis-missing'], String(value));
+  }
+});
+
+test('C5: every changed document of the round diff is looked up, and the detail names the scripts file (OSS-RL P5 RED 3)', () => {
+  const roundDiff = [
+    { path: 'docs/note.md', created: false, deleted: false },
+    { path: 'docs/named.md', created: false, deleted: false },
+  ];
+  const root = carryRoot([carried()], {
+    basis: { [PRODUCED]: producedRound({ roundDiff }) },
+    scripts: { 'scripts/reads-named.mjs': "const name = 'named.md';\n" },
+  });
+  writeFileSync(resolve(root, 'docs/named.md'), '# named\n');
+  const { code, out } = carryCheck(root);
+  assert.equal(code, 1, out);
+  const violations = json(out).violations;
+  assert.deepEqual(
+    violations.map(({ kind, path }) => [kind, path]),
+    [['carry-doc-referenced', 'docs/named.md']],
+  );
+  assert.equal(
+    violations[0].detail,
+    'docs/named.md is named by scripts/reads-named.mjs: a check reading it may change',
+  );
+});
+
+// A confirm repository with several carried records and confirm records, each with its own log lines.
+function confirmRootOf({ carriedRecords, confirmRecords, logs }) {
+  const root = carryRoot([carried()]);
+  mkdirSync(resolve(root, 'confirm'));
+  for (const [path, lines] of Object.entries(logs))
+    writeFileSync(resolve(root, path), `${lines.join('\n')}\n`);
+  writeFileSync(
+    resolve(root, 'carry.json'),
+    JSON.stringify({ ...CARRY_RECORD, records: carriedRecords }),
+  );
+  writeFileSync(
+    resolve(root, 'confirm/evidence.json'),
+    JSON.stringify({ runner: 'parent', records: confirmRecords }),
+  );
+  return root;
+}
+const carriedEntry = (name, fields = {}) => ({
+  recordName: name,
+  carriedFrom: PRODUCED,
+  exit: 0,
+  observedResult: 'suite passes `ℹ pass 2`',
+  outputPaths: ['logs/carried.log'],
+  ...fields,
+});
+const confirmEntry = (name, fields = {}) =>
+  record({
+    command: name,
+    observedResult: 'suite passes `ℹ pass 2`',
+    outputPaths: ['logs/confirm.log'],
+    ...fields,
+  });
+
+const TWO_FRAGMENTS = 'suite passes `ℹ pass 2` and runs `--test scripts/ci/sample.test.mjs`';
+test('the confirm comparison goes on after a missing or unreadable carried record and needs every carried fragment (OSS-RL P5 RED 5)', () => {
+  const [first, second, third] = ['node --test a.mjs', 'node --test b.mjs', 'node --test c.mjs'];
+  const root = confirmRootOf({
+    carriedRecords: [
+      carriedEntry(first),
+      carriedEntry(second, { outputPaths: ['logs/removed.log'] }),
+      carriedEntry(third, { observedResult: TWO_FRAGMENTS }),
+    ],
+    confirmRecords: [confirmEntry(second), confirmEntry(third)],
+    // Only the second fragment's line differs: the test result lines and the exit are the same.
+    logs: {
+      'logs/confirm.log': [
+        HEADER,
+        ...replaced(
+          '$ node --test scripts/ci/sample.test.mjs',
+          '$ node --test scripts/ci/other.test.mjs',
+        ),
+      ],
+    },
+  });
+  const { code, out } = confirmCheck(root);
+  assert.equal(code, 1, out);
+  assert.deepEqual(reasonsOf(out).sort(), [
+    `carry-confirm-mismatch: ${second}`,
+    `carry-confirm-mismatch: ${third}`,
+    `carry-confirm-missing: ${first}`,
+  ]);
+  // Every fragment holds and the result unit is the same: the two fragments alone pass.
+  const both = confirmRootOf({
+    carriedRecords: [carriedEntry(third, { observedResult: TWO_FRAGMENTS })],
+    confirmRecords: [confirmEntry(third)],
+    logs: { 'logs/confirm.log': [HEADER, ...CARRY_LOG] },
+  });
+  assert.deepEqual(reasonsOf(confirmCheck(both).out), []);
+});
+
+test('the confirm result unit reads text outputs only and leaves out digest lines (OSS-RL P5 RED 5)', () => {
+  const name = 'node --test scripts/ci/sample.test.mjs';
+  // A JSON output first: it is no text output, so its lines are not compared and the log after it is.
+  const withJson = confirmRootOf({
+    carriedRecords: [carriedEntry(name)],
+    confirmRecords: [confirmEntry(name, { outputPaths: ['logs/report.json', 'logs/confirm.log'] })],
+    logs: {
+      'logs/report.json': ['{', '✔ only in the report', 'ℹ pass 9', '}'],
+      'logs/confirm.log': [HEADER, ...CARRY_LOG],
+    },
+  });
+  const json1 = confirmCheck(withJson);
+  assert.equal(json1.code, 0, json1.out);
+  assert.deepEqual(reasonsOf(json1.out), []);
+  // A carried fragment that the confirm log holds only on a digest line is not in the result unit.
+  const digestOnly = confirmRootOf({
+    carriedRecords: [carriedEntry(name, { observedResult: 'suite passes `marker-7`' })],
+    confirmRecords: [confirmEntry(name)],
+    logs: {
+      'logs/confirm.log': [HEADER, ...CARRY_LOG, `marker-7 sha256:${'5'.repeat(64)}`],
+    },
+  });
+  writeFileSync(
+    resolve(digestOnly, 'logs/carried.log'),
+    `${[HEADER_BEFORE, ...CARRY_LOG, 'marker-7 done'].join('\n')}\n`,
+  );
+  assert.ok(reasonsOf(confirmCheck(digestOnly).out).includes(`carry-confirm-mismatch: ${name}`));
+  // A confirm record whose command is no string is named by its index in the reason of its violation.
+  const unnamed = confirmRootOf({
+    carriedRecords: [carriedEntry(name)],
+    confirmRecords: [confirmEntry(5, { exit: 1 })],
+    logs: { 'logs/confirm.log': [HEADER, ...CARRY_LOG] },
+  });
+  assert.deepEqual(reasonsOf(confirmCheck(unnamed).out).sort(), [
+    'carry-confirm-mismatch: record 0',
+    `carry-confirm-missing: ${name}`,
+  ]);
+});
+
+test('a carry basis or carry record of the wrong shape is an input error (exit 2) (OSS-RL P5 RED 3·5)', () => {
+  const basisRoot = (value) => {
+    const root = carryRoot([carried()]);
+    writeFileSync(resolve(root, 'basis.json'), JSON.stringify(value));
+    return root;
+  };
+  for (const [label, value] of [
+    ['another schema', { schema: 'claude-review-carry-basis/v0', rounds: {} }],
+    ['rounds is text', { schema: 'claude-review-carry-basis/v1', rounds: 'rounds' }],
+  ]) {
+    const { code, err } = carryCheck(basisRoot(value));
+    assert.equal(code, 2, label);
+    assert.match(err, /a carry basis is/u, label);
+  }
+  for (const [label, value] of [
+    ['another schema', { ...CARRY_RECORD, schema: 'claude-review-carry/v0' }],
+    ['records is no array', { ...CARRY_RECORD, records: { recordName: 'x' } }],
+    ['no records', { ...CARRY_RECORD, records: [] }],
+    ['a record without a name', { ...CARRY_RECORD, records: [CARRY_RECORD.records[0], {}] }],
+  ]) {
+    const root = confirmRoot();
+    writeFileSync(resolve(root, 'carry.json'), JSON.stringify(value));
+    const { code, err } = confirmCheck(root);
+    assert.equal(code, 2, label);
+    assert.match(err, /a carry record is/u, label);
+  }
+});

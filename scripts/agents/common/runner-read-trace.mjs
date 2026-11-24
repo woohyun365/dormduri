@@ -156,9 +156,9 @@ async function preload() {
   const { default: childProcess } = await import('node:child_process');
   const { default: workerThreads } = await import('node:worker_threads');
   const moduleApi = await import('node:module');
-  // A node child without this preload in its NODE_OPTIONS is not traced: it is an unobserved call.
-  const childEnvironment = (options) =>
-    options && typeof options === 'object' && !Array.isArray(options) ? options.env : undefined;
+  // A node child without this preload in its NODE_OPTIONS is not traced: it is an unobserved call. Node refuses options
+  // that are no object, so the env of any other value is no environment.
+  const childEnvironment = (options) => options?.env;
   const nodeChild = (env) => {
     if (
       env !== undefined &&
@@ -266,7 +266,8 @@ function merge(sinkDir) {
   const reads = new Map();
   const unobserved = new Map();
   let nonNodeSpawns = 0;
-  for (const name of fs.readdirSync(sinkDir)) {
+  // In name order, so the merge reads the parts the same way on every file system.
+  for (const name of fs.readdirSync(sinkDir).sort()) {
     let part;
     try {
       part = JSON.parse(fs.readFileSync(join(sinkDir, name), 'utf8'));
@@ -282,12 +283,8 @@ function merge(sinkDir) {
     nonNodeSpawns += Number.isInteger(part.nonNodeSpawns) ? part.nonNodeSpawns : 0;
   }
   return {
-    reads: [...reads]
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-      .map(([path, kinds]) => ({ path, kinds: [...kinds].sort() })),
-    unobserved: [...unobserved]
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-      .map(([, entry]) => entry),
+    reads: [...reads.keys()].sort().map((path) => ({ path, kinds: [...reads.get(path)].sort() })),
+    unobserved: [...unobserved.keys()].sort().map((key) => unobserved.get(key)),
     nonNodeSpawns,
   };
 }

@@ -7463,7 +7463,8 @@ test('a carried round whose confirm runs differ at the result unit cannot be use
   assert.ok(carryReasons(c.settle()).includes('carry-confirm-mismatch: snapshot'), 'snapshot');
 });
 
-test('a packet without a carry record settles as before (OSS-RL P5 RED 5)', (t) => {
+// Round 2 through review-run without a carried record, its reviewer dispatched and its rows read.
+function plainReviewer(t) {
   const f = carryFixture(t);
   writeFileSync(join(f.r.root, 'doc.md'), '# doc\n\nsecond\n');
   const h2 = f.header();
@@ -7498,12 +7499,187 @@ test('a packet without a carry record settles as before (OSS-RL P5 RED 5)', (t) 
     }),
   );
   readRows(f.r, 'review-plain-agent', reviewer.packetFile.path);
-  const status = settleClaudeNativeTask(reviewer.taskId, undefined, { root: f.r.root });
+  const settle = () => settleClaudeNativeTask(reviewer.taskId, undefined, { root: f.r.root });
+  return { ...f, id, reviewer, settle };
+}
+
+test('a packet without a carry record settles as before (OSS-RL P5 RED 5)', (t) => {
+  const status = plainReviewer(t).settle();
   assert.deepEqual(status.observationErrors, []);
   assert.deepEqual(
     Object.keys(status).filter((key) => /carry/iu.test(key)),
     [],
   );
+});
+
+// Operator sweep (OSS-RL P5): the carry checks the RED tests reach only one way.
+const directRound2 = (f, records, extra = {}) =>
+  buildClaudeNativeReview(
+    {
+      parentSubject: CARRY_SUBJECT,
+      runnerEvidence: { runner: 'lead-runner', records },
+      selectionBasisRef: 'plan:helper-test/carry',
+      reviewerModel: 'claude-opus-4-6',
+      reviewRound: 2,
+      previousResult: f.previous,
+      deltaScope: FULL_SCOPE,
+      sessionId: f.r.sessionId,
+      ...extra,
+    },
+    { root: f.r.root },
+  );
+
+test('review called directly takes no carried record in round 2, and with a carry needs a review id (OSS-RL P5 RED 4)', (t) => {
+  const f = carryFixture(t);
+  writeFileSync(join(f.r.root, 'doc.md'), '# doc\n\nsecond\n');
+  const h2 = f.header();
+  const carriedNow = { ...f.long1, sourceDigest: h2.snapshotDigest, carriedFrom: f.firstId };
+  assert.throws(() => directRound2(f, [carriedNow, f.docs(h2, 'direct')]), CARRY_PATH);
+  assert.throws(
+    () =>
+      directRound2(f, [{ ...carriedNow, carriedFrom: 'round-one' }, f.docs(h2, 'direct-id')], {
+        carry: { outPath: `${RUN_DIR}/direct-out` },
+      }),
+    /records\[0\]\.carriedFrom must be the review id/u,
+  );
+});
+
+test('review-run refuses a carried record of round 1 before it writes a carry basis (OSS-RL P5 RED 4)', (t) => {
+  const f = carryFixture(t);
+  const h = f.header();
+  const carriedNow = { ...f.long1, sourceDigest: h.snapshotDigest, carriedFrom: f.firstId };
+  for (const [label, args, name] of [
+    ['round 1', [], 'r1-carry-a'],
+    ['round 1 with a previous result', ['--previous-result', f.previous], 'r1-carry-b'],
+  ]) {
+    const one = f.round(1, [carriedNow], args, name);
+    assert.equal(one.result.status, 1, `${label}: ${one.result.stdout}`);
+    assert.match(one.record.error, /^invalid runner evidence: .*carry-path-unsupported/u, label);
+    assert.ok(!existsSync(join(f.r.root, one.out, 'checks/carry-basis.json')), label);
+  }
+});
+
+const runnerCheckOutput = (r, record) =>
+  readFileSync(
+    join(r.root, record.checks.find(({ name }) => name === 'runner-log-check').outputPath),
+    'utf8',
+  );
+
+test('the carry basis leaves out a round whose runner file or scope record is not its own (OSS-RL P5 RED 3·4)', (t) => {
+  for (const [label, suffix, edit, kind] of [
+    [
+      'a runner file of another schema',
+      '.runner.json',
+      { schema: 'other/v1' },
+      'carry-basis-missing',
+    ],
+    [
+      'a runner file of another review',
+      '.runner.json',
+      { reviewId: 'zzzzzzzz-00000000' },
+      'carry-basis-missing',
+    ],
+    [
+      'a scope record of another review',
+      '.scope.json',
+      { reviewId: 'zzzzzzzz-00000000' },
+      'carry-round-diff-not-docs',
+    ],
+  ]) {
+    const f = carryFixture(t);
+    const path = join(f.r.root, `${PACKET_DIR}/${f.firstId}${suffix}`);
+    writeFileSync(path, JSON.stringify({ ...JSON.parse(readFileSync(path, 'utf8')), ...edit }));
+    const { second } = carriedRound(f);
+    assert.equal(second.result.status, 1, `${label}: ${second.result.stdout}`);
+    assert.match(runnerCheckOutput(f.r, second.record), new RegExp(kind, 'u'), label);
+  }
+  // A round the basis cannot read leaves out only its own records.
+  const f = carryFixture(t);
+  writeFileSync(join(f.r.root, 'doc.md'), '# doc\n\nsecond\n');
+  const h2 = f.header();
+  const second = f.round(
+    2,
+    [
+      { ...f.docs(f.header(), 'r2-unknown'), carriedFrom: 'zzzzzzzz-00000000' },
+      { ...f.long1, sourceDigest: h2.snapshotDigest, carriedFrom: f.firstId },
+    ],
+    ['--previous-result', f.previous],
+  );
+  assert.equal(second.result.status, 1, second.result.stdout);
+  const output = runnerCheckOutput(f.r, second.record);
+  assert.equal(output.match(/carry-basis-missing/gu)?.length, 1, output);
+});
+
+test('the carry record is a file of the shape its prompt record binds (OSS-RL P5 RED 5, Owner 1.2)', (t) => {
+  const c = carriedReviewer(t);
+  c.confirm();
+  const carryFile = join(c.r.root, `${PACKET_DIR}/${c.id}.carry.json`);
+  const promptFile = join(c.r.root, `${PACKET_DIR}/${c.id}.prompt.json`);
+  const carryBytes = readFileSync(carryFile);
+  const promptBytes = readFileSync(promptFile);
+  const carry = JSON.parse(carryBytes.toString());
+  // A symlink to the same bytes is no carry record file.
+  const copy = join(c.r.root, RUN_DIR, 'carry-copy.json');
+  writeFileSync(copy, carryBytes);
+  unlinkSync(carryFile);
+  symlinkSync(copy, carryFile);
+  assert.deepEqual(carryReasons(c.settle()), ['carry-confirm-missing: carry record'], 'symlink');
+  unlinkSync(carryFile);
+  // Bound again in the prompt record, but not the shape the helper writes.
+  for (const [label, edit] of [
+    ['another schema', { schema: 'claude-review-carry/v0' }],
+    ['another review', { reviewId: 'zzzzzzzz-00000000' }],
+    ['a confirm path that is no text', { confirmPath: 5 }],
+    ['a header that is no text', { header: 5 }],
+  ]) {
+    const bytes = Buffer.from(JSON.stringify({ ...carry, ...edit }));
+    writeFileSync(carryFile, bytes);
+    const prompt = JSON.parse(promptBytes.toString());
+    writeFileSync(
+      promptFile,
+      JSON.stringify({ ...prompt, carry: { ...prompt.carry, digest: sha256(bytes) } }),
+    );
+    assert.deepEqual(carryReasons(c.settle()), ['carry-confirm-mismatch: carry record'], label);
+  }
+  writeFileSync(carryFile, carryBytes);
+  writeFileSync(promptFile, promptBytes);
+  assert.deepEqual(carryReasons(c.settle()), []);
+});
+
+test('an uncarried round with a carry record or a carry key in its prompt record is carry-confirm-mismatch: carry record (OSS-RL P5 RED 5, Owner 1.2)', (t) => {
+  const p = plainReviewer(t);
+  const carryPath = `${PACKET_DIR}/${p.id}.carry.json`;
+  const carryFile = join(p.r.root, carryPath);
+  const promptFile = join(p.r.root, `${PACKET_DIR}/${p.id}.prompt.json`);
+  const promptBytes = readFileSync(promptFile);
+  const bytes = Buffer.from(
+    JSON.stringify({
+      schema: 'claude-review-carry/v1',
+      reviewId: p.id,
+      header: p.first.record.logHeader,
+      confirmPath: `${RUN_DIR}/confirm/evidence.json`,
+      records: [{ recordName: LONG }],
+    }),
+  );
+  writeFileSync(carryFile, bytes);
+  assert.deepEqual(
+    carryReasons(p.settle()),
+    ['carry-confirm-mismatch: carry record'],
+    'a carry record beside a prompt without a carried line',
+  );
+  const prompt = JSON.parse(promptBytes.toString());
+  writeFileSync(
+    promptFile,
+    JSON.stringify({ ...prompt, carry: { path: carryPath, digest: sha256(bytes) } }),
+  );
+  assert.deepEqual(
+    carryReasons(p.settle()),
+    ['carry-confirm-mismatch: carry record'],
+    'a carry key the prompt record binds',
+  );
+  unlinkSync(carryFile);
+  writeFileSync(promptFile, promptBytes);
+  assert.deepEqual(p.settle().observationErrors, []);
 });
 
 // OSS-RL P5 RED 6: a rescore copy shaped subject (one runner record without carriedFrom, an ignored input) gets the
@@ -7752,6 +7928,133 @@ test('evidence-source-outside-read-paths reads the bound trace of each record ho
       `record ${index + 1}: ${JSON.stringify(warnings)}`,
     );
   assert.deepEqual(of(7), [], 'a record whose outputs hold no claim number');
+});
+
+// Operator sweep (OSS-RL P5): the claim lines, sources and traces the RED 7 cases reach one way.
+test('evidence-claim-source-missing reads the added lines of a tracked document and names one number or several (OSS-RL P5 RED 7 (a))', (t) => {
+  const e = evidenceRepo(t);
+  const doc = e.file('docs/evidence/tracked.md', '# Tracked\n\nThe old run read 5150 rows.\n');
+  execFileSync('git', ['add', doc], { cwd: e.r.root });
+  execFileSync(
+    'git',
+    ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'tracked'],
+    { cwd: e.r.root },
+  );
+  const basis = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: e.r.root,
+    encoding: 'utf8',
+  }).trim();
+  const log = e.file(`${RUN_DIR}/tracked.log`, 'rows 4343\n');
+  const records = [{ command: 'node scripts/rows.mjs', outputPaths: [log] }];
+  e.file(doc, '# Tracked\n\nThe new run read 6262 rows and 4343 lines.\n');
+  assert.deepEqual(
+    evidenceWarnings(e.build(claimSubject([doc]), records, basis), 'evidence-claim-source-missing'),
+    [
+      `evidence-claim-source-missing: numbers 6262 is in no runner output and no subject path file outside docs/evidence/ (added lines of ${doc}); put the output files the claims come from in the subject paths`,
+    ],
+  );
+  e.file(doc, '# Tracked\n\nThe new run read 6262 rows and 7373 lines.\n');
+  const [several] = evidenceWarnings(
+    e.build(claimSubject([doc]), records, basis),
+    'evidence-claim-source-missing',
+  );
+  assert.match(
+    several,
+    /^evidence-claim-source-missing: numbers 6262, 7373 are in no runner output/u,
+  );
+});
+
+test('a subject source file is read up to the size limit, and a larger one is no review input (OSS-RL P5 RED 7 (a))', (t) => {
+  const e = evidenceRepo(t);
+  const doc = e.file('docs/evidence/size.md', '# Size\n\nThe source holds 7171.\n');
+  const log = e.file(`${RUN_DIR}/size.log`, 'nothing counted\n');
+  const records = [{ command: 'node scripts/size.mjs', outputPaths: [log] }];
+  const limit = 8 * 1024 * 1024;
+  // Ignored, so the snapshot does not read it.
+  const source = '.artifacts/plans/helper-test/inputs/big.txt';
+  const big = (bytes) => e.file(source, `7171 ${'x'.repeat(bytes - 5)}`);
+  big(limit);
+  assert.deepEqual(
+    evidenceWarnings(
+      e.build(claimSubject([doc, source]), records),
+      'evidence-claim-source-missing',
+    ),
+    [],
+  );
+  big(limit + 1);
+  assert.throws(
+    () => e.build(claimSubject([doc, source]), records),
+    /review-input-too-large: \.artifacts\/plans\/helper-test\/inputs\/big\.txt 8388609 bytes > 8388608/u,
+  );
+  // A symlink is no source: the review inputs bind its link text, not the file it names.
+  rmSync(join(e.r.root, source));
+  const target = e.file('.artifacts/plans/helper-test/elsewhere/target.txt', 'holds 7171\n');
+  symlinkSync(join(e.r.root, target), join(e.r.root, source));
+  assert.equal(
+    evidenceWarnings(e.build(claimSubject([doc, source]), records), 'evidence-claim-source-missing')
+      .length,
+    1,
+  );
+});
+
+test('evidence-source-outside-read-paths takes the trace among other JSON outputs and a record holding one of the claim numbers (OSS-RL P5 RED 7 (b))', (t) => {
+  const e = evidenceRepo(t);
+  const doc = e.file('docs/evidence/two.md', '# Two\n\nThe run read 4321 rows and 8765 lines.\n');
+  const log = e.file(`${RUN_DIR}/two.log`, 'rows 4321\nlines 8765\n');
+  const command = 'node scripts/two.mjs';
+  const report = e.file(`${RUN_DIR}/two.report.json`, '{"schema":"report/v1"}\n');
+  const trace = e.file(
+    `${RUN_DIR}/two.trace.json`,
+    JSON.stringify({
+      schema: 'runner-read-trace/v1',
+      header: 'KNU review snapshot sha256:0',
+      argv: command.split(' '),
+      log: { path: log, sha256: sha256(readFileSync(join(e.r.root, log))) },
+      reads: [{ path: '.artifacts/tools/claude-native/t1/task.json', kinds: ['read'] }],
+      nonNodeSpawns: 0,
+      unobserved: [],
+    }),
+  );
+  const [outside] = evidenceWarnings(
+    e.build(claimSubject([doc]), [{ command, outputPaths: [log, report, trace] }]),
+    'evidence-source-outside-read-paths',
+  );
+  assert.match(
+    outside,
+    /read ignored files outside the reviewer read paths: \.artifacts\/tools\/claude-native\/t1\/task\.json/u,
+  );
+  // A record holding one of the two numbers and no trace is not observed.
+  const half = e.file(`${RUN_DIR}/half.log`, 'rows 4321\n');
+  const [notObserved] = evidenceWarnings(
+    e.build(claimSubject([doc]), [{ command: 'node scripts/half.mjs', outputPaths: [half] }]),
+    'evidence-source-outside-read-paths',
+  );
+  assert.match(
+    notObserved,
+    /record 1 \(node scripts\/half\.mjs\) holds claim numbers and its reads are not observed/u,
+  );
+});
+
+test('the evidence warnings wait for runner evidence and leave a malformed record to its refusal (OSS-RL P5 RED 7)', (t) => {
+  const e = evidenceRepo(t);
+  const doc = e.file('docs/evidence/claims.md', CLAIMS);
+  // The status call without runner evidence has no source outputs yet.
+  const status = buildClaudeNativeReview(
+    { parentSubject: claimSubject([doc]), selectionBasisRef: e.basis },
+    { root: e.r.root },
+  );
+  assert.deepEqual(
+    (status.warnings ?? []).filter((warning) => warning.startsWith('evidence-')),
+    [],
+  );
+  // A record whose outputPaths is no list is refused as runner evidence, not read by the warnings.
+  assert.throws(
+    () =>
+      e.build(claimSubject([doc]), [
+        { command: 'node scripts/x.mjs', outputPaths: `${RUN_DIR}/x.log` },
+      ]),
+    /invalid runner evidence/u,
+  );
 });
 
 test('evidence warnings stay off without a commit basis, an evidence change or a Parent subject, and never change the prompt (OSS-RL P5 RED 7)', (t) => {

@@ -419,7 +419,8 @@ function resultUnit(root, outputPaths) {
       ...read.slice(1).filter((line) => !DIGEST_LINE.some((pattern) => pattern.test(line))),
     );
   }
-  const sorted = (values) => values.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  // The default sort compares strings by UTF-16 code units, as `<` does.
+  const sorted = (values) => values.sort();
   return {
     lines,
     names: sorted(

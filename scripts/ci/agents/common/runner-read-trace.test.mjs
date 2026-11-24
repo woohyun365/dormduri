@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -13,6 +15,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
 
 // OSS-RL P5 RED 2: the read trace a runner record keeps beside its log. The wrapper runs one command with a preload in
 // every node process it reaches through NODE_OPTIONS, writes the record log itself and lists the repository paths those
@@ -139,11 +142,10 @@ readFileSync('data/a.txt');
 `),
     ),
   );
-  assert.ok(
-    trace.reads.every((entry) => !entry.path.startsWith('..') && !entry.path.startsWith('/')),
-    JSON.stringify(trace.reads),
+  assert.deepEqual(
+    trace.reads.map((entry) => entry.path),
+    ['data/a.txt', 'probe.mjs'],
   );
-  assert.equal(trace.reads.filter((entry) => entry.path === 'data/a.txt').length, 1);
 });
 
 test('a read through a symlink outside the repository names the repository file it resolves to', () => {
@@ -166,6 +168,7 @@ test('the reads of a child node process (execFileSync) are in the trace', () => 
   );
   assert.deepEqual(kindsOf(trace, 'data/g.txt'), ['read']);
   assert.equal(trace.nonNodeSpawns, 0);
+  assert.deepEqual(trace.unobserved, []);
 });
 
 test('bash and python3 children count as spawns that are not node', () => {
@@ -188,13 +191,16 @@ test('globSync on a repository path and a worker thread are unobserved calls', (
 import { globSync } from 'node:fs';
 import { Worker } from 'node:worker_threads';
 globSync('data/*.txt');
+globSync(process.env.OUTSIDE + '/*.txt');
 await new Promise((done) => new Worker('1', { eval: true }).on('exit', done));
 `),
     ),
   );
-  const calls = trace.unobserved.map((entry) => entry.call);
-  assert.ok(calls.includes('globSync'), JSON.stringify(trace.unobserved));
-  assert.ok(calls.includes('Worker'), JSON.stringify(trace.unobserved));
+  // A glob outside the repository is no repository call; a worker has no path.
+  assert.deepEqual(trace.unobserved, [
+    { call: 'Worker' },
+    { call: 'globSync', path: 'data/*.txt' },
+  ]);
 });
 
 test('the wrapper exits with the command exit, writes the record log and binds argv and the log digest', () => {
@@ -219,16 +225,114 @@ test('the wrapper exits with the command exit, writes the record log and binds a
   );
 });
 
-test('input errors exit 2 without running a command', () => {
-  const f = fixture(`process.exitCode = 0;\n`);
-  for (const args of [
-    ['--out', 'out/t.json', '--log', 'out/l.log', '--', process.execPath, 'probe.mjs'],
-    ['--header', HEADER, '--log', 'out/l.log', '--', process.execPath, 'probe.mjs'],
-    ['--header', HEADER, '--out', 'out/t.json', '--', process.execPath, 'probe.mjs'],
-    ['--header', HEADER, '--out', 'out/t.json', '--log', 'out/l.log', '--'],
-    ['--header', 'no digest', '--out', 'out/t.json', '--log', 'out/l.log', '--', 'true'],
+test('input errors exit 2 with the usage line or the header rule, without running a command', () => {
+  const f = fixture(`import { writeFileSync } from 'node:fs';\nwriteFileSync('ran.txt', 'ran');\n`);
+  const usage =
+    'usage: runner-read-trace --header "<logHeader>" --out <trace.json> --log <log> [--root <repo>] -- <command> [args...]';
+  const command = ['--', process.execPath, 'probe.mjs'];
+  for (const [args, message] of [
+    [['--out', 'out/t.json', '--log', 'out/l.log', ...command], usage],
+    [['--header', HEADER, '--log', 'out/l.log', ...command], usage],
+    [['--header', HEADER, '--out', 'out/t.json', ...command], usage],
+    [['--header', HEADER, '--out', 'out/t.json', '--log', 'out/l.log', '--'], usage],
+    [command, usage],
+    [
+      ['--header', 'no digest', '--out', 'out/t.json', '--log', 'out/l.log', ...command],
+      '--header must be `<text> sha256:<64 lowercase hex>` (the digest is the last token)',
+    ],
   ]) {
     const result = spawnSync(process.execPath, [tool, ...args], { cwd: f.root, encoding: 'utf8' });
     assert.equal(result.status, 2, `${args.join(' ')}: ${result.stderr}`);
+    assert.equal(result.stderr.trim(), message, args.join(' '));
+    assert.ok(!existsSync(join(f.root, 'ran.txt')), `${args.join(' ')}: the command did not run`);
   }
+});
+
+test('a bare node command and node children are node, and a child with its own env keeps the trace only with the preload', () => {
+  const bare = traced(
+    run(
+      fixture(
+        `import { spawnSync } from 'node:child_process';\nspawnSync('node', ['child.mjs'], { stdio: 'inherit' });\n`,
+        { 'child.mjs': `import { readFileSync } from 'node:fs';\nreadFileSync('data/g.txt');\n` },
+      ),
+      ['node', 'probe.mjs'],
+    ),
+  );
+  assert.equal(bare.nonNodeSpawns, 0);
+  assert.deepEqual(kindsOf(bare, 'data/g.txt'), ['read']);
+  const child = {
+    'child.mjs': `import { readFileSync } from 'node:fs';\nreadFileSync('data/g.txt');\n`,
+  };
+  // An env that keeps NODE_OPTIONS keeps the preload: the child is traced.
+  const kept = traced(
+    run(
+      fixture(
+        `import { spawnSync } from 'node:child_process';\nspawnSync(process.execPath, ['child.mjs'], { env: { ...process.env } });\n`,
+        child,
+      ),
+    ),
+  );
+  assert.deepEqual(kindsOf(kept, 'data/g.txt'), ['read']);
+  assert.deepEqual(kept.unobserved, []);
+  // An env without it: the child is not traced and the spawn is an unobserved call.
+  const dropped = traced(
+    run(
+      fixture(
+        `import { spawnSync } from 'node:child_process';\nspawnSync(process.execPath, ['child.mjs'], { env: { PATH: process.env.PATH } });\n`,
+        child,
+      ),
+    ),
+  );
+  assert.deepEqual(kindsOf(dropped, 'data/g.txt'), []);
+  assert.deepEqual(dropped.unobserved, [{ call: 'node-without-trace' }]);
+});
+
+test('open is a read for a read flag only', () => {
+  const files = Object.fromEntries(
+    ['o1', 'o2', 'o3', 'o4', 'o5', 'o6'].map((name) => [`data/${name}.txt`, `${name}\n`]),
+  );
+  const trace = traced(
+    run(
+      fixture(
+        `
+import { constants, openSync } from 'node:fs';
+openSync('data/o1.txt');
+openSync('data/o2.txt', 'r');
+openSync('data/o3.txt', 'a');
+openSync('data/o4.txt', constants.O_RDONLY);
+openSync('data/o5.txt', constants.O_WRONLY);
+openSync('data/o6.txt', constants.O_RDWR);
+`,
+        files,
+      ),
+    ),
+  );
+  const opened = trace.reads.map((entry) => entry.path).filter((path) => /data\/o\d/u.test(path));
+  assert.deepEqual(opened, ['data/o1.txt', 'data/o2.txt', 'data/o4.txt', 'data/o6.txt']);
+});
+
+test('a part of the trace that is no JSON is left out and the other parts are merged', () => {
+  const trace = traced(
+    run(
+      fixture(`
+import { readFileSync, writeFileSync } from 'node:fs';
+writeFileSync(process.env.KNU_RUNNER_READ_TRACE_DIR + '/0-partial.json', '{');
+readFileSync('data/a.txt');
+`),
+    ),
+  );
+  assert.deepEqual(kindsOf(trace, 'data/a.txt'), ['read']);
+});
+
+test('the preload stays off without both trace variables', () => {
+  const f = fixture(`import { readFileSync } from 'node:fs';\nreadFileSync('data/a.txt');\n`);
+  const sink = realpathSync(mkdtempSync(join(tmpdir(), 'runner-read-trace-sink-only-')));
+  temporary.push(sink);
+  const result = spawnSync(process.execPath, ['--import', pathToFileURL(tool).href, 'probe.mjs'], {
+    cwd: f.root,
+    encoding: 'utf8',
+    env: { PATH: process.env.PATH, KNU_RUNNER_READ_TRACE_DIR: sink },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(readdirSync(sink), []);
 });
