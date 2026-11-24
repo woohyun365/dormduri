@@ -57,8 +57,8 @@ export function RecoveryScreen({ displayName }: { readonly displayName: string }
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-slate-900">복구 로그인</h1>
-      <p className="text-sm text-slate-700">
+      <h1 className="text-title-1 font-semibold text-fg-neutral">복구 로그인</h1>
+      <p className="text-body text-fg-description">
         {displayName}님은 복구 로그인 중입니다. 이 접속으로는 새 passkey 등록과 로그아웃만 할 수
         있습니다.
       </p>

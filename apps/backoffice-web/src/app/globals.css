@@ -1,1 +1,75 @@
 @import 'tailwindcss';
+
+/*
+ * Semantic tokens of the backoffice Web: the single source of its style values (design guide src/ui/README.md ②).
+ * Screen code uses only these names; the Tailwind default palette, type sizes, radius, shadow and arbitrary values are
+ * lint errors (eslint.config.mjs). Every value is still an alias of the Tailwind default the screens used, so the
+ * screens look the same; the confirmed visual direction replaces the values, not the names. The tokens refer to other
+ * theme variables, so they are `@theme inline`: a utility uses the referenced value itself. Spacing keeps the Tailwind
+ * default multiple (`--spacing`).
+ */
+@theme inline {
+  /* Layers: page background → card and section → muted box and hover. */
+  --color-layer-basement: var(--color-slate-50);
+  --color-layer-default: var(--color-white);
+  --color-layer-muted: var(--color-slate-100);
+
+  /* Text. */
+  --color-fg-neutral: var(--color-slate-900);
+  --color-fg-label: var(--color-slate-800);
+  --color-fg-description: var(--color-slate-700);
+  --color-fg-muted: var(--color-slate-600);
+  --color-fg-disabled: var(--color-slate-400);
+  --color-fg-on-brand: var(--color-white);
+
+  /* Strokes: control border → card and section border → list row divider. */
+  --color-stroke-neutral: var(--color-slate-300);
+  --color-stroke-subtle: var(--color-slate-200);
+  --color-stroke-row: var(--color-slate-100);
+
+  /* Brand: the primary action. */
+  --color-brand-solid: var(--color-slate-900);
+  --color-brand-solid-hover: var(--color-slate-700);
+  --color-brand-solid-disabled: var(--color-slate-400);
+
+  /* Status: weak background and text of each meaning in use (success, warning, danger). */
+  --color-success-weak: var(--color-emerald-50);
+  --color-fg-success: var(--color-emerald-800);
+  --color-fg-success-strong: var(--color-emerald-900);
+  --color-warning-weak: var(--color-amber-50);
+  --color-fg-warning: var(--color-amber-900);
+  --color-danger-weak: var(--color-red-50);
+  --color-fg-danger: var(--color-red-800);
+
+  /* Type scale: font size with its paired line height. */
+  --text-caption: var(--text-xs);
+  --text-caption--line-height: var(--text-xs--line-height);
+  --text-body: var(--text-sm);
+  --text-body--line-height: var(--text-sm--line-height);
+  --text-title-3: var(--text-base);
+  --text-title-3--line-height: var(--text-base--line-height);
+  --text-title-2: var(--text-lg);
+  --text-title-2--line-height: var(--text-lg--line-height);
+  --text-title-1: var(--text-xl);
+  --text-title-1--line-height: var(--text-xl--line-height);
+
+  /* Fixed-width text for codes and secrets. */
+  --font-code: var(--font-mono);
+
+  /* Radius roles. */
+  --radius-control: var(--radius-md);
+  --radius-box: var(--radius-md);
+  --radius-card: var(--radius-lg);
+
+  /* Content widths: the console page and the narrow column of the sign-in and message pages. */
+  --container-page: var(--container-6xl);
+  --container-narrow: var(--container-md);
+}
+
+/* Label and value pairs (`<dl>`): the label column takes its content width. */
+@utility grid-cols-label-value {
+  grid-template-columns: auto 1fr;
+}
+
+/* The current item of a link list (`aria-current="page"`). */
+@custom-variant aria-current-page (&[aria-current='page']);

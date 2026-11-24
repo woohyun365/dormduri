@@ -12,5 +12,5 @@
     "types": ["vitest/globals", "@testing-library/jest-dom", "node", "vite/client"]
   },
   "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", ".next", "coverage"]
+  "exclude": ["node_modules", ".next", "coverage", "src/**/__stories__/**"]
 }

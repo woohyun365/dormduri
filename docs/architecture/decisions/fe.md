@@ -1,9 +1,9 @@
 # FE 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-17
-**확인 근거**: [#659](https://github.com/woohyun365/dormduri/issues/659) 본문의 결정 요약(component-architecture의 renderer 중립 셋), [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(`fe.comp.route-entry-import-guard`, design-system)과 [#913](https://github.com/woohyun365/dormduri/issues/913)의 그 결정 재검토(두 번째 route), [#706](https://github.com/woohyun365/dormduri/issues/706)(`fe.ds.copy-style` 서비스 이름이 바뀔 때의 면책 문장), [#293](https://github.com/woohyun365/dormduri/issues/293)의 채택 판정 댓글(rendering-boundary의 `fe.render.react-compiler`), [#898](https://github.com/woohyun365/dormduri/issues/898)(`fe.ds.copy-authority` 처리방침 링크 명칭 예외)
-**근거**: [새 화면 계층](../../../apps/web/src/screens/README.md), [시각 값 token](../../../apps/web/src/styles/tokens/README.md), [Landing 화면](../../../apps/web/src/screens/landing/README.md), [Domain/SWE/Web/FE pack](../../development/agent-workflows/domain/swe-web/fe.md)
+**확인일**: 2026-11-24
+**확인 근거**: [#659](https://github.com/woohyun365/dormduri/issues/659) 본문의 결정 요약(component-architecture의 renderer 중립 셋), [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(`fe.comp.route-entry-import-guard`, design-system)과 [#913](https://github.com/woohyun365/dormduri/issues/913)의 그 결정 재검토(두 번째 route), [#706](https://github.com/woohyun365/dormduri/issues/706)(`fe.ds.copy-style` 서비스 이름이 바뀔 때의 면책 문장), [#293](https://github.com/woohyun365/dormduri/issues/293)의 채택 판정 댓글(rendering-boundary의 `fe.render.react-compiler`), [#898](https://github.com/woohyun365/dormduri/issues/898)(`fe.ds.copy-authority` 처리방침 링크 명칭 예외), [#988의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/988#issuecomment-7122876656)(design-system의 `fe.ds.token-layer/backoffice`, 2026-11-24)
+**근거**: [새 화면 계층](../../../apps/web/src/screens/README.md), [시각 값 token](../../../apps/web/src/styles/tokens/README.md), [Landing 화면](../../../apps/web/src/screens/landing/README.md), [백오피스 디자인 지침](../../../apps/backoffice-web/src/ui/README.md), [Domain/SWE/Web/FE pack](../../development/agent-workflows/domain/swe-web/fe.md)
 
 `Domain/SWE/Web/FE` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
 
@@ -127,7 +127,8 @@
 ## design-system
 
 이 절의 값은 [시각 값 token](../../../apps/web/src/styles/tokens/README.md)과 [Landing 화면](../../../apps/web/src/screens/landing/README.md)
-README가 소유하고, 여기에는 판정과 근거만 둔다.
+README가, 백오피스 항목(`/backoffice`)의 값은 [백오피스 디자인 지침](../../../apps/backoffice-web/src/ui/README.md)이 소유하고, 여기에는
+판정과 근거만 둔다.
 
 #### fe.ds.token-layer
 
@@ -145,6 +146,24 @@ README가 소유하고, 여기에는 판정과 근거만 둔다.
 - 재검토 조건: Auth·Legal·Main을 새 계층으로 만들어 역할을 더할 때(token README의 "token 추가와 이름"), 두 번째 renderer를 승인할 때
   (token 출력 형식), 기존 화면 theme을 지울 때
 - 출처: #671, Owner 확인 2026-10-26
+- pack 결정: [fe.ds.token-layer](../../development/agent-workflows/domain/swe-web/fe.md#fedstoken-layer)
+
+#### fe.ds.token-layer/backoffice
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: semantic token 파일. 백오피스 Web의 `apps/backoffice-web/src/app/globals.css` `@theme inline` 한 파일이 원본이고
+  생성기가 없다. 색(층·글자·선·브랜드·상태)·글자 단계·radius·폭 역할 이름을 두고 값은 Tailwind 기본 theme 변수를 참조한다. 간격은
+  Tailwind 기본 배수다. 라이트 하나이고 지금 화면이 쓰는 역할만 둔다. 화면 code(`src/**`, test 밖)와 `.storybook/**`의 Tailwind
+  기본 팔레트·글자 크기·radius·shadow·임의 값은 lint error다. 사용자 Web token은 쓰지 않는다
+- 근거: 영향은 백오피스 화면 style 전체이고 되돌림은 `costly`(모든 style 참조)다. 내부 운영 도구라 화면이 적고 색 문맥(어두운
+  판·motion)이 없어 생성기·drift test 비용이 이득보다 크다. 값이 한 파일에 있어 시각 방향을 바꿀 때 이름은 두고 값만 바꾼다. 사용자
+  Web과 같은 lint 방식이라 리뷰 기준(`web-fe-design-system.md F1`)이 같다. 비가역이 아니고 CSS·class revert로 되돌린다
+- 기각한 대안: DTCG JSON과 생성기(사용자 Web 방식, 이 규모에 무겁다), 사용자 Web token 공유(미감을 자동으로 물려받고 한쪽 변경이
+  다른 쪽을 바꾼다. 다른 앱 import도 막혀 있다), 화면별 값(`web-fe-design-system.md F1` 결함)
+- 재검토 조건: 어두운 판을 고를 때(같은 이름에 문맥 값을 더함), 같은 lint 규칙을 세 번째 앱이 쓸 때(`@repo/eslint-config`로 올림),
+  백오피스가 사용자 Web과 같은 시각 체계를 쓰기로 할 때
+- 출처: #988, Owner 확인 2026-11-24
 - pack 결정: [fe.ds.token-layer](../../development/agent-workflows/domain/swe-web/fe.md#fedstoken-layer)
 
 #### fe.ds.copy-authority

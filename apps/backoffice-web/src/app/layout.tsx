@@ -14,7 +14,7 @@ export default async function RootLayout({ children }: { readonly children: Reac
   await connection();
   return (
     <html lang="ko">
-      <body className="bg-slate-50 text-slate-900 antialiased">{children}</body>
+      <body className="bg-layer-basement text-fg-neutral antialiased">{children}</body>
     </html>
   );
 }

@@ -1,0 +1,21 @@
+{
+  "extends": "@repo/tsconfig/next.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    ".storybook/**/*.ts",
+    ".storybook/**/*.tsx",
+    "src/**/__stories__/**/*.ts",
+    "src/**/__stories__/**/*.tsx"
+  ],
+  "exclude": ["node_modules", ".next", "coverage", "storybook-static"]
+}

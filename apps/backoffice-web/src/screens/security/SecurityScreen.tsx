@@ -93,11 +93,11 @@ export function SecurityScreen({
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-slate-900">내 보안 설정</h1>
+      <h1 className="text-title-1 font-semibold text-fg-neutral">내 보안 설정</h1>
       {message ? <FormMessage tone={message.tone}>{message.text}</FormMessage> : null}
 
       <Section id="security-passkeys" title="passkey">
-        <p className="text-sm text-slate-700">등록한 passkey {passkeyCount}개</p>
+        <p className="text-body text-fg-description">등록한 passkey {passkeyCount}개</p>
         <form
           onSubmit={(event) => void addPasskey(event)}
           className="flex flex-col gap-3"
@@ -116,7 +116,7 @@ export function SecurityScreen({
       </Section>
 
       <Section id="security-totp" title="TOTP(복구용)">
-        <p className="text-sm text-slate-700">
+        <p className="text-body text-fg-description">
           {totpConfirmed ? '확인한 TOTP가 있습니다.' : '확인한 TOTP가 없습니다.'}
         </p>
         {totp ? (
@@ -136,7 +136,7 @@ export function SecurityScreen({
       </Section>
 
       <Section id="security-recovery-codes" title="복구 code">
-        <p className="text-sm text-slate-700">남은 복구 code {recoveryCodesRemaining}개</p>
+        <p className="text-body text-fg-description">남은 복구 code {recoveryCodesRemaining}개</p>
         {codes ? <RecoveryCodeList codes={codes} /> : null}
         <SecondaryButton disabled={pending} onClick={() => void reissueRecoveryCodes()}>
           복구 code 새로 발급(이전 code는 쓸 수 없게 됨)

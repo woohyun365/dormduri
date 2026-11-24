@@ -35,7 +35,7 @@ export function AuditReviewForm() {
       className="flex flex-col gap-3"
       aria-label="월 점검 기록"
     >
-      <p className="text-sm text-slate-700">
+      <p className="text-body text-fg-description">
         이 감사 기록과 CloudTrail trail의 SSM 접속 기록을 대조한 뒤 점검 완료를 남깁니다.
       </p>
       <TextAreaField

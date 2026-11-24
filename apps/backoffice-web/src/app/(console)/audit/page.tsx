@@ -42,7 +42,7 @@ export default async function AuditPage({
   const next = events.data.nextPage;
   return (
     <>
-      <h1 className="text-xl font-semibold text-slate-900">감사 기록</h1>
+      <h1 className="text-title-1 font-semibold text-fg-neutral">감사 기록</h1>
       {hasPermission(session, 'admin:audit:review') ? (
         <Section id="audit-review" title="월 점검 기록">
           <AuditReviewForm />
@@ -50,7 +50,7 @@ export default async function AuditPage({
       ) : null}
       <Section id="audit-events" title="최근 기록">
         <AuditTable events={events.data.events} names={names} />
-        <div className="flex gap-4 text-sm">
+        <div className="flex gap-4 text-body">
           {query.beforeTime ? (
             <Link href="/audit" prefetch={false} className="underline">
               처음으로

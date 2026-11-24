@@ -65,7 +65,7 @@ export function IdleNotice({
   return (
     <div
       role="alert"
-      className="flex flex-wrap items-center gap-3 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900"
+      className="flex flex-wrap items-center gap-3 rounded-box bg-warning-weak px-4 py-3 text-body text-fg-warning"
     >
       <span>
         {ended === 'idle'

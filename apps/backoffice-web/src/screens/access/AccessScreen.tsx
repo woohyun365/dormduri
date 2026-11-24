@@ -96,7 +96,7 @@ export function AccessScreen({
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-slate-900">권한 요청</h1>
+      <h1 className="text-title-1 font-semibold text-fg-neutral">권한 요청</h1>
       {message ? <FormMessage tone={message.tone}>{message.text}</FormMessage> : null}
 
       {canRequest ? (
@@ -107,20 +107,20 @@ export function AccessScreen({
             aria-label="권한 요청 만들기"
           >
             <div className="flex flex-col gap-1">
-              <label htmlFor="request-kind" className="text-sm font-medium text-slate-800">
+              <label htmlFor="request-kind" className="text-body font-medium text-fg-label">
                 종류
               </label>
               <select
                 id="request-kind"
                 name="kind"
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="rounded-control border border-stroke-neutral px-3 py-2 text-body"
               >
                 <option value="ROLE_GRANT">{REQUEST_KIND_LABELS.ROLE_GRANT}</option>
                 <option value="ROLE_REVOKE">{REQUEST_KIND_LABELS.ROLE_REVOKE}</option>
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label htmlFor="request-target" className="text-sm font-medium text-slate-800">
+              <label htmlFor="request-target" className="text-body font-medium text-fg-label">
                 대상 운영자
               </label>
               {accounts ? (
@@ -128,7 +128,7 @@ export function AccessScreen({
                   id="request-target"
                   name="targetAccountId"
                   required
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className="rounded-control border border-stroke-neutral px-3 py-2 text-body"
                 >
                   {accounts
                     .filter((account) => account.status === 'ACTIVE')
@@ -144,18 +144,18 @@ export function AccessScreen({
                   name="targetAccountId"
                   required
                   placeholder="계정 id"
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className="rounded-control border border-stroke-neutral px-3 py-2 text-body"
                 />
               )}
             </div>
             <div className="flex flex-col gap-1">
-              <label htmlFor="request-role" className="text-sm font-medium text-slate-800">
+              <label htmlFor="request-role" className="text-body font-medium text-fg-label">
                 역할
               </label>
               <select
                 id="request-role"
                 name="targetRole"
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="rounded-control border border-stroke-neutral px-3 py-2 text-body"
               >
                 {roles.map(({ role }) => (
                   <option key={role} value={role}>
@@ -184,7 +184,7 @@ export function AccessScreen({
 
       <Section id="access-list" title="요청 목록">
         <nav aria-label="요청 상태">
-          <ul className="flex flex-wrap gap-3 text-sm">
+          <ul className="flex flex-wrap gap-3 text-body">
             {STATUS_FILTERS.map((filter) => (
               <li key={filter.label}>
                 <Link
@@ -194,7 +194,7 @@ export function AccessScreen({
                   }}
                   prefetch={false}
                   aria-current={filter.status === status ? 'page' : undefined}
-                  className="underline-offset-4 hover:underline aria-[current=page]:font-semibold"
+                  className="underline-offset-4 hover:underline aria-current-page:font-semibold"
                 >
                   {filter.label}
                 </Link>
@@ -202,22 +202,24 @@ export function AccessScreen({
             ))}
           </ul>
         </nav>
-        {requests.length === 0 ? <p className="text-sm text-slate-700">요청이 없습니다.</p> : null}
-        <ul className="flex flex-col divide-y divide-slate-100">
+        {requests.length === 0 ? (
+          <p className="text-body text-fg-description">요청이 없습니다.</p>
+        ) : null}
+        <ul className="flex flex-col divide-y divide-stroke-row">
           {requests.map((request) => (
             <li
               key={request.id}
               className="flex flex-col gap-2 py-3"
               aria-label={`요청 ${shortId(request.id)}`}
             >
-              <p className="text-sm text-slate-900">
+              <p className="text-body text-fg-neutral">
                 <strong>{REQUEST_KIND_LABELS[request.kind]}</strong> ·{' '}
                 {accountName(accounts, request.targetAccountId)}에게{' '}
                 {request.targetRole ? ROLE_LABELS[request.targetRole] : '—'} · 상태{' '}
                 <strong>{REQUEST_STATUS_LABELS[request.status]}</strong>
                 {request.selfApproved ? ' · 자기 승인' : ''}
               </p>
-              <p className="text-xs text-slate-600">
+              <p className="text-caption text-fg-muted">
                 요청자 {accountName(accounts, request.requestedByAccountId)} ·{' '}
                 {formatKst(request.createdAt)} · 만료 {formatKst(request.expiresAt)}
                 {request.decidedByAccountId
@@ -225,10 +227,14 @@ export function AccessScreen({
                   : ''}
               </p>
               {request.requestReason ? (
-                <p className="text-xs text-slate-700">요청 사유: {request.requestReason}</p>
+                <p className="text-caption text-fg-description">
+                  요청 사유: {request.requestReason}
+                </p>
               ) : null}
               {request.decisionReason ? (
-                <p className="text-xs text-slate-700">결정 사유: {request.decisionReason}</p>
+                <p className="text-caption text-fg-description">
+                  결정 사유: {request.decisionReason}
+                </p>
               ) : null}
               {request.status === 'PENDING' ? (
                 <PendingActions
@@ -247,7 +253,7 @@ export function AccessScreen({
           <Link
             href={{ pathname: '/access', query: { ...(status ? { status } : {}), ...nextPage } }}
             prefetch={false}
-            className="text-sm underline"
+            className="text-body underline"
           >
             다음 요청 보기
           </Link>
