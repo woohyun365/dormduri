@@ -34,6 +34,7 @@ apps/web/playwright/.auth/
 apps/backoffice-web/playwright-report/
 apps/backoffice-web/test-results/
 apps/web/storybook-static/
+apps/backoffice-web/storybook-static/
 
 ## Next.js 캐시/출력
 .next/

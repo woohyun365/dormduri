@@ -112,6 +112,8 @@
     "backoffice-web:test:prepared": "pnpm --dir apps/backoffice-web ci:test",
     "backoffice-web:build:prepared": "pnpm --dir apps/backoffice-web ci:build",
     "backoffice-web:e2e:prepared": "pnpm --dir apps/backoffice-web ci:e2e",
+    "backoffice-web:storybook:build:prepared": "pnpm --dir apps/backoffice-web ci:storybook:build",
+    "backoffice-web:storybook:check:prepared": "pnpm --dir apps/backoffice-web ci:storybook:check",
     "web:prepare": "pnpm --dir apps/web ci:prepare",
     "web:lint:prepared": "pnpm --dir apps/web ci:lint",
     "web:typecheck:prepared": "pnpm --dir apps/web ci:typecheck",

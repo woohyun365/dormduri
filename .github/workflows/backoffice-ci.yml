@@ -158,6 +158,14 @@ jobs:
       - name: Install Playwright Chromium
         run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=browser-install -- pnpm --dir apps/backoffice-web exec playwright install --with-deps chromium
 
+      # Story check (apps/backoffice-web/src/ui/README.md ⑨): every story of the Storybook static build renders in
+      # Chromium without errors or axe violations. No screenshot baseline.
+      - name: Backoffice Web Storybook build
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=storybook -- pnpm backoffice-web:storybook:build:prepared
+
+      - name: Backoffice Web story check
+        run: node scripts/ci/lanes/run-timed-command.mjs --scope=BackofficeWeb --stage=storybook-check -- pnpm backoffice-web:storybook:check:prepared
+
       # The e2e global setup applies the role bootstrap, migrations and grants to its own schema and
       # starts the API as dormduri_backoffice; the Web serves the fixed origin http://localhost:4300.
       - name: Backoffice Web e2e with virtual authenticators

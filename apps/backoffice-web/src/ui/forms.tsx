@@ -11,7 +11,7 @@ export function Button({ className = '', ...props }: ButtonHTMLAttributes<HTMLBu
   return (
     <button
       type="button"
-      className={`rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400 ${className}`}
+      className={`rounded-control bg-brand-solid px-4 py-2 text-body font-medium text-fg-on-brand hover:bg-brand-solid-hover disabled:cursor-not-allowed disabled:bg-brand-solid-disabled ${className}`}
       {...props}
     />
   );
@@ -24,7 +24,7 @@ export function SecondaryButton({
   return (
     <button
       type="button"
-      className={`rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400 ${className}`}
+      className={`rounded-control border border-stroke-neutral bg-layer-default px-4 py-2 text-body font-medium text-fg-neutral hover:bg-layer-muted disabled:cursor-not-allowed disabled:text-fg-disabled ${className}`}
       {...props}
     />
   );
@@ -42,17 +42,17 @@ export function TextField({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-sm font-medium text-slate-800">
+      <label htmlFor={id} className="text-body font-medium text-fg-label">
         {label}
       </label>
       <input
         id={id}
         aria-describedby={hint ? `${id}-hint` : undefined}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900"
+        className="rounded-control border border-stroke-neutral px-3 py-2 text-body text-fg-neutral"
         {...props}
       />
       {hint ? (
-        <p id={`${id}-hint`} className="text-xs text-slate-600">
+        <p id={`${id}-hint`} className="text-caption text-fg-muted">
           {hint}
         </p>
       ) : null}
@@ -72,18 +72,18 @@ export function TextAreaField({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-sm font-medium text-slate-800">
+      <label htmlFor={id} className="text-body font-medium text-fg-label">
         {label}
       </label>
       <textarea
         id={id}
         rows={3}
         aria-describedby={hint ? `${id}-hint` : undefined}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900"
+        className="rounded-control border border-stroke-neutral px-3 py-2 text-body text-fg-neutral"
         {...props}
       />
       {hint ? (
-        <p id={`${id}-hint`} className="text-xs text-slate-600">
+        <p id={`${id}-hint`} className="text-caption text-fg-muted">
           {hint}
         </p>
       ) : null}
@@ -100,11 +100,11 @@ export function FormMessage({
   readonly children: ReactNode;
 }) {
   return tone === 'error' ? (
-    <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+    <p role="alert" className="rounded-box bg-danger-weak px-3 py-2 text-body text-fg-danger">
       {children}
     </p>
   ) : (
-    <p role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+    <p role="status" className="rounded-box bg-success-weak px-3 py-2 text-body text-fg-success">
       {children}
     </p>
   );
@@ -122,9 +122,9 @@ export function Section({
   return (
     <section
       aria-labelledby={`${id}-heading`}
-      className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-6"
+      className="flex flex-col gap-4 rounded-card border border-stroke-subtle bg-layer-default p-6"
     >
-      <h2 id={`${id}-heading`} className="text-base font-semibold text-slate-900">
+      <h2 id={`${id}-heading`} className="text-title-3 font-semibold text-fg-neutral">
         {title}
       </h2>
       {children}

@@ -102,7 +102,7 @@ export function LoginScreen({ ended }: { readonly ended: keyof typeof ENDED_NOTI
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-slate-900">백오피스 로그인</h1>
+      <h1 className="text-title-1 font-semibold text-fg-neutral">백오피스 로그인</h1>
       {ended && step.kind === 'password' ? (
         <FormMessage tone="error">{ENDED_NOTICES[ended]}</FormMessage>
       ) : null}
@@ -133,13 +133,13 @@ export function LoginScreen({ ended }: { readonly ended: keyof typeof ENDED_NOTI
 
       {step.kind === 'second-factor' ? (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-slate-700">등록한 passkey로 로그인을 마칩니다.</p>
+          <p className="text-body text-fg-description">등록한 passkey로 로그인을 마칩니다.</p>
           <Button disabled={pending} onClick={() => void loginWithPasskey(step.challenge)}>
             passkey로 로그인
           </Button>
           {step.challenge.recovery.totp || step.challenge.recovery.recoveryCode ? (
-            <div className="flex flex-col gap-2 border-t border-slate-200 pt-4">
-              <p className="text-sm text-slate-700">
+            <div className="flex flex-col gap-2 border-t border-stroke-subtle pt-4">
+              <p className="text-body text-fg-description">
                 passkey를 쓸 수 없으면 복구 로그인으로 새 passkey만 등록할 수 있습니다.
               </p>
               <div className="flex flex-wrap gap-2">

@@ -103,7 +103,7 @@ export function RegistrationScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-slate-900">운영자 등록</h1>
+      <h1 className="text-title-1 font-semibold text-fg-neutral">운영자 등록</h1>
 
       {step.kind === 'code' ? (
         <form
@@ -131,11 +131,11 @@ export function RegistrationScreen() {
           className="flex flex-col gap-4"
           aria-label="비밀번호와 passkey 등록"
         >
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="font-medium text-slate-800">이메일</dt>
-            <dd className="text-slate-900">{step.invitation.email}</dd>
-            <dt className="font-medium text-slate-800">이름</dt>
-            <dd className="text-slate-900">{step.invitation.displayName}</dd>
+          <dl className="grid grid-cols-label-value gap-x-4 gap-y-1 text-body">
+            <dt className="font-medium text-fg-label">이메일</dt>
+            <dd className="text-fg-neutral">{step.invitation.email}</dd>
+            <dt className="font-medium text-fg-label">이름</dt>
+            <dd className="text-fg-neutral">{step.invitation.displayName}</dd>
           </dl>
           <TextField
             id="registration-password"

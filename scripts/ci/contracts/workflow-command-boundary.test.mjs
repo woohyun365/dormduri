@@ -195,6 +195,8 @@ test('root commands expose prepared aggregate capabilities', () => {
     'backoffice-web:test:prepared',
     'backoffice-web:build:prepared',
     'backoffice-web:e2e:prepared',
+    'backoffice-web:storybook:build:prepared',
+    'backoffice-web:storybook:check:prepared',
     'web:prepare',
     'web:check',
     'web:check:prepared',
@@ -254,6 +256,8 @@ for (const workflow of [
       'pnpm backoffice-web:typecheck:prepared',
       'pnpm backoffice-web:test:prepared',
       'pnpm backoffice-web:build:prepared',
+      'pnpm backoffice-web:storybook:build:prepared',
+      'pnpm backoffice-web:storybook:check:prepared',
       'pnpm backoffice-web:e2e:prepared',
     ],
     forbidden: ['pnpm shared:build', 'pnpm api:prisma:generate', 'pnpm api:prepare'],
@@ -552,6 +556,8 @@ test('Backoffice CI migrates the public schema before TypedSQL and times every s
       'build',
       'api-build',
       'browser-install',
+      'storybook',
+      'storybook-check',
       'e2e',
     ],
   };
@@ -559,7 +565,8 @@ test('Backoffice CI migrates the public schema before TypedSQL and times every s
   for (const [name, job] of Object.entries(jobs)) {
     assertIncludesAll(job, [
       'pnpm --dir packages/database exec prisma migrate deploy --schema prisma/schema.prisma',
-      ...stages[name].map((stage) => `--stage=${stage}`),
+      // The `--` after the stage name keeps one stage from matching another that starts with it (`storybook`).
+      ...stages[name].map((stage) => `--stage=${stage} -- `),
       'total_duration_seconds',
       'pnpm_store_cache',
     ]);

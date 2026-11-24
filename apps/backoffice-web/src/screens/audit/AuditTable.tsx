@@ -11,12 +11,12 @@ export function AuditTable({
   readonly names: Readonly<Record<string, string>>;
 }) {
   if (events.length === 0) {
-    return <p className="text-sm text-slate-700">기록이 없습니다.</p>;
+    return <p className="text-body text-fg-description">기록이 없습니다.</p>;
   }
   return (
-    <table className="w-full text-left text-sm">
+    <table className="w-full text-left text-body">
       <caption className="sr-only">관리자 감사 기록, 최신순</caption>
-      <thead className="text-slate-700">
+      <thead className="text-fg-description">
         <tr>
           <th scope="col" className="py-2">
             시각
@@ -28,7 +28,7 @@ export function AuditTable({
           <th scope="col">비고</th>
         </tr>
       </thead>
-      <tbody className="divide-y divide-slate-100">
+      <tbody className="divide-y divide-stroke-row">
         {events.map((event) => (
           <tr key={event.id}>
             <td className="py-2 whitespace-nowrap">{formatKst(event.occurredAt)}</td>

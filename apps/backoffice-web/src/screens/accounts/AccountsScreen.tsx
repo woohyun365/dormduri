@@ -91,12 +91,12 @@ export function AccountsScreen({
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-slate-900">운영자 계정</h1>
+      <h1 className="text-title-1 font-semibold text-fg-neutral">운영자 계정</h1>
       {message ? <FormMessage tone={message.tone}>{message.text}</FormMessage> : null}
 
       <Section id="accounts-list" title="계정">
-        <table className="w-full text-left text-sm">
-          <thead className="text-slate-700">
+        <table className="w-full text-left text-body">
+          <thead className="text-fg-description">
             <tr>
               <th scope="col" className="py-2">
                 이름
@@ -110,7 +110,7 @@ export function AccountsScreen({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-stroke-row">
             {data.accounts.map((account) => (
               <tr key={account.id}>
                 <td className="py-2">{account.displayName}</td>
@@ -139,7 +139,7 @@ export function AccountsScreen({
         {deactivating ? (
           <form
             onSubmit={(event) => void deactivate(event, deactivating)}
-            className="flex flex-col gap-3 border-t border-slate-200 pt-4"
+            className="flex flex-col gap-3 border-t border-stroke-subtle pt-4"
             aria-label="계정 비활성화"
           >
             <TextAreaField
@@ -164,9 +164,9 @@ export function AccountsScreen({
 
       <Section id="accounts-invitations" title="열린 초대">
         {data.invitations.length === 0 ? (
-          <p className="text-sm text-slate-700">열린 초대가 없습니다.</p>
+          <p className="text-body text-fg-description">열린 초대가 없습니다.</p>
         ) : null}
-        <ul className="flex flex-col gap-2 text-sm">
+        <ul className="flex flex-col gap-2 text-body">
           {data.invitations.map((invitation) => (
             <li key={invitation.id} className="flex flex-wrap items-center gap-3">
               <span>
@@ -203,10 +203,10 @@ export function AccountsScreen({
         {issued ? (
           <div
             role="status"
-            className="flex flex-col gap-1 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+            className="flex flex-col gap-1 rounded-box bg-success-weak px-3 py-2 text-body text-fg-success-strong"
           >
             <span>초대 code를 만들었습니다. 이 화면을 떠나면 다시 볼 수 없습니다.</span>
-            <span className="font-mono break-all" data-testid="invitation-code">
+            <span className="font-code break-all" data-testid="invitation-code">
               {issued.code}
             </span>
             <span>

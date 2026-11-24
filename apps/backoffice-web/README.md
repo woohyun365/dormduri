@@ -19,18 +19,20 @@
 
 ## 2. 구조
 
-| 위치                   | 책임                                                                                           |
-| ---------------------- | ---------------------------------------------------------------------------------------------- |
-| `src/proxy.ts`         | 모든 page 요청의 nonce CSP(§5)                                                                 |
-| `src/bff/`             | 출처 대조(`request-guard.ts`), session cookie, 활동 header, upstream client, BFF route wrapper |
-| `src/app/api/**`       | BFF route 22개. 모두 `bffMutation`으로 만든 POST                                               |
-| `src/server/`          | server render read: session gate(`requireFullSession`·`requireRecoverySession`), 화면 read     |
-| `src/app/(auth)/**`    | 로그인·초대 등록·복구 로그인 page                                                              |
-| `src/app/(console)/**` | 로그인 뒤 page: 홈, 운영자 계정, 권한 요청, 감사 기록, 내 보안 설정                            |
-| `src/screens/<기능>/`  | 화면 component(client). `credentials/`는 TOTP·복구 code 한 번 보기를 등록·보안 화면이 같이 씀  |
-| `src/client/`          | browser의 BFF 호출과 passkey 의식(`@simplewebauthn/browser`)·재인증                            |
-| `src/ui/`              | 공용 form 부품, 오류 문구, 한국어 이름표, KST 시각 표시                                        |
-| `src/security/`        | CSP와 공통 보안 header 값                                                                      |
+| 위치                                 | 책임                                                                                                            |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `src/proxy.ts`                       | 모든 page 요청의 nonce CSP(§5)                                                                                  |
+| `src/bff/`                           | 출처 대조(`request-guard.ts`), session cookie, 활동 header, upstream client, BFF route wrapper                  |
+| `src/app/api/**`                     | BFF route 22개. 모두 `bffMutation`으로 만든 POST                                                                |
+| `src/server/`                        | server render read: session gate(`requireFullSession`·`requireRecoverySession`), 화면 read                      |
+| `src/app/(auth)/**`                  | 로그인·초대 등록·복구 로그인 page                                                                               |
+| `src/app/(console)/**`               | 로그인 뒤 page: 홈, 운영자 계정, 권한 요청, 감사 기록, 내 보안 설정                                             |
+| `src/screens/<기능>/`                | 화면 component(client). `credentials/`는 TOTP·복구 code 한 번 보기를 등록·보안 화면이 같이 씀                   |
+| `src/client/`                        | browser의 BFF 호출과 passkey 의식(`@simplewebauthn/browser`)·재인증                                             |
+| `src/ui/`                            | 공용 form 부품, 오류 문구, 한국어 이름표, KST 시각 표시. 디자인 지침은 [`src/ui/README.md`](./src/ui/README.md) |
+| `src/app/globals.css`                | 시각 값 token 원본(`@theme inline`). 화면은 token 이름만 쓰고 ESLint가 그 밖의 값을 막는다                      |
+| `src/security/`                      | CSP와 공통 보안 header 값                                                                                       |
+| `.storybook/`, `src/**/__stories__/` | Storybook 설정과 story(가짜 fixture, 디자인 지침 ⑨)                                                             |
 
 ## 3. BFF와 session
 
@@ -90,12 +92,14 @@ Origin(`http://localhost:4300`)과 Host는 code 상수다. 바꾸면 WebAuthn RP
 
 ## 7. Test
 
-| 명령(root)                           | 범위                                                                                                        |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `pnpm backoffice-web:check`          | 준비(shared build) 뒤 lint·typecheck·unit                                                                   |
-| `pnpm backoffice-web:test:prepared`  | BFF(출처 대조, cookie 속성, route wrapper와 upstream fake, route 전수 표), CSP, component(role·label query) |
-| `pnpm backoffice-web:build:prepared` | `next build`                                                                                                |
-| `pnpm backoffice-web:e2e:prepared`   | Playwright Chromium e2e(아래)                                                                               |
+| 명령(root)                                     | 범위                                                                                                                                                                         |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm backoffice-web:check`                    | 준비(shared build) 뒤 lint·typecheck·unit                                                                                                                                    |
+| `pnpm backoffice-web:test:prepared`            | BFF(출처 대조, cookie 속성, route wrapper와 upstream fake, route 전수 표), CSP, component(role·label query), token·server action lint 실효 설정, story fixture의 공유 schema |
+| `pnpm backoffice-web:build:prepared`           | `next build`                                                                                                                                                                 |
+| `pnpm backoffice-web:e2e:prepared`             | Playwright Chromium e2e(아래)                                                                                                                                                |
+| `pnpm backoffice-web:storybook:build:prepared` | Storybook static build(`storybook-static/`)                                                                                                                                  |
+| `pnpm backoffice-web:storybook:check:prepared` | story 검사: 모든 story의 render 오류 0·axe 위반 0(디자인 지침 ⑨)                                                                                                             |
 
 E2e(`e2e/backoffice-flow.spec.ts`)는 production build를 고정 origin `http://localhost:4300`에 띄우고, global setup이 일회용
 schema에 운영과 같은 role bootstrap·migration·grant 표를 적용한 뒤 실제 백오피스 API build를 `dormduri_backoffice`로 띄워
@@ -103,7 +107,9 @@ schema에 운영과 같은 role bootstrap·migration·grant 표를 적용한 뒤
 → 운영자 초대 → 운영자(security key) 등록 → 권한 요청과 1인 자기 승인 → 운영자가 감사 목록에서 승인 확인을 지난다. 이어 둘째 owner의
 거절, 요청 취소, 초대 취소, 계정 비활성화, 월 점검 기록, TOTP·복구 code 재발급, 다른 기기 passkey 추가, TOTP·복구 code 복구
 로그인과 복구 session의 passkey 등록으로 모든 BFF route를 실제 API로 한 번씩 지난다. 모든 page의 CSP 위반 0, cookie 속성, 보안
-header, 가짜 시계로 16분을 보낸 page의 요청 0과 idle 안내, 위조 출처 403, axe 검사 한 번을 본다. Admin DB URL은
+header, 가짜 시계로 16분을 보낸 page의 요청 0과 idle 안내, 위조 출처 403, axe 검사 한 번을 본다.
+`e2e/cross-port-request.spec.ts`는 다른 localhost port에 띄운 page의 이미지·prefetch를 실제 Chromium이 `Sec-Fetch-Site: same-site`로
+보내고 403을 받는지 본다(§5). Admin DB URL은
 `DORMDURI_BACKOFFICE_E2E_ADMIN_DATABASE_URL`, 없으면 `DATABASE_URL`이고 loopback이 아니면
 `DORMDURI_BACKOFFICE_E2E_DISPOSABLE_DATABASE=yes`가 있어야 돈다. API port는 `BACKOFFICE_E2E_API_PORT`(기본 4311)다. CI는
 `.github/workflows/backoffice-ci.yml`의 Web job이 이 순서로 돌린다.
