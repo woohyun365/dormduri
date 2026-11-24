@@ -15,7 +15,7 @@ export const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
  * reached the API or a navigation (the next page reads the session on the server). Activity also
  * clears a notice shown too early. The absolute limit does not move.
  */
-export function IdleNotice({
+export function SessionEndNotice({
   idleRemainingMs,
   absoluteRemainingMs,
 }: {

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { activeAuditor, activeOwner } from '../../../ui/__stories__/fixtures';
 import { ConsoleShell } from '../ConsoleShell';
-import { IdleNotice } from '../IdleNotice';
+import { SessionEndNotice } from '../SessionEndNotice';
 
 // The console shell (menu hidden by the session's permissions) and the idle notice. Fixture sessions only.
 
@@ -31,7 +31,7 @@ const noticeShown: NonNullable<Story['play']> = async ({ canvas }) => {
 export const IdleEnded: Story = {
   render: () => (
     <div className="p-6">
-      <IdleNotice idleRemainingMs={0} absoluteRemainingMs={8 * 60 * 60 * 1000} />
+      <SessionEndNotice idleRemainingMs={0} absoluteRemainingMs={8 * 60 * 60 * 1000} />
     </div>
   ),
   play: noticeShown,
@@ -41,7 +41,7 @@ export const IdleEnded: Story = {
 export const AbsoluteEnded: Story = {
   render: () => (
     <div className="p-6">
-      <IdleNotice idleRemainingMs={15 * 60 * 1000} absoluteRemainingMs={0} />
+      <SessionEndNotice idleRemainingMs={15 * 60 * 1000} absoluteRemainingMs={0} />
     </div>
   ),
   play: noticeShown,
