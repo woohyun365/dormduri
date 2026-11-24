@@ -529,6 +529,11 @@ test('C2: a carried record that differs from the producing round runner file or 
     ],
     ['purpose and expectedExit', [carried({ purpose: 'red', expectedExit: 1 })], producedRound()],
     [
+      'purpose only',
+      [carried({ expectedExit: 1 })],
+      producedRound({ commandsActuallyRun: [{ ...run1, purpose: 'red', expectedExit: 1 }] }),
+    ],
+    [
       'expectedExit',
       [carried({ purpose: 'red', expectedExit: 1, exit: 0 })],
       producedRound({
