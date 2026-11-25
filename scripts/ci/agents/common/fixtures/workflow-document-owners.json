@@ -18,7 +18,7 @@
       "path": "docs/development/agent-workflows/adapters/README.md",
       "owner": "host registry/cross-host boundary owner",
       "kind": "normative",
-      "rationale": "명시적 active-host registry와 capability/보장 수준의 단일 owner를 유지하고 한국어 설명 및 unknown-host 비추정 경로를 명확히 한다."
+      "rationale": "명시적 active-host registry와 capability/보장 수준의 단일 owner를 유지하고 한국어 설명 및 unknown-host 비추정 경로를 명확히 한다. 사용자가 켠 third-party plugin의 이름 없는 호환 지침도 한 절로 소유한다."
     },
     {
       "path": "docs/development/agent-workflows/adapters/claude-code.md",
