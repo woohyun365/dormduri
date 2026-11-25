@@ -403,11 +403,11 @@ test('a name starting with a colon is asked literally and passes on its own root
 
 test('a U+FFFD name is not asked and stays an issue while the other candidates are judged', (t) => {
   const fixture = ignoreFixture(t, {
-    exclude: '/.foo�/\n.fooplugin/\n',
-    files: ['.foo�/a', '.fooplugin/a'],
+    exclude: '/.foo\uFFFD/\n.fooplugin/\n',
+    files: ['.foo\uFFFD/a', '.fooplugin/a'],
   });
-  assert.deepEqual(fixture.rule('.foo�'), ['.git/info/exclude', '/.foo�/']);
-  assert.deepEqual(fixture.report(), [['.foo�/', OUTSIDE]]);
+  assert.deepEqual(fixture.rule('.foo\uFFFD'), ['.git/info/exclude', '/.foo\uFFFD/']);
+  assert.deepEqual(fixture.report(), [['.foo\uFFFD/', OUTSIDE]]);
 });
 
 test('the outside-manifest-root hint first asks about .git/info/exclude and keeps the manifest guidance', () => {
@@ -484,9 +484,9 @@ test('the tracked .gitignore rule or an info/exclude negation keeps a root outsi
 });
 
 test('a U+FFFD name stays an issue even when an info/exclude line matches it', (t) => {
-  const fixture = ignoreFixture(t, { exclude: '/.foo�/\n', files: ['.foo�/a'] });
-  assert.deepEqual(fixture.rule('.foo�'), ['.git/info/exclude', '/.foo�/']);
-  assert.deepEqual(fixture.report(), [['.foo�/', OUTSIDE]]);
+  const fixture = ignoreFixture(t, { exclude: '/.foo\uFFFD/\n', files: ['.foo\uFFFD/a'] });
+  assert.deepEqual(fixture.rule('.foo\uFFFD'), ['.git/info/exclude', '/.foo\uFFFD/']);
+  assert.deepEqual(fixture.report(), [['.foo\uFFFD/', OUTSIDE]]);
 });
 
 test('info/exclude does not change a retired root or nested runtime state', (t) => {
@@ -559,5 +559,151 @@ test('a colon name is not read as pathspec magic and stays an issue when only an
   assert.deepEqual(fixture.report(), [
     [':(top)plain/', OUTSIDE],
     [':plain/', OUTSIDE],
+  ]);
+});
+
+// readInfoExcluded over spawnSync-shaped results: `check` from git check-ignore -v -n -z, `gitPath` from
+// git rev-parse --git-path. A record is the four NUL-terminated fields git prints for one asked name.
+const INFO_EXCLUDE = '.git/info/exclude';
+const ran = (stdout, status = 0) => ({ status, stdout: Buffer.from(stdout) });
+const nulRecords = (...fields) =>
+  Buffer.concat(
+    fields.flat().map((field) => Buffer.concat([Buffer.from(field), Buffer.from([0])])),
+  );
+const record = (name, source = INFO_EXCLUDE, pattern = `/${name}/`, path = `./${name}`) => [
+  source,
+  source ? '1' : '',
+  pattern,
+  path,
+];
+const gitPathOf = (path = INFO_EXCLUDE) =>
+  ran(Buffer.concat([Buffer.from(path), Buffer.from('\n')]));
+
+test('readInfoExcluded passes a name only for a non-negated info/exclude rule on the asked path', () => {
+  const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  const check = ran(
+    nulRecords(
+      record('a'),
+      record('b', '.gitignore'),
+      record('c', '', ''),
+      record('d', INFO_EXCLUDE, '!d'),
+      record('e', INFO_EXCLUDE, '/e/', './x'),
+      record('f', INFO_EXCLUDE, '/f/', 'f'),
+      record('g', `/repo/${INFO_EXCLUDE}`),
+    ),
+  );
+  assert.deepEqual([...layoutCheck.readInfoExcluded(names, check, gitPathOf())], ['a']);
+});
+
+test('readInfoExcluded reads the four fields of each name at its own place', () => {
+  const check = ran(nulRecords(record('a', '.gitignore'), record('b'), record('c', '', '')));
+  assert.deepEqual([...layoutCheck.readInfoExcluded(['a', 'b', 'c'], check, gitPathOf())], ['b']);
+});
+
+test('readInfoExcluded passes no name when git cannot answer for every asked name', () => {
+  const pass = nulRecords(record('a'));
+  const judged = (check, gitPath = gitPathOf()) => [
+    ...layoutCheck.readInfoExcluded(['a'], check, gitPath),
+  ];
+  assert.deepEqual(judged(ran(pass)), ['a']);
+  // Exit 1 (no path ignored) is an answer; the fields decide.
+  assert.deepEqual(judged(ran(pass, 1)), ['a']);
+  for (const status of [128, 2, -1, null]) assert.deepEqual(judged(ran(pass, status)), [], status);
+  assert.deepEqual(judged(ran(Buffer.concat([pass, Buffer.from('x')]))), []);
+  assert.deepEqual(judged(ran(pass.subarray(0, pass.lastIndexOf(0, pass.length - 2) + 1))), []);
+  assert.deepEqual(judged(ran(nulRecords(record('a'), record('a')))), []);
+  assert.deepEqual(judged(ran('')), []);
+  assert.deepEqual(judged(ran(pass), ran(`${INFO_EXCLUDE}\n`, 1)), []);
+  assert.deepEqual(judged(ran(pass), ran(`${INFO_EXCLUDE}\n`, null)), []);
+  assert.deepEqual(
+    [...layoutCheck.readInfoExcluded(['a', 'b'], ran(pass), gitPathOf())],
+    [],
+    'four fields for two names',
+  );
+});
+
+test('readInfoExcluded compares the source with the --git-path output byte for byte', () => {
+  const gitDir = (byte) =>
+    Buffer.concat([Buffer.from('/w'), Buffer.from([byte]), Buffer.from('/x')]);
+  const ff = gitDir(0xff);
+  const fe = gitDir(0xfe);
+  // Both decode to the same string, so only a byte comparison tells the two files apart.
+  assert.equal(ff.toString(), fe.toString());
+  const check = (source) => ran(nulRecords([source, '1', '/a/', './a']));
+  const judged = (source, gitPath) => [
+    ...layoutCheck.readInfoExcluded(['a'], check(source), gitPath),
+  ];
+  assert.deepEqual(judged(ff, ran(Buffer.concat([ff, Buffer.from('\n')]))), ['a']);
+  assert.deepEqual(judged(fe, ran(Buffer.concat([ff, Buffer.from('\n')]))), []);
+  assert.deepEqual(judged(Buffer.from(INFO_EXCLUDE), ran(INFO_EXCLUDE)), ['a']);
+  assert.deepEqual(judged(Buffer.from(INFO_EXCLUDE), ran(`${INFO_EXCLUDE}\n\n`)), []);
+});
+
+test('only info/exclude names leave the outside-manifest-root branch; retired and nested state stay', () => {
+  const entries = ['a/', 'a/x.log', 'b', 'artifacts/', 'apps/.omx/', 'c'];
+  const judged = (options) =>
+    findWorkspaceLayoutIssues(entries, { trackedTopLevel: new Set(['apps']), ...options }).map(
+      (issue) => [issue.path, issue.kind],
+    );
+  assert.deepEqual(judged({ infoExcluded: new Set(['a', 'artifacts', 'apps', 'c']) }), [
+    ['b', OUTSIDE],
+    ['artifacts/', 'retired-root'],
+    ['apps/.omx/', 'nested-runtime-state'],
+  ]);
+  assert.deepEqual(judged({}), [
+    ['a/', OUTSIDE],
+    ['a/x.log', OUTSIDE],
+    ['b', OUTSIDE],
+    ['artifacts/', 'retired-root'],
+    ['apps/.omx/', 'nested-runtime-state'],
+    ['c', OUTSIDE],
+  ]);
+});
+
+test('infoExcludedRoots asks each name once as ./<name> and runs no git without a name to ask', (t) => {
+  const base = mkdtempSync(resolve(tmpdir(), 'knu-layout-stub-'));
+  t.after(() => rmSync(base, { force: true, recursive: true }));
+  const log = resolve(base, 'git.log');
+  mkdirSync(resolve(base, 'bin'));
+  writeFileSync(
+    resolve(base, 'bin/git'),
+    [
+      `#!${process.execPath}`,
+      "const fs = require('node:fs');",
+      'const input = fs.readFileSync(0).toString();',
+      'fs.appendFileSync(process.env.STUB_LOG, `${JSON.stringify([process.argv.slice(2), input])}\\n`);',
+      'process.exit(1);',
+    ].join('\n'),
+    { mode: 0o755 },
+  );
+  const asked = (names) => {
+    rmSync(log, { force: true });
+    const code = [
+      `import { infoExcludedRoots } from ${JSON.stringify(import.meta.resolve('./workspace-layout-check.mjs'))};`,
+      'console.log(JSON.stringify([...infoExcludedRoots(process.argv[1], JSON.parse(process.argv[2]))]));',
+    ].join('\n');
+    const run = spawnSync(
+      process.execPath,
+      ['--input-type=module', '-e', code, base, JSON.stringify(names)],
+      { encoding: 'utf8', env: { PATH: resolve(base, 'bin'), STUB_LOG: log } },
+    );
+    assert.equal(run.status, 0, run.stderr);
+    assert.equal(run.stdout, '[]\n');
+    let calls = '';
+    try {
+      calls = readFileSync(log, 'utf8');
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    return calls
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  };
+  assert.deepEqual(asked([]), []);
+  assert.deepEqual(asked(['x\uFFFD', 'y\uFFFD']), []);
+  assert.deepEqual(asked(['a', ':b', 'a', 'c\uFFFD']), [
+    [['check-ignore', '-v', '-n', '-z', '--stdin', '--no-index'], './a\0./:b\0'],
+    [['rev-parse', '--git-path', 'info/exclude'], ''],
   ]);
 });

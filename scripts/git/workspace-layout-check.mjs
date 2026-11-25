@@ -64,10 +64,11 @@ const isExcluded = (layout, name) =>
   layout.guardExclusions.some((pattern) => matchesPattern(pattern, name));
 
 // Top-level names are checked only when the tracked top-level names are given; an entry under a tracked top-level
-// directory is nested and only the runtime state rule sees it.
+// directory is nested and only the runtime state rule sees it. `infoExcluded` holds the top-level names that this
+// clone's .git/info/exclude excludes as a whole (infoExcludedRoots); they are not outside-manifest-root.
 export function findWorkspaceLayoutIssues(
   entries,
-  { trackedTopLevel, layout = loadWorkspaceLayout() } = {},
+  { trackedTopLevel, layout = loadWorkspaceLayout(), infoExcluded = new Set() } = {},
 ) {
   const runtimeState = new Set(
     layout.roots.filter((root) => root.nestedState).map((root) => root.path),
@@ -101,12 +102,13 @@ export function findWorkspaceLayoutIssues(
       trackedTopLevel &&
       !trackedTopLevel.has(segments[0]) &&
       !manifestTop.has(segments[0]) &&
-      !isExcluded(layout, segments[0])
+      !isExcluded(layout, segments[0]) &&
+      !infoExcluded.has(segments[0])
     )
       issues.push({
         path,
         kind: 'outside-manifest-root',
-        hint: `add the root to ${BINDING_FILE} (fields: ${layout.binding.guide}) or move the content under a manifest root`,
+        hint: `if it is local state of a tool the user enabled, ask the user whether to add the root to .git/info/exclude (untracked, applies to this clone only). Otherwise add the root to ${BINDING_FILE} (fields: ${layout.binding.guide}) or move the content under a manifest root`,
       });
   }
   return issues;
@@ -193,15 +195,82 @@ export function findGitignoreIssues(root, layout = loadWorkspaceLayout()) {
   return issues;
 }
 
-// `report` receives the tracked scope capacity (files and bytes of the allowlist).
+const NEGATION = 0x21;
+const NEWLINE = 0x0a;
+
+// The NUL-terminated fields of `git check-ignore -z` output; undefined when bytes follow the last NUL.
+function nulFields(output) {
+  const fields = [];
+  let start = 0;
+  for (let end = output.indexOf(0); end !== -1; end = output.indexOf(0, start)) {
+    fields.push(output.subarray(start, end));
+    start = end + 1;
+  }
+  return start === output.length ? fields : undefined;
+}
+
+// The asked names whose rule comes from this clone's .git/info/exclude. `check` is the spawnSync result (Buffer
+// output) of `git check-ignore -v -n -z --stdin --no-index` over `./<name>` in the order of `names`, and `gitPath` that
+// of `git rev-parse --git-path info/exclude`, both run in the repository root. A name passes only when its four fields
+// (source, line, pattern, path) hold a pattern that is not empty and not a negation, the path asked, and a source equal
+// byte for byte to the info/exclude path: both outputs come from the same cwd, so equal bytes name the same file and a
+// relative and an absolute form are not taken as one. An exit outside 0 and 1, output not ending in NUL, a field count
+// that is not four per name or a failed --git-path pass no name.
+export function readInfoExcluded(names, check, gitPath) {
+  const excluded = new Set();
+  const fields = check.status === 0 || check.status === 1 ? nulFields(check.stdout) : undefined;
+  if (fields?.length !== names.length * 4 || gitPath.status !== 0) return excluded;
+  const infoExclude =
+    gitPath.stdout.at(-1) === NEWLINE ? gitPath.stdout.subarray(0, -1) : gitPath.stdout;
+  names.forEach((name, index) => {
+    const [source, , pattern, path] = fields.slice(index * 4, index * 4 + 4);
+    if (
+      pattern.length > 0 &&
+      pattern[0] !== NEGATION &&
+      path.equals(Buffer.from(`./${name}`)) &&
+      source.equals(infoExclude)
+    )
+      excluded.add(name);
+  });
+  return excluded;
+}
+
+// Top-level names that this clone's .git/info/exclude excludes as a whole. Each name is asked itself, without a
+// trailing slash, so git answers whether it excludes the root (nothing below an excluded directory is opened again),
+// and with `./` in front so a leading colon is not pathspec magic. A name with U+FFFD is not asked: the listing decodes
+// git output as UTF-8, so the name may stand for other bytes and match a different rule. Without a name to ask, git
+// is not run.
+export function infoExcludedRoots(root, names) {
+  const asked = [...new Set(names)].filter((name) => !name.includes('\uFFFD'));
+  if (asked.length === 0) return new Set();
+  const git = (args, input) =>
+    spawnSync('git', args, { cwd: root, input, maxBuffer: 64 * 1024 * 1024 });
+  return readInfoExcluded(
+    asked,
+    git(
+      ['check-ignore', '-v', '-n', '-z', '--stdin', '--no-index'],
+      asked.map((name) => `./${name}\0`).join(''),
+    ),
+    git(['rev-parse', '--git-path', 'info/exclude']),
+  );
+}
+
+// `report` receives the tracked scope capacity (files and bytes of the allowlist). The outside-manifest-root
+// candidates are found first, so only their top-level names are asked for their ignore source.
 export function checkWorkspaceLayout(root, { report } = {}) {
   const layout = loadWorkspaceLayout();
   const scope = checkTrackedScope(root, layout);
   report?.(scope.report);
+  const entries = listUntrackedEntries(root);
+  const trackedTopLevel = listTrackedTopLevel(root);
+  const candidates = findWorkspaceLayoutIssues(entries, { trackedTopLevel, layout })
+    .filter((issue) => issue.kind === 'outside-manifest-root')
+    .map((issue) => issue.path.split('/').filter(Boolean)[0]);
   return [
-    ...findWorkspaceLayoutIssues(listUntrackedEntries(root), {
-      trackedTopLevel: listTrackedTopLevel(root),
+    ...findWorkspaceLayoutIssues(entries, {
+      trackedTopLevel,
       layout,
+      infoExcluded: infoExcludedRoots(root, candidates),
     }),
     ...findWorkspaceStructureIssues(root, layout),
     ...findGitignoreIssues(root, layout),
