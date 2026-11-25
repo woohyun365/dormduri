@@ -152,18 +152,25 @@ README가, 백오피스 항목(`/backoffice`)의 값은 [백오피스 디자인 
 
 - 판정: Ask
 - 상태: validated
-- 고른 선택지: semantic token 파일. 백오피스 Web의 `apps/backoffice-web/src/app/globals.css` `@theme inline` 한 파일이 원본이고
-  생성기가 없다. 색(층·글자·선·브랜드·상태)·글자 단계·radius·폭 역할 이름을 두고 값은 Tailwind 기본 theme 변수를 참조한다. 간격은
-  Tailwind 기본 배수다. 라이트 하나이고 지금 화면이 쓰는 역할만 둔다. 화면 code(`src/**`, test 밖)와 `.storybook/**`의 Tailwind
-  기본 팔레트·글자 크기·radius·shadow·임의 값은 lint error다. 사용자 Web token은 쓰지 않는다
+- 고른 선택지: semantic token 파일. 백오피스 Web의 `apps/backoffice-web/src/app/globals.css` 한 파일이 원본이고 생성기가 없다.
+  확정한 시각 방향의 raw 값을 `@theme`에 두고, 다른 theme 변수를 참조하는 값(고정폭 글꼴, 좁은 카드 폭)만 `@theme inline`이다.
+  색(셸·층·글자·선·브랜드·로고·상태 다섯 의미·면 채움·scrim)·글자 단계·radius·그림자(drawer·확인 창 하나) 역할 이름과, 폭에 따라
+  바뀌는 밀도 값(page·카드 여백, 카드 사이, 표 칸·입력·menu 줄 여백, 위 막대 높이, 사이드바·목록·drawer 폭)의 spacing 역할 이름을
+  둔다. 폭별 값은 같은 이름을 `:root` media query(1024 미만, 1024~1279)로 바꾼다. 작은 간격은 Tailwind 기본 배수다. 라이트 하나이고
+  지금 화면이 쓰는 역할만 둔다. 화면 code(`src/**`, test 밖)와 `.storybook/**`의 Tailwind 기본 팔레트·글자 크기·radius·shadow·임의
+  값은 lint error다. 사용자 Web token은 쓰지 않는다
 - 근거: 영향은 백오피스 화면 style 전체이고 되돌림은 `costly`(모든 style 참조)다. 내부 운영 도구라 화면이 적고 색 문맥(어두운
-  판·motion)이 없어 생성기·drift test 비용이 이득보다 크다. 값이 한 파일에 있어 시각 방향을 바꿀 때 이름은 두고 값만 바꾼다. 사용자
-  Web과 같은 lint 방식이라 리뷰 기준(`web-fe-design-system.md F1`)이 같다. 비가역이 아니고 CSS·class revert로 되돌린다
+  판·motion)이 없어 생성기·drift test 비용이 이득보다 크다. 값이 한 파일에 있어 시각 방향을 바꿀 때 이름은 두고 값만 바꾼다. 폭별
+  값을 같은 이름의 media query로 바꿔 화면 code는 폭마다 class를 나누지 않는다. 사용자 Web과 같은 lint 방식이라 리뷰 기준
+  (`web-fe-design-system.md F1`)이 같다. 비가역이 아니고 CSS·class revert로 되돌린다
+- 이전 선택: 2026-11-24 값은 Tailwind 기본 theme 변수 참조(`@theme inline`, 지침이 생기기 전 화면 모양의 alias), 간격은 Tailwind 기본
+  배수만. 바꾼 이유: Owner가 시각 방향을 확정해 이름은 두고 값을 확정 값으로 바꾸고(앞 기록이 정한 방식) 폭별 밀도 값을 더함. 출처
+  #994, Owner 확인 2026-11-24
 - 기각한 대안: DTCG JSON과 생성기(사용자 Web 방식, 이 규모에 무겁다), 사용자 Web token 공유(미감을 자동으로 물려받고 한쪽 변경이
   다른 쪽을 바꾼다. 다른 앱 import도 막혀 있다), 화면별 값(`web-fe-design-system.md F1` 결함)
 - 재검토 조건: 어두운 판을 고를 때(같은 이름에 문맥 값을 더함), 같은 lint 규칙을 세 번째 앱이 쓸 때(`@repo/eslint-config`로 올림),
   백오피스가 사용자 Web과 같은 시각 체계를 쓰기로 할 때
-- 출처: #988, Owner 확인 2026-11-24
+- 출처: #988, #994, Owner 확인 2026-11-24
 - pack 결정: [fe.ds.token-layer](../../development/agent-workflows/domain/swe-web/fe.md#fedstoken-layer)
 
 #### fe.ds.copy-authority

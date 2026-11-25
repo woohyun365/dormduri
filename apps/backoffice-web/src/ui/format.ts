@@ -1,19 +1,3 @@
-const KST = new Intl.DateTimeFormat('ko-KR', {
-  timeZone: 'Asia/Seoul',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false,
-});
-
-/** Times are shown in KST (the operators' time), the stored values are UTC ISO strings. */
-export function formatKst(iso: string | null): string {
-  return iso ? `${KST.format(new Date(iso))} KST` : '—';
-}
-
 // KST times by where they show (design guide ⑦). Lists show minutes (`2026-11-24 09:58`); the audit table shows seconds
 // (`2026-11-24 09:58:12`) because rows of one minute are read in order. The column header `(KST)` or a trailing word says
 // KST. Details use seconds with the KST suffix (`2026-11-24 09:58:12 KST`), so a list row and its detail read alike.

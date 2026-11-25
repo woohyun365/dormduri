@@ -117,15 +117,6 @@
 
   /* The narrow column of the sign-in and message pages. */
   --container-narrow: var(--container-md);
-
-  /* Retired by the confirmed direction; kept until the screens that still use them move (design plan Phase OD5b). */
-  --color-fg-disabled: var(--color-slate-400);
-  --color-brand-solid-disabled: var(--color-slate-400);
-  --color-fg-success-strong: var(--color-emerald-900);
-  --text-title-3: var(--text-base);
-  --text-title-3--line-height: var(--text-base--line-height);
-  --radius-box: var(--radius-md);
-  --container-page: var(--container-6xl);
 }
 
 /* Below 1024px: the smaller type scale, density and radius of the confirmed direction; colors stay. */
@@ -181,6 +172,3 @@
 @utility focus-ring {
   @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus;
 }
-
-/* The current item of a link list (`aria-current="page"`). */
-@custom-variant aria-current-page (&[aria-current='page']);
