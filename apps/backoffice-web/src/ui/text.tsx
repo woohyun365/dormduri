@@ -2,7 +2,7 @@ import { Fragment } from 'react';
 import type { BackofficeRole } from '@repo/shared/backoffice';
 import { ROLE_LABELS } from './labels';
 
-// Where a value may wrap (design guide ⑦, D-OD14): the page wraps Korean text between words; these values pick their own
+// Where a value may wrap (design guide ⑦): the page wraps Korean text between words; these values pick their own
 // break points, so a line never splits a date, an address part or a role's code.
 
 /** A time that may wrap only between the date and the clock, never at a hyphen of the date. */

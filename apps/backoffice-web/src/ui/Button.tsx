@@ -13,7 +13,8 @@ const TONES = {
 export type ButtonTone = keyof typeof TONES;
 
 /**
- * Every button of the screens. A small one is 32px tall at every width, a medium one 40px. A long label may wrap at spaces
+ * Every button of the screens. A small one is 32px tall at every width; a medium one is 40px, 32px below 1024px where the
+ * control spacing and the body line shrink (design guide ⑥). A long label may wrap at spaces
  * (`wrap`, a 320px reflow); short labels stay on one line. A button that cannot act yet (busy) keeps its tone, dimmed.
  */
 export function Button({

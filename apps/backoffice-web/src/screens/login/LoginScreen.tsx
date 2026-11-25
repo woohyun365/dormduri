@@ -35,7 +35,7 @@ const ENDED_NOTICES = {
 export type EndedNotice = keyof typeof ENDED_NOTICES;
 
 // An ended session reads as a warning (yellow) and my own revoke as information (blue); red stays for input errors
-// (Owner E-Q15).
+// (design guide ④).
 const ENDED_TONES: Record<EndedNotice, 'warning' | 'info'> = {
   idle: 'warning',
   expired: 'warning',

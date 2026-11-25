@@ -23,7 +23,7 @@ export function success(text: string): ResultMessage {
 
 /**
  * A failure paragraph. In the console a closed session (`session_required`) also brings up the shell's ended notice, an
- * alert, so this paragraph is read after it instead of over it (Owner OD5b Q2); its words and place stay. Everywhere
+ * alert, so this paragraph is read after it instead of over it (README §4); its words and place stay. Everywhere
  * else a failure is an alert.
  */
 export function useFailure(): (code: Parameters<typeof errorMessage>[0]) => ResultMessage {

@@ -137,7 +137,7 @@ export const accountList: AccountListResponse = {
 
 const LONG_ID = '5eb072d4-0000-4000-8000-000000000005';
 
-/** The four accounts plus one with a long Korean name and a long address (D-OD14 line breaks). */
+/** The four accounts plus one with a long Korean name and a long address (design guide ⑦ line breaks). */
 export const longAccountList: AccountListResponse = {
   ...accountList,
   accounts: [
