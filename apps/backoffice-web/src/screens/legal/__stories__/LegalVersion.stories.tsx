@@ -10,7 +10,7 @@ import {
 import { Forbidden as ForbiddenPage } from '../../../ui/Forbidden';
 import { LegalVersionScreen } from '../LegalVersionScreen';
 
-// One published version inside the console shell: its facts, its text as the public screen draws it, a new draft from
+// One published version inside the console shell: its facts, its text in its stored order, a new draft from
 // it, and the withdrawal request of a scheduled version.
 
 const meta = {
@@ -56,7 +56,7 @@ export const WithdrawRequested: Story = {
 
 export const NewDraftDrawer: Story = {
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole('button', { name: '이 판으로 새 초안' }));
+    await userEvent.click(canvas.getByRole('button', { name: '이 판으로 새 초안 만들기' }));
     await canvas.findByRole('dialog', { name: '이 판으로 새 초안' });
   },
 };

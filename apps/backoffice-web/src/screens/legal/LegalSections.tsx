@@ -132,7 +132,7 @@ export function LegalSectionsView({
   );
 }
 
-/** A whole document as the public screen shows it: the title, the summary items and the body. */
+/** A whole document in its stored order: the title, the summary items and the body. */
 export function LegalDocumentView({
   label,
   title,

@@ -31,6 +31,14 @@ afterEach(() => {
 });
 
 describe('postBff', () => {
+  it('refuses a body past the BFF limit without sending it', async () => {
+    // Three bytes per Hangul syllable: 30,000 of them are about 88 KiB, past the 64 KiB the BFF reads.
+    fetchMock.mockResolvedValue(answer(200, {}, false));
+    const result = await postBff('/api/legal/drafts', { text: '가'.repeat(30_000) });
+    expect(result).toEqual({ ok: false, status: 0, code: 'body_too_large' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['a success the API answered', answer(200, { ok: true }, true), 1],
     [

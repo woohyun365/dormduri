@@ -128,7 +128,7 @@ describe('LegalVersionScreen', () => {
     };
     fetchMock.mockResolvedValue(respond(200, created));
     render(<LegalVersionScreen version={VERSION} state="current" canEdit />);
-    await userEvent.click(screen.getByRole('button', { name: '이 판으로 새 초안' }));
+    await userEvent.click(screen.getByRole('button', { name: '이 판으로 새 초안 만들기' }));
     const drawer = screen.getByRole('dialog', { name: '이 판으로 새 초안' });
     await userEvent.type(
       within(drawer).getByRole('textbox', { name: '변경 요약' }),

@@ -2,7 +2,7 @@
 
 import type { Route } from 'next';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState, type Ref } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 import type {
   AccountListResponse,
   LegalDecisionCheck,
@@ -109,8 +109,9 @@ function CheckLine({ check }: { readonly check: LegalDecisionCheck | null }) {
 }
 
 /**
- * The chosen request (design guide ④ master-detail): what it names — the summary items, the notice class, the date,
- * the reconsent mark — the comparison with the version before it (or the whole text where none comes before), the
+ * The chosen request (design guide ④ master-detail): what it names — the title, the summary items, the notice class,
+ * the date, the reconsent mark — the comparison with the version before it (or the whole text where none comes before,
+ * which shows its title and summary items), the
  * checks as of now and, while it waits, the decision area. Approve opens only after the approver marks that they read
  * the comparison or the text with the class and the date, and while the checks do not refuse.
  */
@@ -144,8 +145,20 @@ function RequestDetail({
   const markLabel = previousVersion
     ? '대조표와 고지 등급·시행일을 확인했습니다'
     : '본문 전체와 고지 등급·시행일을 확인했습니다';
-  const rows: [string, string][] = [];
+  const rows: [string, ReactNode][] = [];
   if (shown) {
+    // The comparison holds the sections only: a changed title reads here, against the version before it.
+    rows.push([
+      '제목',
+      <>
+        {shown.title}
+        {previousVersion && previousVersion.title !== shown.title ? (
+          <span className="block text-caption font-semibold text-fg-warning">
+            앞 판과 다름: {previousVersion.title}
+          </span>
+        ) : null}
+      </>,
+    ]);
     rows.push(['고지 등급', LEGAL_NOTICE_CLASS_LABELS[shown.noticeClass]]);
     rows.push(
       shown.noticeClass === 'HISTORICAL'
@@ -218,6 +231,29 @@ function RequestDetail({
             <h3 className="text-label font-semibold text-fg-label">변경 요약</h3>
             <p className="text-body text-fg-neutral">{shown.changeSummary}</p>
           </div>
+          {previousVersion ? (
+            // Summary items lead the public screen but are not sections, so the comparison never shows them.
+            <div className="flex flex-col gap-1">
+              <h3 id="legal-request-summary" className="text-label font-semibold text-fg-label">
+                요약 항목
+              </h3>
+              {shown.summaryItems.length ? (
+                <ul
+                  aria-labelledby="legal-request-summary"
+                  className="flex list-disc flex-col gap-1 pl-5 text-body text-fg-neutral"
+                >
+                  {shown.summaryItems.map((item, index) => (
+                    <li key={index}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-body text-fg-description">요약 항목이 없습니다.</p>
+              )}
+              <p className="text-caption text-fg-description">
+                대조표는 본문 조항만 비교합니다. 요약 항목은 이 판에 들어갈 값 그대로입니다.
+              </p>
+            </div>
+          ) : null}
           <CheckLine check={check} />
           <h3 className="text-label font-semibold text-fg-label">
             {previousVersion ? '조항 대조표' : '본문 전체'}
@@ -427,6 +463,17 @@ export function LegalRequestsScreen({
   const failure = useFailure();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<ResultMessage | null>(null);
+  // After a decision or a cancel the decision area stays closed until the page reads the request again (its status
+  // moves on and the area leaves), and focus waits on the result instead of falling to the page (design guide ④).
+  const [decidedRead, setDecidedRead] = useState<string | null>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+  const focusResult = useRef(false);
+  useEffect(() => {
+    if (!message || !focusResult.current) return;
+    focusResult.current = false;
+    resultRef.current?.focus();
+  }, [message]);
+  const selectedRead = selected ? `${selected.request.id}:${selected.request.status}` : null;
   const [decisionFailure, setDecisionFailure] = useState<ResultMessage | null>(null);
   const selectedKey = selected?.request.id ?? null;
   const [shownKey, setShownKey] = useState(selectedKey);
@@ -464,6 +511,8 @@ export function LegalRequestsScreen({
       setDecisionFailure(failure(result.code));
       return;
     }
+    setDecidedRead(`${request.id}:${request.status}`);
+    focusResult.current = true;
     setMessage(success(approve ? '요청을 승인했습니다.' : '요청을 거절했습니다.'));
     keepChosen(request.id);
   }
@@ -478,6 +527,8 @@ export function LegalRequestsScreen({
       setDecisionFailure(failure(result.code));
       return;
     }
+    setDecidedRead(`${request.id}:${request.status}`);
+    focusResult.current = true;
     setMessage(success('요청을 취소했습니다.'));
     keepChosen(request.id);
   }
@@ -486,7 +537,7 @@ export function LegalRequestsScreen({
     <>
       <PageHeader title="게시 요청" meta={`이 목록의 대기 ${pendingCount}건`} />
       {message ? (
-        <Notice tone={message.tone} role={message.role}>
+        <Notice tone={message.tone} role={message.role} focusRef={resultRef}>
           {message.text}
         </Notice>
       ) : null}
@@ -515,7 +566,7 @@ export function LegalRequestsScreen({
             selfAccountId={selfAccountId}
             canApprove={canApprove}
             canCancel={canEdit}
-            pending={pending}
+            pending={pending || decidedRead === selectedRead}
             failure={decisionFailure}
             onDecide={(approve, reason) => void decide(selected.request, approve, reason)}
             onCancel={() => void cancel(selected.request)}

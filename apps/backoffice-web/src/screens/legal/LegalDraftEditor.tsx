@@ -2,7 +2,7 @@
 
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   legalDraftUpdateRequestSchema,
   type AccountListResponse,
@@ -134,11 +134,23 @@ export function LegalDraftEditor({
   const [baseline, setBaseline] = useState(() => serialized(editableContent(draft.content)));
   const [message, setMessage] = useState<ResultMessage | null>(null);
   const [pending, setPending] = useState(false);
+  // A publish request or a discard removes the button that started it once the page reads the draft again: the button
+  // stays closed until then, and focus waits on the result instead of falling to the page (design guide ④).
+  const [awaitingRead, setAwaitingRead] = useState<string | null>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+  const focusResult = useRef(false);
+  useEffect(() => {
+    if (!message || !focusResult.current) return;
+    focusResult.current = false;
+    resultRef.current?.focus();
+  }, [message]);
   const [signs, setSigns] = useState<readonly boolean[]>(SIGNIFICANT_SIGNS.map(() => false));
   const [discardOpen, setDiscardOpen] = useState(false);
   const [discardFailure, setDiscardFailure] = useState<ResultMessage | null>(null);
   const [requestReason, setRequestReason] = useState('');
   // A refresh after another operator's save brings a newer revision: take it unless this screen has unsaved changes.
+  // `shownRevision` is the revision the content on screen builds on, so a save or a discard sends it and the API's
+  // conditional update refuses one that would overwrite a newer save this screen has not shown.
   const [shownRevision, setShownRevision] = useState(draft.revision);
   const dirtyNow = serialized(content) !== baseline;
   if (draft.revision > shownRevision && !dirtyNow) {
@@ -147,6 +159,9 @@ export function LegalDraftEditor({
     setContent(editableContent(draft.content));
     setBaseline(serialized(editableContent(draft.content)));
   }
+  // The page's read of the draft: a new read (another status or save) ends the wait after a publish request.
+  const readKey = `${draft.status}:${draft.revision}:${draft.updatedAt}`;
+  const awaiting = awaitingRead === readKey;
   // The newer of what the page read and what this screen saved; at the same revision the page's read has the status.
   const current = saved.revision > draft.revision ? saved : draft;
   const editable = canEdit && current.status === 'EDITING';
@@ -159,7 +174,7 @@ export function LegalDraftEditor({
 
   async function save() {
     if (!editable || pending) return;
-    const body = { revision: current.revision, draft: importBody(content) };
+    const body = { revision: shownRevision, draft: importBody(content) };
     const parsed = legalDraftUpdateRequestSchema.safeParse(body);
     if (!parsed.success) {
       const lines = describeIssues(
@@ -186,13 +201,13 @@ export function LegalDraftEditor({
   }
 
   async function requestPublish() {
-    if (!editable || dirty || pending) return;
+    if (!editable || dirty || pending || awaiting) return;
     setPending(true);
     setMessage(null);
     const reason = requestReason.trim();
     const result = await withReauthentication(() =>
       postBff<LegalRequest>(`/api/legal/drafts/${draft.id}/publish-requests`, {
-        revision: current.revision,
+        revision: shownRevision,
         ...(reason ? { reason } : {}),
       }),
     );
@@ -202,6 +217,8 @@ export function LegalDraftEditor({
       return;
     }
     setRequestReason('');
+    setAwaitingRead(readKey);
+    focusResult.current = true;
     setMessage(success('게시 승인을 요청했습니다. 승인 권한 운영자가 결정합니다.'));
     router.refresh();
   }
@@ -210,7 +227,7 @@ export function LegalDraftEditor({
     setPending(true);
     setDiscardFailure(null);
     const result = await postBff<LegalDraft>(`/api/legal/drafts/${draft.id}/discard`, {
-      revision: current.revision,
+      revision: shownRevision,
     });
     setPending(false);
     if (!result.ok) {
@@ -220,6 +237,7 @@ export function LegalDraftEditor({
     setDiscardOpen(false);
     setSaved(result.data);
     setShownRevision(result.data.revision);
+    focusResult.current = true;
     setMessage(success('초안을 버렸습니다.'));
     router.refresh();
   }
@@ -241,7 +259,7 @@ export function LegalDraftEditor({
         }
       />
       {message ? (
-        <Notice tone={message.tone} role={message.role}>
+        <Notice tone={message.tone} role={message.role} focusRef={resultRef}>
           {message.text}
         </Notice>
       ) : null}
@@ -457,7 +475,7 @@ export function LegalDraftEditor({
       </form>
       <Card id="legal-draft-preview" title="미리보기">
         <p className="text-caption text-fg-muted">
-          공개 화면과 같은 순서로 글자 그대로 그립니다. 저장하지 않은 변경도 보입니다.
+          제목·요약 항목·본문을 저장될 순서와 글자 그대로 그립니다. 저장하지 않은 변경도 보입니다.
         </p>
         <LegalDocumentView
           label="미리보기"
@@ -499,7 +517,7 @@ export function LegalDraftEditor({
           <div className="flex flex-wrap items-center gap-2">
             <Button
               tone="secondary"
-              disabled={pending || dirty}
+              disabled={pending || dirty || awaiting}
               onClick={() => void requestPublish()}
             >
               게시 승인 요청

@@ -295,20 +295,20 @@ export function SectionsEditor({
                     <Button
                       tone="secondary"
                       size="sm"
-                      aria-label={`본문 ${number} 위로`}
+                      aria-label={`본문 ${number} 위로 옮기기`}
                       disabled={index === 0}
                       onClick={() => onChange(moveSection(sections, index, -1))}
                     >
-                      위로
+                      위로 옮기기
                     </Button>
                     <Button
                       tone="secondary"
                       size="sm"
-                      aria-label={`본문 ${number} 아래로`}
+                      aria-label={`본문 ${number} 아래로 옮기기`}
                       disabled={index === sections.length - 1}
                       onClick={() => onChange(moveSection(sections, index, 1))}
                     >
-                      아래로
+                      아래로 옮기기
                     </Button>
                     <Button
                       tone="danger"

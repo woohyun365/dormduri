@@ -168,7 +168,7 @@ function NewDraftDrawer({
 }
 
 /**
- * One published version (README §8): its facts, its text as the public screen draws it and, for the editor, a new draft
+ * One published version (README §8): its facts, its text in its stored order and, for the editor, a new draft
  * from it. A scheduled general or significant version can be asked to be withdrawn (a risky confirmation with a
  * passkey, OA-R4); its own approver decides on the requests screen.
  */
@@ -234,7 +234,9 @@ export function LegalVersionScreen({
         title={`${LEGAL_KIND_LABELS[version.kind]} ${version.effectiveDate} 판`}
         meta={state ? LEGAL_VERSION_STATE_LABELS[state] : undefined}
         actions={
-          canEdit ? <Button onClick={() => setNewOpen(true)}>이 판으로 새 초안</Button> : null
+          canEdit ? (
+            <Button onClick={() => setNewOpen(true)}>이 판으로 새 초안 만들기</Button>
+          ) : null
         }
       />
       {message ? (

@@ -27,17 +27,21 @@ export const SECTION_TYPE_LABELS: Record<SectionType, string> = {
   callout: '안내 상자',
 };
 
-let keySeed = 0;
-/** A key for a section the editor adds or reads; only the editor sees it. */
+let addedSeed = 0;
+/**
+ * A key for a section the operator adds. Only the browser makes one, after the page drew the saved sections, so a server
+ * render never takes one and the two renders agree on every id built from a key.
+ */
 export function sectionKey(): string {
-  keySeed += 1;
-  return `section-${keySeed}`;
+  addedSeed += 1;
+  return `added-${addedSeed}`;
 }
 
+/** The saved sections keyed by their place: the same content gets the same keys on the server and in the browser. */
 export function editableContent(content: LegalDraftContent): EditableContent {
   return {
     ...content,
-    sections: content.sections.map((section) => ({ key: sectionKey(), section })),
+    sections: content.sections.map((section, index) => ({ key: `saved-${index}`, section })),
   };
 }
 
@@ -108,10 +112,13 @@ function issueText(issue: z.core.$ZodIssue): string {
 
 function issuePlace(path: readonly PropertyKey[], sections: readonly SectionType[]): string {
   const [field, index] = path;
+  // An issue about the draft itself (not an object, or a key the contract does not know) has no field.
+  if (field === undefined) return '파일 전체';
   const name = FIELD_LABELS[String(field)] ?? String(field);
   if (field === 'sections' && typeof index === 'number') {
-    const type = sections[index];
-    return `본문 ${index + 1}${type ? `(${SECTION_TYPE_LABELS[type]})` : ''}`;
+    // A type the contract does not know (an imported file) has no label; the place alone names it.
+    const label = SECTION_TYPE_LABELS[sections[index] as SectionType] as string | undefined;
+    return `본문 ${index + 1}${label ? `(${label})` : ''}`;
   }
   if (field === 'summaryItems' && typeof index === 'number') return `요약 항목 ${index + 1}`;
   return name;

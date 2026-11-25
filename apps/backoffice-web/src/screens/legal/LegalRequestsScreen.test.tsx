@@ -191,6 +191,46 @@ describe('LegalRequestsScreen', () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  it('shows the summary items and a changed title next to the comparison, which compares sections only', () => {
+    renderScreen(
+      detail({
+        draft: {
+          ...DRAFT,
+          content: {
+            ...DRAFT.content,
+            title: '개인정보 처리방침(개정)',
+            summaryItems: ['접속 기록을 3년 보관합니다.'],
+          },
+        },
+      }),
+    );
+    const region = screen.getByRole('region', { name: '게시 요청 · 개인정보 처리방침' });
+    expect(within(region).getByRole('list', { name: '요약 항목' })).toBeVisible();
+    expect(within(region).getByRole('list', { name: '요약 항목' })).toHaveTextContent(
+      '접속 기록을 3년 보관합니다.',
+    );
+    // The title also stands in the closed whole text; the facts list shows it first.
+    expect(within(region).getAllByText('개인정보 처리방침(개정)')[0]).toBeVisible();
+    expect(within(region).getByText('앞 판과 다름: 개인정보 처리방침')).toBeVisible();
+  });
+
+  it('keeps the decision closed after a decision until the page reads it again, and focuses the result', async () => {
+    fetchMock.mockResolvedValue(decided());
+    renderScreen(detail());
+    const region = screen.getByRole('region', { name: '게시 요청 · 개인정보 처리방침' });
+    const decision = within(region).getByRole('form', { name: /결정$/u });
+    await userEvent.click(
+      within(decision).getByRole('checkbox', {
+        name: '대조표와 고지 등급·시행일을 확인했습니다',
+      }),
+    );
+    await userEvent.click(within(decision).getByRole('button', { name: '승인' }));
+    const result = await screen.findByText('요청을 승인했습니다.');
+    expect(within(decision).getByRole('button', { name: '승인' })).toBeDisabled();
+    expect(within(decision).getByRole('button', { name: '거절' })).toBeDisabled();
+    await waitFor(() => expect(result.closest('[role="status"]')).toHaveFocus());
+  });
+
   it('reads the decided request again where the query already names it', async () => {
     search.params = new URLSearchParams({ status: 'PENDING', request: REQUEST_ID });
     fetchMock.mockResolvedValue(respond(200, request({ status: 'CANCELLED' })));

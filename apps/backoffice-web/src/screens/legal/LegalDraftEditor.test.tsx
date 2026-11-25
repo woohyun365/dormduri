@@ -136,7 +136,7 @@ describe('LegalDraftEditor', () => {
     await userEvent.click(screen.getByRole('button', { name: '문단 더하기' }));
     const added = screen.getByRole('group', { name: '본문 3 · 문단' });
     await userEvent.type(within(added).getByRole('textbox', { name: '문단' }), '새 문단');
-    await userEvent.click(within(added).getByRole('button', { name: '본문 3 위로' }));
+    await userEvent.click(within(added).getByRole('button', { name: '본문 3 위로 옮기기' }));
     expect(screen.getByRole('group', { name: '본문 2 · 문단' })).toBeInTheDocument();
     await userEvent.click(
       within(screen.getByRole('group', { name: '본문 3 · 표' })).getByRole('button', {
@@ -160,7 +160,70 @@ describe('LegalDraftEditor', () => {
     expect(screen.getByText('저장하지 않은 변경이 있습니다. 저장한 뒤 요청하세요.')).toBeVisible();
   });
 
-  it('keeps a draft waiting for approval read-only and points at its request', () => {
+  it('saves at the revision the screen edits when a newer one arrives with unsaved changes', async () => {
+    fetchMock.mockResolvedValue(respond(409, { error: { code: 'conflict' } }));
+    const { rerender } = render(<LegalDraftEditor detail={detail()} accounts={null} canEdit />);
+    await userEvent.type(screen.getByRole('textbox', { name: '제목' }), ' 개정');
+    // Another operator saved; the page read it again (router.refresh after this screen's own action).
+    const newer = draft({ revision: 5 });
+    rerender(
+      <LegalDraftEditor
+        detail={{
+          ...detail(),
+          draft: { ...newer, content: { ...newer.content, title: '다른 제목' } },
+        }}
+        accounts={null}
+        canEdit
+      />,
+    );
+    expect(screen.getByRole('textbox', { name: '제목' })).toHaveValue('개인정보 처리방침 개정');
+    await userEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchMock.mock.calls[0]![1]!.body)).revision).toBe(4);
+    expect(await screen.findByRole('alert')).toHaveTextContent('이미 처리됐거나');
+  });
+
+  it('moves focus to the result once the discard removes the button that opened it', async () => {
+    fetchMock.mockResolvedValue(respond(200, draft({ status: 'DISCARDED', revision: 5 })));
+    render(<LegalDraftEditor detail={detail()} accounts={null} canEdit />);
+    await userEvent.click(screen.getByRole('button', { name: '초안 버리기' }));
+    await userEvent.click(
+      within(screen.getByRole('alertdialog', { name: '초안 버리기' })).getByRole('button', {
+        name: '버리기',
+      }),
+    );
+    const text = await screen.findByText('초안을 버렸습니다.');
+    await waitFor(() => expect(text.closest('[role="status"]')).toHaveFocus());
+    expect(screen.queryByRole('button', { name: '초안 버리기' })).toBeNull();
+  });
+
+  it('keeps the publish request closed until the page reads the waiting draft', async () => {
+    fetchMock.mockResolvedValue(
+      respond(200, {
+        id: '6b2e1d3f-0000-4000-8000-0000000000e1',
+        kind: 'LEGAL_PUBLISH',
+        status: 'PENDING',
+        contentDigest: 'c'.repeat(64),
+        targetLegalDraftId: DRAFT_ID,
+        targetLegalVersionId: null,
+        requestedByAccountId: AUTHOR,
+        requestReason: null,
+        expiresAt: '2026-12-02T01:00:00.000Z',
+        decidedByAccountId: null,
+        closedAt: null,
+        decisionReason: null,
+        selfApproved: false,
+        createdAt: '2026-11-25T03:00:00.000Z',
+      }),
+    );
+    render(<LegalDraftEditor detail={detail()} accounts={null} canEdit />);
+    await userEvent.click(screen.getByRole('button', { name: '게시 승인 요청' }));
+    expect(await screen.findByText(/게시 승인을 요청했습니다/u)).toBeVisible();
+    expect(router.refresh).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: '게시 승인 요청' })).toBeDisabled();
+  });
+
+  it('keeps a draft waiting for approval read-only and points at the waiting requests', () => {
     render(
       <LegalDraftEditor detail={detail({ status: 'PENDING_APPROVAL' })} accounts={null} canEdit />,
     );

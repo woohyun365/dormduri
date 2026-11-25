@@ -359,7 +359,7 @@ function ageNoticeVersion(page: Page, state: string) {
 async function newDraftFromCurrent(page: Page, changeSummary: string) {
   await openLegal(page, '문서 판');
   await ageNoticeVersion(page, '시행 중').getByRole('link').click();
-  await page.getByRole('button', { name: '이 판으로 새 초안' }).click();
+  await page.getByRole('button', { name: '이 판으로 새 초안 만들기' }).click();
   const drawer = page.getByRole('dialog', { name: '이 판으로 새 초안' });
   await drawer.getByLabel('변경 요약', { exact: true }).fill(changeSummary);
   await drawer.getByRole('button', { name: '초안 만들기' }).click();

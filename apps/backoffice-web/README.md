@@ -44,7 +44,8 @@
   `Sec-Fetch-Site`가 `same-origin`이며 `Host`가 `localhost:4300`인지(하나라도 없거나 다르면 403 `forbidden_origin`), ② path id가
   UUID인지(아니면 404), ③ session이 필요한 route에 cookie가 있는지(없으면 401), ④ 본문이 `application/json`이고(아니면 415)
   64 KiB 이하이며(넘으면 그 자리에서 읽기를 멈춤) shared 요청 schema에 맞는지(아니면 400)를 본 뒤에만 API를 한 번 부른다. 앞 단계에서 거절한 요청은 API에 닿지
-  않는다. 모든 응답은 `Cache-Control: no-store`다.
+  않는다. 모든 응답은 `Cache-Control: no-store`다. 본문 상한(`src/bff/body-limit.ts`)은 browser client(`postBff`)도
+  지켜 넘는 본문을 보내지 않고 그 이유(`body_too_large`)를 결과 문단으로 보인다.
 - `SameSite=Strict`는 같은 site인 다른 localhost port(사용자 Web 개발 server 3000, Grafana 터널 3001)의 요청을 막지 못한다. 위
   출처 대조가 browser가 보내는 위조 요청을 막고, 운영자 컴퓨터 안 process가 cookie를 재사용하는 것은 막지 못한다(전용 browser
   profile 안내는 배포 runbook).
@@ -154,7 +155,7 @@ pnpm backoffice-web:e2e:prepared
   아래 경로라 셸의 지금 항목이 그 항목이다. 편집 단추(저장·게시 요청·버림·새 초안·철회 요청)는 `admin:legal:edit`, 결정 영역은
   `admin:legal:approve`가 있을 때만 보인다. 판정은 API가 한다.
 - 문서 판: 네 문서 종류마다 판 목록(시행일·상태·고지 등급·적용 끝·공지 시작·재동의)이다. 상태(시행 예정·시행 중·이전 판·철회)는
-  API의 DB 시계 판정이고 판 상세도 그 목록에서 상태를 읽는다. 판 상세는 공개 화면과 같은 순서의 본문, `이 판으로 새 초안`(일반·중대,
+  API의 DB 시계 판정이고 판 상세도 그 목록에서 상태를 읽는다. 판 상세는 제목·요약 항목·본문 section을 저장된 순서 그대로 그린 본문, `이 판으로 새 초안 만들기`(일반·중대,
   제안 시행일 기본값은 KST 오늘 + 7일·30일)과 시행 예정 일반·중대 판의 `철회 요청`(확인 창, 재인증)을 둔다.
 - 초안 편집기(폼 패턴): 기본 정보(제목·고지 등급·시행일·이전 판 기록의 적용 끝·재동의), 요약 항목, 변경 요약, 본문 section 구조
   편집(조 제목·문단·목록·표·안내 상자의 더하기·지우기·위아래 이동, 표 열·행 더하기·지우기는 머리와 모든 행의 칸 수를 같이 맞춤),
