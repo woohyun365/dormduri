@@ -2,6 +2,8 @@ import 'server-only';
 import {
   accessRequestListQuerySchema,
   accessRequestListResponseSchema,
+  legalRequestListQuerySchema,
+  legalRequestListResponseSchema,
   type SessionInfoResponse,
 } from '@repo/shared/backoffice';
 import type { PendingRequests } from '@/screens/home/HomeDashboard';
@@ -22,6 +24,28 @@ export async function readPendingRequests(session: SessionInfoResponse): Promise
       '/access/requests',
       accessRequestListResponseSchema,
       toSearchParams(accessRequestListQuerySchema.parse({ status: 'PENDING' })),
+    );
+    if (read.kind === 'forbidden') return 'unavailable';
+    return { count: read.data.requests.length, overflow: read.data.nextPage !== null };
+  } catch (error) {
+    if (error instanceof BackofficeUnavailableError) return 'unavailable';
+    throw error;
+  }
+}
+
+/**
+ * The home's pending legal publish and withdraw requests, read the same way for an approver of them
+ * (`admin:legal:approve`, which the owner role also holds).
+ */
+export async function readPendingLegalRequests(
+  session: SessionInfoResponse,
+): Promise<PendingRequests> {
+  if (!hasPermission(session, 'admin:legal:approve')) return null;
+  try {
+    const read = await readBackoffice(
+      '/legal/requests',
+      legalRequestListResponseSchema,
+      toSearchParams(legalRequestListQuerySchema.parse({ status: 'PENDING' })),
     );
     if (read.kind === 'forbidden') return 'unavailable';
     return { count: read.data.requests.length, overflow: read.data.nextPage !== null };

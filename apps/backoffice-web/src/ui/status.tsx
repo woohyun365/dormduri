@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { AccessRequest } from '@repo/shared/backoffice';
+import type { AccessRequest, LegalDraftStatus, LegalVersionState } from '@repo/shared/backoffice';
 
 /** The five status meanings of the screens (design guide ⑥): waiting, in progress or neutral news, done, attention, failed. */
 export type Meaning = 'pending' | 'info' | 'success' | 'warning' | 'danger';
@@ -19,6 +19,22 @@ export const REQUEST_STATUS_MEANING: Record<AccessRequest['status'], Meaning> = 
   REJECTED: 'danger',
   CANCELLED: 'pending',
   EXPIRED: 'warning',
+};
+
+/** A legal draft: waiting for a decision, published, or left. */
+export const LEGAL_DRAFT_STATUS_MEANING: Record<LegalDraftStatus, Meaning> = {
+  EDITING: 'info',
+  PENDING_APPROVAL: 'pending',
+  PUBLISHED: 'success',
+  DISCARDED: 'pending',
+};
+
+/** A published legal version as of the database clock. */
+export const LEGAL_VERSION_STATE_MEANING: Record<LegalVersionState, Meaning> = {
+  scheduled: 'info',
+  current: 'success',
+  previous: 'pending',
+  withdrawn: 'warning',
 };
 
 const AUDIT_RESULT_MEANING: Readonly<Record<string, Meaning>> = {

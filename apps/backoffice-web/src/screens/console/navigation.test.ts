@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { BackofficePermission } from '@repo/shared/backoffice';
 import { currentItem, locate, NAVIGATION, visibleNavigation } from './navigation';
 
-// The console menu groups (design guide ③): today's five items in work groups, hidden by permission as before.
+// The console menu groups (design guide ③): the items in work groups, hidden by permission. The legal documents group
+// shows with either legal permission (the owner role holds both, backoffice-api README §8).
 
 const EVERY: readonly BackofficePermission[] = [
   'admin:account:invite',
@@ -11,6 +12,8 @@ const EVERY: readonly BackofficePermission[] = [
   'admin:access:approve',
   'admin:audit:read',
   'admin:audit:review',
+  'admin:legal:edit',
+  'admin:legal:approve',
 ];
 
 function shape(groups: ReturnType<typeof visibleNavigation>) {
@@ -21,7 +24,7 @@ function shape(groups: ReturnType<typeof visibleNavigation>) {
 }
 
 describe('console navigation (design guide ③)', () => {
-  it("groups the menu as 홈 · 운영자 관리 · 감사 · 내 설정 with today's labels and paths", () => {
+  it('groups the menu as 홈 · 운영자 관리 · 법적 문서 · 감사 · 내 설정 with their labels and paths', () => {
     expect(shape(visibleNavigation(EVERY))).toEqual([
       { label: null, items: [['홈', '/']] },
       {
@@ -31,10 +34,53 @@ describe('console navigation (design guide ③)', () => {
           ['권한 요청', '/access'],
         ],
       },
+      {
+        label: '법적 문서',
+        items: [
+          ['문서 판', '/legal'],
+          ['초안', '/legal/drafts'],
+          ['게시 요청', '/legal/requests'],
+        ],
+      },
       { label: '감사', items: [['감사 기록', '/audit']] },
       { label: '내 설정', items: [['내 보안 설정', '/security']] },
     ]);
-    expect(NAVIGATION.flatMap((group) => group.items)).toHaveLength(5);
+    expect(NAVIGATION.flatMap((group) => group.items)).toHaveLength(8);
+  });
+
+  it('shows the legal documents group with either legal permission and hides it without both', () => {
+    const legal = {
+      label: '법적 문서',
+      items: [
+        ['문서 판', '/legal'],
+        ['초안', '/legal/drafts'],
+        ['게시 요청', '/legal/requests'],
+      ],
+    };
+    expect(shape(visibleNavigation(['admin:legal:edit']))).toContainEqual(legal);
+    expect(shape(visibleNavigation(['admin:legal:approve']))).toContainEqual(legal);
+    expect(
+      visibleNavigation(['admin:audit:read', 'admin:access:request']).map((group) => group.label),
+    ).not.toContain('법적 문서');
+  });
+
+  it("marks a legal page's menu item for its sub pages, and only on a path segment", () => {
+    const groups = visibleNavigation(EVERY);
+    const DRAFT = '/legal/drafts/0f8fad5b-d9cb-469f-a165-70867728950e';
+    expect(currentItem(groups, '/legal')?.label).toBe('문서 판');
+    expect(currentItem(groups, '/legal/versions/privacy-2026-06-22')?.label).toBe('문서 판');
+    expect(currentItem(groups, '/legal/drafts?status=EDITING')?.label).toBe('초안');
+    expect(currentItem(groups, DRAFT)?.label).toBe('초안');
+    expect(currentItem(groups, '/legal/requests?request=x')?.label).toBe('게시 요청');
+    expect(currentItem(groups, '/legalese')).toBeNull();
+    expect(currentItem(groups, '/accounts/x')?.label).toBe('운영자 계정');
+    expect(locate(DRAFT)).toEqual({ group: '법적 문서', page: '초안' });
+    expect(locate('/legal/versions/privacy-2026-06-22')).toEqual({
+      group: '법적 문서',
+      page: '문서 판',
+    });
+    // The home is only the root, never a prefix of every path.
+    expect(locate('/missing')).toBeNull();
   });
 
   it('hides an item without its permission and drops a group left empty', () => {

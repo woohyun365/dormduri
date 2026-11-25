@@ -130,6 +130,7 @@ export const API_TEST_REPOSITORY_INPUTS = {
     'docs/policies/production-runtime-safety.md',
     'docs/policies/season-lifecycle.md',
     'docs/runbooks/README.md',
+    'docs/runbooks/legal-publication.md',
     'docs/runbooks/observability/api-stress-release-runbook.md',
     'docs/runbooks/season-operation.md',
     'infra/README.md',

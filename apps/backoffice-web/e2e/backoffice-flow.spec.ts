@@ -9,10 +9,11 @@ import {
 
 /**
  * Registration → login → access request → approval → audit against the real backoffice API, with
- * the owner on a platform passkey and the second operator on a security key, then every other BFF
- * route once (rejection, cancellation, invitation revoke, deactivation, monthly review, credential
- * reissue, recovery logins and a recovery passkey), so each route meets the real API's status and
- * body. Every page is checked for CSP violations; the session cookie and the response headers are
+ * the owner on a platform passkey and the second operator on a security key, then the legal
+ * documents (JSON import → edit → publish request → single-approver approval → comparison →
+ * withdrawal) and every other BFF route once (rejection, cancellation, invitation revoke,
+ * deactivation, monthly review, credential reissue, recovery logins and a recovery passkey), so each
+ * route meets the real API's status and body. Every page is checked for CSP violations; the session cookie and the response headers are
  * checked on the real responses.
  */
 
@@ -40,7 +41,8 @@ const CLOSED_LOGIN_NOTICE = `${CLOSED_SHELL_NOTICE} 다시 로그인하세요.`;
 
 /** BFF routes that answered 2xx in the flow, path ids replaced by `:id`. */
 const reachedRoutes = new Set<string>();
-const UUID_SEGMENT = /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=\/)/gu;
+// A path id is a segment of its own, inside the path or at its end (a legal draft save posts to the draft's path).
+const UUID_SEGMENT = /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=\/|$)/gu;
 
 interface Operator {
   readonly context: BrowserContext;
@@ -290,6 +292,80 @@ test('the owner invites an operator who registers with a security key', async ()
   await expect(operator.page.getByRole('link', { name: '감사 기록' })).toHaveCount(0);
 });
 
+/** A first publication in the shared import format, as the seed export command writes one (backoffice-api README §8). */
+const AGE_NOTICE_IMPORT = {
+  kind: 'AGE_14_OR_ABOVE_NOTICE',
+  contentSchemaVersion: 1,
+  title: '만 14세 이상 확인',
+  summaryItems: [],
+  sections: [{ type: 'paragraph', text: '만 14세 이상만 가입할 수 있습니다.' }],
+  changeSummary: '첫 게시',
+  noticeClass: 'INITIAL',
+  consentRequired: false,
+  proposedEffectiveDate: '2026-06-22',
+};
+const AGE_NOTICE = '만 14세 이상 확인';
+
+/** The menu link of a legal screen (the page body may hold a `게시 요청 보기` link too). */
+async function openLegal(page: Page, name: '문서 판' | '초안' | '게시 요청') {
+  await page
+    .getByRole('navigation', { name: '백오피스 메뉴' })
+    .getByRole('link', { name, exact: true })
+    .click();
+  await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+}
+
+/** Saves the editor and asks for the publication; the page then reads the draft as waiting. */
+async function saveAndRequestPublish(page: Page) {
+  await page.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: '초안을 저장했습니다.' })).toBeVisible();
+  await page.getByRole('button', { name: '게시 승인 요청' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: '게시 승인을 요청했습니다.' }),
+  ).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '제목', exact: true })).toBeDisabled();
+}
+
+/** The newest legal request is chosen when the requests page opens; returns its detail region. */
+async function newestLegalRequest(page: Page, kind: '게시 요청' | '철회 요청') {
+  await openLegal(page, '게시 요청');
+  const detail = page.getByRole('region', { name: `${kind} · ${AGE_NOTICE}` });
+  await expect(detail.getByText('대기', { exact: true })).toBeVisible();
+  return detail;
+}
+
+/** Approves the chosen request as the only approver: the reading mark, the reason, a passkey when asked. */
+async function selfApprove(detail: ReturnType<Page['getByRole']>, mark: string) {
+  const decision = detail.getByRole('form', { name: /결정$/u });
+  await expect(decision.getByRole('button', { name: '승인' })).toBeDisabled();
+  await decision.getByRole('checkbox', { name: mark }).check();
+  await decision
+    .getByLabel('자기 승인 사유(필수)', { exact: true })
+    .fill('승인 권한 운영자가 한 명뿐임');
+  await decision.getByRole('button', { name: '승인' }).click();
+  await expect(decision).toHaveCount(0);
+  await expect(detail.getByText('자기 승인', { exact: true })).toBeVisible();
+}
+
+/** A version of the age notice in the documents overview, by its state. */
+function ageNoticeVersion(page: Page, state: string) {
+  return page
+    .getByRole('region', { name: `${AGE_NOTICE} 판 목록` })
+    .getByRole('row')
+    .filter({ hasText: state });
+}
+
+/** A new draft from the version in effect, opened in the editor. */
+async function newDraftFromCurrent(page: Page, changeSummary: string) {
+  await openLegal(page, '문서 판');
+  await ageNoticeVersion(page, '시행 중').getByRole('link').click();
+  await page.getByRole('button', { name: '이 판으로 새 초안 만들기' }).click();
+  const drawer = page.getByRole('dialog', { name: '이 판으로 새 초안' });
+  await drawer.getByLabel('변경 요약', { exact: true }).fill(changeSummary);
+  await drawer.getByRole('button', { name: '초안 만들기' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: '초안 편집' })).toBeVisible();
+}
+
 test('the owner requests the auditor role and approves it as the only approver', async () => {
   const { page } = owner;
   await page.getByRole('link', { name: '권한 요청', exact: true }).click();
@@ -345,6 +421,83 @@ test('the operator, now an auditor, finds the approval in the audit list', async
   expect(accessibility.violations).toEqual([]);
 });
 
+test('the owner imports, edits and publishes a legal document as the only approver, then withdraws a revision', async () => {
+  const { page } = owner;
+  // JSON import → edit → publish request → single-approver approval of the first publication (no comparison).
+  await openLegal(page, '초안');
+  await page.getByRole('button', { name: 'JSON 파일로 초안 만들기' }).click();
+  const importDrawer = page.getByRole('dialog', { name: 'JSON 파일로 초안 만들기' });
+  await importDrawer.getByLabel('가져올 JSON 파일').setInputFiles({
+    name: 'age-14-or-above-notice-2026-06-22.import.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(AGE_NOTICE_IMPORT)),
+  });
+  await importDrawer.getByRole('button', { name: '초안 만들기' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: '초안 편집' })).toBeVisible();
+  await page.getByRole('button', { name: '문단 더하기' }).click();
+  await page
+    .getByRole('group', { name: '본문 2 · 문단' })
+    .getByLabel('문단', { exact: true })
+    .fill('만 14세 미만은 보호자 동의를 받아도 가입할 수 없습니다.');
+  await saveAndRequestPublish(page);
+
+  const first = await newestLegalRequest(page, '게시 요청');
+  await expect(first).toContainText('앞 판이 없어 대조표가 없습니다.');
+  await expect(first.getByRole('article', { name: '본문 전체' })).toContainText(
+    '보호자 동의를 받아도',
+  );
+  await selfApprove(first, '본문 전체와 고지 등급·시행일을 확인했습니다');
+  await openLegal(page, '문서 판');
+  await expect(ageNoticeVersion(page, '시행 중')).toHaveCount(1);
+
+  // A general revision from the version in effect, approved with its comparison.
+  await newDraftFromCurrent(page, '보호자 동의 문장을 다듬습니다.');
+  await page
+    .getByRole('group', { name: '본문 2 · 문단' })
+    .getByLabel('문단', { exact: true })
+    .fill('만 14세 미만은 가입할 수 없습니다.');
+  await saveAndRequestPublish(page);
+  const revision = await newestLegalRequest(page, '게시 요청');
+  await expect(revision.getByRole('table', { name: '조항 대조표' })).toContainText('바뀜');
+  await selfApprove(revision, '대조표와 고지 등급·시행일을 확인했습니다');
+
+  // The scheduled revision is withdrawn through its own request and decision.
+  await openLegal(page, '문서 판');
+  await ageNoticeVersion(page, '시행 예정').getByRole('link').click();
+  await page.getByRole('button', { name: '철회 요청' }).click();
+  const confirm = page.getByRole('alertdialog', { name: '철회 요청' });
+  await confirm.getByLabel('철회 사유(선택)', { exact: true }).fill('시행일을 다시 정함');
+  await confirm.getByRole('button', { name: '철회 요청 만들기' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: '철회 요청을 만들었습니다.' }),
+  ).toBeVisible();
+  const withdrawal = await newestLegalRequest(page, '철회 요청');
+  await selfApprove(withdrawal, '대조표와 고지 등급·시행일을 확인했습니다');
+  await openLegal(page, '문서 판');
+  await expect(ageNoticeVersion(page, '철회')).toHaveCount(1);
+  await expect(ageNoticeVersion(page, '시행 예정')).toHaveCount(0);
+
+  // A request the requester cancels returns its draft to editing, and a left draft is discarded.
+  await newDraftFromCurrent(page, '취소할 개정');
+  const draftUrl = page.url();
+  await page.getByRole('button', { name: '게시 승인 요청' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: '게시 승인을 요청했습니다.' }),
+  ).toBeVisible();
+  const cancelled = await newestLegalRequest(page, '게시 요청');
+  await cancelled.getByRole('button', { name: '요청 취소' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '요청을 취소했습니다.' })).toBeVisible();
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
+  await page.goto(draftUrl);
+  await page.getByRole('button', { name: '초안 버리기' }).click();
+  await page
+    .getByRole('alertdialog', { name: '초안 버리기' })
+    .getByRole('button', { name: '버리기' })
+    .click();
+  await expect(page.getByRole('status').filter({ hasText: '초안을 버렸습니다.' })).toBeVisible();
+});
+
 test('a second owner rejects a request and the owner cancels one', async () => {
   // The auditor becomes a second owner (still a self-approval: the owner is the only approver).
   await requestRole(owner, 'ROLE_GRANT', 'OWNER');
@@ -382,6 +535,22 @@ test('a second owner rejects a request and the owner cancels one', async () => {
   await expect(
     owner.page.getByRole('status').filter({ hasText: '요청을 취소했습니다.' }),
   ).toBeVisible();
+  // A legal publish request the other owner rejects with a reason (no reading mark is needed to reject).
+  await newDraftFromCurrent(owner.page, '거절될 개정');
+  await owner.page.getByRole('button', { name: '게시 승인 요청' }).click();
+  await expect(
+    owner.page.getByRole('status').filter({ hasText: '게시 승인을 요청했습니다.' }),
+  ).toBeVisible();
+  const legal = await newestLegalRequest(operator.page, '게시 요청');
+  const legalDecision = legal.getByRole('form', { name: /결정$/u });
+  await legalDecision
+    .getByLabel('결정 사유(거절할 때 필수)', { exact: true })
+    .fill('변경 요약이 부족함');
+  await legalDecision.getByRole('button', { name: '거절' }).click();
+  await expect(
+    operator.page.getByRole('status').filter({ hasText: '요청을 거절했습니다.' }),
+  ).toBeVisible();
+  await expect(legal).toContainText('변경 요약이 부족함');
 });
 
 test('the owner revokes an invitation, deactivates an account and records the monthly review', async ({
@@ -574,6 +743,14 @@ test('the flow reached every BFF route through the real backoffice API', () => {
       '/api/auth/registration/options',
       '/api/auth/totp',
       '/api/auth/totp/confirm',
+      '/api/legal/drafts',
+      '/api/legal/drafts/:id',
+      '/api/legal/drafts/:id/discard',
+      '/api/legal/drafts/:id/publish-requests',
+      '/api/legal/requests/:id/approve',
+      '/api/legal/requests/:id/cancel',
+      '/api/legal/requests/:id/reject',
+      '/api/legal/versions/:id/withdraw-requests',
     ].sort(),
   );
 });

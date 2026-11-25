@@ -19,7 +19,7 @@ export type UpstreamResult<T> =
   | { readonly kind: 'invalid' };
 
 export interface UpstreamRequest<T> {
-  readonly method: 'GET' | 'POST';
+  readonly method: 'GET' | 'POST' | 'PUT';
   /** A fixed path of the backoffice API (callers validate any id they put in it). */
   readonly path: string;
   readonly token?: string;

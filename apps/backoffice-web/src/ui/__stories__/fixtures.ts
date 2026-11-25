@@ -32,6 +32,8 @@ const OWNER_PERMISSIONS: readonly BackofficePermission[] = [
   'admin:access:approve',
   'admin:audit:read',
   'admin:audit:review',
+  'admin:legal:edit',
+  'admin:legal:approve',
 ];
 
 const ownerSession: SessionInfoResponse = {
