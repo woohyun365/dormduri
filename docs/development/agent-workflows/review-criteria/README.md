@@ -177,14 +177,14 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한 적용은 runner가 실행하고 그 출력을 기록할 때만 효력이
 있습니다. CI는 ignored 입력을 보지 못합니다.
 
-| 검사        | 명령                                                                                                                | 위반 종류                                                                                                                                                                                                                                        |
-| ----------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 인용        | `node scripts/agents/common/citation-check.mjs [--root <repo>] [--json] <md file...>`                               | `unresolved`·`ambiguous`·`invalid-range`·`out-of-range`·`unreadable`·`invalid-expectation`·`content-mismatch`                                                                                                                                    |
-| Runner 기록 | `node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header "<logHeader>" [--root <repo>] [--json]` | `invalid-record`·`missing-output`·`output-missing`·`digest-mismatch`·`header-mismatch`·`exit-mismatch`·`repeated-step-exit-hidden`·`invalid-fragment`·`summary-mismatch`(경고 `absence-without-control`)                                         |
-| RED 사유    | `node scripts/agents/common/red-reason-check.mjs --log <file> --expect <regex> [--expect <regex>...] [--json]`      | `missing-summary`·`no-failure`·`no-failure-blocks`·`unexpected-reason`·`unexpected-signature`                                                                                                                                                    |
-| Mutation    | `node scripts/agents/common/mutation-harness.mjs --spec <JSON> [--link-node-modules] [--root <repo>] [--json]`      | `baseline-failed`·`survived`·`target-missing`·`ambiguous`·`wrong-reason`·`timeout`                                                                                                                                                               |
-| 계획 참조   | `node scripts/agents/common/plan-reference-check.mjs [--root <repo>] [--report-only] [--json] <plan md...>`         | `unresolved`·`unresolved-target`·`duplicate-definition`·`broken-link`                                                                                                                                                                            |
-| 처분 기록   | `node scripts/agents/common/review-adjudication.mjs [--root <repo>] [--json] <adjudication.json...>`                | `invalid-field`·`unknown-key`·`result-unreadable`·`missing-finding`·`duplicate-finding`·`unknown-finding`·`missing-reason`·`missing-origin`·`invalid-duplicate`·`duplicate-result-id`·`missing-unjudged`·`duplicate-unjudged`·`unknown-unjudged` |
+| 검사        | 명령                                                                                                                                                                | 위반 종류                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 인용        | `node scripts/agents/common/citation-check.mjs [--root <repo>] [--json] <md file...>`                                                                               | `unresolved`·`ambiguous`·`invalid-range`·`out-of-range`·`unreadable`·`invalid-expectation`·`content-mismatch`                                                                                                                                                                                                                                                                                            |
+| Runner 기록 | `node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header "<logHeader>" [--carry-basis <JSON>] [--confirm <carry JSON>] [--root <repo>] [--json]` | `invalid-record`·`missing-output`·`output-missing`·`digest-mismatch`·`header-mismatch`·`exit-mismatch`·`repeated-step-exit-hidden`·`invalid-fragment`·`summary-mismatch`·`carry-basis-missing`·`carried-record-mismatch`·`carried-header-mismatch`·`carry-round-diff-not-docs`·`carry-doc-referenced`(경고 `absence-without-control`, `--confirm` 사유 `carry-confirm-missing`·`carry-confirm-mismatch`) |
+| RED 사유    | `node scripts/agents/common/red-reason-check.mjs --log <file> --expect <regex> [--expect <regex>...] [--json]`                                                      | `missing-summary`·`no-failure`·`no-failure-blocks`·`unexpected-reason`·`unexpected-signature`                                                                                                                                                                                                                                                                                                            |
+| Mutation    | `node scripts/agents/common/mutation-harness.mjs --spec <JSON> [--link-node-modules] [--root <repo>] [--json]`                                                      | `baseline-failed`·`survived`·`target-missing`·`ambiguous`·`wrong-reason`·`timeout`                                                                                                                                                                                                                                                                                                                       |
+| 계획 참조   | `node scripts/agents/common/plan-reference-check.mjs [--root <repo>] [--report-only] [--json] <plan md...>`                                                         | `unresolved`·`unresolved-target`·`duplicate-definition`·`broken-link`                                                                                                                                                                                                                                                                                                                                    |
+| 처분 기록   | `node scripts/agents/common/review-adjudication.mjs [--root <repo>] [--json] <adjudication.json...>`                                                                | `invalid-field`·`unknown-key`·`result-unreadable`·`missing-finding`·`duplicate-finding`·`unknown-finding`·`missing-reason`·`missing-origin`·`invalid-duplicate`·`duplicate-result-id`·`missing-unjudged`·`duplicate-unjudged`·`unknown-unjudged`                                                                                                                                                         |
 
 - Exit 0은 위반 없음, 1은 위반, 2는 입력 오류(option·파일·root 없음, 읽기 실패, 빈 입력, 형식이 틀린 header·regex·spec·JSON,
   git 저장소 밖의 root, 알 수 없는 option·spec key·위치 인자, 지원하지 않는 형식, 만들 수 없는 mutation 사본)입니다. 입력 오류를 통과로 세지 않습니다. `--json`은 summary와 위반 목록을 JSON으로 냅니다(runner 기록은 경고 목록 `warnings`, RED 사유는 읽은 형식 `format`도).
@@ -234,6 +234,38 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 - Backtick 조각이 없는 요약은 대조하지 않고 건수(`unverifiedSummaries`)만 셉니다.
 - 한 로그에는 한 실행만 둡니다. 같은 라벨이 echo된 명령 문구나 같은 로그의 이전 실행 출력에 있으면 우연히 일치할 수
   있습니다(known limit).
+
+이어 쓴 record(`carriedFrom`, 그 log를 만든 회차 reviewId)는 Claude `review-run`이 쓴 carry basis(`--carry-basis`,
+`claude-review-carry-basis/v1`)가 있을 때만 받습니다. 그 record의 log 첫 줄은 이번 회차가 아니라 만든 회차 header와 대조하고,
+`sourceDigest`는 이번 회차 digest입니다. Codex 경로의 실행에는 basis가 없어 이어 쓴 record는 늘 `carry-basis-missing`입니다.
+
+- C1 `carry-basis-missing`: basis가 없거나 그 회차가 없습니다.
+- C2 `carried-record-mismatch`: 만든 회차 runner 파일에 같은 record 이름(`command`, label이 있으면 `command (label)`)이 없거나,
+  `exit`·`purpose`·`expectedExit`·`observedResult`·`environment`·`outputPaths`가 그 record와 다르거나, 출력이 만든 회차 입력
+  manifest가 결속한 digest와 지금 다릅니다.
+- C3 `carried-header-mismatch`: log 첫 줄이 basis가 만든 회차 packet snapshot으로 다시 계산한 header가 아닙니다.
+- C4 `carry-round-diff-not-docs`: 만든 회차 범위 기록 뒤 바뀐 경로에 `.md`가 아닌 경로, 새 `.md`, 지운 `.md`가 있거나, 그 회차의 범위
+  기록이 없어(basis에 회차 diff가 없음) 회차 diff를 알 수 없습니다.
+- C5 `carry-doc-referenced: <path>`: tracked `scripts/` 파일이 바뀐 `.md`의 저장소 상대 경로나 파일 이름을 `git grep -F`로 가집니다.
+
+확인 대조(`--confirm <carry.json>`, `claude-review-carry/v1`)는 `--evidence`의 확인 기록을 지금 규칙으로 검사한 뒤 carry 기록의 이어 쓴
+record마다 같은 이름의 확인 record를 찾습니다. 없으면 `carry-confirm-missing: <record>`, 지금 규칙 위반이 있거나 exit·이어 쓴 요약의
+backtick 조각·test 결과 줄이 다르면 `carry-confirm-mismatch: <record>`입니다. Test 결과 줄은 `node --test` reporter의 test 이름 줄(spec
+`✔`·`✖`·`﹣`, TAP `ok`·`not ok`, 시간 `(<n>ms)`을 가린 multiset)과 요약 수(`ℹ tests`·`suites`·`pass`·`fail`·`cancelled`·`skipped`·`todo`)이고,
+`ℹ duration_ms`·stack trace 같은 그 밖의 줄은 대조하지 않습니다. JSON 출력의 `reasons`가 비어 있으면 exit 0입니다.
+
+읽기 trace 도구 `runner-read-trace.mjs`는 명령을 `NODE_OPTIONS`의 `--import` preload로 감싸 자식 node process까지 실행하고 명령
+exit(신호면 128+번호)를 그대로 돌려줍니다.
+
+```text
+node scripts/agents/common/runner-read-trace.mjs --header "<logHeader>" --out <trace.json> --log <log> [--root <repo>] -- <명령…>
+```
+
+Log는 wrapper가 쓰며 첫 줄은 header, 둘째 줄은 `node --version` 값, 그 뒤 명령 출력, 끝 줄은 `exit=<n>`입니다. Trace
+(`runner-read-trace/v1`)에는 header, 감싼 argv, log 경로와 sha256, node process가 읽은 저장소 안 경로(realpath로 풀어 경로마다 한 번,
+종류 `read`·`list`·`exists`·`copy`·`module`), node가 아닌 spawn 수, 보지 못한 호출 목록(`unobserved`: `Worker`, `glob(Sync)`·`watch`의
+저장소 안 호출, trace preload 없이 연 자식 node)을 둡니다. 입력 오류는 명령을 실행하지 않고 exit 2입니다. Trace는 경고
+`evidence-source-outside-read-paths`의 입력이라 빈틈이 판정을 통과시키지 않습니다.
 
 ### RED 사유
 

@@ -21,7 +21,9 @@ description: 이 저장소에서 Codex Parent가 위임한 child나 reviewer가 
    다음 회차부터 새 SHA나 snapshot digest를 씁니다. Finding의 `sameTypeLocations`는 모두 고치거나 고치지 않은 위치를 그 finding
    처분 `reason`에 남깁니다. `unjudgedBehaviors`(판정하지 않은 동작) 줄은 처분 기록 `unjudged`에 줄마다 처분과 이유를 적습니다.
    Parent가 재현·대조해 결함이 없으면 `parent-checked`(그 log의 저장소 경로를 `reason`에 backtick으로), 이 변경의 결함이면
-   `raised`, 이 변경 전부터 있던 결함이면 `pre-existing`, 이 변경 범위 밖이면 `out-of-scope`·`follow-up`입니다. 작성한 처분 기록은
+   `raised`, 이 변경 전부터 있던 결함이면 `pre-existing`, 이 변경 범위 밖이면 `out-of-scope`·`follow-up`입니다. 미판정 줄을 처분할
+   때는 그 줄의 주장과 같은 원천(같은 명령 출력·같은 기록)을 쓰는 주장과 같은 문단의 주장을 한 번에 대조합니다. `raised`가 하나라도
+   있으면 그 문단 전체를 다시 대조한 뒤 다음 회차를 요청합니다. 대조한 주장과 결과는 처분 근거 log에 남깁니다. 작성한 처분 기록은
    [작성 때 검사](../../../docs/development/agent-workflows/adapters/codex-same-host-review.md#처분-기록과-ledger)가 exit 0인지
    확인합니다. 그 검사와 ledger reader는 같은 reference가 소유합니다.
 3. 수락 전에 QA trigger에 따라 독립 QA를 `$knu-review`로 받습니다.
