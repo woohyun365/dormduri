@@ -44,6 +44,12 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   BOOTSTRAP_OWNER: '첫 owner 발급',
 };
 
+/** A LOGIN row whose session is a recovery session, by its second factor (audit-display.ts). */
+export const RECOVERY_LOGIN_LABELS: Record<'totp' | 'recovery_code', string> = {
+  totp: '복구 로그인(TOTP)',
+  recovery_code: '복구 로그인(복구 code)',
+};
+
 const AUDIT_RESULT_LABELS: Record<string, string> = {
   SUCCEEDED: '성공',
   DENIED: '거부',
@@ -66,4 +72,20 @@ export function auditResultLabel(code: string): string {
 
 export function auditActorLabel(code: string): string {
   return AUDIT_ACTOR_LABELS[code] ?? code;
+}
+
+// Short names of the target kinds the API writes (backoffice-api `targetType`) for the audit table; the detail keeps the
+// code.
+const AUDIT_TARGET_LABELS: Record<string, string> = {
+  ADMIN_ACCOUNT: '계정',
+  ADMIN_APPROVAL_REQUEST: '권한 요청',
+  ADMIN_INVITATION: '초대',
+  ADMIN_PASSKEY_CREDENTIAL: 'passkey',
+  ADMIN_ROLE_ASSIGNMENT: '역할 배정',
+  ADMIN_SESSION: '접속',
+};
+
+/** An audit row's target kind in a short Korean name; an unknown kind shows its code. */
+export function auditTargetLabel(code: string): string {
+  return AUDIT_TARGET_LABELS[code] ?? code;
 }

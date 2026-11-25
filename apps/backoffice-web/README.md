@@ -19,20 +19,20 @@
 
 ## 2. 구조
 
-| 위치                                 | 책임                                                                                                            |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `src/proxy.ts`                       | 모든 page 요청의 nonce CSP(§5)                                                                                  |
-| `src/bff/`                           | 출처 대조(`request-guard.ts`), session cookie, 활동 header, upstream client, BFF route wrapper                  |
-| `src/app/api/**`                     | BFF route 22개. 모두 `bffMutation`으로 만든 POST                                                                |
-| `src/server/`                        | server render read: session gate(`requireFullSession`·`requireRecoverySession`), 화면 read                      |
-| `src/app/(auth)/**`                  | 로그인·초대 등록·복구 로그인 page                                                                               |
-| `src/app/(console)/**`               | 로그인 뒤 page: 홈, 운영자 계정, 권한 요청, 감사 기록, 내 보안 설정                                             |
-| `src/screens/<기능>/`                | 화면 component(client). `credentials/`는 TOTP·복구 code 한 번 보기를 등록·보안 화면이 같이 씀                   |
-| `src/client/`                        | browser의 BFF 호출과 passkey 의식(`@simplewebauthn/browser`)·재인증                                             |
-| `src/ui/`                            | 공용 form 부품, 오류 문구, 한국어 이름표, KST 시각 표시. 디자인 지침은 [`src/ui/README.md`](./src/ui/README.md) |
-| `src/app/globals.css`                | 시각 값 token 원본(`@theme inline`). 화면은 token 이름만 쓰고 ESLint가 그 밖의 값을 막는다                      |
-| `src/security/`                      | CSP와 공통 보안 header 값                                                                                       |
-| `.storybook/`, `src/**/__stories__/` | Storybook 설정과 story(가짜 fixture, 디자인 지침 ⑨)                                                             |
+| 위치                                 | 책임                                                                                                                                                                            |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/proxy.ts`                       | 모든 page 요청의 nonce CSP(§5)                                                                                                                                                  |
+| `src/bff/`                           | 출처 대조(`request-guard.ts`), session cookie, 활동 header, upstream client, BFF route wrapper                                                                                  |
+| `src/app/api/**`                     | BFF route 22개. 모두 `bffMutation`으로 만든 POST                                                                                                                                |
+| `src/server/`                        | server render read: session gate(`requireFullSession`·`requireRecoverySession`), 화면 read                                                                                      |
+| `src/app/(auth)/**`                  | 로그인·초대 등록·복구 로그인 page. layout은 인증 카드(`AuthCard`)                                                                                                               |
+| `src/app/(console)/**`               | 로그인 뒤 page: 홈, 운영자 계정, 권한 요청, 감사 기록, 내 보안 설정. layout은 console 셸                                                                                        |
+| `src/screens/<기능>/`                | 화면 component. `console/`은 셸(menu 묶음 `navigation.ts`, `ConsoleFrame`), `credentials/`는 TOTP·복구 code 한 번 보기를 등록·보안 화면이 같이 씀, `feedback/`은 없는 화면·오류 |
+| `src/client/`                        | browser의 BFF 호출과 passkey 의식(`@simplewebauthn/browser`)·재인증                                                                                                             |
+| `src/ui/`                            | 공통 부품(단추·입력·카드·상태 표시·안내 문단·표·drawer·확인 창 등), 로고 사본, 오류 문구, 한국어 이름표, KST 시각 표시. 디자인 지침은 [`src/ui/README.md`](./src/ui/README.md)  |
+| `src/app/globals.css`                | 시각 값 token 원본(`@theme`, 폭별 값은 `@media`). 화면은 token 이름만 쓰고 ESLint가 그 밖의 값을 막는다                                                                         |
+| `src/security/`                      | CSP와 공통 보안 header 값                                                                                                                                                       |
+| `.storybook/`, `src/**/__stories__/` | Storybook 설정과 story(가짜 fixture, 디자인 지침 ⑨)                                                                                                                             |
 
 ## 3. BFF와 session
 
@@ -58,15 +58,29 @@
 ## 4. 화면과 idle 15분
 
 - 모든 page는 요청마다 server에서 그린다(root layout의 `connection()`). page마다 session을 읽고(`GET /auth/session`, React
-  `cache`로 요청당 한 번) 없거나 끝났으면 로그인으로, recovery 범위면 `/recovery`로 보낸다.
+  `cache`로 요청당 한 번) 없거나 끝났으면 로그인으로(끝난 접속 안내는 아래 표), recovery 범위면 `/recovery`로 보낸다.
 - API는 session으로 온 모든 요청에서 마지막 활동 시각을 옮긴다. 그래서 화면은 session을 주기적으로 묻지 않고 링크 prefetch도
-  끈다(`prefetch={false}`). idle 안내(`IdleNotice`)는 server가 읽은 idle 만료까지 남은 시간으로 센다. API에 닿은 BFF 호출(BFF가
-  `x-backoffice-session-activity` header로 알림. API의 권한 거부도 활동이다)이나 page 이동 뒤에는 15분을 다시 세고 이미 뜬 안내를
-  지운다. BFF가 스스로 거절했거나 API에 닿지 못한 호출은 세지 않는다. absolute 8시간은 활동으로 늘지 않는다. 시간이 다 되면
-  안내와 로그인 링크를 보이고 아무 요청도 보내지 않는다.
+  끈다(`prefetch={false}`). 셸의 끝난 접속 안내(`SessionEndNotice`)는 idle 안내를 server가 읽은 idle 만료까지 남은 시간으로
+  센다. API에 닿은 BFF 호출(BFF가 `x-backoffice-session-activity` header로 알림. API의 권한 거부도 활동이다)이나 page 이동
+  뒤에는 15분을 다시 세고 이미 뜬 안내를 지운다. BFF가 스스로 거절했거나 API에 닿지 못한 호출은 세지 않는다. absolute 8시간은
+  활동으로 늘지 않는다. 시간이 다 되면 안내와 로그인 링크를 보이고 아무 요청도 보내지 않는다.
 - 감사·승인 요청 목록은 최신순 keyset page다. 다음 page 링크는 API가 준 `nextPage`(`beforeTime`·`beforeId`)를 query로 넘긴다.
 - 운영자 이름·이메일은 owner 역할만 본다. 화면은 이름을 계정 목록 API에서 얻고, 그 API가 `admin:account:invite`를 요구한다. 그 밖의
   운영자는 감사·요청 목록에서 계정 id만 본다.
+- 감사 목록 행동 칸은 `LOGIN` 행의 metadata가 `{ scope: 'RECOVERY', method: 'totp' | 'recovery_code' }`이면 `복구 로그인(TOTP)`·
+  `복구 로그인(복구 code)`으로 보이고 모르는 모양은 `로그인`이다(shared 응답의 metadata는 `unknown`).
+
+끝난 접속은 경로마다 이렇게 알린다. API는 역할 회수 승인·계정 비활성화·로그아웃으로 끝난 session을 이유 없이 `session_required`로
+답하므로 안내도 끝난 이유를 말하지 않는다. 로그인 화면은 `ended`의 아는 값(`idle`·`expired`·`unconfirmed`·`closed`·
+`self-revoked`)만 안내로 읽는다.
+
+| 경로                                                                                                                                             | 화면                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| server render, cookie 있음, API `session_required`(다른 운영자의 역할 회수 승인·계정 비활성화)                                                   | `/login?ended=closed` 안내                                                                                                                                                                                                                                                                                                                  |
+| console 화면의 BFF 호출이 401 `session_required`(API가 session을 모르거나, 같은 browser 다른 창 로그아웃으로 cookie가 없음. BFF가 cookie를 지움) | 셸의 `SessionEndNotice`가 idle 안내 자리·모양(`role=alert`)에 끝난 접속 문구와 `다시 로그인`(`/login?ended=closed`)을 보인다. 화면·입력은 그대로이고 그 뒤 활동이 안내를 지우지 않는다. 작업 결과 문단("다시 로그인하세요.")은 자리·문구가 그대로이고 `role=status`라 셸 안내 뒤에 읽힌다. 인증 화면(로그인·등록·복구)은 결과 문단만 보인다 |
+| 내 역할 회수(`ROLE_REVOKE`, 대상이 나) 승인 성공                                                                                                 | `/login?ended=self-revoked`로 바로 옮긴다                                                                                                                                                                                                                                                                                                   |
+| 만료·idle(`session_expired`, idle 안내)                                                                                                          | `/login?ended=expired`·`/login?ended=idle` 안내                                                                                                                                                                                                                                                                                             |
+| 다른 창 로그아웃 뒤 이 창의 page 이동(cookie 없음)                                                                                               | 안내 없는 `/login`(처음 방문과 구별할 수 없음)                                                                                                                                                                                                                                                                                              |
 
 ## 5. 보안 header
 
@@ -92,14 +106,14 @@ Origin(`http://localhost:4300`)과 Host는 code 상수다. 바꾸면 WebAuthn RP
 
 ## 7. Test
 
-| 명령(root)                                     | 범위                                                                                                                                                                         |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm backoffice-web:check`                    | 준비(shared build) 뒤 lint·typecheck·unit                                                                                                                                    |
-| `pnpm backoffice-web:test:prepared`            | BFF(출처 대조, cookie 속성, route wrapper와 upstream fake, route 전수 표), CSP, component(role·label query), token·server action lint 실효 설정, story fixture의 공유 schema |
-| `pnpm backoffice-web:build:prepared`           | `next build`                                                                                                                                                                 |
-| `pnpm backoffice-web:e2e:prepared`             | Playwright Chromium e2e(아래)                                                                                                                                                |
-| `pnpm backoffice-web:storybook:build:prepared` | Storybook static build(`storybook-static/`)                                                                                                                                  |
-| `pnpm backoffice-web:storybook:check:prepared` | story 검사: 모든 story의 render 오류 0·axe 위반 0(디자인 지침 ⑨)                                                                                                             |
+| 명령(root)                                     | 범위                                                                                                                                                                                                                                                                                               |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm backoffice-web:check`                    | 준비(shared build) 뒤 lint·typecheck·unit                                                                                                                                                                                                                                                          |
+| `pnpm backoffice-web:test:prepared`            | BFF(출처 대조, cookie 속성, route wrapper와 upstream fake, route 전수 표), CSP, server session gate(끝난 접속의 이동), 감사 복구 로그인 parse, component(role·label query: menu 묶음·셸 접기·홈 처리할 일·console 결과 문단 role), token·server action lint 실효 설정, story fixture의 공유 schema |
+| `pnpm backoffice-web:build:prepared`           | `next build`                                                                                                                                                                                                                                                                                       |
+| `pnpm backoffice-web:e2e:prepared`             | Playwright Chromium e2e(아래)                                                                                                                                                                                                                                                                      |
+| `pnpm backoffice-web:storybook:build:prepared` | Storybook static build(`storybook-static/`)                                                                                                                                                                                                                                                        |
+| `pnpm backoffice-web:storybook:check:prepared` | story 검사: 모든 story의 render 오류 0·axe 위반 0, `play` 단언(drawer·확인 창 focus 복귀 등) 실패 0(디자인 지침 ⑨)                                                                                                                                                                                 |
 
 E2e(`e2e/backoffice-flow.spec.ts`)는 production build를 고정 origin `http://localhost:4300`에 띄우고, global setup이 일회용
 schema에 운영과 같은 role bootstrap·migration·grant 표를 적용한 뒤 실제 백오피스 API build를 `dormduri_backoffice`로 띄워
@@ -107,7 +121,8 @@ schema에 운영과 같은 role bootstrap·migration·grant 표를 적용한 뒤
 → 운영자 초대 → 운영자(security key) 등록 → 권한 요청과 1인 자기 승인 → 운영자가 감사 목록에서 승인 확인을 지난다. 이어 둘째 owner의
 거절, 요청 취소, 초대 취소, 계정 비활성화, 월 점검 기록, TOTP·복구 code 재발급, 다른 기기 passkey 추가, TOTP·복구 code 복구
 로그인과 복구 session의 passkey 등록으로 모든 BFF route를 실제 API로 한 번씩 지난다. 모든 page의 CSP 위반 0, cookie 속성, 보안
-header, 가짜 시계로 16분을 보낸 page의 요청 0과 idle 안내, 위조 출처 403, axe 검사 한 번을 본다.
+header, 가짜 시계로 16분을 보낸 page의 요청 0과 idle 안내, 비활성화된 운영자의 끝난 접속 안내(새 page의 `/login?ended=closed`, 열려
+있던 page의 셸 안내), 감사 표의 복구 로그인 이름, 위조 출처 403, axe 검사 한 번을 본다.
 `e2e/cross-port-request.spec.ts`는 다른 localhost port에 띄운 page의 이미지·prefetch를 실제 Chromium이 `Sec-Fetch-Site: same-site`로
 보내고 403을 받는지 본다(§5). Admin DB URL은
 `DORMDURI_BACKOFFICE_E2E_ADMIN_DATABASE_URL`, 없으면 `DATABASE_URL`이고 loopback이 아니면

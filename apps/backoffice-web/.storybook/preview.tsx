@@ -32,9 +32,9 @@ const preview: Preview = {
     },
   },
   decorators: [
-    // The same page background and text as the root layout body (src/app/layout.tsx).
+    // The same page background, text and line breaking as the root layout body (src/app/layout.tsx).
     (Story) => (
-      <div className="min-h-screen bg-layer-basement text-fg-neutral antialiased">
+      <div className="min-h-screen bg-layer-basement text-fg-neutral antialiased break-keep wrap-break-word text-pretty">
         <Story />
       </div>
     ),

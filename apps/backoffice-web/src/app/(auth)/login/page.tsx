@@ -11,10 +11,7 @@ export default async function LoginPage({
   if (state.kind === 'active') {
     redirect(state.session.scope === 'RECOVERY' ? '/recovery' : '/');
   }
+  // The screen keeps only the `ended` values it has a notice for (`endedNotice`).
   const { ended } = await searchParams;
-  return (
-    <LoginScreen
-      ended={ended === 'idle' || ended === 'expired' || ended === 'unconfirmed' ? ended : null}
-    />
-  );
+  return <LoginScreen ended={ended ?? null} />;
 }

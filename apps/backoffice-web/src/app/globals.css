@@ -3,67 +3,159 @@
 /*
  * Semantic tokens of the backoffice Web: the single source of its style values (design guide src/ui/README.md ②).
  * Screen code uses only these names; the Tailwind default palette, type sizes, radius, shadow and arbitrary values are
- * lint errors (eslint.config.mjs). Every value is still an alias of the Tailwind default the screens used, so the
- * screens look the same; the confirmed visual direction replaces the values, not the names. The tokens refer to other
- * theme variables, so they are `@theme inline`: a utility uses the referenced value itself. Spacing keeps the Tailwind
- * default multiple (`--spacing`).
+ * lint errors (eslint.config.mjs). The values are the confirmed visual direction D (light only). Raw values are
+ * `@theme`, so a utility reads the variable and the width rules below can swap it; spacing keeps the Tailwind default
+ * multiple (`--spacing`) and names only the density values that change with the screen width.
  */
-@theme inline {
-  /* Layers: page background → card and section → muted box and hover. */
-  --color-layer-basement: var(--color-slate-50);
-  --color-layer-default: var(--color-white);
-  --color-layer-muted: var(--color-slate-100);
+@theme {
+  /* Shell: the sidebar, its current item (white face, brand text, left bar) and its hover. */
+  --color-shell: #f6f6f7;
+  --color-shell-fg: #27272a;
+  --color-shell-muted: #63636c;
+  --color-shell-active: #ffffff;
+  --color-shell-active-fg: #3240e0;
+  --color-shell-indicator: #4353ff;
+  --color-shell-hover: #ececee;
+  --color-shell-stroke: #e4e4e7;
+
+  /* Layers: page background → card and section → muted box and hover → selected list item. */
+  --color-layer-basement: #f4f5fa;
+  --color-layer-default: #ffffff;
+  --color-layer-muted: #f7f8fc;
+  --color-layer-selected: #eef0ff;
 
   /* Text. */
-  --color-fg-neutral: var(--color-slate-900);
-  --color-fg-label: var(--color-slate-800);
-  --color-fg-description: var(--color-slate-700);
-  --color-fg-muted: var(--color-slate-600);
-  --color-fg-disabled: var(--color-slate-400);
-  --color-fg-on-brand: var(--color-white);
+  --color-fg-neutral: #171a33;
+  --color-fg-label: #2b2f4a;
+  --color-fg-description: #474c66;
+  --color-fg-muted: #5c6180;
+  --color-fg-on-brand: #ffffff;
+  --color-fg-brand: #3442ea;
 
-  /* Strokes: control border → card and section border → list row divider. */
-  --color-stroke-neutral: var(--color-slate-300);
-  --color-stroke-subtle: var(--color-slate-200);
-  --color-stroke-row: var(--color-slate-100);
+  /* Strokes: dashed empty state → card and section border → list row divider; the input boundary keeps 3:1 on white. */
+  --color-stroke-neutral: #c4c8dc;
+  --color-stroke-subtle: #e2e5f0;
+  --color-stroke-row: #eceef5;
+  --color-stroke-control: #878ca6;
+  --color-stroke-focus: #4353ff;
+  --color-stroke-selected: #4353ff;
 
   /* Brand: the primary action. */
-  --color-brand-solid: var(--color-slate-900);
-  --color-brand-solid-hover: var(--color-slate-700);
-  --color-brand-solid-disabled: var(--color-slate-400);
+  --color-brand-solid: #4353ff;
+  --color-brand-solid-hover: #3341e6;
 
-  /* Status: weak background and text of each meaning in use (success, warning, danger). */
-  --color-success-weak: var(--color-emerald-50);
-  --color-fg-success: var(--color-emerald-800);
-  --color-fg-success-strong: var(--color-emerald-900);
-  --color-warning-weak: var(--color-amber-50);
-  --color-fg-warning: var(--color-amber-900);
-  --color-danger-weak: var(--color-red-50);
-  --color-fg-danger: var(--color-red-800);
+  /* Logo lettering: the brand part (돔 and the Latin line) and the ink part (두리). */
+  --color-logo-brand: #4353ff;
+  --color-logo-ink: #18181b;
+
+  /* Status meanings (status.tsx): pending, info (in progress), success, warning, danger. */
+  --color-fg-pending: #474c66;
+  --color-info-weak: #e9ecff;
+  --color-fg-info: #2d3ad0;
+  --color-stroke-info: #b9c1ff;
+  --color-success-weak: #e6f5ed;
+  --color-fg-success: #136c42;
+  --color-stroke-success: #a8dcbf;
+  --color-warning-weak: #fdf3dc;
+  --color-fg-warning: #7f4d00;
+  --color-stroke-warning: #f0d38f;
+  --color-danger-weak: #fdeceb;
+  --color-fg-danger: #b02317;
+  --color-stroke-danger: #f2bdb8;
+  /* The last action of a risky confirmation only. */
+  --color-danger-solid: #c4261a;
+  --color-danger-solid-hover: #a51f15;
+
+  /* Filled quiet buttons (secondary, danger) without a border. */
+  --color-tint-neutral: #edeff6;
+  --color-tint-neutral-hover: #e1e4ef;
+  --color-tint-danger-hover: #fad9d6;
+
+  /* Overlays (drawer, confirmation) only: their scrim and shadow. Cards are set apart by a stroke. */
+  --color-scrim: rgb(23 26 51 / 0.42);
+  --shadow-overlay: 0 10px 30px rgb(23 26 51 / 0.18);
 
   /* Type scale: font size with its paired line height. */
-  --text-caption: var(--text-xs);
-  --text-caption--line-height: var(--text-xs--line-height);
-  --text-body: var(--text-sm);
-  --text-body--line-height: var(--text-sm--line-height);
-  --text-title-3: var(--text-base);
-  --text-title-3--line-height: var(--text-base--line-height);
-  --text-title-2: var(--text-lg);
-  --text-title-2--line-height: var(--text-lg--line-height);
-  --text-title-1: var(--text-xl);
-  --text-title-1--line-height: var(--text-xl--line-height);
+  --text-title-1: 1.375rem;
+  --text-title-1--line-height: 1.875rem;
+  --text-title-2: 1rem;
+  --text-title-2--line-height: 1.5rem;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.375rem;
+  --text-table: 0.875rem;
+  --text-table--line-height: 1.25rem;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.125rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.125rem;
 
+  /* Radius roles. */
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+
+  /* Density: page gutter, card padding, space between cards, table cell, control and menu row padding. */
+  --spacing-page: 2rem;
+  --spacing-card: 1.5rem;
+  --spacing-stack: 1.25rem;
+  --spacing-cell-y: 0.75rem;
+  --spacing-cell-x: 1rem;
+  --spacing-control-y: 0.5625rem;
+  --spacing-control-x: 1rem;
+  --spacing-nav-y: 0.375rem;
+
+  /* Layout sizes: top bar height, sidebar, master-detail list column and drawer widths. */
+  --spacing-header: 3.5rem;
+  --spacing-sidebar: 14rem;
+  --spacing-list: 25rem;
+  --spacing-drawer: 30rem;
+}
+
+/* Tokens that refer to other theme variables: a utility uses the referenced value itself. */
+@theme inline {
   /* Fixed-width text for codes and secrets. */
   --font-code: var(--font-mono);
 
-  /* Radius roles. */
-  --radius-control: var(--radius-md);
-  --radius-box: var(--radius-md);
-  --radius-card: var(--radius-lg);
-
-  /* Content widths: the console page and the narrow column of the sign-in and message pages. */
-  --container-page: var(--container-6xl);
+  /* The narrow column of the sign-in and message pages. */
   --container-narrow: var(--container-md);
+}
+
+/* Below 1024px: the smaller type scale, density and radius of the confirmed direction; colors stay. */
+@media (width < 64rem) {
+  :root {
+    --text-title-1: 1.125rem;
+    --text-title-1--line-height: 1.625rem;
+    --text-title-2: 0.875rem;
+    --text-title-2--line-height: 1.25rem;
+    --text-body: 0.8125rem;
+    --text-body--line-height: 1.25rem;
+    --text-table: 0.8125rem;
+    --text-table--line-height: 1.25rem;
+    --text-label: 0.75rem;
+    --text-label--line-height: 1rem;
+    --text-caption: 0.75rem;
+    --text-caption--line-height: 1rem;
+    --radius-control: 0.375rem;
+    --radius-card: 0.5rem;
+    --spacing-page: 1.5rem;
+    --spacing-card: 1rem;
+    --spacing-stack: 1rem;
+    --spacing-cell-y: 0.5rem;
+    --spacing-cell-x: 0.75rem;
+    --spacing-control-y: 0.375rem;
+    --spacing-control-x: 0.75rem;
+    --spacing-nav-y: 0.375rem;
+    --spacing-header: 3rem;
+    --spacing-list: 21.25rem;
+    --spacing-drawer: 27.5rem;
+  }
+}
+
+/* 1024px to 1279px: the sidebar stays wide, so the page gutter and table cells get narrower and the tables fit. */
+@media (64rem <= width < 80rem) {
+  :root {
+    --spacing-page: 1.25rem;
+    --spacing-cell-x: 0.5rem;
+  }
 }
 
 /* Label and value pairs (`<dl>`): the label column takes its content width. */
@@ -71,5 +163,12 @@
   grid-template-columns: auto 1fr;
 }
 
-/* The current item of a link list (`aria-current="page"`). */
-@custom-variant aria-current-page (&[aria-current='page']);
+/* Master-detail: the list column takes the list width, the detail the rest. */
+@utility grid-cols-master-detail {
+  grid-template-columns: var(--spacing-list) minmax(0, 1fr);
+}
+
+/* The keyboard focus outline of every control and link: 2px of the focus stroke, 2px apart. */
+@utility focus-ring {
+  @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus;
+}

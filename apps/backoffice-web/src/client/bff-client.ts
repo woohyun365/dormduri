@@ -15,6 +15,13 @@ export type BffResult<T> =
  */
 export const SESSION_ACTIVITY_EVENT = 'backoffice:session-activity';
 
+/**
+ * Fired when the BFF answers 401 `session_required`: the API no longer knows the session or the cookie is gone (a role
+ * revoke, a deactivation or a logout in another window, README §4). The console shell shows the closed notice; the
+ * event carries nothing, so the screen never learns why.
+ */
+export const SESSION_CLOSED_EVENT = 'backoffice:session-closed';
+
 export async function postBff<T = undefined>(
   path: `/api/${string}`,
   body?: unknown,
@@ -44,6 +51,9 @@ export async function postBff<T = undefined>(
     code = parsed.error?.code ?? code;
   } catch {
     // keep the generic code
+  }
+  if (response.status === 401 && code === 'session_required') {
+    window.dispatchEvent(new Event(SESSION_CLOSED_EVENT));
   }
   return { ok: false, status: response.status, code };
 }

@@ -5,8 +5,10 @@ import { useState, type FormEvent } from 'react';
 import type { BackofficeSessionScope, LoginPasswordResponse } from '@repo/shared/backoffice';
 import { postBff } from '@/client/bff-client';
 import { attempt, signWithPasskey } from '@/client/passkeys';
+import { Button } from '@/ui/Button';
 import { errorMessage } from '@/ui/error-messages';
-import { Button, FormMessage, SecondaryButton, TextField } from '@/ui/forms';
+import { TextField } from '@/ui/fields';
+import { Notice } from '@/ui/Notice';
 
 type Step =
   | { readonly kind: 'password' }
@@ -23,13 +25,44 @@ const ENDED_NOTICES = {
     '접속이 끝났습니다(15분 동안 활동이 없었거나 로그인한 지 8시간이 지났습니다). 다시 로그인하세요.',
   unconfirmed:
     '이 browser의 접속 정보는 지웠지만 백오피스 API가 로그아웃을 확인하지 못했습니다. 서버 쪽 접속은 15분 동안 활동이 없으면 끝납니다.',
+  // The API answers a session another operator, a deactivation or another window ended as "no session" and does not
+  // say which, so the notice does not either (README §4).
+  closed:
+    '이 접속은 끝났습니다. 다른 창에서 로그아웃했거나 역할·계정 상태가 바뀌었을 수 있습니다. 다시 로그인하세요.',
+  'self-revoked': '내 역할 회수를 승인해 이 접속이 끝났습니다. 다시 로그인하세요.',
 } as const;
+
+export type EndedNotice = keyof typeof ENDED_NOTICES;
+
+// An ended session reads as a warning (yellow) and my own revoke as information (blue); red stays for input errors
+// (design guide ④).
+const ENDED_TONES: Record<EndedNotice, 'warning' | 'info'> = {
+  idle: 'warning',
+  expired: 'warning',
+  unconfirmed: 'warning',
+  closed: 'warning',
+  'self-revoked': 'info',
+};
+
+/** The login page's `ended` query, kept only when it names a notice this screen knows. */
+export function endedNotice(
+  query: string | readonly string[] | null | undefined,
+): EndedNotice | null {
+  return typeof query === 'string' && Object.hasOwn(ENDED_NOTICES, query)
+    ? (query as EndedNotice)
+    : null;
+}
 
 /**
  * Two-step login (OA-R2): password, then a passkey. TOTP or a recovery code instead of the passkey
  * opens a recovery session that can only add a new passkey (README §3).
  */
-export function LoginScreen({ ended }: { readonly ended: keyof typeof ENDED_NOTICES | null }) {
+export function LoginScreen({
+  ended: query,
+}: {
+  readonly ended: string | readonly string[] | null | undefined;
+}) {
+  const ended = endedNotice(query);
   const router = useRouter();
   const [step, setStep] = useState<Step>({ kind: 'password' });
   const [error, setError] = useState<string | null>(null);
@@ -102,9 +135,11 @@ export function LoginScreen({ ended }: { readonly ended: keyof typeof ENDED_NOTI
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-title-1 font-semibold text-fg-neutral">백오피스 로그인</h1>
+      <h1 className="text-title-1 font-bold text-fg-neutral">백오피스 로그인</h1>
       {ended && step.kind === 'password' ? (
-        <FormMessage tone="error">{ENDED_NOTICES[ended]}</FormMessage>
+        <Notice tone={ENDED_TONES[ended]} role="alert">
+          {ENDED_NOTICES[ended]}
+        </Notice>
       ) : null}
 
       {step.kind === 'password' ? (
@@ -125,7 +160,7 @@ export function LoginScreen({ ended }: { readonly ended: keyof typeof ENDED_NOTI
             autoComplete="current-password"
             required
           />
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="w-full">
             다음
           </Button>
         </form>
@@ -134,7 +169,11 @@ export function LoginScreen({ ended }: { readonly ended: keyof typeof ENDED_NOTI
       {step.kind === 'second-factor' ? (
         <div className="flex flex-col gap-4">
           <p className="text-body text-fg-description">등록한 passkey로 로그인을 마칩니다.</p>
-          <Button disabled={pending} onClick={() => void loginWithPasskey(step.challenge)}>
+          <Button
+            disabled={pending}
+            onClick={() => void loginWithPasskey(step.challenge)}
+            className="w-full"
+          >
             passkey로 로그인
           </Button>
           {step.challenge.recovery.totp || step.challenge.recovery.recoveryCode ? (
@@ -144,17 +183,19 @@ export function LoginScreen({ ended }: { readonly ended: keyof typeof ENDED_NOTI
               </p>
               <div className="flex flex-wrap gap-2">
                 {step.challenge.recovery.totp ? (
-                  <SecondaryButton
+                  <Button
+                    tone="secondary"
                     disabled={pending}
                     onClick={() =>
                       setStep({ kind: 'recovery', challenge: step.challenge, method: 'totp' })
                     }
                   >
                     TOTP code로 복구 로그인
-                  </SecondaryButton>
+                  </Button>
                 ) : null}
                 {step.challenge.recovery.recoveryCode ? (
-                  <SecondaryButton
+                  <Button
+                    tone="secondary"
                     disabled={pending}
                     onClick={() =>
                       setStep({
@@ -165,7 +206,7 @@ export function LoginScreen({ ended }: { readonly ended: keyof typeof ENDED_NOTI
                     }
                   >
                     복구 code로 복구 로그인
-                  </SecondaryButton>
+                  </Button>
                 ) : null}
               </div>
             </div>
@@ -203,17 +244,22 @@ export function LoginScreen({ ended }: { readonly ended: keyof typeof ENDED_NOTI
             <Button type="submit" disabled={pending}>
               복구 로그인
             </Button>
-            <SecondaryButton
+            <Button
+              tone="secondary"
               disabled={pending}
               onClick={() => setStep({ kind: 'second-factor', challenge: step.challenge })}
             >
               돌아가기
-            </SecondaryButton>
+            </Button>
           </div>
         </form>
       ) : null}
 
-      {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+      {error ? (
+        <Notice tone="danger" role="alert">
+          {error}
+        </Notice>
+      ) : null}
     </div>
   );
 }
