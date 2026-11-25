@@ -14,7 +14,11 @@ export default async function RootLayout({ children }: { readonly children: Reac
   await connection();
   return (
     <html lang="ko">
-      <body className="bg-layer-basement text-fg-neutral antialiased">{children}</body>
+      {/* Korean text wraps between words, a word longer than its line still breaks, and a paragraph avoids a lone short
+          last line (design guide ⑦). */}
+      <body className="bg-layer-basement text-fg-neutral antialiased break-keep wrap-break-word text-pretty">
+        {children}
+      </body>
     </html>
   );
 }
