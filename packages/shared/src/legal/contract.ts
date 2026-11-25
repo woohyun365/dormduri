@@ -119,6 +119,13 @@ export const legalVersionKeySchema = z.string().refine(isCalendarDate, {
   message: 'Expected a YYYY-MM-DD calendar date',
 });
 
+/**
+ * The body format of `summaryItems` and `sections`. A published body never changes, so an incompatible
+ * change to the section schemas adds a version and a reader for the older one instead of rewriting rows.
+ */
+export const LEGAL_CONTENT_SCHEMA_VERSION = 1;
+export const legalContentSchemaVersionSchema = z.literal(LEGAL_CONTENT_SCHEMA_VERSION);
+
 export const legalNoticeClassSchema = z.enum(['HISTORICAL', 'INITIAL', 'GENERAL', 'SIGNIFICANT']);
 export const LegalNoticeClass = legalNoticeClassSchema.enum;
 
@@ -203,6 +210,8 @@ export const legalConsentRecordRequestSchema = z.strictObject({
 export const legalDocumentDraftImportSchema = z
   .strictObject({
     kind: legalDocumentKindSchema,
+    /** The body format the file holds. */
+    contentSchemaVersion: legalContentSchemaVersionSchema,
     title: legalDocumentTitleSchema,
     summaryItems: z.array(legalDocumentSummaryItemSchema).default([]),
     sections: z.array(legalDocumentSectionSchema).min(1),

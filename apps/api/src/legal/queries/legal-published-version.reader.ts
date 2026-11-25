@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { LegalDocumentKind } from '@repo/shared/legal';
 import {
   DOMAIN_METRICS_PORT,
@@ -32,12 +32,29 @@ export interface LegalPublishedRead {
 /**
  * Reads published versions for public legal reading and keeps the last successful read of each kind in
  * process memory. When the database read fails it answers from memory with the same calculation, so
- * a scheduled version still takes effect on time; with nothing in memory it fails with 503. Versions
+ * a scheduled version still takes effect on time; with nothing in memory it fails with 503. A failed
+ * read logs its step and error class and code (never the driver message). Versions
  * change only through an approval, which needs the database, so a memory answer stays correct
  * (single user API instance, docs/architecture/backend/runtime-composition-and-process-state.md).
  */
+type ReadStep = 'database_time' | 'published_versions' | 'version_rows';
+
+/** Error class and its code (a Prisma code or a SQLSTATE) only: a driver message can carry query values. */
+function describeReadFailure(error: unknown): { errorType: string; errorCode: string } {
+  const errorType = error instanceof Error ? error.name : typeof error;
+  const code =
+    error !== null && typeof error === 'object' && 'code' in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+  return {
+    errorType,
+    errorCode: typeof code === 'string' && /^[A-Z0-9]{4,8}$/u.test(code) ? code : 'none',
+  };
+}
+
 @Injectable()
 export class LegalPublishedVersionReader {
+  private readonly logger = new Logger(LegalPublishedVersionReader.name);
   private readonly snapshots = new Map<LegalDocumentKind, KindSnapshot>();
 
   constructor(
@@ -50,9 +67,12 @@ export class LegalPublishedVersionReader {
     endpoint: LegalReadEndpoint,
   ): Promise<LegalPublishedRead> {
     let fresh: Map<LegalDocumentKind, KindSnapshot> | null = null;
+    let step: ReadStep = 'database_time';
     try {
       const databaseNow = await this.repository.getDatabaseNow();
+      step = 'published_versions';
       const records = await this.repository.listPublishedVersions(kinds, databaseNow);
+      step = 'version_rows';
       const monotonicMs = performance.now();
       const versionsByKind = new Map<LegalDocumentKind, LegalVersion[]>(
         kinds.map((kind) => [kind, []]),
@@ -66,13 +86,22 @@ export class LegalPublishedVersionReader {
           { versions, databaseNow, monotonicMs },
         ]),
       );
-    } catch {
+    } catch (error) {
+      const fallback = kinds.every((kind) => this.snapshots.has(kind)) ? 'memory' : 'unavailable';
+      const { errorType, errorCode } = describeReadFailure(error);
+      this.logger.warn(
+        `[LegalPublishedVersionReader] database read failed endpoint=${endpoint} step=${step} kinds=${kinds.join(',')} errorType=${errorType} errorCode=${errorCode} fallback=${fallback}`,
+      );
       fresh = null;
     }
 
     if (fresh) {
       for (const [kind, snapshot] of fresh) {
-        this.snapshots.set(kind, snapshot);
+        // A read that started earlier can finish later; memory keeps the newest database time.
+        const held = this.snapshots.get(kind);
+        if (!held || held.databaseNow.getTime() <= snapshot.databaseNow.getTime()) {
+          this.snapshots.set(kind, snapshot);
+        }
       }
       return this.answer(endpoint, 'database', fresh);
     }

@@ -472,7 +472,7 @@ export const expectedRoutes: ExpectedRoute[] = [
     path: 'api/legal/revision-notices',
     access: 'public',
   },
-  // Reconsent needs a signed-in member: no class-level @Public() (legal-content-operations D-LC7).
+  // Reconsent needs a signed-in member: no class-level @Public() (legal-basis LB-R11).
   {
     controller: LegalConsentController,
     handler: 'getPendingConsents',

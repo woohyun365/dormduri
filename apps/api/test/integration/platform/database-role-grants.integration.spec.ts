@@ -627,6 +627,7 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
         'kind',
         'version',
         'title',
+        'contentSchemaVersion',
         'summaryItems',
         'sections',
         'changeSummary',
@@ -636,8 +637,8 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
         'appliesUntil',
         'contentDigest',
         'publishedAt',
-        'authorAdminAccountId',
-        'approverAdminAccountId',
+        'requestedByAccountId',
+        'approvedByAccountId',
         'selfApproved',
       ];
       // Privileges are checked when a statement is planned, so `WHERE false` needs no row.
@@ -782,8 +783,11 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
         await expect(insert({ effectiveDate: '2026-12-01' })).rejects.toThrow(
           uniqueBy('LegalDocumentVersion_kind_effectiveDate_active_key'),
         );
-        // A withdrawn version frees its date for a new notice.
-        await insert({ effectiveDate: '2026-12-08', withdrawnAt: new Date() });
+        // A withdrawn version frees its date for a new notice (withdrawn before it took effect).
+        await insert({
+          effectiveDate: '2026-12-08',
+          withdrawnAt: new Date('2026-11-21T00:00:00.000Z'),
+        });
         await insert({ effectiveDate: '2026-12-08' });
         for (const [values, constraint] of [
           [
@@ -815,12 +819,30 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
             'LegalDocumentVersion_change_summary_check',
           ],
           [
-            { noticeClass: 'INITIAL', kind: 'AGE_14_OR_ABOVE_NOTICE', withdrawnAt: new Date() },
+            {
+              noticeClass: 'INITIAL',
+              kind: 'AGE_14_OR_ABOVE_NOTICE',
+              withdrawnAt: new Date('2026-11-21T00:00:00.000Z'),
+            },
             'LegalDocumentVersion_withdrawal_check',
+          ],
+          // Withdrawing at the effective instant (00:00 KST of the effective date) is too late.
+          [
+            { effectiveDate: '2026-12-19', withdrawnAt: new Date('2026-12-18T15:00:00.000Z') },
+            'LegalDocumentVersion_withdrawal_check',
+          ],
+          [
+            { effectiveDate: '2026-12-21', contentSchemaVersion: 2 },
+            'LegalDocumentVersion_content_schema_version_check',
           ],
         ] as const) {
           await expect(insert(values), constraint).rejects.toThrow(checkedBy(constraint));
         }
+        // One millisecond before the effective instant is still a withdrawal before it takes effect.
+        await insert({
+          effectiveDate: '2026-12-20',
+          withdrawnAt: new Date('2026-12-19T14:59:59.999Z'),
+        });
         await expect(
           admin.query(
             `INSERT INTO ${table('LegalAcceptanceRecord')} ("id", "userId", "documentVersionId", "kind", "action", "source") VALUES ($1, $2, $3, 'PRIVACY_POLICY', 'SHOW', 'IMPORT')`,
@@ -829,6 +851,163 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
         ).rejects.toThrow(checkedBy('LegalAcceptanceRecord_source_check'));
       } finally {
         await admin.query(`DELETE FROM ${version}`);
+      }
+    });
+
+    it('legal 판의 요청자·승인자 짝과 자기 승인, 초안 제약, legal 승인 요청의 대상을 DB가 막는다', async () => {
+      const version = table('LegalDocumentVersion');
+      const draft = table('LegalDocumentDraft');
+      const approval = table('AdminApprovalRequest');
+      const checkedBy = (name: string) => new RegExp(`violates check constraint "${name}"`, 'u');
+      const requester = randomUUID();
+      const approver = randomUUID();
+      const insertInto = (target: string, row: Record<string, unknown>) => {
+        const columns = Object.keys(row);
+        return admin.query(
+          `INSERT INTO ${target} (${columns.map(quoteIdentifier).join(', ')}) VALUES (${columns.map((_, index) => `$${index + 1}`).join(', ')})`,
+          columns.map((column) => row[column]),
+        );
+      };
+      let nextDay = 1;
+      const insertVersion = (values: Record<string, unknown>) =>
+        insertInto(version, {
+          id: randomUUID(),
+          kind: 'PRIVACY_POLICY',
+          version: randomUUID(),
+          title: '처리방침',
+          summaryItems: JSON.stringify(['요약']),
+          sections: JSON.stringify([{ type: 'paragraph', text: '본문' }]),
+          changeSummary: '변경 요약',
+          noticeClass: 'GENERAL',
+          effectiveDate: `2027-01-${String(nextDay++).padStart(2, '0')}`,
+          contentDigest: 'b'.repeat(64),
+          publishedAt: new Date('2026-11-20T00:00:00.000Z'),
+          ...values,
+        });
+      const insertDraft = (values: Record<string, unknown>) =>
+        insertInto(draft, {
+          id: randomUUID(),
+          kind: 'PRIVACY_POLICY',
+          title: '처리방침',
+          summaryItems: JSON.stringify(['요약']),
+          sections: JSON.stringify([{ type: 'paragraph', text: '본문' }]),
+          changeSummary: '변경 요약',
+          noticeClass: 'GENERAL',
+          proposedEffectiveDate: '2027-02-01',
+          authorAccountId: requester,
+          ...values,
+        });
+      const insertRequest = (values: Record<string, unknown>) =>
+        insertInto(approval, {
+          id: randomUUID(),
+          contentDigest: 'c'.repeat(64),
+          requestedByAccountId: requester,
+          expiresAt: new Date('2027-01-01T00:00:00.000Z'),
+          ...values,
+        });
+      try {
+        for (const id of [requester, approver]) {
+          await insertInto(table('AdminAccount'), {
+            id,
+            email: `${id}@backoffice.invalid`,
+            displayName: 'operator',
+          });
+        }
+        // A seed version names neither account; a backoffice version copies its request's pair.
+        await insertVersion({});
+        await insertVersion({ requestedByAccountId: requester, approvedByAccountId: approver });
+        await insertVersion({
+          requestedByAccountId: requester,
+          approvedByAccountId: requester,
+          selfApproved: true,
+        });
+        for (const [values, constraint] of [
+          [{ requestedByAccountId: requester }, 'LegalDocumentVersion_approval_pair_check'],
+          [{ approvedByAccountId: approver }, 'LegalDocumentVersion_approval_pair_check'],
+          [
+            { requestedByAccountId: requester, approvedByAccountId: requester },
+            'LegalDocumentVersion_self_approval_check',
+          ],
+          [
+            { requestedByAccountId: requester, approvedByAccountId: approver, selfApproved: true },
+            'LegalDocumentVersion_self_approval_check',
+          ],
+          [{ selfApproved: true }, 'LegalDocumentVersion_self_approval_check'],
+        ] as const) {
+          await expect(insertVersion(values), constraint).rejects.toThrow(checkedBy(constraint));
+        }
+
+        const draftId = randomUUID();
+        await insertDraft({ id: draftId });
+        await insertDraft({
+          noticeClass: 'HISTORICAL',
+          proposedEffectiveDate: '2026-06-22',
+          appliesUntil: '2026-11-19',
+        });
+        await insertDraft({
+          kind: 'TERMS_OF_SERVICE',
+          noticeClass: 'SIGNIFICANT',
+          consentRequired: true,
+        });
+        for (const [values, constraint] of [
+          [{ noticeClass: 'HISTORICAL' }, 'LegalDocumentDraft_applies_until_check'],
+          [{ appliesUntil: '2027-03-01' }, 'LegalDocumentDraft_applies_until_check'],
+          [
+            {
+              noticeClass: 'HISTORICAL',
+              proposedEffectiveDate: '2026-06-22',
+              appliesUntil: '2026-06-21',
+            },
+            'LegalDocumentDraft_applies_until_check',
+          ],
+          [{ consentRequired: true }, 'LegalDocumentDraft_consent_kind_check'],
+          [
+            { kind: 'TERMS_OF_SERVICE', noticeClass: 'SIGNIFICANT' },
+            'LegalDocumentDraft_consent_kind_check',
+          ],
+          [{ revision: 0 }, 'LegalDocumentDraft_revision_check'],
+          [{ contentSchemaVersion: 2 }, 'LegalDocumentDraft_content_schema_version_check'],
+        ] as const) {
+          await expect(insertDraft(values), constraint).rejects.toThrow(checkedBy(constraint));
+        }
+
+        // Legal requests name their own target and pass the older role-target CHECK.
+        const scheduledId = randomUUID();
+        await insertVersion({ id: scheduledId });
+        await insertRequest({ kind: 'LEGAL_PUBLISH', targetLegalDraftId: draftId });
+        await insertRequest({ kind: 'LEGAL_WITHDRAW', targetLegalVersionId: scheduledId });
+        for (const values of [
+          { kind: 'LEGAL_PUBLISH' },
+          { kind: 'LEGAL_WITHDRAW' },
+          { kind: 'LEGAL_PUBLISH', targetLegalDraftId: draftId, targetLegalVersionId: scheduledId },
+          {
+            kind: 'LEGAL_WITHDRAW',
+            targetLegalDraftId: draftId,
+            targetLegalVersionId: scheduledId,
+          },
+          {
+            kind: 'ROLE_GRANT',
+            targetAccountId: approver,
+            targetRole: 'AUDITOR',
+            targetLegalDraftId: draftId,
+          },
+        ]) {
+          await expect(insertRequest(values), values.kind).rejects.toThrow(
+            checkedBy('AdminApprovalRequest_legal_target_check'),
+          );
+        }
+        await insertRequest({
+          kind: 'ROLE_GRANT',
+          targetAccountId: approver,
+          targetRole: 'AUDITOR',
+        });
+      } finally {
+        await admin.query(`DELETE FROM ${approval} WHERE "requestedByAccountId" = $1`, [requester]);
+        await admin.query(`DELETE FROM ${draft}`);
+        await admin.query(`DELETE FROM ${version}`);
+        await admin.query(`DELETE FROM ${table('AdminAccount')} WHERE "id" = ANY($1::text[])`, [
+          [requester, approver],
+        ]);
       }
     });
 

@@ -280,6 +280,7 @@ LegalDocumentVersion,id,reference
 LegalDocumentVersion,kind,operational
 LegalDocumentVersion,version,operational
 LegalDocumentVersion,title,operational
+LegalDocumentVersion,contentSchemaVersion,operational
 LegalDocumentVersion,summaryItems,content
 LegalDocumentVersion,sections,operational
 LegalDocumentVersion,changeSummary,content
@@ -289,8 +290,8 @@ LegalDocumentVersion,effectiveDate,operational
 LegalDocumentVersion,appliesUntil,operational
 LegalDocumentVersion,contentDigest,operational
 LegalDocumentVersion,publishedAt,operational
-LegalDocumentVersion,authorAdminAccountId,reference
-LegalDocumentVersion,approverAdminAccountId,reference
+LegalDocumentVersion,requestedByAccountId,reference
+LegalDocumentVersion,approvedByAccountId,reference
 LegalDocumentVersion,selfApproved,operational
 LegalDocumentVersion,withdrawnAt,operational
 LegalDocumentVersion,createdAt,operational
@@ -299,6 +300,7 @@ LegalDocumentDraft,id,reference
 LegalDocumentDraft,kind,operational
 LegalDocumentDraft,basedOnVersionId,reference
 LegalDocumentDraft,title,operational
+LegalDocumentDraft,contentSchemaVersion,operational
 LegalDocumentDraft,summaryItems,content
 LegalDocumentDraft,sections,operational
 LegalDocumentDraft,changeSummary,content
@@ -308,7 +310,7 @@ LegalDocumentDraft,proposedEffectiveDate,operational
 LegalDocumentDraft,appliesUntil,operational
 LegalDocumentDraft,status,operational
 LegalDocumentDraft,revision,operational
-LegalDocumentDraft,authorAdminAccountId,reference
+LegalDocumentDraft,authorAccountId,reference
 LegalDocumentDraft,createdAt,operational
 LegalDocumentDraft,updatedAt,operational
 LegalNoticeRecipientCount,recipientCount,operational

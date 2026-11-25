@@ -31,14 +31,35 @@ function toVersionKey(date: Date): LegalVersionKey {
   return date.toISOString().slice(0, 10);
 }
 
+interface LegalStoredBody {
+  readonly summaryItems: unknown;
+  readonly sections: unknown;
+}
+
+/**
+ * Body readers by content schema version. A published body never changes, so an incompatible change to
+ * the section schema adds a version and a reader that turns the older body into today's shape (DB
+ * decision `db.schema.history-model/legal`). The DB CHECK allows only the versions listed here.
+ */
+const LEGAL_BODY_READERS: Readonly<Record<number, (body: LegalStoredBody) => LegalStoredBody>> = {
+  1: (body) => body,
+};
+
 export function toLegalVersion(record: LegalDocumentVersionRecord): LegalVersion {
+  const readBody = LEGAL_BODY_READERS[record.contentSchemaVersion];
+  if (!readBody) {
+    throw new Error(
+      `[LegalVersion] content schema version ${record.contentSchemaVersion} has no reader`,
+    );
+  }
+  const body = readBody({ summaryItems: record.summaryItems, sections: record.sections });
   return {
     id: record.id,
     kind: record.kind,
     version: record.version,
     title: record.title,
-    summaryItems: record.summaryItems,
-    sections: record.sections,
+    summaryItems: body.summaryItems,
+    sections: body.sections,
     changeSummary: record.changeSummary,
     noticeClass: record.noticeClass,
     consentRequired: record.consentRequired,

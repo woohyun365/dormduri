@@ -1,12 +1,17 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { legalContentDigestInput, legalEffectiveInstant } from '@repo/shared/legal';
+import {
+  LEGAL_CONTENT_SCHEMA_VERSION,
+  legalContentDigestInput,
+  legalEffectiveInstant,
+} from '@repo/shared/legal';
 import { LEGAL_DOCUMENT_REFERENCE_ROWS } from './legal-document-seed-data.js';
 
 // Legal text that is not a Web fallback copy lives in JSON data files next to this module: the version
 // seed list (order, dates, notice class), the bodies that are not one of the four document arrays, and
-// the first privacy policy revision as a backoffice import file (`privacy-policy-first-revision.draft.json`,
-// read by the backoffice import, not by this seed). This module only reads the version files.
+// the first revisions of the privacy policy and the terms of service as backoffice import files
+// (`*-first-revision.draft.json`, read by the backoffice import, not by this seed). This module only
+// reads the version files.
 const LEGAL_SEED_DIRECTORY = new URL('./legal/', import.meta.url);
 const CONTENT_FILE_NAME = /^[a-z0-9][a-z0-9.-]*\.json$/u;
 const VERSION_SEED_KEYS = [
@@ -17,7 +22,15 @@ const VERSION_SEED_KEYS = [
   'effectiveDate',
   'appliesUntil',
 ];
-const CONTENT_KEYS = ['kind', 'version', 'title', 'summaryItems', 'sections', 'changeSummary'];
+const CONTENT_KEYS = [
+  'kind',
+  'version',
+  'contentSchemaVersion',
+  'title',
+  'summaryItems',
+  'sections',
+  'changeSummary',
+];
 
 function readLegalSeedJson(fileName) {
   if (!CONTENT_FILE_NAME.test(fileName)) {
@@ -41,10 +54,16 @@ function versionContent(entry) {
     if (!reference) {
       throw new Error(`[legal seed] missing reference row ${entry.id}`);
     }
-    return reference;
+    // The four document arrays are the Web fallback copies, written in today's body format.
+    return { ...reference, contentSchemaVersion: LEGAL_CONTENT_SCHEMA_VERSION };
   }
   const content = readLegalSeedJson(entry.content);
   requireExactKeys(content, CONTENT_KEYS, entry.content);
+  if (content.contentSchemaVersion !== LEGAL_CONTENT_SCHEMA_VERSION) {
+    throw new Error(
+      `[legal seed] ${entry.content} body format ${content.contentSchemaVersion} has no reader`,
+    );
+  }
   return content;
 }
 
@@ -62,6 +81,7 @@ export const LEGAL_DOCUMENT_VERSION_SEED_ROWS = readLegalSeedJson(
     id: entry.id,
     kind: content.kind,
     version: content.version,
+    contentSchemaVersion: content.contentSchemaVersion,
     title: content.title,
     summaryItems: content.summaryItems,
     sections: content.sections,
@@ -79,6 +99,7 @@ export function legalSeedContentDigest(row) {
     .update(
       legalContentDigestInput({
         kind: row.kind,
+        contentSchemaVersion: row.contentSchemaVersion,
         title: row.title,
         summaryItems: row.summaryItems,
         sections: row.sections,
@@ -106,6 +127,7 @@ export async function seedLegalDocuments(client) {
           id,
           kind,
           version,
+          "contentSchemaVersion",
           title,
           "summaryItems",
           sections,
@@ -124,15 +146,16 @@ export async function seedLegalDocuments(client) {
           $2::"LegalDocumentKind",
           $3,
           $4,
-          $5::jsonb,
+          $5,
           $6::jsonb,
-          $7,
-          $8::"LegalNoticeClass",
-          $9,
-          $10::date,
+          $7::jsonb,
+          $8,
+          $9::"LegalNoticeClass",
+          $10,
           $11::date,
-          $12,
-          $13::timestamptz,
+          $12::date,
+          $13,
+          $14::timestamptz,
           NOW(),
           NOW()
         )
@@ -140,6 +163,7 @@ export async function seedLegalDocuments(client) {
         DO UPDATE SET
           kind = EXCLUDED.kind,
           version = EXCLUDED.version,
+          "contentSchemaVersion" = EXCLUDED."contentSchemaVersion",
           title = EXCLUDED.title,
           "summaryItems" = EXCLUDED."summaryItems",
           sections = EXCLUDED.sections,
@@ -150,8 +174,8 @@ export async function seedLegalDocuments(client) {
           "appliesUntil" = EXCLUDED."appliesUntil",
           "contentDigest" = EXCLUDED."contentDigest",
           "publishedAt" = EXCLUDED."publishedAt",
-          "authorAdminAccountId" = NULL,
-          "approverAdminAccountId" = NULL,
+          "requestedByAccountId" = NULL,
+          "approvedByAccountId" = NULL,
           "selfApproved" = false,
           "withdrawnAt" = NULL,
           "updatedAt" = NOW()
@@ -160,6 +184,7 @@ export async function seedLegalDocuments(client) {
         row.id,
         row.kind,
         row.version,
+        row.contentSchemaVersion,
         row.title,
         JSON.stringify(row.summaryItems),
         JSON.stringify(row.sections),

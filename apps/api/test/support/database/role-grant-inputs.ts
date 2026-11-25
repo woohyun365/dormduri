@@ -170,7 +170,7 @@ export const PRISMA_MIGRATIONS_DIR = path.resolve(ROLE_GRANTS_DIR, '../migration
  * columns; `readMigrationViews` keeps this list equal to the CREATE VIEW statements.
  */
 export const DATABASE_VIEWS: Readonly<Record<string, readonly string[]>> = {
-  // The member count the backoffice significant-change check reads (legal-content-operations D-LC8).
+  // The member count the backoffice significant-change check reads (legal-basis LB-R10, view in the legal version model migration).
   LegalNoticeRecipientCount: ['recipientCount'],
 };
 

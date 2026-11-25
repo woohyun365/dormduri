@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { UnauthorizedException, type INestApplication } from '@nestjs/common';
+import { Logger, UnauthorizedException, type INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { HttpAdapterHost, Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
@@ -16,6 +16,7 @@ import { createHttpAdapter } from '../../platform/http/http-adapter.js';
 import { DOMAIN_METRICS_PORT } from '../../platform/observability/metrics/domain-metrics.port.js';
 import observabilityConfig from '../../platform/observability/observability.config.js';
 import { LegalModule } from '../legal.module.js';
+import { LegalPublishedVersionReader } from '../queries/legal-published-version.reader.js';
 
 type Kind =
   | 'TERMS_OF_SERVICE'
@@ -29,6 +30,7 @@ interface VersionRow {
   kind: Kind;
   version: string;
   title: string;
+  contentSchemaVersion: number;
   summaryItems: string[];
   sections: unknown[];
   changeSummary: string;
@@ -39,8 +41,8 @@ interface VersionRow {
   contentDigest: string;
   publishedAt: Date;
   withdrawnAt: Date | null;
-  authorAdminAccountId: string | null;
-  approverAdminAccountId: string | null;
+  requestedByAccountId: string | null;
+  approvedByAccountId: string | null;
   selfApproved: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -89,6 +91,7 @@ function row(
     kind,
     version: key,
     title: `${kind} 문서`,
+    contentSchemaVersion: 1,
     summaryItems: ['요약 항목'],
     sections: [heading('제1조(목적)'), paragraph(`${effectiveDate} 본문`)],
     changeSummary: `${effectiveDate} 판 변경 요약`,
@@ -99,8 +102,8 @@ function row(
     contentDigest: 'f'.repeat(64),
     publishedAt: kstMidnight(effectiveDate),
     withdrawnAt: null,
-    authorAdminAccountId: 'author-admin',
-    approverAdminAccountId: 'approver-admin',
+    requestedByAccountId: 'author-admin',
+    approvedByAccountId: 'approver-admin',
     selfApproved: false,
     createdAt: new Date('2026-11-01T00:00:00.000Z'),
     updatedAt: new Date('2026-11-01T00:00:00.000Z'),
@@ -126,7 +129,12 @@ function baseRows(): VersionRow[] {
 }
 
 function createFakeDatabase(versions: VersionRow[], acceptances: AcceptanceRow[] = []) {
-  const state = { now: new Date('2026-11-26T03:00:00.000Z'), failing: false };
+  const state = {
+    now: new Date('2026-11-26T03:00:00.000Z'),
+    failing: false,
+    /** Fails only the published version read (after the database time), with this error. */
+    versionReadFailure: null as Error | null,
+  };
   function guard() {
     if (state.failing) {
       throw new Error('connect ECONNREFUSED database');
@@ -142,6 +150,9 @@ function createFakeDatabase(versions: VersionRow[], acceptances: AcceptanceRow[]
         };
       }) => {
         guard();
+        if (state.versionReadFailure) {
+          return Promise.reject(state.versionReadFailure);
+        }
         const where = args.where ?? {};
         return Promise.resolve(
           versions.filter((candidate) => {
@@ -187,7 +198,7 @@ function createFakeDatabase(versions: VersionRow[], acceptances: AcceptanceRow[]
     }),
     legalDocumentVersion,
     legalAcceptanceRecord,
-    $transaction: vi.fn((work: (tx: unknown) => Promise<unknown>) => work(prisma)),
+    runSerializableTransaction: vi.fn((work: (tx: unknown) => Promise<unknown>) => work(prisma)),
   };
   return { prisma, state, acceptances };
 }
@@ -424,6 +435,97 @@ describe('legal public reading API', () => {
     expect(errorCodeOf(cold)).toBe('LEGAL_DOCUMENTS_UNAVAILABLE');
   });
 
+  it('DB 읽기 실패는 단계·kind·오류 종류와 code·대체 결과를 log에 남기고 driver 메시지는 남기지 않는다', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const database = createFakeDatabase(baseRows());
+    const app = await createApp(database);
+    const readerWarnings = () =>
+      warn.mock.calls
+        .map(([message]) => String(message))
+        .filter((message) => message.startsWith('[LegalPublishedVersionReader]'));
+
+    database.state.versionReadFailure = Object.assign(
+      new Error('permission denied for table LegalDocumentVersion: secret-query-value'),
+      { code: '42501' },
+    );
+    const cold = await http(app).get('/api/legal/documents/PRIVACY_POLICY/page');
+    expect(cold.status).toBe(503);
+    expect(readerWarnings()).toEqual([
+      '[LegalPublishedVersionReader] database read failed endpoint=page step=published_versions kinds=PRIVACY_POLICY errorType=Error errorCode=42501 fallback=unavailable',
+    ]);
+
+    database.state.versionReadFailure = null;
+    expect((await http(app).get('/api/legal/documents/PRIVACY_POLICY/page')).status).toBe(200);
+    database.state.failing = true;
+    const memory = await http(app).get('/api/legal/documents/PRIVACY_POLICY/page');
+    expect(memory.status).toBe(200);
+    expect(readerWarnings().at(-1)).toBe(
+      '[LegalPublishedVersionReader] database read failed endpoint=page step=database_time kinds=PRIVACY_POLICY errorType=Error errorCode=none fallback=memory',
+    );
+    expect(readerWarnings().join('\n')).not.toMatch(/secret-query-value|ECONNREFUSED/u);
+  });
+
+  it('읽는 법이 없는 본문 형식 version은 판으로 바꾸지 않고 행 단계 실패로 남긴다', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const rows = baseRows().map((candidate) =>
+      candidate.kind === 'PRIVACY_POLICY' ? { ...candidate, contentSchemaVersion: 2 } : candidate,
+    );
+    const app = await createApp(createFakeDatabase(rows));
+
+    const response = await http(app).get('/api/legal/documents/PRIVACY_POLICY/page');
+    expect(response.status).toBe(503);
+    expect(errorCodeOf(response)).toBe('LEGAL_DOCUMENTS_UNAVAILABLE');
+    expect(warn.mock.calls.map(([message]) => String(message))).toContainEqual(
+      '[LegalPublishedVersionReader] database read failed endpoint=page step=version_rows kinds=PRIVACY_POLICY errorType=Error errorCode=none fallback=unavailable',
+    );
+    expect((await http(app).get('/api/legal/documents/TERMS_OF_SERVICE/page')).status).toBe(200);
+  });
+
+  it('먼저 시작해 늦게 끝난 DB 읽기는 더 새 DB 시각의 묶음을 memory에서 덮지 않는다', async () => {
+    const older = new Date('2026-11-26T03:00:00.000Z');
+    const newer = new Date('2026-11-26T03:00:05.000Z');
+    const privacyRows = baseRows().filter((candidate) => candidate.kind === 'PRIVACY_POLICY');
+    const newerRows = privacyRows.concat(
+      row('PRIVACY_POLICY', '2026-12-01', 'GENERAL', {
+        publishedAt: new Date('2026-11-26T03:00:02.000Z'),
+      }),
+    );
+    let releaseOlder: (() => void) | undefined;
+    const repository = {
+      getDatabaseNow: vi
+        .fn<() => Promise<Date>>()
+        .mockResolvedValueOnce(older)
+        .mockResolvedValueOnce(newer)
+        .mockRejectedValue(new Error('connect ECONNREFUSED database')),
+      listPublishedVersions: vi.fn((_kinds: unknown, now: Date) =>
+        now === older
+          ? new Promise<VersionRow[]>((resolve) => {
+              releaseOlder = () => resolve(privacyRows);
+            })
+          : Promise.resolve(newerRows),
+      ),
+    };
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const reader = new LegalPublishedVersionReader(
+      repository as never,
+      { incrementCounter: vi.fn() } as never,
+    );
+
+    const first = reader.read(['PRIVACY_POLICY'], 'page');
+    await vi.waitFor(() => expect(releaseOlder).toBeDefined());
+    const second = await reader.read(['PRIVACY_POLICY'], 'page');
+    expect(second.versionsOf('PRIVACY_POLICY')).toHaveLength(3);
+    releaseOlder?.();
+    expect((await first).versionsOf('PRIVACY_POLICY')).toHaveLength(2);
+
+    const fromMemory = await reader.read(['PRIVACY_POLICY'], 'page');
+    expect(fromMemory.source).toBe('memory');
+    expect(
+      fromMemory.versionsOf('PRIVACY_POLICY').map((version) => version.effectiveDate),
+    ).toContain('2026-12-01');
+    expect(fromMemory.nowOf('PRIVACY_POLICY').getTime()).toBeGreaterThanOrEqual(newer.getTime());
+  });
+
   it('읽기마다 endpoint·출처·결과 metric을 남긴다', async () => {
     const database = createFakeDatabase(baseRows());
     const app = await createApp(database);
@@ -582,8 +684,8 @@ describe('legal public reading API', () => {
     const text = JSON.stringify(pageOf(page));
     for (const internal of [
       'contentDigest',
-      'authorAdminAccountId',
-      'approverAdminAccountId',
+      'requestedByAccountId',
+      'approvedByAccountId',
       'author-admin',
       'selfApproved',
       'noticeClass',

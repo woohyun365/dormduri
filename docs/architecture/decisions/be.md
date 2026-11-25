@@ -45,8 +45,8 @@
   endpoint 삭제는 사용처(가입 묶음, 옛 Web)가 0인 것을 확인한 뒤 별도 변경이다
 - 근거: 사용자 API와 Web은 따로 배포되고 한쪽만 되돌릴 수 있어, 같은 승격에서 옛 endpoint를 지우면 배포 사이와 rollback 때
   화면이 깨진다. 지금 Web은 날짜 문자열의 앞 10자를 날짜로 읽으므로 00:00 한국 시간 시각을 ISO로 내면 전날로 보인다
-- 기각한 대안: 같은 승격에서 옛 endpoint 삭제(배포 사이와 한쪽 rollback 때 깨짐), version 경로 분리(두 판 API를 함께 유지),
-  판 번호 주소(공개 화면에 내부 번호가 드러남)
+- 기각한 대안: 같은 승격에서 바꾸고 옛 endpoint 삭제(api-cd와 web-cd 사이나 한쪽만 rollback한 동안 문서 화면이 깨짐), 판 번호
+  주소(`/privacy/versions/3`처럼 사람이 읽기 어렵고, 시행 전 철회한 판이 있으면 번호가 빔)
 - 재검토 조건: 옛 endpoint 사용처가 0이 될 때, 판 수·문서 크기가 커져 판 열람 응답이 무거울 때
 - 출처: #996, Owner 확인 2026-11-17
 - pack 결정: [be.api.compatibility](../../development/agent-workflows/domain/swe-web/be.md#beapicompatibility)

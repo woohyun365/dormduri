@@ -1308,37 +1308,40 @@ model SupportFaqPlacement {
 // computed from the database clock (scheduled, current, previous), so no job switches versions.
 // Partial unique indexes and pair CHECKs live in migration 20261125000000_legal_version_model.
 model LegalDocumentVersion {
-  id                     String                  @id
-  kind                   LegalDocumentKind
-  version                String
-  title                  String
-  summaryItems           Json
-  sections               Json
-  changeSummary          String
-  noticeClass            LegalNoticeClass
-  consentRequired        Boolean                 @default(false)
-  effectiveDate          DateTime                @db.Date
-  appliesUntil           DateTime?               @db.Date
-  contentDigest          String
+  id                   String                  @id
+  kind                 LegalDocumentKind
+  version              String
+  title                String
+  // Body format of summaryItems and sections; the API keeps a reader per version (only 1 so far).
+  contentSchemaVersion Int                     @default(1)
+  summaryItems         Json
+  sections             Json
+  changeSummary        String
+  noticeClass          LegalNoticeClass
+  consentRequired      Boolean                 @default(false)
+  effectiveDate        DateTime                @db.Date
+  appliesUntil         DateTime?               @db.Date
+  contentDigest        String
   // Approval time, which is also when the notice starts.
-  publishedAt            DateTime                @db.Timestamptz(3)
-  // Backoffice-approved versions name both accounts; repository seed versions (development and test) name neither.
-  authorAdminAccountId   String?
-  approverAdminAccountId String?
-  selfApproved           Boolean                 @default(false)
-  withdrawnAt            DateTime?               @db.Timestamptz(3)
-  createdAt              DateTime                @default(now()) @db.Timestamptz(3)
-  updatedAt              DateTime                @default(now()) @updatedAt @db.Timestamptz(3)
-  acceptances            LegalAcceptanceRecord[]
-  authorAdminAccount     AdminAccount?           @relation("LegalDocumentVersionAuthor", fields: [authorAdminAccountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  approverAdminAccount   AdminAccount?           @relation("LegalDocumentVersionApprover", fields: [approverAdminAccountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  drafts                 LegalDocumentDraft[]
-  withdrawalRequests     AdminApprovalRequest[]  @relation("AdminApprovalRequestTargetLegalVersion")
+  publishedAt          DateTime                @db.Timestamptz(3)
+  // A backoffice-approved version copies its publish request: the requester, the approver and the self-approval
+  // flag (OA-R9). Repository seed versions (development and test) name neither account.
+  requestedByAccountId String?
+  approvedByAccountId  String?
+  selfApproved         Boolean                 @default(false)
+  withdrawnAt          DateTime?               @db.Timestamptz(3)
+  createdAt            DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                @default(now()) @updatedAt @db.Timestamptz(3)
+  acceptances          LegalAcceptanceRecord[]
+  requestedByAccount   AdminAccount?           @relation("LegalDocumentVersionRequester", fields: [requestedByAccountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  approvedByAccount    AdminAccount?           @relation("LegalDocumentVersionApprover", fields: [approvedByAccountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  drafts               LegalDocumentDraft[]
+  withdrawalRequests   AdminApprovalRequest[]  @relation("AdminApprovalRequestTargetLegalVersion")
 
   @@unique([kind, version])
   @@index([kind, effectiveDate])
-  @@index([authorAdminAccountId])
-  @@index([approverAdminAccountId])
+  @@index([requestedByAccountId])
+  @@index([approvedByAccountId])
 }
 
 // A backoffice draft. Saving is a conditional UPDATE on `revision`; a draft waiting for approval is
@@ -1348,6 +1351,7 @@ model LegalDocumentDraft {
   kind                  LegalDocumentKind
   basedOnVersionId      String?
   title                 String
+  contentSchemaVersion  Int                      @default(1)
   summaryItems          Json
   sections              Json
   changeSummary         String
@@ -1357,16 +1361,16 @@ model LegalDocumentDraft {
   appliesUntil          DateTime?                @db.Date
   status                LegalDocumentDraftStatus @default(EDITING)
   revision              Int                      @default(1)
-  authorAdminAccountId  String
+  authorAccountId       String
   createdAt             DateTime                 @default(now()) @db.Timestamptz(3)
   updatedAt             DateTime                 @default(now()) @updatedAt @db.Timestamptz(3)
   basedOnVersion        LegalDocumentVersion?    @relation(fields: [basedOnVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  authorAdminAccount    AdminAccount             @relation("LegalDocumentDraftAuthor", fields: [authorAdminAccountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  authorAccount         AdminAccount             @relation("LegalDocumentDraftAuthor", fields: [authorAccountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   publishRequests       AdminApprovalRequest[]   @relation("AdminApprovalRequestTargetLegalDraft")
 
   @@index([kind, status])
   @@index([basedOnVersionId])
-  @@index([authorAdminAccountId])
+  @@index([authorAccountId])
 }
 
 model LegalAcceptanceRecord {
@@ -2376,7 +2380,7 @@ model AdminAccount {
   targetedApprovals      AdminApprovalRequest[]   @relation("AdminApprovalRequestTargetAccount")
   auditEvents            AdminAuditEvent[]
   authoredLegalDrafts    LegalDocumentDraft[]     @relation("LegalDocumentDraftAuthor")
-  authoredLegalVersions  LegalDocumentVersion[]   @relation("LegalDocumentVersionAuthor")
+  requestedLegalVersions LegalDocumentVersion[]   @relation("LegalDocumentVersionRequester")
   approvedLegalVersions  LegalDocumentVersion[]   @relation("LegalDocumentVersionApprover")
 
   @@index([status, deactivatedAt])

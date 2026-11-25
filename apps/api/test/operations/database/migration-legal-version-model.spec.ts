@@ -40,8 +40,15 @@ describe('legal version model migration', () => {
     expect(sql).toMatch(
       /ROW_NUMBER\(\) OVER \(PARTITION BY "kind" ORDER BY "effectiveAt", "id"\)/u,
     );
+    // An old retirement hid a superseded version, which is now a previous version: none is withdrawn.
     expect(sql).toContain(
-      'ALTER TABLE "LegalDocumentVersion" RENAME COLUMN "retiredAt" TO "withdrawnAt";',
+      'ALTER TABLE "LegalDocumentVersion" DROP COLUMN "retiredAt", ADD COLUMN "withdrawnAt" TIMESTAMPTZ(3);',
+    );
+    expect(sql).not.toMatch(/RENAME COLUMN "retiredAt"/u);
+    // Existing rows are body format 1 and the digest covers that format.
+    expect(sql).toContain('ADD COLUMN "contentSchemaVersion" INTEGER NOT NULL DEFAULT 1,');
+    expect(sql).toContain(
+      'jsonb_build_array( "kind", "contentSchemaVersion", "title", "summaryItems", "sections", "changeSummary", "effectiveDate", NULL, "noticeClass", "consentRequired" )::text',
     );
   });
 

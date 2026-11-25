@@ -245,8 +245,8 @@ describe('legal version model', () => {
     expect(summarySchema.safeParse(summary).success).toBe(true);
     for (const extra of [
       { contentDigest: 'a'.repeat(64) },
-      { authorAdminAccountId: 'author' },
-      { approverAdminAccountId: 'approver' },
+      { requestedByAccountId: 'author' },
+      { approvedByAccountId: 'approver' },
       { noticeClass: 'GENERAL' },
       { id: 'privacy-policy-2026-06-22' },
     ]) {
@@ -261,6 +261,7 @@ describe('legal version model', () => {
     const importSchema = requireSchema('legalDocumentDraftImportSchema');
     const base = {
       kind: 'PRIVACY_POLICY',
+      contentSchemaVersion: 1,
       title: '돔두리 개인정보 처리방침',
       summaryItems: ['요약'],
       sections: [heading('제1조(목적)'), paragraph('본문')],
@@ -272,6 +273,11 @@ describe('legal version model', () => {
 
     expect(importSchema.safeParse(base).success).toBe(true);
     expect(importSchema.safeParse({ ...base, changeSummary: undefined }).success).toBe(false);
+    // The file names its body format; a format with no reader is refused.
+    expect(importSchema.safeParse({ ...base, contentSchemaVersion: undefined }).success).toBe(
+      false,
+    );
+    expect(importSchema.safeParse({ ...base, contentSchemaVersion: 2 }).success).toBe(false);
     expect(importSchema.safeParse({ ...base, appliesUntil: '2026-12-31' }).success).toBe(false);
     expect(
       importSchema.safeParse({
@@ -301,11 +307,32 @@ describe('legal version model', () => {
     expect(importSchema.safeParse({ ...base, contentDigest: 'a'.repeat(64) }).success).toBe(false);
   });
 
+  it('재동의 기록 요청은 판 id 1~3개만 받고 다른 key·빈 목록·형식이 틀린 id를 거부한다', () => {
+    const requestSchema = requireSchema('legalConsentRecordRequestSchema');
+    const id = 'terms-of-service-2026-06-22';
+
+    expect(requestSchema.safeParse({ documentVersionIds: [id] }).success).toBe(true);
+    expect(
+      requestSchema.safeParse({ documentVersionIds: [id, `${id}-b`, `${id}-c`] }).success,
+    ).toBe(true);
+    for (const [label, body] of [
+      ['empty', { documentVersionIds: [] }],
+      ['four ids', { documentVersionIds: [id, `${id}-b`, `${id}-c`, `${id}-d`] }],
+      ['extra key', { documentVersionIds: [id], userId: 'someone-else' }],
+      ['not a string', { documentVersionIds: [42] }],
+      ['empty id', { documentVersionIds: [''] }],
+      ['no list', {}],
+    ] as const) {
+      expect(requestSchema.safeParse(body).success, label).toBe(false);
+    }
+  });
+
   it('내용 digest 입력은 key 순서와 무관하고 digest에 드는 값이 바뀌면 달라진다', () => {
     const digestInput =
       requireFunction<(content: Record<string, unknown>) => string>('legalContentDigestInput');
     const content = {
       kind: 'PRIVACY_POLICY',
+      contentSchemaVersion: 1,
       title: '처리방침',
       summaryItems: ['요약'],
       sections: [{ type: 'heading', level: 2, text: '제1조(목적)' }],
@@ -324,12 +351,14 @@ describe('legal version model', () => {
       sections: [{ text: '제1조(목적)', level: 2, type: 'heading' }],
       summaryItems: ['요약'],
       title: '처리방침',
+      contentSchemaVersion: 1,
       kind: 'PRIVACY_POLICY',
     };
 
     expect(digestInput(reordered)).toBe(digestInput(content));
     for (const change of [
       { effectiveDate: '2026-12-02' },
+      { contentSchemaVersion: 2 },
       { noticeClass: 'SIGNIFICANT' },
       { consentRequired: true },
       { changeSummary: '다른 요약' },

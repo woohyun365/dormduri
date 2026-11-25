@@ -8,6 +8,7 @@ export const legalDocumentVersionSelect = {
   kind: true,
   version: true,
   title: true,
+  contentSchemaVersion: true,
   summaryItems: true,
   sections: true,
   changeSummary: true,

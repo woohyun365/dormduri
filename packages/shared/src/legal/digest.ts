@@ -16,6 +16,7 @@ export function canonicalJson(value: unknown): string {
 
 export interface LegalDigestContent {
   readonly kind: LegalDocumentKind;
+  readonly contentSchemaVersion: number;
   readonly title: string;
   readonly summaryItems: readonly string[];
   readonly sections: readonly unknown[];
@@ -35,6 +36,7 @@ export interface LegalDigestContent {
 export function legalContentDigestInput(content: LegalDigestContent): string {
   return canonicalJson([
     content.kind,
+    content.contentSchemaVersion,
     content.title,
     content.summaryItems,
     content.sections,

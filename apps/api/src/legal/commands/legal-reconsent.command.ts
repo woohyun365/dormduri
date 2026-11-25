@@ -86,7 +86,9 @@ export class LegalReconsentCommand {
 
   /**
    * Records an AGREE for each named version. Every id must be the version in effect of a kind the
-   * member owes, else nothing is written (fail-closed like signup acceptance).
+   * member owes, else nothing is written (fail-closed like signup acceptance). The pending check and
+   * the insert run in one serializable transaction, and the unique (member, version) key turns a
+   * concurrent duplicate into the same 409.
    */
   async record(
     userId: string,
@@ -94,7 +96,7 @@ export class LegalReconsentCommand {
   ): Promise<LegalPendingConsentsResponse> {
     const now = await this.prisma.getDatabaseNow();
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      return await this.prisma.runSerializableTransaction(async (tx) => {
         const pending = await findPendingConsents(tx, userId, now);
         const requested = new Set(documentVersionIds);
         const accepted = pending.filter(({ current }) => requested.has(current.id));

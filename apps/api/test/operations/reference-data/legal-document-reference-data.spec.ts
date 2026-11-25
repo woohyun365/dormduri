@@ -49,10 +49,17 @@ function requireSeedExport<T>(name: string): T {
   return versionSeed[name] as T;
 }
 
-function readFirstRevisionDraft(): Record<string, unknown> {
+const FIRST_REVISION_DRAFT_FILES = {
+  PRIVACY_POLICY: 'privacy-policy-first-revision.draft.json',
+  TERMS_OF_SERVICE: 'terms-of-service-first-revision.draft.json',
+} as const;
+
+function readFirstRevisionDraft(
+  kind: keyof typeof FIRST_REVISION_DRAFT_FILES,
+): Record<string, unknown> {
   // The backoffice import file itself: plain JSON, not a module export.
   return JSON.parse(
-    readFileSync(join(legalSeedDirectory, 'privacy-policy-first-revision.draft.json'), 'utf8'),
+    readFileSync(join(legalSeedDirectory, FIRST_REVISION_DRAFT_FILES[kind]), 'utf8'),
   ) as Record<string, unknown>;
 }
 
@@ -180,6 +187,7 @@ describe('legal document reference seed data', () => {
     expect(files).toEqual([
       'privacy-policy-first-revision.draft.json',
       'privacy-policy-historical-2026-06-22.json',
+      'terms-of-service-first-revision.draft.json',
       'version-seed-rows.json',
     ]);
     const list = JSON.parse(
@@ -192,7 +200,7 @@ describe('legal document reference seed data', () => {
     expect(
       [
         ...contentFiles,
-        'privacy-policy-first-revision.draft.json',
+        ...Object.values(FIRST_REVISION_DRAFT_FILES),
         'version-seed-rows.json',
       ].sort(),
     ).toEqual(files);
@@ -215,7 +223,7 @@ describe('legal document reference seed data', () => {
   });
 
   it('처리방침 첫 개정 초안은 가져오기 schema를 통과하는 일반 고지 초안이고 판 행이 아니다', () => {
-    const draft = readFirstRevisionDraft();
+    const draft = readFirstRevisionDraft('PRIVACY_POLICY');
     const importSchema = requireSharedSchema('legalDocumentDraftImportSchema');
     const versionRows = requireSeedExport<LegalVersionSeedRow[]>(
       'LEGAL_DOCUMENT_VERSION_SEED_ROWS',
@@ -237,11 +245,57 @@ describe('legal document reference seed data', () => {
     expect(draftText).toContain('제11조(개인정보 처리방침의 변경)');
   });
 
+  it('약관 첫 개정 초안은 시행 중 약관에서 제11조만 LB-R10·LB-R11 기준으로 바꾼 일반 고지 초안이다', () => {
+    const draft = readFirstRevisionDraft('TERMS_OF_SERVICE');
+    const importSchema = requireSharedSchema('legalDocumentDraftImportSchema');
+    const current = findRow(LegalDocumentKind.TERMS_OF_SERVICE);
+
+    expect(importSchema.safeParse(draft).success).toBe(true);
+    expect(draft).toMatchObject({
+      kind: LegalDocumentKind.TERMS_OF_SERVICE,
+      noticeClass: 'GENERAL',
+      consentRequired: false,
+      proposedEffectiveDate: readFirstRevisionDraft('PRIVACY_POLICY').proposedEffectiveDate,
+    });
+    expect('id' in draft).toBe(false);
+    expect([draft.title, draft.summaryItems]).toEqual([current.title, current.summaryItems]);
+
+    const sections = draft.sections as Array<{ type: string; text?: string }>;
+    const currentSections = current.sections as Array<{ type: string; text?: string }>;
+    const articleRange = (list: Array<{ type: string; text?: string }>) => {
+      const start = list.findIndex((section) => section.text === '제11조(약관 변경)');
+      const end = list.findIndex((section, index) => index > start && section.type === 'heading');
+      return { start, end };
+    };
+    const draftArticle = articleRange(sections);
+    const currentArticle = articleRange(currentSections);
+    // Everything outside Article 11 stays as it is.
+    expect(sections.slice(0, draftArticle.start)).toEqual(
+      currentSections.slice(0, currentArticle.start),
+    );
+    expect(sections.slice(draftArticle.end)).toEqual(currentSections.slice(currentArticle.end));
+
+    const articleText = sections
+      .slice(draftArticle.start, draftArticle.end)
+      .map((section) => section.text ?? '')
+      .join('\n');
+    // LB-R10: 7 days, 30 days and mail for an adverse change, side-by-side articles.
+    expect(articleText).toContain('적용일 7일 전부터');
+    expect(articleText).toContain('30일 전부터');
+    expect(articleText).toContain('이메일');
+    expect(articleText).toContain('변경 전후 조항 대조표');
+    // LB-R11: an adverse change needs consent again and silence is not consent.
+    expect(articleText).toContain('다시 동의를 받고');
+    expect(articleText).toContain('동의한 것으로 보지 않습니다');
+    expect(articleText).not.toContain('요청할 수 있습니다');
+  });
+
   it('seed copy는 raw HTML/script와 plan-dependent 표현을 포함하지 않는다', () => {
     const allText = [
       ...legalDocumentRows,
       ...(versionSeed.LEGAL_DOCUMENT_VERSION_SEED_ROWS as unknown[]),
-      readFirstRevisionDraft(),
+      readFirstRevisionDraft('PRIVACY_POLICY'),
+      readFirstRevisionDraft('TERMS_OF_SERVICE'),
     ]
       .flatMap(flattenText)
       .join('\n');

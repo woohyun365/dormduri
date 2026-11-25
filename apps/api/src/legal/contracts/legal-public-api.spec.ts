@@ -74,8 +74,8 @@ describe('legal public API contract', () => {
     // Approval and digest columns are not read for public reading.
     for (const column of [
       'contentDigest',
-      'authorAdminAccountId',
-      'approverAdminAccountId',
+      'requestedByAccountId',
+      'approvedByAccountId',
       'selfApproved',
       'createdAt',
       'updatedAt',

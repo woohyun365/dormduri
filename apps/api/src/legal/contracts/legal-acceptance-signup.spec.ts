@@ -42,6 +42,7 @@ function publishedVersions(args: unknown) {
     kind,
     version: id,
     title: `${kind} 문서`,
+    contentSchemaVersion: 1,
     summaryItems: [],
     sections: [{ type: 'paragraph', text: '본문' }],
     changeSummary: '변경 요약',

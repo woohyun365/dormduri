@@ -1,6 +1,7 @@
 -- Legal version model: content-immutable published versions keyed by their KST effective date, backoffice
 -- drafts, the legal approval kinds and audit targets the backoffice legal module uses, reconsent records and
--- the member count the significant-change check reads. Plan: legal-content-operations D-LC1~D-LC3, D-LC7, D-LC8.
+-- the member count the significant-change check reads. Rules: docs/policies/legal-basis.md LB-R6, LB-R10 and
+-- LB-R11; decision: docs/architecture/decisions/db.md `db.schema.history-model/legal`.
 
 -- CreateEnum
 CREATE TYPE "LegalNoticeClass" AS ENUM ('HISTORICAL', 'INITIAL', 'GENERAL', 'SIGNIFICANT');
@@ -40,22 +41,26 @@ DROP INDEX "LegalDocumentVersion_kind_publishedAt_effectiveAt_retiredAt_idx";
 ALTER TABLE "AdminApprovalRequest" ADD COLUMN     "targetLegalDraftId" TEXT,
 ADD COLUMN     "targetLegalVersionId" TEXT;
 
--- AlterTable: the retirement time becomes the withdrawal time (only a scheduled version is withdrawn).
-ALTER TABLE "LegalDocumentVersion" RENAME COLUMN "retiredAt" TO "withdrawnAt";
+-- AlterTable: an old retirement hid a superseded version. A superseded version is now a previous version
+-- computed from the dates, so no existing row is withdrawn and the withdrawal time starts empty.
+ALTER TABLE "LegalDocumentVersion" DROP COLUMN "retiredAt",
+ADD COLUMN     "withdrawnAt" TIMESTAMPTZ(3);
 
 -- AlterTable
 ALTER TABLE "LegalDocumentVersion" ADD COLUMN     "appliesUntil" DATE,
-ADD COLUMN     "approverAdminAccountId" TEXT,
-ADD COLUMN     "authorAdminAccountId" TEXT,
+ADD COLUMN     "approvedByAccountId" TEXT,
+ADD COLUMN     "requestedByAccountId" TEXT,
 ADD COLUMN     "consentRequired" BOOLEAN NOT NULL DEFAULT false,
 ADD COLUMN     "contentDigest" TEXT,
+ADD COLUMN     "contentSchemaVersion" INTEGER NOT NULL DEFAULT 1,
 ADD COLUMN     "effectiveDate" DATE,
 ADD COLUMN     "noticeClass" "LegalNoticeClass",
 ADD COLUMN     "selfApproved" BOOLEAN NOT NULL DEFAULT false;
 
 -- Existing rows are repository seed versions in development and test databases (production has none).
 -- Each keeps its effective time as its KST date and the earliest version of a kind becomes the first
--- publication. The digest here is the sha256 of PostgreSQL's jsonb text of the same fields, not the
+-- publication. Two versions of one kind on the same KST date stop the partial unique index below;
+-- such a development database is reset. The digest here is the sha256 of PostgreSQL's jsonb text of the same fields, not the
 -- shared calculation; running the seed again replaces it.
 UPDATE "LegalDocumentVersion" AS target
 SET
@@ -77,8 +82,8 @@ SET "contentDigest" = encode(
   sha256(
     convert_to(
       jsonb_build_array(
-        "kind", "title", "summaryItems", "sections", "changeSummary", "effectiveDate", NULL,
-        "noticeClass", "consentRequired"
+        "kind", "contentSchemaVersion", "title", "summaryItems", "sections", "changeSummary",
+        "effectiveDate", NULL, "noticeClass", "consentRequired"
       )::text,
       'UTF8'
     )
@@ -100,6 +105,7 @@ CREATE TABLE "LegalDocumentDraft" (
     "kind" "LegalDocumentKind" NOT NULL,
     "basedOnVersionId" TEXT,
     "title" TEXT NOT NULL,
+    "contentSchemaVersion" INTEGER NOT NULL DEFAULT 1,
     "summaryItems" JSONB NOT NULL,
     "sections" JSONB NOT NULL,
     "changeSummary" TEXT NOT NULL,
@@ -109,7 +115,7 @@ CREATE TABLE "LegalDocumentDraft" (
     "appliesUntil" DATE,
     "status" "LegalDocumentDraftStatus" NOT NULL DEFAULT 'EDITING',
     "revision" INTEGER NOT NULL DEFAULT 1,
-    "authorAdminAccountId" TEXT NOT NULL,
+    "authorAccountId" TEXT NOT NULL,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -123,7 +129,7 @@ CREATE INDEX "LegalDocumentDraft_kind_status_idx" ON "LegalDocumentDraft"("kind"
 CREATE INDEX "LegalDocumentDraft_basedOnVersionId_idx" ON "LegalDocumentDraft"("basedOnVersionId");
 
 -- CreateIndex
-CREATE INDEX "LegalDocumentDraft_authorAdminAccountId_idx" ON "LegalDocumentDraft"("authorAdminAccountId");
+CREATE INDEX "LegalDocumentDraft_authorAccountId_idx" ON "LegalDocumentDraft"("authorAccountId");
 
 -- CreateIndex
 CREATE INDEX "AdminApprovalRequest_targetLegalDraftId_idx" ON "AdminApprovalRequest"("targetLegalDraftId");
@@ -135,22 +141,22 @@ CREATE INDEX "AdminApprovalRequest_targetLegalVersionId_idx" ON "AdminApprovalRe
 CREATE INDEX "LegalDocumentVersion_kind_effectiveDate_idx" ON "LegalDocumentVersion"("kind", "effectiveDate");
 
 -- CreateIndex
-CREATE INDEX "LegalDocumentVersion_authorAdminAccountId_idx" ON "LegalDocumentVersion"("authorAdminAccountId");
+CREATE INDEX "LegalDocumentVersion_requestedByAccountId_idx" ON "LegalDocumentVersion"("requestedByAccountId");
 
 -- CreateIndex
-CREATE INDEX "LegalDocumentVersion_approverAdminAccountId_idx" ON "LegalDocumentVersion"("approverAdminAccountId");
+CREATE INDEX "LegalDocumentVersion_approvedByAccountId_idx" ON "LegalDocumentVersion"("approvedByAccountId");
 
 -- AddForeignKey
-ALTER TABLE "LegalDocumentVersion" ADD CONSTRAINT "LegalDocumentVersion_authorAdminAccountId_fkey" FOREIGN KEY ("authorAdminAccountId") REFERENCES "AdminAccount"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE "LegalDocumentVersion" ADD CONSTRAINT "LegalDocumentVersion_requestedByAccountId_fkey" FOREIGN KEY ("requestedByAccountId") REFERENCES "AdminAccount"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
-ALTER TABLE "LegalDocumentVersion" ADD CONSTRAINT "LegalDocumentVersion_approverAdminAccountId_fkey" FOREIGN KEY ("approverAdminAccountId") REFERENCES "AdminAccount"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE "LegalDocumentVersion" ADD CONSTRAINT "LegalDocumentVersion_approvedByAccountId_fkey" FOREIGN KEY ("approvedByAccountId") REFERENCES "AdminAccount"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
 ALTER TABLE "LegalDocumentDraft" ADD CONSTRAINT "LegalDocumentDraft_basedOnVersionId_fkey" FOREIGN KEY ("basedOnVersionId") REFERENCES "LegalDocumentVersion"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
-ALTER TABLE "LegalDocumentDraft" ADD CONSTRAINT "LegalDocumentDraft_authorAdminAccountId_fkey" FOREIGN KEY ("authorAdminAccountId") REFERENCES "AdminAccount"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE "LegalDocumentDraft" ADD CONSTRAINT "LegalDocumentDraft_authorAccountId_fkey" FOREIGN KEY ("authorAccountId") REFERENCES "AdminAccount"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
 ALTER TABLE "AdminApprovalRequest" ADD CONSTRAINT "AdminApprovalRequest_targetLegalDraftId_fkey" FOREIGN KEY ("targetLegalDraftId") REFERENCES "LegalDocumentDraft"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -200,20 +206,33 @@ ALTER TABLE "LegalDocumentVersion"
   ADD CONSTRAINT "LegalDocumentVersion_change_summary_check"
   CHECK (length(btrim("changeSummary")) > 0);
 
--- Only a version with a notice period can be withdrawn (before it takes effect).
+-- Only a version with a notice period is withdrawn, and only before it takes effect (00:00 KST of its
+-- effective date). Withdrawing once and never clearing the time is the backoffice conditional UPDATE's job.
 ALTER TABLE "LegalDocumentVersion"
   ADD CONSTRAINT "LegalDocumentVersion_withdrawal_check"
-  CHECK ("withdrawnAt" IS NULL OR "noticeClass" IN ('GENERAL', 'SIGNIFICANT'));
+  CHECK (
+    "withdrawnAt" IS NULL
+    OR (
+      "noticeClass" IN ('GENERAL', 'SIGNIFICANT')
+      AND "withdrawnAt" < ("effectiveDate"::timestamp AT TIME ZONE 'Asia/Seoul')
+    )
+  );
 
--- A backoffice-approved version names its author and approver; a repository seed version names neither.
+-- Body formats the API has a reader for (apps/api/src/legal/domain/legal-version.ts).
+ALTER TABLE "LegalDocumentVersion"
+  ADD CONSTRAINT "LegalDocumentVersion_content_schema_version_check"
+  CHECK ("contentSchemaVersion" = 1);
+
+-- A backoffice-approved version names its publish requester and approver; a repository seed version names neither.
 ALTER TABLE "LegalDocumentVersion"
   ADD CONSTRAINT "LegalDocumentVersion_approval_pair_check"
-  CHECK (("authorAdminAccountId" IS NULL) = ("approverAdminAccountId" IS NULL));
+  CHECK (("requestedByAccountId" IS NULL) = ("approvedByAccountId" IS NULL));
 
--- The self-approval flag marks exactly an approval by the author (operator-access.md OA-R9).
+-- The self-approval flag marks exactly an approval of an own request, as on the approval request it copies
+-- (operator-access.md OA-R9).
 ALTER TABLE "LegalDocumentVersion"
   ADD CONSTRAINT "LegalDocumentVersion_self_approval_check"
-  CHECK ("selfApproved" = COALESCE("approverAdminAccountId" = "authorAdminAccountId", false));
+  CHECK ("selfApproved" = COALESCE("approvedByAccountId" = "requestedByAccountId", false));
 
 ALTER TABLE "LegalDocumentDraft"
   ADD CONSTRAINT "LegalDocumentDraft_applies_until_check"
@@ -238,6 +257,10 @@ ALTER TABLE "LegalDocumentDraft"
 ALTER TABLE "LegalDocumentDraft"
   ADD CONSTRAINT "LegalDocumentDraft_revision_check"
   CHECK ("revision" >= 1);
+
+ALTER TABLE "LegalDocumentDraft"
+  ADD CONSTRAINT "LegalDocumentDraft_content_schema_version_check"
+  CHECK ("contentSchemaVersion" = 1);
 
 -- A legal publish request names its draft and a legal withdraw request names its scheduled version.
 ALTER TABLE "AdminApprovalRequest"

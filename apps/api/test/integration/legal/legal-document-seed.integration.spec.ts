@@ -24,8 +24,8 @@ interface SeededVersion {
   effectiveDate: string;
   appliesUntil: string | null;
   contentDigest: string;
-  authorAdminAccountId: string | null;
-  approverAdminAccountId: string | null;
+  requestedByAccountId: string | null;
+  approvedByAccountId: string | null;
   withdrawnAt: Date | null;
 }
 
@@ -46,7 +46,7 @@ describe('legal document seed', () => {
     const result = await client.query<SeededVersion>(`
       SELECT "id", "kind"::text AS "kind", "noticeClass"::text AS "noticeClass",
              "effectiveDate"::text AS "effectiveDate", "appliesUntil"::text AS "appliesUntil",
-             "contentDigest", "authorAdminAccountId", "approverAdminAccountId", "withdrawnAt"
+             "contentDigest", "requestedByAccountId", "approvedByAccountId", "withdrawnAt"
       FROM "LegalDocumentVersion"
       ORDER BY "LegalDocumentVersion"."kind", "LegalDocumentVersion"."effectiveDate"
     `);
@@ -107,10 +107,11 @@ describe('legal document seed', () => {
     for (const row of first) {
       expect(row.contentDigest, row.id).toMatch(/^[0-9a-f]{64}$/u);
       // Repository seed versions have no backoffice author or approver.
-      expect(
-        [row.authorAdminAccountId, row.approverAdminAccountId, row.withdrawnAt],
-        row.id,
-      ).toEqual([null, null, null]);
+      expect([row.requestedByAccountId, row.approvedByAccountId, row.withdrawnAt], row.id).toEqual([
+        null,
+        null,
+        null,
+      ]);
     }
   });
 
