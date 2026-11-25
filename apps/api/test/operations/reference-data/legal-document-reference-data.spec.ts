@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   LegalDocumentKind,
@@ -7,6 +9,8 @@ import {
 import * as sharedLegal from '@repo/shared/legal';
 // @ts-expect-error -- seed reference data is plain JS and intentionally imported for regression coverage
 import * as legalSeedData from '../../../prisma/seed-data/reference/legal-document-seed-data.js';
+// @ts-expect-error -- the legal version seed module is plain JS that reads the JSON data files
+import * as legalVersionSeed from '../../../prisma/seed-data/reference/seed-legal-documents.js';
 
 type LegalDocumentSeedRow = {
   id: string;
@@ -35,9 +39,21 @@ type LegalVersionSeedRow = {
   changeSummary: string;
 };
 
+// Versions and the first revision come from the JSON data files that the seed module reads; the four
+// document arrays above stay the Web fallback source.
+const versionSeed = legalVersionSeed as Record<string, unknown>;
+const legalSeedDirectory = join(process.cwd(), 'prisma/seed-data/reference/legal');
+
 function requireSeedExport<T>(name: string): T {
-  expect(seedData[name], `legal seed export ${name}`).toBeDefined();
-  return seedData[name] as T;
+  expect(versionSeed[name], `legal version seed export ${name}`).toBeDefined();
+  return versionSeed[name] as T;
+}
+
+function readFirstRevisionDraft(): Record<string, unknown> {
+  // The backoffice import file itself: plain JSON, not a module export.
+  return JSON.parse(
+    readFileSync(join(legalSeedDirectory, 'privacy-policy-first-revision.draft.json'), 'utf8'),
+  ) as Record<string, unknown>;
 }
 
 function requireSharedSchema(name: string) {
@@ -159,6 +175,29 @@ describe('legal document reference seed data', () => {
     }
   });
 
+  it('판 seed 목록·이전 판 본문·첫 개정 초안은 code가 아닌 JSON data 파일이고 seed module이 모두 읽는다', () => {
+    const files = readdirSync(legalSeedDirectory).sort();
+    expect(files).toEqual([
+      'privacy-policy-first-revision.draft.json',
+      'privacy-policy-historical-2026-06-22.json',
+      'version-seed-rows.json',
+    ]);
+    const list = JSON.parse(
+      readFileSync(join(legalSeedDirectory, 'version-seed-rows.json'), 'utf8'),
+    ) as { versions: Array<{ id: string; content: string }> };
+    const contentFiles = list.versions
+      .map((entry) => entry.content)
+      .filter((content) => content !== 'reference-row');
+    // Every body that is not a Web fallback array row is a listed data file, and every data file is read.
+    expect(
+      [
+        ...contentFiles,
+        'privacy-policy-first-revision.draft.json',
+        'version-seed-rows.json',
+      ].sort(),
+    ).toEqual(files);
+  });
+
   it('처리방침 이전 판 기록은 2026-11-20 전에 공개된 본문이다', () => {
     const versionRows = requireSeedExport<LegalVersionSeedRow[]>(
       'LEGAL_DOCUMENT_VERSION_SEED_ROWS',
@@ -176,9 +215,7 @@ describe('legal document reference seed data', () => {
   });
 
   it('처리방침 첫 개정 초안은 가져오기 schema를 통과하는 일반 고지 초안이고 판 행이 아니다', () => {
-    const draft = requireSeedExport<Record<string, unknown>>(
-      'LEGAL_PRIVACY_POLICY_FIRST_REVISION_DRAFT',
-    );
+    const draft = readFirstRevisionDraft();
     const importSchema = requireSharedSchema('legalDocumentDraftImportSchema');
     const versionRows = requireSeedExport<LegalVersionSeedRow[]>(
       'LEGAL_DOCUMENT_VERSION_SEED_ROWS',
@@ -203,8 +240,8 @@ describe('legal document reference seed data', () => {
   it('seed copy는 raw HTML/script와 plan-dependent 표현을 포함하지 않는다', () => {
     const allText = [
       ...legalDocumentRows,
-      ...(seedData.LEGAL_DOCUMENT_VERSION_SEED_ROWS as unknown[]),
-      seedData.LEGAL_PRIVACY_POLICY_FIRST_REVISION_DRAFT,
+      ...(versionSeed.LEGAL_DOCUMENT_VERSION_SEED_ROWS as unknown[]),
+      readFirstRevisionDraft(),
     ]
       .flatMap(flattenText)
       .join('\n');

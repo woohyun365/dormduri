@@ -172,7 +172,8 @@
     {
       "globs": [
         "apps/api/prisma/seed-data/reference/legal-document-seed-data.js",
-        "apps/api/prisma/seed-data/reference/seed-legal-documents.js"
+        "apps/api/prisma/seed-data/reference/seed-legal-documents.js",
+        "apps/api/prisma/seed-data/reference/legal/**"
       ],
       "domains": ["legal-basis", "service-boundary"]
     },

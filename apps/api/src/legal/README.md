@@ -54,9 +54,10 @@ Legal 도메인의 server-side boundary map이다. 이 문서는 `apps/api/src/l
 
 ## Seed와 release handoff
 
-- 개발·test DB의 판은 `apps/api/prisma/seed-data/reference/seed-legal-documents.js`가 `LEGAL_DOCUMENT_VERSION_SEED_ROWS` 순서로 upsert한다(재실행해도 같은 행). 본문은 같은 data 파일의 네 문서 배열(`LEGAL_DOCUMENT_REFERENCE_ROWS`)에서 오고, 시행일·이전 판 기록의 적용 끝은 판 seed 목록이 정한다. production은 이 seed를 돌리지 않는다.
+- 개발·test DB의 판은 `apps/api/prisma/seed-data/reference/seed-legal-documents.js`가 판 seed 목록 순서로 upsert한다(재실행해도 같은 행). production은 이 seed를 돌리지 않는다.
+- legal 문안 data는 code가 아닌 JSON 파일이다(`apps/api/prisma/seed-data/reference/legal/`): 판 seed 목록 `version-seed-rows.json`(순서·고지 등급·재동의 필요·시행일·적용 끝, 본문 출처), 네 문서 배열에 없는 본문(`privacy-policy-historical-2026-06-22.json`), 처리방침 첫 개정 초안(`privacy-policy-first-revision.draft.json`). seed module은 이 파일을 읽기만 하고, 본문 출처 `reference-row`는 같은 id의 네 문서 배열(`LEGAL_DOCUMENT_REFERENCE_ROWS`) 행이다.
 - 처리방침은 이전 판 기록(2026-06-22~2026-11-19)과 시행 중 판(2026-11-20) 둘이고, 나머지 셋은 2026-06-22 첫 게시다.
-- 처리방침 첫 개정 문안은 `LEGAL_PRIVACY_POLICY_FIRST_REVISION_DRAFT`(백오피스 가져오기 JSON 형식, `legalDocumentDraftImportSchema`)이고 판 행이 아니다. 시행 중 판의 처리 위탁 표에 남은 '정해지면 안내' 행은 이 개정이 데이터베이스 운영·운영 관측 기록 보관·운영 관리 서버 운영·운영 접속 기록 보관을 AWS 행에 적고 지운다. 처리자가 바뀌면 다음 판으로 고친다.
+- 처리방침 첫 개정 초안 파일은 백오피스 가져오기 형식(`legalDocumentDraftImportSchema`) 그대로이고 판 행이 아니다. 시행 중 판의 처리 위탁 표에 남은 '정해지면 안내' 행은 이 개정이 데이터베이스 운영·운영 관측 기록 보관·운영 관리 서버 운영·운영 접속 기록 보관을 AWS 행에 적고 지운다. 처리자가 바뀌면 다음 판으로 고친다.
 - 법률·개인정보 전문가 검토 여부는 실제 사용자 공개 전에 GitHub issue로 정한다.
 - 네 문서 배열은 Web fallback의 원본이라 `apps/web/src/legal/__tests__/legal-document-source-sync.test.ts`가 둘의 같음을 지킨다. 이 test는 Web CI lane에서만 돌므로 배열을 바꾸면 같은 commit에서 fallback도 바꾼다.
 
@@ -70,7 +71,7 @@ Legal 도메인의 server-side boundary map이다. 이 문서는 `apps/api/src/l
 - Public response allowlist: `presenters/legal-document.presenter.ts`.
 - 재동의: `commands/legal-reconsent.command.ts`.
 - User-facing error contract: `errors/legal.errors.ts` and auth stale acceptance failure in `auth/errors/auth-failures.ts`.
-- Legal document seed: `apps/api/prisma/seed-data/reference/legal-document-seed-data.js`, `seed-legal-documents.js`.
+- Legal document seed: 네 문서 배열 `apps/api/prisma/seed-data/reference/legal-document-seed-data.js`, 판 seed 목록·이전 판 본문·첫 개정 초안 JSON `apps/api/prisma/seed-data/reference/legal/`, 읽고 쓰는 code `seed-legal-documents.js`.
 - Persistence schema/migration SQL과 grant: `packages/database/prisma/schema.prisma`, `packages/database/prisma/migrations/`, `packages/database/prisma/role-grants/`.
 - Signup acceptance transaction hook: `apps/api/src/auth/registration/signup.command.ts`.
 

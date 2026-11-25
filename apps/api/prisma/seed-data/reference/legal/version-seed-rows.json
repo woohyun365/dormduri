@@ -1,0 +1,44 @@
+{
+  "versions": [
+    {
+      "id": "terms-of-service-2026-06-22",
+      "content": "reference-row",
+      "noticeClass": "INITIAL",
+      "consentRequired": false,
+      "effectiveDate": "2026-06-22",
+      "appliesUntil": null
+    },
+    {
+      "id": "privacy-policy-2026-06-22",
+      "content": "reference-row",
+      "noticeClass": "INITIAL",
+      "consentRequired": false,
+      "effectiveDate": "2026-11-20",
+      "appliesUntil": null
+    },
+    {
+      "id": "personal-data-collection-use-consent-2026-06-22",
+      "content": "reference-row",
+      "noticeClass": "INITIAL",
+      "consentRequired": false,
+      "effectiveDate": "2026-06-22",
+      "appliesUntil": null
+    },
+    {
+      "id": "age-14-or-above-notice-2026-06-22",
+      "content": "reference-row",
+      "noticeClass": "INITIAL",
+      "consentRequired": false,
+      "effectiveDate": "2026-06-22",
+      "appliesUntil": null
+    },
+    {
+      "id": "privacy-policy-historical-2026-06-22",
+      "content": "privacy-policy-historical-2026-06-22.json",
+      "noticeClass": "HISTORICAL",
+      "consentRequired": false,
+      "effectiveDate": "2026-06-22",
+      "appliesUntil": "2026-11-19"
+    }
+  ]
+}
