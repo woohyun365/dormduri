@@ -278,6 +278,8 @@ test('the review skill names real composition flags and dispatch-step tools', ()
       'plan-shape-check.mjs',
       'red-reason-check.mjs',
       'runner-log-check.mjs',
+      // OSS-RL P5: the Runner environment bullet wraps an evidence reproduction record with the read trace.
+      'runner-read-trace.mjs',
     ],
     'plan review grade: dispatch-step tools',
   );
@@ -819,4 +821,197 @@ test('knu-review dispatch steps carry the runner procedure under the shared name
   // The Parent subject step points its paths at the subject bullet.
   const flat = skill('knu-review').replace(/\s+/gu, ' ');
   assert.ok(flat.includes('그 소비자·실행 경로'), 'Parent subject paths name the consumers');
+});
+
+// OSS-RL P5 RED 1 (L9, D-OSS-37 ②): the unjudged-line disposition paragraphs check a claim together with the claims
+// that use the same source and the claims of the same paragraph, and check the whole paragraph again before the next
+// round when one is raised.
+const L9_PHRASES = [
+  '같은 원천(같은 명령 출력·같은 기록)을 쓰는 주장',
+  '같은 문단의 주장을 한 번에 대조',
+  '`raised`가 하나라도 있으면 그 문단 전체를 다시 대조한 뒤 다음 회차를 요청',
+  '처분 근거 log',
+];
+test('the Claude settle skill and qa.md check unjudged lines by source and paragraph together (OSS-RL P5 RED 1)', () => {
+  const flat = (path) => read(path).replace(/\s+/gu, ' ');
+  const settle = flat('.claude/skills/knu-settle/SKILL.md');
+  const unjudged = settle.slice(settle.indexOf('Result에 `unjudgedBehaviors`'));
+  for (const phrase of L9_PHRASES)
+    assert.ok(unjudged.includes(phrase), `knu-settle unjudged paragraph: ${phrase}`);
+  const qa = flat('docs/development/agent-workflows/qa.md');
+  const paragraph = qa.slice(qa.indexOf('Reviewer는 요구가 말하지 않은 동작을'));
+  for (const phrase of L9_PHRASES)
+    assert.ok(paragraph.includes(phrase), `qa.md unjudgedBehaviors paragraph: ${phrase}`);
+  // The five disposition values stay as they are.
+  for (const value of [
+    '`parent-checked`',
+    '`raised`',
+    '`pre-existing`',
+    '`out-of-scope`',
+    '`follow-up`',
+  ])
+    assert.ok(unjudged.includes(value), `knu-settle keeps ${value}`);
+});
+
+// OSS-RL P5 goal 2 (h): a documents-only round sends the long code check records ahead with the previous result and
+// confirms them during the review; the qa.md round rule and the Claude review skill say so instead of a full rerun.
+test('qa.md and the Claude review skill carry a documents-only round ahead and confirm it before settling (OSS-RL P5)', () => {
+  const flat = (path) => read(path).replace(/\s+/gu, ' ');
+  const qa = flat('docs/development/agent-workflows/qa.md');
+  assert.ok(
+    !qa.includes('결정적 검사는 매 회차 전 범위로 실행'),
+    'qa.md: older full-rerun sentence',
+  );
+  for (const phrase of [
+    '결정적 검사는 매 회차 다시 실행합니다',
+    '회차 diff가 문서(`.md`)뿐이면',
+    '새·지운 `.md` 없음, 그 문서를 글자로 가진 `scripts/` 파일 없음',
+    '리뷰 중 다시 돌려 정산 전에 결과 단위로 대조',
+    '문서 검사·같은 유형 검색·evidence 재현은 매 회차 다시',
+  ])
+    assert.ok(qa.includes(phrase), `qa.md: ${phrase}`);
+  const review = flat('.claude/skills/knu-review/SKILL.md');
+  assert.ok(
+    !review.includes('Runner 검사는 매 회차 전 범위로 다시 실행'),
+    'knu-review: older full-rerun sentence',
+  );
+  assert.ok(review.includes('회차 diff가 문서(`.md`)뿐이면'), 'knu-review: documents-only round');
+  const section = dispatchSection(skill('knu-review'));
+  const environment = section.bullets.find(({ name }) => name === 'Runner 환경').text;
+  for (const phrase of [
+    '60초 이상',
+    // The cost rule of the plan: changed `.md` files only (C4) that no tracked scripts file names (C5).
+    '새로 만들거나 지운 `.md`가 없고',
+    '바뀐 `.md`의 경로나 파일 이름을 가진 tracked `scripts/` 파일이 없는',
+    '`carriedFrom`',
+    '확인 실행을 1~2갈래로',
+    '`<out-dir>/confirm/evidence.json`',
+    // Review round 3 u1 (Owner 4.1): confirm runs start before review-run, so the record moves in only after it registers.
+    '`review-run`이 그 `--out`으로 등록을 마친 뒤(exit 0)에 `<out-dir>/confirm/evidence.json`으로 옮깁니다',
+    '등록보다 먼저 끝나도 그 전에는 옮기지 않습니다',
+    'tracked 파일과 리뷰 read path를 바꾸지 않습니다',
+    '`runner-read-trace.mjs`로 감쌉니다',
+  ])
+    assert.ok(environment.includes(phrase), `Runner 환경: ${phrase}`);
+  assert.ok(
+    !environment.includes('`<out-dir>/confirm/evidence.json`에 한 번에 씁니다'),
+    'Runner 환경: older write-at-finish sentence',
+  );
+  const runnerStep = section.steps.find(({ name }) => name === 'Runner 기록 검사').text;
+  for (const phrase of [
+    '`<out-dir>/checks/carry-basis.json`',
+    '`--carry-basis`',
+    '`carried-record-mismatch`',
+    '`carried-header-mismatch`',
+    '`carry-round-diff-not-docs`',
+    // C4 as the README states it: a non-`.md` path, a new or deleted `.md`, or no range record of that round.
+    '`.md`가 아닌 경로·새 `.md`·지운 `.md`가 있거나 그 회차 범위 기록이 없으면 `carry-round-diff-not-docs`',
+    '`carry-doc-referenced`',
+    '`carry-path-unsupported`',
+    // u2 (Owner 3.2): the confirm record names no review id, so a carried round registers with a new --out.
+    '새 `--out`으로 등록하고, `<out-dir>/confirm/evidence.json`이 등록 전에 이미 있으면 `carry-confirm-exists`',
+    // Review round 3 u1 (Owner 4.1): the recovery runs the confirm runs again for the new registration.
+    '새 `--out`으로 다시 등록하고 확인 실행을 다시 돌려 그 등록 뒤에 옮깁니다',
+  ])
+    assert.ok(runnerStep.includes(phrase), `Runner 기록 검사: ${phrase}`);
+  // The record format names the optional field and where it is taken.
+  assert.ok(
+    review.includes('`carriedFrom`(그 log를 만든 회차 reviewId)'),
+    'knu-review record format: carriedFrom',
+  );
+  // The Parent subject warning list names the two evidence warnings.
+  for (const name of ['`evidence-claim-source-missing`', '`evidence-source-outside-read-paths`'])
+    assert.ok(review.includes(name), `knu-review warnings: ${name}`);
+});
+
+test('the Claude settle skill names the confirm reasons of a carried round (OSS-RL P5)', () => {
+  const settle = read('.claude/skills/knu-settle/SKILL.md').replace(/\s+/gu, ' ');
+  const parent = settle.slice(
+    settle.indexOf('- `parent-adjudication` reviewer'),
+    settle.indexOf('- 기록만 남는 관측'),
+  );
+  for (const phrase of [
+    '`(carried from <reviewId>)`',
+    '`<reviewId>.carry.json`',
+    '`carry-confirm-pending`이면 확인 실행이 끝난 뒤',
+    '`carry-confirm-missing`·`carry-confirm-mismatch`면 결과를 쓰지 않고',
+    '확인 기록을 이번 회차 record로 써서 같은 회차를 다시 리뷰',
+  ])
+    assert.ok(parent.includes(phrase), `parent-adjudication reviewer: ${phrase}`);
+});
+
+test('the review owner documents name the carry rules and the evidence source warnings (OSS-RL P5)', () => {
+  const flat = (path) => read(path).replace(/\s+/gu, ' ');
+  const adapter = flat('docs/development/agent-workflows/adapters/claude-same-host-review.md');
+  for (const phrase of [
+    '`carriedFrom`',
+    '`--carry-basis`',
+    '`carry-confirm-mismatch`',
+    '`evidence-claim-source-missing`',
+    '`evidence-source-outside-read-paths`',
+    // Review round 1: the carried outputs are bound by digest (m1-F1). Review round 2 (r2-F1, Owner 3.1): the token rule
+    // is the meaning list of 3.5 (a), not a list of what may stand next to a number; u2 (Owner 3.2): a new --out.
+    '이어 쓴 출력을 carry 기록의 digest와 다시 재고',
+    '수치 token은 가장 긴 수 run',
+    '수 옆 글자 목록으로 정하지 않고 다음만 뺍니다',
+    '그 밖의 글자나 `%`가 뒤에 오면 연도·`n.n` 모양도 측정값',
+    '맨 소수(`0.98`)는 `n.n` 절 번호로 읽혀 빠집니다',
+    '`carry-confirm-exists`',
+    // Review round 3 u1 (Owner 4.1): the confirm runs move the record in only after the registration.
+    '확인 실행은 그 등록을 마친 뒤에 이 경로로 옮기며',
+  ])
+    assert.ok(adapter.includes(phrase), `claude-same-host-review.md: ${phrase}`);
+  const criteria = flat('docs/development/agent-workflows/review-criteria/README.md');
+  for (const phrase of [
+    '`carriedFrom`',
+    '`--carry-basis`',
+    '`--confirm`',
+    '`runner-read-trace.mjs`',
+    // C4 also when the producing round left no scope record (review round 1 m2-F5).
+    '그 회차의 범위 기록이 없어(basis에 회차 diff가 없음)',
+  ])
+    assert.ok(criteria.includes(phrase), `review criteria README: ${phrase}`);
+  const tooling = flat(
+    'docs/development/agent-workflows/review-criteria/agent-workflow-tooling.md',
+  );
+  const w5 = tooling.slice(tooling.indexOf('### W5.'), tooling.indexOf('### W6.'));
+  assert.ok(w5.includes('`carriedFrom`'), 'W5 names the carried record exception');
+  assert.ok(
+    w5.includes('결과 단위(exit·조각·test 결과 줄)로만 판정 근거에 쓴다'),
+    'W5: a carried record is judged by its result unit only',
+  );
+  // Owner 3.1: the question, the defect patterns, the guideline and the avoid cell each hold the exception, so no
+  // cell reads a carried record as a defect (review round 1 m2-F2).
+  const toolingText = read(
+    'docs/development/agent-workflows/review-criteria/agent-workflow-tooling.md',
+  );
+  const w5Lines = toolingText
+    .slice(toolingText.indexOf('### W5.'), toolingText.indexOf('### W6.'))
+    .split('\n');
+  for (const cell of ['- 질문:', '- 결함 패턴:', '- 지침:', '- 피함:'])
+    assert.ok(
+      w5Lines.find((line) => line.startsWith(cell))?.includes('`runner-log-check`가 받'),
+      `W5 ${cell} holds the carried record exception`,
+    );
+  const rejections = flat(REJECTIONS);
+  for (const reason of [
+    'carry-path-unsupported',
+    'carry-basis-missing',
+    'carried-record-mismatch',
+    'carried-header-mismatch',
+    'carry-round-diff-not-docs',
+    'carry-doc-referenced',
+    'carry-confirm-pending',
+    'carry-confirm-missing',
+    'carry-confirm-mismatch',
+    'carry-confirm-exists',
+  ])
+    assert.ok(rejections.includes(`\`${reason}`), `rejection guide: ${reason}`);
+  // Review round 3 u1 (Owner 4.1): the recovery of carry-confirm-exists and the record moved in after registration.
+  for (const phrase of [
+    '확인 실행이 등록 전에 옮김',
+    '새 `--out`으로 다시 등록하고 확인 실행을 다시 돌려 그 등록 뒤에 새 `--out` 아래로 옮깁니다',
+    '`carry-confirm-pending`은 확인 실행이 `<out-dir>/confirm/evidence.json`을 아직 옮기지 않은 것',
+  ])
+    assert.ok(rejections.includes(phrase), `rejection guide: ${phrase}`);
 });
