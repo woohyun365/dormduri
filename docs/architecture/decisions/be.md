@@ -17,16 +17,20 @@
 - 상태: validated
 - 고른 선택지: 업무 capability 단위. 백오피스는 사용자 앱과 따로 Next.js BFF(`apps/backoffice-web`)와 NestJS API(`apps/backoffice-api`)를
   두고 공유 DB package(`@repo/database`)와 계약 package(`@repo/shared/backoffice`)를 함께 쓴다. API 안의 owner는 기능 module
-  (`platform`·`audit`·`access-control/roles`·`admin-identity`·`access-control`)이고 의존은 이 순서의 한 방향이다. 예외는 다른 module을
-  import하지 않는 두 파일, route 접근 규칙 decorator(`access-control/route-access.ts`)와 권한 계산(`access-control/permissions.ts`)이고
-  모든 module의 controller와 session이 쓴다. 사용자 API code는 import하지 않는다(ESLint `no-restricted-imports`)
+  (`platform`·`audit`·`access-control/roles`·`admin-identity`·`access-control`·`legal`)이고 의존은 이 순서의 한 방향이다. 예외는
+  다른 module을 import하지 않는 두 파일, route 접근 규칙 decorator(`access-control/route-access.ts`)와 권한 계산
+  (`access-control/permissions.ts`)이고 모든 module의 controller와 session이 쓴다. 사용자 API code는 import하지 않는다(ESLint
+  `no-restricted-imports`)
 - 근거: 관리자 계정·session·감사가 사용자 API image와 session 경계에서 떨어져 사용자 API process가 뚫려도 관리자 기록에 닿지 않는다.
   역할 부여 행은 초대 등록(bootstrap)과 승인 결과가 함께 바꾸므로 한 store(`access-control/roles`)가 소유해 identity와 access-control의
   순환을 끊었다. Module을 다시 나누는 비용은 크지만 DB·계약 package는 그대로 둔다
 - 기각한 대안: 사용자 API에 admin module(user·admin code가 한 image와 session 경계를 나눔), 화면·진입점 단위 owner(같은 승인·감사 규칙이
   진입점마다 복제됨), 사용자 API code import로 재사용(두 app의 배포·권한 경계가 섞임)
-- 재검토 조건: 두 API가 함께 쓸 server code가 생길 때(공유 server package), 백오피스 기능이 legal·RRPD 열람으로 늘 때
-- 출처: #958, Owner 확인 2026-11-04·2026-11-12
+- 이전 선택: 2026-11-12 기능 module 다섯(`platform`부터 `access-control`까지). 바꾼 이유: 공개 법적 문서의 초안·승인이 같은 업무
+  capability 단위의 `legal` module로 들어가 승인 요청 table과 역할·감사 module을 쓰고, 사용자 API의 공개 열람과는 DB의 판 table만
+  함께 씀(재검토 조건 "백오피스 기능이 legal·RRPD 열람으로 늘 때"). 출처 #1000, Owner 확인 2026-11-25
+- 재검토 조건: 두 API가 함께 쓸 server code가 생길 때(공유 server package), 백오피스 기능이 RRPD 열람으로 늘 때
+- 출처: #958, #1000, Owner 확인 2026-11-04·2026-11-12·2026-11-25
 - pack 결정: [be.domain.owner-unit](../../development/agent-workflows/domain/swe-web/be.md#bedomainowner-unit)
 
 ## api-design-contract

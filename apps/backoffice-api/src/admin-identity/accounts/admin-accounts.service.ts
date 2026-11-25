@@ -156,11 +156,14 @@ export class AdminAccountsService {
     const now = this.clock.now();
     const revokedRoles = await this.prisma.serializable(async (tx) => {
       // Deactivation revokes the target's roles directly (OA-R6). When that would leave one
-      // approver (the requester, who holds the deactivate permission only through an approver
-      // role), the approver role is revoked through a request first, so one operator cannot
-      // reopen the sole-approver exception alone (OA-R9).
-      const approvers = await this.roles.activeRoleChangeApprovers(tx);
-      if (approvers.includes(accountId)) {
+      // approver of a request kind (role changes or legal documents; the requester holds the
+      // deactivate permission only through the owner role, an approver of both), the approver role
+      // is revoked through a request first, so one operator cannot reopen the sole-approver
+      // exception alone (OA-R9).
+      for (const approvers of await this.roles.activeApproversByKind(tx)) {
+        if (!approvers.includes(accountId)) {
+          continue;
+        }
         const remaining = approvers.filter((id) => id !== accountId);
         if (remaining.length === 0) {
           throw new BackofficeApiError('conflict', 'the last approver cannot be deactivated');

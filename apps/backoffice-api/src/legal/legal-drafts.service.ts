@@ -1,3 +1,4 @@
+import type { Prisma } from '@repo/database/client';
 import type {
   LegalDraftCreateRequest,
   LegalDraftDiscardRequest,
@@ -5,7 +6,7 @@ import type {
   LegalDraftUpdateRequest,
   LegalPublishRequestCreate,
 } from '@repo/shared/backoffice';
-import { compareLegalSections, type LegalDocumentSection } from '@repo/shared/legal';
+import { compareLegalSections, type LegalVersionKey } from '@repo/shared/legal';
 import { APPROVAL_REQUEST_TTL_MS } from '../access-control/approval/approval-policy.js';
 import { adminActor, type AdminAuditWriter } from '../audit/admin-audit-writer.js';
 import type {
@@ -28,10 +29,48 @@ import {
   serializeDraft,
   serializeRequest,
   serializeVersion,
+  versionSections,
   type DraftRow,
   type RequestRow,
 } from './legal-records.js';
 import { expireLegalRequests } from './legal-request-expiry.js';
+
+const openPublishRequest = (now: Date): Prisma.AdminApprovalRequestWhereInput => ({
+  kind: 'LEGAL_PUBLISH',
+  status: 'PENDING',
+  expiresAt: { gt: now },
+});
+
+/**
+ * Filters by the status a draft shows: a draft whose publish request expired stays waiting in the
+ * table until the next save, request or decision, and reads as editing before that (README §8).
+ */
+function draftStatusFilter(
+  status: LegalDraftListQuery['status'],
+  now: Date,
+): Prisma.LegalDocumentDraftWhereInput {
+  if (status === 'EDITING') {
+    return {
+      OR: [
+        { status: 'EDITING' },
+        { status: 'PENDING_APPROVAL', publishRequests: { none: openPublishRequest(now) } },
+      ],
+    };
+  }
+  if (status === 'PENDING_APPROVAL') {
+    return { status: 'PENDING_APPROVAL', publishRequests: { some: openPublishRequest(now) } };
+  }
+  return status ? { status } : {};
+}
+
+/** The live version a draft of that kind and date follows, stored as the draft's base. */
+async function basedOnVersionId(
+  tx: BackofficeTransaction,
+  kind: LegalDraftCreateRequest['draft']['kind'],
+  effectiveDate: LegalVersionKey,
+): Promise<string | null> {
+  return previousVersionOf(await kindVersions(tx, kind), effectiveDate)?.id ?? null;
+}
 
 /**
  * Legal drafts: created from the editor or a JSON file through the shared
@@ -45,30 +84,33 @@ export class LegalDraftsService {
     private readonly clock: Clock,
   ) {}
 
+  /** Newest created first: the creation time does not move when a draft is saved between pages. */
   async list(query: LegalDraftListQuery) {
     const cursor = pageCursor(query);
     const rows = (await this.prisma.legalDocumentDraft.findMany({
       where: {
         ...(query.kind ? { kind: query.kind } : {}),
-        ...(query.status ? { status: query.status } : {}),
-        ...(cursor
-          ? {
-              updatedAt: { lte: cursor.time },
-              OR: [
-                { updatedAt: { lt: cursor.time } },
-                { updatedAt: cursor.time, id: { lt: cursor.id } },
-              ],
-            }
-          : {}),
+        AND: [
+          draftStatusFilter(query.status, this.clock.now()),
+          cursor
+            ? {
+                createdAt: { lte: cursor.time },
+                OR: [
+                  { createdAt: { lt: cursor.time } },
+                  { createdAt: cursor.time, id: { lt: cursor.id } },
+                ],
+              }
+            : {},
+        ],
       },
-      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit,
       select: DRAFT_SELECT,
     })) as DraftRow[];
     const open = await this.openRequestDrafts(rows.map((row) => row.id));
     return {
       drafts: rows.map((row) => serializeDraft(row, open.has(row.id))),
-      nextPage: nextPageAfter(rows, query.limit, (row) => row.updatedAt),
+      nextPage: nextPageAfter(rows, query.limit, (row) => row.createdAt),
     };
   }
 
@@ -84,7 +126,7 @@ export class LegalDraftsService {
       draft,
       previousVersion: previous ? serializeVersion(previous) : null,
       comparison: compareLegalSections(
-        previous ? (previous.sections as LegalDocumentSection[]) : null,
+        previous ? await versionSections(this.prisma, previous.id) : null,
         draft.content.sections,
       ),
     };
@@ -93,11 +135,10 @@ export class LegalDraftsService {
   async create(session: AdminRequestSession, input: LegalDraftCreateRequest, requestId: string) {
     const content = contentOfImport(input.draft);
     const row = await this.prisma.$transaction(async (tx) => {
-      const [based] = await kindVersions(tx, content.kind);
       const created = (await tx.legalDocumentDraft.create({
         data: {
           ...draftColumns(content),
-          basedOnVersionId: based?.id ?? null,
+          basedOnVersionId: await basedOnVersionId(tx, content.kind, content.proposedEffectiveDate),
           authorAccountId: session.accountId,
         },
         select: DRAFT_SELECT,
@@ -131,7 +172,11 @@ export class LegalDraftsService {
       }
       const saved = await tx.legalDocumentDraft.updateMany({
         where: { id: draftId, status: 'EDITING', revision: input.revision },
-        data: { ...draftColumns(content), revision: { increment: 1 } },
+        data: {
+          ...draftColumns(content),
+          basedOnVersionId: await basedOnVersionId(tx, content.kind, content.proposedEffectiveDate),
+          revision: { increment: 1 },
+        },
       });
       if (saved.count !== 1) {
         throw new BackofficeApiError(
@@ -256,17 +301,12 @@ export class LegalDraftsService {
   }
 
   /** Drafts among `draftIds` with a publish request still open (pending and not past its expiry). */
-  private async openRequestDrafts(draftIds: readonly string[]): Promise<Set<string>> {
+  async openRequestDrafts(draftIds: readonly string[]): Promise<Set<string>> {
     if (draftIds.length === 0) {
       return new Set();
     }
     const rows = await this.prisma.adminApprovalRequest.findMany({
-      where: {
-        kind: 'LEGAL_PUBLISH',
-        status: 'PENDING',
-        expiresAt: { gt: this.clock.now() },
-        targetLegalDraftId: { in: [...draftIds] },
-      },
+      where: { ...openPublishRequest(this.clock.now()), targetLegalDraftId: { in: [...draftIds] } },
       select: { targetLegalDraftId: true },
     });
     return new Set(rows.flatMap((row) => (row.targetLegalDraftId ? [row.targetLegalDraftId] : [])));

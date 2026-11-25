@@ -77,7 +77,12 @@ const ROLE_REQUEST_KINDS: Prisma.EnumAdminApprovalRequestKindFilter = {
   in: ['ROLE_GRANT', 'ROLE_REVOKE'],
 };
 
-function effectiveStatusFilter(
+/**
+ * A pending request past its expiry is closed only when someone next tries to decide it, so lists of
+ * either request path show it as EXPIRED and filter it that way (README §4). The role and the legal
+ * request paths both use these two.
+ */
+export function effectiveStatusFilter(
   status: AccessRequestListQuery['status'],
   now: Date,
 ): Prisma.AdminApprovalRequestWhereInput {
@@ -88,6 +93,15 @@ function effectiveStatusFilter(
     return { OR: [{ status: 'EXPIRED' }, { status: 'PENDING', expiresAt: { lte: now } }] };
   }
   return status ? { status } : {};
+}
+
+export function shownStatus<Status extends string>(
+  row: { readonly status: Status; readonly expiresAt: Date },
+  now: Date,
+): Status | 'EXPIRED' {
+  return row.status === 'PENDING' && row.expiresAt.getTime() <= now.getTime()
+    ? 'EXPIRED'
+    : row.status;
 }
 
 /**
@@ -132,13 +146,7 @@ export class ApprovalRequestsService {
       select: REQUEST_SELECT,
     });
     return {
-      requests: rows.map((row) =>
-        serializeRequest(
-          row.status === 'PENDING' && row.expiresAt.getTime() <= now.getTime()
-            ? { ...row, status: 'EXPIRED' }
-            : row,
-        ),
-      ),
+      requests: rows.map((row) => serializeRequest({ ...row, status: shownStatus(row, now) })),
       nextPage: nextPageAfter(rows, query.limit, (row) => row.createdAt),
     };
   }

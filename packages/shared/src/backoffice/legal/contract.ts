@@ -197,14 +197,17 @@ export const legalRequestListResponseSchema = z.object({
   requests: z.array(legalRequestSchema),
   nextPage: pageCursorSchema.nullable(),
 });
-/** Approval screen data: what the request names, the comparison and the checks as of now. */
+/**
+ * Approval screen data: what the request names, the comparison and, while the request can still be
+ * decided, the checks as of now (`null` for a closed request, whose target is shown as it is now).
+ */
 export const legalRequestDetailResponseSchema = z.object({
   request: legalRequestSchema,
   draft: legalDraftSchema.nullable(),
   version: legalBackofficeVersionDetailSchema.nullable(),
   previousVersion: legalBackofficeVersionSchema.nullable(),
   comparison: z.array(legalArticleComparisonSchema),
-  check: legalDecisionCheckSchema,
+  check: legalDecisionCheckSchema.nullable(),
 });
 export const legalDecisionResponseSchema = z.object({
   request: legalRequestSchema,

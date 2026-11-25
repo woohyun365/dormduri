@@ -93,6 +93,17 @@ describe('legal publication checks at decision time', () => {
     expect(check(candidate({ noticeClass: 'GENERAL' }), [initial], 1)).toEqual({ ok: true });
   });
 
+  it('refuses a significant version that needs no reconsent while any member can receive mail', () => {
+    // A privacy policy never asks for reconsent, so the significant class alone keeps it to zero members.
+    const significant = candidate({
+      kind: 'PRIVACY_POLICY',
+      noticeClass: 'SIGNIFICANT',
+      effectiveDate: '2026-12-31',
+    });
+    expect(check(significant, [initial], 1)).toEqual({ ok: false, reason: 'members_exist' });
+    expect(check(significant, [initial], 0)).toEqual({ ok: true });
+  });
+
   it('refuses a first publication or historical record once the kind has a publication', () => {
     const general = version({ noticeClass: 'GENERAL', effectiveDate: '2026-11-01' });
     expect(

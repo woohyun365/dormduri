@@ -3,6 +3,7 @@ import { Prisma } from '@repo/database/client';
 import { acquireTransactionAdvisoryLock } from '@repo/database/sql';
 import type {
   LegalDecisionCheck,
+  LegalDraftContent,
   LegalRequestApproveRequest,
   LegalVersionState,
   LegalRequestListQuery,
@@ -14,6 +15,7 @@ import {
   APPROVAL_REQUEST_TTL_MS,
   decideApproval,
 } from '../access-control/approval/approval-policy.js';
+import { effectiveStatusFilter } from '../access-control/approval/approval-requests.service.js';
 import { LEGAL_APPROVER_ROLES } from '../access-control/permissions.js';
 import type { RoleAssignmentStore } from '../access-control/roles/role-assignment.store.js';
 import { adminActor, type AdminAuditWriter } from '../audit/admin-audit-writer.js';
@@ -34,8 +36,10 @@ import {
   DRAFT_SELECT,
   LEGAL_REQUEST_KINDS,
   REQUEST_SELECT,
+  VERSION_FACT_SELECT,
   VERSION_SELECT,
   fromVersionKey,
+  isOpenRequest,
   isScheduled,
   kindVersions,
   legalDigest,
@@ -49,40 +53,22 @@ import {
   toVersionKey,
   transactionNow,
   versionFact,
+  versionSections,
   type DraftRow,
   type RequestRow,
+  type VersionFactRow,
   type VersionRow,
 } from './legal-records.js';
 import { expireLegalRequests } from './legal-request-expiry.js';
 
-type StatusFilter = LegalRequestListQuery['status'];
-
-function effectiveStatusFilter(
-  status: StatusFilter,
-  now: Date,
-): Prisma.AdminApprovalRequestWhereInput {
-  if (status === 'PENDING') {
-    return { status: 'PENDING', expiresAt: { gt: now } };
-  }
-  if (status === 'EXPIRED') {
-    return { OR: [{ status: 'EXPIRED' }, { status: 'PENDING', expiresAt: { lte: now } }] };
-  }
-  return status ? { status } : {};
-}
-
-/** What a publish decision would write, checked as of `now`. */
-interface PublishPlan {
-  readonly draft: DraftRow;
-  readonly check: LegalDecisionCheck;
-}
-
 /**
- * Legal publish and withdraw requests and their decisions. A decision runs
+ * Legal publish and withdraw requests and their decisions. An approval runs
  * in one serializable transaction under a per-kind advisory lock: the request's conditional UPDATE,
  * the decision checks, the version INSERT or the withdrawal UPDATE, the draft status and the audit row
- * all commit together or not at all. Publication facts (notice start, withdrawal time, the KST approval
- * date) use the database clock that public reading also uses; request expiry uses the app clock like
- * the role requests.
+ * all commit together or not at all; a rejection writes the request, the draft and the audit row the
+ * same way without the lock. Publication facts (notice start, withdrawal time, the KST approval date)
+ * use the database clock that public reading also uses; request expiry uses the app clock like the
+ * role requests.
  */
 export class LegalRequestsService {
   constructor(
@@ -98,8 +84,8 @@ export class LegalRequestsService {
     const now = await this.prisma.databaseNow();
     const rows = (await this.prisma.legalDocumentVersion.findMany({
       orderBy: [{ kind: 'asc' }, { effectiveDate: 'desc' }, { id: 'desc' }],
-      select: VERSION_SELECT,
-    })) as VersionRow[];
+      select: VERSION_FACT_SELECT,
+    })) as VersionFactRow[];
     const kinds = [...new Set(rows.map((row) => row.kind))];
     return {
       documents: kinds.map((kind) => {
@@ -160,34 +146,48 @@ export class LegalRequestsService {
     };
   }
 
-  /** Approval screen data: the draft or version, the comparison and the checks as of now. */
+  /**
+   * Approval screen data: the draft or version, the comparison and, while the request can still be
+   * decided, the checks as of now. A closed request shows its target as it is now and no check; the
+   * two digests tell whether the draft changed since the request.
+   */
   async detail(approvalRequestId: string) {
     const now = this.clock.now();
     return this.prisma.$transaction(async (tx) => {
       const request = await this.findRequest(tx, approvalRequestId);
+      const open = isOpenRequest(request, now);
       const databaseNow = await transactionNow(tx);
       if (request.kind === 'LEGAL_PUBLISH') {
-        const { draft, check } = await this.planPublish(tx, request, databaseNow);
+        const draft = await this.findDraft(tx, request.targetLegalDraftId);
         const content = parseDraftContent(draft);
         const versions = await kindVersions(tx, draft.kind);
         const previous = content
           ? previousVersionOf(versions, content.proposedEffectiveDate)
           : null;
+        // The draft may wait on a later request than this one.
+        const waiting = await tx.adminApprovalRequest.count({
+          where: {
+            kind: 'LEGAL_PUBLISH',
+            status: 'PENDING',
+            expiresAt: { gt: now },
+            targetLegalDraftId: draft.id,
+          },
+        });
         return {
           request: serializeRequest(request, now),
-          draft: serializeDraft(
-            draft,
-            request.status === 'PENDING' && request.expiresAt.getTime() > now.getTime(),
-          ),
+          draft: serializeDraft(draft, waiting > 0),
           version: null,
           previousVersion: previous ? serializeVersion(previous) : null,
           comparison: content
             ? compareLegalSections(
-                previous ? (previous.sections as LegalDocumentSection[]) : null,
+                previous ? await versionSections(tx, previous.id) : null,
                 content.sections,
               )
             : [],
-          check,
+          check:
+            open && content
+              ? await this.publicationCheck(tx, content, versions, databaseNow)
+              : null,
         };
       }
       const version = await this.findVersion(tx, request.targetLegalVersionId);
@@ -201,10 +201,12 @@ export class LegalRequestsService {
         version: serializeVersionDetail(version),
         previousVersion: previous ? serializeVersion(previous) : null,
         comparison: compareLegalSections(
-          previous ? (previous.sections as LegalDocumentSection[]) : null,
+          previous ? await versionSections(tx, previous.id) : null,
           version.sections as LegalDocumentSection[],
         ),
-        check: checkLegalWithdrawal({ version: versionFact(version), now: databaseNow }),
+        check: open
+          ? checkLegalWithdrawal({ version: versionFact(version), now: databaseNow })
+          : null,
       };
     });
   }
@@ -271,6 +273,7 @@ export class LegalRequestsService {
     input: LegalRequestApproveRequest,
   ) {
     const now = this.clock.now();
+    await expireLegalRequests(this.prisma, { requestId: approvalRequestId }, now);
     const outcome = await this.prisma.serializable(async (tx) => {
       const request = await this.loadPending(tx, approvalRequestId, input.contentDigest, now);
       const kind = await this.lockKind(tx, request);
@@ -349,6 +352,7 @@ export class LegalRequestsService {
     input: LegalRequestRejectRequest,
   ) {
     const now = this.clock.now();
+    await expireLegalRequests(this.prisma, { requestId: approvalRequestId }, now);
     const outcome = await this.prisma.serializable(async (tx) => {
       const request = await this.loadPending(tx, approvalRequestId, input.contentDigest, now);
       const decision = decideApproval({
@@ -429,18 +433,13 @@ export class LegalRequestsService {
   }
 
   /** The checks a publish decision runs, as of `now` (the transaction's database time). */
-  private async planPublish(
+  private async publicationCheck(
     tx: BackofficeTransaction,
-    request: RequestRow,
+    content: LegalDraftContent,
+    versions: readonly VersionFactRow[],
     now: Date,
-  ): Promise<PublishPlan> {
-    const draft = await this.findDraft(tx, request.targetLegalDraftId);
-    const content = parseDraftContent(draft);
-    if (!content) {
-      throw new BackofficeApiError('conflict', 'the draft no longer passes the import schema');
-    }
-    const versions = await kindVersions(tx, draft.kind);
-    const check = checkLegalPublication({
+  ): Promise<LegalDecisionCheck> {
+    return checkLegalPublication({
       candidate: {
         kind: content.kind,
         noticeClass: content.noticeClass,
@@ -452,7 +451,6 @@ export class LegalRequestsService {
       now,
       recipientCount: await noticeRecipientCount(tx),
     });
-    return { draft, check };
   }
 
   private async publish(
@@ -462,14 +460,23 @@ export class LegalRequestsService {
     selfApproved: boolean,
     now: Date,
   ): Promise<VersionRow> {
-    const { draft, check } = await this.planPublish(tx, request, now);
-    const content = parseDraftContent(draft)!;
+    const draft = await this.findDraft(tx, request.targetLegalDraftId);
+    const content = parseDraftContent(draft);
+    if (!content) {
+      throw new BackofficeApiError('conflict', 'the draft no longer passes the import schema');
+    }
     if (draft.status !== 'PENDING_APPROVAL') {
       throw new BackofficeApiError('conflict', 'the draft is not waiting for approval');
     }
     if (legalDigest(content) !== request.contentDigest) {
       throw new BackofficeApiError('conflict', 'the draft content changed after the request');
     }
+    const check = await this.publicationCheck(
+      tx,
+      content,
+      await kindVersions(tx, content.kind),
+      now,
+    );
     if (!check.ok) {
       throw new BackofficeApiError('conflict', check.reason);
     }
@@ -561,7 +568,12 @@ export class LegalRequestsService {
     return { id: version.id, kind: version.kind, noticeClass: version.noticeClass };
   }
 
-  /** Decisions of one document kind run one at a time. */
+  /**
+   * Approvals of one document kind run one at a time. The serializable snapshot is taken by the first
+   * read, before this lock, so an approval that waited still reads the kind as it was; its
+   * serialization conflict with the approval that committed first makes `serializable()` run it again
+   * on a fresh snapshot, whose checks then see that approval.
+   */
   private async lockKind(tx: BackofficeTransaction, request: RequestRow) {
     const kind =
       request.kind === 'LEGAL_PUBLISH'
@@ -572,8 +584,9 @@ export class LegalRequestsService {
   }
 
   /**
-   * A pending legal request past its expiry is closed as EXPIRED here and its draft returns to
-   * editing (no decision); the caller then gets a conflict. Another digest is a conflict too.
+   * A pending legal request past its expiry was closed as EXPIRED, and its draft returned to editing,
+   * just before the decision's transaction (so no transaction waits on another connection); the
+   * decision then gets a conflict. Another digest is a conflict too.
    */
   private async loadPending(
     tx: BackofficeTransaction,
@@ -586,7 +599,6 @@ export class LegalRequestsService {
       throw new BackofficeApiError('conflict', 'the request is closed');
     }
     if (request.expiresAt.getTime() <= now.getTime()) {
-      await expireLegalRequests(this.prisma, { requestId: request.id }, now);
       throw new BackofficeApiError('conflict', 'the request expired');
     }
     if (request.contentDigest !== contentDigest) {
@@ -644,8 +656,8 @@ export class LegalRequestsService {
 }
 
 function versionState(
-  row: VersionRow,
-  current: VersionRow | undefined,
+  row: VersionFactRow,
+  current: VersionFactRow | undefined,
   now: Date,
 ): LegalVersionState {
   if (row.withdrawnAt !== null) {

@@ -13,10 +13,12 @@ import {
   legalDocumentDraftImportSchema,
   legalEffectiveInstant,
   type LegalDocumentDraftImport,
+  type LegalDocumentSection,
   type LegalDocumentKind,
   type LegalNoticeClass,
   type LegalVersionKey,
 } from '@repo/shared/legal';
+import { shownStatus } from '../access-control/approval/approval-requests.service.js';
 import type { BackofficeTransaction } from '../platform/database/backoffice-prisma.js';
 import { BackofficeApiError } from '../platform/http/api-error.js';
 import type { LegalPublishedVersionFact } from './legal-publication-policy.js';
@@ -65,14 +67,12 @@ export interface DraftRow {
   updatedAt: Date;
 }
 
-export const VERSION_SELECT = {
+/** A version without its body: what lists, checks and the version before a draft need. */
+export const VERSION_FACT_SELECT = {
   id: true,
   kind: true,
   version: true,
   title: true,
-  contentSchemaVersion: true,
-  summaryItems: true,
-  sections: true,
   changeSummary: true,
   noticeClass: true,
   consentRequired: true,
@@ -86,14 +86,18 @@ export const VERSION_SELECT = {
   selfApproved: true,
 } as const;
 
-export interface VersionRow {
+export const VERSION_SELECT = {
+  ...VERSION_FACT_SELECT,
+  contentSchemaVersion: true,
+  summaryItems: true,
+  sections: true,
+} as const;
+
+export interface VersionFactRow {
   id: string;
   kind: LegalDocumentKind;
   version: string;
   title: string;
-  contentSchemaVersion: number;
-  summaryItems: unknown;
-  sections: unknown;
   changeSummary: string;
   noticeClass: LegalNoticeClass;
   consentRequired: boolean;
@@ -105,6 +109,12 @@ export interface VersionRow {
   requestedByAccountId: string | null;
   approvedByAccountId: string | null;
   selfApproved: boolean;
+}
+
+export interface VersionRow extends VersionFactRow {
+  contentSchemaVersion: number;
+  summaryItems: unknown;
+  sections: unknown;
 }
 
 export const REQUEST_SELECT = {
@@ -241,7 +251,7 @@ export function serializeDraft(row: DraftRow, waitingRequestOpen: boolean): Lega
   };
 }
 
-export function serializeVersion(row: VersionRow): LegalBackofficeVersion {
+export function serializeVersion(row: VersionFactRow): LegalBackofficeVersion {
   return {
     id: row.id,
     kind: row.kind,
@@ -270,13 +280,16 @@ export function serializeVersionDetail(row: VersionRow): LegalBackofficeVersionD
   };
 }
 
+/** A request that can still be decided: pending and not past its expiry (app clock). */
+export const isOpenRequest = (row: { status: string; expiresAt: Date }, now: Date) =>
+  row.status === 'PENDING' && row.expiresAt.getTime() > now.getTime();
+
 /** A pending request past its expiry shows as EXPIRED before anyone tries to decide it (README §4). */
 export function serializeRequest(row: RequestRow, now: Date): LegalRequest {
-  const expired = row.status === 'PENDING' && row.expiresAt.getTime() <= now.getTime();
   return {
     ...row,
     kind: row.kind as LegalRequest['kind'],
-    status: (expired ? 'EXPIRED' : row.status) as LegalRequest['status'],
+    status: shownStatus(row, now) as LegalRequest['status'],
     expiresAt: row.expiresAt.toISOString(),
     closedAt: row.closedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
@@ -317,22 +330,35 @@ export async function noticeRecipientCount(tx: BackofficeTransaction): Promise<n
   return row.recipientCount;
 }
 
+/** The kind's versions without their bodies, latest effective date first. */
 export async function kindVersions(
   tx: BackofficeTransaction,
   kind: LegalDocumentKind,
-): Promise<VersionRow[]> {
+): Promise<VersionFactRow[]> {
   return await tx.legalDocumentVersion.findMany({
     where: { kind },
     orderBy: [{ effectiveDate: 'desc' }, { id: 'desc' }],
-    select: VERSION_SELECT,
+    select: VERSION_FACT_SELECT,
   });
+}
+
+/** The article sections of one version, read only for a comparison. */
+export async function versionSections(
+  tx: BackofficeTransaction,
+  versionId: string,
+): Promise<LegalDocumentSection[]> {
+  const row = await tx.legalDocumentVersion.findUnique({
+    where: { id: versionId },
+    select: { sections: true },
+  });
+  return (row?.sections ?? []) as LegalDocumentSection[];
 }
 
 /** The live version that a draft or version of `effectiveDate` follows: the one just before it. */
 export function previousVersionOf(
-  versions: readonly VersionRow[],
+  versions: readonly VersionFactRow[],
   effectiveDate: LegalVersionKey,
-): VersionRow | null {
+): VersionFactRow | null {
   return (
     versions.find(
       (version) =>
@@ -341,5 +367,5 @@ export function previousVersionOf(
   );
 }
 
-export const isScheduled = (row: VersionRow, now: Date) =>
+export const isScheduled = (row: VersionFactRow, now: Date) =>
   legalEffectiveInstant(toVersionKey(row.effectiveDate)).getTime() > now.getTime();
