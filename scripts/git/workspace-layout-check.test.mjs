@@ -315,11 +315,11 @@ function ignoreFixture(t, { exclude = '', gitignore, tracked = [], files = [] } 
   }
   writeFileSync(resolve(root, '.git/info/exclude'), exclude);
   for (const file of files) write(...[file].flat());
-  const report = () => {
+  const report = (extraEnv = {}) => {
     const run = spawnSync(process.execPath, ['--input-type=module', '-e', REPORT, root], {
       cwd: root,
       encoding: 'utf8',
-      env,
+      env: { ...env, ...extraEnv },
     });
     assert.equal(run.status, 0, run.stderr);
     return JSON.parse(run.stdout);
@@ -562,6 +562,50 @@ test('a colon name is not read as pathspec magic and stays an issue when only an
   ]);
 });
 
+test('the layout check asks git about ignore rules only when an outside-manifest-root candidate exists', (t) => {
+  const fixture = ignoreFixture(t, {
+    exclude: 'artifacts/\n.omx/\nnotes.local\n',
+    tracked: ['apps/package.json'],
+    files: ['artifacts/a', 'apps/.omx/state.json'],
+  });
+  const bin = resolve(fixture.home, 'bin');
+  const log = resolve(fixture.home, 'git-calls.log');
+  const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  mkdirSync(bin);
+  writeFileSync(
+    resolve(bin, 'git'),
+    `#!/bin/sh\nprintf '%s\\n' "$*" >> '${log}'\nexec '${realGit}' "$@"\n`,
+    { mode: 0o755 },
+  );
+  const RULE_QUERIES = [
+    'check-ignore -v -n -z --stdin --no-index',
+    'rev-parse --git-path info/exclude',
+  ];
+  const judged = () => {
+    rmSync(log, { force: true });
+    const issues = fixture.report({ PATH: `${bin}:${process.env.PATH}` });
+    const calls = readFileSync(log, 'utf8').split('\n').filter(Boolean);
+    assert.ok(calls.includes('ls-files -z'), calls.join(' | '));
+    return [issues, calls.filter((call) => RULE_QUERIES.includes(call))];
+  };
+  // Retired roots and nested runtime state are not candidates, so their names are never asked.
+  assert.deepEqual(judged(), [
+    [
+      ['apps/.omx/', 'nested-runtime-state'],
+      ['artifacts/', 'retired-root'],
+    ],
+    [],
+  ]);
+  writeFileSync(resolve(fixture.root, 'notes.local'), 'x\n');
+  assert.deepEqual(judged(), [
+    [
+      ['apps/.omx/', 'nested-runtime-state'],
+      ['artifacts/', 'retired-root'],
+    ],
+    RULE_QUERIES,
+  ]);
+});
+
 // readInfoExcluded over spawnSync-shaped results: `check` from git check-ignore -v -n -z, `gitPath` from
 // git rev-parse --git-path. A record is the four NUL-terminated fields git prints for one asked name.
 const INFO_EXCLUDE = '.git/info/exclude';
@@ -593,6 +637,16 @@ test('readInfoExcluded passes a name only for a non-negated info/exclude rule on
     ),
   );
   assert.deepEqual([...layoutCheck.readInfoExcluded(names, check, gitPathOf())], ['a']);
+});
+
+test('readInfoExcluded passes no name without a matched pattern, even when the source compares equal', () => {
+  const judged = (check, gitPath = gitPathOf()) => [
+    ...layoutCheck.readInfoExcluded(['a'], ran(nulRecords(check)), gitPath),
+  ];
+  assert.deepEqual(judged(record('a', INFO_EXCLUDE, '')), []);
+  // An unmatched name prints empty source, line and pattern; an empty --git-path line compares equal to that source.
+  assert.deepEqual(judged(record('a', '', ''), ran('\n')), []);
+  assert.deepEqual(judged(record('a', '', '/a/'), ran('\n')), ['a']);
 });
 
 test('readInfoExcluded reads the four fields of each name at its own place', () => {
