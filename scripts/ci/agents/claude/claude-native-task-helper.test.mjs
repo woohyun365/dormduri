@@ -7032,7 +7032,8 @@ const LONG_LINES = [
 ];
 const CARRY_PATH = /carry-path-unsupported/u;
 // Round 1 through review-run: a long test record and a documents check, both on round 1's snapshot.
-function carryFixture(t) {
+// With extraOutput the long record has a second, non-text output beside its log.
+function carryFixture(t, { extraOutput = false } = {}) {
   const r = repo(t);
   writeFileSync(join(r.root, 'doc.md'), '# doc\n\nfirst\n');
   execFileSync('git', ['add', 'doc.md'], { cwd: r.root });
@@ -7101,7 +7102,10 @@ function carryFixture(t) {
     exit: 0,
     environment: 'repository root',
     observedResult: 'all pass `ℹ pass 2`',
-    outputPaths: [log('r1-long.log', h1.logHeader, LONG_LINES)],
+    outputPaths: [
+      log('r1-long.log', h1.logHeader, LONG_LINES),
+      ...(extraOutput ? [write('r1-long.json', { cases: 2 })] : []),
+    ],
     sourceDigest: h1.snapshotDigest,
   };
   const first = round(1, [long1, docs(h1, 'r1')]);
@@ -7318,8 +7322,8 @@ test('a later round without a carried record writes no carry basis, carry record
 
 // OSS-RL P5 RED 5: the reviewer of a carried round, dispatched and finished with a PASS result. confirm() writes the
 // confirm record the runner leaves at <out>/confirm/evidence.json (its log on this round's header by default).
-function carriedReviewer(t, options) {
-  const f = carryFixture(t);
+function carriedReviewer(t, { fixture, ...options } = {}) {
+  const f = carryFixture(t, fixture);
   const round2 = carriedRound(f, options);
   assert.equal(round2.second.result.status, 0, round2.second.result.stdout);
   const reviewer = round2.second.record.reviewers[0];
@@ -7498,6 +7502,15 @@ test('a carried output changed after registration is carry-confirm-mismatch, als
   c.confirm();
   assert.deepEqual(c.settle().observationErrors, []);
   assert.ok(existsSync(resultFile));
+});
+
+// Every output of a carried record is bound, not only its log: one changed output of several is a mismatch.
+test('a carried record with one of its outputs changed after registration is carry-confirm-mismatch (OSS-RL P5 RED 5)', (t) => {
+  const c = carriedReviewer(t, { fixture: { extraOutput: true } });
+  assert.equal(c.long1.outputPaths.length, 2);
+  writeFileSync(join(c.r.root, c.long1.outputPaths[1]), JSON.stringify({ cases: 3 }));
+  c.confirm();
+  assert.deepEqual(c.settle().observationErrors, [`carry-confirm-mismatch: ${LONG}`]);
 });
 
 // Round 2 through review-run without a carried record, its reviewer dispatched and its rows read.
@@ -7920,6 +7933,16 @@ test('evidence-claim-source-missing takes a number followed by a Korean particle
   // 12.2 in the output holds the claim 12.2; a 12 cut off at its point would not be held by it.
   assert.equal(missing('47 1015 17 34 2136 saved 12.2 min 12.5\n'), null);
   assert.equal(missing('47 1015 17 34 2136 12.5\n'), '12.2');
+  // Two records: a number is held when any one record's output holds it.
+  const half = (text) => e.file(`${RUN_DIR}/ko-${randomUUID().slice(0, 8)}.log`, text);
+  const [split] = evidenceWarnings(
+    e.build(claimSubject([doc]), [
+      { command: 'node scripts/census.mjs', outputPaths: [half('47 1015 17\n')] },
+      { command: 'node scripts/count.mjs', outputPaths: [half('34 2136 12.2 12.5\n')] },
+    ]),
+    'evidence-claim-source-missing',
+  );
+  assert.equal(split, undefined);
 });
 
 test('evidence-source-outside-read-paths reads the bound trace of each record holding a claim number (OSS-RL P5 RED 7 (b))', (t) => {
