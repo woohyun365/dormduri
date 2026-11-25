@@ -11,8 +11,10 @@ import {
 import { postBff } from '@/client/bff-client';
 import { attempt, createPasskey } from '@/client/passkeys';
 import { RecoveryCodeList, TotpEnrollment } from '@/screens/credentials/IssuedCredentials';
+import { Button } from '@/ui/Button';
 import { errorMessage } from '@/ui/error-messages';
-import { Button, FormMessage, SecondaryButton, TextField } from '@/ui/forms';
+import { TextField } from '@/ui/fields';
+import { Notice } from '@/ui/Notice';
 
 type Step =
   | { readonly kind: 'code' }
@@ -103,7 +105,7 @@ export function RegistrationScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-title-1 font-semibold text-fg-neutral">운영자 등록</h1>
+      <h1 className="text-title-1 font-bold text-fg-neutral">운영자 등록</h1>
 
       {step.kind === 'code' ? (
         <form
@@ -119,7 +121,7 @@ export function RegistrationScreen() {
             autoComplete="off"
             required
           />
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="w-full">
             다음
           </Button>
         </form>
@@ -131,7 +133,7 @@ export function RegistrationScreen() {
           className="flex flex-col gap-4"
           aria-label="비밀번호와 passkey 등록"
         >
-          <dl className="grid grid-cols-label-value gap-x-4 gap-y-1 text-body">
+          <dl className="grid grid-cols-label-value gap-x-4 gap-y-1 rounded-control bg-layer-muted px-4 py-3 text-body">
             <dt className="font-medium text-fg-label">이메일</dt>
             <dd className="text-fg-neutral">{step.invitation.email}</dd>
             <dt className="font-medium text-fg-label">이름</dt>
@@ -164,7 +166,7 @@ export function RegistrationScreen() {
             label="passkey 이름(선택)"
             maxLength={60}
           />
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="w-full">
             passkey 만들고 등록
           </Button>
         </form>
@@ -172,24 +174,36 @@ export function RegistrationScreen() {
 
       {step.kind === 'issued' ? (
         <div className="flex flex-col gap-6">
-          <FormMessage tone="success">등록했습니다. 아래 값은 지금 한 번만 보입니다.</FormMessage>
+          <Notice tone="success" role="status">
+            등록했습니다. 아래 값은 지금 한 번만 보입니다.
+          </Notice>
           <RecoveryCodeList codes={step.recoveryCodes} />
           <TotpEnrollment
             totp={step.totp}
             onConfirmed={() => setStep({ kind: 'done', recoveryCodes: step.recoveryCodes })}
           />
-          <SecondaryButton onClick={start}>TOTP는 나중에 확인하고 시작하기</SecondaryButton>
+          <Button tone="secondary" wrap onClick={start} className="self-start">
+            TOTP는 나중에 확인하고 시작하기
+          </Button>
         </div>
       ) : null}
 
       {step.kind === 'done' ? (
         <div className="flex flex-col gap-4">
-          <FormMessage tone="success">TOTP를 확인했습니다.</FormMessage>
-          <Button onClick={start}>시작하기</Button>
+          <Notice tone="success" role="status">
+            TOTP를 확인했습니다.
+          </Notice>
+          <Button onClick={start} className="w-full">
+            시작하기
+          </Button>
         </div>
       ) : null}
 
-      {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+      {error ? (
+        <Notice tone="danger" role="alert">
+          {error}
+        </Notice>
+      ) : null}
     </div>
   );
 }

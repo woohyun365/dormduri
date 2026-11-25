@@ -5,8 +5,10 @@ import { useState, type FormEvent } from 'react';
 import type { BackofficeSessionScope, LoginPasswordResponse } from '@repo/shared/backoffice';
 import { postBff } from '@/client/bff-client';
 import { attempt, signWithPasskey } from '@/client/passkeys';
+import { Button } from '@/ui/Button';
 import { errorMessage } from '@/ui/error-messages';
-import { Button, FormMessage, SecondaryButton, TextField } from '@/ui/forms';
+import { TextField } from '@/ui/fields';
+import { Notice } from '@/ui/Notice';
 
 type Step =
   | { readonly kind: 'password' }
@@ -31,6 +33,16 @@ const ENDED_NOTICES = {
 } as const;
 
 export type EndedNotice = keyof typeof ENDED_NOTICES;
+
+// An ended session reads as a warning (yellow) and my own revoke as information (blue); red stays for input errors
+// (design guide ④).
+const ENDED_TONES: Record<EndedNotice, 'warning' | 'info'> = {
+  idle: 'warning',
+  expired: 'warning',
+  unconfirmed: 'warning',
+  closed: 'warning',
+  'self-revoked': 'info',
+};
 
 /** The login page's `ended` query, kept only when it names a notice this screen knows. */
 export function endedNotice(
@@ -123,9 +135,11 @@ export function LoginScreen({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-title-1 font-semibold text-fg-neutral">백오피스 로그인</h1>
+      <h1 className="text-title-1 font-bold text-fg-neutral">백오피스 로그인</h1>
       {ended && step.kind === 'password' ? (
-        <FormMessage tone="error">{ENDED_NOTICES[ended]}</FormMessage>
+        <Notice tone={ENDED_TONES[ended]} role="alert">
+          {ENDED_NOTICES[ended]}
+        </Notice>
       ) : null}
 
       {step.kind === 'password' ? (
@@ -146,7 +160,7 @@ export function LoginScreen({
             autoComplete="current-password"
             required
           />
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="w-full">
             다음
           </Button>
         </form>
@@ -155,7 +169,11 @@ export function LoginScreen({
       {step.kind === 'second-factor' ? (
         <div className="flex flex-col gap-4">
           <p className="text-body text-fg-description">등록한 passkey로 로그인을 마칩니다.</p>
-          <Button disabled={pending} onClick={() => void loginWithPasskey(step.challenge)}>
+          <Button
+            disabled={pending}
+            onClick={() => void loginWithPasskey(step.challenge)}
+            className="w-full"
+          >
             passkey로 로그인
           </Button>
           {step.challenge.recovery.totp || step.challenge.recovery.recoveryCode ? (
@@ -165,17 +183,19 @@ export function LoginScreen({
               </p>
               <div className="flex flex-wrap gap-2">
                 {step.challenge.recovery.totp ? (
-                  <SecondaryButton
+                  <Button
+                    tone="secondary"
                     disabled={pending}
                     onClick={() =>
                       setStep({ kind: 'recovery', challenge: step.challenge, method: 'totp' })
                     }
                   >
                     TOTP code로 복구 로그인
-                  </SecondaryButton>
+                  </Button>
                 ) : null}
                 {step.challenge.recovery.recoveryCode ? (
-                  <SecondaryButton
+                  <Button
+                    tone="secondary"
                     disabled={pending}
                     onClick={() =>
                       setStep({
@@ -186,7 +206,7 @@ export function LoginScreen({
                     }
                   >
                     복구 code로 복구 로그인
-                  </SecondaryButton>
+                  </Button>
                 ) : null}
               </div>
             </div>
@@ -224,17 +244,22 @@ export function LoginScreen({
             <Button type="submit" disabled={pending}>
               복구 로그인
             </Button>
-            <SecondaryButton
+            <Button
+              tone="secondary"
               disabled={pending}
               onClick={() => setStep({ kind: 'second-factor', challenge: step.challenge })}
             >
               돌아가기
-            </SecondaryButton>
+            </Button>
           </div>
         </form>
       ) : null}
 
-      {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+      {error ? (
+        <Notice tone="danger" role="alert">
+          {error}
+        </Notice>
+      ) : null}
     </div>
   );
 }

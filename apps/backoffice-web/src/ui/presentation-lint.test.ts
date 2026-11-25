@@ -66,11 +66,11 @@ const forbiddenClasses: ReadonlyArray<readonly [string, string]> = [
 
 const allowedClasses = [
   'bg-layer-basement text-fg-neutral border-stroke-subtle',
-  'hover:bg-brand-solid-hover text-fg-on-brand disabled:bg-brand-solid-disabled',
+  'hover:bg-brand-solid-hover text-fg-on-brand bg-danger-solid disabled:opacity-60',
   'bg-success-weak text-fg-success bg-warning-weak text-fg-warning bg-danger-weak text-fg-danger',
-  'text-caption text-body text-title-1 font-semibold font-code',
-  'rounded-control rounded-box rounded-card rounded-full rounded-none',
-  'max-w-page max-w-narrow grid-cols-label-value aria-current-page:font-semibold',
+  'text-caption text-label text-table text-body text-title-1 text-title-2 font-semibold font-code',
+  'rounded-control rounded-card rounded-full rounded-none shadow-overlay',
+  'max-w-narrow w-sidebar p-page gap-stack grid-cols-label-value grid-cols-master-detail focus-ring',
   'p-4 gap-2 -mt-1 divide-y divide-stroke-row',
 ];
 

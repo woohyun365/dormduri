@@ -3,9 +3,9 @@ import { expect, waitFor } from 'storybook/test';
 import { SESSION_CLOSED_EVENT } from '../../../client/bff-client';
 import { activeAuditor, activeOwner } from '../../../ui/__stories__/fixtures';
 import { ConsoleShell } from '../ConsoleShell';
-import { SessionEndNotice } from '../SessionEndNotice';
 
-// The console shell (menu hidden by the session's permissions) and its session end notice. Fixture sessions only.
+// The console shell: the sidebar groups hidden by the session's permissions, the top bar, the collapse, the narrow menu
+// and the ended-session notice above the page. Fixture sessions only.
 
 const meta = {
   title: 'Console/Shell',
@@ -14,6 +14,7 @@ const meta = {
     active: activeOwner,
     children: <p className="text-body text-fg-description">본문 자리</p>,
   },
+  parameters: { nextjs: { navigation: { pathname: '/' } } },
 } satisfies Meta<typeof ConsoleShell>;
 
 export default meta;
@@ -21,8 +22,26 @@ type Story = StoryObj<typeof meta>;
 
 export const Owner: Story = {};
 
-/** An auditor sees only the menu items its permission grants. */
-export const Auditor: Story = { args: { active: activeAuditor } };
+/** An auditor sees only the menu items its permission grants; the group left empty is gone. */
+export const Auditor: Story = {
+  args: { active: activeAuditor },
+  parameters: { nextjs: { navigation: { pathname: '/audit' } } },
+};
+
+/** The sidebar collapsed to its icon rail (1024px and wider), kept across pages without browser storage. */
+export const Collapsed: Story = { args: { defaultCollapsed: true } };
+
+/** Below 1024px: the top bar with the menu button, the menu opened. */
+export const NarrowMenu: Story = {
+  args: { defaultMenuOpen: true },
+  globals: { viewport: { value: 'mobile390' } },
+};
+
+/** The collapse is a wide-screen form: the opened narrow menu still shows every name. */
+export const NarrowCollapsedMenu: Story = {
+  args: { defaultCollapsed: true, defaultMenuOpen: true },
+  globals: { viewport: { value: 'mobile390' } },
+};
 
 /** The notice appears after the countdown's zero-delay timer; the check runs once it is there. */
 const noticeShown: NonNullable<Story['play']> = async ({ canvas }) => {
@@ -31,21 +50,13 @@ const noticeShown: NonNullable<Story['play']> = async ({ canvas }) => {
 
 /** The idle countdown ran out: the notice from the server's last answer, without asking the API. */
 export const IdleEnded: Story = {
-  render: () => (
-    <div className="p-6">
-      <SessionEndNotice idleRemainingMs={0} absoluteRemainingMs={8 * 60 * 60 * 1000} />
-    </div>
-  ),
+  args: { active: { ...activeOwner, idleRemainingMs: 0 } },
   play: noticeShown,
 };
 
 /** The absolute limit came before the idle limit. */
 export const AbsoluteEnded: Story = {
-  render: () => (
-    <div className="p-6">
-      <SessionEndNotice idleRemainingMs={15 * 60 * 1000} absoluteRemainingMs={0} />
-    </div>
-  ),
+  args: { active: { ...activeOwner, absoluteRemainingMs: 0 } },
   play: noticeShown,
 };
 
@@ -54,11 +65,6 @@ export const AbsoluteEnded: Story = {
  * the same place and look as the idle notice, with the closed wording.
  */
 export const SessionClosed: Story = {
-  render: () => (
-    <div className="p-6">
-      <SessionEndNotice idleRemainingMs={15 * 60 * 1000} absoluteRemainingMs={8 * 60 * 60 * 1000} />
-    </div>
-  ),
   // The notice listens from an effect, which may run after play starts: send the event until the notice is there.
   play: async ({ canvas }) => {
     await waitFor(() => {
