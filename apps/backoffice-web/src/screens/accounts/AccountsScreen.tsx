@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { AccountListResponse, InvitationCreatedResponse } from '@repo/shared/backoffice';
 import { postBff } from '@/client/bff-client';
 import { withReauthentication } from '@/client/passkeys';
@@ -39,8 +39,17 @@ export function AccountsScreen({
   const [inviteFailure, setInviteFailure] = useState<ResultMessage | null>(null);
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
   const [deactivateFailure, setDeactivateFailure] = useState<ResultMessage | null>(null);
+  // After a deactivation the row's button leaves with the refreshed row: focus waits on the result instead of falling
+  // to the page (the dialog gave it back to that button first).
+  const resultRef = useRef<HTMLDivElement>(null);
+  const focusResult = useRef(false);
   const deactivating = data.accounts.find((account) => account.id === deactivatingId) ?? null;
   const activeCount = data.accounts.filter((account) => account.status === 'ACTIVE').length;
+  useEffect(() => {
+    if (!message || !focusResult.current) return;
+    focusResult.current = false;
+    resultRef.current?.focus();
+  }, [message]);
 
   async function invite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -85,6 +94,7 @@ export function AccountsScreen({
       return;
     }
     setDeactivatingId(null);
+    focusResult.current = true;
     setMessage(success('계정을 비활성화했습니다. 그 계정의 역할과 접속도 끝났습니다.'));
     router.refresh();
   }
@@ -123,7 +133,7 @@ export function AccountsScreen({
         </Notice>
       ) : null}
       {message ? (
-        <Notice tone={message.tone} role={message.role}>
+        <Notice tone={message.tone} role={message.role} focusRef={resultRef}>
           {message.text}
         </Notice>
       ) : null}

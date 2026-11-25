@@ -204,6 +204,11 @@ export const Drawer: Story = {
     await userEvent.click(opener);
     const dialog = await canvas.findByRole('dialog', { name: '운영자 초대' });
     await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+    // Escape that ends a Korean IME composition belongs to the composition: the drawer and its input stay.
+    document.activeElement?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', isComposing: true, bubbles: true }),
+    );
+    await expect(dialog).toHaveAttribute('open');
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(canvas.queryByRole('dialog')).toBeNull());
     await expect(opener).toHaveFocus();

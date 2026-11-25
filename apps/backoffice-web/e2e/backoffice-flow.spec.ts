@@ -435,6 +435,10 @@ test('the owner revokes an invitation, deactivates an account and records the mo
   const leaverRow = page.getByRole('row').filter({ hasText: LEAVER.name });
   await expect(leaverRow.getByRole('cell', { name: '비활성', exact: true })).toBeVisible();
   await expect(leaverRow.getByRole('button', { name: '비활성화' })).toHaveCount(0);
+  // The dialog's opener left with the refreshed row, so focus waits on the result instead of falling to the page.
+  await expect(
+    page.getByRole('status').filter({ hasText: '계정을 비활성화했습니다.' }),
+  ).toBeFocused();
 
   // (a) A new page in the leaver's browser: the cookie is still there but the API no longer knows the session.
   const reopened = await leaver.context.newPage();
@@ -460,7 +464,7 @@ test('the owner revokes an invitation, deactivates an account and records the mo
     'href',
     '/login?ended=closed',
   );
-  // The screen's own result keeps its words and place but is read after the shell's notice (Owner OD5b Q2).
+  // The screen's own result keeps its words and place but is read after the shell's notice (README §4).
   await expect(
     leaver.page.getByRole('status').filter({ hasText: '다시 로그인하세요.' }),
   ).toBeVisible();

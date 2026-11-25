@@ -30,6 +30,7 @@ export function DeactivateDialog({
       title="계정 비활성화"
       description={`${target.displayName}(${target.email}) 계정을 비활성화합니다. 그 계정의 역할과 접속도 끝납니다.`}
       onClose={onClose}
+      busy={pending}
       footer={
         <Button type="submit" form="deactivate-form" tone="danger-solid" disabled={pending}>
           비활성화

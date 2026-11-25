@@ -22,6 +22,7 @@ export function AuditReviewDrawer({
       id="audit-review"
       title="월 점검 기록"
       onClose={onClose}
+      busy={pending}
       footer={
         <Button type="submit" form="audit-review-form" disabled={pending}>
           점검 완료 기록

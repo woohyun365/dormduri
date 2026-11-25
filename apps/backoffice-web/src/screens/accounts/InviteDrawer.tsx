@@ -22,6 +22,7 @@ export function InviteDrawer({
       id="invite-overlay"
       title="운영자 초대"
       onClose={onClose}
+      busy={pending}
       footer={
         <Button type="submit" form="invite-form" disabled={pending}>
           초대 code 만들기

@@ -35,6 +35,7 @@ export function NewRequestDrawer({
       id="new-request-overlay"
       title="새 요청"
       onClose={onClose}
+      busy={pending}
       footer={
         <Button type="submit" form="new-request" disabled={pending}>
           요청 만들기
