@@ -73,3 +73,16 @@ export function auditResultLabel(code: string): string {
 export function auditActorLabel(code: string): string {
   return AUDIT_ACTOR_LABELS[code] ?? code;
 }
+
+// Short names of the target kinds the audit table shows; the detail keeps the code.
+const AUDIT_TARGET_LABELS: Record<string, string> = {
+  ADMIN_ACCESS_REQUEST: '권한 요청',
+  ADMIN_SESSION: '접속',
+  ADMIN_ACCOUNT: '계정',
+  ADMIN_INVITATION: '초대',
+};
+
+/** An audit row's target kind in a short Korean name; an unknown kind shows its code. */
+export function auditTargetLabel(code: string): string {
+  return AUDIT_TARGET_LABELS[code] ?? code;
+}

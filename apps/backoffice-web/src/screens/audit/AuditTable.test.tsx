@@ -48,6 +48,7 @@ describe('AuditTable (OA-R7)', () => {
           login('00000000-0000-4000-8000-000000000504', { step: 'totp' }),
         ]}
         names={{}}
+        onOpen={() => {}}
       />,
     );
     expect(actionCells()).toEqual([

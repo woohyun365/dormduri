@@ -150,30 +150,54 @@ async function loginWithPassword({ page }: Operator, email: string, password: st
   await page.getByRole('button', { name: '다음' }).click();
 }
 
+/** The invitation drawer the accounts page title's `운영자 초대` opens. */
+async function openInvite(page: Page) {
+  await page.getByRole('button', { name: '운영자 초대' }).click();
+  return page.getByRole('dialog', { name: '운영자 초대' });
+}
+
+/** The new request form, in the right drawer the page title's `새 요청` opens. */
+async function openNewRequest(page: Page) {
+  await page.getByRole('button', { name: '새 요청' }).click();
+  const drawer = page.getByRole('dialog', { name: '새 요청' });
+  return { drawer, form: drawer.getByRole('form', { name: '권한 요청 만들기' }) };
+}
+
 async function requestRole(
   { page }: Operator,
   kind: 'ROLE_GRANT' | 'ROLE_REVOKE',
   role: 'OWNER' | 'AUDITOR' | 'LEGAL_EDITOR',
 ) {
   await page.goto('/access');
-  const form = page.getByRole('form', { name: '권한 요청 만들기' });
+  const { drawer, form } = await openNewRequest(page);
   await form.getByLabel('종류', { exact: true }).selectOption(kind);
   await form
     .getByLabel('대상 운영자', { exact: true })
     .selectOption({ label: `${OPERATOR.name} (${OPERATOR.email})` });
   await form.getByLabel('역할', { exact: true }).selectOption(role);
-  await form.getByRole('button', { name: '요청 만들기' }).click();
+  await drawer.getByRole('button', { name: '요청 만들기' }).click();
   await expect(
     page.getByRole('status').filter({ hasText: '권한 요청을 만들었습니다.' }),
   ).toBeVisible();
+  await expect(drawer).toHaveCount(0);
 }
 
-function pendingRequest(page: Page, kind: string, role: string) {
-  return page
+/**
+ * Chooses the waiting request of this kind and role in the request list (master-detail) and returns its detail, a region
+ * named by its heading `<kind> · <target>`; the decision form `요청 … 결정` and the cancel sit in it.
+ */
+async function choosePendingRequest(page: Page, kind: string, role: string) {
+  await page
+    .getByRole('list', { name: '요청 목록' })
     .getByRole('listitem')
     .filter({ hasText: kind })
     .filter({ hasText: role })
-    .filter({ hasText: '상태 대기' });
+    .filter({ hasText: '대기' })
+    .getByRole('button')
+    .click();
+  const detail = page.getByRole('region', { name: new RegExp(`^${kind} · `, 'u') });
+  await expect(detail).toContainText(role);
+  return detail;
 }
 
 test('the first owner registers with a platform passkey and confirms TOTP', async () => {
@@ -232,7 +256,8 @@ test('the owner logs out and logs in again with password and passkey; an idle pa
   idle.on('request', (request) => {
     requests.push(`${request.method()} ${new URL(request.url()).pathname}`);
   });
-  await idle.getByRole('link', { name: '권한 요청' }).hover();
+  // Exact: the home's `권한 요청 보기` link would match the menu item's name in part.
+  await idle.getByRole('link', { name: '권한 요청', exact: true }).hover();
   await idle.clock.runFor(16 * 60 * 1000);
   await expect(
     idle.getByRole('alert').filter({ hasText: '15분 동안 활동이 없어 접속이 끝났습니다.' }),
@@ -244,15 +269,17 @@ test('the owner logs out and logs in again with password and passkey; an idle pa
 test('the owner invites an operator who registers with a security key', async () => {
   const { page } = owner;
   await page.getByRole('link', { name: '운영자 계정' }).click();
-  await page
+  const drawer = await openInvite(page);
+  await drawer
     .getByRole('form', { name: '운영자 초대' })
     .getByLabel('이메일', { exact: true })
     .fill(OPERATOR.email);
-  await page
+  await drawer
     .getByRole('form', { name: '운영자 초대' })
     .getByLabel('이름', { exact: true })
     .fill(OPERATOR.name);
-  await page.getByRole('button', { name: '초대 code 만들기' }).click();
+  await drawer.getByRole('button', { name: '초대 code 만들기' }).click();
+  await expect(drawer).toHaveCount(0);
   operatorCode = (await page.getByTestId('invitation-code').textContent())!.trim();
   expect(operatorCode.length).toBeGreaterThanOrEqual(16);
 
@@ -265,31 +292,32 @@ test('the owner invites an operator who registers with a security key', async ()
 
 test('the owner requests the auditor role and approves it as the only approver', async () => {
   const { page } = owner;
-  await page.getByRole('link', { name: '권한 요청' }).click();
-  const form = page.getByRole('form', { name: '권한 요청 만들기' });
+  await page.getByRole('link', { name: '권한 요청', exact: true }).click();
+  const { drawer, form } = await openNewRequest(page);
   await form.getByLabel('종류', { exact: true }).selectOption('ROLE_GRANT');
   await form
     .getByLabel('대상 운영자', { exact: true })
     .selectOption({ label: `${OPERATOR.name} (${OPERATOR.email})` });
   await form.getByLabel('역할', { exact: true }).selectOption('AUDITOR');
   await form.getByLabel('사유(선택)', { exact: true }).fill('월 점검 담당');
-  await form.getByRole('button', { name: '요청 만들기' }).click();
+  await drawer.getByRole('button', { name: '요청 만들기' }).click();
   await expect(
     page.getByRole('status').filter({ hasText: '권한 요청을 만들었습니다.' }),
   ).toBeVisible();
 
-  const request = page
-    .getByRole('listitem')
-    .filter({ hasText: `${OPERATOR.name}에게` })
-    .filter({ hasText: '대기' });
-  await request
+  const detail = await choosePendingRequest(page, '역할 부여', '감사 열람(auditor)');
+  await expect(detail).toContainText(OPERATOR.name);
+  const decision = detail.getByRole('form', { name: /결정$/u });
+  await decision
     .getByLabel('자기 승인 사유(필수)', { exact: true })
     .fill('승인 권한 운영자가 한 명뿐임');
-  await request.getByRole('button', { name: '승인' }).click();
+  await decision.getByRole('button', { name: '승인' }).click();
   await expect(page.getByRole('status').filter({ hasText: '요청을 승인했습니다.' })).toBeVisible();
-  await expect(
-    page.getByRole('listitem').filter({ hasText: `${OPERATOR.name}에게` }),
-  ).toContainText('승인 · 자기 승인');
+  // The decided request stays chosen: once the page reads it again, its decision area is gone and it shows its status
+  // and the self-approval mark.
+  await expect(decision).toHaveCount(0);
+  await expect(detail.getByText('승인', { exact: true })).toBeVisible();
+  await expect(detail.getByText('자기 승인', { exact: true })).toBeVisible();
 });
 
 test('the operator, now an auditor, finds the approval in the audit list', async () => {
@@ -304,7 +332,12 @@ test('the operator, now an auditor, finds the approval in the audit list', async
   const grants = table.getByRole('row').filter({ hasText: '역할 부여' });
   await expect(grants).toHaveCount(2);
   await expect(grants.filter({ hasText: 'system' })).toHaveCount(1);
-  await expect(grants.filter({ hasText: '운영자' })).toHaveCount(1);
+  // The other grant's actor is an operator account, read by its short id (no actor kind before it).
+  const actorColumn = (await table.getByRole('columnheader').allTextContents()).indexOf('행위자');
+  expect(actorColumn).toBeGreaterThan(-1);
+  const operatorGrant = grants.filter({ hasNotText: 'system' });
+  await expect(operatorGrant).toHaveCount(1);
+  await expect(operatorGrant.getByRole('cell').nth(actorColumn)).toHaveText(/^[0-9a-f]{8}$/u);
   // The auditor reads actors by id; names come with the account list, which needs the owner role.
   await expect(table).not.toContainText(OWNER.name);
 
@@ -315,7 +348,10 @@ test('the operator, now an auditor, finds the approval in the audit list', async
 test('a second owner rejects a request and the owner cancels one', async () => {
   // The auditor becomes a second owner (still a self-approval: the owner is the only approver).
   await requestRole(owner, 'ROLE_GRANT', 'OWNER');
-  const grant = pendingRequest(owner.page, '역할 부여', '소유자(owner)');
+  const grant = (await choosePendingRequest(owner.page, '역할 부여', '소유자(owner)')).getByRole(
+    'form',
+    { name: /결정$/u },
+  );
   await grant.getByLabel('자기 승인 사유(필수)', { exact: true }).fill('둘째 승인자를 둠');
   await grant.getByRole('button', { name: '승인' }).click();
   await expect(
@@ -325,18 +361,22 @@ test('a second owner rejects a request and the owner cancels one', async () => {
   // With two approvers the other owner decides, and a rejection needs a reason.
   await requestRole(owner, 'ROLE_REVOKE', 'AUDITOR');
   await operator.page.goto('/access');
-  const revoke = pendingRequest(operator.page, '역할 회수', '감사 열람(auditor)');
+  const revokeDetail = await choosePendingRequest(operator.page, '역할 회수', '감사 열람(auditor)');
+  const revoke = revokeDetail.getByRole('form', { name: /결정$/u });
   await revoke.getByLabel('결정 사유(거절할 때 필수)', { exact: true }).fill('감사 담당을 유지함');
   await revoke.getByRole('button', { name: '거절' }).click();
   await expect(
     operator.page.getByRole('status').filter({ hasText: '요청을 거절했습니다.' }),
   ).toBeVisible();
-  await expect(
-    operator.page.getByRole('listitem').filter({ hasText: '결정 사유: 감사 담당을 유지함' }),
-  ).toContainText('상태 거절');
+  // The decided request stays chosen: once the page reads it again, the decision's reason and the status.
+  await expect(revoke).toHaveCount(0);
+  await expect(revokeDetail).toContainText('감사 담당을 유지함');
+  await expect(revokeDetail.getByText('거절', { exact: true })).toBeVisible();
 
   await requestRole(owner, 'ROLE_GRANT', 'LEGAL_EDITOR');
-  await pendingRequest(owner.page, '역할 부여', '법적 문서 편집(legal-editor)')
+  await (
+    await choosePendingRequest(owner.page, '역할 부여', '법적 문서 편집(legal-editor)')
+  )
     .getByRole('button', { name: '요청 취소' })
     .click();
   await expect(
@@ -349,10 +389,11 @@ test('the owner revokes an invitation, deactivates an account and records the mo
 }) => {
   const { page } = owner;
   await page.goto('/accounts');
-  const invite = page.getByRole('form', { name: '운영자 초대' });
+  let drawer = await openInvite(page);
+  let invite = drawer.getByRole('form', { name: '운영자 초대' });
   await invite.getByLabel('이메일', { exact: true }).fill(LEAVER.email);
   await invite.getByLabel('이름', { exact: true }).fill(LEAVER.name);
-  await invite.getByRole('button', { name: '초대 code 만들기' }).click();
+  await drawer.getByRole('button', { name: '초대 code 만들기' }).click();
   const leaverCode = (await page.getByTestId('invitation-code').textContent())!.trim();
   leaver = await openOperator(browser, 'usb');
   await register(leaver, leaverCode, LEAVER.password, { confirmTotp: false });
@@ -361,9 +402,11 @@ test('the owner revokes an invitation, deactivates an account and records the mo
   ).toBeVisible();
 
   await page.goto('/accounts');
+  drawer = await openInvite(page);
+  invite = drawer.getByRole('form', { name: '운영자 초대' });
   await invite.getByLabel('이메일', { exact: true }).fill('unused@backoffice.test');
   await invite.getByLabel('이름', { exact: true }).fill('쓰지 않을 초대');
-  await invite.getByRole('button', { name: '초대 code 만들기' }).click();
+  await drawer.getByRole('button', { name: '초대 code 만들기' }).click();
   await expect(page.getByTestId('invitation-code')).toBeVisible();
   await page.goto('/accounts');
   await page
@@ -382,9 +425,10 @@ test('the owner revokes an invitation, deactivates an account and records the mo
     .filter({ hasText: LEAVER.name })
     .getByRole('button', { name: '비활성화' })
     .click();
-  const deactivate = page.getByRole('form', { name: '계정 비활성화' });
+  const confirm = page.getByRole('alertdialog', { name: '계정 비활성화' });
+  const deactivate = confirm.getByRole('form', { name: '계정 비활성화' });
   await deactivate.getByLabel('비활성화 사유', { exact: true }).fill('퇴직');
-  await deactivate.getByRole('button', { name: '비활성화' }).click();
+  await confirm.getByRole('button', { name: '비활성화', exact: true }).click();
   await expect(
     page.getByRole('status').filter({ hasText: '계정을 비활성화했습니다.' }),
   ).toBeVisible();
@@ -416,11 +460,20 @@ test('the owner revokes an invitation, deactivates an account and records the mo
     'href',
     '/login?ended=closed',
   );
+  // The screen's own result keeps its words and place but is read after the shell's notice (Owner OD5b Q2).
+  await expect(
+    leaver.page.getByRole('status').filter({ hasText: '다시 로그인하세요.' }),
+  ).toBeVisible();
+  await expect(
+    leaver.page.getByRole('alert').filter({ hasText: '다시 로그인하세요.' }),
+  ).toHaveCount(0);
 
   await page.goto('/audit');
-  const review = page.getByRole('form', { name: '월 점검 기록' });
+  await page.getByRole('button', { name: '월 점검 기록' }).click();
+  const reviewDrawer = page.getByRole('dialog', { name: '월 점검 기록' });
+  const review = reviewDrawer.getByRole('form', { name: '월 점검 기록' });
   await review.getByLabel('점검 메모(선택)', { exact: true }).fill('11월 대조 이상 없음');
-  await review.getByRole('button', { name: '점검 완료 기록' }).click();
+  await reviewDrawer.getByRole('button', { name: '점검 완료 기록' }).click();
   await expect(
     page.getByRole('status').filter({ hasText: '점검 완료를 기록했습니다.' }),
   ).toBeVisible();

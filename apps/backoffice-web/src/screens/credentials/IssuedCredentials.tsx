@@ -3,8 +3,10 @@
 import { useState, type FormEvent } from 'react';
 import type { IssuedTotp } from '@repo/shared/backoffice';
 import { postBff } from '@/client/bff-client';
+import { Button } from '@/ui/Button';
 import { errorMessage } from '@/ui/error-messages';
-import { Button, FormMessage, TextField } from '@/ui/forms';
+import { TextField } from '@/ui/fields';
+import { Notice } from '@/ui/Notice';
 
 /**
  * TOTP secret and recovery codes appear once, right after they are issued (OA-R2, README §3). The screen keeps
@@ -22,7 +24,7 @@ export function RecoveryCodeList({ codes }: { readonly codes: readonly string[] 
         className="grid grid-cols-2 gap-2 font-code text-body text-fg-neutral"
       >
         {codes.map((code) => (
-          <li key={code} className="rounded-box bg-layer-muted px-3 py-1">
+          <li key={code} className="rounded-control bg-layer-muted px-3 py-1.5">
             {code}
           </li>
         ))}
@@ -61,7 +63,7 @@ export function TotpEnrollment({
         인증 앱에 아래 비밀 값을 직접 입력하거나 URI를 붙여 넣으세요. TOTP는 passkey를 잃었을 때 새
         passkey를 등록하는 데만 씁니다.
       </p>
-      <dl className="grid grid-cols-label-value gap-x-4 gap-y-2 text-body">
+      <dl className="grid grid-cols-label-value gap-x-4 gap-y-2 rounded-control bg-layer-muted px-4 py-3 text-body">
         <dt className="font-medium text-fg-label">비밀 값</dt>
         <dd className="font-code break-all text-fg-neutral" data-testid="totp-secret">
           {totp.secret}
@@ -87,7 +89,11 @@ export function TotpEnrollment({
           TOTP 확인
         </Button>
       </form>
-      {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+      {error ? (
+        <Notice tone="danger" role="alert">
+          {error}
+        </Notice>
+      ) : null}
     </div>
   );
 }

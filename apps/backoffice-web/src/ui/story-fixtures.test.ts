@@ -10,6 +10,7 @@ import {
   registrationOptionsResponseSchema,
   roleCatalogResponseSchema,
   sessionInfoResponseSchema,
+  webAuthnChallengeResponseSchema,
 } from '@repo/shared/backoffice';
 import { describe, expect, it } from 'vitest';
 import {
@@ -17,10 +18,16 @@ import {
   activeAuditor,
   activeOwner,
   auditEvents,
+  decidedRequests,
   invitationCreated,
   issuedTotp,
   loginChallenge,
+  longAccountList,
+  manyAccountList,
+  manyAuditEvents,
+  ownerWithoutRecovery,
   pageCursor,
+  passkeyOptions,
   pendingRequests,
   recoveryCodes,
   registrationInvitation,
@@ -32,19 +39,33 @@ import {
 const fixtures: ReadonlyArray<readonly [string, ZodType, unknown]> = [
   ['owner session', sessionInfoResponseSchema, activeOwner.session],
   ['auditor session', sessionInfoResponseSchema, activeAuditor.session],
+  ['owner session without recovery', sessionInfoResponseSchema, ownerWithoutRecovery],
   ['account list', accountListResponseSchema, accountList],
+  ['account list with a long name', accountListResponseSchema, longAccountList],
+  ['account list of fifty', accountListResponseSchema, manyAccountList],
   ['role catalog', roleCatalogResponseSchema, { roles: roleCatalog }],
   [
     'access requests and page cursor',
     accessRequestListResponseSchema,
     { requests: pendingRequests, nextPage: pageCursor },
   ],
+  [
+    'decided requests',
+    accessRequestListResponseSchema,
+    { requests: decidedRequests, nextPage: null },
+  ],
   ['audit events', auditEventListResponseSchema, { events: auditEvents, nextPage: pageCursor }],
+  [
+    'audit events of fifty',
+    auditEventListResponseSchema,
+    { events: manyAuditEvents, nextPage: null },
+  ],
   ['created invitation', invitationCreatedResponseSchema, invitationCreated],
   ['issued TOTP', issuedTotpSchema, issuedTotp],
   ['recovery codes', recoveryCodesResponseSchema, { recoveryCodes }],
   ['login challenge', loginPasswordResponseSchema, loginChallenge],
   ['registration invitation', registrationOptionsResponseSchema, registrationInvitation],
+  ['new passkey options', webAuthnChallengeResponseSchema, passkeyOptions],
 ];
 
 describe('story fixtures', () => {

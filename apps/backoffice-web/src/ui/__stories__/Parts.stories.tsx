@@ -108,7 +108,7 @@ export const SectionCard: Story = {
 };
 
 export const ForbiddenNotice: Story = {
-  render: () => <Forbidden />,
+  render: () => <Forbidden title="운영자 계정" />,
 };
 
 export const StatusBadges: Story = {

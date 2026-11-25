@@ -13,9 +13,14 @@ import { SessionEndNotice } from './SessionEndNotice';
  */
 export function ConsoleShell({
   active,
+  defaultCollapsed,
+  defaultMenuOpen,
   children,
 }: {
   readonly active: ActiveSession;
+  /** Story states of the frame (ConsoleFrame); the route group leaves them out. */
+  readonly defaultCollapsed?: boolean;
+  readonly defaultMenuOpen?: boolean;
   readonly children: ReactNode;
 }) {
   const { session } = active;
@@ -25,6 +30,8 @@ export function ConsoleShell({
       groups={visibleNavigation(session.permissions)}
       user={{ name: session.account.displayName, roles }}
       logout={<LogoutButton />}
+      defaultCollapsed={defaultCollapsed}
+      defaultMenuOpen={defaultMenuOpen}
       notice={
         <Suspense fallback={null}>
           <SessionEndNotice
