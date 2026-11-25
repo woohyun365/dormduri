@@ -74,12 +74,15 @@ export function auditActorLabel(code: string): string {
   return AUDIT_ACTOR_LABELS[code] ?? code;
 }
 
-// Short names of the target kinds the audit table shows; the detail keeps the code.
+// Short names of the target kinds the API writes (backoffice-api `targetType`) for the audit table; the detail keeps the
+// code.
 const AUDIT_TARGET_LABELS: Record<string, string> = {
-  ADMIN_ACCESS_REQUEST: '권한 요청',
-  ADMIN_SESSION: '접속',
   ADMIN_ACCOUNT: '계정',
+  ADMIN_APPROVAL_REQUEST: '권한 요청',
   ADMIN_INVITATION: '초대',
+  ADMIN_PASSKEY_CREDENTIAL: 'passkey',
+  ADMIN_ROLE_ASSIGNMENT: '역할 배정',
+  ADMIN_SESSION: '접속',
 };
 
 /** An audit row's target kind in a short Korean name; an unknown kind shows its code. */

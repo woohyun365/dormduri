@@ -23,16 +23,18 @@ function login(id: string, metadata: unknown): AuditEvent {
   };
 }
 
-/** The cell under the `행동` column header in each body row, in order. */
-function actionCells(): string[] {
+/** The cell under the given column header in each body row, in order. */
+function columnCells(name: string): string[] {
   const table = screen.getByRole('table', { name: '관리자 감사 기록, 최신순' });
   const [header, ...rows] = within(table).getAllByRole('row');
   const column = within(header!)
     .getAllByRole('columnheader')
-    .findIndex((cell) => cell.textContent === '행동');
+    .findIndex((cell) => cell.textContent === name);
   expect(column).not.toBe(-1);
   return rows.map((row) => within(row).getAllByRole('cell')[column]!.textContent ?? '');
 }
+
+const actionCells = () => columnCells('행동');
 
 describe('AuditTable (OA-R7)', () => {
   it('names a recovery login in the action cell', () => {
@@ -56,6 +58,39 @@ describe('AuditTable (OA-R7)', () => {
       '복구 로그인(복구 code)',
       '로그인',
       '로그인',
+    ]);
+  });
+
+  it('names the target kinds the API writes in short Korean and keeps an unknown kind as its code', () => {
+    const target = (id: string, targetType: string): AuditEvent => ({
+      ...login(id, null),
+      action: 'ACCESS_REQUEST_APPROVE',
+      targetType,
+      targetId: id,
+    });
+    render(
+      <AuditTable
+        events={[
+          target('a1000000-0000-4000-8000-000000000601', 'ADMIN_APPROVAL_REQUEST'),
+          target('a2000000-0000-4000-8000-000000000602', 'ADMIN_ROLE_ASSIGNMENT'),
+          target('a3000000-0000-4000-8000-000000000603', 'ADMIN_PASSKEY_CREDENTIAL'),
+          target('a4000000-0000-4000-8000-000000000604', 'ADMIN_ACCOUNT'),
+          target('a5000000-0000-4000-8000-000000000605', 'ADMIN_INVITATION'),
+          target('a6000000-0000-4000-8000-000000000606', 'ADMIN_SESSION'),
+          target('a7000000-0000-4000-8000-000000000607', 'NEW_TARGET_KIND'),
+        ]}
+        names={{}}
+        onOpen={() => {}}
+      />,
+    );
+    expect(columnCells('대상')).toEqual([
+      '권한 요청 a1000000',
+      '역할 배정 a2000000',
+      'passkey a3000000',
+      '계정 a4000000',
+      '초대 a5000000',
+      '접속 a6000000',
+      'NEW_TARGET_KIND a7000000',
     ]);
   });
 });

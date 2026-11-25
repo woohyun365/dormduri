@@ -316,7 +316,7 @@ const login = (n: number, occurredAt: string, actor: string, scope: string, meth
 export const auditEvents: readonly AuditEvent[] = [
   event(1, '2026-11-24T09:58:12+09:00', {
     action: 'ACCESS_REQUEST_APPROVE',
-    targetType: 'ADMIN_ACCESS_REQUEST',
+    targetType: 'ADMIN_APPROVAL_REQUEST',
     targetId: REQUEST_IDS[2],
     approvalRequestId: REQUEST_IDS[2],
     selfApproved: true,
