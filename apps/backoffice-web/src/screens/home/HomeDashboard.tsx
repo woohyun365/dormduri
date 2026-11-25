@@ -7,8 +7,12 @@ import { ROLE_LABELS } from '@/ui/labels';
 import { StatusBadge } from '@/ui/status';
 import { TextLink } from '@/ui/TextLink';
 
-/** The first page of pending access requests the home page read (null without `admin:access:approve`). */
-export type PendingRequests = { readonly count: number; readonly overflow: boolean } | null;
+/**
+ * The first page of pending access requests the home page read: null without `admin:access:approve`, `unavailable`
+ * when the read was refused or could not be used.
+ */
+export type PendingRequests =
+  { readonly count: number; readonly overflow: boolean } | 'unavailable' | null;
 
 const SESSION_RULE =
   '15분 동안 활동이 없거나 로그인한 지 8시간이 지나면 접속이 끝납니다. 승인·권한 요청·계정 비활성화 같은 작업은 5분 안에 passkey로 다시 확인합니다.';
@@ -98,7 +102,9 @@ export function HomeDashboard({
   readonly pending: PendingRequests;
 }) {
   const recoveryMissing = !session.totpConfirmed || session.recoveryCodesRemaining === 0;
-  const waiting = pending !== null && (pending.count > 0 || pending.overflow);
+  const unread = pending === 'unavailable';
+  const waiting =
+    pending !== null && pending !== 'unavailable' && (pending.count > 0 || pending.overflow);
   return (
     <>
       <h1 className="text-title-1 font-bold text-fg-neutral">
@@ -106,8 +112,21 @@ export function HomeDashboard({
       </h1>
       <div className="grid items-start gap-stack lg:grid-cols-3">
         <Card id="home-todo" title="처리할 일" className="lg:col-span-2">
-          {waiting || recoveryMissing ? (
+          {waiting || unread || recoveryMissing ? (
             <ul className="flex flex-col divide-y divide-stroke-row">
+              {unread ? (
+                <li className="flex flex-wrap items-baseline gap-x-5 gap-y-2 py-4 first:pt-0 last:pb-0">
+                  <span className="w-14 shrink-0">
+                    <StatusBadge meaning="warning">주의</StatusBadge>
+                  </span>
+                  <span role="status" className="min-w-0 flex-1 text-body text-fg-label">
+                    대기 권한 요청을 지금 읽지 못했습니다.
+                  </span>
+                  <CardLink href={{ pathname: '/access', query: { status: 'PENDING' } }}>
+                    권한 요청 보기
+                  </CardLink>
+                </li>
+              ) : null}
               {waiting ? (
                 <li className="flex flex-wrap items-baseline gap-x-5 gap-y-2 py-4 first:pt-0 last:pb-0">
                   {/* The status keeps a column of its own before the line (design guide ⑥). */}

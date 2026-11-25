@@ -34,3 +34,6 @@ export const PendingOverflow: Story = { args: { pending: { count: 50, overflow: 
 
 /** No approve permission (nothing read) and the recovery means ready. */
 export const NothingToDo: Story = { args: { pending: null } };
+
+/** The pending requests could not be read: the line says so and links to 권한 요청; the rest of the home stays. */
+export const PendingUnread: Story = { args: { pending: 'unavailable' } };

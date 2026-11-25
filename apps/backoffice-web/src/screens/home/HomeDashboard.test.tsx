@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { SessionInfoResponse } from '@repo/shared/backoffice';
 import { activeOwner } from '@/ui/__stories__/fixtures';
@@ -66,5 +66,18 @@ describe('HomeDashboard', () => {
     // A waiting row takes the sentence's place.
     view.rerender(<HomeDashboard session={ready} pending={{ count: 3, overflow: false }} />);
     expect(todo()).not.toHaveTextContent('지금 처리할 일이 없습니다.');
+  });
+
+  it('says the pending requests could not be read, keeps the link and the rest of the home', () => {
+    render(<HomeDashboard session={ready} pending="unavailable" />);
+    expect(within(todo()).getByRole('status')).toHaveTextContent(
+      '대기 권한 요청을 지금 읽지 못했습니다.',
+    );
+    expect(screen.getByRole('link', { name: '권한 요청 보기' })).toHaveAttribute(
+      'href',
+      '/access?status=PENDING',
+    );
+    expect(todo()).not.toHaveTextContent('지금 처리할 일이 없습니다.');
+    expect(screen.getByRole('region', { name: '내 접속' })).toBeInTheDocument();
   });
 });
