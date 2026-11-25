@@ -4,9 +4,9 @@ import { useState, type FormEvent } from 'react';
 import type { IssuedTotp } from '@repo/shared/backoffice';
 import { postBff } from '@/client/bff-client';
 import { Button } from '@/ui/Button';
-import { errorMessage } from '@/ui/error-messages';
 import { TextField } from '@/ui/fields';
 import { Notice } from '@/ui/Notice';
+import { useFailure, type ResultMessage } from '@/ui/result-message';
 
 /**
  * TOTP secret and recovery codes appear once, right after they are issued (OA-R2, README §3). The screen keeps
@@ -40,7 +40,9 @@ export function TotpEnrollment({
   readonly totp: IssuedTotp;
   readonly onConfirmed: () => void;
 }) {
-  const [error, setError] = useState<string | null>(null);
+  // The console's 내 보안 설정 and the shell-less registration both use it: the rule of README §4 picks the role.
+  const failure = useFailure();
+  const [error, setError] = useState<ResultMessage | null>(null);
   const [pending, setPending] = useState(false);
 
   async function confirm(event: FormEvent<HTMLFormElement>) {
@@ -51,7 +53,7 @@ export function TotpEnrollment({
     const result = await postBff('/api/auth/totp/confirm', { code });
     setPending(false);
     if (!result.ok) {
-      setError(errorMessage(result.code));
+      setError(failure(result.code));
       return;
     }
     onConfirmed();
@@ -90,8 +92,8 @@ export function TotpEnrollment({
         </Button>
       </form>
       {error ? (
-        <Notice tone="danger" role="alert">
-          {error}
+        <Notice tone={error.tone} role={error.role}>
+          {error.text}
         </Notice>
       ) : null}
     </div>
