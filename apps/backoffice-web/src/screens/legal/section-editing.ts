@@ -1,7 +1,7 @@
 import type { LegalDocumentSection } from '@repo/shared/legal';
 import { sectionKey, type EditableSection, type SectionType } from './draft-form';
 
-// Section edits of the structure editor (D-LC10): add, delete and reorder sections, and keep a table's header and every
+// Section edits of the structure editor (README §8): add, delete and reorder sections, and keep a table's header and every
 // row the same length when a column comes or goes. Each function returns a new array.
 
 type Table = Extract<LegalDocumentSection, { type: 'table' }>;

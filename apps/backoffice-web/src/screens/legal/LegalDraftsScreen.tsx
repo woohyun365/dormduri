@@ -62,7 +62,7 @@ function sectionTypes(value: unknown): SectionType[] {
 }
 
 /**
- * The JSON import (D-LC9): the operator picks a file the seed export command wrote (or a first revision draft); the
+ * The JSON import (backoffice API README §8): the operator picks a file the seed export command wrote (or a first revision draft); the
  * browser reads it, checks it with the shared import schema and sends it as an `import` draft. The new draft opens in
  * the editor. A failure stays in the drawer with the file chosen.
  */

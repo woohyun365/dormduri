@@ -68,7 +68,7 @@ export function importBody(content: EditableContent): LegalDocumentDraftImport {
   };
 }
 
-/** A document kind asked for again at signup (`AGREE`) can ask for consent again (D-LC7). */
+/** A document kind asked for again at signup (`AGREE`) can ask for consent again (LB-R11). */
 export function canAskConsent(kind: LegalDocumentKind, noticeClass: LegalNoticeClass): boolean {
   return LEGAL_CONSENT_KINDS.includes(kind) && noticeClass !== 'HISTORICAL';
 }

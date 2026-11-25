@@ -23,7 +23,7 @@ import {
   setTableHeader,
 } from './section-editing';
 
-// The body editor (D-LC10): one group per section, named `본문 n · <type>`, with its own fields and the buttons that
+// The body editor (README §8): one group per section, named `본문 n · <type>`, with its own fields and the buttons that
 // move or delete it; the add buttons append a section of each type. The fieldset around the editor turns all of it off
 // when the draft cannot be edited.
 

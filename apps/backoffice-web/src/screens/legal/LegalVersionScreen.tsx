@@ -168,7 +168,7 @@ function NewDraftDrawer({
 }
 
 /**
- * One published version (D-LC10): its facts, its text as the public screen draws it and, for the editor, a new draft
+ * One published version (README §8): its facts, its text as the public screen draws it and, for the editor, a new draft
  * from it. A scheduled general or significant version can be asked to be withdrawn (a risky confirmation with a
  * passkey, OA-R4); its own approver decides on the requests screen.
  */

@@ -40,7 +40,7 @@ import type { LegalDraftDetail } from './legal-types';
 import { ComparisonTable, LegalDocumentView } from './LegalSections';
 import { SectionsEditor } from './SectionsEditor';
 
-// What the author ticks to choose the significant class (D-LC3, D-SF12). The list only helps the choice and is not
+// What the author ticks to choose the significant class (LB-R10). The list only helps the choice and is not
 // stored; the approver confirms the class with the comparison.
 const SIGNIFICANT_SIGNS = [
   '수집 항목·목적을 더하거나 제3자 제공·국외 이전을 더합니다.',
@@ -111,7 +111,7 @@ function useLeaveGuard(dirty: boolean) {
 }
 
 /**
- * The legal draft editor (D-LC10, design guide ④ form): basic fields, summary items, the change summary and the
+ * The legal draft editor (README §8, design guide ④ form): basic fields, summary items, the change summary and the
  * section structure editor, then the preview of what is on screen and the comparison the API computed for the saved
  * draft. A save checks the shared import schema here first and saves at the revision the editor read; a publish
  * request asks for a passkey (OA-R4) and only for saved content. A draft waiting for approval, published or left is
