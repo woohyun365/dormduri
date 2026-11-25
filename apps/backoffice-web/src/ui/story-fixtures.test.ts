@@ -2,6 +2,13 @@ import type { ZodType } from 'zod';
 import {
   accessRequestListResponseSchema,
   accountListResponseSchema,
+  legalBackofficeVersionDetailSchema,
+  legalDecisionResponseSchema,
+  legalDocumentsOverviewResponseSchema,
+  legalDraftDetailResponseSchema,
+  legalDraftListResponseSchema,
+  legalRequestDetailResponseSchema,
+  legalRequestListResponseSchema,
   auditEventListResponseSchema,
   invitationCreatedResponseSchema,
   issuedTotpSchema,
@@ -33,6 +40,27 @@ import {
   registrationInvitation,
   roleCatalog,
 } from './__stories__/fixtures';
+import {
+  decidedLegalRequests,
+  legalClosedRequestDetail,
+  legalDecision,
+  legalDraftDetail,
+  legalDrafts,
+  legalFirstDraftDetail,
+  legalFirstRequestDetail,
+  legalHistoricalVersion,
+  legalLongDraftDetail,
+  legalOverview,
+  legalOverviewMany,
+  legalPendingDraftDetail,
+  legalRefusedRequestDetail,
+  legalRequestDetail,
+  legalRequests,
+  legalScheduledVersion,
+  legalSelfRequestDetail,
+  legalWithdrawRequestDetail,
+  manyLegalDrafts,
+} from './__stories__/legal-fixtures';
 
 // Story fixtures stand for backoffice API answers (design guide ⑨). Each one passes the shared schema the BFF parses
 // that answer with, so a story never shows a value the API cannot send.
@@ -66,6 +94,33 @@ const fixtures: ReadonlyArray<readonly [string, ZodType, unknown]> = [
   ['login challenge', loginPasswordResponseSchema, loginChallenge],
   ['registration invitation', registrationOptionsResponseSchema, registrationInvitation],
   ['new passkey options', webAuthnChallengeResponseSchema, passkeyOptions],
+  ['legal documents', legalDocumentsOverviewResponseSchema, legalOverview],
+  ['legal documents with a long history', legalDocumentsOverviewResponseSchema, legalOverviewMany],
+  ['scheduled legal version', legalBackofficeVersionDetailSchema, legalScheduledVersion],
+  ['historical legal version', legalBackofficeVersionDetailSchema, legalHistoricalVersion],
+  ['legal drafts', legalDraftListResponseSchema, { drafts: legalDrafts, nextPage: pageCursor }],
+  ['fifty legal drafts', legalDraftListResponseSchema, { drafts: manyLegalDrafts, nextPage: null }],
+  ['legal draft detail', legalDraftDetailResponseSchema, legalDraftDetail],
+  ['first legal draft detail', legalDraftDetailResponseSchema, legalFirstDraftDetail],
+  ['pending legal draft detail', legalDraftDetailResponseSchema, legalPendingDraftDetail],
+  ['long legal draft detail', legalDraftDetailResponseSchema, legalLongDraftDetail],
+  [
+    'legal requests',
+    legalRequestListResponseSchema,
+    { requests: legalRequests, nextPage: pageCursor },
+  ],
+  [
+    'decided legal requests',
+    legalRequestListResponseSchema,
+    { requests: decidedLegalRequests, nextPage: null },
+  ],
+  ['legal request detail', legalRequestDetailResponseSchema, legalRequestDetail],
+  ['own legal request detail', legalRequestDetailResponseSchema, legalSelfRequestDetail],
+  ['first legal request detail', legalRequestDetailResponseSchema, legalFirstRequestDetail],
+  ['refused legal request detail', legalRequestDetailResponseSchema, legalRefusedRequestDetail],
+  ['withdraw legal request detail', legalRequestDetailResponseSchema, legalWithdrawRequestDetail],
+  ['closed legal request detail', legalRequestDetailResponseSchema, legalClosedRequestDetail],
+  ['legal decision', legalDecisionResponseSchema, legalDecision],
 ];
 
 describe('story fixtures', () => {

@@ -5,7 +5,7 @@ import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, ROLE_LABELS } from '@/ui/la
 import { REQUEST_STATUS_MEANING, StatusBadge } from '@/ui/status';
 import { StatusFilter } from '@/ui/StatusFilter';
 import { TextLink } from '@/ui/TextLink';
-import { accountName } from './account-name';
+import { accountName } from '@/ui/account-name';
 
 const STATUS_FILTERS: readonly { status: AccessRequest['status'] | null; label: string }[] = [
   { status: 'PENDING', label: '대기' },

@@ -1,5 +1,5 @@
 import 'server-only';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { z } from 'zod';
 import { callBackofficeApi } from '@/bff/upstream';
 import { BackofficeUnavailableError, sessionToken } from './session';
@@ -10,8 +10,9 @@ export type PageRead<T> =
 /**
  * A server component read of the backoffice API for one page (README §1: per request, no cache). An
  * ended session goes to the login (with the closed notice when the cookie's session is gone, README §4),
- * a missing permission renders the page's refusal, and anything else the screen cannot use goes to the
- * error boundary.
+ * a missing permission renders the page's refusal, a missing target (a detail read of an id the API does
+ * not have) renders the not-found page, and anything else the screen cannot use goes to the error
+ * boundary.
  */
 export async function readBackoffice<T>(
   path: string,
@@ -37,6 +38,7 @@ export async function readBackoffice<T>(
     if (result.code === 'session_required') redirect('/login?ended=closed');
     if (result.code === 'recovery_scope') redirect('/recovery');
     if (result.code === 'permission_denied') return { kind: 'forbidden' };
+    if (result.code === 'not_found') notFound();
   }
   throw new BackofficeUnavailableError();
 }

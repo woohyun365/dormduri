@@ -12,7 +12,7 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('./backoffice-read', () => ({ readBackoffice: fakes.read }));
 
-const { readPendingRequests } = await import('./pending-requests');
+const { readPendingLegalRequests, readPendingRequests } = await import('./pending-requests');
 const { BackofficeUnavailableError } = await import('./session');
 
 afterEach(() => {
@@ -60,5 +60,33 @@ describe('readPendingRequests', () => {
     await expect(readPendingRequests(activeOwner.session)).rejects.toThrow(
       'redirect /login?ended=closed',
     );
+  });
+});
+
+describe('readPendingLegalRequests', () => {
+  it('reads nothing without the legal approve permission', async () => {
+    await expect(readPendingLegalRequests(activeAuditor.session)).resolves.toBeNull();
+    expect(fakes.read).not.toHaveBeenCalled();
+  });
+
+  it('counts the first page of pending legal requests for a legal approver', async () => {
+    fakes.read.mockResolvedValueOnce({
+      kind: 'ok',
+      data: { requests: [{}, {}, {}], nextPage: null },
+    });
+    await expect(readPendingLegalRequests(activeOwner.session)).resolves.toEqual({
+      count: 3,
+      overflow: false,
+    });
+    const [path, , query] = fakes.read.mock.calls[0]!;
+    expect(path).toBe('/legal/requests');
+    expect((query as URLSearchParams).get('status')).toBe('PENDING');
+  });
+
+  it('says unavailable for a refusal or a read the home cannot use', async () => {
+    fakes.read.mockResolvedValueOnce({ kind: 'forbidden' });
+    await expect(readPendingLegalRequests(activeOwner.session)).resolves.toBe('unavailable');
+    fakes.read.mockRejectedValueOnce(new BackofficeUnavailableError());
+    await expect(readPendingLegalRequests(activeOwner.session)).resolves.toBe('unavailable');
   });
 });

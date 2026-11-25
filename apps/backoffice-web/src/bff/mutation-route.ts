@@ -39,6 +39,8 @@ export interface BffSuccess {
 export interface BffMutationSpec<TBody, TUpstream> {
   /** Upstream path, built from the route's UUID params when it has any. */
   readonly upstream: string | ((params: Readonly<Record<string, string>>) => string);
+  /** The upstream method; the browser always posts to the BFF (a legal draft save is a PUT upstream). */
+  readonly upstreamMethod?: 'POST' | 'PUT';
   readonly params?: readonly string[];
   /** `public` routes send no token (login, registration); `session` routes need the cookie. */
   readonly access: 'public' | 'session';
@@ -171,7 +173,7 @@ export function bffMutation<TBody, TUpstream>(spec: BffMutationSpec<TBody, TUpst
     }
 
     const result = await callBackofficeApi({
-      method: 'POST',
+      method: spec.upstreamMethod ?? 'POST',
       path: typeof spec.upstream === 'function' ? spec.upstream(ids) : spec.upstream,
       token: spec.access === 'session' ? token : undefined,
       body,

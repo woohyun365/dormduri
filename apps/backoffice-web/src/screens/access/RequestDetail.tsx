@@ -1,21 +1,19 @@
 'use client';
 
-import { useState, type FormEvent, type Ref } from 'react';
+import type { Ref } from 'react';
 import type { AccessRequest, AccountListResponse } from '@repo/shared/backoffice';
 import { Button } from '@/ui/Button';
-import { TextAreaField } from '@/ui/fields';
+import { DecisionForm } from '@/ui/DecisionForm';
 import { formatKstDetail, shortId } from '@/ui/format';
 import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, ROLE_LABELS } from '@/ui/labels';
 import { Notice } from '@/ui/Notice';
-import { failureText, type ResultMessage } from '@/ui/result-message';
+import type { ResultMessage } from '@/ui/result-message';
 import { REQUEST_STATUS_MEANING, StatusBadge } from '@/ui/status';
-import { accountName } from './account-name';
+import { accountName } from '@/ui/account-name';
 
 /**
  * The detail of the chosen request, with its fixed decision area under it while it waits (design guide ④
- * master-detail). The decider differs from the requester; only when the requester is the one active approver may they
- * approve their own request, with a reason (the API counts approvers at decision time and refuses otherwise). A
- * decided request shows who decided, when, and why.
+ * master-detail, the decision rules in `DecisionForm`). A decided request shows who decided, when, and why.
  */
 export function RequestDetail({
   request,
@@ -43,7 +41,6 @@ export function RequestDetail({
   /** The heading the screen moves focus to where the detail sits under the list. */
   readonly headingRef?: Ref<HTMLHeadingElement>;
 }) {
-  const [missingReason, setMissingReason] = useState(false);
   const reasonId = `decision-reason-${request.id}`;
   const rows: [string, string][] = [
     ['대상 운영자', accountName(accounts, request.targetAccountId)],
@@ -60,20 +57,6 @@ export function RequestDetail({
     );
   }
   if (request.decisionReason) rows.push(['결정 사유', request.decisionReason]);
-  const shown = missingReason ? failureText('거절 사유를 적으세요.') : failure;
-
-  function decide(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
-    const reason = String(new FormData(event.currentTarget).get('reason') ?? '').trim();
-    const approve = submitter?.value !== 'reject';
-    if (!approve && !reason) {
-      setMissingReason(true);
-      return;
-    }
-    setMissingReason(false);
-    onDecide(approve, reason);
-  }
 
   // In the decision row the cancel sits at the row's end; alone it starts the area.
   const cancel = (className: string) =>
@@ -118,45 +101,20 @@ export function RequestDetail({
       {request.status === 'PENDING' && (canApprove || canCancel) ? (
         <div className="flex flex-col gap-3 border-t border-stroke-subtle bg-layer-muted px-card py-4">
           {canApprove ? (
-            <form
-              aria-label={`요청 ${shortId(request.id)} 결정`}
-              className="flex flex-col gap-3"
-              onSubmit={decide}
-            >
-              <TextAreaField
-                id={reasonId}
-                name="reason"
-                label={self ? '자기 승인 사유(필수)' : '결정 사유(거절할 때 필수)'}
-                hint={
-                  self
-                    ? '승인 권한을 가진 운영자가 나 하나뿐일 때만 내 요청을 승인할 수 있습니다. 자기 승인은 감사에 표시되고 경보가 갑니다.'
-                    : '사용자 개인정보는 쓰지 마세요. 결정 전에 passkey로 다시 확인합니다.'
-                }
-                required={self}
-                maxLength={500}
-              />
-              {shown ? (
-                <Notice tone={shown.tone} role={shown.role}>
-                  {shown.text}
-                </Notice>
-              ) : null}
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="submit" value="approve" disabled={pending}>
-                  승인
-                </Button>
-                {self ? null : (
-                  <Button type="submit" value="reject" tone="danger" disabled={pending}>
-                    거절
-                  </Button>
-                )}
-                {cancel('ml-auto')}
-              </div>
-            </form>
+            <DecisionForm
+              label={`요청 ${shortId(request.id)} 결정`}
+              reasonId={reasonId}
+              self={self}
+              pending={pending}
+              failure={failure}
+              cancel={cancel('ml-auto')}
+              onDecide={onDecide}
+            />
           ) : (
             <>
-              {shown ? (
-                <Notice tone={shown.tone} role={shown.role}>
-                  {shown.text}
+              {failure ? (
+                <Notice tone={failure.tone} role={failure.role}>
+                  {failure.text}
                 </Notice>
               ) : null}
               {cancel('self-start')}

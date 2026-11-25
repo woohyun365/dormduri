@@ -96,9 +96,11 @@
 - `(console)` route group의 [`ConsoleShell`](../screens/console/ConsoleShell.tsx)(server)이 session의 menu 묶음·사용자·로그아웃·끝난
   접속 안내를 client [`ConsoleFrame`](../screens/console/ConsoleFrame.tsx)에 넘깁니다. 셸 부품은 `src/screens/console/`에 둡니다.
 - menu 묶음은 [`navigation.ts`](../screens/console/navigation.ts)의 `NAVIGATION` 한 곳입니다: 홈 / 운영자 관리(운영자 계정, 권한
-  요청) / 감사(감사 기록) / 내 설정(내 보안 설정). 항목마다 보이는 데 필요한 권한(`anyOf`)이 있고, 권한이 없는 항목과 비게 된 묶음은
-  숨깁니다. 숨김은 편의이고 권한은 server와 API가 정합니다. 새 화면은 업무가 맞는 묶음에 항목 하나를 더하고, 맞는 묶음이 없을 때만
-  묶음을 더합니다.
+  요청) / 법적 문서(문서 판, 초안, 게시 요청) / 감사(감사 기록) / 내 설정(내 보안 설정). 항목마다 보이는 데 필요한 권한(`anyOf`)이
+  있고, 권한이 없는 항목과 비게 된 묶음은 숨깁니다. 숨김은 편의이고 권한은 server와 API가 정합니다. 새 화면은 업무가 맞는 묶음에 항목
+  하나를 더하고, 맞는 묶음이 없을 때만 묶음을 더합니다.
+- 지금 항목은 경로가 같은 항목, 없으면 경로가 그 항목 경로 아래(`/legal/drafts/:draftId`는 `초안`)인 가장 긴 항목입니다. 홈(`/`)은
+  `/`에서만 지금 항목입니다. 항목 아래 상세 화면은 menu 항목을 따로 두지 않습니다.
 - 1024 이상: 왼쪽 사이드바(로고, 묶음 이름 + 아이콘 link, 아래 접기 단추)와 본문 위 막대(지금 위치 `묶음 / 화면`, 사용자 이름·역할,
   로그아웃)입니다. 지금 항목은 `aria-current="page"`로 흰 면·파랑 글자·왼쪽 막대입니다. 접기는 아이콘 줄로 줄이고, 화면을 옮겨도
   유지되며 browser 저장소에 쓰지 않습니다(새로 고치면 펼침).
@@ -115,14 +117,14 @@
 모든 패턴은 1280·1440을 먼저 보고, 1024에서 layout이 깨지지 않으며, 390에서 표 영역 안 가로 scroll 말고 page 가로 넘침이 없습니다
 (1280·1024에서는 표 영역 scroll도 없음).
 
-| 패턴          | 쓰는 업무(지금)        | 구조                                                                                                                    | URL 상태                                                                                                                            | 빈·오류·권한 없음                                                                                                            |
-| ------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 앱 셸         | console 다섯 화면      | ③                                                                                                                       | 지금 경로가 지금 항목                                                                                                               | 끝난 접속은 셸 안내 한 곳                                                                                                    |
-| 목록+필터     | 운영자 계정, 감사 기록 | `PageHeader`(제목·건수 줄·주요 action) → 결과 `Notice` → `Card flush` 안 표, 아래 page link                             | 필터·page는 query(필터는 API가 받을 때만)                                                                                           | `EmptyState`(빈 목록과 조건 결과 없음 구별), 403은 `Forbidden`                                                               |
-| 대시보드      | 홈                     | 인사 `h1` → 처리할 일 카드(2/3) + 내 접속·복구 수단 카드(1/3), 1024 미만 한 열                                          | 없음                                                                                                                                | 처리할 일이 없으면 문장 하나. 대기 요청을 읽지 못하면 처리할 일 카드에 그 한 줄(나머지 카드·셸은 그대로). KPI 숫자 카드 없음 |
-| 마스터-디테일 | 권한 요청              | 상태 필터 + 목록(단추) / 상세(`section`) + 아래 고정 결정 영역. 1024 미만은 목록 아래 상세이고 고르면 상세 머리로 focus | 상태 필터는 query, 고른 항목은 화면 상태(결정·취소 뒤 유지, 자동 다음 없음. 다른 상태 필터는 그 목록 첫 항목부터, 결과 문단은 지움) | 목록이 비면 상세 없음, 실패는 결정 영역 안                                                                                   |
-| 폼/설정       | 내 보안 설정           | 절(`Card`)을 세로로 나열, 결과는 page 머리 아래                                                                         | 없음                                                                                                                                | 실패는 page 머리 아래 `Notice`                                                                                               |
-| 상세+탭       | 없음(지침만)           | 머리(대상·상태) + 탭(`tablist`) + 탭 내용. 첫 사용처가 `Tabs` 부품을 만듭니다                                           | 고른 탭은 query                                                                                                                     | 탭마다 빈 상태                                                                                                               |
+| 패턴          | 쓰는 업무(지금)                                                | 구조                                                                                                                    | URL 상태                                                                                                                                                                                                             | 빈·오류·권한 없음                                                                                                            |
+| ------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 앱 셸         | console 모든 화면                                              | ③                                                                                                                       | 지금 경로가 지금 항목                                                                                                                                                                                                | 끝난 접속은 셸 안내 한 곳                                                                                                    |
+| 목록+필터     | 운영자 계정, 감사 기록, 법적 문서 초안·문서 판                 | `PageHeader`(제목·건수 줄·주요 action) → 결과 `Notice` → `Card flush` 안 표, 아래 page link                             | 필터·page는 query(필터는 API가 받을 때만)                                                                                                                                                                            | `EmptyState`(빈 목록과 조건 결과 없음 구별), 403은 `Forbidden`                                                               |
+| 대시보드      | 홈                                                             | 인사 `h1` → 처리할 일 카드(2/3) + 내 접속·복구 수단 카드(1/3), 1024 미만 한 열                                          | 없음                                                                                                                                                                                                                 | 처리할 일이 없으면 문장 하나. 대기 요청을 읽지 못하면 처리할 일 카드에 그 한 줄(나머지 카드·셸은 그대로). KPI 숫자 카드 없음 |
+| 마스터-디테일 | 권한 요청, 법적 문서 게시 요청                                 | 상태 필터 + 목록(단추) / 상세(`section`) + 아래 고정 결정 영역. 1024 미만은 목록 아래 상세이고 고르면 상세 머리로 focus | 상태 필터는 query. 고른 항목은 권한 요청이 화면 상태, 게시 요청은 query `request`(홈·초안 편집기 link가 열 수 있음). 둘 다 결정·취소 뒤 유지, 자동 다음 없음. 다른 상태 필터는 그 목록 첫 항목부터, 결과 문단은 지움 | 목록이 비면 상세 없음, 실패는 결정 영역 안                                                                                   |
+| 폼/설정       | 내 보안 설정, 법적 문서 초안 편집                              | 절(`Card`)을 세로로 나열, 결과는 page 머리 아래                                                                         | 없음                                                                                                                                                                                                                 | 실패는 page 머리 아래 `Notice`                                                                                               |
+| 상세+탭       | 없음(지침만). 법적 문서 판 상세는 정보 묶음이 둘이라 카드 나열 | 머리(대상·상태) + 탭(`tablist`) + 탭 내용. 첫 사용처가 `Tabs` 부품을 만듭니다                                           | 고른 탭은 query                                                                                                                                                                                                      | 탭마다 빈 상태                                                                                                               |
 
 - 인증 셋(로그인·등록·복구)과 없는 화면·오류는 패턴 밖의 `AuthCard`(연한 바탕 위 흰 카드 + 로고)입니다.
 - 끝난 접속 안내(로그인 화면과 셸 안내)의 색: idle·8시간·`closed`·확인하지 못한 로그아웃은 주의(노랑), 내 역할 회수
@@ -147,25 +149,27 @@
 
 ## ⑥ 공통 component
 
-| 부품                                      | 파일                  | 규칙                                                                                                                                                            |
-| ----------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Button`                                  | `Button.tsx`          | primary·secondary·danger·danger-solid, `md`(40px, 1024 미만 32px)·`sm`(32px), 긴 글자는 `wrap`, 처리 중은 같은 tone + `disabled:opacity-60`                     |
-| `TextField`·`TextAreaField`·`SelectField` | `fields.tsx`          | label·도움말·`stroke-control` 경계. label은 늘 보입니다                                                                                                         |
-| `PageHeader`                              | `PageHeader.tsx`      | 제목 `h1`, 건수 줄, 주요 action 하나                                                                                                                            |
-| `Card`                                    | `Card.tsx`            | 제목 `h2`와 머리 끝 action. 표를 담으면 `flush`                                                                                                                 |
-| `StatusBadge`와 의미 표                   | `status.tsx`          | 점 + 굵은 뜻 색 글자, pill 없이 자기 자리(표 열, 줄 앞 고정 칸, 카드 머리 끝, 따로 한 줄). 문장 안에 넣지 않음                                                  |
-| `Notice`                                  | `Notice.tsx`          | 결과·안내 문단. 완료·안내는 `role=status`, 실패·끝난 접속은 `role=alert`. 연 단추가 사라지는 결과는 `focusRef`로 focus를 받음                                   |
-| 결과 문단 규칙                            | `result-message.ts`   | `success()`·`useFailure()`·`failureText()`. console 안 `session_required`만 `status`                                                                            |
-| `TableRegion`·`TH`·`TD`                   | `table.tsx`           | 표 이름, 좁은 폭 영역 안 가로 scroll, 숫자 `tabular-nums`                                                                                                       |
-| `EmptyState`                              | `EmptyState.tsx`      | 빈 목록과 조건 결과 없음을 문장으로 구별                                                                                                                        |
-| `StatusFilter`                            | `StatusFilter.tsx`    | URL query link 목록, 지금 항목 `aria-current`                                                                                                                   |
-| `Overlay`                                 | `Overlay.tsx`         | 오른쪽 drawer와 가운데 확인 창(native `dialog`, `showModal`), Escape·`닫기`(처리 중 `busy`에는 막힘, 한글 조합을 끝내는 Escape는 조합 몫), 연 단추로 focus 복귀 |
-| `TextLink`                                | `TextLink.tsx`        | `prefetch={false}`를 늘 붙인 글자 link                                                                                                                          |
-| `TimeText`·`EmailText`·`RoleText`         | `text.tsx`            | 줄바꿈 자리(⑦)                                                                                                                                                  |
-| `Icon`                                    | `icons.tsx`           | 장식(`aria-hidden`), 뜻은 옆 글자가 전함                                                                                                                        |
-| `AuthCard`                                | `AuthCard.tsx`        | 인증·없는 화면·오류의 카드 틀(main)                                                                                                                             |
-| `Forbidden`                               | `Forbidden.tsx`       | console page의 403: page 제목은 남기고 본문은 빈 상태 모양 알림. 404와 구별                                                                                     |
-| `BrandLogo`·`BrandMark`                   | `brand/BrandLogo.tsx` | ⑧                                                                                                                                                               |
+| 부품                                      | 파일                  | 규칙                                                                                                                                                                         |
+| ----------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Button`                                  | `Button.tsx`          | primary·secondary·danger·danger-solid, `md`(40px, 1024 미만 32px)·`sm`(32px), 긴 글자는 `wrap`, 처리 중은 같은 tone + `disabled:opacity-60`                                  |
+| `TextField`·`TextAreaField`·`SelectField` | `fields.tsx`          | label·도움말·`stroke-control` 경계. label은 늘 보입니다                                                                                                                      |
+| `PageHeader`                              | `PageHeader.tsx`      | 제목 `h1`, 건수 줄, 주요 action 하나                                                                                                                                         |
+| `Card`                                    | `Card.tsx`            | 제목 `h2`와 머리 끝 action. 표를 담으면 `flush`                                                                                                                              |
+| `StatusBadge`와 의미 표                   | `status.tsx`          | 점 + 굵은 뜻 색 글자, pill 없이 자기 자리(표 열, 줄 앞 고정 칸, 카드 머리 끝, 따로 한 줄). 문장 안에 넣지 않음                                                               |
+| `Notice`                                  | `Notice.tsx`          | 결과·안내 문단. 완료·안내는 `role=status`, 실패·끝난 접속은 `role=alert`. 연 단추가 사라지는 결과는 `focusRef`로 focus를 받음                                                |
+| 결과 문단 규칙                            | `result-message.ts`   | `success()`·`useFailure()`·`failureText()`. console 안 `session_required`만 `status`                                                                                         |
+| `TableRegion`·`TH`·`TD`                   | `table.tsx`           | 표 이름, 좁은 폭 영역 안 가로 scroll, 숫자 `tabular-nums`                                                                                                                    |
+| `EmptyState`                              | `EmptyState.tsx`      | 빈 목록과 조건 결과 없음을 문장으로 구별                                                                                                                                     |
+| `StatusFilter`                            | `StatusFilter.tsx`    | URL query link 목록, 지금 항목 `aria-current`                                                                                                                                |
+| `Overlay`                                 | `Overlay.tsx`         | 오른쪽 drawer와 가운데 확인 창(native `dialog`, `showModal`), Escape·`닫기`(처리 중 `busy`에는 막힘, 한글 조합을 끝내는 Escape는 조합 몫), 연 단추로 focus 복귀              |
+| `TextLink`                                | `TextLink.tsx`        | `prefetch={false}`를 늘 붙인 글자 link                                                                                                                                       |
+| `TimeText`·`EmailText`·`RoleText`         | `text.tsx`            | 줄바꿈 자리(⑦)                                                                                                                                                               |
+| `Icon`                                    | `icons.tsx`           | 장식(`aria-hidden`), 뜻은 옆 글자가 전함                                                                                                                                     |
+| `AuthCard`                                | `AuthCard.tsx`        | 인증·없는 화면·오류의 카드 틀(main)                                                                                                                                          |
+| `DecisionForm`                            | `DecisionForm.tsx`    | 승인 요청의 결정 영역: 사유(자기 승인은 필수, 거절은 필수), 승인·거절 단추, 자기 요청이면 거절 없음. 화면이 확인 표시(`before`)·승인 막음(`approveBlocked`)·취소 단추를 넣음 |
+| `accountName`                             | `account-name.ts`     | 계정 id를 이름으로(계정 목록이 있을 때), 없으면 짧은 id                                                                                                                      |
+| `Forbidden`                               | `Forbidden.tsx`       | console page의 403: page 제목은 남기고 본문은 빈 상태 모양 알림. 404와 구별                                                                                                  |
+| `BrandLogo`·`BrandMark`                   | `brand/BrandLogo.tsx` | ⑧                                                                                                                                                                            |
 
 - 승격 기준: 두 화면 이상이 의미·상호작용·상태 계약이 같은 부품을 쓰거나 이 표가 그 역할을 정했으면 `src/ui/`에 둡니다. 한 화면만
   쓰는 부품은 그 화면 디렉터리(`src/screens/<기능>/`)에 둡니다. 새 공통 부품은 이 표에 행을 더합니다.
@@ -209,7 +213,7 @@
 - 화면 story는 대표 상태, 빈 상태, 오류(API 실패), 권한 없음, 긴 이름·많은 행, 그리고 상호작용 뒤 상태(drawer·확인 창 열림, 결과
   문단, 한 번 보는 값)를 둡니다. 상태 하나가 story 하나이고, 지금 export 이름은 같은 상태면 유지합니다.
 - story는 tracked이고 fixture는 가짜 값만 씁니다(`@example.test` 주소, 고정 UUID, 형식만 맞춘 code. 공개 저장소).
-  `src/ui/__stories__/fixtures.ts`가 공용 fixture이고, API 응답을 대신하는 fixture는
+  `src/ui/__stories__/fixtures.ts`가 공용 fixture(법적 문서는 `legal-fixtures.ts`)이고, API 응답을 대신하는 fixture는
   [`story-fixtures.test.ts`](./story-fixtures.test.ts)가 BFF와 같은 공유 schema로 확인합니다. 짧은 id가 서로 달라야 하는 fixture는 앞
   8자리가 다른 UUID를 씁니다. story 파일은 상대 경로로 import합니다(`tsconfig.json` 밖이라 `@/` 경로가 story 파일에 적용되지
   않습니다).

@@ -1,7 +1,7 @@
 # apps/backoffice-web
 
 운영자가 SSM 포트 포워딩의 `http://localhost:4300`으로 여는 백오피스 화면과 BFF다. 로그인·초대 등록·복구 로그인, 운영자 계정·초대,
-권한 요청·승인, 감사 목록과 월 점검 기록, 내 보안 설정을 보인다. 운영자 접근 규칙의 원본은
+권한 요청·승인, 법적 문서의 초안·게시·철회(§8), 감사 목록과 월 점검 기록, 내 보안 설정을 보인다. 운영자 접근 규칙의 원본은
 [운영자 접근 정책](../../docs/policies/operator-access.md)(`OA-R*`)이고, 업무 판정은 [백오피스 API](../backoffice-api/README.md)가 한다.
 이 문서는 화면과 BFF가 그 규칙을 어디서 지키는지와 실행·test 방법을 설명한다.
 
@@ -23,10 +23,10 @@
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/proxy.ts`                       | 모든 page 요청의 nonce CSP(§5)                                                                                                                                                  |
 | `src/bff/`                           | 출처 대조(`request-guard.ts`), session cookie, 활동 header, upstream client, BFF route wrapper                                                                                  |
-| `src/app/api/**`                     | BFF route 22개. 모두 `bffMutation`으로 만든 POST                                                                                                                                |
+| `src/app/api/**`                     | BFF route 30개. 모두 `bffMutation`으로 만든 POST(초안 저장만 upstream `PUT`, §3)                                                                                                |
 | `src/server/`                        | server render read: session gate(`requireFullSession`·`requireRecoverySession`), 화면 read                                                                                      |
 | `src/app/(auth)/**`                  | 로그인·초대 등록·복구 로그인 page. layout은 인증 카드(`AuthCard`)                                                                                                               |
-| `src/app/(console)/**`               | 로그인 뒤 page: 홈, 운영자 계정, 권한 요청, 감사 기록, 내 보안 설정. layout은 console 셸                                                                                        |
+| `src/app/(console)/**`               | 로그인 뒤 page: 홈, 운영자 계정, 권한 요청, 법적 문서(문서 판·판 상세, 초안 목록·편집, 게시 요청), 감사 기록, 내 보안 설정. layout은 console 셸                                 |
 | `src/screens/<기능>/`                | 화면 component. `console/`은 셸(menu 묶음 `navigation.ts`, `ConsoleFrame`), `credentials/`는 TOTP·복구 code 한 번 보기를 등록·보안 화면이 같이 씀, `feedback/`은 없는 화면·오류 |
 | `src/client/`                        | browser의 BFF 호출과 passkey 의식(`@simplewebauthn/browser`)·재인증                                                                                                             |
 | `src/ui/`                            | 공통 부품(단추·입력·카드·상태 표시·안내 문단·표·drawer·확인 창 등), 로고 사본, 오류 문구, 한국어 이름표, KST 시각 표시. 디자인 지침은 [`src/ui/README.md`](./src/ui/README.md)  |
@@ -40,7 +40,7 @@
   `SameSite=Strict`·`Path=/`이고 Domain과 만료가 없다(browser를 닫으면 사라진다). page에는 token을 주지 않는다. API가
   `session_required`·`session_expired`로 답한 BFF 응답은 cookie를 지운다. 로그아웃은 API 결과와 관계없이 cookie를 지우고,
   API가 끝냈음을 확인하지 못했으면(닿지 못함·오류) 그 오류로 답해 로그인 화면이 그 사실을 알린다.
-- 모든 BFF route는 POST다. route wrapper(`src/bff/mutation-route.ts`)는 차례로 ① `Origin`이 `http://localhost:4300`이고
+- 모든 BFF route는 POST다. API 쪽 method는 route가 정하고(`upstreamMethod`, 기본 POST) 초안 저장만 `PUT /legal/drafts/:draftId`다. route wrapper(`src/bff/mutation-route.ts`)는 차례로 ① `Origin`이 `http://localhost:4300`이고
   `Sec-Fetch-Site`가 `same-origin`이며 `Host`가 `localhost:4300`인지(하나라도 없거나 다르면 403 `forbidden_origin`), ② path id가
   UUID인지(아니면 404), ③ session이 필요한 route에 cookie가 있는지(없으면 401), ④ 본문이 `application/json`이고(아니면 415)
   64 KiB 이하이며(넘으면 그 자리에서 읽기를 멈춤) shared 요청 schema에 맞는지(아니면 400)를 본 뒤에만 API를 한 번 부른다. 앞 단계에서 거절한 요청은 API에 닿지
@@ -48,7 +48,8 @@
 - `SameSite=Strict`는 같은 site인 다른 localhost port(사용자 Web 개발 server 3000, Grafana 터널 3001)의 요청을 막지 못한다. 위
   출처 대조가 browser가 보내는 위조 요청을 막고, 운영자 컴퓨터 안 process가 cookie를 재사용하는 것은 막지 못한다(전용 browser
   profile 안내는 배포 runbook).
-- 재인증이 필요한 작업(권한 요청·승인·거절, 계정 비활성화, TOTP·복구 code 재발급. 백오피스 API README의 목록과 같다)은 API가
+- 재인증이 필요한 작업(권한 요청·승인·거절, 법적 문서 게시·철회 요청과 그 승인·거절, 계정 비활성화, TOTP·복구 code 재발급. 백오피스
+  API README의 목록과 같다)은 API가
   `reauthentication_required`로 답하면 화면이 passkey 재인증을 한 번 하고 같은 작업을 다시 보낸다(`withReauthentication`).
   passkey 추가도 같은 wrapper로 보내지만 지금 API는 그 작업에 재인증을 요구하지 않는다.
 - 모든 route는 `src/app/api/bff-route-table.test.ts`의 표와 같아야 한다. 표는 route마다 접근 방식, upstream path, 요청 fixture,
@@ -57,14 +58,15 @@
 
 ## 4. 화면과 idle 15분
 
-- 모든 page는 요청마다 server에서 그린다(root layout의 `connection()`). page마다 session을 읽고(`GET /auth/session`, React
+- 모든 page는 요청마다 server에서 그린다(root layout의 `connection()`). path id가 형식에 맞지 않거나 API가 `not_found`로 답한
+  page는 없는 화면(404)이다(`readBackoffice`의 `notFound()`). page마다 session을 읽고(`GET /auth/session`, React
   `cache`로 요청당 한 번) 없거나 끝났으면 로그인으로(끝난 접속 안내는 아래 표), recovery 범위면 `/recovery`로 보낸다.
 - API는 session으로 온 모든 요청에서 마지막 활동 시각을 옮긴다. 그래서 화면은 session을 주기적으로 묻지 않고 링크 prefetch도
   끈다(`prefetch={false}`). 셸의 끝난 접속 안내(`SessionEndNotice`)는 idle 안내를 server가 읽은 idle 만료까지 남은 시간으로
   센다. API에 닿은 BFF 호출(BFF가 `x-backoffice-session-activity` header로 알림. API의 권한 거부도 활동이다)이나 page 이동
   뒤에는 15분을 다시 세고 이미 뜬 안내를 지운다. BFF가 스스로 거절했거나 API에 닿지 못한 호출은 세지 않는다. absolute 8시간은
   활동으로 늘지 않는다. 시간이 다 되면 안내와 로그인 링크를 보이고 아무 요청도 보내지 않는다.
-- 감사·승인 요청 목록은 최신순 keyset page다. 다음 page 링크는 API가 준 `nextPage`(`beforeTime`·`beforeId`)를 query로 넘긴다.
+- 감사·승인 요청·법적 문서 초안·게시 요청 목록은 최신순 keyset page다. 다음 page 링크는 API가 준 `nextPage`(`beforeTime`·`beforeId`)를 query로 넘긴다.
 - 운영자 이름·이메일은 owner 역할만 본다. 화면은 이름을 계정 목록 API에서 얻고, 그 API가 `admin:account:invite`를 요구한다. 그 밖의
   운영자는 감사·요청 목록에서 계정 id만 본다.
 - 감사 목록 행동 칸은 `LOGIN` 행의 metadata가 `{ scope: 'RECOVERY', method: 'totp' | 'recovery_code' }`이면 `복구 로그인(TOTP)`·
@@ -106,20 +108,22 @@ Origin(`http://localhost:4300`)과 Host는 code 상수다. 바꾸면 WebAuthn RP
 
 ## 7. Test
 
-| 명령(root)                                     | 범위                                                                                                                                                                                                                                                                                               |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm backoffice-web:check`                    | 준비(shared build) 뒤 lint·typecheck·unit                                                                                                                                                                                                                                                          |
-| `pnpm backoffice-web:test:prepared`            | BFF(출처 대조, cookie 속성, route wrapper와 upstream fake, route 전수 표), CSP, server session gate(끝난 접속의 이동), 감사 복구 로그인 parse, component(role·label query: menu 묶음·셸 접기·홈 처리할 일·console 결과 문단 role), token·server action lint 실효 설정, story fixture의 공유 schema |
-| `pnpm backoffice-web:build:prepared`           | `next build`                                                                                                                                                                                                                                                                                       |
-| `pnpm backoffice-web:e2e:prepared`             | Playwright Chromium e2e(아래)                                                                                                                                                                                                                                                                      |
-| `pnpm backoffice-web:storybook:build:prepared` | Storybook static build(`storybook-static/`)                                                                                                                                                                                                                                                        |
-| `pnpm backoffice-web:storybook:check:prepared` | story 검사: 모든 story의 render 오류 0·axe 위반 0, `play` 단언(drawer·확인 창 focus 복귀 등) 실패 0(디자인 지침 ⑨)                                                                                                                                                                                 |
+| 명령(root)                                     | 범위                                                                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm backoffice-web:check`                    | 준비(shared build) 뒤 lint·typecheck·unit                                                                                                                                                                                                                                                                                                                    |
+| `pnpm backoffice-web:test:prepared`            | BFF(출처 대조, cookie 속성, route wrapper와 upstream fake·method, route 전수 표), CSP, server session gate(끝난 접속의 이동)·없는 대상 404, 감사 복구 로그인 parse, component(role·label query: menu 묶음·셸 접기·홈 처리할 일·console 결과 문단 role, 법적 문서 편집기·가져오기·승인·철회), token·server action lint 실효 설정, story fixture의 공유 schema |
+| `pnpm backoffice-web:build:prepared`           | `next build`                                                                                                                                                                                                                                                                                                                                                 |
+| `pnpm backoffice-web:e2e:prepared`             | Playwright Chromium e2e(아래)                                                                                                                                                                                                                                                                                                                                |
+| `pnpm backoffice-web:storybook:build:prepared` | Storybook static build(`storybook-static/`)                                                                                                                                                                                                                                                                                                                  |
+| `pnpm backoffice-web:storybook:check:prepared` | story 검사: 모든 story의 render 오류 0·axe 위반 0, `play` 단언(drawer·확인 창 focus 복귀 등) 실패 0(디자인 지침 ⑨)                                                                                                                                                                                                                                           |
 
 E2e(`e2e/backoffice-flow.spec.ts`)는 production build를 고정 origin `http://localhost:4300`에 띄우고, global setup이 일회용
 schema에 운영과 같은 role bootstrap·migration·grant 표를 적용한 뒤 실제 백오피스 API build를 `dormduri_backoffice`로 띄워
 `bootstrap-owner` code를 받는다. Chromium 가상 authenticator로 owner(platform passkey)가 등록 → TOTP 확인 → 로그아웃·재로그인
-→ 운영자 초대 → 운영자(security key) 등록 → 권한 요청과 1인 자기 승인 → 운영자가 감사 목록에서 승인 확인을 지난다. 이어 둘째 owner의
-거절, 요청 취소, 초대 취소, 계정 비활성화, 월 점검 기록, TOTP·복구 code 재발급, 다른 기기 passkey 추가, TOTP·복구 code 복구
+→ 운영자 초대 → 운영자(security key) 등록 → 권한 요청과 1인 자기 승인 → 운영자가 감사 목록에서 승인 확인을 지난다. 법적 문서는
+JSON 가져오기 → 편집 → 게시 요청 → 첫 게시의 1인 자기 승인(본문 전체 확인) → 그 판으로 새 일반 초안 → 대조표 확인 뒤 승인 →
+시행 예정 판의 철회 요청과 승인 → 요청 취소·초안 버림을 지난다(1인 예외는 승인 권한 계정이 owner 하나일 때라 둘째 owner 전).
+이어 둘째 owner의 역할 요청·법적 문서 게시 요청 거절, 요청 취소, 초대 취소, 계정 비활성화, 월 점검 기록, TOTP·복구 code 재발급, 다른 기기 passkey 추가, TOTP·복구 code 복구
 로그인과 복구 session의 passkey 등록으로 모든 BFF route를 실제 API로 한 번씩 지난다. 모든 page의 CSP 위반 0, cookie 속성, 보안
 header, 가짜 시계로 16분을 보낸 page의 요청 0과 idle 안내, 비활성화된 운영자의 끝난 접속 안내(새 page의 `/login?ended=closed`, 열려
 있던 page의 셸 안내), 감사 표의 복구 로그인 이름, 위조 출처 403, axe 검사 한 번을 본다.
@@ -139,3 +143,31 @@ pnpm backoffice-web:e2e:prepared
 
 실제 Owner browser·authenticator가 RP ID `localhost`로 passkey를 등록하고 `http://localhost`의 `Secure` cookie를 저장하는지는
 백오피스 단계 배포의 smoke에서 확인한다.
+
+## 8. 법적 문서
+
+규칙 원본은 [legal basis](../../docs/policies/legal-basis.md)(`LB-R6`·`LB-R10`·`LB-R11`)이고, 초안·요청·결정과 검사는
+[백오피스 API](../backoffice-api/README.md) §8이 한다. 운영 절차는 [legal 게시 runbook](../../docs/runbooks/legal-publication.md)이다.
+
+- 메뉴: `법적 문서` 묶음의 `문서 판`(`/legal`)·`초안`(`/legal/drafts`)·`게시 요청`(`/legal/requests`)이고 `admin:legal:edit`나
+  `admin:legal:approve`가 있으면 보인다. 판 상세(`/legal/versions/:versionId`)·초안 편집(`/legal/drafts/:draftId`)은 그 묶음 항목의
+  아래 경로라 셸의 지금 항목이 그 항목이다. 편집 단추(저장·게시 요청·버림·새 초안·철회 요청)는 `admin:legal:edit`, 결정 영역은
+  `admin:legal:approve`가 있을 때만 보인다. 판정은 API가 한다.
+- 문서 판: 네 문서 종류마다 판 목록(시행일·상태·고지 등급·적용 끝·공지 시작·재동의)이다. 상태(시행 예정·시행 중·이전 판·철회)는
+  API의 DB 시계 판정이고 판 상세도 그 목록에서 상태를 읽는다. 판 상세는 공개 화면과 같은 순서의 본문, `이 판으로 새 초안`(일반·중대,
+  제안 시행일 기본값은 KST 오늘 + 7일·30일)과 시행 예정 일반·중대 판의 `철회 요청`(확인 창, 재인증)을 둔다.
+- 초안 편집기(폼 패턴): 기본 정보(제목·고지 등급·시행일·이전 판 기록의 적용 끝·재동의), 요약 항목, 변경 요약, 본문 section 구조
+  편집(조 제목·문단·목록·표·안내 상자의 더하기·지우기·위아래 이동, 표 열·행 더하기·지우기는 머리와 모든 행의 칸 수를 같이 맞춤),
+  미리보기, 저장된 초안의 조항 대조표다. 저장은 공유 `legalDraftUpdateRequestSchema`로 먼저 검사해 어느 칸이 왜 안 되는지
+  (`본문 2(표): 비어 있습니다.`) 보이고 BFF를 부르지 않는다. 저장은 읽은 판 번호(`revision`)를 보내고 다른 운영자가 먼저 저장했으면
+  충돌 결과다. 저장하지 않은 변경이 있으면 게시 요청이 닫히고, 다른 화면으로 가는 link와 창 닫기는 확인을 묻는다. 중대 변경 확인 줄은
+  고르기 도움이고 저장하지 않는다.
+- 가져오기: 초안 목록의 `JSON 파일로 초안 만들기`가 파일을 읽어 공유 `legalDraftCreateRequestSchema`로 먼저 검사하고(JSON이
+  아니거나 형식에 맞지 않으면 어느 칸인지 보이고 BFF를 부르지 않음) 통과한 것만 보낸다. 판정은 API가 같은 schema로 다시 한다.
+  첫 게시 파일은 백오피스 API README §8의 export 명령이 쓴다.
+- 게시 요청(마스터-디테일): 고른 요청은 query `request`이고 결정·취소 뒤에도 그 요청을 다시 읽는다(디자인 지침 ④). 상세는 지금 기준
+  검사 결과(`check`, 닫힌 요청은 대상을 지금 상태로), 조항 대조표와 `본문 전체 보기`, 앞 판이 없으면(첫 게시·이전 판 기록) 본문
+  전체다. 승인은 `대조표와 고지 등급·시행일을 확인했습니다`(앞 판이 없으면 `본문 전체와 …`) 표시 뒤와 검사가 통과할 때만 열린다.
+  결정은 화면에 보인 요청의 digest를 보내 그 뒤 바뀐 초안·판은 충돌로 거절된다. 자기 요청은 승인 권한 계정이 하나뿐일 때만
+  사유와 함께 자기 승인하고(거절 단추 없음), 거절은 사유가 필요하다. 요청자는 대기 요청을 취소한다.
+- 홈 처리할 일은 `admin:legal:approve`가 있으면 대기 게시·철회 요청 수 한 줄과 `게시 요청 보기` link를 더한다.

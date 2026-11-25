@@ -5,6 +5,7 @@ import {
   loginPasskeyRequestSchema,
   accessRequestApproveRequestSchema,
   accessRequestSchema,
+  legalDraftDiscardRequestSchema,
 } from '@repo/shared/backoffice';
 import { bffMutation, type BffRouteContext } from './mutation-route';
 import { SESSION_COOKIE_NAME } from './session-cookie';
@@ -100,6 +101,15 @@ const approve = bffMutation({
   response: accessRequestSchema,
 });
 
+const saveDraft = bffMutation({
+  upstream: ({ draftId }) => `/legal/drafts/${draftId}`,
+  upstreamMethod: 'PUT',
+  params: ['draftId'],
+  access: 'session',
+  body: legalDraftDiscardRequestSchema,
+  response: null,
+});
+
 const logout = bffMutation({
   upstream: '/auth/logout',
   access: 'session',
@@ -148,6 +158,19 @@ describe('bffMutation', () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(String(url)).toBe(`${API}/access/requests/${ID}/approve`);
     expect(new Headers(init?.headers).get('authorization')).toBe('Bearer session-token');
+  });
+
+  it('calls the upstream with the method the route names; the browser still posts (a draft save is a PUT)', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    const response = await saveDraft(
+      post(`/api/legal/drafts/${ID}`, { cookie: 'session-token', body: { revision: 3 } }),
+      { params: Promise.resolve({ draftId: ID }) },
+    );
+    expect(response.status).toBe(204);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe(`${API}/legal/drafts/${ID}`);
+    expect(init?.method).toBe('PUT');
+    expect(JSON.parse(String(init?.body))).toEqual({ revision: 3 });
   });
 
   it('passes an upstream refusal through and clears the cookie when the session ended', async () => {

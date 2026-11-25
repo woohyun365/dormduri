@@ -15,6 +15,8 @@ const EVERY: readonly BackofficePermission[] = [
   'admin:access:approve',
   'admin:audit:read',
   'admin:audit:review',
+  'admin:legal:edit',
+  'admin:legal:approve',
 ];
 
 function frame() {
@@ -82,5 +84,21 @@ describe('ConsoleFrame (design guide ③)', () => {
     view.rerender(frame());
 
     expect(screen.getByRole('button', { name: '메뉴' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it("shows the owner's legal documents group and marks a draft page's item", () => {
+    navigation.pathname = '/legal/drafts/0f8fad5b-d9cb-469f-a165-70867728950e';
+    render(frame());
+    const menu = screen.getByRole('navigation', { name: '백오피스 메뉴' });
+    expect(within(menu).getByText('법적 문서')).toBeInTheDocument();
+    expect(within(menu).getByRole('link', { name: '문서 판' })).toHaveAttribute('href', '/legal');
+    expect(within(menu).getByRole('link', { name: '게시 요청' })).toHaveAttribute(
+      'href',
+      '/legal/requests',
+    );
+    const current = within(menu).getAllByRole('link', { current: 'page' });
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveAccessibleName('초안');
+    expect(within(screen.getByRole('banner')).getByText('법적 문서')).toBeInTheDocument();
   });
 });
