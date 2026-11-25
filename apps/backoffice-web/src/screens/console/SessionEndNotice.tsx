@@ -90,7 +90,7 @@ export function SessionEndNotice({
     return null;
   }
   const notice = NOTICES[ended];
-  // Every ended session reads as a warning (yellow); red stays for input errors (design guide ④).
+  // Every ended session reads as a warning (yellow); red is for failure results (design guide ④).
   return (
     <Notice tone="warning" role="alert">
       <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
