@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { accountListResponseSchema, legalDraftDetailResponseSchema } from '@repo/shared/backoffice';
 import { LegalDraftEditor } from '@/screens/legal/LegalDraftEditor';
-import { readBackoffice } from '@/server/backoffice-read';
+import { readBackoffice, readBackofficeTarget } from '@/server/backoffice-read';
 import { isUuid } from '@/server/page-query';
 import { hasPermission, requireFullSession } from '@/server/session';
 import { Forbidden } from '@/ui/Forbidden';
@@ -21,7 +21,7 @@ export default async function LegalDraftPage({
   const { draftId } = await params;
   if (!isUuid(draftId)) notFound();
   const [detail, accounts] = await Promise.all([
-    readBackoffice(`/legal/drafts/${draftId}`, legalDraftDetailResponseSchema),
+    readBackofficeTarget(`/legal/drafts/${draftId}`, legalDraftDetailResponseSchema),
     hasPermission(session, 'admin:account:invite')
       ? readBackoffice('/accounts', accountListResponseSchema)
       : Promise.resolve(null),

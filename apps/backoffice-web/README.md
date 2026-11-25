@@ -59,8 +59,9 @@
 
 ## 4. 화면과 idle 15분
 
-- 모든 page는 요청마다 server에서 그린다(root layout의 `connection()`). path id가 형식에 맞지 않거나 API가 `not_found`로 답한
-  page는 없는 화면(404)이다(`readBackoffice`의 `notFound()`). page마다 session을 읽고(`GET /auth/session`, React
+- 모든 page는 요청마다 server에서 그린다(root layout의 `connection()`). path id가 형식에 맞지 않거나 그 id의 상세 read에
+  API가 `not_found`로 답한 page는 없는 화면(404)이다(`readBackofficeTarget`의 `notFound()`). 목록 read의 `not_found`는 읽지 못한
+  read라 오류 화면이나 그 줄의 '읽지 못함'이다. page마다 session을 읽고(`GET /auth/session`, React
   `cache`로 요청당 한 번) 없거나 끝났으면 로그인으로(끝난 접속 안내는 아래 표), recovery 범위면 `/recovery`로 보낸다.
 - API는 session으로 온 모든 요청에서 마지막 활동 시각을 옮긴다. 그래서 화면은 session을 주기적으로 묻지 않고 링크 prefetch도
   끈다(`prefetch={false}`). 셸의 끝난 접속 안내(`SessionEndNotice`)는 idle 안내를 server가 읽은 idle 만료까지 남은 시간으로

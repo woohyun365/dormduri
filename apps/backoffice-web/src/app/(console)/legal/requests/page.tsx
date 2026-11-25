@@ -6,7 +6,7 @@ import {
   legalRequestListResponseSchema,
 } from '@repo/shared/backoffice';
 import { LegalRequestsScreen } from '@/screens/legal/LegalRequestsScreen';
-import { readBackoffice } from '@/server/backoffice-read';
+import { readBackoffice, readBackofficeTarget } from '@/server/backoffice-read';
 import { flatSearchParams, isUuid, toSearchParams } from '@/server/page-query';
 import { hasPermission, requireFullSession } from '@/server/session';
 import { Forbidden } from '@/ui/Forbidden';
@@ -38,7 +38,7 @@ export default async function LegalRequestsPage({
   }
   const selectedId = chosen ?? requests.data.requests[0]?.id;
   const selected = selectedId
-    ? await readBackoffice(`/legal/requests/${selectedId}`, legalRequestDetailResponseSchema)
+    ? await readBackofficeTarget(`/legal/requests/${selectedId}`, legalRequestDetailResponseSchema)
     : null;
   if (selected?.kind === 'forbidden') {
     return <Forbidden title="게시 요청" />;
