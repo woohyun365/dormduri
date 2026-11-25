@@ -33,8 +33,8 @@ const check = (
   recipientCount = 0,
 ) => policy.checkLegalPublication({ candidate: next, versions, now: NOW, recipientCount });
 
-describe('legal publication checks at decision time (plan D-LC3)', () => {
-  it('needs seven days of notice for a general version and thirty for a significant one (RED ③)', () => {
+describe('legal publication checks at decision time', () => {
+  it('needs seven days of notice for a general version and thirty for a significant one', () => {
     expect(check(candidate({ noticeClass: 'GENERAL', effectiveDate: '2026-12-07' }))).toEqual({
       ok: false,
       reason: 'notice_too_short',
@@ -75,7 +75,7 @@ describe('legal publication checks at decision time (plan D-LC3)', () => {
     ).toEqual({ ok: false, reason: 'notice_too_short' });
   });
 
-  it('refuses a significant version and a reconsent version while any member can receive mail (RED ②⑭)', () => {
+  it('refuses a significant version and a reconsent version while any member can receive mail', () => {
     expect(
       check(
         candidate({
@@ -93,7 +93,7 @@ describe('legal publication checks at decision time (plan D-LC3)', () => {
     expect(check(candidate({ noticeClass: 'GENERAL' }), [initial], 1)).toEqual({ ok: true });
   });
 
-  it('refuses a first publication or historical record once the kind has a publication (RED ④⑨)', () => {
+  it('refuses a first publication or historical record once the kind has a publication', () => {
     const general = version({ noticeClass: 'GENERAL', effectiveDate: '2026-11-01' });
     expect(
       check(candidate({ noticeClass: 'INITIAL', effectiveDate: '2026-11-20' }), [general]),
@@ -113,7 +113,7 @@ describe('legal publication checks at decision time (plan D-LC3)', () => {
     ).toEqual({ ok: false, reason: 'first_publication_exists' });
   });
 
-  it('places the first publication on or before the approval date and right after the last historical record (RED ⑨)', () => {
+  it('places the first publication on or before the approval date and right after the last historical record', () => {
     const record = version({
       noticeClass: 'HISTORICAL',
       effectiveDate: '2026-06-22',
@@ -139,7 +139,7 @@ describe('legal publication checks at decision time (plan D-LC3)', () => {
     });
   });
 
-  it('takes a historical record only with an end before the approval date and no overlap (RED ⑪)', () => {
+  it('takes a historical record only with an end before the approval date and no overlap', () => {
     const historical = (effectiveDate: string, appliesUntil: string | null) =>
       candidate({ noticeClass: 'HISTORICAL', effectiveDate, appliesUntil });
     expect(check(historical('2026-06-22', '2026-12-01'), [])).toEqual({
@@ -190,10 +190,10 @@ describe('legal publication checks at decision time (plan D-LC3)', () => {
   });
 });
 
-describe('legal withdrawal checks (plan D-LC3, Owner 2026-11-25 L2a Q10)', () => {
+describe('legal withdrawal checks', () => {
   const scheduled = version({ noticeClass: 'GENERAL', effectiveDate: '2026-12-08' });
 
-  it('withdraws a scheduled general or significant version until it takes effect (RED ⑥)', () => {
+  it('withdraws a scheduled general or significant version until it takes effect', () => {
     expect(policy.checkLegalWithdrawal({ version: scheduled, now: NOW })).toEqual({ ok: true });
     // 2026-12-08 00:00 KST is 2026-12-07T15:00Z.
     expect(
@@ -210,7 +210,7 @@ describe('legal withdrawal checks (plan D-LC3, Owner 2026-11-25 L2a Q10)', () =>
     ).toEqual({ ok: false, reason: 'already_in_effect' });
   });
 
-  it('never withdraws twice, a first publication or a historical record (RED ⑮)', () => {
+  it('never withdraws twice, a first publication or a historical record', () => {
     expect(
       policy.checkLegalWithdrawal({
         version: { ...scheduled, withdrawnAt: new Date('2026-11-30T00:00:00.000Z') },

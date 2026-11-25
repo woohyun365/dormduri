@@ -1,4 +1,4 @@
-// Writes the seed's published version list as backoffice import files (plan D-LC9): LD imports each file
+// Writes the seed's published version list as backoffice import files: the first production publication imports each file
 // with 'JSON 파일로 초안 만들기' and approves it, so production gets the text the public screen already
 // showed. Each file is the shared import format (`legalDocumentDraftImportSchema`); the digest of the
 // imported draft equals the seed version's digest. A file that already exists is never overwritten.

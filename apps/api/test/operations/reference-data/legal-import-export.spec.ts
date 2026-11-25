@@ -27,7 +27,7 @@ const seed = legalVersionSeed as {
 };
 
 /**
- * The seed's version list as backoffice import files (plan D-LC9): LD imports them, so each file must pass
+ * The seed's version list as backoffice import files: the first production publication imports them, so each file must pass
  * the shared import schema and give the digest of the seed version it came from.
  */
 describe('legal import file export', () => {

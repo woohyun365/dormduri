@@ -57,7 +57,7 @@ export class RoleAssignmentStore {
   }
 
   /**
-   * Active accounts that hold any of `roles`, counted when a request is decided (OA-R9, D-BF6): the
+   * Active accounts that hold any of `roles`, counted when a request is decided (OA-R9): the
    * role change approvers, or the legal approvers for a legal request.
    */
   async activeApprovers(tx: BackofficeTransaction, roles: readonly AdminRole[]): Promise<string[]> {

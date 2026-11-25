@@ -66,11 +66,11 @@ function addDays(versionKey: string, days: number): string {
 }
 
 /**
- * Backoffice legal publication against real PostgreSQL as `dormduri_backoffice` (plan Phase L2b RED,
- * D-LC3·D-LC8·D-LC9). The scenarios share one sandbox and run in order: each kind's versions build
+ * Backoffice legal publication against real PostgreSQL as `dormduri_backoffice`.
+ * The scenarios share one sandbox and run in order: each kind's versions build
  * on the steps before. Notice dates count from the database's KST date, which also decides approval.
  */
-describe('backoffice legal publication (D-LC3, OA-R9)', () => {
+describe('backoffice legal publication (OA-R9)', () => {
   let sandbox: IntegrationSandbox;
   let test: BackofficeTestApp;
   let owner: RegisteredOperator;
@@ -174,7 +174,7 @@ describe('backoffice legal publication (D-LC3, OA-R9)', () => {
     owner = await fresh(owner);
   });
 
-  it('leaves a legal request row out of the role request list and decisions (RED ⑫)', async () => {
+  it('leaves a legal request row out of the role request list and decisions', async () => {
     const draftId = randomUUID();
     const requestId = randomUUID();
     await sandbox.admin.query(
@@ -213,7 +213,7 @@ describe('backoffice legal publication (D-LC3, OA-R9)', () => {
     }
   });
 
-  it('refuses the legal routes to an account without a legal permission (RED ⑧)', async () => {
+  it('refuses the legal routes to an account without a legal permission', async () => {
     const operator = await inviteOperator(test, owner, 'auditor@backoffice.test');
     const grant = await test.http
       .post('/access/requests')
@@ -240,11 +240,11 @@ describe('backoffice legal publication (D-LC3, OA-R9)', () => {
     }
     const anonymous = await test.http.get('/legal/documents');
     expect(anonymous.status).toBe(401);
-    // The owner role holds both legal permissions (D-LC3).
+    // The owner role holds both legal permissions.
     await test.http.get('/legal/documents').set(bearer(owner.token)).expect(200);
   });
 
-  it('takes a historical record only with an end before the approval date, then the first publication right after it (RED ⑪ ⑨)', async () => {
+  it('takes a historical record only with an end before the approval date, then the first publication right after it', async () => {
     const missingEnd = await test.http
       .post('/legal/drafts')
       .set(bearer(owner.token))
@@ -336,7 +336,7 @@ describe('backoffice legal publication (D-LC3, OA-R9)', () => {
     ]);
   });
 
-  it('needs seven days of notice for a general version and thirty for a significant one (RED ③ ④)', async () => {
+  it('needs seven days of notice for a general version and thirty for a significant one', async () => {
     const early = await publish('TERMS_OF_SERVICE', { proposedEffectiveDate: addDays(today, 7) });
     // No first publication yet: a revision has nothing to follow.
     expect(early.decision.status).toBe(409);
@@ -389,7 +389,7 @@ describe('backoffice legal publication (D-LC3, OA-R9)', () => {
     );
   });
 
-  it('refuses significant and reconsent versions while a member can receive mail (RED ② ⑭)', async () => {
+  it('refuses significant and reconsent versions while a member can receive mail', async () => {
     expect(
       (
         await publish('PERSONAL_DATA_COLLECTION_USE_CONSENT', {
@@ -427,7 +427,7 @@ describe('backoffice legal publication (D-LC3, OA-R9)', () => {
     }
   });
 
-  it('withdraws a scheduled version once, never after it takes effect, and never again (RED ⑥ ⑩ ⑮)', async () => {
+  it('withdraws a scheduled version once, never after it takes effect, and never again', async () => {
     const scheduled = await publish('PRIVACY_POLICY', { proposedEffectiveDate: addDays(today, 7) });
     expect(scheduled.decision.status).toBe(200);
     const version = scheduled.decision.body.version as VersionView;
@@ -492,7 +492,7 @@ describe('backoffice legal publication (D-LC3, OA-R9)', () => {
     expect(rows[0]!.withdrawnAt).toBeNull();
   });
 
-  it('rolls the version back when the audit row cannot be written (RED ⑦)', async () => {
+  it('rolls the version back when the audit row cannot be written', async () => {
     const draft = await createDraft('PRIVACY_POLICY', {
       proposedEffectiveDate: addDays(today, 20),
     });
@@ -518,7 +518,7 @@ describe('backoffice legal publication (D-LC3, OA-R9)', () => {
     expect(rows[0]!.status).toBe('PENDING');
   });
 
-  it('refuses saving a draft waiting for approval and a decision on another digest (RED ⑤)', async () => {
+  it('refuses saving a draft waiting for approval and a decision on another digest', async () => {
     const draft = await createDraft('AGE_14_OR_ABOVE_NOTICE', {
       noticeClass: 'INITIAL',
       proposedEffectiveDate: addDays(today, -30),
@@ -540,7 +540,7 @@ describe('backoffice legal publication (D-LC3, OA-R9)', () => {
     await cancel(request).expect(200);
   });
 
-  it('returns the draft to editing when its request is rejected, cancelled or expired (RED ⑬)', async () => {
+  it('returns the draft to editing when its request is rejected, cancelled or expired', async () => {
     const author = await createDraft('AGE_14_OR_ABOVE_NOTICE', {
       noticeClass: 'INITIAL',
       proposedEffectiveDate: addDays(today, -30),
@@ -581,7 +581,7 @@ describe('backoffice legal publication (D-LC3, OA-R9)', () => {
     expect(rows[0]!.status).toBe('EXPIRED');
   });
 
-  it('keeps legal requests off the role request path (RED ⑫)', async () => {
+  it('keeps legal requests off the role request path', async () => {
     const draft = await createDraft('AGE_14_OR_ABOVE_NOTICE', {
       noticeClass: 'INITIAL',
       proposedEffectiveDate: addDays(today, -30),
@@ -603,7 +603,7 @@ describe('backoffice legal publication (D-LC3, OA-R9)', () => {
     await cancel(request).expect(200);
   });
 
-  it('refuses self approval once a second legal approver is active (RED ①)', async () => {
+  it('refuses self approval once a second legal approver is active', async () => {
     const operator = await inviteOperator(test, owner, 'legal-approver@backoffice.test');
     const grant = await test.http
       .post('/access/requests')
@@ -621,7 +621,7 @@ describe('backoffice legal publication (D-LC3, OA-R9)', () => {
       .expect(200);
     const approver = await fresh(operator);
 
-    // Another approver's rejection returns the draft to editing as well (RED ⑬).
+    // Another approver's rejection returns the draft to editing as well.
     const toReject = await createDraft('AGE_14_OR_ABOVE_NOTICE', {
       noticeClass: 'INITIAL',
       proposedEffectiveDate: addDays(today, -40),

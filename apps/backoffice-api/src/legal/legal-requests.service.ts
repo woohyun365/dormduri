@@ -70,14 +70,14 @@ function effectiveStatusFilter(
   return status ? { status } : {};
 }
 
-/** What a publish decision would write, checked as of `now` (D-LC3). */
+/** What a publish decision would write, checked as of `now`. */
 interface PublishPlan {
   readonly draft: DraftRow;
   readonly check: LegalDecisionCheck;
 }
 
 /**
- * Legal publish and withdraw requests and their decisions (plan D-LC3, D-LC8, D-BF6). A decision runs
+ * Legal publish and withdraw requests and their decisions. A decision runs
  * in one serializable transaction under a per-kind advisory lock: the request's conditional UPDATE,
  * the decision checks, the version INSERT or the withdrawal UPDATE, the draft status and the audit row
  * all commit together or not at all. Publication facts (notice start, withdrawal time, the KST approval
@@ -160,7 +160,7 @@ export class LegalRequestsService {
     };
   }
 
-  /** Approval screen data: the draft or version, the comparison and the checks as of now (D-LC10). */
+  /** Approval screen data: the draft or version, the comparison and the checks as of now. */
   async detail(approvalRequestId: string) {
     const now = this.clock.now();
     return this.prisma.$transaction(async (tx) => {
@@ -518,7 +518,7 @@ export class LegalRequestsService {
     return version;
   }
 
-  /** Writes the withdrawal time once: a version already withdrawn matches no row (Owner L2a Q10). */
+  /** Writes the withdrawal time once: a version already withdrawn matches no row. */
   private async withdraw(
     tx: BackofficeTransaction,
     request: RequestRow,
@@ -561,7 +561,7 @@ export class LegalRequestsService {
     return { id: version.id, kind: version.kind, noticeClass: version.noticeClass };
   }
 
-  /** Decisions of one document kind run one at a time (D-LC3). */
+  /** Decisions of one document kind run one at a time. */
   private async lockKind(tx: BackofficeTransaction, request: RequestRow) {
     const kind =
       request.kind === 'LEGAL_PUBLISH'

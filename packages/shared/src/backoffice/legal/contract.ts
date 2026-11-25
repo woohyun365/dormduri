@@ -14,7 +14,7 @@ import {
 } from '../contract.js';
 
 /**
- * Backoffice legal API (plan D-LC1·D-LC3·D-LC9·D-LC10): drafts, publish and withdraw requests and
+ * Backoffice legal API: drafts, publish and withdraw requests and
  * their decisions. A draft body is the shared import schema, so the editor and a JSON file pass the
  * same checks; the BFF parses every response with these schemas.
  */
@@ -43,7 +43,7 @@ export const legalDraftUpdateRequestSchema = z.strictObject({
   draft: legalDocumentDraftImportSchema,
 });
 export const legalDraftDiscardRequestSchema = z.strictObject({ revision: revisionSchema });
-/** The request digest is the draft content at this revision (D-LC1). */
+/** The request digest is the draft content at this revision. */
 export const legalPublishRequestCreateSchema = z.strictObject({
   revision: revisionSchema,
   reason: reasonSchema.optional(),
@@ -166,7 +166,7 @@ export const legalWithdrawalRefusalSchema = z.enum([
   'already_withdrawn',
   'already_in_effect',
 ]);
-/** The decision checks run now on the database clock; the decision runs them again (D-LC3). */
+/** The decision checks run now on the database clock; the decision runs them again. */
 export const legalDecisionCheckSchema = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true) }),
   z.object({
@@ -187,7 +187,7 @@ export const legalDraftListResponseSchema = z.object({
   drafts: z.array(legalDraftSchema),
   nextPage: pageCursorSchema.nullable(),
 });
-/** Preview data: the draft, the version before it and the article comparison (D-LC10). */
+/** Preview data: the draft, the version before it and the article comparison. */
 export const legalDraftDetailResponseSchema = z.object({
   draft: legalDraftSchema,
   previousVersion: legalBackofficeVersionSchema.nullable(),

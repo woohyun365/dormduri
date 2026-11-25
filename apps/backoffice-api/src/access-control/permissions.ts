@@ -19,7 +19,7 @@ export const RESTRICTED_PERMISSIONS = [
 ] as const;
 export type RestrictedPermission = (typeof RESTRICTED_PERMISSIONS)[number];
 
-/** Role bundles. The owner role also holds both legal permissions (legal operations plan D-LC3). */
+/** Role bundles. The owner role also holds both legal permissions. */
 export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, readonly BackofficePermission[]>> = {
   [AdminRole.OWNER]: [
     'admin:account:invite',
@@ -52,5 +52,5 @@ function rolesHolding(permission: BackofficePermission): readonly AdminRole[] {
 export const ROLE_CHANGE_APPROVER_ROLES: readonly AdminRole[] =
   rolesHolding('admin:access:approve');
 
-/** Roles whose holders may decide a legal publish or withdraw request (D-BF6, legal plan D-LC3). */
+/** Roles whose holders may decide a legal publish or withdraw request. */
 export const LEGAL_APPROVER_ROLES: readonly AdminRole[] = rolesHolding('admin:legal:approve');

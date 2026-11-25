@@ -34,7 +34,7 @@ import {
 import { expireLegalRequests } from './legal-request-expiry.js';
 
 /**
- * Legal drafts (plan D-LC1·D-LC9·D-LC10): created from the editor or a JSON file through the shared
+ * Legal drafts: created from the editor or a JSON file through the shared
  * import schema, saved with a conditional UPDATE on the revision, and frozen while a publish request
  * waits. Drafts hold no user personal data.
  */
@@ -72,7 +72,7 @@ export class LegalDraftsService {
     };
   }
 
-  /** Preview data: the draft, the live version just before it and the article comparison (D-LC10). */
+  /** Preview data: the draft, the live version just before it and the article comparison. */
   async detail(draftId: string) {
     const row = await this.findDraft(this.prisma, draftId);
     const draft = serializeDraft(row, (await this.openRequestDrafts([row.id])).has(row.id));
@@ -186,7 +186,7 @@ export class LegalDraftsService {
     return serializeDraft(row, false);
   }
 
-  /** One publish request per draft; its digest is the draft content at that revision (D-LC1). */
+  /** One publish request per draft; its digest is the draft content at that revision. */
   async requestPublish(
     session: AdminRequestSession,
     draftId: string,

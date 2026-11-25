@@ -16,7 +16,7 @@ export const SECURITY_EVENTS = [
 ] as const;
 export type SecurityEvent = (typeof SECURITY_EVENTS)[number];
 
-/** Legal request decisions (legal plan D-LC14); the kind and notice class are fixed enum values. */
+/** Legal request decisions; the kind and notice class are fixed enum values. */
 export const LEGAL_DECISIONS = [
   'publish_approved',
   'publish_rejected',

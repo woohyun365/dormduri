@@ -2,8 +2,8 @@ import type { BackofficeRuntimePrisma } from '../platform/database/backoffice-pr
 import { LEGAL_REQUEST_KINDS } from './legal-records.js';
 
 /**
- * Closes pending legal requests past their expiry and returns their drafts to editing (Owner
- * 2026-11-25 L2b Q1). Like the role requests, expiry is written when someone next saves, requests or
+ * Closes pending legal requests past their expiry and returns their drafts to editing.
+ * Like the role requests, expiry is written when someone next saves, requests or
  * decides; it runs in its own transaction so it survives the caller's rollback.
  */
 export async function expireLegalRequests(

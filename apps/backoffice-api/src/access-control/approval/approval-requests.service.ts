@@ -71,7 +71,7 @@ function serializeRequest(row: {
 /**
  * The role request path reads and decides role grants and revokes only; legal publish and withdraw
  * requests share the table but have their own path (legal module), and the shared role request
- * schema the BFF parses names only these two kinds (legal plan Phase L2b, Owner 2026-11-25 L2b Q1).
+ * schema the BFF parses names only these two kinds.
  */
 const ROLE_REQUEST_KINDS: Prisma.EnumAdminApprovalRequestKindFilter = {
   in: ['ROLE_GRANT', 'ROLE_REVOKE'],

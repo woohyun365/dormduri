@@ -54,9 +54,9 @@ class VersionIdParamPipe implements PipeTransform<unknown, string> {
 }
 
 /**
- * Backoffice legal routes (plan D-LC3·D-LC9·D-LC10). Editing needs `admin:legal:edit`, deciding
+ * Backoffice legal routes. Editing needs `admin:legal:edit`, deciding
  * `admin:legal:approve`; asking for a publication or withdrawal and deciding one re-authenticate
- * (OA-R4). Every action writes an audit row in its own transaction (D-LC14).
+ * (OA-R4). Every action writes its audit row in the action's own transaction.
  */
 @Controller('legal')
 export class LegalController {

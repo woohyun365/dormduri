@@ -35,13 +35,13 @@ describe('backoffice permissions', () => {
     expect(permissionsForRoles(['OWNER', 'AUDITOR']).size).toBe(8);
   });
 
-  it('gives the owner role both legal permissions (plan D-LC3)', () => {
+  it('gives the owner role both legal permissions', () => {
     const owner = permissionsForRoles(['OWNER']);
     expect(owner.has('admin:legal:edit')).toBe(true);
     expect(owner.has('admin:legal:approve')).toBe(true);
   });
 
-  it('counts the owner and legal approver roles as legal approvers (D-BF6)', () => {
+  it('counts the owner and legal approver roles as legal approvers', () => {
     expect(LEGAL_APPROVER_ROLES).toEqual(['OWNER', 'LEGAL_APPROVER']);
   });
 

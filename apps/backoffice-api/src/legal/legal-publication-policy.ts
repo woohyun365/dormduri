@@ -7,7 +7,7 @@ import {
   type LegalVersionKey,
 } from '@repo/shared/legal';
 
-/** Days of notice before a version takes effect (legal-basis LB-R10, plan D-LC3). */
+/** Days of notice before a version takes effect (legal-basis LB-R10). */
 export const LEGAL_NOTICE_DAYS: Readonly<Partial<Record<LegalNoticeClass, number>>> = {
   GENERAL: 7,
   SIGNIFICANT: 30,
@@ -43,7 +43,7 @@ function addDays(versionKey: LegalVersionKey, days: number): LegalVersionKey {
 }
 
 /**
- * Decision-time checks of one publish request (plan D-LC3, D-LC8, Owner 2026-11-25 L2a Q7). `versions`
+ * Decision-time checks of one publish request. `versions`
  * are the kind's published versions, `now` is the database clock and `recipientCount` the members who
  * can still receive mail. The partial unique indexes stay the last guard for (kind, effective date)
  * and the one first publication per kind.
@@ -96,7 +96,7 @@ export function checkLegalPublication(input: {
     }
     case 'GENERAL':
     case 'SIGNIFICANT': {
-      // The first version of a kind is always its first publication (D-LC9).
+      // The first version of a kind is always its first publication.
       if (!published.some((version) => version.noticeClass === 'INITIAL')) {
         return refuse('first_publication_required');
       }
@@ -124,9 +124,9 @@ export function checkLegalPublication(input: {
 }
 
 /**
- * A withdrawal request names a scheduled general or significant version that is not withdrawn
- * (D-LC3). The decision writes the withdrawal with a conditional UPDATE on an empty withdrawal time,
- * so a second approval finds no row and the first time stays (Owner 2026-11-25 L2a Q10).
+ * A withdrawal request names a scheduled general or significant version that is not withdrawn.
+ * The decision writes the withdrawal with a conditional UPDATE on an empty withdrawal time,
+ * so a second approval finds no row and the first time stays.
  */
 export function checkLegalWithdrawal(input: {
   readonly version: LegalPublishedVersionFact;

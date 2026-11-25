@@ -219,7 +219,7 @@ export function draftColumns(content: LegalDraftContent) {
 
 /**
  * A draft as the API shows it. A draft whose publish request expired stays waiting in the table until
- * the next save, request or decision returns it to editing (Owner 2026-11-25 L2b Q1); reads show it as
+ * the next save, request or decision returns it to editing; reads show it as
  * editing already, as the role request list shows an expired request (README §4).
  */
 export function serializeDraft(row: DraftRow, waitingRequestOpen: boolean): LegalDraft {
@@ -299,7 +299,7 @@ export function versionFact(row: {
   };
 }
 
-/** The transaction's database time (CURRENT_TIMESTAMP), the clock publication facts use (D-LC2). */
+/** The transaction's database time (CURRENT_TIMESTAMP), the clock publication facts use. */
 export async function transactionNow(tx: BackofficeTransaction): Promise<Date> {
   const [row] = await tx.$queryRawTyped(getCurrentTimestamp());
   if (typeof row?.epochSeconds !== 'number' || !Number.isFinite(row.epochSeconds)) {
@@ -308,7 +308,7 @@ export async function transactionNow(tx: BackofficeTransaction): Promise<Date> {
   return new Date(row.epochSeconds * 1_000);
 }
 
-/** Members who can still receive mail, from the one view backoffice_runtime reads (D-LC8). */
+/** Members who can still receive mail, from the one view backoffice_runtime reads. */
 export async function noticeRecipientCount(tx: BackofficeTransaction): Promise<number> {
   const [row] = await tx.$queryRawTyped(countLegalNoticeRecipients());
   if (typeof row?.recipientCount !== 'number') {
