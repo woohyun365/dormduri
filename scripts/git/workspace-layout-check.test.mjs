@@ -268,3 +268,296 @@ test('the layout check reports forced tracking in an agent root and prints the t
     rmSync(root, { force: true, recursive: true });
   }
 });
+
+// Ignore source of top-level candidates. Each case is a fresh repository whose git reads no user or system
+// configuration: the check runs in a child process with HOME and XDG_CONFIG_HOME inside the fixture,
+// GIT_CONFIG_NOSYSTEM set and inherited GIT_ variables dropped. A core.excludesFile case sets the fixture's local
+// config; the default global ignore is the fixture's XDG_CONFIG_HOME/git/ignore.
+const OUTSIDE = 'outside-manifest-root';
+const TOP_LEVEL_KINDS = [OUTSIDE, 'retired-root', 'nested-runtime-state'];
+const REPORT = [
+  `import { checkWorkspaceLayout } from ${JSON.stringify(import.meta.resolve('./workspace-layout-check.mjs'))};`,
+  `const kinds = new Set(${JSON.stringify(TOP_LEVEL_KINDS)});`,
+  'const issues = checkWorkspaceLayout(process.argv[1]).filter((issue) => kinds.has(issue.kind));',
+  'console.log(JSON.stringify(issues.map((issue) => [issue.path, issue.kind]).sort()));',
+].join('\n');
+
+function ignoreFixture(t, { exclude = '', gitignore, tracked = [], files = [] } = {}) {
+  const base = mkdtempSync(resolve(tmpdir(), 'knu-layout-ignore-'));
+  t.after(() => rmSync(base, { force: true, recursive: true }));
+  const home = resolve(base, 'home');
+  const root = resolve(base, 'repo');
+  mkdirSync(resolve(home, '.config'), { recursive: true });
+  mkdirSync(root);
+  const env = {
+    ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))),
+    HOME: home,
+    XDG_CONFIG_HOME: resolve(home, '.config'),
+    GIT_CONFIG_NOSYSTEM: '1',
+  };
+  const git = (...args) => {
+    const run = spawnSync('git', args, { cwd: root, encoding: 'utf8', env });
+    assert.equal(run.status, 0, run.stderr);
+    return run.stdout;
+  };
+  const write = (path, content = 'x\n') => {
+    mkdirSync(dirname(resolve(root, path)), { recursive: true });
+    writeFileSync(resolve(root, path), content);
+  };
+  git('init', '-q');
+  for (const path of ['README.md', ...tracked]) {
+    write(path);
+    git('add', path);
+  }
+  if (gitignore !== undefined) {
+    write('.gitignore', gitignore);
+    git('add', '.gitignore');
+  }
+  writeFileSync(resolve(root, '.git/info/exclude'), exclude);
+  for (const file of files) write(...[file].flat());
+  const report = () => {
+    const run = spawnSync(process.execPath, ['--input-type=module', '-e', REPORT, root], {
+      cwd: root,
+      encoding: 'utf8',
+      env,
+    });
+    assert.equal(run.status, 0, run.stderr);
+    return JSON.parse(run.stdout);
+  };
+  // The rule git applies to a top-level name: [source, pattern], or [] when no rule matches it.
+  const rule = (name) => {
+    const run = spawnSync('git', ['check-ignore', '-v', '-n', '--no-index', '--', `./${name}`], {
+      cwd: root,
+      encoding: 'utf8',
+      env,
+    });
+    const [source, , pattern] = run.stdout.split('\t')[0].split(':');
+    return source ? [source, pattern] : [];
+  };
+  const globalIgnore = (content) => {
+    writeFileSync(resolve(home, 'global-ignore'), content);
+    git('config', 'core.excludesFile', resolve(home, 'global-ignore'));
+  };
+  return { root, home, git, report, rule, globalIgnore };
+}
+
+const DIRECTORY_AND_FILE = ['.fooplugin/a', 'notes.local'];
+const BOTH_OUTSIDE = [
+  ['.fooplugin/', OUTSIDE],
+  ['notes.local', OUTSIDE],
+];
+
+test('a top-level directory or file ignored only by .git/info/exclude is not an outside-manifest-root', (t) => {
+  const fixture = ignoreFixture(t, {
+    exclude: '.fooplugin/\nnotes.local\n',
+    files: DIRECTORY_AND_FILE,
+  });
+  assert.deepEqual(fixture.report(), []);
+});
+
+test('every info/exclude pattern that excludes the root itself passes, whatever its form', (t) => {
+  const patterns = ['/.fooplugin', '.fooplugin', '.foo*', '/.fooplugin/'];
+  const reported = patterns.map((pattern) => [
+    pattern,
+    ignoreFixture(t, { exclude: `${pattern}\n`, files: ['.fooplugin/a'] }).report(),
+  ]);
+  assert.deepEqual(
+    reported,
+    patterns.map((pattern) => [pattern, []]),
+  );
+});
+
+test('a root matched by both info/exclude and core.excludesFile takes the info/exclude rule and passes', (t) => {
+  const fixture = ignoreFixture(t, { exclude: '.fooplugin/\n', files: ['.fooplugin/a'] });
+  fixture.globalIgnore('.fooplugin/\n');
+  assert.deepEqual(fixture.rule('.fooplugin'), ['.git/info/exclude', '.fooplugin/']);
+  assert.deepEqual(fixture.report(), []);
+});
+
+test('a root excluded by info/exclude passes and its children are not opened again below it', (t) => {
+  const reopened = [
+    ignoreFixture(t, {
+      exclude: '.fooplugin/\n!.fooplugin/keep\n',
+      files: ['.fooplugin/a', '.fooplugin/keep'],
+    }),
+    ignoreFixture(t, {
+      exclude: '.fooplugin/\n',
+      files: ['.fooplugin/a', '.fooplugin/keep', ['.fooplugin/.gitignore', '!keep\n']],
+    }),
+  ];
+  for (const fixture of reopened)
+    assert.equal(
+      fixture.git('ls-files', '--others', '--exclude-standard', '--', '.fooplugin/'),
+      '',
+    );
+  assert.deepEqual(
+    reopened.map((fixture) => fixture.report()),
+    [[], []],
+  );
+});
+
+test('a name starting with a colon is asked literally and passes on its own root pattern', (t) => {
+  const fixture = ignoreFixture(t, { exclude: '/:foo/\n', files: [':foo/a'] });
+  assert.deepEqual(fixture.report(), []);
+});
+
+test('a U+FFFD name is not asked and stays an issue while the other candidates are judged', (t) => {
+  const fixture = ignoreFixture(t, {
+    exclude: '/.foo�/\n.fooplugin/\n',
+    files: ['.foo�/a', '.fooplugin/a'],
+  });
+  assert.deepEqual(fixture.rule('.foo�'), ['.git/info/exclude', '/.foo�/']);
+  assert.deepEqual(fixture.report(), [['.foo�/', OUTSIDE]]);
+});
+
+test('the outside-manifest-root hint first asks about .git/info/exclude and keeps the manifest guidance', () => {
+  const [issue] = findWorkspaceLayoutIssues(['tmp-not-a-root/'], {
+    trackedTopLevel: new Set(['docs']),
+  });
+  assert.equal(issue.kind, OUTSIDE);
+  assert.match(
+    issue.hint,
+    /^if it is local state of a tool the user enabled, ask the user whether to add the root to \.git\/info\/exclude \(untracked, applies to this clone only\)\. /u,
+  );
+  assert.match(
+    issue.hint,
+    / add the root to scripts\/artifacts\/workspace-layout\.knu\.json \(fields: docs\/development\/agent-workflows\/workspace-layout\.md\) or move the content under a manifest root$/u,
+  );
+});
+
+test('roots not ignored or ignored only by the tracked .gitignore stay outside-manifest-root', (t) => {
+  assert.deepEqual(ignoreFixture(t, { files: DIRECTORY_AND_FILE }).report(), BOTH_OUTSIDE);
+  const tracked = ignoreFixture(t, {
+    gitignore: '.fooplugin/\nnotes.local\n',
+    files: DIRECTORY_AND_FILE,
+  });
+  assert.deepEqual(tracked.rule('.fooplugin'), ['.gitignore', '.fooplugin/']);
+  assert.deepEqual(tracked.report(), BOTH_OUTSIDE);
+});
+
+test('roots ignored only by core.excludesFile or the default global ignore stay outside-manifest-root', (t) => {
+  const configured = ignoreFixture(t, { files: DIRECTORY_AND_FILE });
+  configured.globalIgnore('.fooplugin/\nnotes.local\n');
+  assert.deepEqual(configured.rule('notes.local'), [
+    resolve(configured.home, 'global-ignore'),
+    'notes.local',
+  ]);
+  assert.deepEqual(configured.report(), BOTH_OUTSIDE);
+  const xdg = ignoreFixture(t, { files: DIRECTORY_AND_FILE });
+  mkdirSync(resolve(xdg.home, '.config/git'));
+  writeFileSync(resolve(xdg.home, '.config/git/ignore'), '.fooplugin/\nnotes.local\n');
+  assert.deepEqual(xdg.rule('.fooplugin'), [
+    resolve(xdg.home, '.config/git/ignore'),
+    '.fooplugin/',
+  ]);
+  assert.deepEqual(xdg.report(), BOTH_OUTSIDE);
+});
+
+test('the tracked .gitignore rule or an info/exclude negation keeps a root outside-manifest-root', (t) => {
+  const both = ignoreFixture(t, {
+    gitignore: '.fooplugin/\nnotes.local\n',
+    exclude: '.fooplugin/\nnotes.local\n',
+    files: DIRECTORY_AND_FILE,
+  });
+  assert.deepEqual(both.rule('notes.local'), ['.gitignore', 'notes.local']);
+  const negated = ignoreFixture(t, {
+    exclude: '!.fooplugin/\n!notes.local\n',
+    files: DIRECTORY_AND_FILE,
+  });
+  assert.deepEqual(negated.rule('notes.local'), ['.git/info/exclude', '!notes.local']);
+  const globalNegated = ignoreFixture(t, {
+    exclude: '!.fooplugin/\n!notes.local\n',
+    files: DIRECTORY_AND_FILE,
+  });
+  globalNegated.globalIgnore('.fooplugin/\nnotes.local\n');
+  assert.deepEqual(globalNegated.rule('.fooplugin'), ['.git/info/exclude', '!.fooplugin/']);
+  const trackedNegated = ignoreFixture(t, {
+    gitignore: '.fooplugin/\nnotes.local\n',
+    exclude: '!.fooplugin/\n!notes.local\n',
+    files: DIRECTORY_AND_FILE,
+  });
+  assert.deepEqual(trackedNegated.rule('.fooplugin'), ['.gitignore', '.fooplugin/']);
+  assert.deepEqual(
+    [both, negated, globalNegated, trackedNegated].map((fixture) => fixture.report()),
+    [BOTH_OUTSIDE, BOTH_OUTSIDE, BOTH_OUTSIDE, BOTH_OUTSIDE],
+  );
+});
+
+test('a U+FFFD name stays an issue even when an info/exclude line matches it', (t) => {
+  const fixture = ignoreFixture(t, { exclude: '/.foo�/\n', files: ['.foo�/a'] });
+  assert.deepEqual(fixture.rule('.foo�'), ['.git/info/exclude', '/.foo�/']);
+  assert.deepEqual(fixture.report(), [['.foo�/', OUTSIDE]]);
+});
+
+test('info/exclude does not change a retired root or nested runtime state', (t) => {
+  const retired = ignoreFixture(t, { exclude: 'artifacts/\n', files: ['artifacts/a'] });
+  const nested = ignoreFixture(t, {
+    exclude: '.omx/\n',
+    tracked: ['apps/package.json'],
+    files: ['apps/.omx/state.json'],
+  });
+  assert.deepEqual(retired.report(), [['artifacts/', 'retired-root']]);
+  assert.deepEqual(nested.report(), [['apps/.omx/', 'nested-runtime-state']]);
+});
+
+test('a directory with only some files excluded by info/exclude stays outside-manifest-root', (t) => {
+  const fixture = ignoreFixture(t, {
+    exclude: '.fooplugin/a\n',
+    files: ['.fooplugin/a', '.fooplugin/b'],
+  });
+  assert.deepEqual(fixture.rule('.fooplugin'), []);
+  assert.deepEqual(fixture.report(), [
+    ['.fooplugin/', OUTSIDE],
+    ['.fooplugin/a', OUTSIDE],
+  ]);
+});
+
+test('content-only info/exclude patterns keep the root outside-manifest-root with or without re-inclusion', (t) => {
+  const cases = [
+    { exclude: '.fooplugin/*\n', files: ['.fooplugin/a'] },
+    { exclude: '.fooplugin/**\n', files: ['.fooplugin/s/a'] },
+    { exclude: '.fooplugin/*\n!.fooplugin/keep\n', files: ['.fooplugin/a', '.fooplugin/keep'] },
+    {
+      exclude: '.fooplugin/*\n',
+      files: ['.fooplugin/a', '.fooplugin/keep', ['.fooplugin/.gitignore', '!keep\n']],
+    },
+  ];
+  const fixtures = cases.map((options) => ignoreFixture(t, options));
+  assert.deepEqual(
+    fixtures.map((fixture) => fixture.rule('.fooplugin')),
+    [[], [], [], []],
+  );
+  assert.deepEqual(
+    fixtures.map((fixture) => fixture.report()),
+    [
+      [
+        ['.fooplugin/', OUTSIDE],
+        ['.fooplugin/a', OUTSIDE],
+      ],
+      [
+        ['.fooplugin/', OUTSIDE],
+        ['.fooplugin/s/', OUTSIDE],
+      ],
+      [
+        ['.fooplugin/', OUTSIDE],
+        ['.fooplugin/a', OUTSIDE],
+      ],
+      [
+        ['.fooplugin/', OUTSIDE],
+        ['.fooplugin/.gitignore', OUTSIDE],
+        ['.fooplugin/a', OUTSIDE],
+      ],
+    ],
+  );
+});
+
+test('a colon name is not read as pathspec magic and stays an issue when only another name is excluded', (t) => {
+  const fixture = ignoreFixture(t, {
+    exclude: '/plain/\n',
+    files: [':(top)plain/a', ':plain/a'],
+  });
+  assert.deepEqual(fixture.report(), [
+    [':(top)plain/', OUTSIDE],
+    [':plain/', OUTSIDE],
+  ]);
+});
