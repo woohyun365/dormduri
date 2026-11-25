@@ -2,7 +2,7 @@
 
 **상태**: owner-confirmed
 **확인일**: 2026-11-25
-**확인 근거**: [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(migration-seed-compatibility의 `db.migration.change-strategy`·`db.migration.rollback-path`, integrity-retention-lifecycle의 `db.integrity.role-separation`·`db.integrity.retention-execution`과 pack 밖 결정의 Owner 확인 날짜), [#862의 사람 조회 `RetentionCase.id` 결정 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6715462160)(`db.integrity.role-separation`, 2026-11-08), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`db.integrity.role-separation`의 pool 처분·readiness 열, `db.integrity.recovery-target`의 RPO 10분, 2026-11-09·10), [#949의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/949#issuecomment-7059715410)(`db.integrity.role-separation`의 `backoffice_retention`, `db.integrity.retention-execution`의 관리자 기록 정리 위치, `db.integrity.audit-tables`의 관리자 감사와 FK `Restrict`, 2026-11-21), [#996의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/996#issuecomment-7155467337)(schema-modeling의 `db.schema.history-model/legal`, 2026-11-17)
+**확인 근거**: [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(migration-seed-compatibility의 `db.migration.change-strategy`·`db.migration.rollback-path`, integrity-retention-lifecycle의 `db.integrity.role-separation`·`db.integrity.retention-execution`과 pack 밖 결정의 Owner 확인 날짜), [#862의 사람 조회 `RetentionCase.id` 결정 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6715462160)(`db.integrity.role-separation`, 2026-11-08), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`db.integrity.role-separation`의 pool 처분·readiness 열, `db.integrity.recovery-target`의 RPO 10분, 2026-11-09·10), [#949의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/949#issuecomment-7059715410)(`db.integrity.role-separation`의 `backoffice_retention`, `db.integrity.retention-execution`의 관리자 기록 정리 위치, `db.integrity.audit-tables`의 관리자 감사와 FK `Restrict`, 2026-11-21), [#996의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/996#issuecomment-7155467337)(schema-modeling의 `db.schema.history-model/legal`, 2026-11-17), [#1000의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/1000#issuecomment-7164201580)(integrity-retention-lifecycle의 `db.integrity.role-separation`: 재동의 필요 판의 회원 수 검사, 2026-11-25)
 **근거**: [Database operator scripts](../../../infra/db/README.md), [RDS setup and backup checklist](../../../infra/aws/rds-setup-checklist.md), [Backup and restore drill runbook](../../../infra/runbooks/operations/database/backup-restore.md), [Data retention](../../policies/data-retention.md#rrpd-db-접근-통제와-운영-관측), [Domain/SWE/Web/DB pack](../../development/agent-workflows/domain/swe-web/db.md)
 
 `Domain/SWE/Web/DB` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
@@ -112,7 +112,8 @@ Role·LOGIN user·grant 표는 [Database operator scripts](../../../infra/db/REA
   있는 `backoffice_retention`이 한다. 사용자 API role 셋은 관리자 table 권한이 없어 공개 ingress 뒤 process가 뚫려도 관리자 기록에
   닿지 않는다. 공개 법적 문서 판은 사용자 table이 아니라 공개 기록이라 `backoffice_runtime`이 초안을 쓰고 판을 더하며 철회 시각만
   고치고, `app_runtime`은 판 SELECT와 동의 기록 SELECT·INSERT만 갖는다(동의 기록을 고치거나 지우는 code 경로가 없음).
-  `backoffice_runtime`이 사용자 table에서 읽는 값은 중대 변경 승인 검사가 쓰는 회원 수 하나이고, 그 수만 내는 view
+  `backoffice_runtime`이 사용자 table에서 읽는 값은 중대 변경과 재동의 필요 판의 승인 검사가 쓰는 회원 수 하나이고(재동의 필요
+  판은 Owner 2026-11-25), 그 수만 내는 view
   `LegalNoticeRecipientCount`로 읽는다. 이 view는 소유자 권한으로 돌지만 grant 표에 행이 있고 smoke가 확인하므로, readiness의
   SECURITY DEFINER 함수를 기각한 이유(grant 표 밖 경로)에 해당하지 않는다. 사용자 table 자체의 권한은 여전히 없다
 - 기각한 대안: group role에 LOGIN 직접(운영자별로 나눌 수 없음), 서비스 이름으로 role을 새로 짓기(SQL·env·test 이름만 바뀜),

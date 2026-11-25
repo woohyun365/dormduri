@@ -1,8 +1,8 @@
 # Security and privacy 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-21
-**확인 근거**: [#289](https://github.com/woohyun365/dormduri/issues/289)의 2026-11-02 Web 단계 처리자 범위 결정 댓글(data-privacy-secret의 `sec.privacy.landing-visit-analytics`: Landing 방문 통계 도입, 처리방침 공개 근거, 코드 자리), [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(trust-authz-model의 `sec.trust.db-privilege-audit`: grant 표 하나와 앱 append-only 감사·pgAudit), [#869의 log 보존 결정 댓글](https://github.com/woohyun365/dormduri/issues/869#issuecomment-6718939243)(data-privacy-secret의 `sec.privacy.log-retention`: log 종류별 보존과 IP 가림, 통신비밀보호법 적용 시점), [#869의 접속 log 필드 결정 댓글](https://github.com/woohyun365/dormduri/issues/869#issuecomment-6719267639)(같은 항목의 `OO-R1`), [#949의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/949#issuecomment-7059715410)(trust-authz-model의 `sec.trust.db-privilege-audit`: 관리자 감사의 폐기 주체 `backoffice_retention`, data-privacy-secret의 `sec.privacy.log-retention`: 백오피스 앱 감사 3년과 pgAudit·SSM 기록 2년, 2026-11-12·21), [#958의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/958#issuecomment-7064557164)(trust-authz-model의 `sec.trust.authz-model/backoffice`·`sec.trust.admin-authentication`·`sec.trust.separation-of-duties`와 `sec.trust.db-privilege-audit`의 감사 시각, 2026-11-04·12·21)
+**확인일**: 2026-11-25
+**확인 근거**: [#289](https://github.com/woohyun365/dormduri/issues/289)의 2026-11-02 Web 단계 처리자 범위 결정 댓글(data-privacy-secret의 `sec.privacy.landing-visit-analytics`: Landing 방문 통계 도입, 처리방침 공개 근거, 코드 자리), [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(trust-authz-model의 `sec.trust.db-privilege-audit`: grant 표 하나와 앱 append-only 감사·pgAudit), [#869의 log 보존 결정 댓글](https://github.com/woohyun365/dormduri/issues/869#issuecomment-6718939243)(data-privacy-secret의 `sec.privacy.log-retention`: log 종류별 보존과 IP 가림, 통신비밀보호법 적용 시점), [#869의 접속 log 필드 결정 댓글](https://github.com/woohyun365/dormduri/issues/869#issuecomment-6719267639)(같은 항목의 `OO-R1`), [#949의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/949#issuecomment-7059715410)(trust-authz-model의 `sec.trust.db-privilege-audit`: 관리자 감사의 폐기 주체 `backoffice_retention`, data-privacy-secret의 `sec.privacy.log-retention`: 백오피스 앱 감사 3년과 pgAudit·SSM 기록 2년, 2026-11-12·21), [#958의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/958#issuecomment-7064557164)(trust-authz-model의 `sec.trust.authz-model/backoffice`·`sec.trust.admin-authentication`·`sec.trust.separation-of-duties`와 `sec.trust.db-privilege-audit`의 감사 시각, 2026-11-04·12·21), [#1000의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/1000#issuecomment-7164201580)(trust-authz-model의 `sec.trust.separation-of-duties`: 법적 문서 승인과 승인 종류마다의 비활성화 거부, 2026-11-25)
 **근거**: [공개 법적 문서 fallback](../../../apps/web/src/legal/content/legal-fallback-documents.ts), [Web 운영 관측성 경계](../frontend/web-observability.md), [지금 운영 환경](../../deploy/production-environment.md), [Domain/SWE/Web/security-privacy pack](../../development/agent-workflows/domain/swe-web/security-privacy.md)
 
 `Domain/SWE/Web/security-privacy` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
@@ -76,18 +76,21 @@ DB 계정·grant는 [Database operator scripts](../../../infra/db/README.md#cred
 
 - 판정: Ask
 - 상태: validated
-- 고른 선택지: [operator-access.md](../../policies/operator-access.md) `OA-R9`~`OA-R11`. 역할 부여·회수와 RRPD 열람은 요청자와 다른 운영자가
-  결정하고, 승인 권한 계정이 요청자 하나뿐일 때만 재인증·사유·자기 승인 표시·경보로 자기 요청을 승인한다(RRPD 열람은 근거 문서 번호도
-  필수). 첫 owner는 SSM 일회성 명령의 15분 1회용 code로 만든다
+- 고른 선택지: [operator-access.md](../../policies/operator-access.md) `OA-R9`~`OA-R11`. 역할 부여·회수, 법적 문서 게시·철회와
+  RRPD 열람은 요청자와 다른 운영자가 결정하고, 승인 권한 계정이 요청자 하나뿐일 때만 재인증·사유·자기 승인 표시·경보로 자기 요청을
+  승인한다(RRPD 열람은 근거 문서 번호도 필수). 첫 owner는 SSM 일회성 명령의 15분 1회용 code로 만든다
 - 근거: 운영자가 한 명인 동안 예외가 없으면 첫 역할 부여와 법령상 요청 대응이 막힌다. 예외는 결정 때 승인 계정 수를 세어 둘째 승인
-  계정이 생기면 저절로 꺼지고, 감사 표시와 월 점검(`OA-R8`)이 사후 확인한다. 승인 계정을 요청자 하나만 남기는 비활성화는 거부하고
-  그 역할을 승인 요청으로 먼저 회수하게 해(Owner 2026-11-22) 한 운영자가 다른 승인자를 비활성화해 예외를 다시 여는 길을 막는다.
-  DB CHECK가 상태·결정자·자기 승인 표시의 짝을 지킨다
+  계정이 생기면 저절로 꺼지고, 감사 표시와 월 점검(`OA-R8`)이 사후 확인한다. 승인 계정을 요청자 하나만 남기는 비활성화는 승인
+  종류(역할 변경·법적 문서)마다 거부하고 그 역할을 승인 요청으로 먼저 회수하게 해(Owner 2026-11-22·2026-11-25) 한 운영자가 다른
+  승인자를 비활성화해 예외를 다시 여는 길을 막는다. DB CHECK가 상태·결정자·자기 승인 표시의 짝을 지킨다
 - 기각한 대안: 예외 없음(둘째 운영자 전에는 역할 부여와 RRPD 열람을 할 수 없다), 직무 분리 안 함(한 운영자가 자기 권한을 표시 없이
   넓힌다), 첫 계정을 seed나 환경변수로 만듦(배포 산출물에 관리자 credential이 남는다)
-- 재검토 조건: 운영자가 둘 이상이 될 때(예외는 자동으로 꺼짐), legal 게시 승인이 이 틀에 붙을 때, 승인 계정이 둘일 때 상대가
-  연락되지 않아 앱 안에서 그 역할을 회수할 수 없을 때(앱 밖 처리 절차가 필요)
-- 출처: #958, Owner 확인 2026-11-12·2026-11-21
+- 이전 선택: 2026-11-22 승인 계정을 요청자 하나만 남기는 비활성화 거부는 역할 변경 승인 계정만 셈. 바꾼 이유: 법적 문서 게시·철회
+  승인이 이 틀에 붙어(재검토 조건 "legal 게시 승인이 이 틀에 붙을 때") 승인 계정을 `admin:legal:approve`를 가진 역할(`OWNER`·
+  `LEGAL_APPROVER`)로 결정 때 세고, 직무 분리·1인 예외·비활성화 거부를 역할 변경과 같게 둠. 출처 #1000, Owner 확인 2026-11-25
+- 재검토 조건: 운영자가 둘 이상이 될 때(예외는 자동으로 꺼짐), 승인 계정이 둘일 때 상대가 연락되지 않아 앱 안에서 그 역할을
+  회수할 수 없을 때(앱 밖 처리 절차가 필요)
+- 출처: #958, #1000, Owner 확인 2026-11-12·2026-11-21·2026-11-25
 - pack 결정: 없음
 
 ## data-privacy-secret

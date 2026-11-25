@@ -56,7 +56,7 @@ Legal 도메인의 server-side boundary map이다. 이 문서는 `apps/api/src/l
 
 ## Seed와 release handoff
 
-- 개발·test DB의 판은 `apps/api/prisma/seed-data/reference/seed-legal-documents.js`가 판 seed 목록 순서로 upsert한다(재실행해도 같은 행). production은 이 seed를 돌리지 않는다.
+- 개발·test DB의 판은 `apps/api/prisma/seed-data/reference/seed-legal-documents.js`가 판 seed 목록 순서로 upsert한다(재실행해도 같은 행). 저장하는 본문은 공유 가져오기 schema로 parse한 내용(기본값을 채움)이라 판 digest·첫 게시 가져오기 파일과 같다. production은 이 seed를 돌리지 않는다.
 - legal 문안 data는 code가 아닌 JSON 파일이다(`apps/api/prisma/seed-data/reference/legal/`): 판 seed 목록 `version-seed-rows.json`(순서·고지 등급·재동의 필요·시행일·적용 끝, 본문 출처), 네 문서 배열에 없는 본문(`privacy-policy-historical-2026-06-22.json`), 처리방침·이용약관 첫 개정 초안(`privacy-policy-first-revision.draft.json`, `terms-of-service-first-revision.draft.json`). 본문 파일과 초안은 형식 version(`contentSchemaVersion`)을 적는다. seed module은 이 파일을 읽기만 하고, 본문 출처 `reference-row`는 같은 id의 네 문서 배열(`LEGAL_DOCUMENT_REFERENCE_ROWS`) 행이다.
 - 처리방침은 이전 판 기록(2026-06-22~2026-11-19)과 시행 중 판(2026-11-20) 둘이고, 나머지 셋은 2026-06-22 첫 게시다.
 - 첫 개정 초안 파일 둘은 백오피스 가져오기 형식(`legalDocumentDraftImportSchema`) 그대로이고 판 행이 아니다. 이용약관 초안은 시행 중 약관에서 제11조(약관 변경)만 `LB-R10`의 공지 기간·조항 대조표와 `LB-R11`의 불리한 변경 재동의 기준으로 바꾼다. 시행 중 판의 처리 위탁 표에 남은 '정해지면 안내' 행은 이 개정이 데이터베이스 운영·운영 관측 기록 보관·운영 관리 서버 운영·운영 접속 기록 보관을 AWS 행에 적고 지운다. 처리자가 바뀌면 다음 판으로 고친다.
