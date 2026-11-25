@@ -53,6 +53,22 @@ checkpoint가 working tree나 최신 요청과 충돌하면 현재 판단 근거
 자동 수정·삭제하지 않으며, 현재 작업 소유권과 권한이 확인된 경우에만 해당 checkpoint를 갱신합니다. 외부 게시·비가역
 단계는 요약·checkpoint의 다음 행동만으로 실행하지 않고, 실행 직전에 plan 원문의 그 단계 조건을 다시 읽습니다.
 
+재개 입력: checkpoint에는 계획의 Plan ID(`expectedPlanId`)와, checkpoint 때 그 host preflight가 낸 `snapshot`(`branch`,
+40자 `head`, 64자 `diffHash`)을 `checkpointSnapshot`으로 적습니다. "이어서" 요청만으로는 두 값을 채우지 못해 판정이
+`identity-mismatch`·`snapshot-unknown`으로 남습니다.
+
+- Claude는 `claude:preflight`·`claude:workflow`의 `--continuation '<JSON>'`으로 두 값을 줍니다(4096자 상한, 세부는
+  [Claude adapter](./adapters/claude-code.md#plan-continuity)). `--mode resume`과 `--plan`으로 명시 선택한 계획을 공통
+  reader(`plan-store.mjs` `readPlan`)가 state `active`로 읽고 Plan ID와 snapshot 셋이 모두 맞을 때만 `candidate`입니다.
+  reader가 다른 state로 읽으면 `active-plan-required`, Plan ID가 다르면 `identity-mismatch`, branch·HEAD·`diffHash`(추적
+  변경과 무시되지 않은 untracked 파일 포함) 가운데 하나라도 다르면 `source-changed`로 `needs-review`입니다
+  (`plan-store.mjs` `assessPlanContinuation`). 어느 Status 낱말을 어느 state로 읽는지는 그 reader가 소유합니다.
+- Codex는 `codex:workflow` CLI에 이 입력이 없고(`--continuation`은 usage 오류), Codex 쪽에는 checkpoint와 대조할
+  snapshot(`diffHash`) 계산도 없어 판정이 `needs-review`로 남습니다. `prepareCodexWorkflow` API는 `continuation`을 받아
+  같은 판정을 부르지만 top-level `currentSnapshot`을 그 판정에 넘기지 않습니다. Lead는 Plan ID와 branch·HEAD·
+  `git status`를 직접 대조합니다.
+- 어느 판정도 실행 권한이 아닙니다(`grantsExecutionAuthority: false`).
+
 ### Codex child 재개 (조건부)
 
 다음 native cold-resume/operator 설명은 Codex에서만 읽습니다. 다른 host는 adapter의 관측된 lifecycle을 따릅니다.
