@@ -15,10 +15,11 @@ import type { ActiveSession } from '../../server/session';
 
 // Story fixtures (design guide ⑨): fake values only, `@example.test` addresses and fixed UUIDs (public repository).
 
-export const OWNER_ID = '00000000-0000-4000-8000-000000000001';
-export const AUDITOR_ID = '00000000-0000-4000-8000-000000000002';
-export const LOCKED_ID = '00000000-0000-4000-8000-000000000003';
-export const LEAVER_ID = '00000000-0000-4000-8000-000000000004';
+// Account ids differ in their first eight characters: an operator without the owner role reads short ids, not names.
+export const OWNER_ID = '1a7c3e90-0000-4000-8000-000000000001';
+export const AUDITOR_ID = '2b8d4fa1-0000-4000-8000-000000000002';
+export const LOCKED_ID = '3c9e50b2-0000-4000-8000-000000000003';
+export const LEAVER_ID = '4daf61c3-0000-4000-8000-000000000004';
 export const OWNER_EMAIL = 'owner@example.test';
 /** What the login and registration stories type as a password and an invitation code. */
 export const STORY_PASSWORD = 'story-password-0000';
@@ -134,7 +135,7 @@ export const accountList: AccountListResponse = {
   ],
 };
 
-const LONG_ID = '00000000-0000-4000-8000-000000000005';
+const LONG_ID = '5eb072d4-0000-4000-8000-000000000005';
 
 /** The four accounts plus one with a long Korean name and a long address (D-OD14 line breaks). */
 export const longAccountList: AccountListResponse = {
