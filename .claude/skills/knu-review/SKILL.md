@@ -170,8 +170,8 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
    exit를 바꾸지 않으니 양성 대조를 더하거나, 대조할 수 없으면 그 이유를 그 record의 log에 적습니다. 이어 쓴 record(`carriedFrom`)가
    있으면 `review-run`이 그 회차의 packet·runner 파일·입력 manifest·범위 기록으로 `<out-dir>/checks/carry-basis.json`을 써서
    `--carry-basis`로 넘깁니다. Basis에 그 회차가 없으면 `carry-basis-missing`, 그 회차 runner 파일 record와 다르거나 출력이 바뀌었으면
-   `carried-record-mismatch`, log 첫 줄이 그 회차 header가 아니면 `carried-header-mismatch`, 그 회차 뒤 diff가 바뀐 `.md`만이 아니면
-   `carry-round-diff-not-docs`, tracked `scripts/` 파일이 바뀐 `.md`의 경로나 파일 이름을 가지면 `carry-doc-referenced`로 등록하지
+   `carried-record-mismatch`, log 첫 줄이 그 회차 header가 아니면 `carried-header-mismatch`, 그 회차 뒤 diff에 `.md`가 아닌 경로·새
+   `.md`·지운 `.md`가 있거나 그 회차 범위 기록이 없으면 `carry-round-diff-not-docs`, tracked `scripts/` 파일이 바뀐 `.md`의 경로나 파일 이름을 가지면 `carry-doc-referenced`로 등록하지
    않습니다. 1회차·native subject·`review` 직접 실행의 이어 쓴 record는 `carry-path-unsupported`입니다.
 
 ## 1회차 다중 reviewer

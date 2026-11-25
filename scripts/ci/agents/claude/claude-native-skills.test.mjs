@@ -897,6 +897,8 @@ test('qa.md and the Claude review skill carry a documents-only round ahead and c
     '`carried-record-mismatch`',
     '`carried-header-mismatch`',
     '`carry-round-diff-not-docs`',
+    // C4 as the README states it: a non-`.md` path, a new or deleted `.md`, or no range record of that round.
+    '`.md`가 아닌 경로·새 `.md`·지운 `.md`가 있거나 그 회차 범위 기록이 없으면 `carry-round-diff-not-docs`',
     '`carry-doc-referenced`',
     '`carry-path-unsupported`',
   ])
