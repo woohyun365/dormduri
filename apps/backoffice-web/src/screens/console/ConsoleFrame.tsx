@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { BrandLogo, BrandMark } from '@/ui/brand/BrandLogo';
 import { Icon } from '@/ui/icons';
+import { ShellNoticeContext } from '@/ui/result-message';
 import { currentItem, locate, type NavigationGroup } from './navigation';
 
 const MENU_ID = 'console-menu';
@@ -14,8 +15,9 @@ const MENU_ID = 'console-menu';
  * where the page is, the operator and the logout. From 1024px the sidebar can collapse to icons; the state stays while
  * the operator moves between pages (this frame lives in the console layout) and is never saved. Below 1024px the sidebar
  * becomes a top bar with a menu button, and the opened menu shows every name and closes on the next page. The ended
- * session notice has its one place above the page. Every link has prefetch={false} (a prefetch would read the API and
- * move the session's activity, README §4).
+ * session notice has its one place above the page, and the screens below read a closed session's failure after it
+ * (result-message.ts). Every link has prefetch={false} (a prefetch would read the API and move the session's activity,
+ * README §4).
  */
 export function ConsoleFrame({
   groups,
@@ -165,7 +167,8 @@ export function ConsoleFrame({
         </header>
         <main className="flex flex-col gap-stack p-page">
           {notice}
-          {children}
+          {/* The screens learn that the shell shows the ended notice (result-message.ts). */}
+          <ShellNoticeContext value>{children}</ShellNoticeContext>
         </main>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useState } from 'react';
+import { expect, waitFor } from 'storybook/test';
 import { Button } from '../Button';
 import { Card } from '../Card';
 import { EmptyState as EmptyStatePart } from '../EmptyState';
@@ -192,8 +193,21 @@ function DrawerExample() {
   );
 }
 
+/**
+ * A drawer takes focus when it opens, keeps it inside (the page behind is inert) and gives it back to the control that
+ * opened it when Escape closes it (web-fe-accessibility F2). The story check runs this play.
+ */
 export const Drawer: Story = {
   render: () => <DrawerExample />,
+  play: async ({ canvas, userEvent }) => {
+    const opener = canvas.getByRole('button', { name: 'drawer 열기' });
+    await userEvent.click(opener);
+    const dialog = await canvas.findByRole('dialog', { name: '운영자 초대' });
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(canvas.queryByRole('dialog')).toBeNull());
+    await expect(opener).toHaveFocus();
+  },
 };
 
 function ConfirmExample() {
@@ -225,6 +239,19 @@ function ConfirmExample() {
   );
 }
 
+/** A risky confirmation: the same focus contract, closed by Escape and by its own close button. */
 export const Confirm: Story = {
   render: () => <ConfirmExample />,
+  play: async ({ canvas, userEvent }) => {
+    const opener = canvas.getByRole('button', { name: '비활성화' });
+    for (const close of ['escape', 'button'] as const) {
+      await userEvent.click(opener);
+      const dialog = await canvas.findByRole('alertdialog', { name: '계정 비활성화' });
+      await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+      if (close === 'escape') await userEvent.keyboard('{Escape}');
+      else await userEvent.click(canvas.getByRole('button', { name: '닫기' }));
+      await waitFor(() => expect(canvas.queryByRole('alertdialog')).toBeNull());
+      await expect(opener).toHaveFocus();
+    }
+  },
 };

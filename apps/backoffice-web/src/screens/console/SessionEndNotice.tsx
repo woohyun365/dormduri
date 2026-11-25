@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { SESSION_ACTIVITY_EVENT, SESSION_CLOSED_EVENT } from '@/client/bff-client';
+import { Notice } from '@/ui/Notice';
 
 /** Idle limit of OA-R3; the API enforces it, this copy only restarts the on-screen countdown. */
 export const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
@@ -89,19 +90,19 @@ export function SessionEndNotice({
     return null;
   }
   const notice = NOTICES[ended];
+  // Every ended session reads as a warning (yellow); red stays for input errors (Owner E-Q15).
   return (
-    <div
-      role="alert"
-      className="flex flex-wrap items-center gap-3 rounded-box bg-warning-weak px-4 py-3 text-body text-fg-warning"
-    >
-      <span>{notice.text}</span>
-      <Link
-        href={`/login?ended=${notice.ended}`}
-        prefetch={false}
-        className="font-medium underline"
-      >
-        다시 로그인
-      </Link>
-    </div>
+    <Notice tone="warning" role="alert">
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {notice.text}
+        <Link
+          href={`/login?ended=${notice.ended}`}
+          prefetch={false}
+          className="font-semibold underline focus-ring"
+        >
+          다시 로그인
+        </Link>
+      </span>
+    </Notice>
   );
 }

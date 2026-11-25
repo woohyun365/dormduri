@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { Button } from './Button';
 
 /**
@@ -38,6 +38,13 @@ export function Overlay({
     return () => back.current?.focus();
   }, []);
   const close = () => ref.current?.close();
+  // Escape closes the dialog through the same close() as its button: the browser's own Escape closing does not follow a
+  // key event a script sends (the story play), and this keeps both on one path.
+  const onKeyDown = (event: KeyboardEvent<HTMLDialogElement>) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    close();
+  };
   const frame =
     variant === 'drawer'
       ? 'm-0 ml-auto h-full max-h-none w-drawer max-w-full border-l'
@@ -50,6 +57,7 @@ export function Overlay({
       aria-labelledby={`${id}-title`}
       aria-describedby={description ? `${id}-description` : undefined}
       onClose={onClose}
+      onKeyDown={onKeyDown}
       className={`flex-col overflow-y-auto border-stroke-subtle bg-layer-default p-0 text-fg-neutral shadow-overlay backdrop:bg-scrim open:flex ${frame}`}
     >
       {/* The dialog scrolls as a whole (it holds focusable controls, axe scrollable-region-focusable); the header and the

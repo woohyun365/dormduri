@@ -3,13 +3,16 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { postBff } from '@/client/bff-client';
-import { SecondaryButton } from '@/ui/forms';
+import { Button } from '@/ui/Button';
+import { Icon } from '@/ui/icons';
 
 export function LogoutButton() {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   return (
-    <SecondaryButton
+    <Button
+      tone="secondary"
+      size="sm"
       disabled={pending}
       onClick={async () => {
         setPending(true);
@@ -19,7 +22,8 @@ export function LogoutButton() {
         router.refresh();
       }}
     >
+      <Icon name="logout" className="size-4" />
       로그아웃
-    </SecondaryButton>
+    </Button>
   );
 }
