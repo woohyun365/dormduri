@@ -36,8 +36,8 @@ afterEach(() => {
 
 describe('ConsoleFrame (design guide ③)', () => {
   it('keeps the sidebar collapsed after a navigation without writing browser storage', async () => {
-    const localSet = vi.spyOn(window.localStorage, 'setItem');
-    const sessionSet = vi.spyOn(window.sessionStorage, 'setItem');
+    // Both storages share Storage.prototype.setItem: a spy on the instance would only add a stored item named setItem.
+    const storageSet = vi.spyOn(Storage.prototype, 'setItem');
     const view = render(frame());
     await userEvent.click(screen.getByRole('button', { name: '메뉴 접기' }));
     expect(screen.getByRole('button', { name: '메뉴 펼치기' })).toHaveAttribute(
@@ -53,8 +53,9 @@ describe('ConsoleFrame (design guide ③)', () => {
       'false',
     );
     expect(screen.getByRole('link', { current: 'page' })).toHaveAccessibleName('권한 요청');
-    expect(localSet).not.toHaveBeenCalled();
-    expect(sessionSet).not.toHaveBeenCalled();
+    expect(storageSet).not.toHaveBeenCalled();
+    expect(window.localStorage).toHaveLength(0);
+    expect(window.sessionStorage).toHaveLength(0);
   });
 
   it('marks the current page in the sidebar and the top bar', () => {
