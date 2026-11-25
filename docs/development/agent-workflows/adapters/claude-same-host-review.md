@@ -99,15 +99,19 @@ readiness 리뷰는 이 필드를 쓰지 않습니다. Subject의 `request`·`ac
 [workspace layout](../../../../scripts/artifacts/workspace-layout.knu.json) root 아래에 있는데 그 root의 규칙 owner 문서가 read path에
 없을 때, `policy-history-rule-not-in-read-paths`는 그 파일이 정책 문서 root 아래에 있는데 변경 이력 규칙을 가진 그 root의 규칙 owner
 문서가 read path에 없을 때 나옵니다(규칙 owner마다 한 번). `--basis`가 commit인 Parent subject의 runner evidence가 있으면 둘을 더
-봅니다. `evidence-claim-source-missing`은 basis 대비 바뀐 `docs/evidence/**` 문서의 추가 줄 수치 token(링크·inline code·URL 안,
-연도, `n.n` 절 번호, 한 자리 수 제외. 수 바로 뒤의 한글 조사·낱말은 token을 막지 않고, 단위(`%`·`개`·`분` 등)가 붙은 수는 연도·`n.n`
-모양이어도 token)이 runner record 출력과 `docs/evidence/**` 밖 subject `paths` 파일 어디에도 없을 때,
+봅니다. `evidence-claim-source-missing`은 basis 대비 바뀐 `docs/evidence/**` 문서의 추가 줄 수치 token이 runner record 출력과
+`docs/evidence/**` 밖 subject `paths` 파일 어디에도 없을 때 나옵니다. 수치 token은 가장 긴 수 run(`.`·`,` 하나로 이은 숫자)이고 그
+앞부분만 token이 되지 않습니다. 수 옆 글자 목록으로 정하지 않고 다음만 뺍니다: 링크 목적지·inline code·URL 안, 한 자리 수, 식별자(왼쪽에
+글자·`_`·`#`·`.`가 붙은 수, 16진 낱말, 날짜, 점이 둘 이상인 run), 연도(19xx·20xx)와 `n.n` 절 번호(뒤에 `년`·`절`이 오거나 글자도 `%`도
+오지 않을 때, `§` 뒤 `n.n`). 그 밖의 글자나 `%`가 뒤에 오면 연도·`n.n` 모양도 측정값(`2026건`, `1.5배`, `12.5MB`)이고, 뒤에 아무 글자도
+없는 맨 소수(`0.98`)는 `n.n` 절 번호로 읽혀 빠집니다.
 `evidence-source-outside-read-paths`는 그 token을 출력에 가진 record의 읽기 trace(`runner-read-trace.mjs`)가 read path 밖 ignored
 파일을 읽었거나, 그 record의 trace가 없거나, node가 아닌 spawn·`unobserved` 호출이 있을 때 나옵니다.
 
 이어 쓴 record가 있는 회차는 `<reviewId>.carry.json`(이어 쓴 record의 이름·exit·요약·출력과 출력 digest, 이번 회차 header, 확인 기록 경로)을
 남기고 prompt 기록이 그 digest를 결속합니다. 그 reviewer 정산은 결과를 쓰기 전에 runner의 확인 기록
-`<out-dir>/confirm/evidence.json`을 `runner-log-check.mjs --confirm`으로 결과 단위(exit·조각·test 이름 줄과 요약 수, 시간 값은 가림)와
+`<out-dir>/confirm/evidence.json`(확인 기록에는 reviewId가 없어 이어 쓴 회차는 새 `--out`으로 등록하고, 그 경로가 등록 전에 이미 있으면
+`review-run`이 `carry-confirm-exists`로 거부)을 `runner-log-check.mjs --confirm`으로 결과 단위(exit·조각·test 이름 줄과 요약 수, 시간 값은 가림)와
 대조하고, 이어 쓴 출력을 carry 기록의 digest와 다시 재고(확인 실행이 그 log에 덮어썼거나 등록 뒤 고쳤으면 그 record의
 `carry-confirm-mismatch`), snapshot을 다시 잽니다. 확인 기록이 없으면 `carry-confirm-pending`으로 멈추고, 다르면 `carry-confirm-missing`·
 `carry-confirm-mismatch`가 `observationErrors`에 들어가 그 결과를 쓰지 않습니다.

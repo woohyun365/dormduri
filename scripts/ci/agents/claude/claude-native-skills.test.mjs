@@ -901,6 +901,8 @@ test('qa.md and the Claude review skill carry a documents-only round ahead and c
     '`.md`가 아닌 경로·새 `.md`·지운 `.md`가 있거나 그 회차 범위 기록이 없으면 `carry-round-diff-not-docs`',
     '`carry-doc-referenced`',
     '`carry-path-unsupported`',
+    // u2 (Owner 3.2): the confirm record names no review id, so a carried round registers with a new --out.
+    '새 `--out`으로 등록하고, `<out-dir>/confirm/evidence.json`이 등록 전에 이미 있으면 `carry-confirm-exists`',
   ])
     assert.ok(runnerStep.includes(phrase), `Runner 기록 검사: ${phrase}`);
   // The record format names the optional field and where it is taken.
@@ -938,9 +940,14 @@ test('the review owner documents name the carry rules and the evidence source wa
     '`carry-confirm-mismatch`',
     '`evidence-claim-source-missing`',
     '`evidence-source-outside-read-paths`',
-    // Review round 1: the carried outputs are bound by digest (m1-F1) and the token rule takes Korean particles (m1-F2).
+    // Review round 1: the carried outputs are bound by digest (m1-F1). Review round 2 (r2-F1, Owner 3.1): the token rule
+    // is the meaning list of 3.5 (a), not a list of what may stand next to a number; u2 (Owner 3.2): a new --out.
     '이어 쓴 출력을 carry 기록의 digest와 다시 재고',
-    '수 바로 뒤의 한글 조사·낱말은 token을 막지 않고',
+    '수치 token은 가장 긴 수 run',
+    '수 옆 글자 목록으로 정하지 않고 다음만 뺍니다',
+    '그 밖의 글자나 `%`가 뒤에 오면 연도·`n.n` 모양도 측정값',
+    '맨 소수(`0.98`)는 `n.n` 절 번호로 읽혀 빠집니다',
+    '`carry-confirm-exists`',
   ])
     assert.ok(adapter.includes(phrase), `claude-same-host-review.md: ${phrase}`);
   const criteria = flat('docs/development/agent-workflows/review-criteria/README.md');
@@ -986,6 +993,7 @@ test('the review owner documents name the carry rules and the evidence source wa
     'carry-confirm-pending',
     'carry-confirm-missing',
     'carry-confirm-mismatch',
+    'carry-confirm-exists',
   ])
     assert.ok(rejections.includes(`\`${reason}`), `rejection guide: ${reason}`);
 });

@@ -93,7 +93,7 @@
 
 - `runner-log-check.mjs`(직접 실행이나 `review-run`의 `checks/runner-log-check.json`)가 `exit-mismatch`나
   `repeated-step-exit-hidden`을 냅니다.
-- 이어 쓴 record(`carriedFrom`)가 `carry-path-unsupported`로 거부되거나, `runner-log-check`가 `carry-basis-missing`·
+- 이어 쓴 record(`carriedFrom`)가 `carry-path-unsupported`·`carry-confirm-exists`로 거부되거나, `runner-log-check`가 `carry-basis-missing`·
   `carried-record-mismatch`·`carried-header-mismatch`·`carry-round-diff-not-docs`·`carry-doc-referenced`를 냅니다.
 - Parent reviewer 정산이 `cannot settle yet (carry-confirm-pending): …`로 멈추거나 `observationErrors`에 `carry-confirm-missing`·
   `carry-confirm-mismatch`가 있습니다.
@@ -284,7 +284,8 @@
   회차 runner 파일과 다르거나 그 log가 그 뒤 바뀐 것, `carried-header-mismatch`는 `carriedFrom`이 log를 만든 회차가 아닌 것,
   `carry-round-diff-not-docs`는 그 회차 뒤 `.md` 아닌 변경·새 `.md`·지운 `.md`가 있거나 그 회차 범위 기록이 없어 회차 diff를 알 수
   없는 것, `carry-doc-referenced`는 `scripts/`
-  파일이 바뀐 문서를 이름으로 가진 것입니다. 모두 그 record를 이번 회차에 다시 실행해 기록하면 풀립니다.
+  파일이 바뀐 문서를 이름으로 가진 것입니다. 모두 그 record를 이번 회차에 다시 실행해 기록하면 풀립니다. `carry-confirm-exists`는
+  이어 쓴 회차의 `--out` 아래 `confirm/evidence.json`이 등록 전에 이미 있는 것(앞 등록과 같은 `--out`)이라 새 `--out`으로 다시 등록합니다.
 - 확인 대조: `carry-confirm-pending`은 runner가 `<out-dir>/confirm/evidence.json`을 아직 쓰지 않은 것이라 확인 실행이 끝난 뒤 같은
   명령으로 다시 정산합니다. `carry-confirm-missing: <record>`는 그 이름의 확인 record가 없고, `carry-confirm-mismatch: <record>`는
   확인 실행의 exit·조각·test 결과 줄이 이어 쓴 결과와 다르거나 이어 쓴 출력이 등록 뒤 바뀐 것(확인 실행이 그 log에 덮어씀 포함)이며, `carry record`는 `<reviewId>.carry.json`이 없거나 prompt 기록 digest와

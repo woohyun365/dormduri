@@ -124,6 +124,8 @@ const OPTIONAL_RECORD_FIELDS = [...RED_RECORD_FIELDS, 'label'];
 // basis the runner check reads (runner-log-check --carry-basis) and the carry record the settlement compares the
 // confirm runs with (<reviewId>.carry.json).
 const CARRIED_FROM = 'carriedFrom';
+// Where the runner writes the confirm runs of a carried round, under the run's --out directory.
+const CONFIRM_RECORD = 'confirm/evidence.json';
 const CARRY_PATH_UNSUPPORTED =
   'carry-path-unsupported: a carried record (carriedFrom) is taken only from round 2 of a Parent subject through review-run with --previous-result; run the check again for this round';
 const CARRY_SUFFIX = '.carry.json';
@@ -1073,15 +1075,42 @@ function verificationExtract(root, draft) {
     lines.length;
   return `${lines.slice(start.index, end).join('\n').replace(/\s+$/u, '')}\n`;
 }
-// Evidence claim numbers (L12): the numeric tokens of the lines a change adds to a docs/evidence document, outside
-// links, inline code and URLs, also when a Korean particle or word follows (`47개는`, `34쌍`). Years, n.n section
-// numbers and one-digit numbers are no claims; a number with a unit (`12.2분`, `12.5%`) is a measurement and stays one.
+// Evidence claim numbers (L12): the numbers of the lines a change adds to a docs/evidence document, read by the meaning
+// 3.5 (a) gives, not by a list of what may stand next to a number (Owner 3.1). The token is the longest number run (digits
+// joined by single `.` or `,`), never a shorter part of it. Not read: link destinations, inline code and URLs; identifiers,
+// which are words (glued to a letter, `_`, `#` or `.` on the left, a hex word, a date, a run with two or more dots);
+// one-digit numbers; a year (19xx, 20xx) or an n.n section number, which is one when `년` or `절` follows it or neither a
+// letter nor `%` does (an n.n after `§` too). Any other letter or `%` after it makes it a measurement (`2026건`, `1.5배`).
 // A source holds a token (or its form without commas) when no digit, and no `.` or `,` continuing one, is next to it.
 const CLAIM_LINK = /\]\([^)]*\)|`[^`]*`|https?:\/\/\S+/gu;
-const CLAIM_TOKEN =
-  /(?<![\p{L}\p{N}_.#/-])\p{Nd}[\p{Nd},.]*(?:%|자|개|분|초|회|건|줄|칸|명|KB|MiB)?(?![\p{N}_/-])(?!(?!\p{Script=Hangul})\p{L})/gu;
-const CLAIM_UNIT = /[%자개분초회건줄칸명KBMi]+$/u;
-const CLAIM_SKIP = /^(?:20\p{Nd}\p{Nd}|\p{Nd}{1,2}\.\p{Nd}{1,2})$/u;
+const CLAIM_DATE = /(?<!\p{Nd})(?:19|20)\p{Nd}{2}([-./])\p{Nd}{1,2}\1\p{Nd}{1,2}(?!\p{Nd})/gu;
+const CLAIM_NUMBER = /\p{Nd}+(?:[.,]\p{Nd}+)*/gu;
+const CLAIM_YEAR = /^(?:19|20)\p{Nd}{2}$/u;
+const CLAIM_SECTION = /^\p{Nd}{1,2}\.\p{Nd}{1,2}$/u;
+function claimTokens(line) {
+  const text = line.replace(CLAIM_LINK, ' ').replace(CLAIM_DATE, ' ');
+  const tokens = [];
+  for (const { 0: number, index } of text.matchAll(CLAIM_NUMBER)) {
+    const before = text[index - 1] ?? '';
+    const after = text.slice(index + number.length);
+    const word = /^[\p{L}\p{N}]*/u.exec(after)[0];
+    const measured = (marker) =>
+      (after.startsWith('%') || /^\p{L}/u.test(after)) && !after.startsWith(marker);
+    if (
+      /[\p{L}_#.]/u.test(before) ||
+      number.split('.').length > 2 ||
+      (/^\p{Nd}+$/u.test(number) &&
+        /[a-f]/iu.test(word) &&
+        /^[0-9a-f]+$/iu.test(`${number}${word}`)) ||
+      (CLAIM_YEAR.test(number) && !measured('년')) ||
+      (CLAIM_SECTION.test(number) && (before === '§' || !measured('절'))) ||
+      number.replace(/[.,]/gu, '').length < 2
+    )
+      continue;
+    tokens.push(number);
+  }
+  return tokens;
+}
 const EVIDENCE_DOCS = 'docs/evidence/';
 const TRACE_SCHEMA = 'runner-read-trace/v1';
 const SOURCE_FILE_LIMIT = 8 * 1024 * 1024;
@@ -1122,16 +1151,7 @@ function evidenceClaims(root, subject, commit) {
           .filter((line) => line.startsWith('+') && !line.startsWith('+++'))
           .map((line) => line.slice(1))
       : lineList(readSourceText(root, path));
-    for (const line of added)
-      for (const [token] of line.replace(CLAIM_LINK, ' ').matchAll(CLAIM_TOKEN)) {
-        const core = token.replace(CLAIM_UNIT, '').replace(/[.,]+$/u, '');
-        if (
-          core &&
-          (CLAIM_UNIT.test(token) || !CLAIM_SKIP.test(core)) &&
-          core.replaceAll(',', '').length >= 2
-        )
-          tokens.push(core);
-      }
+    for (const line of added) tokens.push(...claimTokens(line));
   }
   return { documents, tokens: [...new Set(tokens)] };
 }
@@ -2223,7 +2243,7 @@ export function buildClaudeNativeReview(
             schema: CARRY_SCHEMA,
             reviewId,
             header: logHeader,
-            confirmPath: `${carry.outPath}/confirm/evidence.json`,
+            confirmPath: `${carry.outPath}/${CONFIRM_RECORD}`,
             // The carried outputs as the reviewer reads them, so the settlement compares the logs it judged.
             records: carriedRecords.map((record) => ({
               recordName: recordName(record),
@@ -2672,9 +2692,8 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
   let carryBasisPath = null;
   if (carried.length) {
     try {
-      fail(
-        'invalid runner evidence',
-        carried.flatMap(({ record, index }) =>
+      fail('invalid runner evidence', [
+        ...carried.flatMap(({ record, index }) =>
           !laterParentRound
             ? [`records[${index}].carriedFrom: ${CARRY_PATH_UNSUPPORTED}`]
             : typeof record.carriedFrom === 'string' && REVIEW_PACKET_ID.test(record.carriedFrom)
@@ -2683,7 +2702,14 @@ export function runClaudeNativeReview(options = {}, { root = process.cwd() } = {
                   `records[${index}].carriedFrom must be the review id (8 base36, a dash, 8 hex) of the round that made its log`,
                 ],
         ),
-      );
+        // The confirm record names no review id: one already at the confirm path (an earlier registration with this
+        // --out) is no confirm run of this round.
+        ...(laterParentRound && existsSync(join(root, outPath, CONFIRM_RECORD))
+          ? [
+              `carry-confirm-exists: ${outPath}/${CONFIRM_RECORD} is there before this registration; run review-run with a new --out so only this round's confirm runs write it`,
+            ]
+          : []),
+      ]);
       const staged = planDrafts === undefined ? null : stagedPlans(root, planDrafts).staged;
       carryBasisPath = file('carry-basis.json');
       writeFileSync(

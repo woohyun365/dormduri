@@ -7230,6 +7230,24 @@ test('review-run takes a carried record from round 2 of a Parent subject and wri
   assert.ok(!template.includes('carriedFrom'), template);
 });
 
+// Review round 2 (u2, Owner 3.2): the confirm record carries no review id, so one already at the confirm path (an earlier
+// registration with the same --out) would be taken for this round's confirm runs. The registration refuses it.
+test('review-run refuses a carried round whose --out already holds a confirm record (OSS-RL P5 RED 5, u2)', (t) => {
+  const f = carryFixture(t);
+  const confirm = join(f.r.root, RUN_DIR, 'r2-out', 'confirm', 'evidence.json');
+  mkdirSync(dirname(confirm), { recursive: true });
+  writeFileSync(confirm, `${JSON.stringify({ runner: 'lead-runner', records: [] })}\n`);
+  const { second } = carriedRound(f);
+  assert.equal(second.result.status, 1, second.result.stdout);
+  assert.equal(
+    second.record.error,
+    `invalid runner evidence: carry-confirm-exists: ${RUN_DIR}/r2-out/confirm/evidence.json is there before this registration; run review-run with a new --out so only this round's confirm runs write it`,
+  );
+  assert.equal(second.record.registered, undefined);
+  // A new --out registers the same round.
+  assert.equal(carriedRound(f, { name: 'r2-new', change: () => {} }).second.result.status, 0);
+});
+
 test('a carried record outside round 2 of a review-run Parent subject is carry-path-unsupported (OSS-RL P5 RED 4)', (t) => {
   const f = carryFixture(t);
   const h = f.header();
@@ -7943,6 +7961,51 @@ test('evidence-claim-source-missing takes a number followed by a Korean particle
     'evidence-claim-source-missing',
   );
   assert.equal(split, undefined);
+});
+
+// Review round 2 (r2-F1, Owner 3.1): the token is read by the meaning 3.5 (a) gives, not by a list of what may stand next
+// to a number. Each line is a document of its own, its numbers in the order the warning lists them; none is held.
+const CLAIM_TABLE = [
+  // A Latin unit, and a decimal the unit follows is the whole decimal, never the integer before its point.
+  ['p95 응답은 320ms에서 128ms로, 번들은 12.5MB로 줄었다.', '320, 128, 12.5'],
+  ['빌드 164s, 처리량 3x, 1.25s 단축', '164, 1.25'],
+  // A Hangul unit word outside any list: a measurement, also in the n.n shape.
+  ['1.5배 빨라졌고 2.5시간, 3.5일, 12.5쪽', '1.5, 2.5, 3.5, 12.5'],
+  // A sign or a symbol before or after the number.
+  ['지연이 -12% 줄고 ±15.5% 범위, −30%', '12, 15.5, 30'],
+  ['온도 25°C, 배율 ×12, 1,200 req/s, 200/s', '25, 12, 1,200, 200'],
+  ['10-20% 구간과 30~40개', '10, 20, 30, 40'],
+  // A year or an n.n with a unit after it is a measurement.
+  ['2026건과 2026ms, 3.25배', '2026, 3.25'],
+  // Identifiers are words, not numbers: glued to a letter, `_`, `#` or `.` on the left, a hex word, a date, a version.
+  [
+    'commit 308d3e50, digest 9b34567f, v26.13.1, #991, p95, sha256, x_12, 2026-11-25, 2026.11.25, 1.2.3',
+    null,
+  ],
+  // 3.5 (a): links, inline code, URLs, years, n.n section numbers, one-digit numbers.
+  ['3.5절과 §2.1의 규칙, 2026년과 2026 상반기, 3회차, `47`, [보고](x/12), https://e.x/12', null],
+  // The shape-only n.n exclusion: a bare decimal with no letter and no % after it reads as a section number.
+  ['비율은 0.98 그대로', null],
+];
+
+test('evidence-claim-source-missing reads claim numbers by the meaning of 3.5 (a), over a table of what stands next to them (OSS-RL P5 RED 7 (a), r2-F1)', (t) => {
+  const e = evidenceRepo(t);
+  const empty = e.file(`${RUN_DIR}/table-empty.log`, 'nothing\n');
+  const missing = (doc, log = empty) => {
+    const [warning] = evidenceWarnings(
+      e.build(claimSubject([doc]), [{ command: 'node scripts/census.mjs', outputPaths: [log] }]),
+      'evidence-claim-source-missing',
+    );
+    return warning ? /numbers (?<list>[^;]+?) (?:are|is) in no/u.exec(warning).groups.list : null;
+  };
+  CLAIM_TABLE.forEach(([line, want], index) => {
+    const doc = e.file(`docs/evidence/table-${index}.md`, `# 표\n\n${line}\n`);
+    assert.equal(missing(doc), want, line);
+  });
+  // The whole decimal is held by a source that holds it, and an integer before its point does not hold it.
+  const doc = e.file('docs/evidence/table-held.md', '# 표\n\n번들은 12.5MB로 줄었다.\n');
+  assert.equal(missing(doc, e.file(`${RUN_DIR}/table-held.log`, 'bundle 12.5 MB\n')), null);
+  assert.equal(missing(doc, e.file(`${RUN_DIR}/table-cut.log`, 'bundle 12 MB\n')), '12.5');
 });
 
 test('evidence-source-outside-read-paths reads the bound trace of each record holding a claim number (OSS-RL P5 RED 7 (b))', (t) => {
