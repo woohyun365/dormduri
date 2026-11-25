@@ -149,7 +149,8 @@ pnpm backoffice-api:test:integration:prepared
   빠지지 않는다.
 - 요청: 게시 요청 digest는 그 판 번호의 초안 내용 digest(공유 `legalContentDigestInput`의 sha256)이고, 철회 요청 digest는 대상
   판의 digest다. 요청은 7일 뒤 만료된다. 거절·취소된 게시 요청의 초안은 같은 transaction에서, 만료된 요청의 초안은 다음 저장·
-  요청·결정 시도 때 편집 중으로 돌아간다. 읽기와 목록 filter는 그 전에도 만료된 요청을 `EXPIRED`, 그 초안을 편집 중으로 본다.
+  요청·결정 시도 때 편집 중으로 돌아간다. 관리자 기록 정리가 오래 만료된 대기 요청 행을 지운 초안도 다음 저장·요청 때 편집 중으로
+  돌아간다. 읽기와 목록 filter는 그 전에도 만료된 요청을 `EXPIRED`, 그 초안을 편집 중으로 본다.
   요청 상세의 검사 결과(`check`)는 아직 결정할 수 있는 요청에만 있고, 닫힌 요청은 대상을 지금 상태로 보인다.
 - 결정: 승인은 serializable transaction 안에서 kind마다 advisory lock을 잡고 요청의 조건부 UPDATE, 검사
   (`legal-publication-policy.ts`), 판 INSERT 또는 철회 UPDATE, 초안 상태, 감사 행을 함께 쓴다. 하나라도 실패하면 모두

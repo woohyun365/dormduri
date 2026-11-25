@@ -4,7 +4,9 @@ import { LEGAL_REQUEST_KINDS } from './legal-records.js';
 /**
  * Closes pending legal requests past their expiry and returns their drafts to editing.
  * Like the role requests, expiry is written when someone next saves, requests or
- * decides; it runs in its own transaction so it survives the caller's rollback.
+ * decides; it runs in its own transaction so it survives the caller's rollback. A draft also returns
+ * to editing when no pending publish request names it any more: the records cleanup deletes a
+ * long-expired pending request once its audit rows are gone.
  */
 export async function expireLegalRequests(
   prisma: BackofficeRuntimePrisma,
@@ -33,6 +35,18 @@ export async function expireLegalRequests(
           data: { status: 'EDITING' },
         });
       }
+    }
+    if (target.draftId) {
+      // A publish request and the draft's freeze commit together, so a waiting draft without a
+      // pending request has lost its request row.
+      await tx.legalDocumentDraft.updateMany({
+        where: {
+          id: target.draftId,
+          status: 'PENDING_APPROVAL',
+          publishRequests: { none: { status: 'PENDING' } },
+        },
+        data: { status: 'EDITING' },
+      });
     }
   });
 }

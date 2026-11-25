@@ -5,7 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { legalContentDigestInput, legalDocumentDraftImportSchema } from '@repo/shared/legal';
+import {
+  compareLegalSections,
+  legalContentDigestInput,
+  legalDocumentDraftImportSchema,
+} from '@repo/shared/legal';
 // @ts-expect-error -- the legal version seed module is plain JS that reads the JSON data files
 import * as legalVersionSeed from '../../../prisma/seed-data/reference/seed-legal-documents.js';
 
@@ -24,6 +28,10 @@ type SeedRow = {
 const seed = legalVersionSeed as {
   LEGAL_DOCUMENT_VERSION_SEED_ROWS: SeedRow[];
   legalSeedContentDigest: (row: SeedRow) => string;
+  legalSeedImportBody: (row: SeedRow) => unknown;
+  seedLegalDocuments: (client: {
+    query: (sql: string, params: unknown[]) => Promise<unknown>;
+  }) => Promise<void>;
 };
 
 /**
@@ -72,6 +80,28 @@ describe('legal import file export', () => {
         .digest('hex');
       expect(digest, row.id).toBe(seed.legalSeedContentDigest(row));
     }
+  });
+
+  it('stores each seed version with the content of its import body, so an imported draft compares unchanged', async () => {
+    const stored: unknown[][] = [];
+    await seed.seedLegalDocuments({
+      query: (_sql, params) => {
+        stored.push(params);
+        return Promise.resolve({ rows: [] });
+      },
+    });
+    expect(stored).toHaveLength(seed.LEGAL_DOCUMENT_VERSION_SEED_ROWS.length);
+    seed.LEGAL_DOCUMENT_VERSION_SEED_ROWS.forEach((row, index) => {
+      const draft = legalDocumentDraftImportSchema.parse(seed.legalSeedImportBody(row));
+      const [, , , , , summaryItems, sections] = stored[index]!;
+      expect(JSON.parse(summaryItems as string), row.id).toEqual(draft.summaryItems);
+      expect(JSON.parse(sections as string), row.id).toEqual(draft.sections);
+      const changes = compareLegalSections(
+        legalDocumentDraftImportSchema.shape.sections.parse(JSON.parse(sections as string)),
+        draft.sections,
+      ).map((article) => article.change);
+      expect(new Set(changes), row.id).toEqual(new Set(['unchanged']));
+    });
   });
 
   it('refuses to overwrite a file that is already there', () => {

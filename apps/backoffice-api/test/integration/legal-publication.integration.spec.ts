@@ -828,6 +828,36 @@ describe('backoffice legal publication (OA-R9)', () => {
     ).expect(200);
   });
 
+  it('returns a draft to editing when its waiting request row is gone', async () => {
+    // The records cleanup deletes a long-expired pending request once its audit rows are gone; the
+    // draft that waited on it is then saved like any draft whose request expired.
+    const kind = 'AGE_14_OR_ABOVE_NOTICE';
+    const draft = await createDraft(kind, {
+      noticeClass: 'INITIAL',
+      proposedEffectiveDate: addDays(today, -70),
+    });
+    const request = await requestPublish(draft);
+    await sandbox.admin.query(
+      `DELETE FROM ${sandbox.table('AdminAuditEvent')} WHERE "approvalRequestId" = $1`,
+      [request.id],
+    );
+    await sandbox.admin.query(
+      `DELETE FROM ${sandbox.table('AdminApprovalRequest')} WHERE "id" = $1`,
+      [request.id],
+    );
+    expect(await draftStatus(draft.id)).toBe('PENDING_APPROVAL');
+    const saved = legalDraftSchema.parse(
+      (
+        await saveDraft(draft, kind, {
+          noticeClass: 'INITIAL',
+          proposedEffectiveDate: addDays(today, -71),
+        }).expect(200)
+      ).body,
+    );
+    expect(saved).toMatchObject({ status: 'EDITING', revision: draft.revision + 1 });
+    await discard(saved).expect(200);
+  });
+
   it('keeps legal requests off the role request path', async () => {
     const draft = await createDraft('AGE_14_OR_ABOVE_NOTICE', {
       noticeClass: 'INITIAL',

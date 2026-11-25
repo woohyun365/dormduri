@@ -138,6 +138,9 @@ export function legalSeedContentDigest(row) {
  */
 export async function seedLegalDocuments(client) {
   for (const row of LEGAL_DOCUMENT_VERSION_SEED_ROWS) {
+    // The stored text is the import body (defaults filled), as an approved import stores it, so the
+    // digest, the export file and the stored row describe the same content.
+    const body = legalSeedImportBody(row);
     await client.query(
       `
         INSERT INTO "LegalDocumentVersion" (
@@ -203,8 +206,8 @@ export async function seedLegalDocuments(client) {
         row.version,
         row.contentSchemaVersion,
         row.title,
-        JSON.stringify(row.summaryItems),
-        JSON.stringify(row.sections),
+        JSON.stringify(body.summaryItems),
+        JSON.stringify(body.sections),
         row.changeSummary,
         row.noticeClass,
         row.consentRequired,
