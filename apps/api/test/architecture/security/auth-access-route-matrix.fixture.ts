@@ -13,6 +13,7 @@ import { EnforcementNoticeController } from '../../../src/social-safety/enforcem
 import { DormitoriesController } from '../../../src/dormitories/dormitories.controller.js';
 import { HealthController } from '../../../src/health/health.controller.js';
 import { HomeDashboardController } from '../../../src/home-dashboard/home-dashboard.controller.js';
+import { LegalConsentController } from '../../../src/legal/legal-consent.controller.js';
 import { LegalController } from '../../../src/legal/legal.controller.js';
 import { MatchesController } from '../../../src/matches/matches.controller.js';
 import { NotificationsController } from '../../../src/notifications/notifications.controller.js';
@@ -449,6 +450,42 @@ export const expectedRoutes: ExpectedRoute[] = [
     method: RequestMethod.GET,
     path: 'api/legal/documents/:kind/active',
     access: 'public',
+  },
+  {
+    controller: LegalController,
+    handler: 'getDocumentPage',
+    method: RequestMethod.GET,
+    path: 'api/legal/documents/:kind/page',
+    access: 'public',
+  },
+  {
+    controller: LegalController,
+    handler: 'getVersionComparison',
+    method: RequestMethod.GET,
+    path: 'api/legal/documents/:kind/versions/:versionKey/comparison',
+    access: 'public',
+  },
+  {
+    controller: LegalController,
+    handler: 'getRevisionNotices',
+    method: RequestMethod.GET,
+    path: 'api/legal/revision-notices',
+    access: 'public',
+  },
+  // Reconsent needs a signed-in member: no class-level @Public() (legal-content-operations D-LC7).
+  {
+    controller: LegalConsentController,
+    handler: 'getPendingConsents',
+    method: RequestMethod.GET,
+    path: 'api/legal/consents/pending',
+    access: 'protected',
+  },
+  {
+    controller: LegalConsentController,
+    handler: 'recordConsents',
+    method: RequestMethod.POST,
+    path: 'api/legal/consents',
+    access: 'protected',
   },
   {
     controller: SupportController,

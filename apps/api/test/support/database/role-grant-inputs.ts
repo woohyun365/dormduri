@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Client } from 'pg';
@@ -162,6 +162,33 @@ export async function smokeRoleGrants(
 }
 
 export const PRISMA_SCHEMA_PATH = path.resolve(ROLE_GRANTS_DIR, '../schema.prisma');
+export const PRISMA_MIGRATIONS_DIR = path.resolve(ROLE_GRANTS_DIR, '../migrations');
+
+/**
+ * Views a migration creates. Prisma does not model them (no views preview feature), so the grant table
+ * and column classes list them next to the schema.prisma models. A new view is declared here with its
+ * columns; `readMigrationViews` keeps this list equal to the CREATE VIEW statements.
+ */
+export const DATABASE_VIEWS: Readonly<Record<string, readonly string[]>> = {
+  // The member count the backoffice significant-change check reads (legal-content-operations D-LC8).
+  LegalNoticeRecipientCount: ['recipientCount'],
+};
+
+/** `CREATE VIEW` statements in every migration, as view name → statement text. */
+export function readMigrationViews(): Map<string, string> {
+  const views = new Map<string, string>();
+  for (const directory of readdirSync(PRISMA_MIGRATIONS_DIR, { withFileTypes: true })) {
+    if (!directory.isDirectory()) continue;
+    const sql = readFileSync(
+      path.join(PRISMA_MIGRATIONS_DIR, directory.name, 'migration.sql'),
+      'utf8',
+    );
+    for (const match of sql.matchAll(/CREATE VIEW "(\w+)" AS([\s\S]*?);/gu)) {
+      views.set(match[1]!, match[2]!);
+    }
+  }
+  return views;
+}
 
 const PRISMA_SCALAR_TYPES = new Set([
   'String',

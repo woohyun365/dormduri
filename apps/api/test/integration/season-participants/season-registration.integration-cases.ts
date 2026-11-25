@@ -16,6 +16,7 @@ import { UsersService } from '../../../src/users/application/users.service.js';
 import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
+  type IntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from '../_support/integration-db.js';
 import {
@@ -29,6 +30,7 @@ import {
   seedOperatedDormitoryFixture,
 } from '../_support/fixtures/reference-data.fixture.js';
 import { withPrismaQueryTraceOnFailure } from '../_support/integration-query-trace.js';
+import { insertSignupLegalDocumentVersions } from '../_support/fixtures/legal-documents.fixture.js';
 
 const signupLegalDocumentIds = {
   termsVersionId: 'season-registration-terms',
@@ -51,9 +53,10 @@ export function registerSeasonRegistrationCases(
     let usersService: UsersService;
     let closeApp: (() => Promise<void>) | null = null;
     let cleanupDb: (() => Promise<void>) | null = null;
+    let sandbox: IntegrationDatabaseSandbox;
 
     beforeAll(async () => {
-      const sandbox = await createIntegrationDatabaseSandbox('season_reg');
+      sandbox = await createIntegrationDatabaseSandbox('season_reg');
       cleanupDb = sandbox.cleanup;
 
       const { app, prisma: prismaService } = await createIntegrationApp();
@@ -833,52 +836,13 @@ export function registerSeasonRegistrationCases(
 
     async function seedSignupLegalDocuments() {
       const databaseNow = await prisma.getDatabaseNow();
-      const effectiveAt = new Date(databaseNow.getTime() - 60_000);
 
-      await prisma.legalDocumentVersion.createMany({
-        data: [
-          {
-            id: signupLegalDocumentIds.termsVersionId,
-            kind: 'TERMS_OF_SERVICE',
-            version: 'season-registration-terms',
-            title: '시즌 등록 테스트 이용약관',
-            summaryItems: [],
-            sections: [],
-            publishedAt: effectiveAt,
-            effectiveAt,
-          },
-          {
-            id: signupLegalDocumentIds.privacyPolicyVersionIdShown,
-            kind: 'PRIVACY_POLICY',
-            version: 'season-registration-privacy',
-            title: '시즌 등록 테스트 개인정보 처리방침',
-            summaryItems: [],
-            sections: [],
-            publishedAt: effectiveAt,
-            effectiveAt,
-          },
-          {
-            id: signupLegalDocumentIds.personalDataConsentVersionId,
-            kind: 'PERSONAL_DATA_COLLECTION_USE_CONSENT',
-            version: 'season-registration-personal-data-consent',
-            title: '시즌 등록 테스트 개인정보 수집·이용 동의',
-            summaryItems: [],
-            sections: [],
-            publishedAt: effectiveAt,
-            effectiveAt,
-          },
-          {
-            id: signupLegalDocumentIds.ageNoticeVersionId,
-            kind: 'AGE_14_OR_ABOVE_NOTICE',
-            version: 'season-registration-age-notice',
-            title: '시즌 등록 테스트 연령 확인',
-            summaryItems: [],
-            sections: [],
-            publishedAt: effectiveAt,
-            effectiveAt,
-          },
-        ],
-      });
+      await insertSignupLegalDocumentVersions(
+        sandbox,
+        signupLegalDocumentIds,
+        'season-registration',
+        databaseNow,
+      );
     }
 
     async function findUserIdByEmail(email: string) {

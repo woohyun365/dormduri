@@ -1,8 +1,8 @@
 # DB 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-21
-**확인 근거**: [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(migration-seed-compatibility의 `db.migration.change-strategy`·`db.migration.rollback-path`, integrity-retention-lifecycle의 `db.integrity.role-separation`·`db.integrity.retention-execution`과 pack 밖 결정의 Owner 확인 날짜), [#862의 사람 조회 `RetentionCase.id` 결정 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6715462160)(`db.integrity.role-separation`, 2026-11-08), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`db.integrity.role-separation`의 pool 처분·readiness 열, `db.integrity.recovery-target`의 RPO 10분, 2026-11-09·10), [#949의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/949#issuecomment-7059715410)(`db.integrity.role-separation`의 `backoffice_retention`, `db.integrity.retention-execution`의 관리자 기록 정리 위치, `db.integrity.audit-tables`의 관리자 감사와 FK `Restrict`, 2026-11-21)
+**확인일**: 2026-11-25
+**확인 근거**: [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(migration-seed-compatibility의 `db.migration.change-strategy`·`db.migration.rollback-path`, integrity-retention-lifecycle의 `db.integrity.role-separation`·`db.integrity.retention-execution`과 pack 밖 결정의 Owner 확인 날짜), [#862의 사람 조회 `RetentionCase.id` 결정 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6715462160)(`db.integrity.role-separation`, 2026-11-08), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`db.integrity.role-separation`의 pool 처분·readiness 열, `db.integrity.recovery-target`의 RPO 10분, 2026-11-09·10), [#949의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/949#issuecomment-7059715410)(`db.integrity.role-separation`의 `backoffice_retention`, `db.integrity.retention-execution`의 관리자 기록 정리 위치, `db.integrity.audit-tables`의 관리자 감사와 FK `Restrict`, 2026-11-21), [#996의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/996#issuecomment-7155467337)(schema-modeling의 `db.schema.history-model/legal`, 2026-11-17)
 **근거**: [Database operator scripts](../../../infra/db/README.md), [RDS setup and backup checklist](../../../infra/aws/rds-setup-checklist.md), [Backup and restore drill runbook](../../../infra/runbooks/operations/database/backup-restore.md), [Data retention](../../policies/data-retention.md#rrpd-db-접근-통제와-운영-관측), [Domain/SWE/Web/DB pack](../../development/agent-workflows/domain/swe-web/db.md)
 
 `Domain/SWE/Web/DB` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
@@ -23,6 +23,27 @@
 - 재검토 조건: 백오피스 table이 늘어 schema 단위 기본 권한이 table별 grant보다 단순해질 때
 - 출처: #849, Owner 확인 2026-11-04
 - pack 결정: 없음
+
+#### db.schema.history-model/legal
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: 별도 이력·snapshot table([Repo binding의 고른 값](../../development/agent-workflows/domain/knu-binding.md#고른-값)).
+  공개 법적 문서는 편집 중 초안(`LegalDocumentDraft`)과 내용이 바뀌지 않는 게시 판(`LegalDocumentVersion`) 행으로 나누고, 판
+  하나가 행 하나다. 게시 판의 내용 열은 어느 runtime role도 UPDATE·DELETE하지 못하고(`backoffice_runtime`은 철회 시각과
+  `updatedAt`만), grant 표와 smoke가 막는다. 판의 공개 key는 시행일(`effectiveDate`, 한국 시간 날짜)이고 철회되지 않은 판끼리
+  (kind, 시행일)이 겹치지 않으며 kind의 첫 게시는 하나다(부분 unique). 시행 예정·시행 중·이전은 상태 열 없이 DB 시각과 시행
+  시각(시행일 00:00 한국 시간)으로 계산하고, 이전 판 기록만 적용 끝 날짜를 갖는다. 판 행은 승인 요청을 FK로 가리키지 않고
+  작성자·승인자·자기 승인 여부를 자기 열에 복사하며, 내용 digest(고정 순서 JSON의 sha256)를 둔다. 규칙은
+  [legal-basis.md](../../policies/legal-basis.md) `LB-R6`
+- 근거: 게시한 문안은 공개 기록이라 고치지 못해야 하고, 이전 판과 적용기간을 계속 보여줘야 한다(`LB-R6`). 시각 계산은 시행일에
+  상태를 바꾸는 job이 없어 job 실패로 시행이 밀리지 않는다. 승인 요청 행은 3년 뒤 정리되므로 판 행이 그 행에 기대지 않는다.
+  table을 다시 나누는 비용은 크지만 사용자 release 전이라 forward migration으로 고친다
+- 기각한 대안: 한 table과 상태 열(시행일에 상태를 바꾸는 job·trigger가 늘어남), 변경 event 기록(공개 열람 query가 복잡해짐),
+  판 행이 승인 요청을 FK로 가리킴(승인 요청 정리를 막음), 예약 job이 상태 열을 바꿈, 서버 시계로 상태 계산(DB 시각과 어긋남)
+- 재검토 조건: 운영자가 둘 이상이 되어 동시 편집이 생길 때, 판 수가 kind당 수십을 넘어 목록 응답이 커질 때
+- 출처: #996, Owner 확인 2026-11-17
+- pack 결정: [db.schema.history-model](../../development/agent-workflows/domain/swe-web/db.md#dbschemahistory-model)
 
 ## migration-seed-compatibility
 

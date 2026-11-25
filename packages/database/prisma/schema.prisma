@@ -256,6 +256,22 @@ enum LegalAcceptanceAction {
   SHOW
 }
 
+// HISTORICAL: a version shown before the first publication, recorded with its applies-until date.
+// INITIAL: the first publication of a kind. GENERAL: 7-day notice. SIGNIFICANT: 30-day notice.
+enum LegalNoticeClass {
+  HISTORICAL
+  INITIAL
+  GENERAL
+  SIGNIFICANT
+}
+
+enum LegalDocumentDraftStatus {
+  EDITING
+  PENDING_APPROVAL
+  PUBLISHED
+  DISCARDED
+}
+
 enum MatchRequestStatus {
   PENDING
   ACCEPTED
@@ -1287,24 +1303,70 @@ model SupportFaqPlacement {
   @@index([surface, sortOrder, articleId])
 }
 
+// A published legal document version: content never changes after INSERT (no role has UPDATE on a
+// content column, role-grant-matrix.csv). The public key is the effective date (KST); state is
+// computed from the database clock (scheduled, current, previous), so no job switches versions.
+// Partial unique indexes and pair CHECKs live in migration 20261125000000_legal_version_model.
 model LegalDocumentVersion {
-  id            String                  @id
-  kind          LegalDocumentKind
-  version       String
-  title         String
-  summaryItems  Json
-  sections      Json
-  changeSummary String?
-  publishedAt   DateTime?               @db.Timestamptz(3)
-  effectiveAt   DateTime                @db.Timestamptz(3)
-  retiredAt     DateTime?               @db.Timestamptz(3)
-  createdAt     DateTime                @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime                @default(now()) @updatedAt @db.Timestamptz(3)
-  acceptances   LegalAcceptanceRecord[]
+  id                     String                  @id
+  kind                   LegalDocumentKind
+  version                String
+  title                  String
+  summaryItems           Json
+  sections               Json
+  changeSummary          String
+  noticeClass            LegalNoticeClass
+  consentRequired        Boolean                 @default(false)
+  effectiveDate          DateTime                @db.Date
+  appliesUntil           DateTime?               @db.Date
+  contentDigest          String
+  // Approval time, which is also when the notice starts.
+  publishedAt            DateTime                @db.Timestamptz(3)
+  // Backoffice-approved versions name both accounts; repository seed versions (development and test) name neither.
+  authorAdminAccountId   String?
+  approverAdminAccountId String?
+  selfApproved           Boolean                 @default(false)
+  withdrawnAt            DateTime?               @db.Timestamptz(3)
+  createdAt              DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime                @default(now()) @updatedAt @db.Timestamptz(3)
+  acceptances            LegalAcceptanceRecord[]
+  authorAdminAccount     AdminAccount?           @relation("LegalDocumentVersionAuthor", fields: [authorAdminAccountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  approverAdminAccount   AdminAccount?           @relation("LegalDocumentVersionApprover", fields: [approverAdminAccountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  drafts                 LegalDocumentDraft[]
+  withdrawalRequests     AdminApprovalRequest[]  @relation("AdminApprovalRequestTargetLegalVersion")
 
   @@unique([kind, version])
-  @@index([kind, publishedAt, effectiveAt, retiredAt])
-  @@index([kind, effectiveAt, id])
+  @@index([kind, effectiveDate])
+  @@index([authorAdminAccountId])
+  @@index([approverAdminAccountId])
+}
+
+// A backoffice draft. Saving is a conditional UPDATE on `revision`; a draft waiting for approval is
+// not saved (backoffice legal module). Drafts hold no user personal data.
+model LegalDocumentDraft {
+  id                    String                   @id @default(uuid())
+  kind                  LegalDocumentKind
+  basedOnVersionId      String?
+  title                 String
+  summaryItems          Json
+  sections              Json
+  changeSummary         String
+  noticeClass           LegalNoticeClass
+  consentRequired       Boolean                  @default(false)
+  proposedEffectiveDate DateTime                 @db.Date
+  appliesUntil          DateTime?                @db.Date
+  status                LegalDocumentDraftStatus @default(EDITING)
+  revision              Int                      @default(1)
+  authorAdminAccountId  String
+  createdAt             DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                 @default(now()) @updatedAt @db.Timestamptz(3)
+  basedOnVersion        LegalDocumentVersion?    @relation(fields: [basedOnVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  authorAdminAccount    AdminAccount             @relation("LegalDocumentDraftAuthor", fields: [authorAdminAccountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  publishRequests       AdminApprovalRequest[]   @relation("AdminApprovalRequestTargetLegalDraft")
+
+  @@index([kind, status])
+  @@index([basedOnVersionId])
+  @@index([authorAdminAccountId])
 }
 
 model LegalAcceptanceRecord {
@@ -2214,6 +2276,8 @@ enum AdminRole {
 enum AdminApprovalRequestKind {
   ROLE_GRANT
   ROLE_REVOKE
+  LEGAL_PUBLISH
+  LEGAL_WITHDRAW
 }
 
 enum AdminApprovalRequestStatus {
@@ -2255,6 +2319,16 @@ enum AdminAuditAction {
   ACCOUNT_DEACTIVATE
   AUDIT_REVIEW
   BOOTSTRAP_OWNER
+  LEGAL_DRAFT_CREATE
+  LEGAL_DRAFT_UPDATE
+  LEGAL_DRAFT_DISCARD
+  LEGAL_PUBLISH_REQUEST
+  LEGAL_PUBLISH_APPROVE
+  LEGAL_PUBLISH_REJECT
+  LEGAL_WITHDRAW_REQUEST
+  LEGAL_WITHDRAW_APPROVE
+  LEGAL_WITHDRAW_REJECT
+  LEGAL_REQUEST_CANCEL
 }
 
 enum AdminAuditTargetType {
@@ -2264,6 +2338,8 @@ enum AdminAuditTargetType {
   ADMIN_PASSKEY_CREDENTIAL
   ADMIN_ROLE_ASSIGNMENT
   ADMIN_APPROVAL_REQUEST
+  LEGAL_DOCUMENT_DRAFT
+  LEGAL_DOCUMENT_VERSION
 }
 
 enum AdminAuditResult {
@@ -2299,6 +2375,9 @@ model AdminAccount {
   decidedApprovals       AdminApprovalRequest[]   @relation("AdminApprovalRequestDecidedBy")
   targetedApprovals      AdminApprovalRequest[]   @relation("AdminApprovalRequestTargetAccount")
   auditEvents            AdminAuditEvent[]
+  authoredLegalDrafts    LegalDocumentDraft[]     @relation("LegalDocumentDraftAuthor")
+  authoredLegalVersions  LegalDocumentVersion[]   @relation("LegalDocumentVersionAuthor")
+  approvedLegalVersions  LegalDocumentVersion[]   @relation("LegalDocumentVersionApprover")
 
   @@index([status, deactivatedAt])
 }
@@ -2441,6 +2520,9 @@ model AdminApprovalRequest {
   contentDigest        String
   targetAccountId      String?
   targetRole           AdminRole?
+  // LEGAL_PUBLISH names the draft, LEGAL_WITHDRAW the scheduled version (AdminApprovalRequest_legal_target_check).
+  targetLegalDraftId   String?
+  targetLegalVersionId String?
   requestedByAccountId String
   requestReason        String?
   expiresAt            DateTime                   @db.Timestamptz(3)
@@ -2452,12 +2534,16 @@ model AdminApprovalRequest {
   targetAccount        AdminAccount?              @relation("AdminApprovalRequestTargetAccount", fields: [targetAccountId], references: [id], onDelete: Restrict)
   requestedBy          AdminAccount               @relation("AdminApprovalRequestRequestedBy", fields: [requestedByAccountId], references: [id], onDelete: Restrict)
   decidedBy            AdminAccount?              @relation("AdminApprovalRequestDecidedBy", fields: [decidedByAccountId], references: [id], onDelete: Restrict)
+  targetLegalDraft     LegalDocumentDraft?        @relation("AdminApprovalRequestTargetLegalDraft", fields: [targetLegalDraftId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  targetLegalVersion   LegalDocumentVersion?      @relation("AdminApprovalRequestTargetLegalVersion", fields: [targetLegalVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   grantedAssignments   AdminRoleAssignment[]      @relation("AdminRoleAssignmentGrantedBy")
   revokedAssignments   AdminRoleAssignment[]      @relation("AdminRoleAssignmentRevokedBy")
   auditEvents          AdminAuditEvent[]
 
   @@index([status, expiresAt])
   @@index([closedAt])
+  @@index([targetLegalDraftId])
+  @@index([targetLegalVersionId])
 }
 
 // Append-only for backoffice_runtime (INSERT·SELECT). Only backoffice_retention deletes rows

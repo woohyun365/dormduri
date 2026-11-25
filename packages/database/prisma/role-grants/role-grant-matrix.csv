@@ -29,10 +29,15 @@ SupportFaqArticle,app_runtime,SELECT INSERT UPDATE DELETE,
 SupportFaqArticle,app_readonly,SELECT,-secret -content
 SupportFaqPlacement,app_runtime,SELECT INSERT UPDATE DELETE,
 SupportFaqPlacement,app_readonly,SELECT,-secret -content
-LegalDocumentVersion,app_runtime,SELECT INSERT UPDATE DELETE,
+LegalDocumentVersion,app_runtime,SELECT,
+LegalDocumentVersion,backoffice_runtime,SELECT INSERT,
+LegalDocumentVersion,backoffice_runtime,UPDATE,withdrawnAt updatedAt
 LegalDocumentVersion,app_readonly,SELECT,-secret -content
-LegalAcceptanceRecord,app_runtime,SELECT INSERT UPDATE DELETE,
+LegalDocumentDraft,backoffice_runtime,SELECT INSERT UPDATE,
+LegalDocumentDraft,app_readonly,SELECT,-secret -content
+LegalAcceptanceRecord,app_runtime,SELECT INSERT,
 LegalAcceptanceRecord,app_readonly,SELECT,-secret -content
+LegalNoticeRecipientCount,backoffice_runtime,SELECT,
 SeasonParticipantLifecycleEvent,app_runtime,SELECT INSERT UPDATE DELETE,
 SeasonParticipantLifecycleEvent,app_readonly,SELECT,-secret -content
 MatchRequest,app_runtime,SELECT INSERT UPDATE DELETE,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   COLUMN_CLASSES,
+  DATABASE_VIEWS,
   readColumnClasses,
   readPrismaSchemaShape,
 } from '../../support/database/role-grant-inputs.js';
@@ -16,7 +17,13 @@ describe('DB column privacy classes', () => {
   const key = (row: { table: string; column: string }) => `${row.table}.${row.column}`;
 
   it('schema.prisma의 모든 열이 한 번씩 분류되고 사라진 열은 남지 않는다', () => {
-    const schemaColumns = new Set(schema.columns.map(key));
+    // Migration views are not Prisma models; their declared columns are classified too.
+    const schemaColumns = new Set([
+      ...schema.columns.map(key),
+      ...Object.entries(DATABASE_VIEWS).flatMap(([table, columns]) =>
+        columns.map((column) => key({ table, column })),
+      ),
+    ]);
     const classified = classes.map(key);
 
     expect(schema.unknownFieldTypes).toEqual([]);
