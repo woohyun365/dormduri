@@ -496,11 +496,11 @@ test('info/exclude does not change a retired root or nested runtime state', (t) 
   const retired = ignoreFixture(t, { exclude: 'artifacts/\n', files: ['artifacts/a'] });
   const nested = ignoreFixture(t, {
     exclude: '.omx/\n',
-    tracked: ['apps/package.json'],
-    files: ['apps/.omx/state.json'],
+    tracked: ['lib/index.js'],
+    files: ['lib/.omx/state.json'],
   });
   assert.deepEqual(retired.report(), [['artifacts/', 'retired-root']]);
-  assert.deepEqual(nested.report(), [['apps/.omx/', 'nested-runtime-state']]);
+  assert.deepEqual(nested.report(), [['lib/.omx/', 'nested-runtime-state']]);
 });
 
 test('a directory with only some files excluded by info/exclude stays outside-manifest-root', (t) => {
@@ -582,8 +582,8 @@ test('a colon name is not read as pathspec magic and stays an issue when only an
 test('the layout check asks git about ignore rules only when an outside-manifest-root candidate exists', (t) => {
   const fixture = ignoreFixture(t, {
     exclude: 'artifacts/\n.omx/\nnotes.local\n',
-    tracked: ['apps/package.json'],
-    files: ['artifacts/a', 'apps/.omx/state.json'],
+    tracked: ['lib/index.js'],
+    files: ['artifacts/a', 'lib/.omx/state.json'],
   });
   const bin = resolve(fixture.home, 'bin');
   const log = resolve(fixture.home, 'git-calls.log');
@@ -608,16 +608,16 @@ test('the layout check asks git about ignore rules only when an outside-manifest
   // Retired roots and nested runtime state are not candidates, so their names are never asked.
   assert.deepEqual(judged(), [
     [
-      ['apps/.omx/', 'nested-runtime-state'],
       ['artifacts/', 'retired-root'],
+      ['lib/.omx/', 'nested-runtime-state'],
     ],
     [],
   ]);
   writeFileSync(resolve(fixture.root, 'notes.local'), 'x\n');
   assert.deepEqual(judged(), [
     [
-      ['apps/.omx/', 'nested-runtime-state'],
       ['artifacts/', 'retired-root'],
+      ['lib/.omx/', 'nested-runtime-state'],
     ],
     RULE_QUERIES,
   ]);
@@ -721,22 +721,22 @@ test('readInfoExcluded compares the source with the --git-path output byte for b
 });
 
 test('only info/exclude names leave the outside-manifest-root branch; retired and nested state stay', () => {
-  const entries = ['a/', 'a/x.log', 'b', 'artifacts/', 'apps/.omx/', 'c'];
+  const entries = ['a/', 'a/x.log', 'b', 'artifacts/', 'lib/.omx/', 'c'];
   const judged = (options) =>
-    findWorkspaceLayoutIssues(entries, { trackedTopLevel: new Set(['apps']), ...options }).map(
+    findWorkspaceLayoutIssues(entries, { trackedTopLevel: new Set(['lib']), ...options }).map(
       (issue) => [issue.path, issue.kind],
     );
-  assert.deepEqual(judged({ infoExcluded: new Set(['a', 'artifacts', 'apps', 'c']) }), [
+  assert.deepEqual(judged({ infoExcluded: new Set(['a', 'artifacts', 'lib', 'c']) }), [
     ['b', OUTSIDE],
     ['artifacts/', 'retired-root'],
-    ['apps/.omx/', 'nested-runtime-state'],
+    ['lib/.omx/', 'nested-runtime-state'],
   ]);
   assert.deepEqual(judged({}), [
     ['a/', OUTSIDE],
     ['a/x.log', OUTSIDE],
     ['b', OUTSIDE],
     ['artifacts/', 'retired-root'],
-    ['apps/.omx/', 'nested-runtime-state'],
+    ['lib/.omx/', 'nested-runtime-state'],
     ['c', OUTSIDE],
   ]);
 });
