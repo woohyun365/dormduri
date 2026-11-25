@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type Ref } from 'react';
 import type { AccessRequest, AccountListResponse } from '@repo/shared/backoffice';
 import { Button } from '@/ui/Button';
 import { TextAreaField } from '@/ui/fields';
@@ -27,6 +27,7 @@ export function RequestDetail({
   failure,
   onDecide,
   onCancel,
+  headingRef,
 }: {
   readonly request: AccessRequest;
   readonly accounts: AccountListResponse['accounts'] | null;
@@ -39,6 +40,8 @@ export function RequestDetail({
   readonly failure: ResultMessage | null;
   readonly onDecide: (approve: boolean, reason: string) => void;
   readonly onCancel: () => void;
+  /** The heading the screen moves focus to where the detail sits under the list. */
+  readonly headingRef?: Ref<HTMLHeadingElement>;
 }) {
   const [missingReason, setMissingReason] = useState(false);
   const reasonId = `decision-reason-${request.id}`;
@@ -88,7 +91,12 @@ export function RequestDetail({
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-stroke-subtle px-card py-4">
         <div className="flex min-w-0 flex-col gap-1">
           <p className="text-caption text-fg-muted">요청 {shortId(request.id)}</p>
-          <h2 id="access-detail-heading" className="text-title-2 font-semibold text-fg-neutral">
+          <h2
+            ref={headingRef}
+            id="access-detail-heading"
+            tabIndex={-1}
+            className="rounded-control text-title-2 font-semibold text-fg-neutral focus-ring"
+          >
             {REQUEST_KIND_LABELS[request.kind]} · {accountName(accounts, request.targetAccountId)}
           </h2>
         </div>

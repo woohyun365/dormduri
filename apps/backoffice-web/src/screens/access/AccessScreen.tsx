@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type {
   AccessRequest,
   AccountListResponse,
@@ -22,10 +22,14 @@ import { RequestList } from './RequestList';
 
 type Accounts = AccountListResponse['accounts'];
 
+/** Below 1024px the detail sits under the list (design guide ④): a choice moves there. */
+const NARROW = '(width < 64rem)';
+
 /**
  * Role grant and revoke requests (OA-R9) as a master-detail (design guide ④): the status filter is the URL query, the
- * chosen request is screen state and stays after a decision (no automatic next request), and a new request opens in
- * a right drawer. Results of a decision show under the page title; a failure stays in the decision area or the drawer.
+ * chosen request is screen state and stays after a decision or a cancel (no automatic next request), and a new request
+ * opens in a right drawer. Results show under the page title; a failure stays in the decision area or the drawer.
+ * Another status filter is another list: the choice starts again from its first request and the last result goes.
  */
 export function AccessScreen({
   requests,
@@ -51,17 +55,35 @@ export function AccessScreen({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<ResultMessage | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(requests[0]?.id ?? null);
-  // A decided request stays chosen even when the refreshed list (a status filter) no longer holds it.
+  // A decided or cancelled request stays chosen as the API answered it: before the refresh the list still holds the
+  // pending copy, and after it a status filter may no longer hold it.
   const [decided, setDecided] = useState<AccessRequest | null>(null);
   const [decisionFailure, setDecisionFailure] = useState<ResultMessage | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [newFailure, setNewFailure] = useState<ResultMessage | null>(null);
+  const [shownStatus, setShownStatus] = useState(status);
+  if (shownStatus !== status) {
+    setShownStatus(status);
+    setSelectedId(requests[0]?.id ?? null);
+    setDecided(null);
+    setMessage(null);
+    setDecisionFailure(null);
+  }
+  // Set by a choice in the list; the effect below moves focus once the chosen detail is drawn.
+  const toDetail = useRef(false);
+  const detailRef = useRef<HTMLHeadingElement>(null);
   const selected =
-    requests.find((request) => request.id === selectedId) ??
     (decided && decided.id === selectedId ? decided : null) ??
+    requests.find((request) => request.id === selectedId) ??
     requests[0] ??
     null;
   const pendingCount = requests.filter((request) => request.status === 'PENDING').length;
+  const selectedKey = selected?.id ?? null;
+  useEffect(() => {
+    if (!toDetail.current) return;
+    toDetail.current = false;
+    if (window.matchMedia?.(NARROW).matches) detailRef.current?.focus();
+  }, [selectedKey]);
 
   async function decide(request: AccessRequest, approve: boolean, reason: string) {
     setPending(true);
@@ -98,13 +120,14 @@ export function AccessScreen({
     setMessage(null);
     setDecisionFailure(null);
     const result = await withReauthentication(() =>
-      postBff(`/api/access/requests/${request.id}/cancel`),
+      postBff<AccessRequest>(`/api/access/requests/${request.id}/cancel`),
     );
     setPending(false);
     if (!result.ok) {
       setDecisionFailure(failure(result.code));
       return;
     }
+    setDecided(result.data);
     setMessage(success('요청을 취소했습니다.'));
     router.refresh();
   }
@@ -169,12 +192,14 @@ export function AccessScreen({
           selectedId={selected?.id ?? null}
           onSelect={(requestId) => {
             setDecisionFailure(null);
+            toDetail.current = requestId !== selected?.id;
             setSelectedId(requestId);
           }}
         />
         {selected ? (
           <RequestDetail
             key={selected.id}
+            headingRef={detailRef}
             request={selected}
             accounts={accounts}
             self={selected.requestedByAccountId === selfAccountId}
