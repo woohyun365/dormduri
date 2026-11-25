@@ -285,9 +285,10 @@
   `carry-round-diff-not-docs`는 그 회차 뒤 `.md` 아닌 변경·새 `.md`·지운 `.md`가 있거나 그 회차 범위 기록이 없어 회차 diff를 알 수
   없는 것, `carry-doc-referenced`는 `scripts/`
   파일이 바뀐 문서를 이름으로 가진 것입니다. 모두 그 record를 이번 회차에 다시 실행해 기록하면 풀립니다. `carry-confirm-exists`는
-  이어 쓴 회차의 `--out` 아래 `confirm/evidence.json`이 등록 전에 이미 있는 것(앞 등록과 같은 `--out`)이라 새 `--out`으로 다시 등록합니다.
-- 확인 대조: `carry-confirm-pending`은 runner가 `<out-dir>/confirm/evidence.json`을 아직 쓰지 않은 것이라 확인 실행이 끝난 뒤 같은
-  명령으로 다시 정산합니다. `carry-confirm-missing: <record>`는 그 이름의 확인 record가 없고, `carry-confirm-mismatch: <record>`는
+  이어 쓴 회차의 `--out` 아래 `confirm/evidence.json`이 등록 전에 이미 있는 것(앞 등록과 같은 `--out`이거나 확인 실행이 등록 전에 옮김)이라,
+  새 `--out`으로 다시 등록하고 확인 실행을 다시 돌려 그 등록 뒤에 새 `--out` 아래로 옮깁니다.
+- 확인 대조: `carry-confirm-pending`은 확인 실행이 `<out-dir>/confirm/evidence.json`을 아직 옮기지 않은 것(확인 실행이 끝나지 않았거나
+  끝난 기록을 다른 이름으로 둠)이라 확인 실행이 끝나 그 경로로 옮긴 뒤 같은 명령으로 다시 정산합니다. `carry-confirm-missing: <record>`는 그 이름의 확인 record가 없고, `carry-confirm-mismatch: <record>`는
   확인 실행의 exit·조각·test 결과 줄이 이어 쓴 결과와 다르거나 이어 쓴 출력이 등록 뒤 바뀐 것(확인 실행이 그 log에 덮어씀 포함)이며, `carry record`는 `<reviewId>.carry.json`이 없거나 prompt 기록 digest와
   다르고, `snapshot`은 확인 실행 중 checkout이 바뀐 것입니다. 결과를 쓰지 않으므로 확인 기록을 이번 회차 record로 써서
   `review-run`을 다시 실행합니다.

@@ -110,8 +110,8 @@ readiness 리뷰는 이 필드를 쓰지 않습니다. Subject의 `request`·`ac
 
 이어 쓴 record가 있는 회차는 `<reviewId>.carry.json`(이어 쓴 record의 이름·exit·요약·출력과 출력 digest, 이번 회차 header, 확인 기록 경로)을
 남기고 prompt 기록이 그 digest를 결속합니다. 그 reviewer 정산은 결과를 쓰기 전에 runner의 확인 기록
-`<out-dir>/confirm/evidence.json`(확인 기록에는 reviewId가 없어 이어 쓴 회차는 새 `--out`으로 등록하고, 그 경로가 등록 전에 이미 있으면
-`review-run`이 `carry-confirm-exists`로 거부)을 `runner-log-check.mjs --confirm`으로 결과 단위(exit·조각·test 이름 줄과 요약 수, 시간 값은 가림)와
+`<out-dir>/confirm/evidence.json`(확인 기록에는 reviewId가 없어 이어 쓴 회차는 새 `--out`으로 등록하고, 확인 실행은 그 등록을 마친 뒤에
+이 경로로 옮기며, 그 경로가 등록 전에 이미 있으면 `review-run`이 `carry-confirm-exists`로 거부)을 `runner-log-check.mjs --confirm`으로 결과 단위(exit·조각·test 이름 줄과 요약 수, 시간 값은 가림)와
 대조하고, 이어 쓴 출력을 carry 기록의 digest와 다시 재고(확인 실행이 그 log에 덮어썼거나 등록 뒤 고쳤으면 그 record의
 `carry-confirm-mismatch`), snapshot을 다시 잽니다. 확인 기록이 없으면 `carry-confirm-pending`으로 멈추고, 다르면 `carry-confirm-missing`·
 `carry-confirm-mismatch`가 `observationErrors`에 들어가 그 결과를 쓰지 않습니다.

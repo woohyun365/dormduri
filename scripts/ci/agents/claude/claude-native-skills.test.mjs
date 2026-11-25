@@ -886,10 +886,17 @@ test('qa.md and the Claude review skill carry a documents-only round ahead and c
     '`carriedFrom`',
     '확인 실행을 1~2갈래로',
     '`<out-dir>/confirm/evidence.json`',
+    // Review round 3 u1 (Owner 4.1): confirm runs start before review-run, so the record moves in only after it registers.
+    '`review-run`이 그 `--out`으로 등록을 마친 뒤(exit 0)에 `<out-dir>/confirm/evidence.json`으로 옮깁니다',
+    '등록보다 먼저 끝나도 그 전에는 옮기지 않습니다',
     'tracked 파일과 리뷰 read path를 바꾸지 않습니다',
     '`runner-read-trace.mjs`로 감쌉니다',
   ])
     assert.ok(environment.includes(phrase), `Runner 환경: ${phrase}`);
+  assert.ok(
+    !environment.includes('`<out-dir>/confirm/evidence.json`에 한 번에 씁니다'),
+    'Runner 환경: older write-at-finish sentence',
+  );
   const runnerStep = section.steps.find(({ name }) => name === 'Runner 기록 검사').text;
   for (const phrase of [
     '`<out-dir>/checks/carry-basis.json`',
@@ -903,6 +910,8 @@ test('qa.md and the Claude review skill carry a documents-only round ahead and c
     '`carry-path-unsupported`',
     // u2 (Owner 3.2): the confirm record names no review id, so a carried round registers with a new --out.
     '새 `--out`으로 등록하고, `<out-dir>/confirm/evidence.json`이 등록 전에 이미 있으면 `carry-confirm-exists`',
+    // Review round 3 u1 (Owner 4.1): the recovery runs the confirm runs again for the new registration.
+    '새 `--out`으로 다시 등록하고 확인 실행을 다시 돌려 그 등록 뒤에 옮깁니다',
   ])
     assert.ok(runnerStep.includes(phrase), `Runner 기록 검사: ${phrase}`);
   // The record format names the optional field and where it is taken.
@@ -948,6 +957,8 @@ test('the review owner documents name the carry rules and the evidence source wa
     '그 밖의 글자나 `%`가 뒤에 오면 연도·`n.n` 모양도 측정값',
     '맨 소수(`0.98`)는 `n.n` 절 번호로 읽혀 빠집니다',
     '`carry-confirm-exists`',
+    // Review round 3 u1 (Owner 4.1): the confirm runs move the record in only after the registration.
+    '확인 실행은 그 등록을 마친 뒤에 이 경로로 옮기며',
   ])
     assert.ok(adapter.includes(phrase), `claude-same-host-review.md: ${phrase}`);
   const criteria = flat('docs/development/agent-workflows/review-criteria/README.md');
@@ -996,4 +1007,11 @@ test('the review owner documents name the carry rules and the evidence source wa
     'carry-confirm-exists',
   ])
     assert.ok(rejections.includes(`\`${reason}`), `rejection guide: ${reason}`);
+  // Review round 3 u1 (Owner 4.1): the recovery of carry-confirm-exists and the record moved in after registration.
+  for (const phrase of [
+    '확인 실행이 등록 전에 옮김',
+    '새 `--out`으로 다시 등록하고 확인 실행을 다시 돌려 그 등록 뒤에 새 `--out` 아래로 옮깁니다',
+    '`carry-confirm-pending`은 확인 실행이 `<out-dir>/confirm/evidence.json`을 아직 옮기지 않은 것',
+  ])
+    assert.ok(rejections.includes(phrase), `rejection guide: ${phrase}`);
 });

@@ -117,7 +117,8 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
   `oss-review-p6-pr4`)을 씁니다. 회차 diff가 바뀐 문서(`.md`)뿐이고 새로 만들거나 지운 `.md`가 없고 바뀐 `.md`의 경로나 파일 이름을
   가진 tracked `scripts/` 파일이 없는 Parent subject 2회차부터는 앞 회차 실행 시간이 60초 이상인 code 검사 record(test·검사 도구
   실행)를 그 회차 log 그대로 `carriedFrom`으로 이어 써 리뷰를 먼저 보내고, runner 시작 때 그 record의 확인 실행을 1~2갈래로 시작합니다. 확인 실행은 같은 `command`로 첫 줄이 이번 회차 `logHeader`인 새 log를 쓰고, 모두 끝나면 그 record들을
-  runner evidence 모양으로 `<out-dir>/confirm/evidence.json`에 한 번에 씁니다(다른 이름으로 쓴 뒤 옮김). 확인 실행은 새 출력
+  runner evidence 모양으로 다른 이름(예: `<out-dir>/confirm/evidence.json.part`)에 쓰고, `review-run`이 그 `--out`으로 등록을 마친 뒤(exit 0)에
+  `<out-dir>/confirm/evidence.json`으로 옮깁니다. 등록보다 먼저 끝나도 그 전에는 옮기지 않습니다. 확인 실행은 새 출력
   경로에만 쓰고 tracked 파일과 리뷰 read path를 바꾸지 않습니다. 문서 검사·같은 유형 검색·evidence 재현·diff record는 매 회차 다시
   돌립니다. Evidence 재현 record는 `runner-read-trace.mjs`로 감쌉니다. 감싼 실행
   `node scripts/agents/common/runner-read-trace.mjs --header "<logHeader>" --out <trace.json> --log <log> -- <명령>`이 log를 쓰고,
@@ -174,6 +175,7 @@ Native subject가 없는 Parent 변경의 검토입니다. Builder의 `reviewerT
    `.md`·지운 `.md`가 있거나 그 회차 범위 기록이 없으면 `carry-round-diff-not-docs`, tracked `scripts/` 파일이 바뀐 `.md`의 경로나 파일 이름을 가지면 `carry-doc-referenced`로 등록하지
    않습니다. 1회차·native subject·`review` 직접 실행의 이어 쓴 record는 `carry-path-unsupported`입니다. 확인 기록은 reviewId를 갖지
    않으므로 이어 쓴 회차는 새 `--out`으로 등록하고, `<out-dir>/confirm/evidence.json`이 등록 전에 이미 있으면 `carry-confirm-exists`입니다.
+   그때는 새 `--out`으로 다시 등록하고 확인 실행을 다시 돌려 그 등록 뒤에 옮깁니다.
 
 ## 1회차 다중 reviewer
 
