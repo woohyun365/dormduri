@@ -215,13 +215,14 @@ function nulFields(output) {
 // (source, line, pattern, path) hold a pattern that is not empty and not a negation, the path asked, and a source equal
 // byte for byte to the info/exclude path: both outputs come from the same cwd, so equal bytes name the same file and a
 // relative and an absolute form are not taken as one. An exit outside 0 and 1, output not ending in NUL, a field count
-// that is not four per name or a failed --git-path pass no name.
+// that is not four per name, or a failed or empty --git-path pass no name.
 export function readInfoExcluded(names, check, gitPath) {
   const excluded = new Set();
   const fields = check.status === 0 || check.status === 1 ? nulFields(check.stdout) : undefined;
   if (fields?.length !== names.length * 4 || gitPath.status !== 0) return excluded;
   const infoExclude =
     gitPath.stdout.at(-1) === NEWLINE ? gitPath.stdout.subarray(0, -1) : gitPath.stdout;
+  if (infoExclude.length === 0) return excluded;
   names.forEach((name, index) => {
     const [source, , pattern, path] = fields.slice(index * 4, index * 4 + 4);
     if (

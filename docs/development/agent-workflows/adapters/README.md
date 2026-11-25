@@ -104,9 +104,14 @@ Host adapter 문서는 이 규칙을 다시 쓰지 않고 이 절을 가리킵�
 
 2. **사용자 설정을 덮어쓰지 않음**: workflow는 사용자와 third-party plugin의 설정을 덮어쓰지 않습니다. 한 값만 받는
    설정(Claude Code `statusLine`·`subagentStatusLine`, Git `core.hooksPath` 등)은 덮지 않고 사용자에게 묻고, 바꾸기로 하면
-   바꾸기 전 값을 백업합니다.
+   바꾸기 전 값을 백업합니다. 이 규칙은 workflow가 하는 setup과 agent 작업에 적용됩니다. 저장소가 이미 쓰는 개발
+   도구(package manager의 install lifecycle script, Git hook 관리 도구 등)가 정하는 설정은 그 저장소가 소유하므로
+   workflow가 바꾸거나 되돌리지 않습니다. 그런 도구는 install 때 `core.hooksPath` 같은 한 값 설정을 묻지 않고 바꿀 수
+   있습니다.
 3. **모르는 local state root**: 저장소 root에 모르는 항목이 생기면 [layout guard](../workspace-layout.md#layout-guard)의
    `outside-manifest-root`가 이름 없이 알립니다. 사용자가 켠 도구의 local state면 그 root를 `.git/info/exclude`(추적되지
    않고 그 clone에만 적용)에 넣을지 사용자에게 묻고, 추적 `.gitignore`와 workspace layout binding은 바꾸지 않습니다.
+   그 파일의 위치는 `git rev-parse --git-path info/exclude`가 내고, linked worktree에서는 `.git`이 파일이라 공통 git dir의
+   그 파일(모든 worktree가 함께 씀)입니다.
    넣는 줄은 root 자체를 제외하는 꼴(디렉터리 `/<이름>/`, 파일 `/<이름>` 등)이어야 통과하고, 내용만 제외하는
    `<이름>/*`는 그대로 실패입니다. 전역 exclude(`core.excludesFile`)로만 무시된 root도 실패이고 hint가 같은 질문을 합니다.

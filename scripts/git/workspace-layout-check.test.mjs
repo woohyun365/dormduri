@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 
+import { BINDING_FILE, loadWorkspaceLayout } from '../artifacts/workspace-layout.mjs';
 import * as layoutCheck from './workspace-layout-check.mjs';
 
 const { findWorkspaceLayoutIssues, listUntrackedEntries } = layoutCheck;
@@ -419,9 +420,11 @@ test('the outside-manifest-root hint first asks about .git/info/exclude and keep
     issue.hint,
     /^if it is local state of a tool the user enabled, ask the user whether to add the root to \.git\/info\/exclude \(untracked, applies to this clone only\)\. /u,
   );
-  assert.match(
+  assert.ok(
+    issue.hint.endsWith(
+      ` add the root to ${BINDING_FILE} (fields: ${loadWorkspaceLayout().binding.guide}) or move the content under a manifest root`,
+    ),
     issue.hint,
-    / add the root to scripts\/artifacts\/workspace-layout\.knu\.json \(fields: docs\/development\/agent-workflows\/workspace-layout\.md\) or move the content under a manifest root$/u,
   );
 });
 
@@ -521,11 +524,16 @@ test('content-only info/exclude patterns keep the root outside-manifest-root wit
       exclude: '.fooplugin/*\n',
       files: ['.fooplugin/a', '.fooplugin/keep', ['.fooplugin/.gitignore', '!keep\n']],
     },
+    { exclude: '.fooplugin/**\n!.fooplugin/keep\n', files: ['.fooplugin/a', '.fooplugin/keep'] },
+    {
+      exclude: '.fooplugin/**\n',
+      files: ['.fooplugin/a', '.fooplugin/keep', ['.fooplugin/.gitignore', '!keep\n']],
+    },
   ];
   const fixtures = cases.map((options) => ignoreFixture(t, options));
   assert.deepEqual(
     fixtures.map((fixture) => fixture.rule('.fooplugin')),
-    [[], [], [], []],
+    [[], [], [], [], [], []],
   );
   assert.deepEqual(
     fixtures.map((fixture) => fixture.report()),
@@ -537,6 +545,15 @@ test('content-only info/exclude patterns keep the root outside-manifest-root wit
       [
         ['.fooplugin/', OUTSIDE],
         ['.fooplugin/s/', OUTSIDE],
+      ],
+      [
+        ['.fooplugin/', OUTSIDE],
+        ['.fooplugin/a', OUTSIDE],
+      ],
+      [
+        ['.fooplugin/', OUTSIDE],
+        ['.fooplugin/.gitignore', OUTSIDE],
+        ['.fooplugin/a', OUTSIDE],
       ],
       [
         ['.fooplugin/', OUTSIDE],
@@ -644,9 +661,19 @@ test('readInfoExcluded passes no name without a matched pattern, even when the s
     ...layoutCheck.readInfoExcluded(['a'], ran(nulRecords(check)), gitPath),
   ];
   assert.deepEqual(judged(record('a', INFO_EXCLUDE, '')), []);
-  // An unmatched name prints empty source, line and pattern; an empty --git-path line compares equal to that source.
-  assert.deepEqual(judged(record('a', '', ''), ran('\n')), []);
-  assert.deepEqual(judged(record('a', '', '/a/'), ran('\n')), ['a']);
+  assert.deepEqual(judged(record('a', INFO_EXCLUDE, '/a/')), ['a']);
+});
+
+test('readInfoExcluded treats an empty --git-path output as unmeasurable', () => {
+  const judged = (check, gitPath) => [
+    ...layoutCheck.readInfoExcluded(['a'], ran(nulRecords(check)), gitPath),
+  ];
+  // An unmatched name prints empty source, line and pattern, which an empty --git-path line would equal.
+  for (const gitPath of [ran('\n'), ran('')]) {
+    assert.deepEqual(judged(record('a', '', '/a/'), gitPath), []);
+    assert.deepEqual(judged(record('a', '', ''), gitPath), []);
+  }
+  assert.deepEqual(judged(record('a', INFO_EXCLUDE, '/a/'), gitPathOf()), ['a']);
 });
 
 test('readInfoExcluded reads the four fields of each name at its own place', () => {
