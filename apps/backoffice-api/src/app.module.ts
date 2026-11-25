@@ -3,6 +3,7 @@ import { AccessControlModule } from './access-control/access-control.module.js';
 import { AdminIdentityModule } from './admin-identity/admin-identity.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { HealthController } from './health/health.controller.js';
+import { LegalModule } from './legal/legal.module.js';
 import {
   MetricsController,
   MetricsTokenGuard,
@@ -19,6 +20,7 @@ export class BackofficeAppModule {
         AuditModule,
         AdminIdentityModule,
         AccessControlModule,
+        LegalModule,
       ],
       controllers: [HealthController, MetricsController],
       providers: [MetricsTokenGuard],

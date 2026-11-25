@@ -121,6 +121,14 @@ export const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     rationale: 'retention review jobs are claimed in bounded deterministic batches.',
   }),
   sqlEntry({
+    path: 'prisma/sql/countLegalNoticeRecipients.sql',
+    owner: 'backoffice-api/legal',
+    category: 'typedsql-query',
+    requiredPatterns: [/SELECT\s+"recipientCount"/i, /FROM\s+"LegalNoticeRecipientCount"/i],
+    rationale:
+      'backoffice legal decisions read only the member count view, so backoffice_runtime never selects the User table.',
+  }),
+  sqlEntry({
     path: 'prisma/sql/disposeDueRetentionAccessLogs.sql',
     owner: 'retention/access-logs',
     category: 'worker-claim',

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import {
   LEGAL_CONTENT_SCHEMA_VERSION,
   legalContentDigestInput,
+  legalDocumentDraftImportSchema,
   legalEffectiveInstant,
 } from '@repo/shared/legal';
 import { LEGAL_DOCUMENT_REFERENCE_ROWS } from './legal-document-seed-data.js';
@@ -93,21 +94,37 @@ export const LEGAL_DOCUMENT_VERSION_SEED_ROWS = readLegalSeedJson(
   };
 });
 
-/** The content digest the backoffice also computes (sha256 of the shared fixed-order input). */
+/**
+ * A seed version as a backoffice import body (the shared import schema, defaults filled). The import
+ * export writes it, and the digest below reads it, so an imported seed text gets the seed digest.
+ */
+export function legalSeedImportBody(row) {
+  return legalDocumentDraftImportSchema.parse({
+    kind: row.kind,
+    contentSchemaVersion: row.contentSchemaVersion,
+    title: row.title,
+    summaryItems: row.summaryItems,
+    sections: row.sections,
+    changeSummary: row.changeSummary,
+    noticeClass: row.noticeClass,
+    consentRequired: row.consentRequired,
+    proposedEffectiveDate: row.effectiveDate,
+    ...(row.noticeClass === 'HISTORICAL' ? { appliesUntil: row.appliesUntil } : {}),
+  });
+}
+
+/**
+ * The content digest the backoffice also computes: sha256 of the shared fixed-order input built from
+ * parsed (default-filled) content, as `legalContentDigestInput` asks.
+ */
 export function legalSeedContentDigest(row) {
+  const body = legalSeedImportBody(row);
   return createHash('sha256')
     .update(
       legalContentDigestInput({
-        kind: row.kind,
-        contentSchemaVersion: row.contentSchemaVersion,
-        title: row.title,
-        summaryItems: row.summaryItems,
-        sections: row.sections,
-        changeSummary: row.changeSummary,
-        effectiveDate: row.effectiveDate,
-        appliesUntil: row.appliesUntil,
-        noticeClass: row.noticeClass,
-        consentRequired: row.consentRequired,
+        ...body,
+        effectiveDate: body.proposedEffectiveDate,
+        appliesUntil: body.appliesUntil ?? null,
       }),
     )
     .digest('hex');
@@ -121,6 +138,9 @@ export function legalSeedContentDigest(row) {
  */
 export async function seedLegalDocuments(client) {
   for (const row of LEGAL_DOCUMENT_VERSION_SEED_ROWS) {
+    // The stored text is the import body (defaults filled), as an approved import stores it, so the
+    // digest, the export file and the stored row describe the same content.
+    const body = legalSeedImportBody(row);
     await client.query(
       `
         INSERT INTO "LegalDocumentVersion" (
@@ -186,8 +206,8 @@ export async function seedLegalDocuments(client) {
         row.version,
         row.contentSchemaVersion,
         row.title,
-        JSON.stringify(row.summaryItems),
-        JSON.stringify(row.sections),
+        JSON.stringify(body.summaryItems),
+        JSON.stringify(body.sections),
         row.changeSummary,
         row.noticeClass,
         row.consentRequired,

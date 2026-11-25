@@ -1,7 +1,7 @@
 # apps/backoffice-api
 
-백오피스 관리자 화면(BFF)이 부르는 NestJS API다. 관리자 계정·로그인·session·권한·승인 요청·감사와 관리자 기록 정리
-작업을 소유한다. 운영자 접근 규칙의 원본은 [운영자 접근 정책](../../docs/policies/operator-access.md)(`OA-R*`)이고, 이
+백오피스 관리자 화면(BFF)이 부르는 NestJS API다. 관리자 계정·로그인·session·권한·승인 요청·감사, 관리자 기록 정리
+작업과 공개 법적 문서의 초안·게시·철회 승인을 소유한다. 운영자 접근 규칙의 원본은 [운영자 접근 정책](../../docs/policies/operator-access.md)(`OA-R*`)이고, 이
 문서는 그 규칙을 code에서 어디가 지키는지와 실행·test 방법을 설명한다.
 
 ## 1. 경계
@@ -9,8 +9,9 @@
 - 사용자 API(`apps/api`)와 같은 DB(`@repo/database`)를 쓰지만 code를 import하지 않는다(ESLint `no-restricted-imports`가
   막는다). 둘이 함께 쓸 server code가 생기면 공유 server package를 둔다. 계약은 `@repo/shared/backoffice`다.
 - DB에는 LOGIN user 둘로 접속한다. API 요청은 `dormduri_backoffice`(`backoffice_runtime`), 정리 작업은
-  `dormduri_backoffice_retention`(`backoffice_retention`)이다. 둘 다 관리자 table에만 권한이 있고 사용자 table과 RRPD
-  table에는 권한이 없다([grant 표](../../infra/db/README.md#grant-표)).
+  `dormduri_backoffice_retention`(`backoffice_retention`)이다. 둘 다 사용자 table과 RRPD table에는 권한이 없다. 관리자 table
+  밖에서 `backoffice_runtime`이 닿는 것은 공개 법적 문서의 초안·판 table(판은 철회 시각만 고침)과 메일 받을 회원 수만 내는
+  view `LegalNoticeRecipientCount` 하나다([grant 표](../../infra/db/README.md#grant-표), §8).
 - 관리자 감사(`AdminAuditEvent`)는 이 API만 추가한다. `backoffice_runtime`은 `occurredAt` 열에 INSERT 권한이 없어 감사 시각은
   늘 DB 시계다. 감사 행은 그 행동과 같은 transaction에서 쓰므로 감사 기록이 실패하면 행동도 rollback된다(`OA-R7`).
 - 화면(`apps/backoffice-web`)은 이 API가 준 session token을 `dormduri_bo_session` cookie에 두고 `Authorization: Bearer`로
@@ -18,7 +19,7 @@
 
 ## 2. 모듈
 
-의존 방향은 `platform` ← `audit` ← `access-control/roles` ← `admin-identity` ← `access-control`이다. 예외는 다른 module을
+의존 방향은 `platform` ← `audit` ← `access-control/roles` ← `admin-identity` ← `access-control` ← `legal`이다. 예외는 다른 module을
 import하지 않는 두 파일, route 접근 규칙 decorator(`access-control/route-access.ts`)와 권한 계산(`access-control/permissions.ts`)이고
 모든 module의 controller와 session이 쓴다.
 
@@ -29,6 +30,7 @@ import하지 않는 두 파일, route 접근 규칙 decorator(`access-control/ro
 | `src/access-control/roles`                 | 역할 부여·회수 행(`RoleAssignmentStore`). 초대 등록의 bootstrap 부여와 승인 결과가 같은 store를 쓴다 |
 | `src/admin-identity`                       | 비밀번호·passkey·TOTP·복구 code, 로그인·잠금, session·재인증, 초대·등록·비활성화, `bootstrap-owner`  |
 | `src/access-control`                       | 권한 상수와 역할 묶음, 전역 guard, 승인 요청과 직무 분리                                             |
+| `src/legal`                                | 공개 법적 문서 초안·가져오기·게시와 철회 요청·결정 검사(§8)                                          |
 | `src/health`, `src/platform/observability` | `GET /health/live`·`/health/ready`, `GET /internal/metrics`                                          |
 
 ## 3. 인증과 session
@@ -44,7 +46,7 @@ import하지 않는 두 파일, route 접근 규칙 decorator(`access-control/ro
 - Session token은 32 byte 불투명 값이고 DB에는 SHA-256 hash만 둔다. 15분 동안 요청이 없거나 로그인 뒤 8시간이 지나면
   끝나고, 끝난 session은 감사에 한 번 `SESSION_EXPIRED`로 남는다(`OA-R3`). 로그아웃·잠금·비활성화·역할 회수는 바로 끝낸다.
 - 재인증(`POST /auth/reauthentication/options` → `POST /auth/reauthentication`)은 passkey로 하고 5분 동안 유효하다.
-  승인·거절, 역할 요청, 계정 비활성화, TOTP·복구 code 재발급은 재인증을 요구한다(`OA-R4`).
+  승인·거절, 역할 요청, 법적 문서 게시·철회 요청, 계정 비활성화, TOTP·복구 code 재발급은 재인증을 요구한다(`OA-R4`).
 - WebAuthn은 `@simplewebauthn/server`로 origin `http://localhost:4300`, RP ID `localhost`를 확인하고 user verification을
   요구한다. TOTP(RFC 6238, SHA-1, 30초, 6자리, 앞뒤 1단계)는 직접 구현하며 비밀은 AES-256-GCM(계정 id를 AAD로)으로 저장한다.
   같은 시간 단계의 code는 다시 받지 않는다. 복구 code 10개는 hash로만 두고 한 번씩 쓴다. 비밀번호는 argon2id다.
@@ -56,12 +58,13 @@ import하지 않는 두 파일, route 접근 규칙 decorator(`access-control/ro
   역할에도 없다(`OA-R11`).
 - 전역 guard(`AdminAccessGuard`)는 접근 규칙(`@PublicRoute`·`@SessionRoute`·`@RequirePermission`)이 없는 route를 거부한다.
   모든 route와 규칙은 `test/architecture/route-access-table.spec.ts`의 표와 같아야 한다. 새 route는 규칙과 표 행을 함께 더한다.
-- 역할 부여·회수는 승인 요청(`/access/requests`)을 거친다. 결정자는 요청자와 달라야 하고, 승인 권한을 가진 활성 계정이
+- 역할 부여·회수는 승인 요청(`/access/requests`)을 거친다. 이 경로는 역할 요청(`ROLE_GRANT`·`ROLE_REVOKE`)만 내고 결정하며,
+  같은 table의 법적 문서 요청은 `/legal/requests`만 다룬다(§8). 결정자는 요청자와 달라야 하고, 승인 권한을 가진 활성 계정이
   요청자 하나뿐일 때만 사유를 적어 자기 요청을 승인할 수 있다(`OA-R9`). 그 수는 결정 때 센다. 승인자는 화면에서 본 내용
   digest를 보내고, 결정은 digest와 대기 상태를 조건으로 한 UPDATE라 한 번만 된다. 요청은 7일 뒤 만료되고, 목록은 기한이
-  지난 대기 요청을 결정 시도 전에도 `EXPIRED`로 보인다. 마지막 승인 계정의 owner 역할 회수와 비활성화는 거부한다. 승인 계정을
-  요청자 하나만 남기는 비활성화도 거부하고, 그 owner 역할은 승인 요청으로 먼저 회수한다(대상 운영자도 결정할 수 있다). DB
-  CHECK가 상태·결정자·자기 승인 표시의 짝을 지킨다.
+  지난 대기 요청을 결정 시도 전에도 `EXPIRED`로 보인다. 마지막 승인 계정의 owner 역할 회수와 비활성화는 거부한다. 역할 변경과
+  법적 문서(§8) 가운데 어느 종류든 그 종류의 승인 계정을 요청자 하나만 남기는 비활성화도 거부하고, 그 승인 역할(owner·`LEGAL_APPROVER`)은
+  승인 요청으로 먼저 회수한다(owner 역할은 대상 운영자도 결정할 수 있다). DB CHECK가 상태·결정자·자기 승인 표시의 짝을 지킨다.
 - 감사 목록과 승인 요청 목록은 최신순이고 한 번에 `limit`(최대 100)행이다. 다음 page는 응답 `nextPage`의 마지막 행 시각과
   id(`beforeTime`·`beforeId`)로 받는다. 한 transaction의 감사 행은 시각이 같아 id가 순서를 정한다.
 - 첫 owner는 `bootstrap-owner` 명령이 만든다(`OA-R10`). 활성 계정이 하나라도 있으면 거부하고, 15분 동안 한 번 쓰는 등록
@@ -129,3 +132,34 @@ pnpm db:up
 pnpm backoffice-api:prepare
 pnpm backoffice-api:test:integration:prepared
 ```
+
+## 8. 공개 법적 문서
+
+공개 법적 문서의 규칙 원본은 [legal basis](../../docs/policies/legal-basis.md)(`LB-R6`·`LB-R10`·`LB-R11`)이고, 사용자 API의 공개
+열람은 [legal README](../api/src/legal/README.md)가 소유한다. 이 API는 백오피스 쪽의 초안·요청·결정을 맡는다(`src/legal`).
+
+- 권한: 초안 편집·가져오기·게시와 철회 요청은 `admin:legal:edit`(`LEGAL_EDITOR`), 승인·거절은 `admin:legal:approve`
+  (`LEGAL_APPROVER`)다. `OWNER` 역할도 둘을 갖는다. 결정 때 세는 승인 권한 계정은 `LEGAL_APPROVER`나 `OWNER`를 가진 활성
+  계정이고, 직무 분리와 1인 예외(재인증·사유·자기 승인 표시·`self_approval` 경보), 승인 계정을 요청자 하나만 남기는 비활성화
+  거부(§4)는 역할 요청과 같다(`OA-R9`).
+- 초안: `POST /legal/drafts`는 편집기와 JSON 파일(`source`)이 같은 공유 가져오기 schema(`legalDocumentDraftImportSchema`)를
+  통과한다. 저장(`PUT`)과 버림은 읽은 판 번호(`revision`)를 조건으로 한 UPDATE이고, 게시 요청이 대기 중인 초안은 저장하지
+  않는다. 초안의 `basedOnVersionId`와 미리보기(`GET /legal/drafts/:draftId`)의 바로 앞 판은 제안 시행일 앞의 철회되지 않은 판이고,
+  미리보기는 그 판과의 공유 조항 대조표(`compareLegalSections`)도 낸다. 목록은 만든 순서의 최신순이라 page 사이에 저장된 초안도
+  빠지지 않는다.
+- 요청: 게시 요청 digest는 그 판 번호의 초안 내용 digest(공유 `legalContentDigestInput`의 sha256)이고, 철회 요청 digest는 대상
+  판의 digest다. 요청은 7일 뒤 만료된다. 거절·취소된 게시 요청의 초안은 같은 transaction에서, 만료된 요청의 초안은 다음 저장·
+  요청·결정 시도 때 편집 중으로 돌아간다. 관리자 기록 정리가 오래 만료된 대기 요청 행을 지운 초안도 다음 저장·요청 때 편집 중으로
+  돌아간다. 읽기와 목록 filter는 그 전에도 만료된 요청을 `EXPIRED`, 그 초안을 편집 중으로 본다.
+  요청 상세의 검사 결과(`check`)는 아직 결정할 수 있는 요청에만 있고, 닫힌 요청은 대상을 지금 상태로 보인다.
+- 결정: 승인은 serializable transaction 안에서 kind마다 advisory lock을 잡고 요청의 조건부 UPDATE, 검사
+  (`legal-publication-policy.ts`), 판 INSERT 또는 철회 UPDATE, 초안 상태, 감사 행을 함께 쓴다. 하나라도 실패하면 모두
+  rollback이다. Lock을 기다린 승인은 먼저 commit한 승인과의 직렬화 충돌로 새 snapshot에서 다시 실행돼 그 판을 보고 검사한다.
+  거절은 lock 없이 요청·초안·감사 행을 함께 쓴다. 검사는 고지 등급별 시행일 하한(일반 7일·중대 30일, 승인일은 KST), kind의 시행 예정 판 하나, 이전 판 기록과 첫
+  게시의 날짜 규칙, 중대·재동의 필요 판은 메일 받을 회원이 0명일 때만(`countLegalNoticeRecipients`)이다. 공지 시작·철회
+  시각·승인일은 공개 열람과 같은 DB 시계, 요청 만료는 역할 요청과 같은 앱 시계다.
+- 철회: 시행 시각 전의 일반·중대 판만이고, 철회 시각이 비어 있을 때만 쓰는 조건부 UPDATE라 한 번만 되며 되돌리는 경로가 없다.
+- 관측: `backoffice_legal_decisions_total{kind, notice_class, decision}`(`publish_approved`·`publish_rejected`·
+  `withdraw_approved`·`withdraw_rejected`)와 감사 행(대상 종류 `LEGAL_DOCUMENT_DRAFT`·`LEGAL_DOCUMENT_VERSION`)이다.
+- 첫 게시 가져오기 파일: `node apps/api/prisma/seed-data/reference/export-legal-import-files.js --out <디렉터리>`가 seed의 판
+  목록을 가져오기 JSON으로 쓴다(있는 파일은 덮지 않음). 가져온 초안의 digest는 그 seed 판의 digest와 같다.

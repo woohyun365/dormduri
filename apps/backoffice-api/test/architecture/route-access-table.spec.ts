@@ -48,6 +48,20 @@ const EXPECTED_ROUTE_ACCESS: Record<string, string> = {
   'POST /access/requests/:requestId/cancel': 'admin:access:request',
   'GET /audit/events': 'admin:audit:read',
   'POST /audit/reviews': 'admin:audit:review',
+  'GET /legal/documents': 'admin:legal:edit|admin:legal:approve',
+  'GET /legal/versions/:versionId': 'admin:legal:edit|admin:legal:approve',
+  'POST /legal/versions/:versionId/withdraw-requests': 'admin:legal:edit+reauth',
+  'GET /legal/drafts': 'admin:legal:edit|admin:legal:approve',
+  'POST /legal/drafts': 'admin:legal:edit',
+  'GET /legal/drafts/:draftId': 'admin:legal:edit|admin:legal:approve',
+  'PUT /legal/drafts/:draftId': 'admin:legal:edit',
+  'POST /legal/drafts/:draftId/discard': 'admin:legal:edit',
+  'POST /legal/drafts/:draftId/publish-requests': 'admin:legal:edit+reauth',
+  'GET /legal/requests': 'admin:legal:edit|admin:legal:approve',
+  'GET /legal/requests/:requestId': 'admin:legal:edit|admin:legal:approve',
+  'POST /legal/requests/:requestId/approve': 'admin:legal:approve+reauth',
+  'POST /legal/requests/:requestId/reject': 'admin:legal:approve+reauth',
+  'POST /legal/requests/:requestId/cancel': 'admin:legal:edit',
 };
 
 interface RouteEntry {

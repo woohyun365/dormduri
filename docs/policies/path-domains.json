@@ -3,7 +3,7 @@
   "confirmedBy": {
     "status": "owner-confirmed",
     "date": "2026-11-25",
-    "basis": "#996"
+    "basis": "#1000"
   },
   "productRoots": [
     "apps/**",
@@ -135,6 +135,10 @@
       "domains": ["operator-access"]
     },
     {
+      "globs": ["packages/database/prisma/sql/countLegalNoticeRecipients.sql"],
+      "domains": ["legal-basis", "operator-access"]
+    },
+    {
       "globs": [
         "apps/backoffice-api/src/audit/retention/**",
         "packages/database/prisma/sql/purge*.sql",
@@ -173,6 +177,7 @@
       "globs": [
         "apps/api/prisma/seed-data/reference/legal-document-seed-data.js",
         "apps/api/prisma/seed-data/reference/seed-legal-documents.js",
+        "apps/api/prisma/seed-data/reference/export-legal-import-files.js",
         "apps/api/prisma/seed-data/reference/legal/**"
       ],
       "domains": ["legal-basis", "service-boundary"]
