@@ -52,11 +52,19 @@ export class RoleAssignmentStore {
   }
 
   /** Active accounts that hold a role allowed to decide role grant and revoke requests. */
-  async activeRoleChangeApprovers(tx: BackofficeTransaction): Promise<string[]> {
+  activeRoleChangeApprovers(tx: BackofficeTransaction): Promise<string[]> {
+    return this.activeApprovers(tx, ROLE_CHANGE_APPROVER_ROLES);
+  }
+
+  /**
+   * Active accounts that hold any of `roles`, counted when a request is decided (OA-R9, D-BF6): the
+   * role change approvers, or the legal approvers for a legal request.
+   */
+  async activeApprovers(tx: BackofficeTransaction, roles: readonly AdminRole[]): Promise<string[]> {
     const rows = await tx.adminRoleAssignment.findMany({
       where: {
         revokedAt: null,
-        role: { in: [...ROLE_CHANGE_APPROVER_ROLES] },
+        role: { in: [...roles] },
         account: { status: 'ACTIVE' },
       },
       select: { accountId: true },

@@ -19,7 +19,7 @@ export const RESTRICTED_PERMISSIONS = [
 ] as const;
 export type RestrictedPermission = (typeof RESTRICTED_PERMISSIONS)[number];
 
-/** Role bundles. Legal roles carry the names the legal operations plan will act on. */
+/** Role bundles. The owner role also holds both legal permissions (legal operations plan D-LC3). */
 export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, readonly BackofficePermission[]>> = {
   [AdminRole.OWNER]: [
     'admin:account:invite',
@@ -28,6 +28,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, readonly BackofficePer
     'admin:access:approve',
     'admin:audit:read',
     'admin:audit:review',
+    'admin:legal:edit',
+    'admin:legal:approve',
   ],
   [AdminRole.AUDITOR]: ['admin:audit:read'],
   [AdminRole.LEGAL_EDITOR]: ['admin:legal:edit'],
@@ -40,7 +42,15 @@ export function permissionsForRoles(
   return new Set(roles.flatMap((role) => ROLE_PERMISSIONS[role]));
 }
 
+function rolesHolding(permission: BackofficePermission): readonly AdminRole[] {
+  return (Object.keys(ROLE_PERMISSIONS) as AdminRole[]).filter((role) =>
+    ROLE_PERMISSIONS[role].includes(permission),
+  );
+}
+
 /** Roles whose holders may decide a role grant or revoke request (OA-R9). */
-export const ROLE_CHANGE_APPROVER_ROLES: readonly AdminRole[] = (
-  Object.keys(ROLE_PERMISSIONS) as AdminRole[]
-).filter((role) => ROLE_PERMISSIONS[role].includes('admin:access:approve'));
+export const ROLE_CHANGE_APPROVER_ROLES: readonly AdminRole[] =
+  rolesHolding('admin:access:approve');
+
+/** Roles whose holders may decide a legal publish or withdraw request (D-BF6, legal plan D-LC3). */
+export const LEGAL_APPROVER_ROLES: readonly AdminRole[] = rolesHolding('admin:legal:approve');

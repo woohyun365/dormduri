@@ -4,6 +4,7 @@ import {
   BACKOFFICE_PERMISSIONS,
   permissionsForRoles,
   RESTRICTED_PERMISSIONS,
+  LEGAL_APPROVER_ROLES,
   ROLE_CHANGE_APPROVER_ROLES,
   ROLE_PERMISSIONS,
 } from './permissions.js';
@@ -31,8 +32,17 @@ describe('backoffice permissions', () => {
   it('computes permissions from roles and nothing else', () => {
     expect([...permissionsForRoles([])]).toEqual([]);
     expect([...permissionsForRoles(['AUDITOR'])]).toEqual(['admin:audit:read']);
-    expect(permissionsForRoles(['OWNER', 'AUDITOR']).size).toBe(6);
-    expect(permissionsForRoles(['OWNER']).has('admin:legal:approve')).toBe(false);
+    expect(permissionsForRoles(['OWNER', 'AUDITOR']).size).toBe(8);
+  });
+
+  it('gives the owner role both legal permissions (plan D-LC3)', () => {
+    const owner = permissionsForRoles(['OWNER']);
+    expect(owner.has('admin:legal:edit')).toBe(true);
+    expect(owner.has('admin:legal:approve')).toBe(true);
+  });
+
+  it('counts the owner and legal approver roles as legal approvers (D-BF6)', () => {
+    expect(LEGAL_APPROVER_ROLES).toEqual(['OWNER', 'LEGAL_APPROVER']);
   });
 
   it('lets only the owner role decide role changes', () => {

@@ -68,6 +68,15 @@ function serializeRequest(row: {
   };
 }
 
+/**
+ * The role request path reads and decides role grants and revokes only; legal publish and withdraw
+ * requests share the table but have their own path (legal module), and the shared role request
+ * schema the BFF parses names only these two kinds (legal plan Phase L2b, Owner 2026-11-25 L2b Q1).
+ */
+const ROLE_REQUEST_KINDS: Prisma.EnumAdminApprovalRequestKindFilter = {
+  in: ['ROLE_GRANT', 'ROLE_REVOKE'],
+};
+
 function effectiveStatusFilter(
   status: AccessRequestListQuery['status'],
   now: Date,
@@ -104,6 +113,7 @@ export class ApprovalRequestsService {
     const cursor = pageCursor(query);
     const rows = await this.prisma.adminApprovalRequest.findMany({
       where: {
+        kind: ROLE_REQUEST_KINDS,
         AND: [
           effectiveStatusFilter(query.status, now),
           cursor
@@ -151,7 +161,12 @@ export class ApprovalRequestsService {
         throw new BackofficeApiError('conflict', 'the target already has (or lacks) that role');
       }
       const duplicate = await tx.adminApprovalRequest.findFirst({
-        where: { status: 'PENDING', contentDigest, expiresAt: { gt: now } },
+        where: {
+          kind: ROLE_REQUEST_KINDS,
+          status: 'PENDING',
+          contentDigest,
+          expiresAt: { gt: now },
+        },
         select: { id: true },
       });
       if (duplicate) {
@@ -359,6 +374,7 @@ export class ApprovalRequestsService {
       const cancelled = await tx.adminApprovalRequest.updateMany({
         where: {
           id: approvalRequestId,
+          kind: ROLE_REQUEST_KINDS,
           status: 'PENDING',
           requestedByAccountId: session.accountId,
         },
@@ -393,8 +409,8 @@ export class ApprovalRequestsService {
     contentDigest: string,
     now: Date,
   ) {
-    const request = await tx.adminApprovalRequest.findUnique({
-      where: { id: approvalRequestId },
+    const request = await tx.adminApprovalRequest.findFirst({
+      where: { id: approvalRequestId, kind: ROLE_REQUEST_KINDS },
       select: REQUEST_SELECT,
     });
     if (!request) {
