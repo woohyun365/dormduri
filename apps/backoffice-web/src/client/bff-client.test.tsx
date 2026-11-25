@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_ACTIVITY_HEADER } from '@/bff/session-activity';
-import { postBff, SESSION_ACTIVITY_EVENT } from './bff-client';
+import { postBff, SESSION_ACTIVITY_EVENT, SESSION_CLOSED_EVENT } from './bff-client';
 
 const fetchMock = vi.fn<typeof fetch>();
 const activity = vi.fn();
+const closed = vi.fn();
 
 function answer(status: number, body: unknown, reachedApi: boolean) {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -18,12 +19,15 @@ function answer(status: number, body: unknown, reachedApi: boolean) {
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   window.addEventListener(SESSION_ACTIVITY_EVENT, activity);
+  window.addEventListener(SESSION_CLOSED_EVENT, closed);
 });
 
 afterEach(() => {
   window.removeEventListener(SESSION_ACTIVITY_EVENT, activity);
+  window.removeEventListener(SESSION_CLOSED_EVENT, closed);
   fetchMock.mockReset();
   activity.mockReset();
+  closed.mockReset();
 });
 
 describe('postBff', () => {
@@ -64,5 +68,28 @@ describe('postBff', () => {
       status: 502,
       code: 'internal_error',
     });
+  });
+
+  it('announces a closed session when the BFF answers 401 session_required', async () => {
+    fetchMock.mockResolvedValueOnce(answer(401, { error: { code: 'session_required' } }, false));
+    expect(await postBff('/api/auth/passkeys/options')).toEqual({
+      ok: false,
+      status: 401,
+      code: 'session_required',
+    });
+    expect(closed).toHaveBeenCalledTimes(1);
+
+    fetchMock
+      .mockResolvedValueOnce(answer(401, { error: { code: 'session_expired' } }, false))
+      .mockResolvedValueOnce(answer(403, { error: { code: 'permission_denied' } }, true))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await postBff('/api/access/requests');
+    await postBff('/api/access/requests');
+    expect(await postBff('/api/access/requests')).toEqual({
+      ok: false,
+      status: 0,
+      code: 'network_error',
+    });
+    expect(closed).toHaveBeenCalledTimes(1);
   });
 });

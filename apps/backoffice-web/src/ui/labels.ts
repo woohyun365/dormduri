@@ -44,6 +44,12 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   BOOTSTRAP_OWNER: '첫 owner 발급',
 };
 
+/** A LOGIN row whose session is a recovery session, by its second factor (audit-display.ts). */
+export const RECOVERY_LOGIN_LABELS: Record<'totp' | 'recovery_code', string> = {
+  totp: '복구 로그인(TOTP)',
+  recovery_code: '복구 로그인(복구 code)',
+};
+
 const AUDIT_RESULT_LABELS: Record<string, string> = {
   SUCCEEDED: '성공',
   DENIED: '거부',

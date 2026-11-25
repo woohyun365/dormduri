@@ -3,7 +3,7 @@ import type { Route } from 'next';
 import { Suspense, type ReactNode } from 'react';
 import type { BackofficePermission } from '@repo/shared/backoffice';
 import type { ActiveSession } from '@/server/session';
-import { IdleNotice } from './IdleNotice';
+import { SessionEndNotice } from './SessionEndNotice';
 import { LogoutButton } from './LogoutButton';
 
 // The server decides every action; the menu only hides what the session's roles do not grant.
@@ -60,7 +60,7 @@ export function ConsoleShell({
         <LogoutButton />
       </header>
       <Suspense fallback={null}>
-        <IdleNotice
+        <SessionEndNotice
           idleRemainingMs={active.idleRemainingMs}
           absoluteRemainingMs={active.absoluteRemainingMs}
         />

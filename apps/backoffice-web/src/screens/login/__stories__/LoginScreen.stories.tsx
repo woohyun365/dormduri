@@ -25,6 +25,12 @@ export const EndedExpired: Story = { args: { ended: 'expired' } };
 
 export const LogoutUnconfirmed: Story = { args: { ended: 'unconfirmed' } };
 
+/** A session the API no longer knows: another operator's role revoke or deactivation, or a logout in another window. */
+export const EndedClosed: Story = { args: { ended: 'closed' } };
+
+/** The operator approved the revoke of their own role. */
+export const EndedSelfRevoked: Story = { args: { ended: 'self-revoked' } };
+
 const passwordStep: NonNullable<Story['play']> = async ({ canvas, userEvent }) => {
   await userEvent.type(canvas.getByLabelText('이메일'), OWNER_EMAIL);
   await userEvent.type(canvas.getByLabelText('비밀번호'), STORY_PASSWORD);
