@@ -33,6 +33,7 @@ import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared
 import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
+  type IntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from '../_support/integration-db.js';
 import { withPrismaQueryTraceOnFailure } from '../_support/integration-query-trace.js';
@@ -41,6 +42,7 @@ import {
   DEFAULT_LIFESTYLE,
 } from '../_support/fixtures/lifestyle-profile.fixture.js';
 import { seedBaseSeasonFixtures } from '../_support/fixtures/reference-data.fixture.js';
+import { insertSignupLegalDocumentVersions } from '../_support/fixtures/legal-documents.fixture.js';
 
 type AuthContext = {
   id: string;
@@ -77,9 +79,10 @@ export function registerAuthUserTransactionCases(
     let seasonsService: SeasonsService;
     let closeApp: (() => Promise<void>) | null = null;
     let cleanupDb: (() => Promise<void>) | null = null;
+    let sandbox: IntegrationDatabaseSandbox;
 
     beforeAll(async () => {
-      const sandbox = await createIntegrationDatabaseSandbox('auth_users_transaction');
+      sandbox = await createIntegrationDatabaseSandbox('auth_users_transaction');
       cleanupDb = sandbox.cleanup;
 
       const { app, prisma: prismaService } = await createIntegrationApp();
@@ -1773,51 +1776,12 @@ export function registerAuthUserTransactionCases(
     async function seedAcademicIdentityReferenceData() {
       await seedBaseSeasonFixtures(prisma);
       const databaseNow = await prisma.getDatabaseNow();
-      const effectiveAt = new Date(databaseNow.getTime() - 60_000);
-      await prisma.legalDocumentVersion.createMany({
-        data: [
-          {
-            id: signupLegalDocumentIds.termsVersionId,
-            kind: 'TERMS_OF_SERVICE',
-            version: 'auth-users-transaction-terms',
-            title: '인증 트랜잭션 테스트 이용약관',
-            summaryItems: [],
-            sections: [],
-            publishedAt: effectiveAt,
-            effectiveAt,
-          },
-          {
-            id: signupLegalDocumentIds.privacyPolicyVersionIdShown,
-            kind: 'PRIVACY_POLICY',
-            version: 'auth-users-transaction-privacy',
-            title: '인증 트랜잭션 테스트 개인정보 처리방침',
-            summaryItems: [],
-            sections: [],
-            publishedAt: effectiveAt,
-            effectiveAt,
-          },
-          {
-            id: signupLegalDocumentIds.personalDataConsentVersionId,
-            kind: 'PERSONAL_DATA_COLLECTION_USE_CONSENT',
-            version: 'auth-users-transaction-personal-data-consent',
-            title: '인증 트랜잭션 테스트 개인정보 수집·이용 동의',
-            summaryItems: [],
-            sections: [],
-            publishedAt: effectiveAt,
-            effectiveAt,
-          },
-          {
-            id: signupLegalDocumentIds.ageNoticeVersionId,
-            kind: 'AGE_14_OR_ABOVE_NOTICE',
-            version: 'auth-users-transaction-age-notice',
-            title: '인증 트랜잭션 테스트 연령 확인',
-            summaryItems: [],
-            sections: [],
-            publishedAt: effectiveAt,
-            effectiveAt,
-          },
-        ],
-      });
+      await insertSignupLegalDocumentVersions(
+        sandbox,
+        signupLegalDocumentIds,
+        'auth-users-transaction',
+        databaseNow,
+      );
       await prisma.collegeMaster.upsert({
         where: { code: 'CHUNCHEON_IT' },
         create: {

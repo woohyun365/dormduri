@@ -12,6 +12,7 @@ import { hashOpaqueToken } from '../../../src/auth/sessions/opaque-token.js';
 import { hashVerificationGrant } from '../../../src/auth/verification/grant/auth-verification-grant.js';
 import { DEFAULT_DATABASE_URL } from '../../../src/platform/database/database.config.js';
 import { PrismaClient } from '@repo/database/client';
+import { toLegalKstDate } from '@repo/shared/legal';
 import {
   buildPrismaSessionOptions,
   stripPrismaConnectionOptions,
@@ -358,24 +359,30 @@ async function upsertLegalDocuments(
     [artifact.legalAcceptances.ageNoticeVersionId, 'AGE_14_OR_ABOVE_NOTICE', '연령 확인'],
   ] as const;
 
+  // The stress versions take effect today (KST) so they are the versions in effect at signup. They are
+  // general revisions: the development seed already holds each kind's initial version.
+  const effectiveDate = new Date(`${toLegalKstDate(now)}T00:00:00.000Z`);
+  const publishedAt = new Date(now.getTime() - 1_000);
   for (const [id, kind, title] of rows) {
+    const content = {
+      kind,
+      version: id,
+      title: `스트레스 ${title}`,
+      summaryItems: [],
+      sections: [],
+      changeSummary: '스트레스 측정용 판입니다.',
+      noticeClass: 'GENERAL',
+      consentRequired: false,
+      effectiveDate,
+      appliesUntil: null,
+      contentDigest: '0'.repeat(64),
+      publishedAt,
+      withdrawnAt: null,
+    } as const;
     await prisma.legalDocumentVersion.upsert({
       where: { id },
-      create: {
-        id,
-        kind,
-        version: id,
-        title: `스트레스 ${title}`,
-        summaryItems: [],
-        sections: [],
-        publishedAt: now,
-        effectiveAt: new Date(now.getTime() - 1_000),
-      },
-      update: {
-        publishedAt: now,
-        effectiveAt: new Date(now.getTime() - 1_000),
-        retiredAt: null,
-      },
+      create: { id, ...content },
+      update: content,
     });
   }
 }

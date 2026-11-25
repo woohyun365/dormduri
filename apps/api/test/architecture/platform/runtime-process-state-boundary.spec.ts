@@ -96,6 +96,7 @@ describe('combined runtime documentation boundary', () => {
       'NotificationOutboxDispatcherService',
       'LifecycleSweepService',
       'ProcessPasswordHashAdmission',
+      'LegalPublishedVersionReader.snapshots',
     ]) {
       const matchingRows = rows?.filter((row) => row[0]?.startsWith(`[${owner}]`));
       expect(matchingRows, owner).toHaveLength(1);

@@ -2,8 +2,8 @@
   "schema": "lifecycle-path-domains/v1",
   "confirmedBy": {
     "status": "owner-confirmed",
-    "date": "2026-11-24",
-    "basis": "#988"
+    "date": "2026-11-25",
+    "basis": "#996"
   },
   "productRoots": [
     "apps/**",
@@ -170,7 +170,11 @@
       "domains": ["community-safety"]
     },
     {
-      "globs": ["apps/api/prisma/seed-data/reference/legal-document-seed-data.js"],
+      "globs": [
+        "apps/api/prisma/seed-data/reference/legal-document-seed-data.js",
+        "apps/api/prisma/seed-data/reference/seed-legal-documents.js",
+        "apps/api/prisma/seed-data/reference/legal/**"
+      ],
       "domains": ["legal-basis", "service-boundary"]
     },
     {

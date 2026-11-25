@@ -1,8 +1,8 @@
 # DB 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-21
-**확인 근거**: [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(migration-seed-compatibility의 `db.migration.change-strategy`·`db.migration.rollback-path`, integrity-retention-lifecycle의 `db.integrity.role-separation`·`db.integrity.retention-execution`과 pack 밖 결정의 Owner 확인 날짜), [#862의 사람 조회 `RetentionCase.id` 결정 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6715462160)(`db.integrity.role-separation`, 2026-11-08), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`db.integrity.role-separation`의 pool 처분·readiness 열, `db.integrity.recovery-target`의 RPO 10분, 2026-11-09·10), [#949의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/949#issuecomment-7059715410)(`db.integrity.role-separation`의 `backoffice_retention`, `db.integrity.retention-execution`의 관리자 기록 정리 위치, `db.integrity.audit-tables`의 관리자 감사와 FK `Restrict`, 2026-11-21)
+**확인일**: 2026-11-25
+**확인 근거**: [#862의 DB 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6708394110)(migration-seed-compatibility의 `db.migration.change-strategy`·`db.migration.rollback-path`, integrity-retention-lifecycle의 `db.integrity.role-separation`·`db.integrity.retention-execution`과 pack 밖 결정의 Owner 확인 날짜), [#862의 사람 조회 `RetentionCase.id` 결정 댓글](https://github.com/woohyun365/dormduri/issues/862#issuecomment-6715462160)(`db.integrity.role-separation`, 2026-11-08), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`db.integrity.role-separation`의 pool 처분·readiness 열, `db.integrity.recovery-target`의 RPO 10분, 2026-11-09·10), [#949의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/949#issuecomment-7059715410)(`db.integrity.role-separation`의 `backoffice_retention`, `db.integrity.retention-execution`의 관리자 기록 정리 위치, `db.integrity.audit-tables`의 관리자 감사와 FK `Restrict`, 2026-11-21), [#996의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/996#issuecomment-7155467337)(schema-modeling의 `db.schema.history-model/legal`, 2026-11-17)
 **근거**: [Database operator scripts](../../../infra/db/README.md), [RDS setup and backup checklist](../../../infra/aws/rds-setup-checklist.md), [Backup and restore drill runbook](../../../infra/runbooks/operations/database/backup-restore.md), [Data retention](../../policies/data-retention.md#rrpd-db-접근-통제와-운영-관측), [Domain/SWE/Web/DB pack](../../development/agent-workflows/domain/swe-web/db.md)
 
 `Domain/SWE/Web/DB` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
@@ -23,6 +23,34 @@
 - 재검토 조건: 백오피스 table이 늘어 schema 단위 기본 권한이 table별 grant보다 단순해질 때
 - 출처: #849, Owner 확인 2026-11-04
 - pack 결정: 없음
+
+#### db.schema.history-model/legal
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: 별도 이력·snapshot table([Repo binding의 고른 값](../../development/agent-workflows/domain/knu-binding.md#고른-값)).
+  공개 법적 문서는 편집 중 초안(`LegalDocumentDraft`)과 내용이 바뀌지 않는 게시 판(`LegalDocumentVersion`) 행으로 나누고, 판
+  하나가 행 하나다. 게시 판의 내용 열은 어느 runtime role도 UPDATE·DELETE하지 못하고(`backoffice_runtime`은 철회 시각과
+  `updatedAt`만), grant 표와 smoke가 막는다. 판의 공개 key는 시행일(`effectiveDate`, 한국 시간 날짜)이고 철회되지 않은 판끼리
+  (kind, 시행일)이 겹치지 않으며 kind의 첫 게시는 하나다(부분 unique). 시행 예정·시행 중·이전은 상태 열 없이 DB 시각과 시행
+  시각(시행일 00:00 한국 시간)으로 계산하고, 이전 판 기록만 적용 끝 날짜를 갖는다. 판 행은 승인 요청을 FK로 가리키지 않고
+  게시를 요청한 계정·승인자·자기 승인 여부를 그 요청에서 자기 열에 복사하며(자기 승인은 요청자와 승인자가 같은 승인,
+  [operator-access.md](../../policies/operator-access.md) `OA-R9`), 내용 digest(본문 형식 version을 포함한 고정 순서 JSON의
+  sha256)를 둔다. 본문(`summaryItems`·`sections`)은 형식 version 열(`contentSchemaVersion`)을 갖는다. section schema를 호환되지
+  않게 바꾸면 행을 고치지 않고 새 version과, 옛 version을 지금 모양으로 읽는 reader를 함께 더한다(DB CHECK는 reader가 있는
+  version만 받는다). 철회 시각은 공지 기간이 있는 판에만, 시행 시각 전 값으로만 쓴다(DB CHECK). 한 번만 쓰고 지우지 않는 것은
+  백오피스 철회 승인의 조건부 UPDATE(철회 시각이 비어 있는 행만)가 지킨다. 규칙은 [legal-basis.md](../../policies/legal-basis.md)
+  `LB-R6`
+- 근거: 게시한 문안은 공개 기록이라 고치지 못해야 하고, 이전 판과 적용기간을 계속 보여줘야 한다(`LB-R6`). 시각 계산은 시행일에
+  상태를 바꾸는 job이 없어 job 실패로 시행이 밀리지 않는다. 승인 요청 행은 3년 뒤 정리되므로 판 행이 그 행에 기대지 않는다.
+  table을 다시 나누는 비용은 크지만 사용자 release 전이라 forward migration으로 고친다
+- 기각한 대안: 한 table과 상태 열(시행일에 상태를 바꾸는 job·trigger가 늘어남), 변경 event 기록(공개 열람 query가 복잡해짐),
+  판 행이 승인 요청을 FK로 가리킴(승인 요청 정리를 막음), 예약 job이 상태 열을 바꿈, 서버 시계로 상태 계산(DB 시각과 어긋남),
+  본문 형식 version 없이 호환되는 schema 변경만 허용(호환되지 않는 변경 때 옛 판을 어떤 모양으로 읽을지 표지가 없음), 철회를 한
+  번만으로 묶는 trigger(저장소에 trigger 경로가 없고 조건부 UPDATE와 그 test로 충분)
+- 재검토 조건: 운영자가 둘 이상이 되어 동시 편집이 생길 때, 판 수가 kind당 수십을 넘어 목록 응답이 커질 때
+- 출처: #996, Owner 확인 2026-11-17(초안·게시 판 분리와 시각 계산)·2026-11-25(본문 형식 version, 철회 시각 CHECK)
+- pack 결정: [db.schema.history-model](../../development/agent-workflows/domain/swe-web/db.md#dbschemahistory-model)
 
 ## migration-seed-compatibility
 
@@ -82,7 +110,11 @@ Role·LOGIN user·grant 표는 [Database operator scripts](../../../infra/db/REA
   pool과 `max_connections` × 0.6 규칙이다([Connection budget](../../../infra/db/README.md#connection-budget)). 관리자 table은 백오피스
   role 둘만 쓴다: `backoffice_runtime`은 감사를 append만 하고, 보존이 끝난 관리자 기록의 폐기·익명화는 백오피스 host에만 credential이
   있는 `backoffice_retention`이 한다. 사용자 API role 셋은 관리자 table 권한이 없어 공개 ingress 뒤 process가 뚫려도 관리자 기록에
-  닿지 않는다
+  닿지 않는다. 공개 법적 문서 판은 사용자 table이 아니라 공개 기록이라 `backoffice_runtime`이 초안을 쓰고 판을 더하며 철회 시각만
+  고치고, `app_runtime`은 판 SELECT와 동의 기록 SELECT·INSERT만 갖는다(동의 기록을 고치거나 지우는 code 경로가 없음).
+  `backoffice_runtime`이 사용자 table에서 읽는 값은 중대 변경 승인 검사가 쓰는 회원 수 하나이고, 그 수만 내는 view
+  `LegalNoticeRecipientCount`로 읽는다. 이 view는 소유자 권한으로 돌지만 grant 표에 행이 있고 smoke가 확인하므로, readiness의
+  SECURITY DEFINER 함수를 기각한 이유(grant 표 밖 경로)에 해당하지 않는다. 사용자 table 자체의 권한은 여전히 없다
 - 기각한 대안: group role에 LOGIN 직접(운영자별로 나눌 수 없음), 서비스 이름으로 role을 새로 짓기(SQL·env·test 이름만 바뀜),
   계정 삭제를 나눠 사용자 table 변경을 runtime transaction으로(두 transaction 사이 실패 때 보존 없이 삭제되거나 그 반대),
   default privilege로 runtime에 새 table DML 자동 부여(RRPD·감사 table이 처음부터 열림), 관리자 기록 폐기·익명화를
@@ -90,11 +122,14 @@ Role·LOGIN user·grant 표는 [Database operator scripts](../../../infra/db/REA
   내용을 일상 권한으로 봄), pool 하나 유지, 80% 규칙(사람 비상 접속 자리가 줄어듦), readiness를 DB 연결만 보기(실패한
   migration 위에서 ready가 됨), readiness용 SECURITY DEFINER 함수(소유자 권한으로 도는 객체가 하나 늘고 grant 표 밖 경로가 생김)
 - 이전 선택: 2026-11-04 group role 여섯(`backoffice_runtime`까지, 관리자 table 없음). 바꾼 이유: 관리자 감사 table을 만들며
-  (재검토 조건) 폐기·익명화 credential을 따로 둠. 출처 #949, Owner 확인 2026-11-21
+  (재검토 조건) 폐기·익명화 credential을 따로 둠. 출처 #949, Owner 확인 2026-11-21. 2026-11-21 백오피스 role은 관리자 table만,
+  사용자 API runtime은 legal table에 일반 DML. 바꾼 이유: 법적 문서 판을 백오피스가 쓰고 사용자 API는 읽기만 하게 했고(재검토 조건
+  "runtime 권한을 table별로 더 좁힐 때"), 중대 변경 승인이 회원 수 하나를 읽음(재검토 조건 "백오피스 기능이 사용자 table 열을 읽어야
+  할 때"). 출처 #996, Owner 확인 2026-11-17(회원이 0명일 때만 중대 변경 승인)
 - 재검토 조건: 백오피스 기능이 사용자 table 열을 읽어야 할 때(열 단위로 더함), 관리자 기록 정리가 백오피스 host 밖으로 옮겨 갈 때, runtime 권한을
   table별로 더 좁힐 때, target `max_connections`가 규칙을 넘을 때. 마지막 조건은 target 실측(`db.t4g.micro`,
   `max_connections` 78, 예약 5)에서 걸렸고, instance class는 그대로 두고 사용자 API runtime pool을 10에서 7로 줄였다(#238)
-- 출처: #237, #238, #862, #886, #949, Owner 확인 2026-11-04(role·grant·예산)·2026-11-07(`migration_owner`의 database CREATE)·2026-11-08
+- 출처: #237, #238, #862, #886, #949, #996, Owner 확인 2026-11-04(role·grant·예산)·2026-11-07(`migration_owner`의 database CREATE)·2026-11-08
   (사람 조회의 `RetentionCase.id`)·2026-11-09(micro 유지와 pool 7)·2026-11-10(readiness의 두 열 SELECT)·2026-11-21(`backoffice_retention`과
   백오피스 예산 runtime 5·정리 1·disclosure 1)
 - pack 결정: [db.integrity.role-separation](../../development/agent-workflows/domain/swe-web/db.md#dbintegrityrole-separation)

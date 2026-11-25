@@ -16,6 +16,7 @@ import {
 } from '../_support/integration-db-roles.js';
 import {
   applyRoleGrants,
+  loadRoleGrantInputs,
   readRoleGrantFile,
   ROLE_GRANT_FILES,
   smokeRoleGrants,
@@ -620,6 +621,396 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
       }
     });
 
+    it('게시 판 내용 열은 어느 LOGIN user도 고치거나 지우지 못하고 backoffice만 판을 더하고 철회 시각을 쓴다', async () => {
+      const version = table('LegalDocumentVersion');
+      const contentColumns = [
+        'kind',
+        'version',
+        'title',
+        'contentSchemaVersion',
+        'summaryItems',
+        'sections',
+        'changeSummary',
+        'noticeClass',
+        'consentRequired',
+        'effectiveDate',
+        'appliesUntil',
+        'contentDigest',
+        'publishedAt',
+        'requestedByAccountId',
+        'approvedByAccountId',
+        'selfApproved',
+      ];
+      // Privileges are checked when a statement is planned, so `WHERE false` needs no row.
+      for (const login of Object.values(INTEGRATION_LOGIN_USERS).filter(
+        (candidate) => candidate !== INTEGRATION_LOGIN_USERS.migrator,
+      )) {
+        await withLogin(login, async (client) => {
+          for (const column of contentColumns) {
+            await expect(
+              client.query(
+                `UPDATE ${version} SET ${quoteIdentifier(column)} = ${quoteIdentifier(column)} WHERE false`,
+              ),
+              `${login.user} ${column}`,
+            ).rejects.toThrow(/permission denied/u);
+          }
+          await expect(
+            client.query(`DELETE FROM ${version} WHERE false`),
+            login.user,
+          ).rejects.toThrow(/permission denied/u);
+        });
+      }
+      await withLogin(INTEGRATION_LOGIN_USERS.backoffice, async (client) => {
+        await expect(
+          client.query(
+            `UPDATE ${version} SET "withdrawnAt" = "withdrawnAt", "updatedAt" = "updatedAt" WHERE false`,
+          ),
+        ).resolves.toMatchObject({ rowCount: 0 });
+        await expect(
+          client.query(`INSERT INTO ${version} ("id") SELECT 'x' WHERE false`),
+        ).resolves.toMatchObject({ rowCount: 0 });
+        await expect(
+          client.query(
+            `UPDATE ${table('LegalDocumentDraft')} SET "title" = "title", "revision" = "revision" + 1 WHERE false`,
+          ),
+        ).resolves.toMatchObject({ rowCount: 0 });
+        for (const sql of [
+          `DELETE FROM ${table('LegalDocumentDraft')} WHERE false`,
+          `SELECT 1 FROM ${table('LegalAcceptanceRecord')} LIMIT 1`,
+        ]) {
+          await expect(client.query(sql), sql).rejects.toThrow(/permission denied/u);
+        }
+      });
+      await withLogin(INTEGRATION_LOGIN_USERS.runtime, async (client) => {
+        await expect(client.query(`SELECT 1 FROM ${version} LIMIT 1`)).resolves.toBeDefined();
+        await expect(
+          client.query(
+            `INSERT INTO ${table('LegalAcceptanceRecord')} ("id") SELECT 'x' WHERE false`,
+          ),
+        ).resolves.toMatchObject({ rowCount: 0 });
+        for (const sql of [
+          `INSERT INTO ${version} ("id") SELECT 'x' WHERE false`,
+          `UPDATE ${version} SET "withdrawnAt" = now() WHERE false`,
+          `UPDATE ${table('LegalAcceptanceRecord')} SET "source" = "source" WHERE false`,
+          `DELETE FROM ${table('LegalAcceptanceRecord')} WHERE false`,
+          `SELECT 1 FROM ${table('LegalDocumentDraft')} LIMIT 1`,
+        ]) {
+          await expect(client.query(sql), sql).rejects.toThrow(/permission denied/u);
+        }
+      });
+    });
+
+    it('backoffice LOGIN user는 회원 수 view의 수 하나만 읽고 사용자 table에는 닿지 않는다', async () => {
+      const activeUserId = randomUUID();
+      const deletedUserId = randomUUID();
+      try {
+        for (const [id, deletedAt] of [
+          [activeUserId, null],
+          [deletedUserId, new Date('2026-11-01T00:00:00.000Z')],
+        ] as const) {
+          await admin.query(
+            `INSERT INTO ${table('User')} ("id", "email", "emailNormalized", "passwordHash", "gender", "campus", "deletedAt") VALUES ($1, $2, $2, 'argon2id-hash', 'M', 'CHUNCHEON', $3)`,
+            [id, `${id}@user.invalid`, deletedAt],
+          );
+        }
+        await withLogin(INTEGRATION_LOGIN_USERS.backoffice, async (client) => {
+          const result = await client.query<{ recipientCount: number }>(
+            `SELECT * FROM ${table('LegalNoticeRecipientCount')}`,
+          );
+          expect(result.fields.map((field) => field.name)).toEqual(['recipientCount']);
+          expect(result.rows).toEqual([{ recipientCount: 1 }]);
+          for (const sql of [
+            `SELECT 1 FROM ${table('User')} LIMIT 1`,
+            `SELECT "deletedAt" FROM ${table('User')} LIMIT 1`,
+          ]) {
+            await expect(client.query(sql), sql).rejects.toThrow(/permission denied/u);
+          }
+        });
+        for (const login of [
+          INTEGRATION_LOGIN_USERS.runtime,
+          INTEGRATION_LOGIN_USERS.retentionWorker,
+          INTEGRATION_LOGIN_USERS.retentionDisclosure,
+          INTEGRATION_LOGIN_USERS.backofficeRetention,
+        ]) {
+          await withLogin(login, async (client) => {
+            await expect(
+              client.query(`SELECT * FROM ${table('LegalNoticeRecipientCount')}`),
+              login.user,
+            ).rejects.toThrow(/permission denied/u);
+          });
+        }
+      } finally {
+        await admin.query(`DELETE FROM ${table('User')} WHERE "id" = ANY($1::text[])`, [
+          [activeUserId, deletedUserId],
+        ]);
+      }
+    });
+
+    it('게시 판은 kind당 첫 게시 하나·철회되지 않은 (kind, 시행일) 하나이고 고지 등급별 열 짝을 DB가 막는다', async () => {
+      const version = table('LegalDocumentVersion');
+      const uniqueBy = (name: string) =>
+        new RegExp(`duplicate key value violates unique constraint "${name}"`, 'u');
+      const checkedBy = (name: string) => new RegExp(`violates check constraint "${name}"`, 'u');
+      const insert = (values: Record<string, unknown>) => {
+        const row: Record<string, unknown> = {
+          id: randomUUID(),
+          kind: 'PRIVACY_POLICY',
+          version: randomUUID(),
+          title: '처리방침',
+          summaryItems: JSON.stringify(['요약']),
+          sections: JSON.stringify([{ type: 'paragraph', text: '본문' }]),
+          changeSummary: '변경 요약',
+          noticeClass: 'GENERAL',
+          consentRequired: false,
+          effectiveDate: '2026-12-01',
+          appliesUntil: null,
+          contentDigest: 'a'.repeat(64),
+          publishedAt: new Date('2026-11-20T00:00:00.000Z'),
+          ...values,
+        };
+        const columns = Object.keys(row);
+        return admin.query(
+          `INSERT INTO ${version} (${columns.map(quoteIdentifier).join(', ')}) VALUES (${columns.map((_, index) => `$${index + 1}`).join(', ')})`,
+          columns.map((column) => row[column]),
+        );
+      };
+      try {
+        await insert({ noticeClass: 'INITIAL', effectiveDate: '2026-11-20' });
+        await expect(
+          insert({ noticeClass: 'INITIAL', effectiveDate: '2026-11-21' }),
+        ).rejects.toThrow(uniqueBy('LegalDocumentVersion_kind_initial_key'));
+        await insert({ effectiveDate: '2026-12-01' });
+        await expect(insert({ effectiveDate: '2026-12-01' })).rejects.toThrow(
+          uniqueBy('LegalDocumentVersion_kind_effectiveDate_active_key'),
+        );
+        // A withdrawn version frees its date for a new notice (withdrawn before it took effect).
+        await insert({
+          effectiveDate: '2026-12-08',
+          withdrawnAt: new Date('2026-11-21T00:00:00.000Z'),
+        });
+        await insert({ effectiveDate: '2026-12-08' });
+        for (const [values, constraint] of [
+          [
+            { noticeClass: 'HISTORICAL', effectiveDate: '2026-06-22' },
+            'LegalDocumentVersion_applies_until_check',
+          ],
+          [
+            { effectiveDate: '2026-12-15', appliesUntil: '2026-12-31' },
+            'LegalDocumentVersion_applies_until_check',
+          ],
+          [
+            { noticeClass: 'HISTORICAL', effectiveDate: '2026-06-22', appliesUntil: '2026-06-21' },
+            'LegalDocumentVersion_applies_until_check',
+          ],
+          [
+            { effectiveDate: '2026-12-16', consentRequired: true },
+            'LegalDocumentVersion_consent_kind_check',
+          ],
+          [
+            { kind: 'TERMS_OF_SERVICE', noticeClass: 'SIGNIFICANT', effectiveDate: '2026-12-31' },
+            'LegalDocumentVersion_consent_kind_check',
+          ],
+          [
+            { effectiveDate: '2026-12-17', contentDigest: 'not-a-digest' },
+            'LegalDocumentVersion_content_digest_check',
+          ],
+          [
+            { effectiveDate: '2026-12-18', changeSummary: '   ' },
+            'LegalDocumentVersion_change_summary_check',
+          ],
+          [
+            {
+              noticeClass: 'INITIAL',
+              kind: 'AGE_14_OR_ABOVE_NOTICE',
+              withdrawnAt: new Date('2026-11-21T00:00:00.000Z'),
+            },
+            'LegalDocumentVersion_withdrawal_check',
+          ],
+          // Withdrawing at the effective instant (00:00 KST of the effective date) is too late.
+          [
+            { effectiveDate: '2026-12-19', withdrawnAt: new Date('2026-12-18T15:00:00.000Z') },
+            'LegalDocumentVersion_withdrawal_check',
+          ],
+          [
+            { effectiveDate: '2026-12-21', contentSchemaVersion: 2 },
+            'LegalDocumentVersion_content_schema_version_check',
+          ],
+        ] as const) {
+          await expect(insert(values), constraint).rejects.toThrow(checkedBy(constraint));
+        }
+        // One millisecond before the effective instant is still a withdrawal before it takes effect.
+        await insert({
+          effectiveDate: '2026-12-20',
+          withdrawnAt: new Date('2026-12-19T14:59:59.999Z'),
+        });
+        await expect(
+          admin.query(
+            `INSERT INTO ${table('LegalAcceptanceRecord')} ("id", "userId", "documentVersionId", "kind", "action", "source") VALUES ($1, $2, $3, 'PRIVACY_POLICY', 'SHOW', 'IMPORT')`,
+            [randomUUID(), randomUUID(), randomUUID()],
+          ),
+        ).rejects.toThrow(checkedBy('LegalAcceptanceRecord_source_check'));
+      } finally {
+        await admin.query(`DELETE FROM ${version}`);
+      }
+    });
+
+    it('legal 판의 요청자·승인자 짝과 자기 승인, 초안 제약, legal 승인 요청의 대상을 DB가 막는다', async () => {
+      const version = table('LegalDocumentVersion');
+      const draft = table('LegalDocumentDraft');
+      const approval = table('AdminApprovalRequest');
+      const checkedBy = (name: string) => new RegExp(`violates check constraint "${name}"`, 'u');
+      const requester = randomUUID();
+      const approver = randomUUID();
+      const insertInto = (target: string, row: Record<string, unknown>) => {
+        const columns = Object.keys(row);
+        return admin.query(
+          `INSERT INTO ${target} (${columns.map(quoteIdentifier).join(', ')}) VALUES (${columns.map((_, index) => `$${index + 1}`).join(', ')})`,
+          columns.map((column) => row[column]),
+        );
+      };
+      let nextDay = 1;
+      const insertVersion = (values: Record<string, unknown>) =>
+        insertInto(version, {
+          id: randomUUID(),
+          kind: 'PRIVACY_POLICY',
+          version: randomUUID(),
+          title: '처리방침',
+          summaryItems: JSON.stringify(['요약']),
+          sections: JSON.stringify([{ type: 'paragraph', text: '본문' }]),
+          changeSummary: '변경 요약',
+          noticeClass: 'GENERAL',
+          effectiveDate: `2027-01-${String(nextDay++).padStart(2, '0')}`,
+          contentDigest: 'b'.repeat(64),
+          publishedAt: new Date('2026-11-20T00:00:00.000Z'),
+          ...values,
+        });
+      const insertDraft = (values: Record<string, unknown>) =>
+        insertInto(draft, {
+          id: randomUUID(),
+          kind: 'PRIVACY_POLICY',
+          title: '처리방침',
+          summaryItems: JSON.stringify(['요약']),
+          sections: JSON.stringify([{ type: 'paragraph', text: '본문' }]),
+          changeSummary: '변경 요약',
+          noticeClass: 'GENERAL',
+          proposedEffectiveDate: '2027-02-01',
+          authorAccountId: requester,
+          ...values,
+        });
+      const insertRequest = (values: Record<string, unknown>) =>
+        insertInto(approval, {
+          id: randomUUID(),
+          contentDigest: 'c'.repeat(64),
+          requestedByAccountId: requester,
+          expiresAt: new Date('2027-01-01T00:00:00.000Z'),
+          ...values,
+        });
+      try {
+        for (const id of [requester, approver]) {
+          await insertInto(table('AdminAccount'), {
+            id,
+            email: `${id}@backoffice.invalid`,
+            displayName: 'operator',
+          });
+        }
+        // A seed version names neither account; a backoffice version copies its request's pair.
+        await insertVersion({});
+        await insertVersion({ requestedByAccountId: requester, approvedByAccountId: approver });
+        await insertVersion({
+          requestedByAccountId: requester,
+          approvedByAccountId: requester,
+          selfApproved: true,
+        });
+        for (const [values, constraint] of [
+          [{ requestedByAccountId: requester }, 'LegalDocumentVersion_approval_pair_check'],
+          [{ approvedByAccountId: approver }, 'LegalDocumentVersion_approval_pair_check'],
+          [
+            { requestedByAccountId: requester, approvedByAccountId: requester },
+            'LegalDocumentVersion_self_approval_check',
+          ],
+          [
+            { requestedByAccountId: requester, approvedByAccountId: approver, selfApproved: true },
+            'LegalDocumentVersion_self_approval_check',
+          ],
+          [{ selfApproved: true }, 'LegalDocumentVersion_self_approval_check'],
+        ] as const) {
+          await expect(insertVersion(values), constraint).rejects.toThrow(checkedBy(constraint));
+        }
+
+        const draftId = randomUUID();
+        await insertDraft({ id: draftId });
+        await insertDraft({
+          noticeClass: 'HISTORICAL',
+          proposedEffectiveDate: '2026-06-22',
+          appliesUntil: '2026-11-19',
+        });
+        await insertDraft({
+          kind: 'TERMS_OF_SERVICE',
+          noticeClass: 'SIGNIFICANT',
+          consentRequired: true,
+        });
+        for (const [values, constraint] of [
+          [{ noticeClass: 'HISTORICAL' }, 'LegalDocumentDraft_applies_until_check'],
+          [{ appliesUntil: '2027-03-01' }, 'LegalDocumentDraft_applies_until_check'],
+          [
+            {
+              noticeClass: 'HISTORICAL',
+              proposedEffectiveDate: '2026-06-22',
+              appliesUntil: '2026-06-21',
+            },
+            'LegalDocumentDraft_applies_until_check',
+          ],
+          [{ consentRequired: true }, 'LegalDocumentDraft_consent_kind_check'],
+          [
+            { kind: 'TERMS_OF_SERVICE', noticeClass: 'SIGNIFICANT' },
+            'LegalDocumentDraft_consent_kind_check',
+          ],
+          [{ revision: 0 }, 'LegalDocumentDraft_revision_check'],
+          [{ contentSchemaVersion: 2 }, 'LegalDocumentDraft_content_schema_version_check'],
+        ] as const) {
+          await expect(insertDraft(values), constraint).rejects.toThrow(checkedBy(constraint));
+        }
+
+        // Legal requests name their own target and pass the older role-target CHECK.
+        const scheduledId = randomUUID();
+        await insertVersion({ id: scheduledId });
+        await insertRequest({ kind: 'LEGAL_PUBLISH', targetLegalDraftId: draftId });
+        await insertRequest({ kind: 'LEGAL_WITHDRAW', targetLegalVersionId: scheduledId });
+        for (const values of [
+          { kind: 'LEGAL_PUBLISH' },
+          { kind: 'LEGAL_WITHDRAW' },
+          { kind: 'LEGAL_PUBLISH', targetLegalDraftId: draftId, targetLegalVersionId: scheduledId },
+          {
+            kind: 'LEGAL_WITHDRAW',
+            targetLegalDraftId: draftId,
+            targetLegalVersionId: scheduledId,
+          },
+          {
+            kind: 'ROLE_GRANT',
+            targetAccountId: approver,
+            targetRole: 'AUDITOR',
+            targetLegalDraftId: draftId,
+          },
+        ]) {
+          await expect(insertRequest(values), values.kind).rejects.toThrow(
+            checkedBy('AdminApprovalRequest_legal_target_check'),
+          );
+        }
+        await insertRequest({
+          kind: 'ROLE_GRANT',
+          targetAccountId: approver,
+          targetRole: 'AUDITOR',
+        });
+      } finally {
+        await admin.query(`DELETE FROM ${approval} WHERE "requestedByAccountId" = $1`, [requester]);
+        await admin.query(`DELETE FROM ${draft}`);
+        await admin.query(`DELETE FROM ${version}`);
+        await admin.query(`DELETE FROM ${table('AdminAccount')} WHERE "id" = ANY($1::text[])`, [
+          [requester, approver],
+        ]);
+      }
+    });
+
     it('사람 조회 role은 secret·content 열과 RRPD를 읽지 못하고 RetentionCase는 행 수만 센다', async () => {
       await admin.query('SET ROLE app_readonly');
       try {
@@ -660,6 +1051,42 @@ describe.skipIf(resolveIntegrationDatabaseRoleMode() !== 'separated')(
           `REVOKE UPDATE ON ${table('SeasonOperationAuditEvent')} FROM app_runtime`,
         );
       }
+      await expect(smokeAsMigrator()).resolves.toContain('role grant smoke ok');
+    });
+
+    it('grant 표가 게시 판 내용 열 UPDATE를 선언해도 smoke가 실패한다', async () => {
+      // The column comparison above passes when the table itself declares the grant, so this is the
+      // check that keeps published legal versions immutable. Everything runs in one rolled-back
+      // transaction: the session input tables and the extra grant disappear with it.
+      await asMigrator(async (client) => {
+        await client.query('BEGIN');
+        try {
+          await loadRoleGrantInputs(client);
+          const widened = await client.query(
+            `UPDATE pg_temp.role_grant_matrix SET columns = 'title withdrawnAt updatedAt'
+             WHERE table_name = 'LegalDocumentVersion' AND role_name = 'backoffice_runtime'
+               AND privileges = 'UPDATE'`,
+          );
+          expect(widened.rowCount).toBe(1);
+          await client.query(
+            `SELECT set_config('dormduri.grant_schema', $1, true),
+                    set_config('dormduri.expected_table_owner', 'migration_owner', true),
+                    set_config('dormduri.smoke_login_users', $2, true)`,
+            [
+              schemaName,
+              Object.entries(LOGIN_USERS_BY_ROLE)
+                .map(([role, user]) => `${role}=${user}`)
+                .join(' '),
+            ],
+          );
+          await client.query(readRoleGrantFile(ROLE_GRANT_FILES.apply));
+          await expect(client.query(readRoleGrantFile(ROLE_GRANT_FILES.smoke))).rejects.toThrow(
+            /published legal version content is writable:\n[^\n]*backoffice_runtime UPDATE on LegalDocumentVersion\.title/u,
+          );
+        } finally {
+          await client.query('ROLLBACK');
+        }
+      });
       await expect(smokeAsMigrator()).resolves.toContain('role grant smoke ok');
     });
 

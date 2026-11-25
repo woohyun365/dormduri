@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { LegalDocumentKind as SharedLegalDocumentKind } from '@repo/shared/legal';
+import type { LegalDocumentKind } from '@repo/shared/legal';
 import type { Prisma } from '@repo/database/client';
-import type { LegalDocumentKind as PrismaLegalDocumentKind } from '@repo/database/enums';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 
 export const legalDocumentVersionSelect = {
@@ -9,22 +8,38 @@ export const legalDocumentVersionSelect = {
   kind: true,
   version: true,
   title: true,
+  contentSchemaVersion: true,
   summaryItems: true,
   sections: true,
   changeSummary: true,
+  noticeClass: true,
+  consentRequired: true,
+  effectiveDate: true,
+  appliesUntil: true,
   publishedAt: true,
-  effectiveAt: true,
-  retiredAt: true,
-  createdAt: true,
-  updatedAt: true,
+  withdrawnAt: true,
 } as const;
 
 export type LegalDocumentVersionRecord = Prisma.LegalDocumentVersionGetPayload<{
   select: typeof legalDocumentVersionSelect;
 }>;
 
-function toPrismaLegalDocumentKind(kind: SharedLegalDocumentKind): PrismaLegalDocumentKind {
-  return kind;
+type LegalVersionReader = Pick<Prisma.TransactionClient, 'legalDocumentVersion'>;
+
+/**
+ * Published versions of the given kinds whose notice has started by `now`, withdrawn ones left out.
+ * Version state (scheduled, current, previous) is computed from these rows and the same clock.
+ */
+export function findPublishedLegalVersions(
+  client: LegalVersionReader,
+  kinds: readonly LegalDocumentKind[],
+  now: Date,
+): Promise<LegalDocumentVersionRecord[]> {
+  return client.legalDocumentVersion.findMany({
+    where: { kind: { in: [...kinds] }, withdrawnAt: null, publishedAt: { lte: now } },
+    orderBy: [{ kind: 'asc' }, { effectiveDate: 'asc' }],
+    select: legalDocumentVersionSelect,
+  });
 }
 
 @Injectable()
@@ -35,19 +50,10 @@ export class LegalDocumentRepository {
     return this.prisma.getDatabaseNow();
   }
 
-  findActiveByKind(
-    kind: SharedLegalDocumentKind,
+  listPublishedVersions(
+    kinds: readonly LegalDocumentKind[],
     now: Date,
-  ): Promise<LegalDocumentVersionRecord | null> {
-    return this.prisma.legalDocumentVersion.findFirst({
-      where: {
-        kind: toPrismaLegalDocumentKind(kind),
-        publishedAt: { not: null, lte: now },
-        effectiveAt: { lte: now },
-        OR: [{ retiredAt: null }, { retiredAt: { gt: now } }],
-      },
-      orderBy: [{ effectiveAt: 'desc' }, { publishedAt: 'desc' }, { id: 'desc' }],
-      select: legalDocumentVersionSelect,
-    });
+  ): Promise<LegalDocumentVersionRecord[]> {
+    return findPublishedLegalVersions(this.prisma, kinds, now);
   }
 }

@@ -173,6 +173,35 @@ BEGIN
     RAISE EXCEPTION E'role grant smoke: column privilege mismatch:\n%', problems;
   END IF;
 
+  -- A published legal version is a public record (legal-basis LB-R6): apart from the grant table, no
+  -- PUBLIC, managed role or LOGIN user may change a content column or remove a row. Only the
+  -- withdrawal time and its Prisma @updatedAt can change.
+  WITH subjects AS (SELECT * FROM pg_temp.role_grant_smoke_subjects(login_users)),
+  version AS (
+    SELECT c.oid
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = target_schema AND c.relname = 'LegalDocumentVersion'
+  ),
+  violations AS (
+    SELECT format('%s UPDATE on LegalDocumentVersion.%s', s.subject, a.attname) AS problem
+    FROM subjects s
+    CROSS JOIN version v
+    JOIN pg_attribute a ON a.attrelid = v.oid AND a.attnum > 0 AND NOT a.attisdropped
+    WHERE a.attname NOT IN ('withdrawnAt', 'updatedAt')
+      AND has_column_privilege(s.subject, v.oid, a.attnum, 'UPDATE')
+    UNION ALL
+    SELECT format('%s %s on LegalDocumentVersion', s.subject, p.privilege_type)
+    FROM subjects s
+    CROSS JOIN version v
+    CROSS JOIN unnest(ARRAY['DELETE', 'TRUNCATE']) AS p(privilege_type)
+    WHERE has_table_privilege(s.subject, v.oid, p.privilege_type)
+  )
+  SELECT string_agg(problem, E'\n' ORDER BY problem) INTO problems FROM violations;
+  IF problems IS NOT NULL THEN
+    RAISE EXCEPTION E'role grant smoke: published legal version content is writable:\n%', problems;
+  END IF;
+
   WITH subjects AS (SELECT * FROM pg_temp.role_grant_smoke_subjects(login_users)),
   managed AS (
     SELECT r.oid, r.rolname

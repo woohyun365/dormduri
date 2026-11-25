@@ -179,6 +179,17 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
       'thread retention archive는 retained vault write와 source redaction을 같은 archive transaction에 묶는다.',
   }),
   entry({
+    path: 'src/legal/commands/legal-reconsent.command.ts',
+    owner: 'legal',
+    coverageClass: 'concurrency-race',
+    coverageRefs: [
+      'src/legal/contracts/legal-public-reading.spec.ts',
+      'test/integration/legal/legal-reconsent.integration.spec.ts',
+    ],
+    rationale:
+      '재동의는 대기 판 확인과 AGREE 기록이 함께 완료되어야 하고, 같은 회원의 동시 제출은 하나만 기록된다.',
+  }),
+  entry({
     path: 'src/matches/active/commands/cancel-unmatch-request.command.ts',
     owner: 'matches/active',
     coverageClass: 'concurrency-race',

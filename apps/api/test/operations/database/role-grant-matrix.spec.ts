@@ -8,9 +8,11 @@ import {
 } from '../../../src/platform/database/database.config.js';
 import {
   COLUMN_CLASSES,
+  DATABASE_VIEWS,
   GRANT_PRIVILEGES,
   MANAGED_DATABASE_ROLES,
   readColumnClasses,
+  readMigrationViews,
   readPrismaSchemaShape,
   readRoleGrantFile,
   readRoleGrantMatrix,
@@ -88,13 +90,29 @@ describe('DB role grant table', () => {
   const describeRow = (row: RoleGrantMatrixRow) =>
     `${row.table},${row.role},${row.privileges.join(' ')},${row.columns}`;
 
-  it('schema.prisma의 모든 model과 _prisma_migrations가 표에 있고 표에만 있는 table은 없다', () => {
+  it('schema.prisma의 모든 model과 _prisma_migrations, migration이 만든 view가 표에 있고 표에만 있는 table은 없다', () => {
     const tables = new Set(matrix.map((row) => row.table));
-    const expected = new Set([...schema.models, '_prisma_migrations']);
+    const expected = new Set([
+      ...schema.models,
+      ...Object.keys(DATABASE_VIEWS),
+      '_prisma_migrations',
+    ]);
 
     expect(schema.models.length).toBeGreaterThan(0);
     expect([...expected].filter((table) => !tables.has(table))).toEqual([]);
     expect([...tables].filter((table) => !expected.has(table))).toEqual([]);
+  });
+
+  it('선언한 view는 migration의 CREATE VIEW와 같고 선언한 열만 낸다', () => {
+    const views = readMigrationViews();
+
+    expect([...views.keys()].sort()).toEqual(Object.keys(DATABASE_VIEWS).sort());
+    for (const [name, columns] of Object.entries(DATABASE_VIEWS)) {
+      const selected = [...(views.get(name) ?? '').matchAll(/AS "(\w+)"/gu)].map(
+        (match) => match[1],
+      );
+      expect(selected, name).toEqual([...columns]);
+    }
   });
 
   it('행마다 role·권한·열 범위가 정한 형식이다', () => {
@@ -268,6 +286,48 @@ describe('DB role grant table', () => {
     }
   });
 
+  it('게시 판 내용 열은 어느 관리 role도 고치거나 지우지 못하고 legal table 권한은 판 model 범위다', () => {
+    // A published version is a public record: only the withdrawal time (and its Prisma @updatedAt) changes.
+    const mutableVersionColumns = ['withdrawnAt', 'updatedAt'];
+    for (const role of MANAGED_DATABASE_ROLES) {
+      expect(privilegesOf('LegalDocumentVersion', role).has('DELETE'), role).toBe(false);
+      for (const row of rowsFor('LegalDocumentVersion', role).filter((candidate) =>
+        candidate.privileges.includes('UPDATE'),
+      )) {
+        expect(row.columns, `${role} column-level UPDATE`).not.toBe('');
+        expect(
+          row.columns.split(/\s+/u).filter((column) => !mutableVersionColumns.includes(column)),
+          role,
+        ).toEqual([]);
+      }
+    }
+    expect(
+      matrix
+        .filter((row) =>
+          [
+            'LegalAcceptanceRecord',
+            'LegalDocumentDraft',
+            'LegalDocumentVersion',
+            'LegalNoticeRecipientCount',
+          ].includes(row.table),
+        )
+        .map(describeRow)
+        .sort(),
+    ).toEqual(
+      [
+        'LegalAcceptanceRecord,app_readonly,SELECT,-secret -content',
+        'LegalAcceptanceRecord,app_runtime,SELECT INSERT,',
+        'LegalDocumentDraft,app_readonly,SELECT,-secret -content',
+        'LegalDocumentDraft,backoffice_runtime,SELECT INSERT UPDATE,',
+        'LegalDocumentVersion,app_readonly,SELECT,-secret -content',
+        'LegalDocumentVersion,app_runtime,SELECT,',
+        'LegalDocumentVersion,backoffice_runtime,SELECT INSERT,',
+        'LegalDocumentVersion,backoffice_runtime,UPDATE,withdrawnAt updatedAt',
+        'LegalNoticeRecipientCount,backoffice_runtime,SELECT,',
+      ].sort(),
+    );
+  });
+
   it('사람 조회 role은 읽기만 하고 model table에서는 secret·content 열을 뺀다', () => {
     const readonlyRows = matrix.filter((row) => row.role === 'app_readonly');
 
@@ -305,13 +365,19 @@ describe('DB role grant table', () => {
   it('worker·disclosure·backoffice는 정한 범위 밖 권한을 받지 않는다', () => {
     // Nothing reads AuthMailOutboxEvent with the worker credential (F7).
     expect(rowsFor('AuthMailOutboxEvent', 'retention_worker')).toEqual([]);
-    // Backoffice roles reach only the admin tables; user tables and RRPD arrive per feature (infra/db/README.md, new role step).
+    // Backoffice roles reach the admin tables; other tables arrive per feature (infra/db/README.md, new role
+    // step). The legal feature adds the legal drafts and versions and the member count view, never "User".
     expect(
       matrix
         .filter((row) => row.role === 'backoffice_runtime' || row.role === 'backoffice_retention')
         .filter((row) => !ADMIN_TABLES.includes(row.table))
         .map(describeRow),
-    ).toEqual([]);
+    ).toEqual([
+      'LegalDocumentVersion,backoffice_runtime,SELECT INSERT,',
+      'LegalDocumentVersion,backoffice_runtime,UPDATE,withdrawnAt updatedAt',
+      'LegalDocumentDraft,backoffice_runtime,SELECT INSERT UPDATE,',
+      'LegalNoticeRecipientCount,backoffice_runtime,SELECT,',
+    ]);
     expect(
       matrix
         .filter((row) => row.role === 'retention_disclosure')

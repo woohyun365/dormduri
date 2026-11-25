@@ -1,26 +1,73 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   LegalDocumentKind,
   legalDocumentResponseSchema,
   type LegalDocumentKind as LegalDocumentKindValue,
 } from '@repo/shared/legal';
+import * as sharedLegal from '@repo/shared/legal';
 // @ts-expect-error -- seed reference data is plain JS and intentionally imported for regression coverage
-import { LEGAL_DOCUMENT_REFERENCE_ROWS } from '../../../prisma/seed-data/reference/legal-document-seed-data.js';
+import * as legalSeedData from '../../../prisma/seed-data/reference/legal-document-seed-data.js';
+// @ts-expect-error -- the legal version seed module is plain JS that reads the JSON data files
+import * as legalVersionSeed from '../../../prisma/seed-data/reference/seed-legal-documents.js';
 
 type LegalDocumentSeedRow = {
   id: string;
   kind: LegalDocumentKindValue;
   version: string;
   title: string;
-  effectiveAt: string;
-  publishedAt: string | null;
-  retiredAt: string | null;
   summaryItems: string[];
   sections: unknown[];
   changeSummary?: string;
 };
 
-const legalDocumentRows = LEGAL_DOCUMENT_REFERENCE_ROWS as LegalDocumentSeedRow[];
+const seedData = legalSeedData as Record<string, unknown>;
+const legalDocumentRows = seedData.LEGAL_DOCUMENT_REFERENCE_ROWS as LegalDocumentSeedRow[];
+
+type LegalVersionSeedRow = {
+  id: string;
+  kind: LegalDocumentKindValue;
+  version: string;
+  noticeClass: string;
+  consentRequired: boolean;
+  effectiveDate: string;
+  appliesUntil: string | null;
+  title: string;
+  summaryItems: string[];
+  sections: unknown[];
+  changeSummary: string;
+};
+
+// Versions and the first revision come from the JSON data files that the seed module reads; the four
+// document arrays above stay the Web fallback source.
+const versionSeed = legalVersionSeed as Record<string, unknown>;
+const legalSeedDirectory = join(process.cwd(), 'prisma/seed-data/reference/legal');
+
+function requireSeedExport<T>(name: string): T {
+  expect(versionSeed[name], `legal version seed export ${name}`).toBeDefined();
+  return versionSeed[name] as T;
+}
+
+const FIRST_REVISION_DRAFT_FILES = {
+  PRIVACY_POLICY: 'privacy-policy-first-revision.draft.json',
+  TERMS_OF_SERVICE: 'terms-of-service-first-revision.draft.json',
+} as const;
+
+function readFirstRevisionDraft(
+  kind: keyof typeof FIRST_REVISION_DRAFT_FILES,
+): Record<string, unknown> {
+  // The backoffice import file itself: plain JSON, not a module export.
+  return JSON.parse(
+    readFileSync(join(legalSeedDirectory, FIRST_REVISION_DRAFT_FILES[kind]), 'utf8'),
+  ) as Record<string, unknown>;
+}
+
+function requireSharedSchema(name: string) {
+  const schema = (sharedLegal as unknown as Record<string, { safeParse?: unknown }>)[name];
+  expect(typeof schema?.safeParse, name).toBe('function');
+  return schema as unknown as { safeParse: (value: unknown) => { success: boolean } };
+}
 
 function findRow(kind: LegalDocumentKindValue): LegalDocumentSeedRow {
   const row = legalDocumentRows.find((candidate) => candidate.kind === kind);
@@ -54,9 +101,13 @@ describe('legal document reference seed data', () => {
       ].sort(),
     );
 
+    // Effective dates come from the version seed list; the date fields of the four arrays are not read.
+    const versionRows = requireSeedExport<LegalVersionSeedRow[]>(
+      'LEGAL_DOCUMENT_VERSION_SEED_ROWS',
+    );
     for (const row of legalDocumentRows) {
-      expect(row.publishedAt).toBeTruthy();
-      expect(row.retiredAt).toBeNull();
+      const version = versionRows.find((candidate) => candidate.id === row.id);
+      expect(version, row.id).toBeDefined();
       expect(row.summaryItems.length).toBeGreaterThan(0);
       expect(row.sections.length).toBeGreaterThan(0);
       expect(
@@ -65,8 +116,8 @@ describe('legal document reference seed data', () => {
           kind: row.kind,
           version: row.version,
           title: row.title,
-          effectiveAt: row.effectiveAt,
-          lastModifiedAt: row.effectiveAt,
+          effectiveAt: `${version?.effectiveDate}T00:00:00.000Z`,
+          lastModifiedAt: `${version?.effectiveDate}T00:00:00.000Z`,
           summaryItems: row.summaryItems,
           sections: row.sections,
           changeSummary: row.changeSummary,
@@ -75,8 +126,179 @@ describe('legal document reference seed data', () => {
     }
   });
 
+  it('판 seed 목록은 처리방침 이전 판 기록과 첫 게시, 나머지 셋의 첫 게시를 시행일과 함께 낸다', () => {
+    const versionRows = requireSeedExport<LegalVersionSeedRow[]>(
+      'LEGAL_DOCUMENT_VERSION_SEED_ROWS',
+    );
+
+    expect(
+      versionRows.map((row) => [
+        row.id,
+        row.kind,
+        row.noticeClass,
+        row.effectiveDate,
+        row.appliesUntil,
+      ]),
+    ).toEqual([
+      ['terms-of-service-2026-06-22', 'TERMS_OF_SERVICE', 'INITIAL', '2026-06-22', null],
+      ['privacy-policy-2026-06-22', 'PRIVACY_POLICY', 'INITIAL', '2026-11-20', null],
+      [
+        'personal-data-collection-use-consent-2026-06-22',
+        'PERSONAL_DATA_COLLECTION_USE_CONSENT',
+        'INITIAL',
+        '2026-06-22',
+        null,
+      ],
+      [
+        'age-14-or-above-notice-2026-06-22',
+        'AGE_14_OR_ABOVE_NOTICE',
+        'INITIAL',
+        '2026-06-22',
+        null,
+      ],
+      // The historical record follows the version that took its date, so a re-run never collides.
+      [
+        'privacy-policy-historical-2026-06-22',
+        'PRIVACY_POLICY',
+        'HISTORICAL',
+        '2026-06-22',
+        '2026-11-19',
+      ],
+    ]);
+    expect(new Set(versionRows.map((row) => row.version)).size).toBe(versionRows.length);
+    for (const row of versionRows) {
+      expect(row.consentRequired, row.id).toBe(false);
+      expect(row.changeSummary.trim().length, row.id).toBeGreaterThan(0);
+      const reference = legalDocumentRows.find((candidate) => candidate.id === row.id);
+      if (reference) {
+        // Published versions copy the body of the four document arrays.
+        expect([row.title, row.summaryItems, row.sections, row.changeSummary]).toEqual([
+          reference.title,
+          reference.summaryItems,
+          reference.sections,
+          reference.changeSummary,
+        ]);
+      }
+    }
+  });
+
+  it('판 seed 목록·이전 판 본문·첫 개정 초안은 code가 아닌 JSON data 파일이고 seed module이 모두 읽는다', () => {
+    const files = readdirSync(legalSeedDirectory).sort();
+    expect(files).toEqual([
+      'privacy-policy-first-revision.draft.json',
+      'privacy-policy-historical-2026-06-22.json',
+      'terms-of-service-first-revision.draft.json',
+      'version-seed-rows.json',
+    ]);
+    const list = JSON.parse(
+      readFileSync(join(legalSeedDirectory, 'version-seed-rows.json'), 'utf8'),
+    ) as { versions: Array<{ id: string; content: string }> };
+    const contentFiles = list.versions
+      .map((entry) => entry.content)
+      .filter((content) => content !== 'reference-row');
+    // Every body that is not a Web fallback array row is a listed data file, and every data file is read.
+    expect(
+      [
+        ...contentFiles,
+        ...Object.values(FIRST_REVISION_DRAFT_FILES),
+        'version-seed-rows.json',
+      ].sort(),
+    ).toEqual(files);
+  });
+
+  it('처리방침 이전 판 기록은 2026-11-20 전에 공개된 본문이다', () => {
+    const versionRows = requireSeedExport<LegalVersionSeedRow[]>(
+      'LEGAL_DOCUMENT_VERSION_SEED_ROWS',
+    );
+    const historical = versionRows.find((row) => row.noticeClass === 'HISTORICAL');
+    const historicalText = flattenText(historical?.sections ?? []).join('\n');
+    const currentText = flattenText(findRow(LegalDocumentKind.PRIVACY_POLICY).sections).join('\n');
+
+    expect(historicalText).toContain('안전성 확보조치 기준에 따라 1년 보관');
+    expect(historicalText).not.toContain('운영 관측 저장소');
+    expect(currentText).toContain('안전성 확보조치 기준에 따라 2년 보관');
+    expect(historical?.changeSummary).toBe(
+      '조문형 처리방침 구조에 맞춰 처리 목적, 항목·보유기간, 제3자 제공, 위탁, 권리 행사, 파기·안전조치 기준을 정리하고, 처리업무 수탁자와 국외 이전, 방문 통계, 개인정보 보호책임자와 문의 이메일을 적었습니다.',
+    );
+  });
+
+  it('처리방침 첫 개정 초안은 가져오기 schema를 통과하는 일반 고지 초안이고 판 행이 아니다', () => {
+    const draft = readFirstRevisionDraft('PRIVACY_POLICY');
+    const importSchema = requireSharedSchema('legalDocumentDraftImportSchema');
+    const versionRows = requireSeedExport<LegalVersionSeedRow[]>(
+      'LEGAL_DOCUMENT_VERSION_SEED_ROWS',
+    );
+
+    expect(importSchema.safeParse(draft).success).toBe(true);
+    expect(draft).toMatchObject({
+      kind: LegalDocumentKind.PRIVACY_POLICY,
+      noticeClass: 'GENERAL',
+      consentRequired: false,
+    });
+    expect('id' in draft).toBe(false);
+    expect(versionRows.some((row) => row.noticeClass === 'GENERAL')).toBe(false);
+    const draftText = flattenText(draft.sections).join('\n');
+    // Access record line split: database and session start records 2 years, admin console audit 3 years.
+    expect(draftText).toMatch(/2년/u);
+    expect(draftText).toMatch(/3년/u);
+    expect(draftText).not.toContain('정해지면 안내');
+    expect(draftText).toContain('제11조(개인정보 처리방침의 변경)');
+  });
+
+  it('약관 첫 개정 초안은 시행 중 약관에서 제11조만 LB-R10·LB-R11 기준으로 바꾼 일반 고지 초안이다', () => {
+    const draft = readFirstRevisionDraft('TERMS_OF_SERVICE');
+    const importSchema = requireSharedSchema('legalDocumentDraftImportSchema');
+    const current = findRow(LegalDocumentKind.TERMS_OF_SERVICE);
+
+    expect(importSchema.safeParse(draft).success).toBe(true);
+    expect(draft).toMatchObject({
+      kind: LegalDocumentKind.TERMS_OF_SERVICE,
+      noticeClass: 'GENERAL',
+      consentRequired: false,
+      proposedEffectiveDate: readFirstRevisionDraft('PRIVACY_POLICY').proposedEffectiveDate,
+    });
+    expect('id' in draft).toBe(false);
+    expect([draft.title, draft.summaryItems]).toEqual([current.title, current.summaryItems]);
+
+    const sections = draft.sections as Array<{ type: string; text?: string }>;
+    const currentSections = current.sections as Array<{ type: string; text?: string }>;
+    const articleRange = (list: Array<{ type: string; text?: string }>) => {
+      const start = list.findIndex((section) => section.text === '제11조(약관 변경)');
+      const end = list.findIndex((section, index) => index > start && section.type === 'heading');
+      return { start, end };
+    };
+    const draftArticle = articleRange(sections);
+    const currentArticle = articleRange(currentSections);
+    // Everything outside Article 11 stays as it is.
+    expect(sections.slice(0, draftArticle.start)).toEqual(
+      currentSections.slice(0, currentArticle.start),
+    );
+    expect(sections.slice(draftArticle.end)).toEqual(currentSections.slice(currentArticle.end));
+
+    const articleText = sections
+      .slice(draftArticle.start, draftArticle.end)
+      .map((section) => section.text ?? '')
+      .join('\n');
+    // LB-R10: 7 days, 30 days and mail for an adverse change, side-by-side articles.
+    expect(articleText).toContain('적용일 7일 전부터');
+    expect(articleText).toContain('30일 전부터');
+    expect(articleText).toContain('이메일');
+    expect(articleText).toContain('변경 전후 조항 대조표');
+    // LB-R11: an adverse change needs consent again and silence is not consent.
+    expect(articleText).toContain('다시 동의를 받고');
+    expect(articleText).toContain('동의한 것으로 보지 않습니다');
+    expect(articleText).not.toContain('요청할 수 있습니다');
+  });
+
   it('seed copy는 raw HTML/script와 plan-dependent 표현을 포함하지 않는다', () => {
-    const allText = legalDocumentRows.flatMap(flattenText).join('\n');
+    const allText = [
+      ...legalDocumentRows,
+      ...(versionSeed.LEGAL_DOCUMENT_VERSION_SEED_ROWS as unknown[]),
+      readFirstRevisionDraft('PRIVACY_POLICY'),
+      readFirstRevisionDraft('TERMS_OF_SERVICE'),
+    ]
+      .flatMap(flattenText)
+      .join('\n');
 
     expect(allText).not.toMatch(/<\/?[a-z][\s\S]*>/i);
     expect(allText).not.toMatch(/<script|javascript:/i);

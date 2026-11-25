@@ -1,8 +1,8 @@
 # BE 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-21
-**확인 근거**: [#773](https://github.com/woohyun365/dormduri/issues/773) 본문의 채택 판정과 계획 보강 댓글(application-architecture의 `be.arch.http-adapter`: adapter 채택, `qs` override, 성숙 기간 면제), [#958의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/958#issuecomment-7064557164)(domain-model-invariant의 `be.domain.owner-unit/backoffice`, authn-authz의 `be.auth.session-model/backoffice`, background-integration-performance의 `be.bg.job-runner/backoffice` 실행 위치, 2026-11-04·12·21)
+**확인일**: 2026-11-25
+**확인 근거**: [#773](https://github.com/woohyun365/dormduri/issues/773) 본문의 채택 판정과 계획 보강 댓글(application-architecture의 `be.arch.http-adapter`: adapter 채택, `qs` override, 성숙 기간 면제), [#958의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/958#issuecomment-7064557164)(domain-model-invariant의 `be.domain.owner-unit/backoffice`, authn-authz의 `be.auth.session-model/backoffice`, background-integration-performance의 `be.bg.job-runner/backoffice` 실행 위치, 2026-11-04·12·21), [#996의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/996#issuecomment-7155467337)(api-design-contract의 `be.api.compatibility/legal`, 2026-11-17)
 **근거**: [platform/http](../../../apps/api/src/platform/http/README.md), [백오피스 API](../../../apps/backoffice-api/README.md), [platform/observability](../../../apps/api/src/platform/observability/README.md), [Domain/SWE/Web/BE pack](../../development/agent-workflows/domain/swe-web/be.md)
 
 `Domain/SWE/Web/BE` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
@@ -28,6 +28,28 @@
 - 재검토 조건: 두 API가 함께 쓸 server code가 생길 때(공유 server package), 백오피스 기능이 legal·RRPD 열람으로 늘 때
 - 출처: #958, Owner 확인 2026-11-04·2026-11-12
 - pack 결정: [be.domain.owner-unit](../../development/agent-workflows/domain/swe-web/be.md#bedomainowner-unit)
+
+## api-design-contract
+
+공개 법적 문서 endpoint와 응답 계약은 [legal README](../../../apps/api/src/legal/README.md)와 공유 계약 `@repo/shared/legal`이
+소유합니다.
+
+#### be.api.compatibility/legal
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: 추가만 하고 제거는 예고 뒤. 공개 법적 문서의 옛 두 endpoint(`documents/:kind/active`, `documents/active-bundle`)는
+  응답 schema·오류·날짜 표기(`effectiveAt`·`lastModifiedAt`은 그 한국 시간 날짜의 `T00:00:00.000Z`)를 그대로 두고 시행 중 판을
+  낸다. 판 열람(`documents/:kind/page`), 조항 대조표(`documents/:kind/versions/:versionKey/comparison`), 개정 예고
+  (`revision-notices`)는 새 endpoint로 더하고 공유 계약에는 schema를 더하기만 한다. 판 주소는 시행일(`YYYY-MM-DD`)이다. 옛
+  endpoint 삭제는 사용처(가입 묶음, 옛 Web)가 0인 것을 확인한 뒤 별도 변경이다
+- 근거: 사용자 API와 Web은 따로 배포되고 한쪽만 되돌릴 수 있어, 같은 승격에서 옛 endpoint를 지우면 배포 사이와 rollback 때
+  화면이 깨진다. 지금 Web은 날짜 문자열의 앞 10자를 날짜로 읽으므로 00:00 한국 시간 시각을 ISO로 내면 전날로 보인다
+- 기각한 대안: 같은 승격에서 바꾸고 옛 endpoint 삭제(api-cd와 web-cd 사이나 한쪽만 rollback한 동안 문서 화면이 깨짐), 판 번호
+  주소(`/privacy/versions/3`처럼 사람이 읽기 어렵고, 시행 전 철회한 판이 있으면 번호가 빔)
+- 재검토 조건: 옛 endpoint 사용처가 0이 될 때, 판 수·문서 크기가 커져 판 열람 응답이 무거울 때
+- 출처: #996, Owner 확인 2026-11-17
+- pack 결정: [be.api.compatibility](../../development/agent-workflows/domain/swe-web/be.md#beapicompatibility)
 
 ## authn-authz
 
