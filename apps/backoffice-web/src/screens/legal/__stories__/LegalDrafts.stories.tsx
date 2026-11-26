@@ -2,7 +2,12 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { answerBff, bffFailure } from '../../../ui/__stories__/bff-stub';
 import { accountList, activeAuditor, pageCursor } from '../../../ui/__stories__/fixtures';
 import { consoleFrame } from '../../../ui/__stories__/frames';
-import { legalDrafts, manyLegalDrafts } from '../../../ui/__stories__/legal-fixtures';
+import {
+  legalDrafts,
+  legalLongAuthorAccountList,
+  legalLongAuthorDrafts,
+  manyLegalDrafts,
+} from '../../../ui/__stories__/legal-fixtures';
 import { Forbidden as ForbiddenPage } from '../../../ui/Forbidden';
 import { LegalDraftsScreen } from '../LegalDraftsScreen';
 
@@ -28,6 +33,11 @@ type Story = StoryObj<typeof meta>;
 
 /** Editing, waiting, published and left drafts; the left one has a long joined title. */
 export const Drafts: Story = {};
+
+/** A draft by an operator whose name is 80 characters without a space: the author cell breaks it (design guide ⑦). */
+export const LongAuthorName: Story = {
+  args: { drafts: legalLongAuthorDrafts, accounts: legalLongAuthorAccountList.accounts },
+};
 
 export const Rows: Story = { args: { drafts: manyLegalDrafts, nextPage: null } };
 

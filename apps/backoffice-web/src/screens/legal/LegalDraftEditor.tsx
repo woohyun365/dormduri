@@ -17,6 +17,7 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { SelectField, TextAreaField, TextField } from '@/ui/fields';
 import { formatKstDetail } from '@/ui/format';
+import { TimeText } from '@/ui/text';
 import { Icon } from '@/ui/icons';
 import {
   LEGAL_DRAFT_STATUS_LABELS,
@@ -249,7 +250,12 @@ export function LegalDraftEditor({
     <>
       <PageHeader
         title="초안 편집"
-        meta={`${LEGAL_KIND_LABELS[current.kind]} · 판 번호 ${current.revision} · 마지막 저장 ${formatKstDetail(current.updatedAt)}`}
+        meta={
+          <>
+            {LEGAL_KIND_LABELS[current.kind]} · 판 번호 {current.revision} · 마지막 저장{' '}
+            <TimeText text={formatKstDetail(current.updatedAt)} />
+          </>
+        }
         actions={
           editable ? (
             <Button disabled={pending || !dirty} onClick={() => void save()}>
