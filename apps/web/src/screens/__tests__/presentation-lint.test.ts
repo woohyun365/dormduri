@@ -442,6 +442,31 @@ describe('screens model renderer-neutral rules', { timeout: 60_000 }, () => {
     expect(modelRuleErrors(nested)).toEqual([]);
   });
 
+  it('allows a feature model the shared ui/model by relative path and nothing else of screens (D-LU16)', async () => {
+    const root = await lint(modelFile, [
+      "import { legalDocumentPaths } from '../../ui/model/legalAddress';",
+      "import type { PublicLegalDocumentKind } from '../../ui/model/legalAddress';",
+      'export const used = legalDocumentPaths;',
+      'export type Used = PublicLegalDocumentKind;',
+    ]);
+    const nested = await lint('src/screens/landing/model/rules/Case.ts', [
+      "import { formatLegalDate } from '../../../ui/model/legalDates';",
+      'export const used = formatLegalDate;',
+    ]);
+    expect(modelRuleErrors(root)).toEqual([]);
+    expect(modelRuleErrors(nested)).toEqual([]);
+
+    const rejected = await lint(modelFile, [
+      "import { profileModel } from '../../profile/model/profile';",
+      "import { formatLegalDate } from '@/screens/ui/model/legalDates';",
+      "import { controlButton } from '../../ui/controls/buttons';",
+      "import { brandName } from '../../ui/brand';",
+      "import { controls } from '../../ui/model/../controls/buttons';",
+      "import { outside } from '../../../ui/model/legalDates';",
+    ]);
+    expect(importErrorLines(rejected)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
   it('leaves files outside model/ and model tests to the screens rules', async () => {
     for (const file of [
       'src/screens/landing/LandingScreen.tsx',

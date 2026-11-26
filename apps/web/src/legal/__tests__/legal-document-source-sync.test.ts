@@ -1,11 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   LegalDocumentKind,
   type LegalDocumentResponse,
   type LegalDocumentSection,
 } from '@repo/shared/legal';
+import { serviceInquiryAddress } from '@/screens/ui/model/serviceNotices';
 
 import {
   seedActiveLegalDocument,
@@ -49,18 +48,6 @@ function emailAddresses(sections: LegalDocumentSection[]): string[] {
   return [...new Set(text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/gu) ?? [])];
 }
 
-// The Landing feature is imported only through its public entry, so its footer copy is read as source
-// text (the same way legal-document-boundary.spec.ts reads Landing files).
-function landingFooterInquiryAddress(): string {
-  const source = readFileSync(
-    resolve(process.cwd(), 'src/screens/landing/model/landingCopy.ts'),
-    'utf8',
-  );
-  const address = /inquiryAddress: '([^']+)'/u.exec(source)?.[1];
-  if (address === undefined) throw new Error('Landing footer inquiryAddress not found');
-  return address;
-}
-
 const termsInEffect = seedActiveLegalDocument(LegalDocumentKind.TERMS_OF_SERVICE);
 const privacyInEffect = seedActiveLegalDocument(LegalDocumentKind.PRIVACY_POLICY);
 const privacyRevision = seedLegalFirstRevisionDraft('PRIVACY_POLICY');
@@ -87,8 +74,10 @@ describe('legal seed versions', () => {
 });
 
 describe('public legal contact and overseas transfer facts', () => {
-  it('uses the Landing footer inquiry address as the only contact in the inquiry articles', () => {
-    const inquiryAddress = landingFooterInquiryAddress();
+  // The public inquiry address the Landing and Legal footers show, from the one source both import
+  // (screens/ui/model/serviceNotices.ts, fe.ds.copy-authority).
+  it('uses the footer inquiry address as the only contact in the inquiry articles', () => {
+    const inquiryAddress = serviceInquiryAddress;
 
     for (const [label, privacy] of privacyTexts) {
       expect(emailAddresses(article(privacy, '제9조(개인정보 보호책임자 및 문의)')), label).toEqual(

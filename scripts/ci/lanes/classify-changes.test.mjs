@@ -307,7 +307,7 @@ test('the legal seed files the Web test-only seed source imports select the Web 
 });
 
 test('product files that agent tests read select the agent workflow lane, other product files do not', () => {
-  assert.deepEqual(classifyChanges(['apps/web/src/legal/components/LegalDocumentLayout.tsx']), {
+  assert.deepEqual(classifyChanges(['apps/web/src/legal/test-support/legal-seed-documents.ts']), {
     web: true,
     api: false,
     backoffice: false,

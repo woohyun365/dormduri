@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { ImgHTMLAttributes } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { LegalDocumentKind, type LegalRevisionNotice } from '@repo/shared/legal';
 import { brandName } from '@/screens/ui/brand';
+import { formatLegalDate } from '@/screens/ui/model/legalDates';
 import { LandingScreen } from '../LandingScreen';
 import {
   beforeStack,
@@ -257,5 +259,63 @@ describe('LandingScreen', () => {
 
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(container.textContent).not.toMatch(/draft|scope|capability|registration|round-\d/i);
+  });
+  describe('the revision line (D-LU17)', () => {
+    const scheduled = (
+      kind: LegalRevisionNotice['kind'],
+      versionKey: string,
+    ): LegalRevisionNotice => ({
+      kind,
+      versionKey,
+      status: 'scheduled',
+      appliesFrom: versionKey,
+      appliesUntil: null,
+      changeSummary: '변경 요약',
+      consentRequired: false,
+    });
+    const band = () =>
+      screen.queryByRole('complementary', { name: landingCopy.revisionNotice.regionLabel });
+
+    it('shows one revision line per scheduled public document (D-LU17)', () => {
+      render(
+        <LandingScreen
+          revisionNotices={[
+            scheduled(LegalDocumentKind.TERMS_OF_SERVICE, '2026-12-14'),
+            scheduled(LegalDocumentKind.AGE_14_OR_ABOVE_NOTICE, '2026-12-14'),
+            scheduled(LegalDocumentKind.PRIVACY_POLICY, '2026-12-21'),
+          ]}
+        />,
+      );
+      const region = band();
+      expect(region).not.toBeNull();
+      const lines = within(region as HTMLElement).getAllByRole('paragraph');
+      expect(lines).toHaveLength(2);
+      for (const [name, versionKey, href] of [
+        [landingCopy.footer.privacyLabel, '2026-12-21', '/privacy?version=2026-12-21'],
+        [landingCopy.footer.termsLabel, '2026-12-14', '/terms?version=2026-12-14'],
+      ] as const) {
+        const link = within(region as HTMLElement).getByRole('link', {
+          name: landingCopy.revisionNotice.linkLabel(name),
+        });
+        expect(link).toHaveAttribute('href', href);
+        const line = link.closest('p');
+        expect(line).toHaveTextContent(
+          landingCopy.revisionNotice.line(formatLegalDate(versionKey), name),
+        );
+      }
+    });
+
+    it('draws the landing without the band when there is no notice (D-LU17)', () => {
+      for (const revisionNotices of [
+        undefined,
+        [],
+        [scheduled(LegalDocumentKind.AGE_14_OR_ABOVE_NOTICE, '2026-12-14')],
+      ]) {
+        const { unmount } = render(<LandingScreen revisionNotices={revisionNotices} />);
+        expect(band()).toBeNull();
+        expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+        unmount();
+      }
+    });
   });
 });

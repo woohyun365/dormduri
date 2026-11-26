@@ -1,5 +1,5 @@
-// The not-found screen's button looks: calm and square-cornered (control radius), no brand fill. The
-// main one has a neutral border; the quiet one is text that underlines on hover.
+// The calm, square-cornered button looks (control radius, no brand fill) the not-found and Legal screens
+// share. The main one has a neutral border; the quiet one is text that underlines on hover.
 export const controlButton =
   'inline-flex min-h-target-primary items-center rounded-control border border-stroke-neutral bg-layer-default px-4 text-body-sm font-medium hover:bg-brand-weak focus-visible:focus-ring';
 

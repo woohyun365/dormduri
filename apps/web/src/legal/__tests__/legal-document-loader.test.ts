@@ -289,6 +289,28 @@ describe('legal comparison and revision notice loaders', () => {
     ).not.toBeNull();
   });
 
+  it('gives up on the revision notices after a shorter timeout the caller names', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    let signal: AbortSignal | undefined;
+    const fetcher = vi.fn(
+      (_url: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          signal = init?.signal ?? undefined;
+          signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          );
+        }),
+    );
+
+    const pending = loadLegalRevisionNotices({ fetcher, directory, timeoutMs: 500 });
+    await vi.advanceTimersByTimeAsync(499);
+    expect(signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(signal?.aborted).toBe(true);
+
+    expect(await pending).toEqual({ status: 'unavailable' });
+  });
+
   it('keeps and answers the revision notices', async () => {
     const notices = seedLegalRevisionNotices();
 

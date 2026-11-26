@@ -2,8 +2,8 @@
   "schema": "lifecycle-path-domains/v1",
   "confirmedBy": {
     "status": "owner-confirmed",
-    "date": "2026-11-25",
-    "basis": "#1000"
+    "date": "2026-11-26",
+    "basis": "#1012"
   },
   "productRoots": [
     "apps/**",
@@ -261,6 +261,7 @@
     {
       "globs": [
         "apps/web/src/legal/**",
+        "apps/web/src/screens/legal/**",
         "apps/web/src/app/privacy/**",
         "apps/web/src/app/terms/**"
       ],

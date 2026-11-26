@@ -1,12 +1,13 @@
 # Web legal
 
-`apps/web/src/legal` owns product-facing legal document rendering for `/terms`, `/privacy`, and signup legal consent surfaces.
+`apps/web/src/legal` owns legal document reading for `/terms`, `/privacy` and the landing revision line, and the signup
+legal consent surfaces. The public `/terms`·`/privacy` screens are the new screen layer's
+[`src/screens/legal`](../screens/legal/README.md); their routes call the loaders here and pass each load state to it.
 
 - `api/`: public reading loaders (`legal-document.server.ts`), the last success store
   (`legal-last-success.store.ts`), response validation, and UI mapping helpers.
-- `components/`: accessible document layout, TOC, the route view for each load state
-  (`LegalDocumentRouteView.tsx`), signup consent summary, document dialog, and unavailable states.
-- `content/`: user-facing legal screen copy only. The Web keeps no copy of a legal document body.
+- `components/`: the signup consent summary, the document dialog and its section renderer. The Web keeps no copy of a
+  legal document body.
 - `model/`: Web-only view models and load states derived from `@repo/shared/legal` contracts. Add
   `hooks/` or `fixtures/` only when a concrete runtime owner appears; do not create empty owner
   directories.
@@ -18,7 +19,9 @@ Public reading:
 
 - Each `/terms`·`/privacy` request asks the user API once (`/api/legal/documents/:kind/page`, 3 s
   timeout). The comparison table (`/versions/:versionKey/comparison`) and the revision notices
-  (`/api/legal/revision-notices`) loaders work the same way for the screens that draw them.
+  (`/api/legal/revision-notices`) loaders work the same way for the screens that draw them. A caller
+  that must not wait that long passes a shorter `timeoutMs`: the landing (`/`) reads the revision
+  notices with 500 ms, so a stalled API does not hold its first response (Owner LU4 Q4).
 - A contract response is the published version and is kept as the last success of that request (a
   file per endpoint, kind and version key, written as a temporary file then renamed in the same
   directory, `DORMDURI_LEGAL_LAST_SUCCESS_DIR`). The API answers from its database or from its
@@ -36,8 +39,7 @@ Public reading:
   a dynamic path would make the build trace the whole project into the server output.
 - A shown document carries a hidden source mark (`data-dormduri-legal-source`, `published` or
   `last-success`). The Web deploy smoke keeps a new Web only when both routes are marked
-  `published` (`infra/deploy/user/ssm/deploy.sh`); a screen that replaces the route view keeps the
-  mark.
+  `published` (`infra/deploy/user/ssm/deploy.sh`); the public screen (`src/screens/legal`) draws it.
 - Signup needs the active bundle from the API: without it the consent step blocks signup and offers
   to load again. There is no Web copy of the version ids.
 
@@ -48,12 +50,9 @@ Rules:
 - Treat privacy policy as a public notice/read evidence, not as a signup consent checkbox.
 - Do not store full legal document bodies in browser storage. The last success files live on the
   Web server only and hold public documents only.
-- Keep user-facing copy free of plan, issue, internal file-path wording, raw legal version ids, and internal state names.
-- Render public version labels as user-friendly effective-date text, not raw ids such as
-  `privacy-YYYY-MM-DD`.
-- Keep the public page header regression protected: the brand link shows the service logo
-  (`@/screens/ui/brand`), the secondary navigation action is `이전 화면으로`, and route metadata must
-  not repeat the service name (the root title template adds `돔두리 | `).
+- The public screens' copy, version labels and header rules belong to
+  [`src/screens/legal/README.md`](../screens/legal/README.md). Route metadata must not repeat the
+  service name (the root title template adds `돔두리 | `).
 
 Release handoff:
 
@@ -62,24 +61,22 @@ Release handoff:
 - Document id, version and effective-date rules belong to
   [legal-basis.md LB-R6](../../../../docs/policies/legal-basis.md).
 - `__tests__/legal-document-source-sync.test.ts` checks the seed versions in effect and the first
-  revision drafts: the inquiry email equals the Landing footer address, the overseas transfer and
-  retention tables. It runs in the Web CI lane; the change classifier also runs that lane when
+  revision drafts: the inquiry email equals the footer address the Landing and Legal screens share
+  (`src/screens/ui/model/serviceNotices.ts`), the overseas transfer and retention tables. It runs in the Web CI lane; the change classifier also runs that lane when
   only an API legal seed file changes (`WEB_TEST_API_SEED_FILES` in
   `scripts/ci/lanes/classify-changes.mjs`).
 
 Verification surface:
 
-- `/terms` and `/privacy` route tests must keep public access, single `<h1>`, the published and
-  last-success rendering with the checked time, "cannot load" and "no such version" states, version
-  addresses, user-facing version labels, mobile TOC placement, heading hierarchy, and
-  `force-dynamic` behavior covered.
+- The `/terms`·`/privacy` screens, routes and their e2e are listed in the
+  [screens/legal README](../screens/legal/README.md#검사); `__tests__/legal-document-boundary.spec.ts`
+  keeps the routes `force-dynamic` and off the legacy constants.
 - Loader tests cover each failure kind, the 404 file deletion, malformed version keys without an
   API call, the timeout, an invalid kept file, and a write failure that still shows the published
   version.
 - Playwright Web-only smoke (no API) renders `/terms` and `/privacy` from last success files the
-  global setup writes from the seed (`e2e/support/legal-last-success-fixture.ts`), with public
-  document actions and internal-copy negative assertions; `e2e/legal.fullstack.spec.ts` covers the
-  published path against the seeded API.
+  global setup writes from the seed (`e2e/support/legal-last-success-fixture.ts`);
+  `e2e/legal.fullstack.spec.ts` covers the published path against the seeded API.
 - Signup legal tests must cover stale legal document ids, the blocked step without the bundle, no
   full-body browser storage, and required consent separation from privacy-policy read evidence.
 - Dialog tests should keep the minimum accessibility contract covered: `role="dialog"`, `aria-modal`, ESC/close-button dismissal, focus restoration, focus trap, and mobile scroll/touch-target classes.

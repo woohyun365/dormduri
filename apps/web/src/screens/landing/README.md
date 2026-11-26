@@ -1,7 +1,8 @@
 # Landing
 
 `apps/web/src/screens/landing`은 미인증 사용자가 처음 보는 공개 랜딩(`/` route)의 화면, 문구, 정책 고지 배치, 최소 상호작용을
-소유합니다. route 파일(`src/app/page.tsx`)은 공개 entry `index.ts`의 `LandingScreen`만 렌더링합니다. 화면 계층 공통 규칙(구조,
+소유합니다. route 파일(`src/app/page.tsx`)은 공개 entry `index.ts`의 `LandingScreen`만 렌더링하고, 요청마다 법적 문서 개정 예고를
+읽어 넘깁니다(아래 개정 예고 띠). 화면 계층 공통 규칙(구조,
 import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다.
 
 ## 제품 책임
@@ -12,6 +13,8 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
   알립니다.
 - 시즌이 학기마다 열리는 기간이고 후보 보기·대화·매칭 신청이 시즌 중에만 열린다는 점을 설명합니다. 지금 시즌 상태는 보이지 않고
   시즌 API를 부르지 않습니다.
+- 개인정보 처리방침·이용약관에 시행 예정 판이 공지되어 있으면 header 위 띠에 문서마다 한 줄로 알립니다(법이 정한 개정 고지). 랜딩이
+  부르는 API는 이 공개 열람 개정 예고(`/api/legal/revision-notices`) 하나입니다.
 - 랜딩은 이용 권한을 판단하지 않습니다. 기능 허용·거부는 API와 도메인 정책이 판단합니다.
 - 방문 통계(Cloudflare Web Analytics)를 이 화면에서만 불러옵니다(`components/LandingVisitAnalytics.tsx`, build 때
   `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN`이 없으면 아무것도 넣지 않음, SPA 자동 추적 끔). 목적·항목·수탁자는 결정 기록
@@ -22,6 +25,7 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 
 `LandingScreen`이 아래 순서로 조합합니다. 섹션은 `components/sections/`에 하나씩 있습니다.
 
+0. `RevisionNoticeBand`(`components/`): 개정 예고가 있을 때만. 아래 개정 예고 띠
 1. `Header`: 로고(홈 `/` 링크. 이 페이지에서 누르면 새로고침 없이 맨 위로 가고 주소의 #섹션을 지움), 로그인, 시작하기(가입의 헤더 줄임말)
 2. `HeroSection`(`#hero`): 제목, 본문, 질문 상자, 가입 행동, 첫 화면 고지 두 줄
 3. `BeforeSection`(`#before`): 무엇이 다른가요. 커뮤니티 게시판 글과 서비스 화면을 겹친 두 창
@@ -49,20 +53,22 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 
 ## 디렉터리 책임
 
-| 위치                   | 책임                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| `index.ts`             | 공개 entry. 기능 밖은 이 파일만 import합니다                                   |
-| `LandingScreen.tsx`    | 페이지 조합(어두운 판 하나, OS 색 설정을 따르지 않음)                          |
-| `components/sections/` | 섹션 하나씩                                                                    |
-| `components/`          | 섹션이 쓰는 부품, 페이지 frame(`LandingFrame`), hook, 그림(`art/`)             |
-| `model/`               | 문구(`landingCopy`), 고지 원본(`landingPolicyCopy`)과 배치, 예시 답. 순수 data |
-| `__stories__/`         | Storybook `Landing/Page` · `Sections` · `Components`                           |
-| `__tests__/`           | 페이지 조합·고지 위치·행동 링크 검사                                           |
+| 위치                   | 책임                                                                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts`             | 공개 entry. 기능 밖은 이 파일만 import합니다                                                                                  |
+| `LandingScreen.tsx`    | 페이지 조합(어두운 판 하나, OS 색 설정을 따르지 않음)                                                                         |
+| `components/sections/` | 섹션 하나씩                                                                                                                   |
+| `components/`          | 섹션이 쓰는 부품, 페이지 frame(`LandingFrame`), hook, 그림(`art/`)                                                            |
+| `model/`               | 문구(`landingCopy`), 고지 원본(`landingPolicyCopy`)과 배치, 개정 예고 줄 고르기(`landingRevisionNotices`), 예시 답. 순수 data |
+| `__stories__/`         | Storybook `Landing/Page` · `Sections` · `Components`                                                                          |
+| `__tests__/`           | 페이지 조합·고지 위치·행동 링크 검사                                                                                          |
 
 ## 고지 규칙
 
 - `model/landingPolicyCopy.ts`가 고지 일곱 개의 문장, 정책 원본(`docs/policies/*.md`), 보일 영역(`requiredSurface`)을 소유합니다.
-  `scripts/ci/contracts/policy-source-links.test.mjs`가 원본 경로가 있는지 확인합니다.
+  `scripts/ci/contracts/policy-source-links.test.mjs`가 원본 경로가 있는지 확인합니다. 법적 문서 화면 footer도 보이는 독립 서비스
+  고지(`service_independent_notice`)의 글자는 두 화면이 함께 쓰는 원본 `src/screens/ui/model/serviceNotices.ts`에 있고, 이 항목은 그
+  글자를 import합니다. 글자 고정 규칙·원본 정책 경로·보일 영역은 그대로 이 파일이 소유합니다.
 - 면책 고지 넷(`service_independent_notice`·`school_system_not_connected`·`room_selection_not_guaranteed`·
   `lifestyle_survey_disclaimer`)은 법적 책임 문구라 글자를 바꾸지 않습니다. 서비스 이름이 바뀌면 주어 이름만 바꾸고 Owner가
   전후 대조를 확인합니다. 그 밖의 글자를 바꿔야 하면 전문가 검토를 먼저 받습니다.
@@ -78,14 +84,16 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 - 예시 화면과 예시 답(`model/demoData.ts`, 게시판 글 `examplePost`)은 예시라고 표시하고 실제 사용자 정보·점수·결과를 쓰지
   않습니다.
 - FAQ는 정적 문구입니다. 고객센터 FAQ API는 support 화면이 소유하고 랜딩은 부르지 않습니다.
-- 서비스 외부 문의 주소는 링크가 아닌 글로 둡니다.
+- 서비스 외부 문의 주소는 링크가 아닌 글로 둡니다. 문의 이름·주소의 글자는 법적 문서 화면과 함께 쓰는 원본
+  `src/screens/ui/model/serviceNotices.ts`에 있고 `landingCopy.ts`가 import합니다.
 - footer의 처리방침 링크는 "개인정보 처리방침"이라는 명칭을 쓰고 이용약관 링크보다 굵게(`font-bold`) 그려 다른 고지와
   구분합니다([legal-basis.md LB-R1](../../../../../docs/policies/legal-basis.md)).
 - 학교 마스코트·이름·상징색을 쓰지 않고, 가짜 숫자(이용자 수, 성공률)를 쓰지 않습니다.
 
 ## 고지·사실 문구를 바꿀 때
 
-1. 문구 주인과 규칙 출처를 확인합니다. 고지는 `model/landingPolicyCopy.ts`, 그 밖 문구는 `model/landingCopy.ts`입니다. 규칙이 정책
+1. 문구 주인과 규칙 출처를 확인합니다. 고지는 `model/landingPolicyCopy.ts`, 그 밖 문구는 `model/landingCopy.ts`입니다. 독립 서비스
+   고지와 문의 이름·주소의 글자는 `src/screens/ui/model/serviceNotices.ts`이고 법적 문서 화면도 함께 바뀝니다. 규칙이 정책
    문서(위 Source of truth)에서 오는지 다른 결정에서 오는지 적습니다.
 2. 글자를 고정한 면책 넷과 표현을 다듬을 수 있는 문장을 가릅니다.
 3. 바꿀 문장마다 전·후 문장, 뜻이 같은지, 정책 문서의 근거 줄을 대조표로 보이고 Owner 확인을 받습니다. Owner가 낸 문장도 같은
@@ -94,8 +102,22 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 
 - 제품 사실(기능, 기간, 대상)과 FAQ 답은 정책 문서의 줄과 실제 화면 용어에 맞춥니다. 날짜·기간은 정책 표뿐 아니라 설계 근거와
   seed까지 확인합니다. 근거가 없는 질문은 넣지 않습니다.
-- 랜딩은 API를 부르지 않으므로 "지금 열린 시즌"처럼 실시간 상태를 말하지 않습니다.
+- 랜딩은 개정 예고 밖의 API를 부르지 않으므로 "지금 열린 시즌"처럼 실시간 상태를 말하지 않습니다. 개정 예고 띠는 공지된 판의
+  적용일만 말합니다.
 - 섹션별로 문구를 고친 뒤에는 화면 글 전체를 순서대로 읽어 같은 질문의 다른 답, 용어·표기 어긋남, 요약 반복을 찾습니다.
+
+## 개정 예고 띠
+
+- 입력: `/` route가 요청마다(`connection()`, `force-dynamic` 없음) 공개 열람 loader로 개정 예고를 읽어 `LandingScreen`의
+  `revisionNotices`로 넘깁니다. 500ms 안에 API 답이 없으면 띠 없이 그립니다(Owner LU4 Q4: API가 멈추면 loader의 3초가 첫 응답을
+  붙잡음). 이 Web이 보관한 사본(마지막 성공본)은 이미 시행된 판을 예고로 보일 수 있어 쓰지 않습니다.
+- 보이는 것: 공개 주소가 있는 처리방침·이용약관만, 처리방침 → 이용약관 순으로 문서마다 한 줄입니다(`model/landingRevisionNotices.ts`).
+  줄은 적용일과 문서 이름, 그 판으로 가는 link(`/privacy?version=<versionKey>`)이고 문서 이름은 footer 링크 이름과 같은 상수입니다.
+  처리방침 link는 이용약관 link보다 굵습니다(LB-R1). 문구는 `landingCopy.revisionNotice`, 적용일 표기와 판 주소는
+  `@/screens/ui/model/`의 공용 함수입니다.
+- 자리와 모양: sticky header 위 전체 폭 띠이고 스크롤하면 사라지며 header는 맨 위에 붙습니다. 띠가 있어도 390×844 첫 화면에 첫
+  화면 고지 두 문장과 가입 행동이 보입니다. 개정 예고가 없으면 Landing은 띠가 없던 때와 같습니다(`Landing/Page` `Default` 전후
+  캡처 hash 같음).
 
 ## 렌더링·상호작용·접근성
 
@@ -117,7 +139,7 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 
 - `/` route의 title, description, canonical, Open Graph, Twitter metadata는 `src/app/metadata.ts`가 관리합니다. 링크 미리보기
   이미지는 `src/app/link-preview.jpg`(1200×630 JPEG, 로고와 이름을 밤 배경에 둠)이고, 로고나 Landing 배경을 바꾸면 다시 만듭니다.
-- `robots.ts`와 `sitemap.ts`는 공개 정적 route와 private·API route 경계를 구분합니다.
+- `robots.ts`와 `sitemap.ts`는 공개 route(`/`는 개정 예고 때문에 요청 때 render)와 private·API route 경계를 구분합니다.
 
 ## 검증
 
@@ -125,14 +147,16 @@ test가 글자로 고정하는 문구는 정책 고지와 법이 정한 처리�
 e2e는 랜드마크·링크 목적지·고지 문장으로 찾습니다. 섹션 순서와 DOM 구조도 고정하지 않습니다. 고지와 그 명칭 밖 문구 하나를 바꿔도
 test가 깨지지 않아야 합니다.
 
-| 검사                                                                           | 위치                                                                                               |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| 조합·고지 위치·링크·예시 표식                                                  | `__tests__/LandingScreen.test.tsx`, `model/landingPolicyCopy.test.ts`                              |
-| 예시 답과 공유 schema                                                          | `model/comparePairs.test.ts`                                                                       |
-| 방문 통계 script: token 없음·있음(`spa:false`)·잘못된 형식                     | `__tests__/LandingVisitAnalytics.test.tsx`(형식), `src/config/env.schema.test.ts`(공개 build 입력) |
-| Storybook 렌더·axe                                                             | `pnpm --dir apps/web ci:storybook:build && pnpm --dir apps/web ci:storybook:visual`                |
-| route·화면 import 경계                                                         | `apps/web/src/app/__tests__/public-landing-route.test.ts`                                          |
-| 실제 `/`: 첫 화면 고지·주 행동 크기·focus·가로 넘침·목적지                     | `apps/web/e2e/landing.spec.ts`(`pnpm web:e2e`)                                                     |
-| 실제 `/`: footer 처리방침 링크의 명칭과 이용약관 링크보다 굵은 계산 굵기       | `apps/web/e2e/landing.spec.ts`                                                                     |
-| `html`·`body` 배경 설정과 되돌림                                               | `__tests__/LandingDocumentBackground.test.tsx`                                                     |
-| 실제 `/`: `viewport-fit=cover`·문서 배경, 법적 문서는 원래 값, 미리보기 이미지 | `apps/web/e2e/landing.spec.ts`, `src/app/__tests__/metadata.test.ts`                               |
+| 검사                                                                            | 위치                                                                                               |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 조합·고지 위치·링크·예시 표식                                                   | `__tests__/LandingScreen.test.tsx`, `model/landingPolicyCopy.test.ts`                              |
+| 예시 답과 공유 schema                                                           | `model/comparePairs.test.ts`                                                                       |
+| 방문 통계 script: token 없음·있음(`spa:false`)·잘못된 형식                      | `__tests__/LandingVisitAnalytics.test.tsx`(형식), `src/config/env.schema.test.ts`(공개 build 입력) |
+| Storybook 렌더·axe                                                              | `pnpm --dir apps/web ci:storybook:build && pnpm --dir apps/web ci:storybook:visual`                |
+| route·화면 import 경계, 개정 예고 요청 때 읽기·짧은 timeout·못 읽을 때          | `apps/web/src/app/__tests__/public-landing-route.test.ts`                                          |
+| 개정 예고 줄 고르기·띠 문구, 띠 줄과 link, 띠 없음                              | `model/landingRevisionNotices.test.ts`, `__tests__/LandingScreen.test.tsx`                         |
+| 개정 예고 띠: 390×844 첫 화면, 320·1440px 가로 넘침, header 붙음, 처리방침 굵기 | `apps/web/e2e/storybook/landing.storybook.ts`                                                      |
+| 실제 `/`: 첫 화면 고지·주 행동 크기·focus·가로 넘침·목적지                      | `apps/web/e2e/landing.spec.ts`(`pnpm web:e2e`)                                                     |
+| 실제 `/`: footer 처리방침 링크의 명칭과 이용약관 링크보다 굵은 계산 굵기        | `apps/web/e2e/landing.spec.ts`                                                                     |
+| `html`·`body` 배경 설정과 되돌림                                                | `__tests__/LandingDocumentBackground.test.tsx`                                                     |
+| 실제 `/`: `viewport-fit=cover`·문서 배경, 법적 문서는 원래 값, 미리보기 이미지  | `apps/web/e2e/landing.spec.ts`, `src/app/__tests__/metadata.test.ts`                               |

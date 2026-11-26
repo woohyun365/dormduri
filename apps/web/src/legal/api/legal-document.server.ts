@@ -41,6 +41,11 @@ export interface LegalLoaderOptions {
   /** The last success directory; the Web env names it by default. */
   readonly directory?: string;
   readonly now?: () => Date;
+  /**
+   * A shorter wait for the API than LEGAL_DOCUMENT_REQUEST_TIMEOUT_MS, for a caller whose page must not
+   * wait for it (the landing revision line, Owner LU4 Q4). After it the kept copy or 'unavailable' answers.
+   */
+  readonly timeoutMs?: number;
 }
 
 type LegalEventFields = Pick<WebLegalLastSuccessEvent, 'endpoint' | 'documentKind' | 'versionKey'>;
@@ -104,7 +109,7 @@ async function loadPublicReading<T>(input: {
   try {
     outcome = await readLegalPublicResponse(apiUrl(input.path), input.schema, {
       fetcher: input.options.fetcher,
-      timeoutMs: LEGAL_DOCUMENT_REQUEST_TIMEOUT_MS,
+      timeoutMs: input.options.timeoutMs ?? LEGAL_DOCUMENT_REQUEST_TIMEOUT_MS,
     });
   } catch {
     outcome = { kind: 'failed' };

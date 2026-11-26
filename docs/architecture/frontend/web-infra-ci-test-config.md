@@ -67,11 +67,31 @@ pnpm --dir apps/web exec playwright install chromium
 - 기본 browser smoke는 Chromium desktop/mobile project를 사용한다. Cross-browser matrix나 strict visual diff는 별도 CI/infra 후속 범위다.
 - 인증 상태 파일은 secret성 runtime artifact로 취급해 `apps/web/playwright/.auth/`에 저장하고 git에는 올리지 않는다.
 
+새 화면 계층(`apps/web/src/screens/**`)의 화면 test는 다음 값을 고른다. 사례는 [Landing](../../../apps/web/src/screens/landing/README.md#검증)과
+[Legal](../../../apps/web/src/screens/legal/README.md#검사)이다.
+
+- 실패하면 사용자에게 문제가 생기는 동작만 test한다. 섹션 순서·DOM 구조·class 이름·스냅샷은 고정하지 않는다. 문구와 구성을 다시
+  다듬어도 test가 그대로여야 한다.
+- 요소는 역할·접근 가능한 이름으로 찾고, 화면 문구는 그 기능의 content 상수(`model/*Copy.ts`)에서 import한다. 글자로 고정하는
+  것은 정책 고지, 법이 정한 명칭(처리방침 [LB-R1](../../policies/legal-basis.md)), 법적 문서 화면의 상태 안내뿐이다. 법적 문서
+  본문은 글자 대신 section 종류별 fixture가 빠짐없이 순서·글자 그대로 그려지는지 본다.
+- 판단 로직(주소, 판 목록, 뒤로 가기 같은 규칙)은 `model/`의 순수 함수로 DOM 없이 검사한다. 두 기능이 함께 쓰는 규칙은
+  `screens/ui/model/`과 `screens/ui/__tests__/`에 둔다.
+- story가 렌더·axe의 공통 fixture다(`e2e/storybook/stories.storybook.ts`). 굵기·크기·자리처럼 화면에서만 보이는 성질은 class
+  이름 대신 그 기능의 `e2e/storybook/<기능>.storybook.ts`가 계산 style·위치로 본다.
+- e2e는 화면마다 핵심 흐름 2~3개다. server 응답에서만 보이는 상태(예: HTTP 404)는 흐름 수 밖의 상태 확인 case로 둔다.
+- 사용자 문구의 내부 문구 negative(plan·issue·내부 경로·raw id·내부 상태 이름)는 content 상수 test와 e2e에 둔다.
+- import·token·renderer 중립 규칙은 lint가 지키고, test는 그 규칙 설정을 fixture로 확인할 때만 쓴다
+  (`screens/__tests__/presentation-lint.test.ts`). 새 계층으로 옮긴 뒤 지운 화면 부품이 없다는 test는 두지 않는다. 삭제는 PR
+  diff가 보이고, 경계는 import 단언이나 lint가 지킨다(기준은 [Scripts test 정리 기준](../../development/ci/README.md#scripts-test-정리-기준) 2항과 같다).
+- "화면을 바꾸지 않는다"는 변경은 같은 story × viewport 전체 화면 캡처의 전후 hash가 같음을 보인다
+  ([새 화면 계층](../../../apps/web/src/screens/README.md#storybook과-검토)).
+
 ## Web-only smoke와 full-stack E2E 경계
 
 Web CI는 DB service 없이 실행된다. `pnpm web:e2e`도 Web standalone artifact가 browser에서 정상 동작하는지 확인하는 smoke이며, 실제 로그인 사용자/API-backed journey를 보장하지 않는다.
 
-Web-only smoke는 닿지 않는 local `API_URL`로 standalone server를 실행한다(`apps/web/playwright.config.ts`). Landing은 API를 부르지 않고 FAQ도 정적 문구라 API 없이 그대로 렌더링된다. 따라서 `pnpm web:e2e`는 공개 Landing·법적 고지·auth route shell과 browser runtime을 검증하지만, API success path나 로그인 사용자 journey를 검증하지 않는다.
+Web-only smoke는 닿지 않는 local `API_URL`로 standalone server를 실행한다(`apps/web/playwright.config.ts`). Landing은 개정 예고 밖의 API를 부르지 않고 FAQ도 정적 문구라 API 없이 그대로 렌더링된다(개정 예고를 읽지 못하면 띠 없이 그린다). 법적 문서 화면은 global setup이 seed로 쓴 마지막 성공본으로 그린다. 따라서 `pnpm web:e2e`는 공개 Landing·법적 고지·auth route shell과 browser runtime을 검증하지만, API success path나 로그인 사용자 journey를 검증하지 않는다.
 
 API 서버, DB, 실사용 auth fixture가 필요한 end-to-end journey는 별도 full-stack E2E로 다룬다. Web feature 계획에서 API-backed 흐름이 핵심 acceptance라면 `pnpm web:e2e` 통과만으로 완료 처리하지 말고 API test/e2e 또는 별도 full-stack gate를 명시한다.
 

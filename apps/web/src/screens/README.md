@@ -17,6 +17,7 @@ src/screens/
 │   ├── __stories__/        # Storybook(아래 Storybook과 검토)
 │   └── __tests__/          # 기능 조합 test
 ├── ui/                     # 두 기능 이상이 쓰는 부품
+│   └── model/              # 두 기능 model이 함께 쓰는 순수 module(판단 함수·공용 고지 문구 등)
 └── __tests__/              # 계층 전체 검사(lint 규칙 test)
 ```
 
@@ -26,7 +27,8 @@ src/screens/
 - `model/`은 React·DOM·Next.js·browser API를 import하지 않는 renderer 중립 범위입니다. lint가 막는 범위와 한계는 아래
   [model 경계](#model-경계)입니다.
 - 한 기능 안에서만 쓰는 부품은 그 기능의 `components/`에 둡니다. 두 번째 기능이 같은 부품을 쓰게 되면 `ui/`로 옮기고 두 기능이
-  `@/screens/ui/...`로 import합니다.
+  `@/screens/ui/...`로 import합니다. 두 기능의 `model/`이 같은 순수 규칙이나 문구를 함께 써야 하면 `ui/model/`에 둡니다.
+  `ui/model/`도 `model/` 경계 규칙을 받습니다.
 - `src/screens` root에는 README와 `__tests__/`만 둡니다.
 
 ## import 규칙
@@ -36,7 +38,9 @@ src/screens/
 - `src/app` route 파일처럼 `src/screens` 밖에 있는 파일에도 같은 규칙이 적용되지만, lint 블록은 `src/screens/**`에만 걸려 있습니다.
   그 밖 파일의 import는 리뷰에서 확인합니다.
 - 기능 안에서는 상대 경로를 씁니다. 기능 root 밖으로 나가는 상대 경로(`../다른기능/...`, `../../ui/...`)는 lint error입니다.
-  파일 깊이별 검사는 기능 root 아래 다섯 단계까지이고, 그보다 깊은 파일은 alias 규칙만 받습니다.
+  파일 깊이별 검사는 기능 root 아래 다섯 단계까지이고, 그보다 깊은 파일은 alias 규칙만 받습니다. 예외는 하나입니다. 기능
+  `model/` 파일은 `ui/model/`로 가는 상대 경로(`../../ui/model/…`)를 씁니다([model 경계](#model-경계)). `model/`은 `@/` alias를
+  쓸 수 없기 때문입니다.
 - `@sentry/nextjs` 제한은 앱 전체와 같습니다.
 - `model/` 파일은 이보다 좁은 허용 목록을 받습니다. `@/screens/**`와, 기능 안이지만 `model/` 밖인 상대 경로도 막힙니다
   ([model 경계](#model-경계)).
@@ -57,7 +61,8 @@ src/screens/
   `ui/` 부품은 기능 frame을 import할 수 없으므로 story 파일의 decorator가 제품 frame과 같은 `data-palette` 속성과 층 배경·본문 글꼴
   class로 문맥을 주고, 부품이 쓰이는 판(어두운 판·밝은 판·판 없음)을 모두 story로 둡니다.
 - 고를 시안은 기본 story를 바꾸지 않는 비교 story로 보입니다. 비교안도 기본안과 같은 검사(대비, axe, motion 줄이기)를 통과한 뒤
-  보입니다. 고른 뒤에는 고르지 않은 시안·story·arg·utility를 같은 변경에서 지웁니다.
+  보입니다. 고른 뒤에는 고르지 않은 시안·story·arg·utility를 같은 변경에서 지웁니다. 시안을 여러 회차에 걸쳐 explore branch에서
+  탐색했다면 이 "같은 변경"은 그 branch의 정리 commit입니다([시각 탐색 branch](../../../../docs/development/agent-workflows/visual-design/design-task-orchestration.md#시각-탐색-branch)).
 - 시안 코드도 처음부터 `src/screens/<기능>/` 아래에 두고 이 문서의 lint·token 규칙을 지킵니다. 그러면 고른 시안을 제품 route로
   올릴 때 구조를 다시 짜지 않습니다.
 - MDX 문서는 `*.mdx` 파일이고 `.storybook/main.ts`의 stories glob에 그 경로를 더합니다. 지금 설치본(Storybook 10.6)은
@@ -102,11 +107,13 @@ src/screens/
 `apps/web/eslint.config.mjs`의 model 블록이 `pnpm lint`·`pnpm check`·CI에서 error로 막습니다. 규칙 test는 위와 같은
 [`__tests__/presentation-lint.test.ts`](./__tests__/presentation-lint.test.ts)입니다.
 
-- import 허용 목록: 같은 `model/` 안 상대 경로, `@repo/shared/**`, `zod`. 그 밖(Next.js·React·React DOM·React Native·Expo·Node
-  builtin·`@/` alias·목록 밖 package)은 값 import뿐 아니라 `import type`·inline `type`·`export … from`·`export *`·`import x = require()`도
-  error입니다. 기능의 공개 entry(`@/screens/<기능>`)도 React 화면을 끌고 오므로 막힙니다.
+- import 허용 목록: 같은 `model/` 안 상대 경로, 공용 순수 module `src/screens/ui/model/`로 가는 상대 경로, `@repo/shared/**`,
+  `zod`. 그 밖(Next.js·React·React DOM·React Native·Expo·Node builtin·`@/` alias·목록 밖 package)은 값 import뿐 아니라
+  `import type`·inline `type`·`export … from`·`export *`·`import x = require()`도 error입니다. 기능의 공개 entry(`@/screens/<기능>`)도
+  React 화면을 끌고 오므로 막힙니다. `ui/model/`도 alias(`@/screens/ui/model/…`)로는 막힙니다.
 - 상대 경로: `model/` 밖으로 나가는 상대 경로(`../components/...`, 기능 root를 가리키는 `'./..'`·`'../..'`)는 error입니다. 파일 깊이별
-  검사는 `model/` 아래 네 단계까지입니다.
+  검사는 `model/` 아래 네 단계까지입니다. 예외는 `ui/model/`로 가는 경로입니다. `model/` 바로 아래 파일은 `'../../ui/model/…'`이고,
+  한 단계 깊어질 때마다 `../`를 하나 더 씁니다. 그 경로라도 `ui/model/` 뒤에 `..`가 오거나 단계 수가 다르면 error입니다.
   디렉터리 index는 `'.'`·`'..'` 대신 `'./index'`·`'../index'`처럼 파일 경로로 씁니다(허용 목록이 `'.'`·`'..'`를 막습니다).
   `model/` 파일은 `.ts`·`.tsx`입니다. `.js`·`.mjs`는 type 정보 project 밖이라 lint가 parsing error로 실패합니다.
 - 전역: `window`·`document`·`navigator`·`location`·`history`·`localStorage`·`sessionStorage`·`indexedDB`·`globalThis`·`self`·`process`는
