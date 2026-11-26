@@ -147,6 +147,25 @@ export const DEPLOY_PATH_CASES = Object.freeze([
     'none',
     'no',
   ),
+  // 새 쌍의 문서 출처가 API 게시본 표지가 아니면 내부 smoke가 실패해 current로 되돌린다. 되돌아갈 쌍과 rollback
+  // 대상에는 표지를 요구하지 않는다.
+  webCase(
+    'legal-source-missing-rolls-back',
+    1,
+    'RESULT=failed action=deploy reason=rolled-back-to-current',
+    '1',
+    'none',
+    'no',
+  ),
+  webCase('legal-source-setup-deploy', 0, 'RESULT=succeeded action=deploy', '2', '1', 'no'),
+  webCase(
+    'rollback-to-legal-source-less-previous',
+    0,
+    'RESULT=succeeded action=rollback',
+    '1',
+    'none',
+    'no',
+  ),
   webCase(
     'first-deploy-failure-enters-maintenance',
     1,

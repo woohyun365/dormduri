@@ -6,12 +6,13 @@ Web 운영 관측성은 Landing, Auth, Main에서 발생하는 예상하지 못�
 
 ## 책임 분리
 
-| owner              | 실행 위치                                                                    | 책임                                                                   | 저장·조회                                 |
-| ------------------ | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------- |
-| Sentry runtime     | `instrumentation-client.ts`, `instrumentation.ts`, `observability/sentry/**` | client/server/edge unexpected exception, release, scrubbed stack       | managed Sentry project                    |
-| Sentry performance | `@sentry/nextjs` tracing                                                     | sampled page/navigation performance와 Core Web Vitals                  | managed Sentry project                    |
-| Local diagnostics  | `observability/operational/**`, `observability/web-vitals/**`                | test·Storybook·local recording/debug                                   | memory/console only                       |
-| BFF reliability    | `app/api/_bff/reliability.ts`                                                | operation, outcome, status class, duration, correlation structured log | container stdout → Alloy → Loki → Grafana |
+| owner              | 실행 위치                                                                    | 책임                                                                                                            | 저장·조회                                 |
+| ------------------ | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Sentry runtime     | `instrumentation-client.ts`, `instrumentation.ts`, `observability/sentry/**` | client/server/edge unexpected exception, release, scrubbed stack                                                | managed Sentry project                    |
+| Sentry performance | `@sentry/nextjs` tracing                                                     | sampled page/navigation performance와 Core Web Vitals                                                           | managed Sentry project                    |
+| Local diagnostics  | `observability/operational/**`, `observability/web-vitals/**`                | test·Storybook·local recording/debug                                                                            | memory/console only                       |
+| BFF reliability    | `app/api/_bff/reliability.ts`                                                | operation, outcome, status class, duration, correlation structured log                                          | container stdout → Alloy → Loki → Grafana |
+| Legal last success | `legal/api/legal-document.server.ts`                                         | 마지막 성공본으로 답한 요청·남기지 못한 응답의 structured log(endpoint, kind, 판 key, 확인 시각·쓰기 오류 code) | container stdout → Alloy → Loki → Grafana |
 
 Sentry SDK 직접 import는 `observability/sentry/**`와 Next instrumentation 경계에서만 허용한다. Feature Component와 hook은 provider SDK를 직접 호출하지 않는다. 관측 실패는 화면 상태, navigation, form submit, API mutation 결과를 바꾸지 않는다.
 

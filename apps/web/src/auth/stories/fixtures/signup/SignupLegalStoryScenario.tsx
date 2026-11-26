@@ -10,7 +10,7 @@ import { SIGNUP_LEGAL_BUNDLE, SIGNUP_LEGAL_CONSENT } from '../auth-story-fixture
 
 const noop = () => undefined;
 
-type LegalScenario = 'entry' | 'agreed' | 'fallback' | 'stale';
+type LegalScenario = 'entry' | 'agreed' | 'unavailable' | 'stale';
 
 export function SignupLegalScenario({ scenario }: { scenario: LegalScenario }) {
   const [legalConsent, setLegalConsent] = useState<LegalConsentData>(
@@ -26,10 +26,10 @@ export function SignupLegalScenario({ scenario }: { scenario: LegalScenario }) {
     setLegalConsent(next);
   }, []);
   const legalDocumentsResult = useMemo(
-    () => ({
-      source: scenario === 'fallback' ? ('fallback' as const) : ('api' as const),
-      bundle: SIGNUP_LEGAL_BUNDLE,
-    }),
+    () =>
+      scenario === 'unavailable'
+        ? { status: 'unavailable' as const }
+        : { status: 'ready' as const, bundle: SIGNUP_LEGAL_BUNDLE },
     [scenario],
   );
 

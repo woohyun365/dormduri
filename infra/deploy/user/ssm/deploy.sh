@@ -108,16 +108,37 @@ smoke_serving() {
     && page_ok /__smoke_not_allowed 404 '페이지를 찾을 수 없어요'
 }
 
+# 문서 출처 gate: 새 쌍을 deploy할 때만 /privacy·/terms가 API 게시본 표지(사용자 문구가 아닌
+# `data-dormduri-legal-source="published"`)를 내는지 본다. 아니면(마지막 성공본·불러올 수 없음) 새 쌍을 남기지 않고 되돌린다.
+# 되돌아갈 쌍과 rollback 대상에는 묻지 않는다: 표지가 없던 이전 Web, API가 멈춘 동안 마지막 성공본을 내는 Web도 다시 띄운다.
+legal_source_ok() {
+  local path=$1 body code
+  body=$(mktemp)
+  code=$(curl -s -o "${body}" -w '%{http_code}' --max-time 10 --resolve "${host}:443:127.0.0.1" "https://${host}${path}" || true)
+  if [ "${code}" = 200 ] && grep -q 'data-dormduri-legal-source="published"' "${body}"; then
+    rm -f "${body}"
+    return 0
+  fi
+  rm -f "${body}"
+  return 1
+}
+
+smoke_legal_source() {
+  legal_source_ok /privacy && legal_source_ok /terms
+}
+
 smoke_maintenance() {
   page_ok / 503 '점검 중' && page_ok /privacy 503 '점검 중'
 }
 
-# 기록 하나의 web 묶음을 띄운다(API 묶음은 기록된 current 조각을 함께 넘기기만 한다).
+# 기록 하나의 web 묶음을 띄운다(API 묶음은 기록된 current 조각을 함께 넘기기만 한다). 둘째 인자 `legal-source`는 새 쌍 deploy의
+# 문서 출처 gate를 더한다.
 start_record() {
   rm -f "${mode_dir}/maintenance"
   use_web_record "$1" || return 1
   run_compose up -d $(orphan_flag) --wait --wait-timeout 120 web ingress || return 1
-  smoke_serving
+  smoke_serving || return 1
+  [ "${2:-}" != legal-source ] || smoke_legal_source
 }
 
 # 점검 mode: flag를 두고 ingress만 띄운 뒤 Web을 내린다. ingress마저 뜨지 않으면 web 묶음 service만 멈추고 지운다
@@ -158,7 +179,7 @@ case "${action}" in
       had_current=1
       cp "${web_state}/current" "${state}/.current-before"
     fi
-    if start_record "${new_dir}/record"; then
+    if start_record "${new_dir}/record" legal-source; then
       # 직전 current가 다른 쌍이면 rollback 대상(previous)으로 남긴다.
       if [ "${had_current}" = 1 ] && { [ "$(record_get "${state}/.current-before" web)" != "${web}" ] \
         || [ "$(record_get "${state}/.current-before" ingress)" != "${ingress}" ]; }; then

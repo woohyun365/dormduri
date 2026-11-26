@@ -40,7 +40,7 @@ type LegalVersionSeedRow = {
 };
 
 // Versions and the first revision come from the JSON data files that the seed module reads; the four
-// document arrays above stay the Web fallback source.
+// document arrays above hold the bodies of the first published versions.
 const versionSeed = legalVersionSeed as Record<string, unknown>;
 const legalSeedDirectory = join(process.cwd(), 'prisma/seed-data/reference/legal');
 
@@ -196,7 +196,7 @@ describe('legal document reference seed data', () => {
     const contentFiles = list.versions
       .map((entry) => entry.content)
       .filter((content) => content !== 'reference-row');
-    // Every body that is not a Web fallback array row is a listed data file, and every data file is read.
+    // Every body that is not a document array row is a listed data file, and every data file is read.
     expect(
       [
         ...contentFiles,

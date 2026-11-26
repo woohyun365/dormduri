@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { LegalDocumentKind } from '@repo/shared/legal';
-import { LegalDocumentLayout } from '@/legal/components/LegalDocumentLayout';
-import { LegalDocumentUnavailable } from '@/legal/components/LegalDocumentUnavailable';
-import { getLegalDocumentPageData } from '@/legal/api/legal-document.server';
+import { loadLegalDocumentPage } from '@/legal/api/legal-document.server';
+import { LegalDocumentRouteView } from '@/legal/components/LegalDocumentRouteView';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,12 +10,14 @@ export const metadata: Metadata = {
   description: '돔두리가 개인정보를 처리하고 보호하는 기준을 확인합니다.',
 };
 
-export default async function PrivacyPage() {
-  const result = await getLegalDocumentPageData(LegalDocumentKind.PRIVACY_POLICY);
+// `?version=YYYY-MM-DD` opens that version; the loader answers a malformed value as an unknown version.
+export default async function PrivacyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ version?: string | string[] }>;
+}) {
+  const { version } = await searchParams;
+  const result = await loadLegalDocumentPage(LegalDocumentKind.PRIVACY_POLICY, version);
 
-  if (result.status === 'unavailable') {
-    return <LegalDocumentUnavailable />;
-  }
-
-  return <LegalDocumentLayout document={result.document} source={result.source} />;
+  return <LegalDocumentRouteView result={result} currentDocumentHref="/privacy" />;
 }

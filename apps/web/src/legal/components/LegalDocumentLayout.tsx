@@ -1,6 +1,11 @@
 import Link from 'next/link';
 import { BrandLogo } from '@/screens/ui/brand';
-import { LEGAL_DOCUMENT_COPY, LEGAL_DOCUMENT_ROUTE_LABELS } from '../content/legal-copy';
+import { formatLegalCheckedAtLabel } from '../api/legal-document.mapper';
+import {
+  LEGAL_DOCUMENT_COPY,
+  LEGAL_DOCUMENT_ROUTE_LABELS,
+  legalLastSuccessNotice,
+} from '../content/legal-copy';
 import type { LegalDocumentSource, LegalDocumentViewModel } from '../model/legal-document.types';
 import { LegalDocumentActions } from './LegalDocumentActions';
 import { LegalDocumentBackButton } from './LegalDocumentBackButton';
@@ -32,12 +37,12 @@ export function LegalDocumentLayout({ document, source }: LegalDocumentLayoutPro
 
       <main className="mx-auto grid max-w-5xl gap-6 px-5 py-10 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-14">
         <article className="min-w-0 space-y-6">
-          {source === 'fallback' && (
+          {source.kind === 'last-success' && (
             <div
               role="status"
               className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900"
             >
-              {LEGAL_DOCUMENT_COPY.fallbackNotice}
+              {legalLastSuccessNotice(formatLegalCheckedAtLabel(source.checkedAt))}
             </div>
           )}
 

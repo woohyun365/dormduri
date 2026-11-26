@@ -2,7 +2,6 @@ import {
   activeLegalDocumentsBundleResponseSchema,
   type ActiveLegalDocumentsBundleResponse,
 } from '@repo/shared/legal';
-import { LEGAL_FALLBACK_DOCUMENTS } from '../content/legal-fallback-documents';
 
 export class LegalDocumentsBundleFetchError extends Error {
   constructor(
@@ -32,15 +31,6 @@ async function readJson(response: Response): Promise<unknown> {
       'Legal documents bundle upstream response JSON is malformed.',
     );
   }
-}
-
-export function getFallbackLegalDocumentsBundle(): ActiveLegalDocumentsBundleResponse {
-  return activeLegalDocumentsBundleResponseSchema.parse({
-    termsOfService: LEGAL_FALLBACK_DOCUMENTS.TERMS_OF_SERVICE,
-    privacyPolicy: LEGAL_FALLBACK_DOCUMENTS.PRIVACY_POLICY,
-    personalDataCollectionUseConsent: LEGAL_FALLBACK_DOCUMENTS.PERSONAL_DATA_COLLECTION_USE_CONSENT,
-    age14OrAboveNotice: LEGAL_FALLBACK_DOCUMENTS.AGE_14_OR_ABOVE_NOTICE,
-  });
 }
 
 export async function fetchActiveLegalDocumentsBundleFromUrl(
@@ -83,18 +73,25 @@ export async function fetchActiveLegalDocumentsBundleFromUrl(
   return parsed.data;
 }
 
-export async function getSignupLegalDocumentsBundle(options: { fetcher?: typeof fetch } = {}) {
+/**
+ * The signup documents in effect, or `unavailable`: without the bundle there are no version ids to agree to,
+ * so the signup step stops instead of showing a Web copy. The API checks the ids again at signup (fail-closed).
+ */
+export type SignupLegalDocumentsBundleResult =
+  | { readonly status: 'ready'; readonly bundle: ActiveLegalDocumentsBundleResponse }
+  | { readonly status: 'unavailable' };
+
+export async function getSignupLegalDocumentsBundle(
+  options: { fetcher?: typeof fetch } = {},
+): Promise<SignupLegalDocumentsBundleResult> {
   try {
     return {
-      source: 'api' as const,
+      status: 'ready',
       bundle: await fetchActiveLegalDocumentsBundleFromUrl('/api/legal/documents/active-bundle', {
         fetcher: options.fetcher,
       }),
     };
   } catch {
-    return {
-      source: 'fallback' as const,
-      bundle: getFallbackLegalDocumentsBundle(),
-    };
+    return { status: 'unavailable' };
   }
 }

@@ -469,8 +469,8 @@ jobs:
           HASH: ${{ steps.document.outputs.hash }}
         run: bash scripts/infra/user-host/ssm-send.sh "$ACTION" "$API" "$API_MIGRATE" "$OBSERVABILITY_CONFIG" "$HASH"
 
-      # 공개 API 주소가 없으므로(D-AB1) API를 내린 maintenance에서도 공개 경로는 serving과 같다(`/privacy`·`/terms`는 Web
-      # fallback, `/api/**`는 JSON '준비 중').
+      # 공개 API 주소가 없으므로(D-AB1) API를 내린 maintenance에서도 공개 경로는 serving과 같다(`/privacy`·`/terms`는 Web의
+      # 마지막 성공본, `/api/**`는 JSON '준비 중').
       - name: Smoke the public host from outside
         id: smoke
         continue-on-error: true
@@ -479,7 +479,7 @@ jobs:
           echo "summary=$(tail -n 1 "$RUNNER_TEMP/smoke.txt")" >> "$GITHUB_OUTPUT"
 
       # 새 API 묶음이 host 안 검사는 통과했지만 밖에서 실패했다. 기록의 직전 묶음으로 되돌리고, 직전 묶음이 없거나 host가 그
-      # 되돌림을 받지 않으면 API를 내려(maintenance) 공개 경로를 Web fallback으로 둔다. migration은 되돌리지 않는다.
+      # 되돌림을 받지 않으면 API를 내려(maintenance) 공개 법적 문서는 Web의 마지막 성공본으로 둔다. migration은 되돌리지 않는다.
       - name: Roll back after a failed external smoke
         id: recover
         if: ${{ steps.smoke.outcome == 'failure' && steps.request.outputs.action == 'deploy' }}

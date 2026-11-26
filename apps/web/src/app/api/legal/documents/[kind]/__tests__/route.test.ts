@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LegalDocumentKind } from '@repo/shared/legal';
 import { createBffRequest, firstFetchInit, firstFetchInput, stubJsonFetch } from '@/test/bff-route';
-import { LEGAL_FALLBACK_DOCUMENTS } from '@/legal/content/legal-fallback-documents';
+import { seedActiveLegalDocument } from '@/legal/test-support/legal-seed-documents';
 import { GET } from '../route';
 
-const TERMS_DOCUMENT = LEGAL_FALLBACK_DOCUMENTS[LegalDocumentKind.TERMS_OF_SERVICE];
+const TERMS_DOCUMENT = seedActiveLegalDocument(LegalDocumentKind.TERMS_OF_SERVICE);
 
 describe('legal document BFF route', () => {
   afterEach(() => {

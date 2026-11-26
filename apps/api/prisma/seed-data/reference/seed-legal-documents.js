@@ -8,7 +8,7 @@ import {
 } from '@repo/shared/legal';
 import { LEGAL_DOCUMENT_REFERENCE_ROWS } from './legal-document-seed-data.js';
 
-// Legal text that is not a Web fallback copy lives in JSON data files next to this module: the version
+// Legal text that is not one of the four document arrays lives in JSON data files next to this module: the version
 // seed list (order, dates, notice class), the bodies that are not one of the four document arrays, and
 // the first revisions of the privacy policy and the terms of service as backoffice import files
 // (`*-first-revision.draft.json`, read by the backoffice import, not by this seed). This module only
@@ -48,14 +48,14 @@ function requireExactKeys(value, keys, label) {
   }
 }
 
-/** The body a version row copies: a Web fallback reference row with the same id, or a JSON content file. */
+/** The body a version row copies: a reference row (four document arrays) with the same id, or a JSON content file. */
 function versionContent(entry) {
   if (entry.content === 'reference-row') {
     const reference = LEGAL_DOCUMENT_REFERENCE_ROWS.find((row) => row.id === entry.id);
     if (!reference) {
       throw new Error(`[legal seed] missing reference row ${entry.id}`);
     }
-    // The four document arrays are the Web fallback copies, written in today's body format.
+    // The four document arrays are written in today's body format.
     return { ...reference, contentSchemaVersion: LEGAL_CONTENT_SCHEMA_VERSION };
   }
   const content = readLegalSeedJson(entry.content);

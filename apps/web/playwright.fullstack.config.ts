@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { WEB_FULLSTACK_LEGAL_LAST_SUCCESS_DIR } from './e2e/support/legal-last-success-fixture';
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000';
 const apiBaseURL = process.env.API_URL ?? 'http://127.0.0.1:4000';
@@ -62,7 +63,8 @@ export default defineConfig({
       timeout: 180_000,
     },
     {
-      command: `API_URL=${apiBaseURL} pnpm dev --hostname 127.0.0.1 --port 3000`,
+      // The legal last success directory exists before the Web starts, as the Web image makes it on the user host.
+      command: `mkdir -p ${WEB_FULLSTACK_LEGAL_LAST_SUCCESS_DIR} && DORMDURI_LEGAL_LAST_SUCCESS_DIR=${WEB_FULLSTACK_LEGAL_LAST_SUCCESS_DIR} API_URL=${apiBaseURL} pnpm dev --hostname 127.0.0.1 --port 3000`,
       url: baseURL,
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,

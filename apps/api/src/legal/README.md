@@ -28,9 +28,10 @@ Legal 도메인의 server-side boundary map이다. 이 문서는 `apps/api/src/l
 ## 마지막 성공 묶음
 
 - `LegalPublishedVersionReader`는 요청마다 DB 시각과 게시 판을 읽고, 성공하면 kind별 묶음을 process memory에 둔다. 먼저 시작해 늦게 끝난 읽기는 더 새 DB 시각의 묶음을 덮지 않는다. DB 읽기가 실패하면 그 묶음으로 같은 계산을 하고 현재 시각은 마지막 DB 시각에 monotonic 경과를 더한 값이다(서버 wall clock을 쓰지 않음). 묶음이 없으면 503 `LEGAL_DOCUMENTS_UNAVAILABLE`이다.
+- DB 읽기(시각·게시 판 조회·행 변환)는 1.5초(`LEGAL_DATABASE_READ_TIMEOUT_MS`) 안에 끝나지 않으면 실패로 보고 memory 묶음으로 답한다(늦게 온 결과는 쓰지 않음). 이 상한은 Web 문서 요청 timeout(3초, `apps/web/src/legal/api/legal-document.server.ts`)보다 짧아, DB가 멈춰도 Web이 API를 포기하기 전에 memory 응답을 받는다.
 - 읽기가 실패하면 실패한 단계(DB 시각·게시 판 조회·행 변환), kind, 오류 종류와 code(Prisma code나 SQLSTATE), 대체 결과(memory·unavailable)를 warn log 한 줄로 남긴다. driver 메시지는 query 값을 담을 수 있어 남기지 않는다.
 - 단일 instance process 상태다. 한계는 [Runtime composition and process state](../../../../docs/architecture/backend/runtime-composition-and-process-state.md)의 process-local state 표가 소유한다.
-- 요청마다 `api_legal_document_reads_total{endpoint,source,outcome}`을 하나 올린다(`source`는 `database`·`memory`, `outcome`은 `ok`·`not_found`·`unavailable`).
+- 요청마다 `api_legal_document_reads_total{endpoint,source,outcome}`을 하나 올린다(`source`는 `database`·`memory`, `outcome`은 `ok`·`not_found`·`unavailable`). `source=memory`나 `outcome=unavailable` 읽기가 10분 창에 하나라도 있으면 경보 `ApiLegalReadDegraded`(warning, `infra/observability/prometheus/rules/api-alerts.yml`)가 울린다.
 
 ## Directory responsibilities
 
@@ -51,7 +52,7 @@ Legal 도메인의 server-side boundary map이다. 이 문서는 `apps/api/src/l
 - Legal document body는 raw HTML이 아니라 typed section JSON으로만 제공한다.
 - 사용자 API는 판을 쓰지 않는다(`app_runtime`은 `LegalDocumentVersion` SELECT만). 판은 백오피스 가져오기·승인으로만 생긴다.
 - Signup acceptance 저장은 auth signup transaction에서 원자적으로 처리한다. 공개 열람 API는 user acceptance evidence를 조회하거나 노출하지 않는다.
-- 공개 문안(seed와 Web fallback 본문)에는 raw version id, 내부 상태명, plan/file path를 쓰지 않는다. 응답의 판 `id`는 가입·재동의 기록이 가리키는 값이라 두고, 공개 주소와 화면은 시행일 key를 쓴다.
+- 공개 문안(seed와 백오피스 가져오기 본문)에는 raw version id, 내부 상태명, plan/file path를 쓰지 않는다. 응답의 판 `id`는 가입·재동의 기록이 가리키는 값이라 두고, 공개 주소와 화면은 시행일 key를 쓴다.
 - 재동의 화면, 로그인 때 안내, 받기 전 서비스 이용 제한은 이 module이 아니라 그 화면을 여는 Auth 축이 이 API로 만든다.
 
 ## Seed와 release handoff
@@ -61,7 +62,7 @@ Legal 도메인의 server-side boundary map이다. 이 문서는 `apps/api/src/l
 - 처리방침은 이전 판 기록(2026-06-22~2026-11-19)과 시행 중 판(2026-11-20) 둘이고, 나머지 셋은 2026-06-22 첫 게시다.
 - 첫 개정 초안 파일 둘은 백오피스 가져오기 형식(`legalDocumentDraftImportSchema`) 그대로이고 판 행이 아니다. 이용약관 초안은 시행 중 약관에서 제11조(약관 변경)만 `LB-R10`의 공지 기간·조항 대조표와 `LB-R11`의 불리한 변경 재동의 기준으로 바꾼다. 시행 중 판의 처리 위탁 표에 남은 '정해지면 안내' 행은 이 개정이 데이터베이스 운영·운영 관측 기록 보관·운영 관리 서버 운영·운영 접속 기록 보관을 AWS 행에 적고 지운다. 처리자가 바뀌면 다음 판으로 고친다.
 - 법률·개인정보 전문가 검토 여부는 실제 사용자 공개 전에 GitHub issue로 정한다.
-- 네 문서 배열은 Web fallback의 원본이라 `apps/web/src/legal/__tests__/legal-document-source-sync.test.ts`가 둘의 같음을 지킨다. 이 test는 Web CI lane에서만 돌므로 배열을 바꾸면 같은 commit에서 fallback도 바꾼다.
+- Web에는 문안 사본이 없다. Web test·story·Playwright fixture는 이 seed 파일을 test 전용 경로(`apps/web/src/legal/test-support/`)로 읽고, `apps/web/src/legal/__tests__/legal-document-source-sync.test.ts`가 seed 시행 중 판·첫 개정 초안의 문의 주소·보유 표 문장을 지킨다. 그 test는 Web CI lane에서 돌고, 분류기가 이 seed 파일만 바뀐 변경에도 Web lane을 켠다(`WEB_TEST_API_SEED_FILES`).
 
 ## Where to change
 

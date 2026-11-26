@@ -10,6 +10,7 @@ import {
   OBSERVABILITY_SERVICES,
   PUBLIC_OBSERVABILITY_SERVICES,
   USER_HOST_RENDER_ENVIRONMENT,
+  WEB_LEGAL_LAST_SUCCESS_VOLUME,
 } from '../../infra/user-host/compose-contract.mjs';
 import { validateProductionObservabilityEnvironmentFile } from './environment.mjs';
 
@@ -190,9 +191,11 @@ function validateUserHostStack(config, operations) {
     !prometheus.command.some((arg) => arg.includes('enable-lifecycle')),
     'Prometheus lifecycle API is on',
   );
+  // 묶음의 named volume은 관측 계약의 volume과 Web의 법적 문서 마지막 성공본 volume 하나뿐이다. 그 volume의 구조(쓰기 가능한
+  // plain local volume, web만 mount)는 compose-contract.mjs가 검사한다.
   assertDeepEqual(
     Object.keys(config.volumes ?? {}).sort(),
-    operations.volumes.map((volume) => volume.name).sort(),
+    [...operations.volumes.map((volume) => volume.name), WEB_LEGAL_LAST_SUCCESS_VOLUME.key].sort(),
   );
   assert(
     alloy.environment?.OBSERVABILITY_COMPOSE_PROJECT === operations.topology.composeProject,

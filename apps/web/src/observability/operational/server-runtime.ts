@@ -1,4 +1,4 @@
-import type { OperationalEvent, WebBffRequestCompletedEvent } from './operational-events';
+import type { OperationalEvent, ServerOperationalEvent } from './operational-events';
 import { sanitizeOperationalEvent } from './sanitize-operational-event';
 
 export type ServerOperationalEventWriter = (event: OperationalEvent) => void | Promise<void>;
@@ -7,7 +7,7 @@ let serverWriter: ServerOperationalEventWriter = (event) => {
   console.info(JSON.stringify({ logType: 'web_operational', ...event }));
 };
 
-export function recordServerOperationalEvent(event: WebBffRequestCompletedEvent): void {
+export function recordServerOperationalEvent(event: ServerOperationalEvent): void {
   const sanitized = sanitizeOperationalEvent(event, { allowLogCorrelationFields: true });
   if (!sanitized) return;
   try {

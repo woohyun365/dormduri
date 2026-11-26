@@ -56,7 +56,7 @@ fail-open이라 그 실패가 exit code와 `RESULT`를 바꾸지 않는다. 대�
 | exit 1 `reason=migrate`·`grant`·`smoke`·`outbox`·`secret-fetch`·`secret-invalid`·`migration-secret`·`pull`·`api-record` | rollout 전 실패                                                                               | 이전 API가 계속 돈다. migrate 실패면 부분 적용을 가정한다                                                                              |
 | exit 1 `reason=rolled-back-to-current`(`deploy`)                                                                        | 새 API가 readiness·host 안 smoke에서 실패                                                     | 지금 묶음을 다시 띄움                                                                                                                  |
 | exit 1 `reason=rollback-failed-kept-current`(`rollback`)                                                                | 직전 묶음이 readiness·host 안 smoke에서 실패                                                  | 지금 묶음을 다시 띄움. 기록은 그대로                                                                                                   |
-| exit 1 `reason=entered-maintenance`                                                                                     | 새 묶음(또는 rollback 대상)이 실패했고 지금 묶음이 없거나 다시 띄우지 못함                    | API를 내림(공개 경로는 Web fallback)                                                                                                   |
+| exit 1 `reason=entered-maintenance`                                                                                     | 새 묶음(또는 rollback 대상)이 실패했고 지금 묶음이 없거나 다시 띄우지 못함                    | API를 내림(공개 법적 문서는 Web의 마지막 성공본)                                                                                       |
 | `RESULT` 줄 없음(command `TimedOut`·`Cancelled` 등)                                                                     | document가 step 상한 안에 끝나지 못하고 끊김                                                  | 알 수 없음. [실패 대응](#실패-대응)의 결과 줄 없는 command                                                                             |
 
 ## 첫 실행 전 Owner 확인
@@ -141,7 +141,7 @@ Dispatch는 build와 attestation 생성을 하지 않고, 세 digest의 attestat
 | ------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `rollback`    | 가장 최근 `deploy-api-*` deploy·rollback Release의 `previous_safe` | migrate 단계 없이 그 묶음으로 되돌린다. secret은 지금 값을 다시 꺼내 새 release로 설치한다. host와 기록 모두 직전 묶음을 비운다                                                                                                                                                                                                                    |
 | `deploy`      | 기록이 있는 아무 묶음                                              | 그 묶음을 다시 올린다. migrate one-off도 다시 돈다(적용할 migration이 없으면 그대로 통과). 지금 묶음과 다르면 지금 묶음이 새 `previous_safe`가 된다. 그 묶음 뒤에 schema를 바꾼 migration이 있으면 옛 grant 표가 새 relation·column을 덮지 못해 `grant`에서 멈춘다(한 transaction이라 권한은 그대로, 이전 API가 계속 돈다). 그때는 forward-fix한다 |
-| `maintenance` | 기록이 있는 묶음(보통 지금 묶음)                                   | API container를 내린다. Ingress private listener는 JSON 503이고 `/privacy`·`/terms`는 Web fallback을 낸다. 끝내려면 지금 묶음을 `deploy`로 다시 올린다                                                                                                                                                                                             |
+| `maintenance` | 기록이 있는 묶음(보통 지금 묶음)                                   | API container를 내린다. Ingress private listener는 JSON 503이고 `/privacy`·`/terms`는 Web의 마지막 성공본을 낸다(없으면 '문서를 불러오지 못했습니다'). 끝내려면 지금 묶음을 `deploy`로 다시 올린다                                                                                                                                                 |
 
 Web이 점검 mode인 동안 `maintenance`를 보내면 host는 API를 내리지만, 외부 smoke(serving)가 Web 점검 화면(503)에서 실패해 run이
 실패로 끝나고 단계 기록이 남지 않는다. 그때는 host `RESULT=succeeded action=maintenance` 줄을 단계 이슈 댓글로 옮기고, Web 점검을
@@ -169,7 +169,7 @@ host가 exit 2로 거부하고 아무것도 바꾸지 않는다. 그때는 원�
 - secret 꺼내기·형식 실패(`secret-fetch`·`secret-invalid`·`migration-secret`): Owner가 console에서 host role 정책과 묶음 key를
   [Secrets Manager checklist](../../aws/secrets-manager-checklist.md)와 대조한다. 값은 기록하지 않는다.
 - 외부 smoke 실패: deploy job이 기록의 직전 묶음으로 `rollback`을 보낸다. 직전 묶음이 없거나 host가 그 rollback을 받지 않으면
-  `maintenance`로 API를 내린다(공개 경로는 Web fallback). 결과는 run 요약의 `recovered:` 줄이다.
+  `maintenance`로 API를 내린다(공개 법적 문서는 Web의 마지막 성공본). 결과는 run 요약의 `recovered:` 줄이다.
 - Host는 바뀌었는데 `tag`나 `record` job이 실패했거나 `record`가 403으로 실패했으면 Web 단계 배포의
   [실패 대응](./web-stage-deploy.md#실패-대응)과 같이 Re-run failed jobs, 그다음 실행 종류별 재전송으로 기록과 host를 맞춘다.
 - 결과 줄 없이 끝난 command(`TimedOut`·`Cancelled` 등): CD는 외부 smoke·자동 되돌림·단계 기록을 건너뛴다. 관측 단계는 상한 안에서

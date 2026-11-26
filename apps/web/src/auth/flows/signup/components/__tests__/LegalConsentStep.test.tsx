@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { LegalConsentStep, type LegalConsentData } from '../LegalConsentStep';
-import { getFallbackLegalDocumentsBundle } from '@/legal/api/legal-documents-bundle.api';
+import { seedActiveLegalDocumentsBundle } from '@/legal/test-support/legal-seed-documents';
 
 vi.mock('lucide-react', () => ({
   AlertCircle: () => null,
@@ -15,7 +15,7 @@ vi.mock('lucide-react', () => ({
   X: () => null,
 }));
 
-const legalBundle = getFallbackLegalDocumentsBundle();
+const legalBundle = seedActiveLegalDocumentsBundle();
 const emptyLegalConsent: LegalConsentData = {
   agreeAge: false,
   agreeTerms: false,
@@ -198,7 +198,6 @@ describe('LegalConsentStep', () => {
       ageNoticeVersionId: 'age-active-id',
       privacyPolicyVersionIdShown: 'privacy-active-id',
     });
-    expect(latestConsent.legalBundleSource).toBe('api');
   });
 
   it('active bundle id가 바뀌면 기존 필수 동의 체크를 reset한다', async () => {
@@ -224,7 +223,6 @@ describe('LegalConsentStep', () => {
           ageNoticeVersionId: 'age-old-id',
           privacyPolicyVersionIdShown: 'privacy-old-id',
         },
-        legalBundleSource: 'api',
       },
     });
 
@@ -350,7 +348,162 @@ describe('LegalConsentStep', () => {
     );
   });
 
-  it('active bundle fetch 실패 시 seed-synced fallback 안내를 표시한다', async () => {
+  // Without the bundle there are no version ids to agree to, so signup stops at this step.
+  it.each([
+    [
+      'a connection failure',
+      async () => {
+        throw new Error('offline');
+      },
+    ],
+    [
+      'an API error',
+      async () =>
+        new Response(JSON.stringify({ code: 'LEGAL_DOCUMENTS_UNAVAILABLE', message: 'x' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    ],
+  ])(
+    'active bundle을 못 읽으면(%s) 지금은 가입할 수 없음을 알리고 제출을 막는다',
+    async (_label, respond) => {
+      vi.stubGlobal('fetch', vi.fn(respond));
+      const onNext = vi.fn<() => void>();
+      let latestConsent: LegalConsentData = emptyLegalConsent;
+
+      function Wrapper() {
+        const [legalConsent, setLegalConsent] = useState<LegalConsentData>(emptyLegalConsent);
+        const handleLegalConsentChange = useCallback((nextConsent: LegalConsentData) => {
+          latestConsent = nextConsent;
+          setLegalConsent(nextConsent);
+        }, []);
+
+        return (
+          <LegalConsentStep
+            legalConsent={legalConsent}
+            onLegalConsentChange={handleLegalConsentChange}
+            onNext={onNext}
+            onBack={vi.fn()}
+          />
+        );
+      }
+
+      render(<Wrapper />);
+
+      expect(await screen.findByTestId('signup-legal-feedback')).toHaveTextContent(
+        '필수 문서를 불러오지 못해 지금은 가입할 수 없어요',
+      );
+      expect(screen.queryByLabelText('[필수] 이용약관 동의')).not.toBeInTheDocument();
+      const next = screen.getByRole('button', { name: '다음 단계' });
+      expect(next).toBeDisabled();
+      fireEvent.click(next);
+      expect(onNext).not.toHaveBeenCalled();
+      expect(latestConsent.legalAcceptances).toBeUndefined();
+    },
+  );
+
+  it('가입할 수 없음 상태에서 다시 불러오기를 누르면 묶음을 다시 읽는다', async () => {
+    const fetcher = vi
+      .fn<() => Promise<Response>>()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(legalBundle), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    vi.stubGlobal('fetch', fetcher);
+    renderWithState();
+
+    fireEvent.click(await screen.findByRole('button', { name: '다시 불러오기' }));
+
+    expect(await screen.findByLabelText('[필수] 이용약관 동의')).toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId('signup-legal-feedback')).not.toBeInTheDocument();
+  });
+
+  // The checks belong to the versions they were given for: a failed read leaves no checks behind for whatever
+  // bundle comes next, on a retry or when the step opens again with the kept consent.
+  describe('묶음을 못 읽은 뒤의 필수 동의 체크', () => {
+    const checkedOldConsent: LegalConsentData = {
+      agreeAge: true,
+      agreeTerms: true,
+      agreePersonalDataCollectionUse: true,
+      legalAcceptances: {
+        termsVersionId: 'terms-old-id',
+        personalDataConsentVersionId: 'personal-data-old-id',
+        ageNoticeVersionId: 'age-old-id',
+        privacyPolicyVersionIdShown: 'privacy-old-id',
+      },
+    };
+    const newBundle = {
+      termsOfService: { ...legalBundle.termsOfService, id: 'terms-new-id' },
+      privacyPolicy: { ...legalBundle.privacyPolicy, id: 'privacy-new-id' },
+      personalDataCollectionUseConsent: {
+        ...legalBundle.personalDataCollectionUseConsent,
+        id: 'personal-data-new-id',
+      },
+      age14OrAboveNotice: { ...legalBundle.age14OrAboveNotice, id: 'age-new-id' },
+    };
+
+    it('다시 불러온 묶음의 판 id가 바뀌었으면 체크를 다시 받는다', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn<() => Promise<Response>>()
+          .mockRejectedValueOnce(new Error('offline'))
+          .mockResolvedValueOnce(
+            new Response(JSON.stringify(newBundle), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          ),
+      );
+      renderWithState({ initialLegalConsent: checkedOldConsent });
+
+      fireEvent.click(await screen.findByRole('button', { name: '다시 불러오기' }));
+      await screen.findByLabelText('[필수] 이용약관 동의');
+
+      expect(screen.getByRole('checkbox', { name: '필수 항목 모두 동의' })).not.toBeChecked();
+      expect(screen.getByLabelText('[필수] 만 14세 이상이에요')).not.toBeChecked();
+      expect(screen.getByLabelText('[필수] 이용약관 동의')).not.toBeChecked();
+      expect(screen.getByLabelText('[필수] 개인정보 수집·이용 동의')).not.toBeChecked();
+    });
+
+    it('단계를 다시 열 때 넘길 동의에 체크를 남기지 않는다', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => {
+          throw new Error('offline');
+        }),
+      );
+      let latestConsent: LegalConsentData = checkedOldConsent;
+
+      function Wrapper() {
+        const [legalConsent, setLegalConsent] = useState<LegalConsentData>(checkedOldConsent);
+        const handleLegalConsentChange = useCallback((nextConsent: LegalConsentData) => {
+          latestConsent = nextConsent;
+          setLegalConsent(nextConsent);
+        }, []);
+
+        return (
+          <LegalConsentStep
+            legalConsent={legalConsent}
+            onLegalConsentChange={handleLegalConsentChange}
+            onNext={vi.fn()}
+            onBack={vi.fn()}
+          />
+        );
+      }
+
+      render(<Wrapper />);
+      await screen.findByRole('button', { name: '다시 불러오기' });
+
+      expect(latestConsent).toEqual(emptyLegalConsent);
+    });
+  });
+
+  it('다시 불러오기를 누르면 focus를 단계 제목으로 옮긴다', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
@@ -359,56 +512,11 @@ describe('LegalConsentStep', () => {
     );
     renderWithState();
 
-    await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent('저장된 동의 내용을 보여드려요'),
-    );
-    expect(screen.getByRole('status')).toHaveTextContent('가입할 때 최신 내용인지 다시 확인해요.');
-    expect(screen.getByLabelText('[필수] 이용약관 동의')).toBeInTheDocument();
-  });
+    const retry = await screen.findByRole('button', { name: '다시 불러오기' });
+    retry.focus();
+    fireEvent.click(retry);
 
-  it('fallback document를 표시한 경우에도 fallback legal ids를 submit evidence로 유지한다', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => {
-        throw new Error('offline');
-      }),
-    );
-    const onNext = vi.fn<() => void>();
-    let latestConsent: LegalConsentData = emptyLegalConsent;
-
-    function Wrapper() {
-      const [legalConsent, setLegalConsent] = useState<LegalConsentData>(emptyLegalConsent);
-      const handleLegalConsentChange = useCallback((nextConsent: LegalConsentData) => {
-        latestConsent = nextConsent;
-        setLegalConsent(nextConsent);
-      }, []);
-
-      return (
-        <LegalConsentStep
-          legalConsent={legalConsent}
-          onLegalConsentChange={handleLegalConsentChange}
-          onNext={onNext}
-          onBack={vi.fn()}
-        />
-      );
-    }
-
-    render(<Wrapper />);
-
-    await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent('저장된 동의 내용을 보여드려요'),
-    );
-    fireEvent.click(screen.getByRole('checkbox', { name: '필수 항목 모두 동의' }));
-    fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
-
-    expect(onNext).toHaveBeenCalled();
-    expect(latestConsent.legalAcceptances).toEqual({
-      termsVersionId: legalBundle.termsOfService.id,
-      personalDataConsentVersionId: legalBundle.personalDataCollectionUseConsent.id,
-      ageNoticeVersionId: legalBundle.age14OrAboveNotice.id,
-      privacyPolicyVersionIdShown: legalBundle.privacyPolicy.id,
-    });
-    expect(latestConsent.legalBundleSource).toBe('fallback');
+    expect(screen.getByRole('heading', { name: '필수 항목 확인' })).toHaveFocus();
   });
 
   it('stale 안내가 전달되면 사용자에게 재확인을 요구한다', async () => {
@@ -423,23 +531,17 @@ describe('LegalConsentStep', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('최신 내용을 확인하고 다시 동의해 주세요.');
   });
 
-  it('stale 재확인 중 fallback을 사용하면 두 상태를 하나의 안내로 합친다', async () => {
-    render(
-      <LegalConsentStep
-        legalConsent={emptyLegalConsent}
-        onLegalConsentChange={vi.fn()}
-        onNext={vi.fn()}
-        onBack={vi.fn()}
-        requiresReconfirmation
-        legalDocumentsResult={{ source: 'fallback', bundle: legalBundle }}
-      />,
+  it('stale 재확인 중 묶음을 못 읽으면 가입할 수 없음 안내 하나만 보인다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('offline');
+      }),
     );
+    renderWithState({ requiresReconfirmation: true });
 
     expect(await screen.findByTestId('signup-legal-feedback')).toHaveTextContent(
-      '동의 내용을 다시 확인해 주세요',
-    );
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      '저장된 내용을 보여드리며, 가입할 때 최신 여부를 확인해요.',
+      '필수 문서를 불러오지 못해 지금은 가입할 수 없어요',
     );
     expect(screen.getAllByTestId('signup-legal-feedback')).toHaveLength(1);
   });

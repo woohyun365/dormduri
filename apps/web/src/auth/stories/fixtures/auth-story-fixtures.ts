@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 import { getCollegeCatalog } from '@repo/shared/college';
-import { getFallbackLegalDocumentsBundle } from '@/legal/api/legal-documents-bundle.api';
+import { seedActiveLegalDocumentsBundle } from '@/legal/test-support/legal-seed-documents';
 import type { LoginFlowView } from '@/auth/flows/login/LoginFlowView';
 import {
   mapLoginResponseToErrorState,
@@ -113,7 +113,8 @@ export const PASSWORD_RESET_STORY_BASE_ARGS = {
   onRetrySessionAction: noop,
 } satisfies ComponentProps<typeof PasswordResetFlowView>;
 
-export const SIGNUP_LEGAL_BUNDLE = getFallbackLegalDocumentsBundle();
+// Signup documents from the legal seed (the test-only seed path).
+export const SIGNUP_LEGAL_BUNDLE = seedActiveLegalDocumentsBundle();
 
 export const SIGNUP_LEGAL_ACCEPTANCES = {
   termsVersionId: SIGNUP_LEGAL_BUNDLE.termsOfService.id,
@@ -127,7 +128,6 @@ export const SIGNUP_LEGAL_CONSENT = {
   agreeTerms: true,
   agreePersonalDataCollectionUse: true,
   legalAcceptances: SIGNUP_LEGAL_ACCEPTANCES,
-  legalBundleSource: 'api',
 } satisfies LegalConsentData;
 
 export const SIGNUP_BASIC_INFO = {
