@@ -24,6 +24,7 @@ import {
 import {
   formatLegalCheckedAt,
   formatVersionPeriod,
+  toLegalChangeSummaryView,
   toLegalComparisonView,
   toLegalDocumentView,
   toLegalPageNotices,
@@ -89,6 +90,50 @@ describe('toLegalDocumentView', () => {
     ]);
     for (const raw of [viewing.id, viewing.version, viewing.versionKey]) {
       expect(shown).not.toContain(raw);
+    }
+  });
+});
+
+// The change summary is free text the backoffice writes. Before the major-change marker is a short
+// summary line; after it, each sentence is one major change. The screen keeps every character
+// (Owner LU4 Human Feedback 2).
+describe('the change summary', () => {
+  it('keeps the words before the marker as the summary line and lists each sentence after it', () => {
+    expect(
+      toLegalChangeSummaryView(
+        '2026년 12월 14일부터 적용합니다. 주요 변경: 보관 기간을 늘렸습니다. 기준을 더했습니다.',
+      ),
+    ).toEqual({
+      summary: '2026년 12월 14일부터 적용합니다.',
+      majorChanges: ['보관 기간을 늘렸습니다.', '기준을 더했습니다.'],
+    });
+  });
+
+  it('lists the major changes alone when the summary starts with the marker', () => {
+    expect(toLegalChangeSummaryView('주요 변경: 표를 고쳤습니다. 기준을 적었습니다.')).toEqual({
+      summary: undefined,
+      majorChanges: ['표를 고쳤습니다.', '기준을 적었습니다.'],
+    });
+  });
+
+  it('keeps a summary without the marker, or with nothing after it, as the summary line', () => {
+    const terms = termsPage.viewing.changeSummary ?? '';
+    for (const text of [terms, '조문 구조를 정리했습니다. 주요 변경:']) {
+      expect(toLegalChangeSummaryView(text)).toEqual({ summary: text, majorChanges: [] });
+    }
+  });
+
+  it('keeps every character of the seed summaries in order (G-LU1)', () => {
+    for (const [, document] of documents) {
+      const text = document.changeSummary;
+      if (!text) continue;
+      const view = toLegalDocumentView(document).changeSummary;
+      const shown = [
+        view?.summary,
+        view?.majorChanges.length ? '주요 변경:' : undefined,
+        ...(view?.majorChanges ?? []),
+      ].filter(Boolean);
+      expect(shown.join(' ')).toBe(text.replace(/\s+/g, ' ').trim());
     }
   });
 });

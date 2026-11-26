@@ -115,8 +115,9 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
   줄은 적용일과 문서 이름, 그 판으로 가는 link(`/privacy?version=<versionKey>`)이고 문서 이름은 footer 링크 이름과 같은 상수입니다.
   처리방침 link는 이용약관 link보다 굵습니다(LB-R1). 문구는 `landingCopy.revisionNotice`, 적용일 표기와 판 주소는
   `@/screens/ui/model/`의 공용 함수입니다.
-- 자리와 모양: sticky header 위 전체 폭 띠이고 스크롤하면 사라지며 header는 맨 위에 붙습니다. 띠가 있어도 390×844 첫 화면에 첫
-  화면 고지 두 문장과 가입 행동이 보입니다. 개정 예고가 없으면 Landing은 띠가 없던 때와 같습니다(`Landing/Page` `Default` 전후
+- 자리와 모양: sticky header 위 전체 폭 띠이고 스크롤하면 사라지며 header는 맨 위에 붙습니다. md(768)부터 문장과 link가 간격을
+  두고 한 줄이고, 그 아래에서는 link가 다음 줄입니다. link는 안에서 끊기지 않습니다(Owner LU4 Human Feedback 2). 띠가 있어도
+  390×844 첫 화면에 첫 화면 고지 두 문장과 가입 행동이 보입니다. 개정 예고가 없으면 Landing은 띠가 없던 때와 같습니다(`Landing/Page` `Default` 전후
   캡처 hash 같음).
 
 ## 렌더링·상호작용·접근성

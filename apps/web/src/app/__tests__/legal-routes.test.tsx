@@ -123,11 +123,8 @@ describe('legal routes', () => {
     answer(route.page, route.comparison, 'last-success');
     const kept = render(await route.Page(request()));
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(route.page.viewing.title);
-    expect(
-      screen
-        .getByText(legalScreenCopy.lastSuccessNotice(formatLegalCheckedAt(CHECKED_AT)))
-        .closest('[role="status"]'),
-    ).not.toBeNull();
+    const status = screen.getByText(legalScreenCopy.lastSuccessNotice).closest('[role="status"]');
+    expect(status).toHaveTextContent(formatLegalCheckedAt(CHECKED_AT));
     expect(sourceMark(kept.container)).toEqual(['last-success']);
     kept.unmount();
 

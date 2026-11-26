@@ -1,11 +1,52 @@
-import type { LegalDocumentView } from '../model/legalDocumentModel';
+import type { ReactNode } from 'react';
+import {
+  MAJOR_CHANGE_LABEL,
+  type LegalChangeSummaryView,
+  type LegalDocumentView,
+} from '../model/legalDocumentModel';
 import { legalScreenCopy } from '../model/legalScreenCopy';
 import { DocumentActions } from './DocumentActions';
 import { HeadingLink } from './HeadingLink';
 import { Notice } from './Notice';
 
 const comparisonLink =
-  'font-medium text-fg-brand underline underline-offset-4 focus-visible:focus-ring';
+  'whitespace-nowrap font-medium text-fg-brand underline underline-offset-4 focus-visible:focus-ring';
+
+const MAJOR_CHANGES_ID = 'legal-major-changes';
+
+// One title per block: with major changes the words before them stay a plain line and the major
+// changes are a list under their own label; without them the change summary label (LB-R10) takes its
+// own line above the text. Every sentence starts at the left; the link to the comparison table ends the
+// block (Owner LU4 Human Feedback 2).
+function ChangeSummary({ summary, link }: { summary: LegalChangeSummaryView; link: ReactNode }) {
+  return (
+    <Notice>
+      <div className="space-y-2">
+        {summary.majorChanges.length > 0 ? (
+          <>
+            {summary.summary && <p>{summary.summary}</p>}
+            <div>
+              <p id={MAJOR_CHANGES_ID} className="font-bold">
+                {MAJOR_CHANGE_LABEL}
+              </p>
+              <ul aria-labelledby={MAJOR_CHANGES_ID} className="mt-1 list-disc space-y-1 pl-6">
+                {summary.majorChanges.map((change) => (
+                  <li key={change}>{change}</li>
+                ))}
+              </ul>
+            </div>
+          </>
+        ) : (
+          <div>
+            <p className="font-bold">{legalScreenCopy.changeSummaryLabel}</p>
+            <p className="mt-1">{summary.summary}</p>
+          </div>
+        )}
+        {link && <p>{link}</p>}
+      </div>
+    </Notice>
+  );
+}
 
 // Title → introduction → dates and change summary → summary → actions (G-LU2, G-LU3, G-LU5). The one
 // h1 is the document's own title. With a comparison table on the page, the change summary links to it
@@ -41,10 +82,7 @@ export function DocumentIntro({
         </div>
       </dl>
       {view.changeSummary ? (
-        <Notice label={legalScreenCopy.changeSummaryLabel}>
-          {view.changeSummary}
-          {link && <> {link}</>}
-        </Notice>
+        <ChangeSummary summary={view.changeSummary} link={link} />
       ) : (
         link && <p className="text-body-sm">{link}</p>
       )}

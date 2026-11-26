@@ -44,8 +44,13 @@ export type LegalDocumentScreenProps = {
   comparison: LegalVersionComparison | null;
 };
 
-const noticeLink =
-  'font-medium text-fg-brand underline underline-offset-4 focus-visible:focus-ring';
+// A notice's link never breaks inside. After the one-sentence new-version notice it takes its own line
+// below md and follows the sentence from md; a version notice starts each sentence on its own line after
+// the label and puts its link on the next one (Owner LU4 Human Feedback 2).
+const linkLook =
+  'block w-fit whitespace-nowrap font-medium text-fg-brand underline underline-offset-4 focus-visible:focus-ring';
+const noticeLink = `${linkLook} mt-1 md:mt-0 md:ml-2 md:inline`;
+const versionNoticeLink = `${linkLook} mt-1`;
 
 function PageNotice({ notice, name }: { notice: LegalPageNotice; name: string }) {
   if (notice.kind === 'scheduled') {
@@ -59,17 +64,22 @@ function PageNotice({ notice, name }: { notice: LegalPageNotice; name: string })
     );
   }
   const from = formatLegalDate(notice.period.from);
+  const [first, ...rest] =
+    notice.status === 'scheduled'
+      ? legalScreenCopy.viewingScheduledNotice(from)
+      : legalScreenCopy.viewingPreviousNotice(
+          from,
+          formatLegalDate(notice.period.until ?? notice.period.from),
+        );
   return (
     <Notice label={legalScreenCopy.versionStatusLabel[notice.status]} role="note">
-      {`${
-        notice.status === 'scheduled'
-          ? legalScreenCopy.viewingScheduledNotice(from)
-          : legalScreenCopy.viewingPreviousNotice(
-              from,
-              formatLegalDate(notice.period.until ?? notice.period.from),
-            )
-      } `}
-      <a href={notice.currentHref} className={noticeLink}>
+      <span>{first}</span>
+      {rest.map((sentence) => (
+        <span key={sentence} className="block">
+          {sentence}
+        </span>
+      ))}
+      <a href={notice.currentHref} className={versionNoticeLink}>
         {legalScreenCopy.viewCurrentVersionLabel}
       </a>
     </Notice>
@@ -111,7 +121,11 @@ export function LegalDocumentScreen({ page, source, comparison }: LegalDocumentS
                 ))}
                 {source.kind === 'last-success' && (
                   <Notice label={legalScreenCopy.noticeLabel.INFO} role="status">
-                    {legalScreenCopy.lastSuccessNotice(formatLegalCheckedAt(source.checkedAt))}
+                    {legalScreenCopy.lastSuccessNotice}
+                    <span className="mt-1 block">
+                      <strong className="mr-2 font-bold">{legalScreenCopy.checkedAtLabel}</strong>
+                      {formatLegalCheckedAt(source.checkedAt)}
+                    </span>
                   </Notice>
                 )}
               </div>

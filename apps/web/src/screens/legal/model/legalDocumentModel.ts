@@ -24,10 +24,32 @@ export type LegalBlock = LegalHeadingBlock | Exclude<LegalDocumentSection, { typ
 
 export type LegalTocItem = { id: string; level: 2 | 3 | 4; text: string };
 
+// The change summary is free text the backoffice writes. The words before the major-change marker are a
+// short summary line and each sentence after it is one major change; without the marker, or with nothing
+// after it, the whole text is the summary line. Every character stays: sentences split only at their end
+// ('…다.' and a space) and the marker's colon becomes the label of the major-change list (Owner LU4
+// Human Feedback 2).
+export type LegalChangeSummaryView = {
+  summary: string | undefined;
+  majorChanges: string[];
+};
+
+const MAJOR_CHANGE_MARKER = '주요 변경:';
+export const MAJOR_CHANGE_LABEL = MAJOR_CHANGE_MARKER.slice(0, -1);
+const SENTENCE_END = /(?<=다\.)\s+/;
+
+export function toLegalChangeSummaryView(text: string): LegalChangeSummaryView {
+  const at = text.indexOf(MAJOR_CHANGE_MARKER);
+  const after = at < 0 ? '' : text.slice(at + MAJOR_CHANGE_MARKER.length).trim();
+  if (!after) return { summary: text, majorChanges: [] };
+  const summary = text.slice(0, at).trim();
+  return { summary: summary || undefined, majorChanges: after.split(SENTENCE_END) };
+}
+
 export type LegalDocumentView = {
   title: string;
   summaryItems: string[];
-  changeSummary: string | undefined;
+  changeSummary: LegalChangeSummaryView | undefined;
   effectiveDate: string;
   lastModifiedDate: string;
   blocks: LegalBlock[];
@@ -55,7 +77,9 @@ export function toLegalDocumentView(document: LegalDocumentResponse): LegalDocum
   return {
     title: document.title,
     summaryItems: document.summaryItems,
-    changeSummary: document.changeSummary,
+    changeSummary: document.changeSummary
+      ? toLegalChangeSummaryView(document.changeSummary)
+      : undefined,
     effectiveDate: formatLegalDate(document.effectiveAt),
     lastModifiedDate: formatLegalDate(document.lastModifiedAt),
     blocks,

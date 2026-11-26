@@ -28,7 +28,7 @@ import {
   termsScheduledComparison,
   termsScheduledPage,
 } from '../__stories__/storyDocuments';
-import { formatLegalCheckedAt } from '../model/legalDocumentModel';
+import { formatLegalCheckedAt, toLegalChangeSummaryView } from '../model/legalDocumentModel';
 import {
   legalDocumentIntros,
   legalDocumentNames,
@@ -289,9 +289,87 @@ describe('legal document screen', () => {
     expect(
       screen.getByText(legalScreenCopy.lastModifiedLabel).nextElementSibling,
     ).toHaveTextContent(formatLegalDate(viewing.lastModifiedAt));
-    expect(screen.getByText(viewing.changeSummary ?? '', { exact: false })).toBeInTheDocument();
+    const { summary, majorChanges } = toLegalChangeSummaryView(viewing.changeSummary ?? '');
+    for (const text of [summary, ...majorChanges]) {
+      if (text) expect(screen.getByText(text, { exact: false })).toBeInTheDocument();
+    }
     for (const raw of [viewing.id, viewing.version, viewing.versionKey]) {
       expect(container.textContent).not.toContain(raw);
+    }
+  });
+
+  it('shows the lead sentence, then the major changes under their label as the one title (Owner LU4 Human Feedback 2)', () => {
+    renderScreen();
+    const text = privacyPage.viewing.changeSummary ?? '';
+    const marker = text.indexOf('주요 변경:');
+    expect(marker).toBeGreaterThan(0);
+    const lead = text.slice(0, marker).trim();
+    const changes = text
+      .slice(marker + '주요 변경:'.length)
+      .trim()
+      .split(/(?<=다\.)\s+/);
+    expect(changes.length).toBeGreaterThan(1);
+
+    expect(screen.queryByText(legalScreenCopy.changeSummaryLabel)).toBeNull();
+    const line = screen.getByText(lead);
+    const list = screen.getByRole('list', { name: '주요 변경' });
+    const label = screen.getByText('주요 변경');
+    expect(
+      within(list)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(changes);
+    expect(follows(line, label)).toBe(true);
+    expect(follows(label, list)).toBe(true);
+    const link = screen.getByRole('link', { name: legalScreenCopy.comparisonLinkLabel });
+    expect(follows(list, link)).toBe(true);
+  });
+
+  it('titles a change summary without the major-change marker once, on its own line (Owner LU4 Human Feedback 2)', () => {
+    renderScreen({ page: termsPage, comparison: termsComparison });
+    const text = termsPage.viewing.changeSummary ?? '';
+    expect(text).not.toContain('주요 변경:');
+    const title = screen.getByText(legalScreenCopy.changeSummaryLabel);
+    const body = screen.getByText(text);
+    expect(body).not.toContainElement(title);
+    expect(follows(title, body)).toBe(true);
+    expect(screen.queryByRole('list', { name: '주요 변경' })).toBeNull();
+  });
+
+  it('starts each sentence of a version notice on its own line after the label (Owner LU4 Human Feedback 2)', () => {
+    const scheduledKey = privacyScheduledPage.viewing.versionKey;
+    const cases = [
+      {
+        page: privacyScheduledPage,
+        comparison: privacyScheduledComparison,
+        label: legalScreenCopy.versionStatusLabel.scheduled,
+        sentences: legalScreenCopy.viewingScheduledNotice(formatLegalDate(scheduledKey)),
+      },
+      {
+        page: privacyPreviousPage,
+        comparison: privacyPreviousComparison,
+        label: legalScreenCopy.versionStatusLabel.previous,
+        sentences: legalScreenCopy.viewingPreviousNotice(
+          formatLegalDate('2026-06-22'),
+          formatLegalDate('2026-11-19'),
+        ),
+      },
+    ];
+    for (const { page, comparison, label, sentences } of cases) {
+      const shown = renderScreen({ page, comparison });
+      const link = screen.getByRole('link', { name: legalScreenCopy.viewCurrentVersionLabel });
+      const note = link.closest('[role="note"]') as HTMLElement;
+      const parts = [
+        within(note).getByText(label),
+        ...sentences.map((sentence) => within(note).getByText(sentence)),
+        link,
+      ];
+      expect(sentences).toHaveLength(2);
+      parts.reduce((before, part) => {
+        expect(follows(before, part)).toBe(true);
+        return part;
+      });
+      shown.unmount();
     }
   });
 
@@ -460,16 +538,22 @@ describe('legal document screen', () => {
   });
 
   it('shows the last-confirmed notice with its check time only for a last-confirmed copy (G-LU7)', () => {
-    const notice = legalScreenCopy.lastSuccessNotice(formatLegalCheckedAt(STORY_CHECKED_AT));
+    const notice = legalScreenCopy.lastSuccessNotice;
     const shown = renderScreen();
     expect(screen.queryByText(notice)).toBeNull();
     expect(screen.queryByText(/마지막으로 확인한/)).toBeNull();
     shown.unmount();
 
+    // Two short lines: what is shown, then the check time under its own label (Owner LU4 Human Feedback 2).
     renderScreen({ source: { kind: 'last-success', checkedAt: STORY_CHECKED_AT } });
     const status = screen.getByText(notice).closest('[role="status"]');
     expect(status).not.toBeNull();
-    expect(status).toHaveTextContent('2026년 11월 25일 18:30');
+    const label = within(status as HTMLElement).getByText(legalScreenCopy.checkedAtLabel);
+    expect(label.tagName).toBe('STRONG');
+    expect(label.parentElement).toHaveTextContent(
+      `${legalScreenCopy.checkedAtLabel}2026년 11월 25일 18:30`,
+    );
+    expect(follows(screen.getByText(notice), label)).toBe(true);
   });
 
   it('shows the unavailable page with the document name, retry, home and the inquiry address (G-LU7)', () => {

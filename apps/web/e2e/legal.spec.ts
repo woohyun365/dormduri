@@ -8,9 +8,8 @@ import { WEB_E2E_LEGAL_CHECKED_AT } from './support/legal-last-success-fixture';
 // writes from the legal seed (e2e/support/legal-last-success-fixture.ts). Version addresses have no kept file. The
 // published path against a running API is legal.fullstack.spec.ts. Three flows (E1~E3) and one state only the
 // server answer shows (E4, the 404), then the load state cases the last success fixture brought.
-const LAST_SUCCESS_NOTICE = legalScreenCopy.lastSuccessNotice(
-  formatLegalCheckedAt(WEB_E2E_LEGAL_CHECKED_AT),
-);
+const LAST_SUCCESS_NOTICE = legalScreenCopy.lastSuccessNotice;
+const LAST_SUCCESS_CHECKED_AT = formatLegalCheckedAt(WEB_E2E_LEGAL_CHECKED_AT);
 // The law's name for the privacy policy (docs/policies/legal-basis.md LB-R1), pinned as written.
 const PRIVACY_NAME = '개인정보 처리방침';
 const PRIVACY_TITLE = '돔두리 개인정보 처리방침';
@@ -26,7 +25,10 @@ async function historyLength(page: Page): Promise<number> {
 }
 
 function lastSuccessStatus(page: Page): Locator {
-  return page.getByRole('status').filter({ hasText: LAST_SUCCESS_NOTICE });
+  return page
+    .getByRole('status')
+    .filter({ hasText: LAST_SUCCESS_NOTICE })
+    .filter({ hasText: LAST_SUCCESS_CHECKED_AT });
 }
 
 // The visible table of contents: the rail from lg, the folded list (opened first) below it.
