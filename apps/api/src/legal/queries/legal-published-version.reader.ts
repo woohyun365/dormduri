@@ -39,6 +39,17 @@ export interface LegalPublishedRead {
  */
 type ReadStep = 'database_time' | 'published_versions' | 'version_rows';
 
+/**
+ * The longest a public reading waits for the database before it answers from memory. It is shorter than the Web
+ * request timeout (3 s, apps/web/src/legal/api/legal-document.server.ts), so a database that stops answering never
+ * makes the Web give up on an API that still holds the versions.
+ */
+export const LEGAL_DATABASE_READ_TIMEOUT_MS = 1_500;
+
+class LegalDatabaseReadTimeout extends Error {
+  override readonly name = 'LegalDatabaseReadTimeout';
+}
+
 /** Error class and its code (a Prisma code or a SQLSTATE) only: a driver message can carry query values. */
 function describeReadFailure(error: unknown): { errorType: string; errorCode: string } {
   const errorType = error instanceof Error ? error.name : typeof error;
@@ -67,32 +78,28 @@ export class LegalPublishedVersionReader {
     endpoint: LegalReadEndpoint,
   ): Promise<LegalPublishedRead> {
     let fresh: Map<LegalDocumentKind, KindSnapshot> | null = null;
-    let step: ReadStep = 'database_time';
+    const progress: { step: ReadStep } = { step: 'database_time' };
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const databaseNow = await this.repository.getDatabaseNow();
-      step = 'published_versions';
-      const records = await this.repository.listPublishedVersions(kinds, databaseNow);
-      step = 'version_rows';
-      const monotonicMs = performance.now();
-      const versionsByKind = new Map<LegalDocumentKind, LegalVersion[]>(
-        kinds.map((kind) => [kind, []]),
-      );
-      for (const record of records) {
-        versionsByKind.get(record.kind)?.push(toLegalVersion(record));
-      }
-      fresh = new Map(
-        [...versionsByKind].map(([kind, versions]) => [
-          kind,
-          { versions, databaseNow, monotonicMs },
-        ]),
-      );
+      // A read that misses the limit is given up; its late result is not used.
+      fresh = await Promise.race([
+        this.readFromDatabase(kinds, progress),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new LegalDatabaseReadTimeout()),
+            LEGAL_DATABASE_READ_TIMEOUT_MS,
+          );
+        }),
+      ]);
     } catch (error) {
       const fallback = kinds.every((kind) => this.snapshots.has(kind)) ? 'memory' : 'unavailable';
       const { errorType, errorCode } = describeReadFailure(error);
       this.logger.warn(
-        `[LegalPublishedVersionReader] database read failed endpoint=${endpoint} step=${step} kinds=${kinds.join(',')} errorType=${errorType} errorCode=${errorCode} fallback=${fallback}`,
+        `[LegalPublishedVersionReader] database read failed endpoint=${endpoint} step=${progress.step} kinds=${kinds.join(',')} errorType=${errorType} errorCode=${errorCode} fallback=${fallback}`,
       );
       fresh = null;
+    } finally {
+      clearTimeout(timer);
     }
 
     if (fresh) {
@@ -116,6 +123,26 @@ export class LegalPublishedVersionReader {
       held.set(kind, snapshot);
     }
     return this.answer(endpoint, 'memory', held);
+  }
+
+  private async readFromDatabase(
+    kinds: readonly LegalDocumentKind[],
+    progress: { step: ReadStep },
+  ): Promise<Map<LegalDocumentKind, KindSnapshot>> {
+    const databaseNow = await this.repository.getDatabaseNow();
+    progress.step = 'published_versions';
+    const records = await this.repository.listPublishedVersions(kinds, databaseNow);
+    progress.step = 'version_rows';
+    const monotonicMs = performance.now();
+    const versionsByKind = new Map<LegalDocumentKind, LegalVersion[]>(
+      kinds.map((kind) => [kind, []]),
+    );
+    for (const record of records) {
+      versionsByKind.get(record.kind)?.push(toLegalVersion(record));
+    }
+    return new Map(
+      [...versionsByKind].map(([kind, versions]) => [kind, { versions, databaseNow, monotonicMs }]),
+    );
   }
 
   /** One read outcome per request, after the response is decided. */

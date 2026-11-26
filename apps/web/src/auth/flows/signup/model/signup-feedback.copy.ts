@@ -29,17 +29,14 @@ export const SIGNUP_FEEDBACK_COPY = {
     submissionFailedTitle: '가입을 완료하지 못했어요',
   },
   legal: {
-    fallback: {
-      title: '저장된 동의 내용을 보여드려요',
-      description: '가입할 때 최신 내용인지 다시 확인해요.',
+    unavailable: {
+      title: '필수 문서를 불러오지 못해 지금은 가입할 수 없어요',
+      description: '잠시 후 다시 불러와 주세요.',
+      retry: '다시 불러오기',
     },
     stale: {
       title: '동의 내용이 변경됐어요',
       description: '최신 내용을 확인하고 다시 동의해 주세요.',
-    },
-    staleFallback: {
-      title: '동의 내용을 다시 확인해 주세요',
-      description: '저장된 내용을 보여드리며, 가입할 때 최신 여부를 확인해요.',
     },
   },
   common: {

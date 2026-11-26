@@ -66,6 +66,11 @@ deploy smoke-failure-rolls-back-to-previous-title-format 3 BAD_SMOKE="$(pair 3)"
 # status는 맞지만 다른 화면 제목이거나 제목이 없는 새 쌍은 내부 smoke에서 실패해 current로 되돌아간다.
 deploy wrong-screen-rolls-back 3 WRONG_SCREEN="$(pair 3)"
 deploy missing-title-rolls-back 3 NO_TITLE="$(pair 3)"
+# 문서 출처 표지: 새 쌍의 /privacy·/terms가 API 게시본 표지를 내지 않으면 내부 smoke에서 실패해 current로 돌아간다.
+# 되돌아갈 쌍과 rollback 대상은 표지를 검사하지 않는다(표지가 없던 이전 Web도 다시 띄울 수 있다).
+deploy legal-source-missing-rolls-back 3 NO_LEGAL_SOURCE="$(pair 3) $(pair 1)"
+deploy legal-source-setup-deploy 2
+rollback rollback-to-legal-source-less-previous 1 NO_LEGAL_SOURCE="$(pair 1)"
 rm -rf "${state}" /opt/dormduri/mode /opt/dormduri/releases /tmp/running_web
 deploy first-deploy-failure-enters-maintenance 3 BAD_UP="$(pair 3)"
 run maintenance SSM_action=maintenance SSM_webDigest="$(pair 1)" SSM_ingressDigest="${I}"

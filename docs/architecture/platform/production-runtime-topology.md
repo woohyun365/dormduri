@@ -56,7 +56,8 @@ GitHub Actions backoffice-cd (main, schema gate, production-backoffice 승인)
 - TLS: host의 containerized nginx가 Let's Encrypt 인증서로 HTTPS를 종료한다(certbot HTTP-01 webroot 갱신, CAA, HSTS).
 - 배포 전달: host는 Systems Manager hybrid managed node이고, CD(`web-cd.yml`·`api-cd.yml`)가 서비스마다 OIDC deploy role로
   document `dormduri-web-deploy`·`dormduri-api-deploy`를 배포 대상 tag에 보낸다. 두 document는 같은 host lock을 쓴다. Host는
-  host role로 ECR에서 digest 묶음을 받아 compose로 올리고 health·내부 smoke가 실패하면 직전 묶음으로 되돌린다. API document는
+  host role로 ECR에서 digest 묶음을 받아 compose로 올리고 health·내부 smoke가 실패하면 직전 묶음으로 되돌린다. 새 Web 쌍은
+  `/privacy`·`/terms`가 API 게시본 표지를 낼 때만 남는다(공개 법적 문서 출처 gate). API document는
   host role로 Secrets Manager 묶음을 꺼내 rollout 전에 migrate one-off를 돌린다. 백오피스 host는 따로 된 CD(`backoffice-cd.yml`)·
   OIDC role·document `dormduri-backoffice-deploy`·host lock을 쓰고, schema gate가 같은 commit의 API 배포 성공을 기다린 뒤에만
   rollout한다. SSH는 쓰지 않는다. 절차는 [Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md),
@@ -192,6 +193,10 @@ flowchart TB
   log push와 지표 remote write를 백오피스 host 사설 주소와 token으로만 받고, Prometheus 대신 API 지표를 긁는다(Prometheus는 API
   network에 붙지 않는다).
 - BackOffice Web/API를 배치하지 않는다.
+- Web container의 root는 read-only이고, 쓰는 곳은 tmpfs와 named volume 하나(`legal-last-success`, target
+  `/var/lib/dormduri/legal`)다. 그 volume에는 공개 법적 문서의 마지막 성공 응답만 있고(개인정보 없음), container 밖이라 Web 재시작·
+  새 image·rollback 뒤에도 남아 API가 멈춘 동안 새로 뜬 Web도 마지막으로 확인한 판을 낸다. Host bind mount는 없고 compose 계약이
+  그 하나만 허용한다([BFF 결정 기록](../decisions/bff.md), [Web legal](../../../apps/web/src/legal/README.md)).
 
 #### User public ingress와 BFF trust
 

@@ -20,6 +20,7 @@ import {
   isApiTestFile,
   isIntendedFanOut,
   summarizeChangedPaths,
+  WEB_TEST_API_SEED_FILES,
 } from './classify-changes.mjs';
 
 const fixtureUrl = new URL('./fixtures/change-impact-cases.json', import.meta.url);
@@ -279,6 +280,30 @@ test('the storybook lane runs the static build and then the story visual check',
 
   assert.ok(build > 0 && browserInstall > build && visual > browserInstall);
   assert.match(steps[visual], /if: \$\{\{ inputs\.run_storybook \}\}/u);
+});
+
+// Web tests, stories and the Playwright fixture read their legal text from the API seed files through
+// apps/web/src/legal/testing/legal-seed-source.mjs, so a change to those files alone also runs the Web lane.
+test('the legal seed files the Web test-only seed source imports select the Web lane with the API lane', () => {
+  const sourcePath = 'apps/web/src/legal/testing/legal-seed-source.mjs';
+  const imported = [
+    ...readFileSync(resolve(repoRoot, sourcePath), 'utf8').matchAll(/from '([^']+)'/gu),
+  ]
+    .map((match) => relative(repoRoot, resolve(repoRoot, dirname(sourcePath), match[1])))
+    .filter((path) => path.startsWith('apps/api/'))
+    .sort();
+  assert.ok(imported.length > 0, 'the seed source imports the API seed files');
+  assert.deepEqual([...(WEB_TEST_API_SEED_FILES ?? [])].sort(), imported);
+  for (const path of imported) {
+    assert.ok(tracked.has(path), `${path} is not tracked`);
+    const lanes = classifyChanges([path]);
+    assert.equal(lanes.web, true, path);
+    assert.equal(lanes.api, true, path);
+  }
+  assert.equal(
+    classifyChanges(['apps/api/prisma/seed-data/reference/seed-legal-documents.js']).web,
+    false,
+  );
 });
 
 test('product files that agent tests read select the agent workflow lane, other product files do not', () => {

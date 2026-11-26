@@ -2,6 +2,8 @@
 # 실제 ingress의 경로별 응답을 흉내 낸다: 점검 flag면 모든 경로 점검 중 503, 아니면 허용 경로 200·준비 중 503·404.
 # PREVIOUS_TITLE_FORMAT(공백으로 나눈 web digest)에 든 쌍이 떠 있으면 정적 page 제목을 이전 형식으로 낸다(옛 ingress image).
 # WRONG_SCREEN·NO_TITLE에 든 쌍이 떠 있으면 정적 page가 status는 그대로, 제목은 다른 화면(점검 중)이거나 없이 나온다.
+# Web 문서(/privacy·/terms 200)는 API 게시본 출처 표지를 담는다. NO_LEGAL_SOURCE에 든 쌍은 표지 없이 낸다(마지막 성공본·표지가
+# 없던 이전 Web).
 . /work/titles.env
 out=/dev/null
 url=
@@ -54,9 +56,14 @@ if [ -n "${running}" ] && [ -n "${title}" ]; then
   case " ${WRONG_SCREEN:-} " in *" ${running} "*) title=${TITLE_MAINTENANCE} ;; esac
   case " ${NO_TITLE:-} " in *" ${running} "*) no_title=1 ;; esac
 fi
+legal_source=
+if [ "${code}" = 200 ] && { [ "${path}" = /privacy ] || [ "${path}" = /terms ]; }; then
+  legal_source='<div hidden data-dormduri-legal-source="published"></div>'
+  case " ${NO_LEGAL_SOURCE:-} " in *" ${running} "*) [ -n "${running}" ] && legal_source= ;; esac
+fi
 if [ "${no_title}" = 1 ]; then
-  printf '<html></html>' >"${out}"
+  printf '<html>%s</html>' "${legal_source}" >"${out}"
 else
-  printf '<title>%s</title>' "${title}" >"${out}"
+  printf '<title>%s</title>%s' "${title}" "${legal_source}" >"${out}"
 fi
 printf '%s' "${code}"

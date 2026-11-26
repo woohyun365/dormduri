@@ -289,6 +289,7 @@ const eslintConfig = defineConfig([
             'postcss.config.mjs',
             'vitest.config.ts',
             'src/styles/tokens/build-tokens.mjs',
+            'src/legal/testing/legal-seed-source.mjs',
           ],
         },
         tsconfigRootDir: import.meta.dirname,
@@ -313,6 +314,38 @@ const eslintConfig = defineConfig([
     ],
     rules: {
       'no-restricted-imports': 'off',
+    },
+  },
+
+  // The test-only legal seed path (src/legal/testing) holds the API seed text for tests, stories and the Playwright
+  // fixture. Production code never imports it; no other block sets this rule, so the
+  // screen layer blocks that redefine no-restricted-imports do not drop it.
+  {
+    files: ['src/**/*.{ts,tsx,js,mjs}'],
+    ignores: [
+      'src/**/*.{test,spec}.{ts,tsx}',
+      'src/**/__tests__/**',
+      'src/**/*.stories.{ts,tsx}',
+      'src/**/__stories__/**',
+      'src/auth/stories/**',
+      'src/legal/testing/**',
+      'src/test-setup.ts',
+    ],
+    rules: {
+      'import/no-restricted-paths': [
+        'error',
+        {
+          basePath: import.meta.dirname,
+          zones: [
+            {
+              target: './src',
+              from: './src/legal/testing',
+              message:
+                'src/legal/testing은 test·story 전용 seed 원본입니다. 제품 code는 공개 열람 API 응답만 씁니다(apps/web/src/legal/README.md).',
+            },
+          ],
+        },
+      ],
     },
   },
 

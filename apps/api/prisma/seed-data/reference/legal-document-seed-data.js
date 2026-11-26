@@ -1,5 +1,3 @@
-const ACTIVE_LEGAL_EFFECTIVE_AT = '2026-06-22T00:00:00.000Z';
-
 function heading(text) {
   return { type: 'heading', level: 2, text };
 }
@@ -26,9 +24,6 @@ export const LEGAL_DOCUMENT_REFERENCE_ROWS = [
     kind: 'TERMS_OF_SERVICE',
     version: 'terms-2026-06-22',
     title: '돔두리 이용약관',
-    effectiveAt: ACTIVE_LEGAL_EFFECTIVE_AT,
-    publishedAt: ACTIVE_LEGAL_EFFECTIVE_AT,
-    retiredAt: null,
     summaryItems: [
       '돔두리는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.',
       '룸메이트 탐색과 매칭 요청을 돕지만 기숙사 배정이나 호실 선택을 보장하지 않습니다.',
@@ -120,9 +115,6 @@ export const LEGAL_DOCUMENT_REFERENCE_ROWS = [
     kind: 'PRIVACY_POLICY',
     version: 'privacy-2026-06-22',
     title: '돔두리 개인정보 처리방침',
-    effectiveAt: ACTIVE_LEGAL_EFFECTIVE_AT,
-    publishedAt: ACTIVE_LEGAL_EFFECTIVE_AT,
-    retiredAt: null,
     summaryItems: [
       '서비스 제공을 위해 계정, 인증, 시즌 프로필, 매칭·채팅·신고·문의 기록을 처리합니다.',
       '회원 탈퇴 또는 목적 달성 시 지체 없이 삭제하되, 신고·분쟁·법령상 보존이 필요한 정보는 분리 보관합니다.',
@@ -320,9 +312,6 @@ export const LEGAL_DOCUMENT_REFERENCE_ROWS = [
     kind: 'PERSONAL_DATA_COLLECTION_USE_CONSENT',
     version: 'collection-use-2026-06-22',
     title: '개인정보 수집·이용 동의',
-    effectiveAt: ACTIVE_LEGAL_EFFECTIVE_AT,
-    publishedAt: ACTIVE_LEGAL_EFFECTIVE_AT,
-    retiredAt: null,
     summaryItems: [
       '회원가입과 룸메이트 탐색 기능 제공을 위해 필수 개인정보를 수집·이용합니다.',
       '필수 항목 동의를 거부하면 회원가입과 서비스 이용이 제한됩니다.',
@@ -368,9 +357,6 @@ export const LEGAL_DOCUMENT_REFERENCE_ROWS = [
     kind: 'AGE_14_OR_ABOVE_NOTICE',
     version: 'age-2026-06-22',
     title: '만 14세 이상 확인',
-    effectiveAt: ACTIVE_LEGAL_EFFECTIVE_AT,
-    publishedAt: ACTIVE_LEGAL_EFFECTIVE_AT,
-    retiredAt: null,
     summaryItems: [
       '돔두리 회원가입은 만 14세 이상 사용자만 진행할 수 있습니다.',
       '만 14세 미만 사용자는 서비스를 이용할 수 없습니다.',

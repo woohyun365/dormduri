@@ -18,7 +18,7 @@ import {
 
 const NICKNAME_CONFLICT_MESSAGE = '이미 사용 중인 닉네임이에요.';
 const LEGAL_DOCUMENTS_RESULT = {
-  source: 'api' as const,
+  status: 'ready' as const,
   bundle: SIGNUP_LEGAL_BUNDLE,
 };
 

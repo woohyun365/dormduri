@@ -21,6 +21,8 @@ services:
       API_URL: http://ingress:8081
       WEB_OBSERVABILITY_ENVIRONMENT: production
       WEB_RELEASE: ${WEB_RELEASE:?WEB_RELEASE must identify the web digest}
+      # 법적 문서 마지막 성공본 디렉터리. 아래 named volume target과 같다(compose 계약이 대조한다).
+      DORMDURI_LEGAL_LAST_SUCCESS_DIR: /var/lib/dormduri/legal
     # host에 publish하지 않는다. Web transit에서 ingress만 닿는다.
     expose:
       - '3000'
@@ -31,6 +33,13 @@ services:
       - /tmp:size=64m,mode=1777
       # Next.js 이미지 최적화 cache. tmpfs라 container memory 한도(320MiB)에 함께 잡힌다.
       - /app/apps/web/.next/cache:size=128m,mode=1777
+    # 공개 법적 문서의 마지막 성공 응답. container 밖 named volume이라 Web 재시작·rollback·새
+    # image가 지우지 않아, API가 멈춘 동안 새로 뜬 Web도 마지막으로 확인한 판을 낸다. web의 mount는 이 하나뿐이다(host bind 없음).
+    # 디렉터리는 Web image가 비 root 사용자 소유로 만들고, 새 volume은 첫 기동 때 그 소유·권한을 받는다. 파일은 공개 문서뿐이다.
+    volumes:
+      - type: volume
+        source: legal-last-success
+        target: /var/lib/dormduri/legal
     cap_drop:
       - ALL
     security_opt:
@@ -108,3 +117,7 @@ networks:
   api-transit:
     external: true
     name: dormduri-api-transit
+
+volumes:
+  # 이름은 project 접두가 붙은 `dormduri-web_legal-last-success`다. 옛 조각으로 rollback해도 volume은 남는다.
+  legal-last-success: {}

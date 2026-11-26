@@ -191,6 +191,9 @@ API rule(`api-alerts.yml`):
 - `AuthCleanupBatchSaturated`
 - `AuthPasswordVerifyInFlightHigh`
 - `AuthSessionRenewalReuseDetected`
+- `ApiLegalReadDegraded` — 공개 법적 문서 읽기가 10분 창에서 DB 대신 memory 묶음으로 답했거나 답하지 못했다. 대응은
+  [legal 게시 runbook의 마지막 성공본 확인](../../docs/runbooks/legal-publication.md#마지막-성공본-확인), promtool 시험은
+  `prometheus/tests/api-alerts.test.yml`
 - `SlackAlertSmokeNonFiring` — non-firing guard. 실제 발송은 `infra/observability/slack/send-alertmanager-smoke.sh`로 수행
 
 Login/session alert의 metric query, 개인정보 금지 경계, 복구 순서는 `infra/runbooks/incidents/auth-session.md`를 따른다.

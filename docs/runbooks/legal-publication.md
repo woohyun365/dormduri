@@ -74,8 +74,22 @@
 - 사용자 API는 요청마다 DB에서 게시 판을 읽고, 성공한 묶음을 process memory에 둔다. DB 읽기가 실패하면 그 묶음으로 답하고, 묶음도
   없으면 503 `LEGAL_DOCUMENTS_UNAVAILABLE`이다. 묶음은 승인 없이는 바뀌지 않으므로 그 사이 memory 응답도 맞는 판이다.
 - 승인 뒤 공개 열람(`GET /api/legal/documents/:kind/page`)의 판 목록에 새 판이 시행 예정으로 보이는지 본다.
-- `api_legal_document_reads_total`에서 `source="memory"`나 `outcome="unavailable"`이 늘면 DB 읽기가 실패하고 있다. 같은 때의 API
-  warn log 한 줄(실패 단계·kind·오류 code)로 원인을 보고, DB 쪽은 [`infra/runbooks/`](../../infra/runbooks/)의 절차를 따른다.
+- `api_legal_document_reads_total`에서 `source="memory"`나 `outcome="unavailable"`이 늘면 DB 읽기가 실패하고 있다(DB 읽기가
+  1.5초 안에 끝나지 않은 것도 실패, 오류 종류 `LegalDatabaseReadTimeout`). 10분 창에 하나라도 있으면 경보 `ApiLegalReadDegraded`
+  (warning)가 Slack으로 온다. 같은 때의 API warn log 한 줄(실패 단계·kind·오류 code)로 원인을 보고, DB 쪽은
+  [`infra/runbooks/`](../../infra/runbooks/)의 절차를 따른다.
+- 사용자 Web은 `/privacy`·`/terms`가 API에서 받은 응답을 user host의 named volume(`dormduri-web_legal-last-success`)에 요청마다
+  파일로 남긴다. API가 답하지 못하면(연결·3초 timeout·오류 상태) 그 파일을 '마지막으로 확인한 문서'(확인 시각)로 보이고, 파일이
+  없으면 '문서를 불러오지 못했습니다'다. 파일로 답할 때마다 Web log 한 줄이 남는다.
+
+  ```logql
+  {service="web"} | json | eventName="web_legal_last_success"
+  ```
+
+  `action="served"`는 파일로 답한 요청(`documentKind`·`versionKey`·`checkedAt`), `action="write_failed"`는 응답을 파일로 남기지
+  못한 요청이다(volume 권한·공간을 본다). Web 배포는 두 화면이 API 게시본일 때만 새 Web을 남긴다
+  ([Legal 단계 배포](../../infra/runbooks/release/legal-stage-deploy.md)).
+
 - 결정은 `backoffice_legal_decisions_total{kind, notice_class, decision}`과 감사 기록(대상 `법적 문서 초안`·`법적 문서 판`)에 남는다.
   월 점검에서 자기 승인 행과 사유를 본다.
 

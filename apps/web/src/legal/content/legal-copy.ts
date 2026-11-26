@@ -23,11 +23,13 @@ export const LEGAL_DOCUMENT_ROUTE_LABELS = {
 } satisfies Record<LegalDocumentKindValue, { title: string; description: string }>;
 
 export const LEGAL_DOCUMENT_COPY = {
-  fallbackNotice:
-    '최신 문서 연결이 원활하지 않아 서비스에 함께 배포된 공개 문서를 표시하고 있습니다. 가입 또는 동의가 필요한 단계에서는 서버의 최신 문서 기준으로 다시 확인합니다.',
   unavailableTitle: '문서를 불러오지 못했습니다',
   unavailableDescription:
     '일시적으로 법적 문서를 확인할 수 없습니다. 잠시 후 다시 시도하거나 문의 채널로 알려주세요.',
+  versionNotFoundTitle: '해당 시행일의 문서를 찾을 수 없습니다',
+  versionNotFoundDescription:
+    '주소의 시행일을 다시 확인하거나 지금 시행 중인 문서를 확인해 주세요.',
+  currentDocumentLinkLabel: '지금 시행 중인 문서 보기',
   tableOfContentsLabel: '문서 목차',
   mobileTableOfContentsLabel: '문서 목차 먼저 보기',
   summaryLabel: '주요 내용',
@@ -44,3 +46,8 @@ export const LEGAL_DOCUMENT_COPY = {
   backActionLabel: '이전 화면으로',
   backActionAriaLabel: '이전 화면으로 돌아가기',
 } as const;
+
+/** The notice above a document shown from this Web's last success of the request. */
+export function legalLastSuccessNotice(checkedAtLabel: string): string {
+  return `지금은 최신 문서를 확인할 수 없어 ${checkedAtLabel}에 마지막으로 확인한 문서를 보여드려요. 잠시 후 다시 확인해 주세요.`;
+}

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBffRequest, firstFetchInit, firstFetchInput, stubJsonFetch } from '@/test/bff-route';
-import { getFallbackLegalDocumentsBundle } from '@/legal/api/legal-documents-bundle.api';
+import { seedActiveLegalDocumentsBundle } from '@/legal/testing/legal-seed-documents';
 import { GET } from '../route';
 
-const ACTIVE_BUNDLE = getFallbackLegalDocumentsBundle();
+const ACTIVE_BUNDLE = seedActiveLegalDocumentsBundle();
 
 describe('active legal documents bundle BFF route', () => {
   afterEach(() => {

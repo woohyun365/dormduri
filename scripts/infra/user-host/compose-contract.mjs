@@ -33,6 +33,13 @@ export const WEB_TRANSIT = Object.freeze({
   web: '10.217.10.2',
   ingress: '10.217.10.3',
 });
+// Web의 유일한 mount: 법적 문서 마지막 성공본 named volume. host bind가 아니고 쓰기 가능하며,
+// Web env의 디렉터리와 같은 target이다.
+export const WEB_LEGAL_LAST_SUCCESS_VOLUME = Object.freeze({
+  key: 'legal-last-success',
+  target: '/var/lib/dormduri/legal',
+  env: 'DORMDURI_LEGAL_LAST_SUCCESS_DIR',
+});
 export const API_TRANSIT = Object.freeze({
   key: 'api-transit',
   name: 'dormduri-api-transit',
@@ -401,6 +408,36 @@ function networkProblems(config) {
   return problems;
 }
 
+function webVolumeProblems(config, web) {
+  const { key, target, env } = WEB_LEGAL_LAST_SUCCESS_VOLUME;
+  const problems = [];
+  let legal = 0;
+  for (const volume of web.volumes ?? []) {
+    if (volume.type !== 'volume') {
+      problems.push('web: mounts a host path');
+    } else if (volume.source !== key || volume.target !== target) {
+      problems.push(`web: mounts ${volume.target} besides the legal last success volume`);
+    } else {
+      legal += 1;
+      if (volume.read_only === true)
+        problems.push('web: the legal last success volume is read-only');
+    }
+  }
+  if (legal !== 1) problems.push('web: does not mount the legal last success volume');
+  // A plain local volume: no external volume, other driver or driver options (a `bind` driver option is a host path).
+  const declared = config.volumes?.[key];
+  if (
+    !declared ||
+    Object.keys(declared).some((field) => field !== 'name') ||
+    (declared.driver !== undefined && declared.driver !== 'local')
+  ) {
+    problems.push(`volumes: ${key} is not a plain local named volume`);
+  }
+  if ((web.environment ?? {})[env] !== target)
+    problems.push(`web: ${env} is not the legal last success volume target`);
+  return problems;
+}
+
 // web 묶음 조각만 render한 결과.
 export function checkUserHostCompose(config) {
   const services = config.services ?? {};
@@ -414,7 +451,7 @@ export function checkUserHostCompose(config) {
   const { web, ingress } = services;
   problems.push(...hardeningProblems('web', web), ...hardeningProblems('ingress', ingress));
   problems.push(...networkProblems(config));
-  if (web.volumes?.length) problems.push('web: mounts a host path');
+  problems.push(...webVolumeProblems(config, web));
   if (web.networks?.[WEB_TRANSIT.key]?.ipv4_address !== WEB_TRANSIT.web)
     problems.push(`web: Web transit address is not ${WEB_TRANSIT.web}`);
   if (ingress.networks?.[WEB_TRANSIT.key]?.ipv4_address !== WEB_TRANSIT.ingress)
@@ -592,6 +629,7 @@ export function apiEnvironmentFromExamples(repoRoot) {
 const REHEARSAL_DIFFERENCES = [
   /^\.name$/u,
   /^\.networks\.[^.]+\.name$/u,
+  /^\.volumes\.[^.]+\.name$/u,
   /^\.networks\.api-transit\.external$/u,
   /^\.services\.[^.]+\.(?:build|image)(?:\.|\[|$)/u,
   /^\.services\.ingress\.ports\[\d+\]\.(?:host_ip|published)$/u,

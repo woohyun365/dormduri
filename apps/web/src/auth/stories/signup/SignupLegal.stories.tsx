@@ -19,8 +19,9 @@ export const AllAgreed: Story = {
   args: { scenario: 'agreed' },
 };
 
-export const Fallback: Story = {
-  args: { scenario: 'fallback' },
+// The signup documents could not be read: the step blocks signup.
+export const Unavailable: Story = {
+  args: { scenario: 'unavailable' },
 };
 
 export const Stale: Story = {

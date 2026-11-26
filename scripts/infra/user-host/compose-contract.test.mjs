@@ -19,6 +19,7 @@ import {
   rehearsalDifferenceProblems,
   transitSubnetProblems,
   USER_HOST_MEMORY_LIMITS,
+  WEB_LEGAL_LAST_SUCCESS_VOLUME,
   WEB_TRANSIT,
 } from './compose-contract.mjs';
 
@@ -60,14 +61,27 @@ function networks() {
 function validConfig() {
   return {
     networks: networks(),
+    // The one named volume the Web keeps its last successful legal responses in.
+    volumes: {
+      'legal-last-success': { name: 'dormduri-web_legal-last-success' },
+    },
     services: {
       web: {
         ...hardened(335544320, 256, { [WEB_TRANSIT.key]: { ipv4_address: WEB_TRANSIT.web } }),
         tmpfs: ['/tmp:size=64m,mode=1777', '/app/apps/web/.next/cache:size=128m,mode=1777'],
+        volumes: [
+          {
+            type: 'volume',
+            source: 'legal-last-success',
+            target: '/var/lib/dormduri/legal',
+            volume: {},
+          },
+        ],
         environment: {
           NODE_ENV: 'production',
           WEB_APP_URL: 'https://dormduri.com',
           API_URL: 'http://ingress:8081',
+          DORMDURI_LEGAL_LAST_SUCCESS_DIR: '/var/lib/dormduri/legal',
         },
         expose: ['3000'],
       },
@@ -225,6 +239,46 @@ test('each weakened web bundle boundary is rejected', () => {
     [
       (s) => (s.web.volumes = [{ type: 'bind', source: '/srv', target: '/srv' }]),
       /web: mounts a host path/u,
+    ],
+    // The legal last success volume is the only mount, a named volume at its fixed target.
+    [
+      (s) =>
+        s.web.volumes.push({ type: 'volume', source: 'web-cache', target: '/srv', volume: {} }),
+      /web: mounts \/srv besides the legal last success volume/u,
+    ],
+    [
+      (s) =>
+        (s.web.volumes = [
+          {
+            type: 'bind',
+            source: '/opt/dormduri/legal',
+            target: '/var/lib/dormduri/legal',
+            bind: {},
+          },
+        ]),
+      /web: mounts a host path/u,
+    ],
+    [
+      (s) => (s.web.volumes[0].target = '/app/apps/web/legal'),
+      /web: mounts \/app\/apps\/web\/legal besides the legal last success volume/u,
+    ],
+    [
+      (s) => (s.web.volumes[0].read_only = true),
+      /web: the legal last success volume is read-only/u,
+    ],
+    [(s) => (s.web.volumes = []), /web: does not mount the legal last success volume/u],
+    [
+      (s, c) =>
+        (c.volumes['legal-last-success'].driver_opts = { type: 'none', o: 'bind', device: '/srv' }),
+      /legal-last-success is not a plain local named volume/u,
+    ],
+    [
+      (s, c) => (c.volumes['legal-last-success'].external = true),
+      /legal-last-success is not a plain local named volume/u,
+    ],
+    [
+      (s) => (s.web.environment.DORMDURI_LEGAL_LAST_SUCCESS_DIR = '/tmp/legal'),
+      /web: DORMDURI_LEGAL_LAST_SUCCESS_DIR is not the legal last success volume target/u,
     ],
     [(s) => (s.web.read_only = false), /web: root filesystem is not read-only/u],
     [(s) => (s.ingress.cap_drop = []), /ingress: capabilities are not all dropped/u],
@@ -664,6 +718,9 @@ function rehearsalOf(production) {
   ];
   for (const volume of rehearsal.services.ingress.volumes)
     volume.source = `/repo/.artifacts${volume.target}`;
+  // A named volume carries the project prefix, like the networks.
+  rehearsal.volumes[WEB_LEGAL_LAST_SUCCESS_VOLUME.key].name =
+    `dormduri-user-host-rehearsal_${WEB_LEGAL_LAST_SUCCESS_VOLUME.key}`;
   return rehearsal;
 }
 
@@ -676,6 +733,14 @@ test('the rehearsal may change only the build source, loopback ports, host path 
       /at \.services\.web\.environment\.WEB_APP_URL/u,
     ],
     [(r) => (r.services.web.read_only = false), /at \.services\.web\.read_only/u],
+    [
+      (r) => (r.services.web.volumes[0].target = '/srv'),
+      /at \.services\.web\.volumes\[0\]\.target/u,
+    ],
+    [
+      (r) => (r.volumes[WEB_LEGAL_LAST_SUCCESS_VOLUME.key].driver = 'local'),
+      /at \.volumes\.legal-last-success\.driver/u,
+    ],
     [
       (r) => (r.services.ingress.volumes[0].target = '/srv'),
       /at \.services\.ingress\.volumes\[0\]\.target/u,

@@ -526,6 +526,45 @@ describe('legal public reading API', () => {
     expect(fromMemory.nowOf('PRIVACY_POLICY').getTime()).toBeGreaterThanOrEqual(newer.getTime());
   });
 
+  // The database read has a time limit shorter than the Web request timeout (3 s), so a database
+  // that stops answering is answered from memory before the Web gives up.
+  it('DB 읽기가 1.5초 상한을 넘으면 memory 묶음으로 답하고 그 단계를 log에 남긴다', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const privacyRows = baseRows().filter((candidate) => candidate.kind === 'PRIVACY_POLICY');
+    const databaseNow = new Date('2026-11-26T03:00:00.000Z');
+    const repository = {
+      getDatabaseNow: vi
+        .fn<() => Promise<Date>>()
+        .mockResolvedValueOnce(databaseNow)
+        .mockImplementation(() => new Promise<Date>(() => undefined)),
+      listPublishedVersions: vi.fn(() => Promise.resolve(privacyRows)),
+    };
+    const reader = new LegalPublishedVersionReader(
+      repository as never,
+      { incrementCounter: vi.fn() } as never,
+    );
+    expect((await reader.read(['PRIVACY_POLICY'], 'page')).source).toBe('database');
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    let answered: Awaited<ReturnType<typeof reader.read>> | undefined;
+    try {
+      void reader.read(['PRIVACY_POLICY'], 'page').then((read) => {
+        answered = read;
+      });
+      await vi.advanceTimersByTimeAsync(1_499);
+      expect(answered).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(1);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(answered?.source).toBe('memory');
+    expect(answered?.versionsOf('PRIVACY_POLICY')).toHaveLength(2);
+    expect(warn.mock.calls.map(([message]) => String(message))).toContainEqual(
+      '[LegalPublishedVersionReader] database read failed endpoint=page step=database_time kinds=PRIVACY_POLICY errorType=LegalDatabaseReadTimeout errorCode=none fallback=memory',
+    );
+  });
+
   it('읽기마다 endpoint·출처·결과 metric을 남긴다', async () => {
     const database = createFakeDatabase(baseRows());
     const app = await createApp(database);

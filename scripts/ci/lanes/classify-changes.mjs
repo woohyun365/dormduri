@@ -63,6 +63,17 @@ const WEB_ENV_COMPOSE_FILES = new Set([
   'infra/deploy/user/compose.yml',
   'infra/rehearsal/compose.web.yml',
 ]);
+// API legal seed files that Web tests, stories and the Playwright fixture read through the test-only seed source
+// (apps/web/src/legal/testing/legal-seed-source.mjs). The Web keeps no copy of the
+// legal text, so a change to one of them alone also runs the web lane. classify-changes.test.mjs derives the list from
+// that file's imports.
+export const WEB_TEST_API_SEED_FILES = Object.freeze([
+  'apps/api/prisma/seed-data/reference/legal-document-seed-data.js',
+  'apps/api/prisma/seed-data/reference/legal/privacy-policy-first-revision.draft.json',
+  'apps/api/prisma/seed-data/reference/legal/privacy-policy-historical-2026-06-22.json',
+  'apps/api/prisma/seed-data/reference/legal/terms-of-service-first-revision.draft.json',
+  'apps/api/prisma/seed-data/reference/legal/version-seed-rows.json',
+]);
 const WEB_PUBLIC_FILE = /^apps\/web\/public\/(?!\.gitkeep$).+/u;
 
 export function isUserHostIngressInput(path) {
@@ -167,6 +178,7 @@ export const API_TEST_REPOSITORY_INPUTS = {
     'infra/runbooks/release/components/observability-collector/readiness.md',
     'infra/runbooks/release/components/web-sentry/evidence.md',
     'infra/runbooks/release/components/web-sentry/readiness.md',
+    'infra/runbooks/release/legal-stage-deploy.md',
     'infra/runbooks/release/production-release-evidence.md',
     'infra/runbooks/release/production-release-readiness.md',
     'infra/runbooks/release/web-stage-deploy.md',
@@ -242,7 +254,7 @@ export const AGENT_TEST_PRODUCT_INPUTS = {
     'apps/web/src/legal/components/LegalDocumentLayout.tsx',
     'apps/web/src/legal/components/LegalDocumentUnavailable.tsx',
     'apps/web/src/legal/content/legal-copy.ts',
-    'apps/web/src/legal/content/legal-fallback-documents.ts',
+    'apps/web/src/legal/testing/legal-seed-documents.ts',
     'apps/web/src/main/README.md',
     'apps/web/src/main/hooks/__tests__/useMainProfileState.dom.test.ts',
     'apps/web/src/main/hooks/useMainProfileState.ts',
@@ -359,6 +371,7 @@ export function classifyChanges(paths) {
     if (path.startsWith('apps/api/')) {
       result.api = true;
       result.repoPolicy ||= isApiTestFile(path);
+      result.web ||= WEB_TEST_API_SEED_FILES.includes(path);
       matched = true;
     }
 

@@ -41,6 +41,7 @@ const trackedPrometheusQueryMetricFamilies = [
   'api_http_request_duration_seconds_bucket',
   'api_http_request_in_flight',
   'api_http_requests_total',
+  'api_legal_document_reads_total',
   'api_prisma_pool_connections',
   'api_prisma_transaction_retries_total',
   'api_realtime_dispatch_batches_total',
@@ -80,6 +81,7 @@ describe('observability alert contract', () => {
       'AuthCleanupBatchSaturated',
       'AuthMailFailureSpike',
       'AuthMailOutboxLagHigh',
+      'ApiLegalReadDegraded',
     ]) {
       expect(rules).toContain(alert);
     }
