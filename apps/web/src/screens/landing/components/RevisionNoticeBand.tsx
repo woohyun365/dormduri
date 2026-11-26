@@ -16,8 +16,8 @@ const names = {
 // The revision line above the sticky header (D-LU17, D-LU18): one full-width band, a line per public
 // document with a version announced and not yet in force. It scrolls away; the header stays stuck.
 // The links are plain anchors: the legal page is a new document, as from the footer. Below md the link
-// takes its own line; from md it follows the sentence with a gap. It never breaks inside (Owner LU4
-// Human Feedback 2).
+// takes its own line; from md it follows the sentence with a gap. It never breaks inside (Owner
+// 2026-11-26).
 export function RevisionNoticeBand({ lines }: { lines: readonly LandingRevisionLine[] }) {
   if (lines.length === 0) return null;
   return (

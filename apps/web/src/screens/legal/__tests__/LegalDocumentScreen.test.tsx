@@ -28,7 +28,11 @@ import {
   termsScheduledComparison,
   termsScheduledPage,
 } from '../__stories__/storyDocuments';
-import { formatLegalCheckedAt, toLegalChangeSummaryView } from '../model/legalDocumentModel';
+import {
+  formatLegalCheckedAt,
+  MAJOR_CHANGE_LABEL,
+  toLegalChangeSummaryView,
+} from '../model/legalDocumentModel';
 import {
   legalDocumentIntros,
   legalDocumentNames,
@@ -298,22 +302,22 @@ describe('legal document screen', () => {
     }
   });
 
-  it('shows the lead sentence, then the major changes under their label as the one title (Owner LU4 Human Feedback 2)', () => {
+  it('shows the lead sentence, then the major changes under their label as the one title (Owner 2026-11-26)', () => {
     renderScreen();
     const text = privacyPage.viewing.changeSummary ?? '';
-    const marker = text.indexOf('주요 변경:');
+    const marker = text.indexOf(`${MAJOR_CHANGE_LABEL}:`);
     expect(marker).toBeGreaterThan(0);
     const lead = text.slice(0, marker).trim();
     const changes = text
-      .slice(marker + '주요 변경:'.length)
+      .slice(marker + MAJOR_CHANGE_LABEL.length + 1)
       .trim()
       .split(/(?<=다\.)\s+/);
     expect(changes.length).toBeGreaterThan(1);
 
     expect(screen.queryByText(legalScreenCopy.changeSummaryLabel)).toBeNull();
     const line = screen.getByText(lead);
-    const list = screen.getByRole('list', { name: '주요 변경' });
-    const label = screen.getByText('주요 변경');
+    const list = screen.getByRole('list', { name: MAJOR_CHANGE_LABEL });
+    const label = screen.getByText(MAJOR_CHANGE_LABEL);
     expect(
       within(list)
         .getAllByRole('listitem')
@@ -325,18 +329,18 @@ describe('legal document screen', () => {
     expect(follows(list, link)).toBe(true);
   });
 
-  it('titles a change summary without the major-change marker once, on its own line (Owner LU4 Human Feedback 2)', () => {
+  it('titles a change summary without the major-change marker once, on its own line (Owner 2026-11-26)', () => {
     renderScreen({ page: termsPage, comparison: termsComparison });
     const text = termsPage.viewing.changeSummary ?? '';
-    expect(text).not.toContain('주요 변경:');
+    expect(text).not.toContain(`${MAJOR_CHANGE_LABEL}:`);
     const title = screen.getByText(legalScreenCopy.changeSummaryLabel);
     const body = screen.getByText(text);
     expect(body).not.toContainElement(title);
     expect(follows(title, body)).toBe(true);
-    expect(screen.queryByRole('list', { name: '주요 변경' })).toBeNull();
+    expect(screen.queryByRole('list', { name: MAJOR_CHANGE_LABEL })).toBeNull();
   });
 
-  it('starts each sentence of a version notice on its own line after the label (Owner LU4 Human Feedback 2)', () => {
+  it('starts each sentence of a version notice on its own line after the label (Owner 2026-11-26)', () => {
     const scheduledKey = privacyScheduledPage.viewing.versionKey;
     const cases = [
       {
@@ -544,14 +548,13 @@ describe('legal document screen', () => {
     expect(screen.queryByText(/마지막으로 확인한/)).toBeNull();
     shown.unmount();
 
-    // Two short lines: what is shown, then the check time under its own label (Owner LU4 Human Feedback 2).
+    // Two short lines: what is shown, then the check time under its own label (Owner 2026-11-26).
     renderScreen({ source: { kind: 'last-success', checkedAt: STORY_CHECKED_AT } });
     const status = screen.getByText(notice).closest('[role="status"]');
     expect(status).not.toBeNull();
     const label = within(status as HTMLElement).getByText(legalScreenCopy.checkedAtLabel);
-    expect(label.tagName).toBe('STRONG');
-    expect(label.parentElement).toHaveTextContent(
-      `${legalScreenCopy.checkedAtLabel}2026년 11월 25일 18:30`,
+    expect(status).toHaveTextContent(
+      `${notice}${legalScreenCopy.checkedAtLabel}2026년 11월 25일 18:30`,
     );
     expect(follows(screen.getByText(notice), label)).toBe(true);
   });
@@ -603,6 +606,47 @@ describe('legal document screen', () => {
     const terms = within(nav).getByRole('link', { name: legalDocumentNames[TERMS] });
     expect(terms).toHaveAttribute('href', '/terms');
     expect(terms).not.toHaveAttribute('aria-current');
+  });
+
+  it('puts the header controls in the order they are seen: logo, the documents, back (WCAG 2.4.3)', () => {
+    renderScreen();
+    const header = screen
+      .getByRole('link', { name: legalScreenCopy.homeLabel })
+      .closest('header') as HTMLElement;
+    const names = within(header)
+      .getAllByRole('link')
+      .concat(within(header).queryAllByRole('button'))
+      .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
+      .map((control) => control.getAttribute('aria-label') ?? control.textContent?.trim());
+
+    expect(names).toEqual([
+      legalScreenCopy.homeLabel,
+      legalDocumentNames[TERMS],
+      legalDocumentNames[PRIVACY],
+      legalScreenCopy.backLabel,
+    ]);
+  });
+
+  it('lists a sentence the change summary repeats as its own item, without a key warning', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const repeated = '표를 고쳤습니다.';
+    renderScreen({
+      page: {
+        ...privacyPage,
+        viewing: {
+          ...privacyPage.viewing,
+          changeSummary: `${MAJOR_CHANGE_LABEL}: ${repeated} ${repeated}`,
+        },
+      },
+    });
+
+    const list = screen.getByRole('list', { name: MAJOR_CHANGE_LABEL });
+    expect(
+      within(list)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([repeated, repeated]);
+    expect(error.mock.calls.flat().map(String).join(' ')).not.toContain('same key');
   });
 
   it('links home only through the header logo (D-LU7)', () => {

@@ -54,3 +54,31 @@ for (const id of STORIES) {
     });
   });
 }
+
+// The header's keyboard order follows what is seen, row by row and left to right, at every width
+// (WCAG 2.4.3, 1.3.2): CSS must not draw the controls in another order than the page has them.
+test('moves the keyboard through the header in the order it is seen', async ({ page }) => {
+  await openStory(page, 'legal-page--privacy');
+  const header = page.getByRole('banner');
+  const controls = header.locator('a, button');
+  const count = await controls.count();
+  expect(count).toBeGreaterThan(2);
+
+  const focused: { name: string; x: number; y: number }[] = [];
+  for (let step = 0; step < count; step += 1) {
+    await page.keyboard.press('Tab');
+    focused.push(
+      await page.evaluate(() => {
+        const element = document.activeElement as HTMLElement;
+        const box = element.getBoundingClientRect();
+        return {
+          name: element.getAttribute('aria-label') ?? element.textContent?.trim() ?? '',
+          x: box.x,
+          y: box.y,
+        };
+      }),
+    );
+  }
+  const seen = [...focused].sort((a, b) => (Math.abs(a.y - b.y) > 8 ? a.y - b.y : a.x - b.x));
+  expect(focused.map((control) => control.name)).toEqual(seen.map((control) => control.name));
+});

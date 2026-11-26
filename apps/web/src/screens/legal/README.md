@@ -39,11 +39,11 @@ lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다. 문서
   → 이전 판과 달라진 조항 → 적용 기간과 이전 판. lg부터 목차는 오른쪽 rail(sticky)이고, 그 아래에서는 서문 뒤에 접혀 있습니다.
 - 안내: 시행 중 판 화면은 새 판이 공지되어 있으면 '새 판 공지'와 그 판 link를 냅니다. link는 md부터 문장 뒤에 오고 그 아래에서는
   다음 줄입니다. 시행 예정 판·이전 판 화면은 맨 위에 그 판이 무엇인지 알리고 '지금 판 보기'를 둡니다. 첫 문장은 제목 옆, 다음
-  문장과 link는 각자 새 줄에서 시작합니다. 안내의 link는 안에서 끊기지 않습니다(Owner LU4 Human Feedback 2).
+  문장과 link는 각자 새 줄에서 시작합니다. 안내의 link는 안에서 끊기지 않습니다(Owner 2026-11-26).
 - 변경 요약(LB-R10, `components/DocumentIntro.tsx`): 백오피스가 쓴 글이고 화면은 글자를 빼거나 바꾸지 않고 나누기만 합니다
   (`toLegalChangeSummaryView`). 글에 `주요 변경:`이 있으면 그 앞 문장은 보통 글, 뒤는 '주요 변경' 제목 아래 문장(`…다.`)마다 한
   항목인 목록입니다. 없으면 '변경 요약' 제목 한 줄 아래에 글이 옵니다. 제목은 상자마다 하나이고 모든 폭에서 같은 모양입니다
-  (Owner LU4 Human Feedback 2).
+  (Owner 2026-11-26).
 - 조항 대조표(`components/VersionComparison.tsx`): 바뀐·더한·뺀 조항만 원래 순서로 싣고, 조항마다 '이전 판'·'이 판' 두 칸을 둡니다
   (lg부터 좌우). 칸 안은 본문과 같은 renderer이고 heading 단계를 절 h2 아래로 내리며 목차에 넣지 않습니다. 바뀐 조항이 없으면
   한 줄, 첫 판이면 절이 없고, 불러올 수 없으면 안내 한 줄이며 문서는 그대로 냅니다. 변경 요약 안 '달라진 조항 보기'가 절로 갑니다.
@@ -83,7 +83,7 @@ lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다. 문서
 
 client 부품은 문서 도구(`DocumentActions`), 표 영역(`ScrollRegion`), 목차(`Toc`, `useVisibleHeadings`), 주소 # 맞춤
 (`InitialHashJump`), 대조표 link(`HeadingLink`)와 `@/screens/ui/controls`의 '이전 화면으로'입니다. 나머지는 server에서 그립니다.
-React Compiler는 이 디렉터리의 component를 모두 compile합니다(건너뜀 0, 2026-11-26 파일별 기록).
+React Compiler는 이 디렉터리의 component를 모두 compile합니다(건너뛴 파일 없음, 2026-11-26).
 
 ## Storybook
 

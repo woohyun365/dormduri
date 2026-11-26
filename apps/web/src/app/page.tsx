@@ -12,16 +12,19 @@ export const metadata: Metadata = createLandingMetadata();
 export const viewport: Viewport = { viewportFit: 'cover' };
 
 // How long the landing waits for the revision notices: a stalled API would otherwise hold the whole
-// first response for the loader's own timeout (Owner LU4 Q4). Past it the landing draws without the line.
+// first response for the loader's own timeout (Owner 2026-11-26). Past it the landing draws without the line.
 const REVISION_NOTICES_TIMEOUT_MS = 500;
 
 // The legal revision line reads the public reading API's announced versions per request (D-LU17):
 // connection() keeps the page out of the build's static output without force-dynamic. Only an API
-// answer draws the line; a kept copy can name a version already in force, so with it, as with no
-// answer, the landing draws without the line.
+// answer draws the line; a kept copy can name a version already in force, so the read keeps no copy
+// and serves none, and with no answer the landing draws without the line.
 export default async function Home() {
   await connection();
-  const notices = await loadLegalRevisionNotices({ timeoutMs: REVISION_NOTICES_TIMEOUT_MS });
+  const notices = await loadLegalRevisionNotices({
+    timeoutMs: REVISION_NOTICES_TIMEOUT_MS,
+    lastSuccess: 'none',
+  });
   return (
     <LandingScreen revisionNotices={notices.status === 'published' ? notices.data.notices : []} />
   );

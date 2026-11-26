@@ -5,7 +5,7 @@ import { legalDocumentPaths, type PublicLegalDocumentKind } from '@/screens/ui/m
 import { legalDocumentNames, legalScreenCopy } from '../../model/legalScreenCopy';
 
 // '이전 화면으로' treats both documents as one place: after switching between them, opening another
-// version or reopening one, it goes to the page before the Legal pages, or home (LU2 Q29, LU3 Q9).
+// version or reopening one, it goes to the page before the Legal pages, or home.
 const legalPlacePaths: readonly string[] = Object.values(legalDocumentPaths);
 
 const documentOrder = [
@@ -15,7 +15,9 @@ const documentOrder = [
 
 // Shell B (legal only): logo home, the switch between the two documents, back. No sign-up call on a
 // document page. The privacy policy link is bolder than the terms link (G-LU11). It sticks from lg;
-// below lg it scrolls away so the document gets the small screen.
+// below lg it scrolls away so the document gets the small screen. The page order is the order seen at
+// every width, so the keyboard follows it (WCAG 2.4.3): from sm one row; below sm the logo has its own
+// row and the documents and back share the next one (Owner 2026-11-27).
 export function LegalShellHeader({ current }: { current: PublicLegalDocumentKind }) {
   return (
     <header className="border-b border-stroke-subtle bg-layer-default lg:sticky lg:top-0 lg:z-20 print:hidden">
@@ -27,14 +29,10 @@ export function LegalShellHeader({ current }: { current: PublicLegalDocumentKind
         >
           <BrandLogo />
         </Link>
-        <BackButton
-          label={legalScreenCopy.backLabel}
-          samePlacePaths={legalPlacePaths}
-          className="sm:order-last"
-        />
+        <span aria-hidden="true" className="basis-full sm:hidden" />
         <nav
           aria-label={legalScreenCopy.documentNavLabel}
-          className="order-last flex w-full gap-1 sm:order-none sm:w-auto sm:flex-1 sm:justify-end"
+          className="flex gap-1 sm:flex-1 sm:justify-end"
         >
           {documentOrder.map((kind) => {
             const isCurrent = kind === current;
@@ -55,6 +53,11 @@ export function LegalShellHeader({ current }: { current: PublicLegalDocumentKind
             );
           })}
         </nav>
+        <BackButton
+          label={legalScreenCopy.backLabel}
+          samePlacePaths={legalPlacePaths}
+          className="ml-auto"
+        />
       </div>
     </header>
   );

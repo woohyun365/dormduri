@@ -109,14 +109,15 @@ import, lint, token)은 [새 화면 계층 README](../README.md)를 따릅니다
 ## 개정 예고 띠
 
 - 입력: `/` route가 요청마다(`connection()`, `force-dynamic` 없음) 공개 열람 loader로 개정 예고를 읽어 `LandingScreen`의
-  `revisionNotices`로 넘깁니다. 500ms 안에 API 답이 없으면 띠 없이 그립니다(Owner LU4 Q4: API가 멈추면 loader의 3초가 첫 응답을
-  붙잡음). 이 Web이 보관한 사본(마지막 성공본)은 이미 시행된 판을 예고로 보일 수 있어 쓰지 않습니다.
+  `revisionNotices`로 넘깁니다. 500ms 안에 API 답이 없으면 띠 없이 그립니다(Owner 2026-11-26: API가 멈추면 loader의 3초가 첫 응답을
+  붙잡음). 이 Web이 보관한 사본(마지막 성공본)은 이미 시행된 판을 예고로 보일 수 있어 남기지도 쓰지도 않습니다
+  (`lastSuccess: 'none'`).
 - 보이는 것: 공개 주소가 있는 처리방침·이용약관만, 처리방침 → 이용약관 순으로 문서마다 한 줄입니다(`model/landingRevisionNotices.ts`).
   줄은 적용일과 문서 이름, 그 판으로 가는 link(`/privacy?version=<versionKey>`)이고 문서 이름은 footer 링크 이름과 같은 상수입니다.
   처리방침 link는 이용약관 link보다 굵습니다(LB-R1). 문구는 `landingCopy.revisionNotice`, 적용일 표기와 판 주소는
   `@/screens/ui/model/`의 공용 함수입니다.
 - 자리와 모양: sticky header 위 전체 폭 띠이고 스크롤하면 사라지며 header는 맨 위에 붙습니다. md(768)부터 문장과 link가 간격을
-  두고 한 줄이고, 그 아래에서는 link가 다음 줄입니다. link는 안에서 끊기지 않습니다(Owner LU4 Human Feedback 2). 띠가 있어도
+  두고 한 줄이고, 그 아래에서는 link가 다음 줄입니다. link는 안에서 끊기지 않습니다(Owner 2026-11-26). 띠가 있어도
   390×844 첫 화면에 첫 화면 고지 두 문장과 가입 행동이 보입니다. 개정 예고가 없으면 Landing은 띠가 없던 때와 같습니다(`Landing/Page` `Default` 전후
   캡처 hash 같음).
 

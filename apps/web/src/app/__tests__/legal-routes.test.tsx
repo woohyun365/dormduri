@@ -122,6 +122,13 @@ describe('legal routes', () => {
 
     answer(route.page, route.comparison, 'last-success');
     const kept = render(await route.Page(request()));
+    // The page fell back to the kept copy, so the API did not answer: the comparison is read from the
+    // kept copy only, and the first response does not wait for the API twice.
+    expect(loaders.loadLegalVersionComparison).toHaveBeenLastCalledWith(
+      route.kind,
+      route.page.viewing.versionKey,
+      { lastSuccess: 'only' },
+    );
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(route.page.viewing.title);
     const status = screen.getByText(legalScreenCopy.lastSuccessNotice).closest('[role="status"]');
     expect(status).toHaveTextContent(formatLegalCheckedAt(CHECKED_AT));

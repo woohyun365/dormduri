@@ -43,9 +43,17 @@ export interface LegalLoaderOptions {
   readonly now?: () => Date;
   /**
    * A shorter wait for the API than LEGAL_DOCUMENT_REQUEST_TIMEOUT_MS, for a caller whose page must not
-   * wait for it (the landing revision line, Owner LU4 Q4). After it the kept copy or 'unavailable' answers.
+   * wait for it (the landing revision line, Owner 2026-11-26). After it the kept copy or 'unavailable' answers.
    */
   readonly timeoutMs?: number;
+  /**
+   * How the kept copy (the last success) is used. `keep` (default) keeps every API answer and answers
+   * the kept copy when the API does not answer. `only` answers the kept copy without asking the API,
+   * for a caller that already knows the API did not answer (the document page's comparison after the
+   * page itself fell back). `none` neither keeps nor answers a copy, for a caller that draws only an
+   * API answer (the landing revision line).
+   */
+  readonly lastSuccess?: 'keep' | 'only' | 'none';
 }
 
 type LegalEventFields = Pick<WebLegalLastSuccessEvent, 'endpoint' | 'documentKind' | 'versionKey'>;
@@ -105,16 +113,22 @@ async function loadPublicReading<T>(input: {
   options: LegalLoaderOptions;
 }): Promise<LegalLoadResult<T>> {
   const store = { directory: input.options.directory };
-  let outcome: Awaited<ReturnType<typeof readLegalPublicResponse<T>>>;
-  try {
-    outcome = await readLegalPublicResponse(apiUrl(input.path), input.schema, {
-      fetcher: input.options.fetcher,
-      timeoutMs: input.options.timeoutMs ?? LEGAL_DOCUMENT_REQUEST_TIMEOUT_MS,
-    });
-  } catch {
-    outcome = { kind: 'failed' };
+  const lastSuccess = input.options.lastSuccess ?? 'keep';
+  let outcome: Awaited<ReturnType<typeof readLegalPublicResponse<T>>> = { kind: 'failed' };
+  if (lastSuccess !== 'only') {
+    try {
+      outcome = await readLegalPublicResponse(apiUrl(input.path), input.schema, {
+        fetcher: input.options.fetcher,
+        timeoutMs: input.options.timeoutMs ?? LEGAL_DOCUMENT_REQUEST_TIMEOUT_MS,
+      });
+    } catch {
+      outcome = { kind: 'failed' };
+    }
   }
 
+  if (outcome.kind === 'ok' && lastSuccess === 'none') {
+    return { status: 'published', data: outcome.data };
+  }
   if (outcome.kind === 'ok') {
     try {
       await writeLegalLastSuccess(
@@ -134,6 +148,7 @@ async function loadPublicReading<T>(input: {
     return { status: 'version-not-found' };
   }
 
+  if (lastSuccess === 'none') return { status: 'unavailable' };
   const kept = await readLegalLastSuccess(input.key, input.schema, store).catch(() => null);
   if (!kept) return { status: 'unavailable' };
   recordLegalEvent('served', input.event, { checkedAt: kept.checkedAt });

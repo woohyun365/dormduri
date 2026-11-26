@@ -17,7 +17,7 @@ const MAJOR_CHANGES_ID = 'legal-major-changes';
 // One title per block: with major changes the words before them stay a plain line and the major
 // changes are a list under their own label; without them the change summary label (LB-R10) takes its
 // own line above the text. Every sentence starts at the left; the link to the comparison table ends the
-// block (Owner LU4 Human Feedback 2).
+// block (Owner 2026-11-26).
 function ChangeSummary({ summary, link }: { summary: LegalChangeSummaryView; link: ReactNode }) {
   return (
     <Notice>
@@ -30,8 +30,9 @@ function ChangeSummary({ summary, link }: { summary: LegalChangeSummaryView; lin
                 {MAJOR_CHANGE_LABEL}
               </p>
               <ul aria-labelledby={MAJOR_CHANGES_ID} className="mt-1 list-disc space-y-1 pl-6">
-                {summary.majorChanges.map((change) => (
-                  <li key={change}>{change}</li>
+                {summary.majorChanges.map((change, index) => (
+                  // A summary may repeat a sentence; its place in the text keeps each item apart.
+                  <li key={`${index}:${change}`}>{change}</li>
                 ))}
               </ul>
             </div>
@@ -92,8 +93,8 @@ export function DocumentIntro({
             {legalScreenCopy.summaryLabel}
           </h2>
           <ul className="mt-2 list-disc space-y-1 pl-6 text-body">
-            {view.summaryItems.map((item) => (
-              <li key={item} className="break-keep wrap-anywhere">
+            {view.summaryItems.map((item, index) => (
+              <li key={`${index}:${item}`} className="break-keep wrap-anywhere">
                 {item}
               </li>
             ))}

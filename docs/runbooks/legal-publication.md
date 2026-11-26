@@ -79,9 +79,11 @@
   1.5초 안에 끝나지 않은 것도 실패, 오류 종류 `LegalDatabaseReadTimeout`). 10분 창에 하나라도 있으면 경보 `ApiLegalReadDegraded`
   (warning)가 Slack으로 온다. 같은 때의 API warn log 한 줄(실패 단계·kind·오류 code)로 원인을 보고, DB 쪽은
   [`infra/runbooks/`](../../infra/runbooks/)의 절차를 따른다.
-- 사용자 Web은 `/privacy`·`/terms`가 API에서 받은 응답을 user host의 named volume(`dormduri-web_legal-last-success`)에 요청마다
-  파일로 남긴다. API가 답하지 못하면(연결·3초 timeout·오류 상태) 그 파일을 '마지막으로 확인한 문서'(확인 시각)로 보이고, 파일이
-  없으면 '문서를 불러오지 못했습니다'다. 파일로 답할 때마다 Web log 한 줄이 남는다.
+- 사용자 Web은 `/privacy`·`/terms`가 API에서 받은 문서 응답과 조항 대조표 응답을 user host의 named volume
+  (`dormduri-web_legal-last-success`)에 요청마다 파일로 남긴다. API가 문서에 답하지 못하면(연결·3초 timeout·오류 상태) 그 파일을
+  '마지막으로 확인한 판'(확인 시각 줄)으로 보이고, 대조표는 API에 다시 묻지 않고 그 파일로만 보인다. 문서 파일이 없으면
+  '<문서 이름>을 지금 표시할 수 없습니다' 화면이다. 파일로 답할 때마다 Web log 한 줄이 남는다. Landing(`/`)의 개정 예고는 API
+  답만 보이므로 파일을 남기지도 읽지도 않는다.
 
   ```logql
   {service="web"} | json | eventName="web_legal_last_success"

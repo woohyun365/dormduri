@@ -24,6 +24,7 @@ import {
 import {
   formatLegalCheckedAt,
   formatVersionPeriod,
+  MAJOR_CHANGE_LABEL,
   toLegalChangeSummaryView,
   toLegalComparisonView,
   toLegalDocumentView,
@@ -96,7 +97,7 @@ describe('toLegalDocumentView', () => {
 
 // The change summary is free text the backoffice writes. Before the major-change marker is a short
 // summary line; after it, each sentence is one major change. The screen keeps every character
-// (Owner LU4 Human Feedback 2).
+// (Owner 2026-11-26).
 describe('the change summary', () => {
   it('keeps the words before the marker as the summary line and lists each sentence after it', () => {
     expect(
@@ -130,7 +131,7 @@ describe('the change summary', () => {
       const view = toLegalDocumentView(document).changeSummary;
       const shown = [
         view?.summary,
-        view?.majorChanges.length ? '주요 변경:' : undefined,
+        view?.majorChanges.length ? `${MAJOR_CHANGE_LABEL}:` : undefined,
         ...(view?.majorChanges ?? []),
       ].filter(Boolean);
       expect(shown.join(' ')).toBe(text.replace(/\s+/g, ' ').trim());
@@ -281,6 +282,14 @@ describe('the comparison with the version before', () => {
       }),
     ).toEqual({ state: 'first' });
     expect(toLegalComparisonView(null)).toEqual({ state: 'unavailable' });
+  });
+
+  it('says there is no version before when the page lists none, even if the comparison cannot be read', () => {
+    expect(termsPage.versions.some((row) => row.appliesFrom < termsPage.viewing.appliesFrom)).toBe(
+      false,
+    );
+    expect(toLegalComparisonView(null, termsPage)).toEqual({ state: 'first' });
+    expect(toLegalComparisonView(null, privacyPage)).toEqual({ state: 'unavailable' });
   });
 });
 

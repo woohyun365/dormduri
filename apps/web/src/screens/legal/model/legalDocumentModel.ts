@@ -27,8 +27,8 @@ export type LegalTocItem = { id: string; level: 2 | 3 | 4; text: string };
 // The change summary is free text the backoffice writes. The words before the major-change marker are a
 // short summary line and each sentence after it is one major change; without the marker, or with nothing
 // after it, the whole text is the summary line. Every character stays: sentences split only at their end
-// ('…다.' and a space) and the marker's colon becomes the label of the major-change list (Owner LU4
-// Human Feedback 2).
+// ('…다.' and a space) and the marker's colon becomes the label of the major-change list (Owner
+// 2026-11-26).
 export type LegalChangeSummaryView = {
   summary: string | undefined;
   majorChanges: string[];
@@ -169,10 +169,17 @@ export type LegalComparisonView =
   | { state: 'first' }
   | { state: 'unavailable' };
 
+// Without a comparison, the page's own list still tells a first version: no version applied before it.
 export function toLegalComparisonView(
   comparison: LegalVersionComparison | null,
+  page?: LegalDocumentPageResponse,
 ): LegalComparisonView {
-  if (comparison === null) return { state: 'unavailable' };
+  if (comparison === null) {
+    const first =
+      page !== undefined &&
+      !page.versions.some((row) => row.appliesFrom < page.viewing.appliesFrom);
+    return { state: first ? 'first' : 'unavailable' };
+  }
   if (comparison.previousVersionKey === null) return { state: 'first' };
   const articles = comparison.articles.filter(
     (article): article is LegalComparisonArticle => article.change !== 'unchanged',

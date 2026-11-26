@@ -32,7 +32,13 @@ export default async function PrivacyPage({
     return <LegalUnavailableScreen kind={kind} />;
   }
 
-  const comparison = await loadLegalVersionComparison(kind, result.data.viewing.versionKey);
+  // A page from the kept copy means the API did not answer: the comparison comes from the kept copy
+  // too, so the first response waits for the API once, not twice.
+  const comparison = await loadLegalVersionComparison(
+    kind,
+    result.data.viewing.versionKey,
+    ...(result.status === 'last-success' ? [{ lastSuccess: 'only' as const }] : []),
+  );
   return (
     <LegalDocumentScreen
       page={result.data}

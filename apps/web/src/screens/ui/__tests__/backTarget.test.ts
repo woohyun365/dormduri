@@ -60,7 +60,7 @@ describe('goesBack', () => {
     });
   });
 
-  // The Legal screens pass both documents as one place (LU3 Q9): switching between them replaces the
+  // The Legal screens pass both documents as one place: switching between them replaces the
   // entry, and a version link or a typed Legal address adds an entry that is still the same place.
   describe('with the same-place addresses', () => {
     const privacy = `${site}/privacy`;
@@ -68,7 +68,7 @@ describe('goesBack', () => {
     const samePlacePaths = ['/privacy', '/terms'];
     const legal = { currentUrl: privacy, samePlacePaths } as const;
 
-    it('goes home when the entry before is the same place, with or without the Navigation API (LU3 Q9)', () => {
+    it('goes home when the entry before is the same place, with or without the Navigation API', () => {
       for (const before of [terms, `${privacy}?version=2026-06-22`]) {
         expect(
           goesBack({

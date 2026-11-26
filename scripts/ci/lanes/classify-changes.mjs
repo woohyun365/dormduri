@@ -37,12 +37,14 @@ export function isIntendedFanOut(rawPath) {
 
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
-// Web sources that the Storybook story check renders (token sources and the new screen layer, plus the
-// globals.css entry that imports the generated token CSS, the PostCSS config that runs Tailwind and the React
-// Compiler config that .storybook/main.ts imports for the Storybook build) and that check's own config and specs.
+// Web sources that the Storybook story check renders (token sources and the new screen layer, the test-only
+// legal seed source the Legal stories read with the API seed files it imports, plus the globals.css entry that
+// imports the generated token CSS, the PostCSS config that runs Tailwind and the React Compiler config that
+// .storybook/main.ts imports for the Storybook build) and that check's own config and specs.
 const STORYBOOK_CHECK_PREFIXES = [
   'apps/web/src/styles/',
   'apps/web/src/screens/',
+  'apps/web/src/legal/test-support/',
   'apps/web/e2e/storybook/',
 ];
 const STORYBOOK_CHECK_PATHS = new Set([
@@ -371,6 +373,7 @@ export function classifyChanges(paths) {
       result.api = true;
       result.repoPolicy ||= isApiTestFile(path);
       result.web ||= WEB_TEST_API_SEED_FILES.includes(path);
+      result.storybook ||= WEB_TEST_API_SEED_FILES.includes(path);
       matched = true;
     }
 

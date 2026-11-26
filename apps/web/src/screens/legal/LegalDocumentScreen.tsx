@@ -46,7 +46,7 @@ export type LegalDocumentScreenProps = {
 
 // A notice's link never breaks inside. After the one-sentence new-version notice it takes its own line
 // below md and follows the sentence from md; a version notice starts each sentence on its own line after
-// the label and puts its link on the next one (Owner LU4 Human Feedback 2).
+// the label and puts its link on the next one (Owner 2026-11-26).
 const linkLook =
   'block w-fit whitespace-nowrap font-medium text-fg-brand underline underline-offset-4 focus-visible:focus-ring';
 const noticeLink = `${linkLook} mt-1 md:mt-0 md:ml-2 md:inline`;
@@ -99,7 +99,7 @@ export function LegalDocumentScreen({ page, source, comparison }: LegalDocumentS
   const name = legalDocumentNames[kind];
   const notices = toLegalPageNotices(kind, page);
   const rows = toLegalVersionRows(kind, page);
-  const comparisonView = toLegalComparisonView(comparison);
+  const comparisonView = toLegalComparisonView(comparison, page);
   const hasNotice = notices.length > 0 || source.kind === 'last-success';
 
   // Reading order is title → introduction → table of contents → body (G-LU3, 1.3.2). On lg the rail

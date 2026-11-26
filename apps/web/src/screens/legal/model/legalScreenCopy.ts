@@ -40,7 +40,7 @@ export const legalScreenCopy = {
     '이 브라우저에서는 링크 복사를 쓸 수 없습니다. 주소창의 주소를 복사해 주세요.',
   noticeLabel: { INFO: '안내', WARNING: '주의' },
   // A copy this server kept from the last answer of the public reading API: what is shown, then when it
-  // was checked under its own label (two short lines, Owner LU4 Human Feedback 2).
+  // was checked under its own label (two short lines, Owner 2026-11-26).
   lastSuccessNotice: '최신 판을 확인할 수 없어 마지막으로 확인한 판을 보여 드립니다.',
   checkedAtLabel: '확인 시각',
   versionsTitle: '적용 기간과 이전 판',
@@ -55,7 +55,7 @@ export const legalScreenCopy = {
   scheduledNotice: (date: string, name: string) =>
     `${date}부터 적용하는 새 ${name}이 공지되어 있습니다.`,
   scheduledLinkLabel: '새 판 미리 보기',
-  // A sentence per line after the label (Owner LU4 Human Feedback 2).
+  // A sentence per line after the label (Owner 2026-11-26).
   viewingScheduledNotice: (date: string) => [
     `이 판은 ${date}부터 적용합니다.`,
     '그 전까지는 지금 적용하는 판이 효력을 가집니다.',

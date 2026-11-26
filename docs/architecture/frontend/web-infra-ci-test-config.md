@@ -72,14 +72,16 @@ pnpm --dir apps/web exec playwright install chromium
 
 - 실패하면 사용자에게 문제가 생기는 동작만 test한다. 섹션 순서·DOM 구조·class 이름·스냅샷은 고정하지 않는다. 문구와 구성을 다시
   다듬어도 test가 그대로여야 한다.
-- 요소는 역할·접근 가능한 이름으로 찾고, 화면 문구는 그 기능의 content 상수(`model/*Copy.ts`)에서 import한다. 글자로 고정하는
-  것은 정책 고지, 법이 정한 명칭(처리방침 [LB-R1](../../policies/legal-basis.md)), 법적 문서 화면의 상태 안내뿐이다. 법적 문서
-  본문은 글자 대신 section 종류별 fixture가 빠짐없이 순서·글자 그대로 그려지는지 본다.
+- 요소는 역할·접근 가능한 이름으로 찾고, 화면 문구는 그 기능의 content 상수(`model/*Copy.ts`)에서 import한다. 법적 문서 화면의
+  상태 안내(마지막으로 확인한 판, 판 안내)도 상수로 찾는다. 글자로 고정하는 것은 정책 고지와 법이 정한 명칭(처리방침
+  [LB-R1](../../policies/legal-basis.md))뿐이다. 법적 문서 본문은 글자 대신 section 종류별 fixture가 빠짐없이 순서·글자
+  그대로 그려지는지 본다.
 - 판단 로직(주소, 판 목록, 뒤로 가기 같은 규칙)은 `model/`의 순수 함수로 DOM 없이 검사한다. 두 기능이 함께 쓰는 규칙은
   `screens/ui/model/`과 `screens/ui/__tests__/`에 둔다.
 - story가 렌더·axe의 공통 fixture다(`e2e/storybook/stories.storybook.ts`). 굵기·크기·자리처럼 화면에서만 보이는 성질은 class
   이름 대신 그 기능의 `e2e/storybook/<기능>.storybook.ts`가 계산 style·위치로 본다.
-- e2e는 화면마다 핵심 흐름 2~3개다. server 응답에서만 보이는 상태(예: HTTP 404)는 흐름 수 밖의 상태 확인 case로 둔다.
+- e2e의 흐름 case는 화면마다 핵심 흐름 2~3개다. 크기·focus·넘침처럼 화면 성질을 보는 case와 server 응답에서만 보이는
+  상태(예: HTTP 404)는 흐름 수 밖의 확인 case로 둔다.
 - 사용자 문구의 내부 문구 negative(plan·issue·내부 경로·raw id·내부 상태 이름)는 content 상수 test와 e2e에 둔다.
 - import·token·renderer 중립 규칙은 lint가 지키고, test는 그 규칙 설정을 fixture로 확인할 때만 쓴다
   (`screens/__tests__/presentation-lint.test.ts`). 새 계층으로 옮긴 뒤 지운 화면 부품이 없다는 test는 두지 않는다. 삭제는 PR

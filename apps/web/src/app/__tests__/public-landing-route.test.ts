@@ -126,10 +126,10 @@ describe('public landing route boundary', () => {
       request.loadLegalRevisionNotices.mockResolvedValue({ status: 'unavailable' });
       await landingProps();
 
-      // Owner LU4 Q4: only the landing line reads with a short timeout; the document pages keep the
-      // loader's own timeout.
+      // Only the landing line reads with a short timeout; the document pages keep the loader's own
+      // timeout. The landing draws only an API answer, so it keeps no copy and serves none.
       const [options] = request.loadLegalRevisionNotices.mock.calls.at(-1) ?? [];
-      expect(options).toEqual({ timeoutMs: expect.any(Number) });
+      expect(options).toEqual({ timeoutMs: expect.any(Number), lastSuccess: 'none' });
       expect((options as { timeoutMs: number }).timeoutMs).toBeLessThanOrEqual(500);
     });
 
