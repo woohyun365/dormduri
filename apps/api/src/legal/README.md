@@ -62,7 +62,7 @@ Legal 도메인의 server-side boundary map이다. 이 문서는 `apps/api/src/l
 - 처리방침은 이전 판 기록(2026-06-22~2026-11-19)과 시행 중 판(2026-11-20) 둘이고, 나머지 셋은 2026-06-22 첫 게시다.
 - 첫 개정 초안 파일 둘은 백오피스 가져오기 형식(`legalDocumentDraftImportSchema`) 그대로이고 판 행이 아니다. 이용약관 초안은 시행 중 약관에서 제11조(약관 변경)만 `LB-R10`의 공지 기간·조항 대조표와 `LB-R11`의 불리한 변경 재동의 기준으로 바꾼다. 시행 중 판의 처리 위탁 표에 남은 '정해지면 안내' 행은 이 개정이 데이터베이스 운영·운영 관측 기록 보관·운영 관리 서버 운영·운영 접속 기록 보관을 AWS 행에 적고 지운다. 처리자가 바뀌면 다음 판으로 고친다.
 - 법률·개인정보 전문가 검토 여부는 실제 사용자 공개 전에 GitHub issue로 정한다.
-- Web에는 문안 사본이 없다. Web test·story·Playwright fixture는 이 seed 파일을 test 전용 경로(`apps/web/src/legal/testing/`)로 읽고, `apps/web/src/legal/__tests__/legal-document-source-sync.test.ts`가 seed 시행 중 판·첫 개정 초안의 문의 주소·보유 표 문장을 지킨다. 그 test는 Web CI lane에서 돌고, 분류기가 이 seed 파일만 바뀐 변경에도 Web lane을 켠다(`WEB_TEST_API_SEED_FILES`).
+- Web에는 문안 사본이 없다. Web test·story·Playwright fixture는 이 seed 파일을 test 전용 경로(`apps/web/src/legal/test-support/`)로 읽고, `apps/web/src/legal/__tests__/legal-document-source-sync.test.ts`가 seed 시행 중 판·첫 개정 초안의 문의 주소·보유 표 문장을 지킨다. 그 test는 Web CI lane에서 돌고, 분류기가 이 seed 파일만 바뀐 변경에도 Web lane을 켠다(`WEB_TEST_API_SEED_FILES`).
 
 ## Where to change
 

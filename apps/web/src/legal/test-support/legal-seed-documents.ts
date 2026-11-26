@@ -1,5 +1,5 @@
 // Test-only legal documents built from the API legal seed (one source for test, story and e2e text). Production
-// code may not import apps/web/src/legal/testing (eslint import/no-restricted-paths); tests, stories and the Playwright
+// code may not import apps/web/src/legal/test-support (eslint import/no-restricted-paths); tests, stories and the Playwright
 // fixture read it. Each body goes through the shared import schema the seed also parses with, and each response through
 // the shared public contract, so a story or a test renders what the development API would answer.
 import {

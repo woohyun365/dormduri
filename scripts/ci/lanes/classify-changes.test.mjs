@@ -283,9 +283,9 @@ test('the storybook lane runs the static build and then the story visual check',
 });
 
 // Web tests, stories and the Playwright fixture read their legal text from the API seed files through
-// apps/web/src/legal/testing/legal-seed-source.mjs, so a change to those files alone also runs the Web lane.
+// apps/web/src/legal/test-support/legal-seed-source.mjs, so a change to those files alone also runs the Web lane.
 test('the legal seed files the Web test-only seed source imports select the Web lane with the API lane', () => {
-  const sourcePath = 'apps/web/src/legal/testing/legal-seed-source.mjs';
+  const sourcePath = 'apps/web/src/legal/test-support/legal-seed-source.mjs';
   const imported = [
     ...readFileSync(resolve(repoRoot, sourcePath), 'utf8').matchAll(/from '([^']+)'/gu),
   ]

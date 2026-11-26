@@ -11,7 +11,7 @@ import {
   seedActiveLegalDocument,
   seedLegalDocumentPage,
   seedLegalFirstRevisionDraft,
-} from '../testing/legal-seed-documents';
+} from '../test-support/legal-seed-documents';
 
 // The public legal text has one source: the published versions in the database, which the development and test seed
 // writes from apps/api/prisma/seed-data/reference. Production versions are approved in the backoffice, whose

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LegalDocumentKind } from '@repo/shared/legal';
 import { createBffRequest, firstFetchInit, firstFetchInput, stubJsonFetch } from '@/test/bff-route';
-import { seedActiveLegalDocument } from '@/legal/testing/legal-seed-documents';
+import { seedActiveLegalDocument } from '@/legal/test-support/legal-seed-documents';
 import { GET } from '../route';
 
 const TERMS_DOCUMENT = seedActiveLegalDocument(LegalDocumentKind.TERMS_OF_SERVICE);

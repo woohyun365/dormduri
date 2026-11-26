@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBffRequest, firstFetchInit, firstFetchInput, stubJsonFetch } from '@/test/bff-route';
-import { seedActiveLegalDocumentsBundle } from '@/legal/testing/legal-seed-documents';
+import { seedActiveLegalDocumentsBundle } from '@/legal/test-support/legal-seed-documents';
 import { GET } from '../route';
 
 const ACTIVE_BUNDLE = seedActiveLegalDocumentsBundle();

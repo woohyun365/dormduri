@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { LegalConsentStep, type LegalConsentData } from '../LegalConsentStep';
-import { seedActiveLegalDocumentsBundle } from '@/legal/testing/legal-seed-documents';
+import { seedActiveLegalDocumentsBundle } from '@/legal/test-support/legal-seed-documents';
 
 vi.mock('lucide-react', () => ({
   AlertCircle: () => null,

@@ -3,7 +3,7 @@ import type { Route } from 'next';
 import { LegalDocumentKind, type LegalDocumentPageResponse } from '@repo/shared/legal';
 import { LegalDocumentRouteView } from '../components/LegalDocumentRouteView';
 import type { LegalLoadResult } from '../model/legal-document.types';
-import { seedLegalDocumentPage } from '../testing/legal-seed-documents';
+import { seedLegalDocumentPage } from '../test-support/legal-seed-documents';
 
 type LegalStoryKind =
   typeof LegalDocumentKind.TERMS_OF_SERVICE | typeof LegalDocumentKind.PRIVACY_POLICY;

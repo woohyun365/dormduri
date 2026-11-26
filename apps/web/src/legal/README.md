@@ -10,7 +10,7 @@
 - `model/`: Web-only view models and load states derived from `@repo/shared/legal` contracts. Add
   `hooks/` or `fixtures/` only when a concrete runtime owner appears; do not create empty owner
   directories.
-- `testing/`: test-only legal documents built from the API legal seed
+- `test-support/`: test-only legal documents built from the API legal seed
   (`apps/api/prisma/seed-data/reference/`). Tests, stories and the Playwright fixture read their
   legal text from here; production code may not import it (eslint `import/no-restricted-paths`).
 

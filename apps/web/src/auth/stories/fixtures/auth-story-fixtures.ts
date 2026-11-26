@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 import { getCollegeCatalog } from '@repo/shared/college';
-import { seedActiveLegalDocumentsBundle } from '@/legal/testing/legal-seed-documents';
+import { seedActiveLegalDocumentsBundle } from '@/legal/test-support/legal-seed-documents';
 import type { LoginFlowView } from '@/auth/flows/login/LoginFlowView';
 import {
   mapLoginResponseToErrorState,

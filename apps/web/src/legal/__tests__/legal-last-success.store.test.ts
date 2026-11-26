@@ -10,7 +10,7 @@ import {
   removeLegalLastSuccess,
   writeLegalLastSuccess,
 } from '../api/legal-last-success.store';
-import { seedLegalDocumentPage } from '../testing/legal-seed-documents';
+import { seedLegalDocumentPage } from '../test-support/legal-seed-documents';
 
 const page = seedLegalDocumentPage(LegalDocumentKind.TERMS_OF_SERVICE)!;
 const key = {

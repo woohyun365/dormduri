@@ -24,7 +24,7 @@ function seedPages(): Record<(typeof KINDS)[number], LegalDocumentPageResponse> 
     [
       '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON',
       '--eval',
-      `import('./src/legal/testing/legal-seed-documents.ts').then((seed) => {
+      `import('./src/legal/test-support/legal-seed-documents.ts').then((seed) => {
         process.stdout.write(JSON.stringify(Object.fromEntries(
           ${JSON.stringify(KINDS)}.map((kind) => [kind, seed.seedLegalDocumentPage(kind)]),
         )));

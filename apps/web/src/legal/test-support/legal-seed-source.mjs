@@ -1,4 +1,4 @@
-// Test-only (production code may not import apps/web/src/legal/testing, eslint import/no-restricted-paths): the API
+// Test-only (production code may not import apps/web/src/legal/test-support, eslint import/no-restricted-paths): the API
 // legal seed files as ES modules without file system reads, so Vitest, Storybook (browser bundle) and Playwright read
 // the same text the development database holds. The seed module that writes rows (seed-legal-documents.js) reads
 // these with node:fs, so this file imports the data files themselves.

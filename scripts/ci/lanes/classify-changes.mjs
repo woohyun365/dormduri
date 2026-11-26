@@ -64,7 +64,7 @@ const WEB_ENV_COMPOSE_FILES = new Set([
   'infra/rehearsal/compose.web.yml',
 ]);
 // API legal seed files that Web tests, stories and the Playwright fixture read through the test-only seed source
-// (apps/web/src/legal/testing/legal-seed-source.mjs). The Web keeps no copy of the
+// (apps/web/src/legal/test-support/legal-seed-source.mjs). The Web keeps no copy of the
 // legal text, so a change to one of them alone also runs the web lane. classify-changes.test.mjs derives the list from
 // that file's imports.
 export const WEB_TEST_API_SEED_FILES = Object.freeze([
@@ -254,7 +254,7 @@ export const AGENT_TEST_PRODUCT_INPUTS = {
     'apps/web/src/legal/components/LegalDocumentLayout.tsx',
     'apps/web/src/legal/components/LegalDocumentUnavailable.tsx',
     'apps/web/src/legal/content/legal-copy.ts',
-    'apps/web/src/legal/testing/legal-seed-documents.ts',
+    'apps/web/src/legal/test-support/legal-seed-documents.ts',
     'apps/web/src/main/README.md',
     'apps/web/src/main/hooks/__tests__/useMainProfileState.dom.test.ts',
     'apps/web/src/main/hooks/useMainProfileState.ts',

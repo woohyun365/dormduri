@@ -19,7 +19,7 @@ import {
   seedLegalDocumentPage,
   seedLegalRevisionNotices,
   seedLegalVersionComparison,
-} from '../testing/legal-seed-documents';
+} from '../test-support/legal-seed-documents';
 import type { OperationalEvent } from '@/observability/operational/operational-events';
 import { setServerOperationalEventWriterForTests } from '@/observability/operational/server-runtime';
 

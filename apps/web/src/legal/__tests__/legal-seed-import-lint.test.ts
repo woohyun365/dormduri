@@ -22,24 +22,24 @@ async function errorsOf(filePath: string, source: string) {
   return result.messages.filter((message) => message.ruleId === rule && message.severity === 2);
 }
 
-// The test-only legal seed path (apps/web/src/legal/testing) stays out of production code.
+// The test-only legal seed path (apps/web/src/legal/test-support) stays out of production code.
 describe('test-only legal seed import boundary', () => {
   it.each([
     [
       'src/legal/api/legal-copy-check.ts',
-      "import { seedActiveLegalDocument } from '@/legal/testing/legal-seed-documents';",
+      "import { seedActiveLegalDocument } from '@/legal/test-support/legal-seed-documents';",
     ],
     [
       'src/legal/api/legal-copy-check.ts',
-      "import { seedActiveLegalDocument } from '../testing/legal-seed-documents';",
+      "import { seedActiveLegalDocument } from '../test-support/legal-seed-documents';",
     ],
     [
       'src/app/privacy/page.tsx',
-      "import { LEGAL_SEED_SOURCE } from '@/legal/testing/legal-seed-source.mjs';",
+      "import { LEGAL_SEED_SOURCE } from '@/legal/test-support/legal-seed-source.mjs';",
     ],
     [
       'src/screens/legal/model/legalDocumentModel.ts',
-      "export { seedActiveLegalDocument } from '@/legal/testing/legal-seed-documents';",
+      "export { seedActiveLegalDocument } from '@/legal/test-support/legal-seed-documents';",
     ],
   ])('rejects %s importing the seed path', async (filePath, source) => {
     expect(await errorsOf(filePath, source)).toHaveLength(1);
@@ -55,7 +55,7 @@ describe('test-only legal seed import boundary', () => {
     expect(
       await errorsOf(
         filePath,
-        "import { seedActiveLegalDocument } from '@/legal/testing/legal-seed-documents';",
+        "import { seedActiveLegalDocument } from '@/legal/test-support/legal-seed-documents';",
       ),
     ).toEqual([]);
   });

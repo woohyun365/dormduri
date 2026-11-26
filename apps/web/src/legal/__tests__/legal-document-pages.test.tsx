@@ -10,7 +10,7 @@ import PrivacyPage, {
   metadata as privacyMetadata,
 } from '@/app/privacy/page';
 import { writeLegalLastSuccess } from '../api/legal-last-success.store';
-import { seedLegalDocumentPage } from '../testing/legal-seed-documents';
+import { seedLegalDocumentPage } from '../test-support/legal-seed-documents';
 
 const routerMock = vi.hoisted(() => ({
   back: vi.fn(),
