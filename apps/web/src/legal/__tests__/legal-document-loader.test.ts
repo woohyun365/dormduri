@@ -253,6 +253,8 @@ describe('legal document page loader', () => {
         endpoint: 'page',
         documentKind: PRIVACY,
         versionKey: 'current',
+        // The file system code tells a permission problem from a full volume.
+        errorCode: 'ENOTDIR',
       }),
     ]);
   });

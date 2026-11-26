@@ -22,6 +22,9 @@
 
 ## 순서
 
+이 단계의 `dev`에는 판 목록·적용기간·조항 대조표·새 판 공지 줄을 그리는 사용자 Web legal 화면이 이미 merge돼 있어야 한다. 그
+화면 전의 Web은 보고 있는 판의 본문만 그리므로 아래 [공개 확인](#공개-확인)의 둘째·셋째 줄을 볼 수 없다.
+
 1. `dev` → `main` 승격 PR을 merge한다(승격 직전 확인은 [단계 배포](./production-release-readiness.md#단계-배포)).
 2. `api-cd`(migrate·grant·role smoke) → `backoffice-cd` 순서로 승인한다. 둘 다 각 runbook의 성공 확인까지 본다.
 3. 백오피스에서 문서마다 첫 게시를 올린다([법적 문서 게시 runbook의 첫 게시](../../../docs/runbooks/legal-publication.md#첫-게시)).

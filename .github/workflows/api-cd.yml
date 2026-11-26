@@ -469,8 +469,8 @@ jobs:
           HASH: ${{ steps.document.outputs.hash }}
         run: bash scripts/infra/user-host/ssm-send.sh "$ACTION" "$API" "$API_MIGRATE" "$OBSERVABILITY_CONFIG" "$HASH"
 
-      # 공개 API 주소가 없으므로(D-AB1) API를 내린 maintenance에서도 공개 경로는 serving과 같다(`/privacy`·`/terms`는 Web
-      # fallback, `/api/**`는 JSON '준비 중').
+      # 공개 API 주소가 없으므로(D-AB1) API를 내린 maintenance에서도 공개 경로는 serving과 같다(`/privacy`·`/terms`는 Web의
+      # 마지막 성공본, `/api/**`는 JSON '준비 중').
       - name: Smoke the public host from outside
         id: smoke
         continue-on-error: true

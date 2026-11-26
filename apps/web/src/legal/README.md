@@ -29,8 +29,11 @@ Public reading:
   kept file again after checking it with the shared schema, with the time it was checked; without
   a valid file the page says the document cannot be loaded. Each answer from a kept file, and each
   response the Web could not keep, writes one `web_legal_last_success` operational log line
-  (endpoint, kind, version key, checked time; no text, no reader).
+  (endpoint, kind, version key, and the checked time or the file system error code of the failed
+  write; no text, no reader).
 - The Web never decides which version is in effect or scheduled; the API owns those rules.
+- The kept files live in a runtime volume, so the store's paths carry Turbopack ignore comments:
+  a dynamic path would make the build trace the whole project into the server output.
 - A shown document carries a hidden source mark (`data-dormduri-legal-source`, `published` or
   `last-success`). The Web deploy smoke keeps a new Web only when both routes are marked
   `published` (`infra/deploy/user/ssm/deploy.sh`); a screen that replaces the route view keeps the

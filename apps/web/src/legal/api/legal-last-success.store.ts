@@ -47,6 +47,12 @@ function directoryOf(options: LegalLastSuccessStoreOptions): string {
   return options.directory ?? getLegalLastSuccessDirectory();
 }
 
+// The directory is a runtime volume outside the build, so the build's file tracing must not follow these paths: a
+// dynamic path would make it trace the whole project into the server output. The ignore comments tell Turbopack so.
+function filePathOf(key: LegalLastSuccessKey, options: LegalLastSuccessStoreOptions): string {
+  return join(/* turbopackIgnore: true */ directoryOf(options), legalLastSuccessFileName(key));
+}
+
 /**
  * One file per request key. Kinds come from the shared enum and version keys are checked `YYYY-MM-DD` dates (callers
  * never pass an unchecked value), so a name never leaves the directory and the file count stays the number of versions.
@@ -66,15 +72,14 @@ export async function writeLegalLastSuccess<T>(
   checkedAt: Date,
   options: LegalLastSuccessStoreOptions = {},
 ): Promise<void> {
-  const directory = directoryOf(options);
-  const target = join(directory, legalLastSuccessFileName(key));
+  const target = filePathOf(key, options);
   const temporary = `${target}.${randomUUID()}.tmp`;
   const body = JSON.stringify({ checkedAt: checkedAt.toISOString(), response });
   try {
-    await writeFile(temporary, body, { encoding: 'utf8', mode: 0o600 });
-    await rename(temporary, target);
+    await writeFile(/* turbopackIgnore: true */ temporary, body, { encoding: 'utf8', mode: 0o600 });
+    await rename(/* turbopackIgnore: true */ temporary, target);
   } catch (error) {
-    await rm(temporary, { force: true }).catch(() => undefined);
+    await rm(/* turbopackIgnore: true */ temporary, { force: true }).catch(() => undefined);
     throw error;
   }
 }
@@ -88,7 +93,7 @@ export async function readLegalLastSuccess<T>(
   let parsed: unknown;
   try {
     parsed = JSON.parse(
-      await readFile(join(directoryOf(options), legalLastSuccessFileName(key)), 'utf8'),
+      await readFile(/* turbopackIgnore: true */ filePathOf(key, options), 'utf8'),
     );
   } catch {
     return null;
@@ -105,5 +110,5 @@ export async function removeLegalLastSuccess(
   key: LegalLastSuccessKey,
   options: LegalLastSuccessStoreOptions = {},
 ): Promise<void> {
-  await rm(join(directoryOf(options), legalLastSuccessFileName(key)), { force: true });
+  await rm(/* turbopackIgnore: true */ filePathOf(key, options), { force: true });
 }

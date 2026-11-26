@@ -1,4 +1,5 @@
 import {
+  LEGAL_LAST_SUCCESS_WRITE_ERROR_CODES,
   OPERATIONAL_EVENT_NAMES,
   OPERATIONAL_EVENT_SCHEMA_VERSION,
   OPERATIONAL_FORBIDDEN_KEY_PARTS,
@@ -143,8 +144,13 @@ export function sanitizeOperationalEvent(
         : !LEGAL_DOCUMENT_KINDS.includes(String(value.documentKind)) ||
           !LEGAL_EVENT_VERSION_KEY.test(String(value.versionKey))) ||
       (served
-        ? typeof value.checkedAt !== 'string' || !ISO_INSTANT.test(value.checkedAt)
-        : value.checkedAt !== undefined)
+        ? typeof value.checkedAt !== 'string' ||
+          !ISO_INSTANT.test(value.checkedAt) ||
+          value.errorCode !== undefined
+        : value.checkedAt !== undefined ||
+          !(LEGAL_LAST_SUCCESS_WRITE_ERROR_CODES as readonly string[]).includes(
+            String(value.errorCode),
+          ))
     ) {
       return null;
     }

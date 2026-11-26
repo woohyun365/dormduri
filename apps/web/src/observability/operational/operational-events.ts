@@ -89,7 +89,23 @@ export type WebLegalLastSuccessEvent = OperationalEventEnvelope &
     versionKey: string;
     /** When the served response was read from the API (served only). */
     checkedAt?: string;
+    /** Why the response could not be kept (write_failed only): a file system code, never the error message. */
+    errorCode?: WebLegalLastSuccessWriteErrorCode;
   }>;
+
+/** File system codes that tell the volume problems apart (permission, space, read-only, missing directory). */
+export const LEGAL_LAST_SUCCESS_WRITE_ERROR_CODES = [
+  'EACCES',
+  'EPERM',
+  'ENOSPC',
+  'EDQUOT',
+  'EROFS',
+  'ENOENT',
+  'ENOTDIR',
+  'OTHER',
+] as const;
+export type WebLegalLastSuccessWriteErrorCode =
+  (typeof LEGAL_LAST_SUCCESS_WRITE_ERROR_CODES)[number];
 
 export type OperationalEvent =
   | WebRuntimeErrorEvent

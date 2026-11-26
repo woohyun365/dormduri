@@ -87,7 +87,8 @@
   ```
 
   `action="served"`는 파일로 답한 요청(`documentKind`·`versionKey`·`checkedAt`), `action="write_failed"`는 응답을 파일로 남기지
-  못한 요청이다(volume 권한·공간을 본다). Web 배포는 두 화면이 API 게시본일 때만 새 Web을 남긴다
+  못한 요청이다. `errorCode`가 원인이다(`EACCES`·`EPERM` 권한, `ENOSPC`·`EDQUOT` 공간, `EROFS` 읽기 전용, `ENOENT`·`ENOTDIR`
+  디렉터리 없음, 그 밖은 `OTHER`). Web 배포는 두 화면이 API 게시본일 때만 새 Web을 남긴다
   ([Legal 단계 배포](../../infra/runbooks/release/legal-stage-deploy.md)).
 
 - 결정은 `backoffice_legal_decisions_total{kind, notice_class, decision}`과 감사 기록(대상 `법적 문서 초안`·`법적 문서 판`)에 남는다.

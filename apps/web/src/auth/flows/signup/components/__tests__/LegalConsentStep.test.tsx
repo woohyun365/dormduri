@@ -422,6 +422,103 @@ describe('LegalConsentStep', () => {
     expect(screen.queryByTestId('signup-legal-feedback')).not.toBeInTheDocument();
   });
 
+  // The checks belong to the versions they were given for: a failed read leaves no checks behind for whatever
+  // bundle comes next, on a retry or when the step opens again with the kept consent.
+  describe('묶음을 못 읽은 뒤의 필수 동의 체크', () => {
+    const checkedOldConsent: LegalConsentData = {
+      agreeAge: true,
+      agreeTerms: true,
+      agreePersonalDataCollectionUse: true,
+      legalAcceptances: {
+        termsVersionId: 'terms-old-id',
+        personalDataConsentVersionId: 'personal-data-old-id',
+        ageNoticeVersionId: 'age-old-id',
+        privacyPolicyVersionIdShown: 'privacy-old-id',
+      },
+    };
+    const newBundle = {
+      termsOfService: { ...legalBundle.termsOfService, id: 'terms-new-id' },
+      privacyPolicy: { ...legalBundle.privacyPolicy, id: 'privacy-new-id' },
+      personalDataCollectionUseConsent: {
+        ...legalBundle.personalDataCollectionUseConsent,
+        id: 'personal-data-new-id',
+      },
+      age14OrAboveNotice: { ...legalBundle.age14OrAboveNotice, id: 'age-new-id' },
+    };
+
+    it('다시 불러온 묶음의 판 id가 바뀌었으면 체크를 다시 받는다', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn<() => Promise<Response>>()
+          .mockRejectedValueOnce(new Error('offline'))
+          .mockResolvedValueOnce(
+            new Response(JSON.stringify(newBundle), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          ),
+      );
+      renderWithState({ initialLegalConsent: checkedOldConsent });
+
+      fireEvent.click(await screen.findByRole('button', { name: '다시 불러오기' }));
+      await screen.findByLabelText('[필수] 이용약관 동의');
+
+      expect(screen.getByRole('checkbox', { name: '필수 항목 모두 동의' })).not.toBeChecked();
+      expect(screen.getByLabelText('[필수] 만 14세 이상이에요')).not.toBeChecked();
+      expect(screen.getByLabelText('[필수] 이용약관 동의')).not.toBeChecked();
+      expect(screen.getByLabelText('[필수] 개인정보 수집·이용 동의')).not.toBeChecked();
+    });
+
+    it('단계를 다시 열 때 넘길 동의에 체크를 남기지 않는다', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => {
+          throw new Error('offline');
+        }),
+      );
+      let latestConsent: LegalConsentData = checkedOldConsent;
+
+      function Wrapper() {
+        const [legalConsent, setLegalConsent] = useState<LegalConsentData>(checkedOldConsent);
+        const handleLegalConsentChange = useCallback((nextConsent: LegalConsentData) => {
+          latestConsent = nextConsent;
+          setLegalConsent(nextConsent);
+        }, []);
+
+        return (
+          <LegalConsentStep
+            legalConsent={legalConsent}
+            onLegalConsentChange={handleLegalConsentChange}
+            onNext={vi.fn()}
+            onBack={vi.fn()}
+          />
+        );
+      }
+
+      render(<Wrapper />);
+      await screen.findByRole('button', { name: '다시 불러오기' });
+
+      expect(latestConsent).toEqual(emptyLegalConsent);
+    });
+  });
+
+  it('다시 불러오기를 누르면 focus를 단계 제목으로 옮긴다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('offline');
+      }),
+    );
+    renderWithState();
+
+    const retry = await screen.findByRole('button', { name: '다시 불러오기' });
+    retry.focus();
+    fireEvent.click(retry);
+
+    expect(screen.getByRole('heading', { name: '필수 항목 확인' })).toHaveFocus();
+  });
+
   it('stale 안내가 전달되면 사용자에게 재확인을 요구한다', async () => {
     stubBundleFetch();
     renderWithState({

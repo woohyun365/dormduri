@@ -12,7 +12,11 @@ import {
 } from '@repo/shared/legal';
 import { getWebEnv } from '@/config/env';
 import { createOperationalEventEnvelope } from '@/observability/operational/operational-context';
-import type { WebLegalLastSuccessEvent } from '@/observability/operational/operational-events';
+import {
+  LEGAL_LAST_SUCCESS_WRITE_ERROR_CODES,
+  type WebLegalLastSuccessEvent,
+  type WebLegalLastSuccessWriteErrorCode,
+} from '@/observability/operational/operational-events';
 import { recordServerOperationalEvent } from '@/observability/operational/server-runtime';
 import type { LegalLoadResult } from '../model/legal-document.types';
 import { readLegalPublicResponse } from './legal-document.api';
@@ -54,10 +58,18 @@ function versionKeyOf(value: unknown): LegalVersionKey | 'current' | null {
   return parsed.success ? parsed.data : null;
 }
 
+function writeErrorCode(error: unknown): WebLegalLastSuccessWriteErrorCode {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+  return (LEGAL_LAST_SUCCESS_WRITE_ERROR_CODES as readonly string[]).includes(code)
+    ? (code as WebLegalLastSuccessWriteErrorCode)
+    : 'OTHER';
+}
+
 function recordLegalEvent(
   action: WebLegalLastSuccessEvent['action'],
   fields: LegalEventFields,
-  checkedAt?: string,
+  detail: { checkedAt?: string; errorCode?: WebLegalLastSuccessWriteErrorCode } = {},
 ): void {
   try {
     const env = getWebEnv().operationalTelemetry;
@@ -70,7 +82,8 @@ function recordLegalEvent(
       eventName: 'web_legal_last_success',
       action,
       ...fields,
-      ...(checkedAt === undefined ? {} : { checkedAt }),
+      ...(detail.checkedAt === undefined ? {} : { checkedAt: detail.checkedAt }),
+      ...(detail.errorCode === undefined ? {} : { errorCode: detail.errorCode }),
     });
   } catch {
     // The log line is fail-open; it never decides what the page shows.
@@ -105,8 +118,8 @@ async function loadPublicReading<T>(input: {
         (input.options.now ?? (() => new Date()))(),
         store,
       );
-    } catch {
-      recordLegalEvent('write_failed', input.event);
+    } catch (error) {
+      recordLegalEvent('write_failed', input.event, { errorCode: writeErrorCode(error) });
     }
     return { status: 'published', data: outcome.data };
   }
@@ -118,7 +131,7 @@ async function loadPublicReading<T>(input: {
 
   const kept = await readLegalLastSuccess(input.key, input.schema, store).catch(() => null);
   if (!kept) return { status: 'unavailable' };
-  recordLegalEvent('served', input.event, kept.checkedAt);
+  recordLegalEvent('served', input.event, { checkedAt: kept.checkedAt });
   return { status: 'last-success', data: kept.response, checkedAt: kept.checkedAt };
 }
 

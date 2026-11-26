@@ -32,6 +32,7 @@ const writeFailed = {
   endpoint: 'revision-notices',
   documentKind: 'all',
   versionKey: 'all',
+  errorCode: 'ENOSPC',
 };
 
 let restore: (() => void) | undefined;
@@ -58,8 +59,24 @@ describe('web legal last success event', () => {
     ['a served line without its checked time', { checkedAt: undefined }],
     ['a checked time that is not ISO', { checkedAt: 'yesterday' }],
     ['a request body field', { body: '본문' }],
+    ['a served line with an error code', { errorCode: 'EACCES' }],
   ])('drops %s', (_label, change) => {
     expect(sanitizeOperationalEvent({ ...served, ...change })).toBeNull();
+  });
+
+  it.each([
+    ['a write failure without its error code', { errorCode: undefined }],
+    ['an error code outside the file system codes', { errorCode: 'ECONNRESET' }],
+    ['an error message in the code', { errorCode: "EACCES: permission denied, open '/x'" }],
+  ])('drops %s', (_label, change) => {
+    expect(sanitizeOperationalEvent({ ...writeFailed, ...change })).toBeNull();
+  });
+
+  it('keeps an unlisted file system failure as OTHER', () => {
+    expect(sanitizeOperationalEvent({ ...writeFailed, errorCode: 'OTHER' })).toEqual({
+      ...writeFailed,
+      errorCode: 'OTHER',
+    });
   });
 
   it('writes the line as a web_operational log', () => {

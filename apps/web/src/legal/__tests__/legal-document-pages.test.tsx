@@ -176,6 +176,10 @@ describe('public legal document pages', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: '제1조(개인정보의 처리 목적)' }),
     ).toBeInTheDocument();
+    expect(screen.getByText('처리하는 개인정보 항목')).toBeInTheDocument();
+    expect(screen.getAllByText('제2조(처리하는 개인정보 항목 및 보유기간)').length).toBeGreaterThan(
+      0,
+    );
     expect(container.querySelectorAll('h1')).toHaveLength(1);
     expect(container).not.toHaveTextContent(/\.omx|draft|plan|apps\/web|함께 배포된/i);
     expect(container).not.toHaveTextContent(

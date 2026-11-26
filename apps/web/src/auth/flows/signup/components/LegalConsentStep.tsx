@@ -90,6 +90,7 @@ export function LegalConsentStep({
   const [viewingDocument, setViewingDocument] = useState<LegalDocumentResponse | null>(null);
   const legalConsentRef = useRef(legalConsent);
   const consentSummaryRef = useRef<LegalConsentSummaryCardHandle>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const validationErrorId = useId();
 
   useEffect(() => {
@@ -112,10 +113,13 @@ export function LegalConsentStep({
       if (cancelled) return;
 
       if (result.status === 'unavailable') {
-        const { agreeAge, agreeTerms, agreePersonalDataCollectionUse } = normalizeLegalConsent(
-          legalConsentRef.current,
-        );
-        onLegalConsentChange({ agreeAge, agreeTerms, agreePersonalDataCollectionUse });
+        // The checks were given for the version ids that are gone now. Without them the next bundle could not
+        // tell whether its versions changed, so none of the checks is kept.
+        onLegalConsentChange({
+          agreeAge: false,
+          agreeTerms: false,
+          agreePersonalDataCollectionUse: false,
+        });
         setBundleState({ status: 'unavailable' });
         return;
       }
@@ -150,6 +154,8 @@ export function LegalConsentStep({
   const isUnavailable = bundleState.status === 'unavailable';
   const noticeStatus = isUnavailable ? 'unavailable' : requiresReconfirmation ? 'stale' : null;
   const retryBundle = () => {
+    // The retry button goes away while the bundle loads; the step heading keeps the keyboard position.
+    headingRef.current?.focus();
     setBundleState({ status: 'loading' });
     setRetryCount((count) => count + 1);
   };
@@ -183,6 +189,7 @@ export function LegalConsentStep({
         icon={<FileText className="size-8 text-(--knu-primary)" />}
         title="필수 항목 확인"
         description="각 내용을 확인한 뒤 필수 항목에 동의해요."
+        headingRef={headingRef}
       />
 
       {noticeStatus && (

@@ -57,7 +57,8 @@ Web 단계(ingress와 Web만 올린 단계)의 배포·재배포·rollback·점�
    - 두 image index에 SPDX SBOM attestation manifest가 있는가
    - document 해시가 저장소 생성본과 같은가
 4. SendCommand는 command 단위 상태만 기다린다(node별 결과는 조회하지 않는다). Host가 health와 내부 smoke(`/`·`/privacy`·
-   `/terms` 200, `/signup` 준비 중 503, 없는 경로 404)를 통과하면 Success다.
+   `/terms` 200, `/signup` 준비 중 503, 없는 경로 404)를 통과하면 Success다. 새 쌍을 올리는 `deploy`는 `/privacy`·`/terms`가 API
+   게시본 표지를 내야 통과한다(마지막 성공본·불러올 수 없음이면 직전 쌍으로 되돌림, [Legal 단계 배포](./legal-stage-deploy.md)).
 5. 밖에서 같은 경로표로 외부 smoke(`scripts/infra/user-host/external-smoke.mjs`)를 돌린다. 인증서도 검증한다.
 6. 성공하면 tag·record job이 deploy image tag와 Release를 남긴다. Release의 `components`는 `미판정`으로 시작한다. Operator가
    evidence(이 run, ECR attestation manifest, 경보 확인)를 본 뒤 Release 본문을 고친다. 증거가 빠진 component는 `PASS`로 적지

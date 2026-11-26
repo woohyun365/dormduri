@@ -60,6 +60,8 @@ function networks() {
 
 function validConfig() {
   return {
+    // The project name a rendered config carries; named volumes take it as their prefix.
+    name: 'dormduri-web',
     networks: networks(),
     // The one named volume the Web keeps its last successful legal responses in.
     volumes: {
@@ -276,6 +278,26 @@ test('each weakened web bundle boundary is rejected', () => {
       (s, c) => (c.volumes['legal-last-success'].external = true),
       /legal-last-success is not a plain local named volume/u,
     ],
+    // The rendered name is the project's own volume, so the Web never writes another bundle's volume.
+    [
+      (s, c) => (c.volumes['legal-last-success'].name = 'dormduri-web_prometheus-data'),
+      /volumes: legal-last-success is not the dormduri-web_legal-last-success volume/u,
+    ],
+    [
+      (s, c) => (c.volumes['legal-last-success'].name = 'other_legal-last-success'),
+      /volumes: legal-last-success is not the dormduri-web_legal-last-success volume/u,
+    ],
+    [
+      (s) =>
+        s.ingress.volumes.push({
+          type: 'volume',
+          source: 'legal-last-success',
+          target: '/etc/dormduri-tls',
+          read_only: true,
+          volume: {},
+        }),
+      /ingress: mounts the legal last success volume/u,
+    ],
     [
       (s) => (s.web.environment.DORMDURI_LEGAL_LAST_SUCCESS_DIR = '/tmp/legal'),
       /web: DORMDURI_LEGAL_LAST_SUCCESS_DIR is not the legal last success volume target/u,
@@ -351,6 +373,15 @@ test('the hardened API bundle fragment shape passes together with the web fragme
 
 test('each weakened API bundle boundary is rejected', () => {
   assertRejected(bundleWithChange, [
+    // Only the Web mounts the legal last success volume.
+    ...['api', 'migrate', 'prometheus', 'loki', 'alloy', 'alertmanager', 'grafana'].map((name) => [
+      (s) =>
+        (s[name].volumes = [
+          ...(s[name].volumes ?? []),
+          { type: 'volume', source: 'legal-last-success', target: '/srv/legal', volume: {} },
+        ]),
+      new RegExp(`${name}: mounts the legal last success volume`, 'u'),
+    ]),
     [(s) => (s.api.ports = [{ target: 4000, published: '4000' }]), /api: publishes a host port/u],
     [
       (s) => (s.migrate.ports = [{ target: 5432, published: '5432' }]),
