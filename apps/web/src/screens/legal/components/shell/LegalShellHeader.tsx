@@ -17,8 +17,8 @@ const documentOrder = [
 // document page. The privacy policy link is bolder than the terms link (G-LU11). It sticks from lg;
 // below lg it scrolls away so the document gets the small screen. The page order is the order seen at
 // every width, so the keyboard follows it (WCAG 2.4.3): from sm one row; below sm the logo has its own
-// row and the documents and back follow it, back at the right end of the documents' row where it fits
-// (from about 390px) and on a row of its own below them on narrower screens (Owner 2026-11-27).
+// row and the documents and back follow it: back sits at the right end of the documents' row when it
+// fits there and takes a row of its own below them on narrower phones (Owner 2026-11-27).
 export function LegalShellHeader({ current }: { current: PublicLegalDocumentKind }) {
   return (
     <header className="border-b border-stroke-subtle bg-layer-default lg:sticky lg:top-0 lg:z-20 print:hidden">
