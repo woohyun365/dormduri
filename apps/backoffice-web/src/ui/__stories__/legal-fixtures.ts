@@ -1,4 +1,5 @@
 import type {
+  AccountListResponse,
   LegalBackofficeVersion,
   LegalBackofficeVersionDetail,
   LegalDraft,
@@ -10,7 +11,7 @@ import type {
   LegalDraftDetail,
   LegalRequestDetail,
 } from '../../screens/legal/legal-types';
-import { AUDITOR_ID, OWNER_ID } from './fixtures';
+import { AUDITOR_ID, OWNER_ID, accountList } from './fixtures';
 
 // Legal story fixtures (design guide ⑨): made-up document text and fixed UUIDs whose first eight characters differ.
 // Seed version ids are kind-date slugs, as in the development seed.
@@ -327,6 +328,33 @@ export const legalDrafts: LegalDraft[] = [
     },
     updatedAt: '2026-11-23T08:30:00+09:00',
   },
+];
+
+const LONG_AUTHOR_ID = '7d8e9fa0-0000-4000-8000-00000000a0a1';
+
+/** The accounts plus one whose name is 80 characters without a space, the invite maximum (design guide ⑦ name column). */
+export const legalLongAuthorAccountList: AccountListResponse = {
+  ...accountList,
+  accounts: [
+    ...accountList.accounts,
+    {
+      id: LONG_AUTHOR_ID,
+      email: 'legal-long-author@example.test',
+      displayName: `${'법적문서편집담당운영자'.repeat(7)}한빛나`,
+      status: 'ACTIVE',
+      locked: false,
+      roles: ['LEGAL_EDITOR'],
+      lastLoginAt: '2026-11-25T09:00:00+09:00',
+      deactivatedAt: null,
+      createdAt: '2026-11-04T10:00:00+09:00',
+    },
+  ],
+};
+
+/** The drafts with the first one written by that operator. */
+export const legalLongAuthorDrafts: LegalDraft[] = [
+  { ...baseDraft, authorAccountId: LONG_AUTHOR_ID },
+  ...legalDrafts.slice(1),
 ];
 
 /** Fifty drafts for the row height. */

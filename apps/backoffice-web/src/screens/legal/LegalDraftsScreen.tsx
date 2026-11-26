@@ -17,6 +17,7 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { EmptyState } from '@/ui/EmptyState';
 import { formatKstShort } from '@/ui/format';
+import { TimeText } from '@/ui/text';
 import { Icon } from '@/ui/icons';
 import {
   LEGAL_DRAFT_STATUS_LABELS,
@@ -260,14 +261,20 @@ export function LegalDraftsScreen({
                       </TextLink>
                     </td>
                     <td className={TD}>{LEGAL_NOTICE_CLASS_LABELS[draft.content.noticeClass]}</td>
-                    <td className={`${TD} tabular-nums`}>{draft.content.proposedEffectiveDate}</td>
+                    <td className={`${TD} tabular-nums`}>
+                      <TimeText text={draft.content.proposedEffectiveDate} />
+                    </td>
                     <td className={TD}>
                       <StatusBadge meaning={LEGAL_DRAFT_STATUS_MEANING[draft.status]}>
                         {LEGAL_DRAFT_STATUS_LABELS[draft.status]}
                       </StatusBadge>
                     </td>
-                    <td className={TD}>{accountName(accounts, draft.authorAccountId)}</td>
-                    <td className={`${TD} tabular-nums`}>{formatKstShort(draft.updatedAt)}</td>
+                    <td className={`${TD} min-w-28 wrap-anywhere`}>
+                      {accountName(accounts, draft.authorAccountId)}
+                    </td>
+                    <td className={`${TD} tabular-nums`}>
+                      <TimeText text={formatKstShort(draft.updatedAt)} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
