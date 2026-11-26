@@ -102,10 +102,30 @@ function articleOf(region: HTMLElement, heading: string | null, change: string):
   return article;
 }
 
-function columnOf(article: HTMLElement, label: string): HTMLElement {
-  const column = within(article).getByText(label, { selector: 'p' }).parentElement;
-  if (!column) throw new Error(`no column ${label}`);
-  return column;
+// A column's words are what the article reads after its label and before the other column's label
+// (reading order, not markup).
+function columnText(article: HTMLElement, label: string): string {
+  const start = within(article).getByText(label);
+  const labels = [legalScreenCopy.comparisonBeforeLabel, legalScreenCopy.comparisonAfterLabel].map(
+    (text) => within(article).getByText(text),
+  );
+  const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
+  let text = '';
+  let reading = false;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (labels.some((element) => element.contains(node))) {
+      reading = start.contains(node);
+    } else if (reading) {
+      text += node.textContent ?? '';
+    }
+  }
+  return text;
+}
+
+// The label reads right before its value, whatever elements hold them.
+function readsAs(container: HTMLElement, label: string, value: string): boolean {
+  const squash = (text: string) => text.replace(/\s+/gu, '');
+  return squash(container.textContent ?? '').includes(squash(`${label}${value}`));
 }
 
 afterEach(() => {
@@ -186,11 +206,11 @@ describe('legal document screen', () => {
         [legalScreenCopy.comparisonBeforeLabel, item.before],
         [legalScreenCopy.comparisonAfterLabel, item.after],
       ] as const) {
-        const column = columnOf(article, label);
+        const column = columnText(article, label);
         if (sections.length === 0) {
-          expect(column).toHaveTextContent(legalScreenCopy.comparisonEmptyLabel);
+          expect(column).toContain(legalScreenCopy.comparisonEmptyLabel);
         } else {
-          expectInOrder(column.textContent ?? '', sections.flatMap(sectionText));
+          expectInOrder(column, sections.flatMap(sectionText));
         }
       }
     }
@@ -274,25 +294,48 @@ describe('legal document screen', () => {
     for (const callout of callouts) {
       const note = screen.getByText(callout.text, { exact: false, selector: '[role="note"]' });
       const label = legalScreenCopy.noticeLabel[callout.tone];
-      expect(note.querySelector('strong')).toHaveTextContent(label);
+      // The label's weight is the Storybook check's (legal.storybook.ts); here it reads first.
       expect(note.textContent?.startsWith(label)).toBe(true);
     }
     const status = screen
       .getAllByRole('status')
       .find((element) => element.textContent?.includes(formatLegalCheckedAt(STORY_CHECKED_AT)));
-    expect(status?.querySelector('strong')).toHaveTextContent(legalScreenCopy.noticeLabel.INFO);
+    expect(status?.textContent?.startsWith(legalScreenCopy.noticeLabel.INFO)).toBe(true);
+  });
+
+  it('reads each date after its own label when the two dates differ (G-LU5)', () => {
+    const { viewing } = privacyScheduledPage;
+    expect(viewing.effectiveAt).not.toBe(viewing.lastModifiedAt);
+    const { container } = renderScreen({
+      page: privacyScheduledPage,
+      comparison: privacyScheduledComparison,
+    });
+    expect(
+      readsAs(container, legalScreenCopy.effectiveLabel, formatLegalDate(viewing.effectiveAt)),
+    ).toBe(true);
+    expect(
+      readsAs(
+        container,
+        legalScreenCopy.lastModifiedLabel,
+        formatLegalDate(viewing.lastModifiedAt),
+      ),
+    ).toBe(true);
   });
 
   it('shows the dates in user words and the change summary (G-LU5)', () => {
     const { container } = renderScreen();
     const { viewing } = privacyPage;
 
-    expect(screen.getByText(legalScreenCopy.effectiveLabel).nextElementSibling).toHaveTextContent(
-      formatLegalDate(viewing.effectiveAt),
-    );
     expect(
-      screen.getByText(legalScreenCopy.lastModifiedLabel).nextElementSibling,
-    ).toHaveTextContent(formatLegalDate(viewing.lastModifiedAt));
+      readsAs(container, legalScreenCopy.effectiveLabel, formatLegalDate(viewing.effectiveAt)),
+    ).toBe(true);
+    expect(
+      readsAs(
+        container,
+        legalScreenCopy.lastModifiedLabel,
+        formatLegalDate(viewing.lastModifiedAt),
+      ),
+    ).toBe(true);
     const { summary, majorChanges } = toLegalChangeSummaryView(viewing.changeSummary ?? '');
     for (const text of [summary, ...majorChanges]) {
       if (text) expect(screen.getByText(text, { exact: false })).toBeInTheDocument();
@@ -482,14 +525,14 @@ describe('legal document screen', () => {
       ),
     );
     const added = articleOf(region, '제12조(새 조항)', 'added');
-    expect(columnOf(added, legalScreenCopy.comparisonBeforeLabel)).toHaveTextContent(
+    expect(columnText(added, legalScreenCopy.comparisonBeforeLabel)).toContain(
       legalScreenCopy.comparisonEmptyLabel,
     );
-    expect(columnOf(added, legalScreenCopy.comparisonAfterLabel)).toHaveTextContent(
+    expect(columnText(added, legalScreenCopy.comparisonAfterLabel)).toContain(
       '더한 조항의 글입니다.',
     );
     const removed = articleOf(region, '제13조(지운 조항)', 'removed');
-    expect(columnOf(removed, legalScreenCopy.comparisonAfterLabel)).toHaveTextContent(
+    expect(columnText(removed, legalScreenCopy.comparisonAfterLabel)).toContain(
       legalScreenCopy.comparisonEmptyLabel,
     );
 
