@@ -25,7 +25,7 @@ Public reading:
 - The landing (`/`) reads the revision notices (`/api/legal/revision-notices`) with 500 ms
   (`timeoutMs`) so a stalled API does not hold its first response, and keeps no copy and serves none
   (`lastSuccess: 'none'`): a kept copy can name a version already in force (Owner 2026-11-26).
-- A contract response is the published version and is kept as the last success of that request (a
+- Otherwise a contract response is the published version and is kept as the last success of that request (a
   file per endpoint, kind and version key, written as a temporary file then renamed in the same
   directory, `DORMDURI_LEGAL_LAST_SUCCESS_DIR`). The API answers from its database or from its
   in-memory versions; the Web does not tell them apart.

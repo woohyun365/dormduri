@@ -27,11 +27,12 @@ import {
   type LegalLastSuccessKey,
 } from './legal-last-success.store';
 
-// Public legal reading for the Web server. Each request asks the user API once with a short timeout. A contract
-// response is the published version (the API answers from the database or from its in-memory versions; the Web cannot
-// and need not tell them apart) and is kept as the last success of that request. The API 404 for a version address
-// clears the kept file. Any other failure answers the kept file, else nothing. The Web never computes which version is
-// current or scheduled: the API owns those rules.
+// Public legal reading for the Web server. Each loader call asks the user API at most once, with a short timeout. A
+// contract response is the published version (the API answers from the database or from its in-memory versions; the
+// Web cannot and need not tell them apart). By default it is kept as the last success of that request, the API 404 for
+// a version address clears the kept file, and any other failure answers the kept file, else nothing; the caller's
+// `lastSuccess` option can skip the API or the kept copy. The Web never computes which version is current or
+// scheduled: the API owns those rules.
 
 /** Shorter than the deploy smoke request (10 s); the API database read limit (1.5 s) is shorter still. */
 export const LEGAL_DOCUMENT_REQUEST_TIMEOUT_MS = 3_000;
