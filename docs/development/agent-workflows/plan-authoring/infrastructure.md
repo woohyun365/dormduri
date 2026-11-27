@@ -3,6 +3,13 @@
 `infra`, deployment/runtime topology, CI/CD, cloud/provider, database operations, observability가 primary owner인 계획에
 사용합니다. [Core](./core.md)를 먼저 읽습니다.
 
+## Repository structure, code units, and test placement
+
+- 저장소·배포 단위를 나누거나, 기능 code를 library로 옮기거나, test를 옮기는 plan은 결정 기록이 고른 저장소 모양·code 단위·test 배치를 따릅니다.
+- 자동 선택은 workspace 선언·e2e project·app test 설정 경로에서 이 기준을 고릅니다. layer 겹침 규칙으로 영역 기준만 남는 app·library 안 code·test를 옮기거나 library를 더하는 plan은 리뷰 기준에 `web-infra-repository-structure`를 더합니다.
+
+구현·리뷰 기준: [web-infra-repository-structure.md I1](../review-criteria/web-infra-repository-structure.md#i1-배포-단위저장소-나눔-근거와-경계-계약), [web-infra-repository-structure.md I2](../review-criteria/web-infra-repository-structure.md#i2-배포-shell과-domain-library-경계), [web-infra-repository-structure.md I3](../review-criteria/web-infra-repository-structure.md#i3-test-층-배치와-project-소속)
+
 ## Current and target topology
 
 - user product, backoffice, observability의 trust and failure boundary를 구분합니다.

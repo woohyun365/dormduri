@@ -2,8 +2,105 @@
 
 [Domain/SWE/Web pack](./README.md)의 infra layer입니다. 저장소 모양과 code 단위, 배포 구성과 실행 설정·secret 주입, CI 검사·test
 배치와 배포 권한, 관측 data의 경계, backup·restore와 DB 접속 안전, 용량·비용·공급망을 다룹니다. 하위 layer마다 상속, 결정 목록,
-구현 지침(기준 항목 인용), 검증 기준(항목 id), 위험, binding 키를 둡니다. 저장소 전체 구조 결정(`infra.arch.*`)은 저장소 모양과
-code 단위를 topology-runtime-config에, test 배치를 ci-cd에 둡니다.
+구현 지침(기준 항목 인용), 검증 기준(항목 id), 위험, binding 키를 둡니다. 저장소 전체 구조 결정(`infra.arch.*`)은
+repository-structure 하위 layer에 둡니다.
+
+## repository-structure
+
+`Domain/SWE/Web/infra/repository-structure`
+
+### 상속
+
+- [SWE 공통 기준](../../review-criteria/README.md#기준-문서) `swe` 전체
+
+### 결정 목록
+
+#### infra.arch.repository-shape
+
+- 수준: `architecture-style`
+- 질문: 저장소와 배포 단위를 어떤 모양으로 둘까?
+- 선택지:
+  - 한 저장소와 배포 단위 app: 저장소 하나에 배포 단위(app)마다 디렉터리를 두고 공유 code를 함께 둔다. 여러 app에 걸친 변경을
+    한 번에 검토하고 같은 방법으로 build·검사하지만, 저장소가 커지면 바뀐 부분만 검사하는 도구와 경계 규칙이 필요하다
+  - 저장소 여러 개: 팀이나 배포 단위마다 저장소와 build pipeline을 따로 둔다. 권한과 배포 속도를 저장소마다 정하지만 여러 저장소에
+    걸친 변경을 나눠 검토해야 하고 system 전체를 build하는 방법이 팀마다 흩어진다. test는 저장소마다 자기 unit·integration을 그
+    안에 두고, 저장소 사이 경계는 소비자 쪽 test가 만든 계약을 제공자가 자기 build에서 검증하며, 배포 전에 그 환경에 있는 다른
+    app version과 호환되는지 확인한다. 팀 경계·독립 배포의 현재 증거와 전환 trigger가 없으면 연결된 기준 항목
+    `web-infra-repository-structure.md I1`이 결함으로 본다
+  - service마다 독립 배포와 data: service마다 code·배포·data를 따로 갖고 따로 release한다. service별로 배포·확장하지만 service
+    사이 의존 때문에 여러 service를 잇는 test가 어렵다. test는 service마다 자기 unit·integration과 경계 계약 test를 두고, 여러
+    service를 잇는 e2e는 끝까지 봐야 뜻이 있는 핵심 흐름만 적게 두어 pipeline의 따로 도는 단계로 나눈다. 독립 배포·팀 경계의
+    현재 증거와 전환 trigger가 없으면 연결된 기준 항목 `web-infra-repository-structure.md I1`이 결함으로 본다
+- 먼저 정할 결정: 없음
+- 되돌림: `one-way`. 저장소·build pipeline·권한과 app 사이 경계 계약을 모두 다시 나눈다
+- 기본값: 한 저장소와 배포 단위 app. 여러 app에 걸친 변경을 한 번에 검토하고 공유 code를 한 곳에서 고친다. 팀 경계마다 권한·배포
+  속도를 따로 가져야 하거나 service별 독립 확장이 측정한 요구가 되면 버린다
+- 확인 단서: `{{binding:repo-structure.workspace-layout}}`의 workspace 선언과 배포 구성의 app image·host 묶음 목록
+- 기준 항목: [web-infra-repository-structure.md I1](../../review-criteria/web-infra-repository-structure.md#i1-배포-단위저장소-나눔-근거와-경계-계약), [swe.md S5](../../review-criteria/swe.md#s5-계약-호환성), [web-infra-topology-runtime-config.md I1](../../review-criteria/web-infra-topology-runtime-config.md#i1-현재목표-topology와-환경-차이-구분)
+
+#### infra.arch.code-unit
+
+- 수준: `architecture-style`
+- 질문: 배포 단위 app의 기능 code를 어떤 단위로 나눌까?
+- 선택지:
+  - app 안 기능 폴더: 기능 code를 app 안의 기능 폴더에 둔다. 시작이 가장 간단하지만 바뀐 부분만 검사하는 단위가 app 전체이고,
+    기능 사이 경계는 손으로 쓴 lint 규칙뿐이다
+  - app은 배포 shell, 기능은 domain별 종류 library: app에는 진입점·설정·route·조립만 두고, 기능은 domain마다 묶은 library를
+    종류별(화면·use case, 상태 없는 표현, API client·저장소, 순수 함수·type)로 둔다. 둘째 domain이 쓸 때만 공유 library로
+    올린다. 바뀐 library만 검사하고 domain 경계를 도구가 막지만 library마다 설정 파일이 는다
+  - domain마다 app: domain마다 배포 단위 app을 따로 둔다. domain 경계가 배포 경계와 같아지지만 배포 단위가 domain 수만큼 늘어
+    route·인증 공유와 배포 비용이 커진다. 독립 배포·확장 요구의 현재 증거가 없으면 연결된 기준 항목
+    `web-infra-repository-structure.md I1`이 결함으로 본다
+- 먼저 정할 결정: `infra.arch.repository-shape`
+- 되돌림: `costly`. code를 옮기고 import 경로와 build 입력을 다시 쓴다
+- 기본값: app은 배포 shell, 기능은 domain별 종류 library. 바뀐 domain만 검사하고 domain 경계를 도구가 막는다. app이 하나이고
+  작으면 app 안 기능 폴더로 시작해도 된다
+- 확인 단서: `{{binding:repo-structure.workspace-layout}}`의 workspace 선언이 담는 package 목록과 배포 구성의 app image가 담는 source 범위
+- 기준 항목: [web-infra-repository-structure.md I2](../../review-criteria/web-infra-repository-structure.md#i2-배포-shell과-domain-library-경계), [web-infra-repository-structure.md I1](../../review-criteria/web-infra-repository-structure.md#i1-배포-단위저장소-나눔-근거와-경계-계약), [swe.md S4](../../review-criteria/swe.md#s4-책임-경계와-결합도), [swe.md S11](../../review-criteria/swe.md#s11-응집도와-중복-trade-off)
+
+#### infra.arch.test-placement
+
+- 수준: `code-pattern`
+- 질문: test 파일을 어디에 둘까?
+- 선택지:
+  - 층별 가까운 위치: unit·component test는 source 파일 옆에, DB·외부 의존을 쓰는 integration은 그 app·library의 test
+    디렉터리에, app 하나의 e2e는 그 app 안에, 여러 app·DB를 잇는 흐름은 저장소 최상위의 e2e project 하나에 둔다. 바뀐 code와
+    그 test가 함께 보이고 바뀐 부분만 검사하기 쉽지만 층마다 위치 규칙을 정해 문서로 둬야 한다
+  - app마다 source와 같은 모양의 별도 test tree: app 안에 source와 같은 디렉터리 모양의 test 디렉터리를 따로 둔다. source와 test의
+    build 입력을 나누기 쉽지만 파일을 옮길 때 두 tree를 함께 옮겨야 하고 test가 빠져도 잘 보이지 않는다
+  - 저장소 최상위 test 디렉터리 하나: 모든 test를 저장소 root의 한 디렉터리에 모은다. test를 한 곳에서 찾지만 어느 app·library의
+    test인지 경로로 알 수 없어 바뀐 부분만 검사하기 어렵다. project가 둘 이상인 저장소에서 연결된 기준 항목
+    `web-infra-repository-structure.md I3`이 결함으로 본다
+  - service·저장소마다 자기 test와 경계 계약 test: 저장소 여러 개나 service마다 독립 배포를 고른 경우다. service·저장소마다 자기
+    unit·integration을 그 안에 두고, 경계 계약은 소비자 test가 만들어 제공자 build가 검증하며, 여러 service를 잇는 test는 따로 둔다
+- 먼저 정할 결정: `infra.arch.code-unit`
+- 되돌림: `easy`. test 파일을 옮기고 test 설정의 수집 범위를 고친다
+- 기본값: 층별 가까운 위치. 바뀐 code와 그 test가 함께 보이고 바뀐 부분만 검사하기 쉽다. 저장소 여러 개나 service마다 독립 배포를
+  골랐으면 service·저장소마다 자기 test와 경계 계약 test로 둔다
+- 확인 단서: `{{binding:repo-structure.workspace-layout}}`의 e2e project와 test 설정 수집 범위
+- 기준 항목: [web-infra-repository-structure.md I3](../../review-criteria/web-infra-repository-structure.md#i3-test-층-배치와-project-소속), [swe.md S6](../../review-criteria/swe.md#s6-보호-test), [swe.md S12](../../review-criteria/swe.md#s12-동작계약을-고정하는-test), [web-infra-ci-cd.md I1](../../review-criteria/web-infra-ci-cd.md#i1-변경-경로-분류cachelane)
+
+### 구현 지침
+
+- [web-infra-repository-structure.md I1](../../review-criteria/web-infra-repository-structure.md#i1-배포-단위저장소-나눔-근거와-경계-계약)
+- [web-infra-repository-structure.md I2](../../review-criteria/web-infra-repository-structure.md#i2-배포-shell과-domain-library-경계)
+- [web-infra-repository-structure.md I3](../../review-criteria/web-infra-repository-structure.md#i3-test-층-배치와-project-소속)
+
+### 검증 기준
+
+- `web-infra-repository-structure.md I1`
+- `web-infra-repository-structure.md I2`
+- `web-infra-repository-structure.md I3`
+
+### 위험
+
+- 현재 증거·전환 trigger 없이 나눈 저장소·배포 단위·service와 경계 계약 test 없이 나뉜 단위 사이 호환(I1), 고른 code 단위를 어기고 app shell이나 다른 domain에 둔 기능 code·다른 domain library 내부 import·둘째 domain 없이 만든 공유 library·검사 없는 의존 규칙(I2), 경로로 소속을 알 수 없거나 수집 범위 밖인 test(I3)
+- 함께 바뀌는데 나눠 둔 code(상속한 swe S11), 보호하는 code와 갈려 함께 고쳐지지 않는 test(상속한 swe S6), 경계 계약 test 없이 나눈 단위 사이 호환(상속한 swe S5)
+- 비가역 선택: `infra.arch.repository-shape`(`one-way`), `infra.arch.code-unit`(`costly`, 다른 결정이 먼저 정할 결정으로 가리킴)
+
+### binding 키
+
+- `{{binding:repo-structure.workspace-layout}}`: workspace 선언, 최상위와 app의 e2e project, app test 설정의 위치
 
 ## topology-runtime-config
 
@@ -58,47 +155,6 @@ code 단위를 topology-runtime-config에, test 배치를 ci-cd에 둡니다.
 - 확인 단서: `{{binding:repo-structure.infra-runtime}}`의 선언형 설정, `{{binding:repo-structure.infra-scripts}}`의 적용·검증 script
 - 기준 항목: [web-infra-topology-runtime-config.md I5](../../review-criteria/web-infra-topology-runtime-config.md#i5-선언형-configiac-owner와-drift)
 
-#### infra.arch.repository-shape
-
-- 수준: `architecture-style`
-- 질문: 저장소와 배포 단위를 어떤 모양으로 둘까?
-- 선택지:
-  - 한 저장소와 배포 단위 app: 저장소 하나에 배포 단위(app)마다 디렉터리를 두고 공유 code를 함께 둔다. 여러 app에 걸친 변경을
-    한 번에 검토하고 같은 방법으로 build·검사하지만, 저장소가 커지면 바뀐 부분만 검사하는 도구와 경계 규칙이 필요하다
-  - 저장소 여러 개: 팀이나 배포 단위마다 저장소와 build pipeline을 따로 둔다. 권한과 배포 속도를 저장소마다 정하지만 여러 저장소에
-    걸친 변경을 나눠 검토해야 하고 system 전체를 build하는 방법이 팀마다 흩어진다. test는 저장소마다 자기 unit·integration을 그
-    안에 두고, 저장소 사이 경계는 소비자 쪽 test가 만든 계약을 제공자가 자기 build에서 검증하며, 배포 전에 그 환경에 있는 다른
-    app version과 호환되는지 확인한다
-  - service마다 독립 배포와 data: service마다 code·배포·data를 따로 갖고 따로 release한다. service별로 배포·확장하지만 service
-    사이 의존 때문에 여러 service를 잇는 test가 어렵다. test는 service마다 자기 unit·integration과 경계 계약 test를 두고, 여러
-    service를 잇는 e2e는 끝까지 봐야 뜻이 있는 핵심 흐름만 적게 두어 pipeline의 따로 도는 단계로 나눈다. 독립 배포·팀 경계의
-    현재 증거와 전환 trigger가 없으면 연결된 기준 항목 `web-infra-capacity-cost-supply-chain.md I2`이 결함으로 본다
-- 먼저 정할 결정: 없음
-- 되돌림: `one-way`. 저장소·build pipeline·권한과 app 사이 경계 계약을 모두 다시 나눈다
-- 기본값: 한 저장소와 배포 단위 app. 여러 app에 걸친 변경을 한 번에 검토하고 공유 code를 한 곳에서 고친다. 팀 경계마다 권한·배포
-  속도를 따로 가져야 하거나 service별 독립 확장이 측정한 요구가 되면 버린다
-- 확인 단서: 저장소 root의 workspace 선언과 `{{binding:repo-structure.infra-runtime}}`의 app image·host 묶음
-- 기준 항목: [swe.md S5](../../review-criteria/swe.md#s5-계약-호환성), [web-infra-topology-runtime-config.md I1](../../review-criteria/web-infra-topology-runtime-config.md#i1-현재목표-topology와-환경-차이-구분), [web-infra-capacity-cost-supply-chain.md I2](../../review-criteria/web-infra-capacity-cost-supply-chain.md#i2-확장-도입-근거와-비용-가정-출처)
-
-#### infra.arch.code-unit
-
-- 수준: `architecture-style`
-- 질문: 배포 단위 app의 기능 code를 어떤 단위로 나눌까?
-- 선택지:
-  - app 안 기능 폴더: 기능 code를 app 안의 기능 폴더에 둔다. 시작이 가장 간단하지만 바뀐 부분만 검사하는 단위가 app 전체이고,
-    기능 사이 경계는 손으로 쓴 lint 규칙뿐이다
-  - app은 배포 shell, 기능은 domain별 종류 library: app에는 진입점·설정·route·조립만 두고, 기능은 domain마다 묶은 library를
-    종류별(화면·use case, 상태 없는 표현, API client·저장소, 순수 함수·type)로 둔다. 둘째 domain이 쓸 때만 공유 library로
-    올린다. 바뀐 library만 검사하고 domain 경계를 도구가 막지만 library마다 설정 파일이 는다
-  - domain마다 app: domain마다 배포 단위 app을 따로 둔다. domain 경계가 배포 경계와 같아지지만 배포 단위가 domain 수만큼 늘어
-    route·인증 공유와 배포 비용이 커진다
-- 먼저 정할 결정: `infra.arch.repository-shape`
-- 되돌림: `costly`. code를 옮기고 import 경로와 build 입력을 다시 쓴다
-- 기본값: app은 배포 shell, 기능은 domain별 종류 library. 바뀐 domain만 검사하고 domain 경계를 도구가 막는다. app이 하나이고
-  작으면 app 안 기능 폴더로 시작해도 된다
-- 확인 단서: workspace 선언의 package 목록과 `{{binding:repo-structure.infra-runtime}}`의 app image가 담는 source 범위
-- 기준 항목: [swe.md S4](../../review-criteria/swe.md#s4-책임-경계와-결합도), [swe.md S11](../../review-criteria/swe.md#s11-응집도와-중복-trade-off)
-
 ### 구현 지침
 
 - [web-infra-topology-runtime-config.md I1](../../review-criteria/web-infra-topology-runtime-config.md#i1-현재목표-topology와-환경-차이-구분)
@@ -118,8 +174,7 @@ code 단위를 topology-runtime-config에, test 배치를 ci-cd에 둡니다.
 ### 위험
 
 - 현재와 목표를 섞은 구성 그림과 적지 않은 환경 차이(I1), 다시 쓰는 tag·환경마다 다시 하는 build·한 파일에 둔 공개 설정과 secret·production으로 넘어간 자리표시 값(I2), root 실행·전체를 쓸 수 있는 filesystem·종료 신호 무시(I3), 필요 없는 공개 port·넓은 권한·오래 사는 CI 자격 증명·회수 절차 없는 비상 접근(I4), 원본이 둘인 설정과 console에서 생긴 drift(I5), 저장소·image에 쓴 secret(상속한 data-privacy-secret P4)
-- 현재 증거·전환 trigger 없이 나눈 저장소·service(capacity-cost-supply-chain I2), 함께 바뀌는데 나눠 둔 code와 경계를 도구가 막지 못해 여러 기능에 흩어진 code(상속한 swe S4·S11), 경계 계약 test 없이 나눈 저장소·service 사이 호환(상속한 swe S5)
-- 비가역 선택: `infra.topo.runtime-platform`(`one-way`), `infra.arch.repository-shape`(`one-way`), `infra.arch.code-unit`(`costly`, 다른 결정이 먼저 정할 결정으로 가리킴). `infra.topo.secret-injection`·`infra.topo.config-management`는 `costly`이지만 다른 결정이 먼저 정할 결정으로 가리키지 않는다
+- 비가역 선택: `infra.topo.runtime-platform`(`one-way`). `infra.topo.secret-injection`·`infra.topo.config-management`는 `costly`이지만 다른 결정이 먼저 정할 결정으로 가리키지 않는다
 
 ### binding 키
 
@@ -165,27 +220,6 @@ code 단위를 topology-runtime-config에, test 배치를 ci-cd에 둡니다.
 - 확인 단서: `{{binding:repo-structure.ci-workflows}}`의 job 권한·승인 설정
 - 기준 항목: [web-infra-ci-cd.md I2](../../review-criteria/web-infra-ci-cd.md#i2-검증배포-권한-분리와-사람-승인-지점), [web-infra-ci-cd.md I3](../../review-criteria/web-infra-ci-cd.md#i3-target-없는-cd-금지와-owner-하나), [web-operations-release-release-gate.md O2](../../review-criteria/web-operations-release-release-gate.md#o2-rollout-순서호환-구간되돌림사람-승인)
 
-#### infra.arch.test-placement
-
-- 수준: `code-pattern`
-- 질문: test 파일을 어디에 둘까?
-- 선택지:
-  - 층별 가까운 위치: unit·component test는 source 파일 옆에, DB·외부 의존을 쓰는 integration은 그 app·library의 test
-    디렉터리에, app 하나의 e2e는 그 app 안에, 여러 app·DB를 잇는 흐름은 저장소 최상위의 e2e project 하나에 둔다. 바뀐 code와
-    그 test가 함께 보이고 바뀐 부분만 검사하기 쉽지만 층마다 위치 규칙을 정해 문서로 둬야 한다
-  - app마다 source와 같은 모양의 별도 test tree: app 안에 source와 같은 디렉터리 모양의 test 디렉터리를 따로 둔다. source와 test의
-    build 입력을 나누기 쉽지만 파일을 옮길 때 두 tree를 함께 옮겨야 하고 test가 빠져도 잘 보이지 않는다
-  - 저장소 최상위 test 디렉터리 하나: 모든 test를 저장소 root의 한 디렉터리에 모은다. test를 한 곳에서 찾지만 어느 app·library의
-    test인지 경로로 알 수 없어 바뀐 부분만 검사하기 어렵다
-  - service·저장소마다 자기 test와 경계 계약 test: 저장소 여러 개나 service마다 독립 배포를 고른 경우다. service·저장소마다 자기
-    unit·integration을 그 안에 두고, 경계 계약은 소비자 test가 만들어 제공자 build가 검증하며, 여러 service를 잇는 test는 따로 둔다
-- 먼저 정할 결정: `infra.arch.code-unit`
-- 되돌림: `easy`. test 파일을 옮기고 test 설정의 수집 범위를 고친다
-- 기본값: 층별 가까운 위치. 바뀐 code와 그 test가 함께 보이고 바뀐 부분만 검사하기 쉽다. 저장소 여러 개나 service마다 독립 배포를
-  골랐으면 service·저장소마다 자기 test와 경계 계약 test로 둔다
-- 확인 단서: `{{binding:repo-structure.ci-workflows}}`의 제품 test 배치
-- 기준 항목: [swe.md S6](../../review-criteria/swe.md#s6-보호-test), [swe.md S12](../../review-criteria/swe.md#s12-동작계약을-고정하는-test), [web-infra-ci-cd.md I1](../../review-criteria/web-infra-ci-cd.md#i1-변경-경로-분류cachelane)
-
 ### 구현 지침
 
 - [web-infra-ci-cd.md I1](../../review-criteria/web-infra-ci-cd.md#i1-변경-경로-분류cachelane)
@@ -201,7 +235,6 @@ code 단위를 topology-runtime-config에, test 배치를 ci-cd에 둡니다.
 ### 위험
 
 - 어느 lane에도 걸리지 않아 빠지는 검사·입력 일부만 담은 cache key·권한과 동시성 설정 없는 workflow(I1), 배포 권한을 가진 검증 job·사람 승인 없이 운영에 적용하는 자동 경로나 agent·agent 환경에 상시 있는 운영 쓰기 자격 증명(I2), 대상 없는 배포 pipeline과 여러 곳에 복사한 절차(I3), 함께 도는 옛·새 app을 깨는 배포 순서와 되돌림 경로 없는 release(상속한 release-gate O2)
-- 어느 app·library의 test인지 경로로 알 수 없어 lane이 고르지 못하는 test(I1), 보호하는 code와 갈려 함께 고쳐지지 않는 test(상속한 swe S6)
 - 비가역 선택: 없음. `infra.ci.deploy-authority`는 `costly`이지만 다른 결정이 먼저 정할 결정으로 가리키지 않는다
 - 사람 승인 지점: 운영 배포·적용·삭제는 검증 job과 나뉜 배포 경로에서 agent가 계획·diff까지 만들고 사람이 승인한 뒤 실행한다. 정해진 주기로 운영에 적용하는 자동 경로는 그 실행 경로를 만들거나 바꿀 때 사람이 승인하고, 승인된 경로의 주기 실행은 실행 기록을 남긴다(I2). 되돌릴 수 없는 운영 적용(파괴적 schema 변경·data 삭제)은 agent가 계획·diff까지 만들고 사람이 승인한 뒤 실행한다(상속한 release-gate O2)
 
