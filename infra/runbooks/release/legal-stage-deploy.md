@@ -42,8 +42,14 @@
    네 문서 모두 200이고 처리방침은 판 둘(`2026-11-20` 시행 중, `2026-06-22` 이전)이어야 한다. Container 이름은
    `docker ps --format '{{.Names}}'`로 확인한다.
 
-5. 처리방침 첫 개정을 가져와 시행일(승인일 + 7일 이상)을 골라 승인한다([개정](../../../docs/runbooks/legal-publication.md#개정)).
+5. 첫 개정 초안(`apps/api/prisma/seed-data/reference/legal/*-first-revision.draft.json`)을 가져와 시행일(승인일 + 7일 이상)을
+   골라 승인한다([개정](../../../docs/runbooks/legal-publication.md#개정)). 4를 다시 돌려 그 문서의 판이 `scheduled` 하나만큼
+   늘었는지 본다.
 6. Owner가 [document 갱신](#document-갱신)을 한 뒤 `web-cd`를 승인한다. Host가 새 쌍의 법적 문서 출처를 확인한다.
+   `api-cd`와 `web-cd`는 같은 concurrency group(`user-host-production`)이라 먼저 승인을 기다리는 쪽 뒤에서 다른 쪽이 기다린다.
+   `web-cd`가 2(`api-cd`)보다 먼저 group을 잡아 승인을 기다리면 거절한다. 거절했거나 document 갱신 전에 승인해 deploy job이 document
+   해시 대조에서 멈췄으면(SendCommand 전이라 host는 바뀌지 않는다), 갱신 뒤 그 run을 Re-run failed jobs로 다시 돌린다(build는
+   다시 돌지 않는다).
 7. 아래 [공개 확인](#공개-확인)과 [API 중단 시험](#api-중단-시험)을 한다.
 8. 단계 기록(Release)을 확인하고, 첫 개정 시행일 다음 날 공개 화면에서 그 판이 시행 중인지 본다.
 
@@ -65,21 +71,24 @@ SendCommand 전에 멈춘다.
 
 ## 공개 확인
 
-- `/privacy`·`/terms`가 게시본이고 '마지막으로 확인한 문서' 안내가 없다.
+- `/privacy`·`/terms`가 게시본(`data-dormduri-legal-source="published"`)이고 '최신 판을 확인할 수 없어 마지막으로 확인한 판을
+  보여 드립니다.' 안내가 없다.
 - `/privacy`의 판 목록에 이전 판이 있고 `/privacy?version=2026-06-22`가 적용기간(2026-06-22~2026-11-19)을 보인다.
-- 첫 개정 시행 전에는 처리방침 화면과 Landing에 새 판 공지 줄이 있고, 새 판 주소가 변경 요약과 조항 대조표를 보인다.
-- 없는 판 주소(`/terms?version=2026-01-01`)와 형식이 틀린 주소(`/terms?version=next`)가 '해당 시행일의 문서를 찾을 수
-  없습니다'다.
+- 첫 개정 시행 전에는 그 문서 화면에 새 판 공지('…부터 적용하는 새 …이 공지되어 있습니다.'와 '새 판 미리 보기')가, Landing에
+  개정 예고 줄(처리방침 줄이 먼저)이 있고, 새 판 주소가 변경 요약과 '이전 판과 달라진 조항'을 보인다.
+- 없는 판 주소(`/terms?version=2026-01-01`)와 형식이 틀린 주소(`/terms?version=next`)가 HTTP 404와 '이용약관에서 이 판을
+  찾을 수 없습니다'(Web 앱 화면)다. 이 화면은 브라우저가 그리므로 HTML 원문이 아니라 브라우저로 본다.
 - 백오피스 감사 기록에 승인한 판마다 행이 있다.
 
 ## API 중단 시험
 
-API가 멈춘 동안 Web이 마지막 성공본을 내는지 본다. 공개 화면이 잠시 '마지막으로 확인한 문서'로 바뀌므로 이용이 적은 시각에 한다.
+API가 멈춘 동안 Web이 마지막 성공본을 내는지 본다. 공개 화면이 잠시 '마지막으로 확인한 판' 안내로 바뀌므로 이용이 적은 시각에 한다.
 
 1. `/privacy`·`/terms`를 한 번씩 열어 그 응답이 마지막 성공본으로 남게 한다.
 2. Actions > API CD > Run workflow에서 지금 묶음으로 `maintenance`를 보낸다([API 단계 배포](./api-stage-deploy.md#재배포-rollback-api-내림)).
-3. `/privacy`·`/terms`가 '…에 마지막으로 확인한 문서를 보여드려요' 안내와 확인 시각, 본문을 보인다. 마지막 성공본이 없는 주소
-   (`/privacy?version=2026-06-22`를 1에서 열지 않았다면 그 주소)는 '문서를 불러오지 못했습니다'다.
+3. `/privacy`·`/terms`가 '최신 판을 확인할 수 없어 마지막으로 확인한 판을 보여 드립니다.' 안내와 확인 시각, 본문을 보인다.
+   마지막 성공본이 없는 주소(1에서 열지 않은 판 주소, 예: `/terms?version=2026-06-22`)는 '이용약관을 지금 표시할 수
+   없습니다'다(HTTP 200). Landing 개정 예고 줄은 마지막 성공본을 쓰지 않아 API가 돌아올 때까지 보이지 않는다.
 4. Grafana Explore(Loki)에서 그 시각의 Web log 줄을 본다.
 
    ```logql

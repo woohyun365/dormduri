@@ -15,10 +15,11 @@ resource 이름은 "Owner console"로 적습니다. 비용은 [서버 비용](./
 
 ## 지금 상태
 
-- 단계: API 단계와 백오피스 단계(Landing 공개, API는 공개 주소 없이 ingress private listener로 Web BFF에서만 받음, 공개 `/api/**`는
-  JSON 503. 백오피스는 공개 주소 없이 운영자 SSM 포트 포워딩으로만 열림). 가입·로그인은 닫혀 있습니다. Web CD·API CD·Backoffice
-  CD로 배포하며 마지막 배포는 GitHub Release `deploy-web-20261123-20`·`deploy-api-20261123-8`·`deploy-backoffice-20261123-1`
-  (2026-11-23)입니다. 절차와 기록 위치는 [Web 단계 배포](../../infra/runbooks/release/web-stage-deploy.md),
+- 단계: API 단계·백오피스 단계·Legal 단계(Landing 공개, API는 공개 주소 없이 ingress private listener로 Web BFF에서만 받음, 공개
+  `/api/**`는 JSON 503. 백오피스는 공개 주소 없이 운영자 SSM 포트 포워딩으로만 열림. 공개 `/privacy`·`/terms`는 백오피스에서 승인한
+  게시 판을 API에서 읽어 보이고, API가 답하지 못하면 Web이 마지막으로 받은 판을 보임). 가입·로그인은 닫혀 있습니다. Web CD·API CD·
+  Backoffice CD로 배포하며 마지막 배포는 GitHub Release `deploy-web-20261127-21`·`deploy-api-20261127-11`·
+  `deploy-backoffice-20261127-2`(2026-11-27)입니다. 절차와 기록 위치는 [Web 단계 배포](../../infra/runbooks/release/web-stage-deploy.md),
   [API 단계 배포](../../infra/runbooks/release/api-stage-deploy.md),
   [백오피스 단계 배포](../../infra/runbooks/release/backoffice-stage-deploy.md)입니다.
 - DB: API, 배포 때의 migrate one-off, 백오피스 API가 managed PostgreSQL(RDS)에 붙습니다. Migration은 API CD만 rollout 전에
