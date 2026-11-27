@@ -2,8 +2,8 @@
   "schema": "lifecycle-path-domains/v1",
   "confirmedBy": {
     "status": "owner-confirmed",
-    "date": "2026-11-25",
-    "basis": "#1000"
+    "date": "2026-11-27",
+    "basis": "#1012"
   },
   "productRoots": [
     "apps/**",
@@ -261,6 +261,7 @@
     {
       "globs": [
         "apps/web/src/legal/**",
+        "apps/web/src/screens/legal/**",
         "apps/web/src/app/privacy/**",
         "apps/web/src/app/terms/**"
       ],
@@ -277,6 +278,20 @@
     {
       "globs": ["apps/web/src/screens/landing/**"],
       "domains": ["service-boundary", "season-lifecycle"]
+    },
+    {
+      "globs": [
+        "apps/web/src/app/page.tsx",
+        "apps/web/src/screens/landing/components/RevisionNoticeBand.tsx",
+        "apps/web/src/screens/landing/model/landingRevisionNotices.ts",
+        "apps/web/src/screens/ui/model/legalAddress.ts",
+        "apps/web/src/screens/ui/model/legalDates.ts"
+      ],
+      "domains": ["legal-basis"]
+    },
+    {
+      "globs": ["apps/web/src/screens/ui/model/serviceNotices.ts"],
+      "domains": ["service-boundary"]
     },
     {
       "globs": ["apps/web/src/config/env*.ts", "apps/web/next.config.ts"],
@@ -474,7 +489,6 @@
         "apps/web/src/styles/**",
         "apps/web/public/**",
         "apps/web/src/app/layout.tsx",
-        "apps/web/src/app/page.tsx",
         "apps/web/src/app/error.tsx",
         "apps/web/src/app/global-error.tsx",
         "apps/web/src/app/globals.css",

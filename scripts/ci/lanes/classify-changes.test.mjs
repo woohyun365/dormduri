@@ -299,6 +299,8 @@ test('the legal seed files the Web test-only seed source imports select the Web 
     const lanes = classifyChanges([path]);
     assert.equal(lanes.web, true, path);
     assert.equal(lanes.api, true, path);
+    // The Legal stories render this text through the seed source, so the story check runs too.
+    assert.equal(lanes.storybook, true, path);
   }
   assert.equal(
     classifyChanges(['apps/api/prisma/seed-data/reference/seed-legal-documents.js']).web,
@@ -307,12 +309,12 @@ test('the legal seed files the Web test-only seed source imports select the Web 
 });
 
 test('product files that agent tests read select the agent workflow lane, other product files do not', () => {
-  assert.deepEqual(classifyChanges(['apps/web/src/legal/components/LegalDocumentLayout.tsx']), {
+  assert.deepEqual(classifyChanges(['apps/web/src/legal/test-support/legal-seed-documents.ts']), {
     web: true,
     api: false,
     backoffice: false,
     shared: false,
-    storybook: false,
+    storybook: true,
     infra: false,
     repoPolicy: false,
     agentWorkflow: true,

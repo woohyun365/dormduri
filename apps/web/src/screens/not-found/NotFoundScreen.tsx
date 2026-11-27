@@ -1,6 +1,5 @@
 import { BrandLogo } from '@/screens/ui/brand';
-import { BackButton } from './components/BackButton';
-import { controlButton } from './components/buttons';
+import { BackButton, controlButton } from '@/screens/ui/controls';
 import { notFoundCopy } from './model/notFoundCopy';
 
 // The screen for an address this site does not have (app/not-found.tsx). A white page in the light
@@ -33,7 +32,7 @@ export function NotFoundScreen() {
           <a href="/" className={controlButton}>
             {notFoundCopy.homeLabel}
           </a>
-          <BackButton />
+          <BackButton label={notFoundCopy.backLabel} />
         </div>
       </main>
     </div>

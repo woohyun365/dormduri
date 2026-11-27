@@ -12,7 +12,6 @@ const config: StorybookConfig = {
   },
   stories: [
     '../src/auth/**/*.stories.@(ts|tsx)',
-    '../src/legal/__stories__/**/*.stories.@(ts|tsx)',
     '../src/observability/**/*.stories.@(ts|tsx)',
     '../src/main/tabs/home/**/*.stories.@(ts|tsx)',
     '../src/main/tabs/chat/**/*.stories.@(ts|tsx)',

@@ -375,7 +375,7 @@ function legalEvidence({ officialVerified }) {
     { path: 'apps/web/src/app/api/legal/documents/active-bundle/route.ts', kind: 'bff' },
     { path: 'apps/api/src/legal/legal.controller.ts', kind: 'controller' },
     { path: 'packages/shared/src/legal/contract.ts', kind: 'contract' },
-    { path: 'apps/web/src/legal/__tests__/legal-document-pages.test.tsx', kind: 'test' },
+    { path: 'apps/web/src/screens/legal/__tests__/LegalDocumentScreen.test.tsx', kind: 'test' },
     { path: 'apps/api/src/legal/contracts/legal-public-api.spec.ts', kind: 'test' },
     {
       path: 'https://www.law.go.kr/',

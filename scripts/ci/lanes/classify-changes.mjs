@@ -37,12 +37,14 @@ export function isIntendedFanOut(rawPath) {
 
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
-// Web sources that the Storybook story check renders (token sources and the new screen layer, plus the
-// globals.css entry that imports the generated token CSS, the PostCSS config that runs Tailwind and the React
-// Compiler config that .storybook/main.ts imports for the Storybook build) and that check's own config and specs.
+// Web sources that the Storybook story check renders (token sources and the new screen layer, the test-only
+// legal seed source the Legal stories read with the API seed files it imports, plus the globals.css entry that
+// imports the generated token CSS, the PostCSS config that runs Tailwind and the React Compiler config that
+// .storybook/main.ts imports for the Storybook build) and that check's own config and specs.
 const STORYBOOK_CHECK_PREFIXES = [
   'apps/web/src/styles/',
   'apps/web/src/screens/',
+  'apps/web/src/legal/test-support/',
   'apps/web/e2e/storybook/',
 ];
 const STORYBOOK_CHECK_PATHS = new Set([
@@ -247,13 +249,6 @@ export const AGENT_TEST_PRODUCT_INPUTS = {
     'apps/web/src/components/ui/Button.tsx',
     'apps/web/src/components/ui/Chip.tsx',
     'apps/web/src/legal/README.md',
-    'apps/web/src/legal/__tests__/legal-document-pages.test.tsx',
-    'apps/web/src/legal/api/legal-document.mapper.ts',
-    'apps/web/src/legal/components/LegalDocumentActions.tsx',
-    'apps/web/src/legal/components/LegalDocumentBackButton.tsx',
-    'apps/web/src/legal/components/LegalDocumentLayout.tsx',
-    'apps/web/src/legal/components/LegalDocumentUnavailable.tsx',
-    'apps/web/src/legal/content/legal-copy.ts',
     'apps/web/src/legal/test-support/legal-seed-documents.ts',
     'apps/web/src/main/README.md',
     'apps/web/src/main/hooks/__tests__/useMainProfileState.dom.test.ts',
@@ -274,6 +269,12 @@ export const AGENT_TEST_PRODUCT_INPUTS = {
     'apps/web/src/main/tabs/roommate-list/hooks/__tests__/useRoommateBookmarkList.test.tsx',
     'apps/web/src/main/tabs/roommate-list/hooks/useDesktopRoommateLayout.ts',
     'apps/web/src/screens/README.md',
+    'apps/web/src/screens/legal/LegalDocumentScreen.tsx',
+    'apps/web/src/screens/legal/__tests__/LegalDocumentScreen.test.tsx',
+    'apps/web/src/screens/legal/components/DocumentActions.tsx',
+    'apps/web/src/screens/legal/model/legalDocumentModel.ts',
+    'apps/web/src/screens/legal/model/legalScreenCopy.ts',
+    'apps/web/src/screens/ui/controls/BackButton.tsx',
     'apps/web/src/styles/knu.css',
     'apps/web/src/styles/tokens/README.md',
     'packages/database/prisma/schema.prisma',
@@ -372,6 +373,7 @@ export function classifyChanges(paths) {
       result.api = true;
       result.repoPolicy ||= isApiTestFile(path);
       result.web ||= WEB_TEST_API_SEED_FILES.includes(path);
+      result.storybook ||= WEB_TEST_API_SEED_FILES.includes(path);
       matched = true;
     }
 

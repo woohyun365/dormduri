@@ -22,7 +22,7 @@ const legalEvidence = [
   { path: 'apps/web/src/legal/README.md', kind: 'owner-readme' },
   { path: 'apps/api/src/legal/legal.controller.ts', kind: 'controller' },
   { path: 'packages/shared/src/legal/contract.ts', kind: 'contract' },
-  { path: 'apps/web/src/legal/__tests__/legal-document-pages.test.tsx', kind: 'test' },
+  { path: 'apps/web/src/screens/legal/__tests__/LegalDocumentScreen.test.tsx', kind: 'test' },
 ];
 
 test('scoped delivery preserves every original child contract field and safety boundary', () => {

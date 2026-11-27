@@ -1,6 +1,49 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { isValidElement } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { LegalDocumentKind, type LegalRevisionNotice } from '@repo/shared/legal';
+import { LandingScreen } from '@/screens/landing';
+
+// The `/` route reads the legal revision notices per request (D-LU17). The loader (apps/web/src/legal/api)
+// and Next's request marker are mocked here (vi.mock is hoisted above the imports).
+const request = vi.hoisted(() => ({
+  loadLegalRevisionNotices: vi.fn(),
+  connection: vi.fn(async () => undefined),
+  order: [] as string[],
+}));
+vi.mock('@/legal/api/legal-document.server', () => ({
+  loadLegalRevisionNotices: (...args: unknown[]) => {
+    request.order.push('loader');
+    return request.loadLegalRevisionNotices(...args);
+  },
+}));
+vi.mock('next/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/server')>()),
+  connection: () => {
+    request.order.push('connection');
+    return request.connection();
+  },
+}));
+
+const { default: Home } = await import('../page');
+
+const notice: LegalRevisionNotice = {
+  kind: LegalDocumentKind.PRIVACY_POLICY,
+  versionKey: '2026-12-21',
+  status: 'scheduled',
+  appliesFrom: '2026-12-21',
+  appliesUntil: null,
+  changeSummary: '변경 요약',
+  consentRequired: false,
+};
+
+async function landingProps() {
+  const element = await Home();
+  expect(isValidElement(element)).toBe(true);
+  expect((element as { type: unknown }).type).toBe(LandingScreen);
+  return (element as { props: { revisionNotices?: readonly LegalRevisionNotice[] } }).props;
+}
 
 const readAppSource = (relativePath: string) =>
   readFileSync(path.join(process.cwd(), 'src', 'app', relativePath), 'utf8');
@@ -58,5 +101,49 @@ describe('public landing route boundary', () => {
       expect(source).not.toMatch(/from\s+['"]@\/components\/Skeleton['"]/);
       expect(source).not.toMatch(/from\s+['"][^'"]*components\/Skeleton['"]/);
     }
+  });
+
+  describe('revision notices (D-LU17)', () => {
+    beforeEach(() => {
+      request.loadLegalRevisionNotices.mockReset();
+      request.order.length = 0;
+    });
+
+    it('reads the revision notices at request time and passes them to the landing (D-LU17)', async () => {
+      request.loadLegalRevisionNotices.mockResolvedValue({
+        status: 'published',
+        data: { notices: [notice] },
+      });
+
+      expect((await landingProps()).revisionNotices).toEqual([notice]);
+      // connection() first: the route is rendered per request and the build never reads the API
+      // (Next.js 16.4 connection; no force-dynamic export, see above).
+      expect(request.order).toEqual(['connection', 'loader']);
+      expect(pageSource).toMatch(/await\s+connection\(\)[\s\S]*loadLegalRevisionNotices\(/);
+    });
+
+    it('cuts the revision notices read short so a stalled API does not hold the landing (D-LU17)', async () => {
+      request.loadLegalRevisionNotices.mockResolvedValue({ status: 'unavailable' });
+      await landingProps();
+
+      // Only the landing line reads with a short timeout; the document pages keep the loader's own
+      // timeout. The landing draws only an API answer, so it keeps no copy and serves none.
+      const [options] = request.loadLegalRevisionNotices.mock.calls.at(-1) ?? [];
+      expect(options).toEqual({ timeoutMs: expect.any(Number), lastSuccess: 'none' });
+      expect((options as { timeoutMs: number }).timeoutMs).toBeLessThanOrEqual(500);
+    });
+
+    it('renders the landing without the band when the notices cannot be read (D-LU17)', async () => {
+      request.loadLegalRevisionNotices.mockResolvedValue({ status: 'unavailable' });
+      expect((await landingProps()).revisionNotices).toEqual([]);
+
+      // A kept copy has no check time on the landing and may name a version already in force.
+      request.loadLegalRevisionNotices.mockResolvedValue({
+        status: 'last-success',
+        data: { notices: [notice] },
+        checkedAt: '2026-11-25T09:30:00.000Z',
+      });
+      expect((await landingProps()).revisionNotices).toEqual([]);
+    });
   });
 });

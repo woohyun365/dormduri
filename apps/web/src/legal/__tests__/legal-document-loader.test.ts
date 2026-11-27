@@ -289,6 +289,83 @@ describe('legal comparison and revision notice loaders', () => {
     ).not.toBeNull();
   });
 
+  it('gives up on the revision notices after a shorter timeout the caller names', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    let signal: AbortSignal | undefined;
+    const fetcher = vi.fn(
+      (_url: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          signal = init?.signal ?? undefined;
+          signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          );
+        }),
+    );
+
+    const pending = loadLegalRevisionNotices({ fetcher, directory, timeoutMs: 500 });
+    await vi.advanceTimersByTimeAsync(499);
+    expect(signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(signal?.aborted).toBe(true);
+
+    expect(await pending).toEqual({ status: 'unavailable' });
+  });
+
+  it('answers only the kept copy, without asking the API, when the caller says so', async () => {
+    const comparison = seedLegalVersionComparison(PRIVACY, '2026-11-20')!;
+    const key = { endpoint: 'comparison', kind: PRIVACY, versionKey: '2026-11-20' } as const;
+    const fetcher = vi.fn<typeof fetch>(async () => json(comparison));
+
+    expect(
+      await loadLegalVersionComparison(PRIVACY, '2026-11-20', {
+        fetcher,
+        directory,
+        lastSuccess: 'only',
+      }),
+    ).toEqual({ status: 'unavailable' });
+    await writeLegalLastSuccess(key, comparison, CHECKED_AT, { directory });
+    expect(
+      await loadLegalVersionComparison(PRIVACY, '2026-11-20', {
+        fetcher,
+        directory,
+        lastSuccess: 'only',
+      }),
+    ).toEqual({ status: 'last-success', data: comparison, checkedAt: CHECKED_AT.toISOString() });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(events).toEqual([
+      expect.objectContaining({
+        action: 'served',
+        endpoint: 'comparison',
+        versionKey: '2026-11-20',
+      }),
+    ]);
+  });
+
+  it('neither keeps nor answers a copy for a caller that does not use one', async () => {
+    const notices = seedLegalRevisionNotices();
+
+    expect(
+      await loadLegalRevisionNotices({
+        fetcher: vi.fn(async () => json(notices)),
+        directory,
+        lastSuccess: 'none',
+      }),
+    ).toEqual({ status: 'published', data: notices });
+    expect(readdirSync(directory)).toEqual([]);
+
+    await writeLegalLastSuccess({ endpoint: 'revision-notices' }, notices, CHECKED_AT, {
+      directory,
+    });
+    expect(
+      await loadLegalRevisionNotices({
+        fetcher: vi.fn(async () => apiError(503, 'LEGAL_DOCUMENTS_UNAVAILABLE')),
+        directory,
+        lastSuccess: 'none',
+      }),
+    ).toEqual({ status: 'unavailable' });
+    expect(events).toEqual([]);
+  });
+
   it('keeps and answers the revision notices', async () => {
     const notices = seedLegalRevisionNotices();
 

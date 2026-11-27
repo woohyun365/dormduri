@@ -204,7 +204,7 @@ const screensRelativeDepthBlocks = [0, 1, 2, 3, 4, 5, 6].map((depth) => ({
 // (allowlist only), import.meta, /// <reference> directives, aliased require and require.resolve.
 const modelRoot = 'src/screens/*/model';
 const modelTestIgnores = ['src/screens/**/__tests__/**', 'src/screens/**/*.{test,spec}.{ts,tsx}'];
-const modelAllowlist = `같은 model/ 안 상대 경로, @repo/shared/**, zod만 import합니다. ${screensReadme}`;
+const modelAllowlist = `같은 model/ 안 상대 경로, 공용 순수 module src/screens/ui/model/로 가는 상대 경로, @repo/shared/**, zod만 import합니다. ${screensReadme}`;
 const modelAllowlistPattern = {
   regex: String.raw`^(?!\.{1,2}/|@repo/shared/|zod$)`,
   message: `model/은 Next.js·React·React Native·Expo·Node builtin·@/ Web alias·그 밖 package를 import하지 않고 ${modelAllowlist}`,
@@ -260,14 +260,16 @@ const screensModelBlocks = [
     },
   },
   // A file `depth` directories below model/ may climb `depth` levels. A trailing `..` counts as a
-  // level: '../..' from model/sub/ points at the feature root, which exports the React screen.
+  // level: '../..' from model/sub/ points at the feature root, which exports the React screen. The
+  // one way further out is the shared pure modules (D-LU16): exactly `depth + 2` levels up into
+  // ui/model/, with no `..` after it; the `@/screens/ui/model` alias stays an error like every `@/`.
   ...[0, 1, 2, 3, 4].map((depth) => ({
     files: [`${modelRoot}/${'*/'.repeat(depth)}*.{ts,tsx}`],
     ignores: modelTestIgnores,
     rules: {
       'no-restricted-imports': modelImports([
         {
-          regex: String.raw`^(?:\./)?(?:\.\.(?:/|$)){${depth + 1}}`,
+          regex: String.raw`^(?:\./)?(?!(?:\.\./){${depth + 2}}ui/model/(?!(?:.*/)?\.\.(?:/|$)))(?:\.\.(?:/|$)){${depth + 1}}`,
           message: `model/ 밖의 파일은 상대 경로로 import하지 않습니다. model은 ${modelAllowlist}`,
         },
       ]),

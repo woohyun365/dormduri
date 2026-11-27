@@ -1,3 +1,4 @@
+import { serviceInquiryAddress, serviceInquiryLabel } from '../../ui/model/serviceNotices';
 import { LANDING_SURFACE_SECTION_IDS } from './landingPolicyCopy';
 
 // Copy and data for the landing. Policy notices come from ./landingPolicyCopy; the rest is screen copy
@@ -27,10 +28,18 @@ export const landingCopy = {
     termsLabel: '이용약관',
     // The name the law gives it, with the space (docs/policies/legal-basis.md LB-R1); the e2e pins it.
     privacyLabel: '개인정보 처리방침',
-    inquiryLabel: '서비스 외부 문의',
-    // The inquiry address is text, not a link: the service's own mailbox, which the Owner set up for
-    // it (2026-10-27). The terms and privacy pages call it the public inquiry contact.
-    inquiryAddress: 'wooriduri.roommate@gmail.com',
+    // The inquiry label and address come from the one source the Legal footer shares
+    // (screens/ui/model/serviceNotices.ts). The address is text, not a link.
+    inquiryLabel: serviceInquiryLabel,
+    inquiryAddress: serviceInquiryAddress,
+  },
+  // The revision line above the header: one line per public document with a version announced and not
+  // yet in force (D-LU17). The document names are the footer link names; the privacy line names the
+  // policy by law (LB-R1).
+  revisionNotice: {
+    regionLabel: '개정 예고',
+    line: (date: string, name: string) => `${date}부터 ${name}이 바뀝니다.`,
+    linkLabel: (name: string) => `새 ${name} 보기`,
   },
 } as const;
 

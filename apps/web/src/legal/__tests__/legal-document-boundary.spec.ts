@@ -95,4 +95,15 @@ describe('web legal document boundary', () => {
     expect(directLinkSources.join('\n')).toMatch(/이용약관/);
     expect(directLinkSources.join('\n')).toMatch(/개인정보처리방침|개인정보 처리방침/);
   });
+
+  it('legal screens import no legacy legal screen parts (G-LU9)', () => {
+    // The product files of the new legal screens: stories and tests may read the test-only seed.
+    const screenSources = listSourceFiles('screens/legal').filter(
+      (file) => !file.includes('__stories__') && !/\.test\.tsx?$/.test(file),
+    );
+    expect(screenSources.length).toBeGreaterThan(0);
+    for (const file of screenSources) {
+      expect([file, readSource(file)]).not.toEqual([file, expect.stringContaining('@/legal/')]);
+    }
+  });
 });

@@ -53,7 +53,7 @@ test('treats the agent workflow lane as a policy lane, not a second product lane
       semantic: { independentOutcomes: 1 },
     },
     evidence: {
-      changedPaths: ['apps/web/src/legal/components/LegalDocumentLayout.tsx'],
+      changedPaths: ['apps/web/src/legal/test-support/legal-seed-documents.ts'],
       selectedLanes: ['web', 'agentWorkflow'],
     },
   });

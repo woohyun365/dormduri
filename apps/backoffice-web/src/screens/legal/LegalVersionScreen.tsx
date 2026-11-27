@@ -147,7 +147,7 @@ function NewDraftDrawer({
           id="legal-new-draft-change"
           name="changeSummary"
           label="변경 요약"
-          hint="공개 화면의 판 목록과 개정 예고에 보입니다."
+          hint="공개 문서 화면의 그 판 머리에 그대로 보입니다."
           rows={3}
           maxLength={8000}
         />

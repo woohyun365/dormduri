@@ -20,18 +20,6 @@ function formatKoreanDateLabel(value: string): string {
   return `${year}년 ${Number(month)}월 ${Number(day)}일`;
 }
 
-const KST_OFFSET_MS = 9 * 60 * 60 * 1_000;
-
-/** A checked time (ISO instant) as Korea Standard Time text, e.g. `2026년 11월 25일 18:30`. */
-export function formatLegalCheckedAtLabel(checkedAt: string): string {
-  const kst = new Date(Date.parse(checkedAt) + KST_OFFSET_MS);
-  if (Number.isNaN(kst.getTime())) return '';
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${kst.getUTCFullYear()}년 ${kst.getUTCMonth() + 1}월 ${kst.getUTCDate()}일 ${pad(
-    kst.getUTCHours(),
-  )}:${pad(kst.getUTCMinutes())}`;
-}
-
 function normalizeHeadingId(input: string, index: number): string {
   const slug = input
     .trim()

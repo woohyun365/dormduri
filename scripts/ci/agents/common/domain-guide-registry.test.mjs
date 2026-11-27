@@ -19,11 +19,11 @@ const fixtures = JSON.parse(
 
 const legalEvidence = [
   { path: 'docs/policies/legal-basis.md' },
-  { path: 'apps/web/src/legal/components/LegalDocumentLayout.tsx' },
+  { path: 'apps/web/src/screens/legal/LegalDocumentScreen.tsx' },
   { path: 'apps/web/src/app/api/legal/documents/[kind]/route.ts' },
   { path: 'apps/api/src/legal/legal.controller.ts' },
   { path: 'packages/shared/src/legal/contract.ts' },
-  { path: 'apps/web/src/legal/__tests__/legal-document-pages.test.tsx' },
+  { path: 'apps/web/src/screens/legal/__tests__/LegalDocumentScreen.test.tsx' },
 ];
 
 test('discovers policy, FE, BFF, BE, shared contract, and test candidates for Legal analysis', () => {

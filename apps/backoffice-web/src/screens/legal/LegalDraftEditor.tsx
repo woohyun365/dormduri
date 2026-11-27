@@ -458,7 +458,7 @@ export function LegalDraftEditor({
             <TextAreaField
               id="legal-draft-change-summary"
               label="변경 요약"
-              hint="공개 화면의 판 목록과 개정 예고에 보입니다. 무엇이 왜 바뀌는지 적습니다."
+              hint="공개 문서 화면의 그 판 머리에 그대로 보입니다. 무엇이 왜 바뀌는지 적고, 주요 변경은 '주요 변경:' 뒤에 짧은 문장으로 하나씩 적습니다."
               value={content.changeSummary}
               rows={3}
               maxLength={8000}
