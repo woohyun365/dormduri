@@ -57,17 +57,22 @@ pnpm --dir apps/web exec playwright install chromium
 
 ## 테스트 경계
 
-- Unit/component/hook 테스트는 `apps/web/src/**/*.test.{ts,tsx}` 또는 `__tests__` 아래에 둔다.
+- Unit/component/hook 테스트는 source 파일 옆에 `*.test.{ts,tsx}`로 둔다. 지금은 `__tests__`와 source 옆이 섞여 있고,
+  `__tests__`는 영역마다 source 옆으로 옮긴다. Test 층 배치 값은 [binding의 고른 값](../../development/agent-workflows/domain/knu-binding.md#고른-값)
+  `infra.arch.test-placement` 행이, 원칙은 pack 결정 [`infra.arch.test-placement`](../../development/agent-workflows/domain/swe-web/infra.md#infraarchtest-placement)가 소유한다.
 - 컴포넌트 테스트는 `getByRole`, `getByLabelText`, accessible name 기반 query를 우선한다. `data-testid`는 role/name으로 표현하기 어려운 상태나 구조 검증에만 사용한다.
 - 공통 render는 `apps/web/src/test/render.tsx`의 `renderWithProviders`를 우선 사용한다.
 - BFF route 테스트는 `apps/web/src/test/bff-route.ts`의 `createBffRequest`, `stubJsonFetch`, `firstFetchInput`, `firstFetchInit`를 사용해 request/fetch stub 모양을 맞춘다.
 - `apps/web/src/test-setup.ts`는 Testing Library matcher와 jsdom 공통 gap(`matchMedia`, `scrollTo`, `scrollIntoView`)을 제공한다. 개별 테스트에서 같은 mock을 반복하지 않는다.
 - Story/test fixture는 owning domain의 `stories/fixtures/`, `__stories__/`, test-support 경계에 둔다. shared contract나 fixture shape 변경은 focused regression test로 드러나게 한다.
 - Playwright spec은 `apps/web/e2e/`에 둔다. Locator는 role/name 기반을 우선하고, 실패 산출물은 `apps/web/playwright-report/`, `apps/web/test-results/`에 생성된다.
+  App 하나의 e2e는 그 app의 `e2e/`(백오피스 Web은 `apps/backoffice-web/e2e/`)에 둔다. 여러 app·DB를 잇는 흐름의 자리는 최상위
+  `e2e/` workspace이고, 그것을 만들기 전 spec은 `apps/web/e2e/*.fullstack.spec.ts`다.
 - 기본 browser smoke는 Chromium desktop/mobile project를 사용한다. Cross-browser matrix나 strict visual diff는 별도 CI/infra 후속 범위다.
 - 인증 상태 파일은 secret성 runtime artifact로 취급해 `apps/web/playwright/.auth/`에 저장하고 git에는 올리지 않는다.
 
-새 화면 계층(`apps/web/src/screens/**`)의 화면 test는 다음 값을 고른다. 사례는 [Landing](../../../apps/web/src/screens/landing/README.md#검증)과
+다시 만든 화면의 화면 test는 다음 값을 고른다. 지금은 새 화면 계층(`apps/web/src/screens/**`)이고, 다른 영역도 그 영역을
+다시 만들 때 이 값을 따른다. 사례는 [Landing](../../../apps/web/src/screens/landing/README.md#검증)과
 [Legal](../../../apps/web/src/screens/legal/README.md#검사)이다.
 
 - 실패하면 사용자에게 문제가 생기는 동작만 test한다. 섹션 순서·DOM 구조·class 이름·스냅샷은 고정하지 않는다. 문구와 구성을 다시

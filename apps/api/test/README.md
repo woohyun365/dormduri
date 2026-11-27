@@ -44,7 +44,14 @@ API public 명령은 fresh checkout에서 단독 실행할 수 있도록 `ci:pre
 [swe S12](../../../docs/development/agent-workflows/review-criteria/swe.md#s12-동작계약을-고정하는-test)와
 [S6](../../../docs/development/agent-workflows/review-criteria/swe.md#s6-보호-test)이다.
 
-- 동작은 가장 가까운 층에서 검사한다: unit은 domain 규칙과 순수 판정, integration은 DB·transaction·grant, e2e는 route 계약.
+- 동작은 가장 가까운 층에서 검사한다: unit은 domain 규칙·순수 판정과 빠른 route 계약, integration은 DB·transaction·grant, e2e는
+  실제 HTTP 경계의 journey.
+- Test 위치: unit은 source 옆 `src/**/*.spec.ts`, DB integration은 `test/integration/**/*.integration.spec.ts`, 실제 HTTP e2e는
+  `test/e2e/**/*.e2e-spec.ts`, 정적 계약은 `test/architecture/`·`test/operations/`다. 배치 값은
+  [binding의 고른 값](../../../docs/development/agent-workflows/domain/knu-binding.md#고른-값) `infra.arch.test-placement` 행이 소유한다.
+- Route 계약: 빠른 route·command 계약은 그 domain의 `src/<domain>/contracts/*.spec.ts`(unit lane, 저장소 대역. HTTP 응답까지 보는
+  계약은 Nest test module과 supertest)이고, 실제 HTTP·DB를 잇는 journey는 `test/e2e`나 integration이다. 백오피스 API는 e2e lane이
+  없어 integration이 HTTP·DB journey를 맡는다.
 - import 방향과 금지 import는 각 app의 `eslint.config.mjs`가 지키고 test로 복제하지 않는다.
 - 지운 module·옛 이름이 없다는 test는 두지 않는다.
 - negative는 인증·권한·입력 검증·fail-closed 경로에 둔다. route마다의 접근 규칙은 route 전수 표

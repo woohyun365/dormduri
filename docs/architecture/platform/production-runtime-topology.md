@@ -280,11 +280,20 @@ flowchart LR
 ### Repository와 deploy 구조 목표
 
 ```text
-apps/
+apps/                        # 배포 shell 넷: 진입점·설정·route·조립
 ├── web/
 ├── api/
 ├── backoffice-web/
 └── backoffice-api/
+
+packages/
+├── <domain>/<type>/         # 목표: domain별 종류 library(feature·ui·data-access·util), 영역을 다시 만들 때 옮김
+├── shared/                  # 두 domain 이상이 쓰는 contract·code
+├── database/                # Prisma schema·migration·DB role grant
+├── eslint-config/
+└── tsconfig/
+
+e2e/                         # 목표: 여러 app·DB를 잇는 흐름 test의 workspace
 
 infra/
 ├── deploy/
@@ -304,6 +313,13 @@ scripts/infra/user-host/     # user host 묶음의 구조 계약·ingress smoke�
 scripts/infra/backoffice-host/ # 백오피스 host 묶음의 구조 계약·ingress smoke·SSM document 생성·schema gate
 ```
 
+- 저장소는 하나이고 배포 단위는 app 넷이다([저장소 모양](../decisions/infra.md#infraarchrepository-shape)). App은 배포 shell이라
+  진입점·설정·route·조립만 둔다. 기능 code는 domain별 종류 library(`packages/<domain>/<type>`)로 옮기는 중이고, 영역을 다시 만들
+  때 옮긴다(Legal이 첫 영역). 그때까지 app 안에는 domain 폴더와 기술 폴더가 섞여 있다. 두 domain 이상이 쓰는 것만
+  `packages/shared`에 둔다([code 단위](../decisions/infra.md#infraarchcode-unit)).
+- 여러 app·DB를 잇는 흐름 test의 자리는 최상위 `e2e/` workspace(자기 package와 browser test 설정)다. 만들기 전에는 그 spec이
+  `apps/web/e2e/*.fullstack.spec.ts`에 있다. Test 층 배치 값은 [binding의 고른 값](../../development/agent-workflows/domain/knu-binding.md#고른-값)
+  `infra.arch.test-placement` 행이 소유한다.
 - App image 정의는 `infra/deploy/<app>/`에, 한 host에서 함께 도는 구성은 `infra/deploy/<host>/` 하나에 둔다. 그 host만
   쓰는 image(ingress)는 host 묶음 안에 둔다.
 - 계정 단위 AWS resource(배포·publish·host role, OIDC 조건, ECR 수명 정책)의 정책 원본은 host 묶음이 아니라 `infra/aws/`에
@@ -336,12 +352,13 @@ Release gate가 쓰는 container limit과 이후 단계 planning budget은
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                    |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 2026-08-11 | User App 4GiB와 미래 BackOffice 2GiB를 분리하고 managed PostgreSQL을 공유하는 topology를 확정했다.                           |
-| 2026-10-20 | 루트 README에 있던 출시 전 배포 구성도와 설명을 이 문서로 옮겼다.                                                            |
-| 2026-10-31 | 지금 적용한 Web 단계 배치를 첫 절로 두고 기존 결정·구성도·책임 경계를 이후 목표 절로 옮겼다.                                 |
-| 2026-11-03 | 구조 목표를 app image·host 묶음·계정 resource·rehearsal 덮어쓰기로 나누고 API 단계가 user host 묶음에 합쳐지게 했다.         |
-| 2026-11-10 | API 묶음을 같은 host 묶음 안의 따로 배포하는 조각으로 두고, private listener를 주소 허용 방식으로, 지금 단계에 RDS를 더했다. |
-| 2026-11-22 | 백오피스 host 묶음의 접속·publish 경계, 관측 수신 gateway, repository 구조를 실제 구성으로 바꿨다.                           |
-| 2026-11-23 | 백오피스 단계 첫 배포 뒤 첫 절을 지금 단계(BackOffice host·운영자 포트 포워딩·backoffice-cd·사람 DB 조회 경로)로 고쳤다.     |
+| 날짜       | 변경 내용                                                                                                                        |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-11 | User App 4GiB와 미래 BackOffice 2GiB를 분리하고 managed PostgreSQL을 공유하는 topology를 확정했다.                               |
+| 2026-10-20 | 루트 README에 있던 출시 전 배포 구성도와 설명을 이 문서로 옮겼다.                                                                |
+| 2026-10-31 | 지금 적용한 Web 단계 배치를 첫 절로 두고 기존 결정·구성도·책임 경계를 이후 목표 절로 옮겼다.                                     |
+| 2026-11-03 | 구조 목표를 app image·host 묶음·계정 resource·rehearsal 덮어쓰기로 나누고 API 단계가 user host 묶음에 합쳐지게 했다.             |
+| 2026-11-10 | API 묶음을 같은 host 묶음 안의 따로 배포하는 조각으로 두고, private listener를 주소 허용 방식으로, 지금 단계에 RDS를 더했다.     |
+| 2026-11-22 | 백오피스 host 묶음의 접속·publish 경계, 관측 수신 gateway, repository 구조를 실제 구성으로 바꿨다.                               |
+| 2026-11-23 | 백오피스 단계 첫 배포 뒤 첫 절을 지금 단계(BackOffice host·운영자 포트 포워딩·backoffice-cd·사람 DB 조회 경로)로 고쳤다.         |
+| 2026-11-27 | 구조 목표에 배포 shell인 app 넷, 기능 code의 domain library 목표, 최상위 `e2e/` workspace와 저장소 구조 결정 기록 링크를 더했다. |

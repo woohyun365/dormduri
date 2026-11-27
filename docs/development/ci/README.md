@@ -23,6 +23,8 @@ Renovate 같은 bot이나 도구가 갱신하는 값(dependency version, lockfil
 [review criteria](../agent-workflows/review-criteria/README.md)의 layer 기준 문서가 소유하고, 이 절은 scripts test에 적용하는
 기준만 둡니다.
 
+Test 층 배치의 원칙은 pack 결정 [`infra.arch.test-placement`](../agent-workflows/domain/swe-web/infra.md#infraarchtest-placement)가, app·library의 값은 [binding의 고른 값](../agent-workflows/domain/knu-binding.md#고른-값) 행이 소유하고, scripts test는 이 절 기준만 따릅니다.
+
 1. 측정·조사 기록은 evidence 문서와 Git 이력에 두고 fixture로 고정하지 않습니다. Test는 그 값을 다시 적어 단언하지 않습니다.
 2. 사건 순서·옛 이름은 단언하지 않습니다. 과거 run·PR의 순서와 닫힌 측정 구간을 test가 고정하지 않습니다. 지운 이름·설계가
    돌아오지 않는다는 test는 S12 조건(보안·신뢰 경계나 되돌리기 어려운 결정, 근거 결정 기록 링크)일 때만 둡니다.
