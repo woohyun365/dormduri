@@ -10,15 +10,18 @@ resource 이름은 "Owner console"로 적습니다. 비용은 [서버 비용](./
   Registry·DB 경보·관측·GitHub 행을 GitHub Release 목록과 원격 조회(environment·secret 이름)로 다시 확인했습니다. 2026-11-23
   백오피스 단계 첫 배포 뒤 지금 상태·Host·배포 전달·권한·Registry·DB·DB network·Secret·관측·GitHub·감사 trail 행과 Budgets를
   단계 기록 Release와 읽기 전용 조회(Lightsail·ECR·Secrets Manager·CloudTrail·Budgets, environment·secret 이름)로 대조했습니다.
+  2026-11-27 Legal 단계 배포 뒤 지금 상태 행을 단계 기록 Release 셋과 공개 확인으로 대조했습니다. Legal 단계는 resource를
+  만들거나 지우지 않았습니다(`dormduri-web-deploy` document는 새 version만).
 - 다시 볼 때: resource를 만들거나 지우거나 상태를 바꿀 때([이 문서를 고치는 때](#이-문서를-고치는-때)), 저장소 공개 상태를 바꾸기
   전, 그리고 [날짜 snapshot 재확인](../README.md#날짜-snapshot-재확인)의 월 1회 점검 때.
 
 ## 지금 상태
 
-- 단계: API 단계와 백오피스 단계(Landing 공개, API는 공개 주소 없이 ingress private listener로 Web BFF에서만 받음, 공개 `/api/**`는
-  JSON 503. 백오피스는 공개 주소 없이 운영자 SSM 포트 포워딩으로만 열림). 가입·로그인은 닫혀 있습니다. Web CD·API CD·Backoffice
-  CD로 배포하며 마지막 배포는 GitHub Release `deploy-web-20261123-20`·`deploy-api-20261123-8`·`deploy-backoffice-20261123-1`
-  (2026-11-23)입니다. 절차와 기록 위치는 [Web 단계 배포](../../infra/runbooks/release/web-stage-deploy.md),
+- 단계: API 단계·백오피스 단계·Legal 단계(Landing 공개, API는 공개 주소 없이 ingress private listener로 Web BFF에서만 받음, 공개
+  `/api/**`는 JSON 503. 백오피스는 공개 주소 없이 운영자 SSM 포트 포워딩으로만 열림. 공개 `/privacy`·`/terms`는 백오피스에서 승인한
+  게시 판을 API에서 읽어 보이고, API가 답하지 못하면 Web이 마지막으로 받은 판을 보임). 가입·로그인은 닫혀 있습니다. Web CD·API CD·
+  Backoffice CD로 배포하며 마지막 배포는 GitHub Release `deploy-web-20261127-21`·`deploy-api-20261127-11`·
+  `deploy-backoffice-20261127-2`(2026-11-27)입니다. 절차와 기록 위치는 [Web 단계 배포](../../infra/runbooks/release/web-stage-deploy.md),
   [API 단계 배포](../../infra/runbooks/release/api-stage-deploy.md),
   [백오피스 단계 배포](../../infra/runbooks/release/backoffice-stage-deploy.md)입니다.
 - DB: API, 배포 때의 migrate one-off, 백오피스 API가 managed PostgreSQL(RDS)에 붙습니다. Migration은 API CD만 rollout 전에
@@ -74,7 +77,7 @@ resource 이름은 "Owner console"로 적습니다. 비용은 [서버 비용](./
 
 ## 이후 단계에서 정할 입력
 
-지금 백오피스 단계까지 정하지 않은 입력입니다. 각 단계의 준비 작업이 그 단계가 올리거나 바꾸는 구성요소의 입력을 정하고, 그 입력이
+지금 Legal 단계까지 정하지 않은 입력입니다. 각 단계의 준비 작업이 그 단계가 올리거나 바꾸는 구성요소의 입력을 정하고, 그 입력이
 정해지면 그 단계의 CD를 구성할 수 있습니다. DB change ownership은 DB를 들이는 단계의 준비 작업이 그 단계 CD 전에 정합니다.
 정해진 입력은 이 문서의 지금 구성 표로 옮깁니다. DB change ownership(migration principal과 실행 순서:
 [DB operator scripts](../../infra/db/README.md#release-order)), network와 principal(DB network·권한 행), secret 전달
