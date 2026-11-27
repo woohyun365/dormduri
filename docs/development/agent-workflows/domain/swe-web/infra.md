@@ -1,7 +1,7 @@
 # Domain/SWE/Web/infra
 
-[Domain/SWE/Web pack](./README.md)의 infra layer입니다. 저장소 모양과 code 단위, 배포 구성과 실행 설정·secret 주입, CI 검사·test
-배치와 배포 권한, 관측 data의 경계, backup·restore와 DB 접속 안전, 용량·비용·공급망을 다룹니다. 하위 layer마다 상속, 결정 목록,
+[Domain/SWE/Web pack](./README.md)의 infra layer입니다. 저장소 모양·code 단위·test 배치, 배포 구성과 실행 설정·secret 주입, CI 검사와
+배포 권한, 관측 data의 경계, backup·restore와 DB 접속 안전, 용량·비용·공급망을 다룹니다. 하위 layer마다 상속, 결정 목록,
 구현 지침(기준 항목 인용), 검증 기준(항목 id), 위험, binding 키를 둡니다. 저장소 전체 구조 결정(`infra.arch.*`)은
 repository-structure 하위 layer에 둡니다.
 
