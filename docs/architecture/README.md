@@ -27,7 +27,7 @@ host 공통 `.plans/`, 실행 증거는 `.artifacts/`, 과거 구현 기록과 �
 - [BFF 결정 기록](./decisions/bff.md): Domain/SWE/Web/BFF layer 결정(server-read-error-privacy-shaping: 공개 법적 문서의 upstream 직접 읽기와 마지막 성공본 파일)
 - [BE 결정 기록](./decisions/be.md): Domain/SWE/Web/BE layer 결정(application-architecture: HTTP adapter를 NodeAdapter로)
 - [DB 결정 기록](./decisions/db.md): Domain/SWE/Web/DB layer 결정(schema-modeling: 공유 DB package; migration-seed-compatibility: 앞으로만 가는 migration과 forward-fix; integrity-retention-lifecycle: group role·LOGIN user·grant 표, 주기 작업 감시, 감사 table, RPO·RTO)
-- [Infra 결정 기록](./decisions/infra.md): Domain/SWE/Web/infra layer 결정(topology-runtime-config: 단일 host compose; ci-cd: 승인 뒤 배포 전용 job)
+- [Infra 결정 기록](./decisions/infra.md): Domain/SWE/Web/infra layer 결정(topology-runtime-config: 단일 host compose와 따로 둔 백오피스 host, 한 저장소와 배포 단위 app, 배포 shell과 domain library; data-durability-recovery: 관리형 자동 backup과 시점 복구; ci-cd: 승인 뒤 배포 전용 job, 층별 가까운 test 위치)
 - [Operations and release 결정 기록](./decisions/operations-release.md): Domain/SWE/Web/operations-release layer 결정(release-gate: 직전 digest 쌍으로 되돌림)
 - [Security and privacy 결정 기록](./decisions/security-privacy.md): Domain/SWE/Web/security-privacy layer 결정(trust-authz-model: DB 권한 표와 감사·pgAudit; data-privacy-secret: Landing 방문 통계의 목적·항목·수탁자)
 
