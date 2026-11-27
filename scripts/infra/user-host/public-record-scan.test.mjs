@@ -52,6 +52,9 @@ const NEGATIVE = [
   'echo "::add-mask::$account.dkr.ecr.$AWS_REGION.amazonaws.com"',
   // A masked role ID keeps only the tail after the masked account part.
   'Authenticated as assumedRoleId ***EXAMPLEFAKE:GitHubActions',
+  // The CD build generates the Prisma client and prints the baseline migration directory, whose prefix is twelve zeros.
+  'Applying migration `000000000000_initial_baseline`',
+  '  └─ 000000000000_initial_baseline/',
 ];
 
 test('every forbidden kind is found by its own pattern and the value is not reported', () => {
@@ -117,6 +120,27 @@ test('a runner temp path or a registry host template does not hide a real value'
   assert.deepEqual(
     scanText('example.dkr.ecr.$AWS_REGION.amazonaws.com').map((f) => f.kind),
     ['registry host'],
+  );
+});
+
+// Only the all-zero prefix is a migration name: any other twelve digits before a name stay an account ID, and the allowance
+// never hides a real value on the same line.
+test('a baseline migration name passes, and only the all-zero prefix does', () => {
+  for (const line of [
+    'Applying migration `210987654321_initial_baseline`',
+    'Applying migration `000000000000_initial_baseline` in account 210987654321',
+    // Twelve zeros with no migration name after them are not a migration directory.
+    'prefix 000000000000_ with no name',
+  ]) {
+    assert.deepEqual(
+      scanText(line).map((f) => f.kind),
+      ['AWS account ID'],
+      line,
+    );
+  }
+  assert.deepEqual(
+    scanText('migrations 20261125000000_legal_version_model and 000000000000_initial_baseline'),
+    [],
   );
 });
 
