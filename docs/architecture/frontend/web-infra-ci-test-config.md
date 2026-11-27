@@ -57,8 +57,8 @@ pnpm --dir apps/web exec playwright install chromium
 
 ## 테스트 경계
 
-- Unit/component/hook 테스트는 source 파일 옆에 `*.test.{ts,tsx}`로 둔다. 지금은 `__tests__`와 source 옆이 섞여 있고,
-  `__tests__`는 영역마다 source 옆으로 옮긴다. Test 층 배치 값은 [binding의 고른 값](../../development/agent-workflows/domain/knu-binding.md#고른-값)
+- Unit/component/hook 테스트는 source 파일 옆에 `*.test.{ts,tsx}`로 둔다. 지금은 `__tests__`(새 화면 계층의 `__tests__/` 포함)와
+  source 옆이 섞여 있고, `__tests__`는 영역마다 source 옆으로 옮긴다. Test 층 배치 값은 [binding의 고른 값](../../development/agent-workflows/domain/knu-binding.md#고른-값)
   `infra.arch.test-placement` 행이, 원칙은 pack 결정 [`infra.arch.test-placement`](../../development/agent-workflows/domain/swe-web/infra.md#infraarchtest-placement)가 소유한다.
 - 컴포넌트 테스트는 `getByRole`, `getByLabelText`, accessible name 기반 query를 우선한다. `data-testid`는 role/name으로 표현하기 어려운 상태나 구조 검증에만 사용한다.
 - 공통 render는 `apps/web/src/test/render.tsx`의 `renderWithProviders`를 우선 사용한다.
@@ -82,7 +82,7 @@ pnpm --dir apps/web exec playwright install chromium
   [LB-R1](../../policies/legal-basis.md))뿐이다. 법적 문서 본문은 글자 대신 section 종류별 fixture가 빠짐없이 순서·글자
   그대로 그려지는지 본다.
 - 판단 로직(주소, 판 목록, 뒤로 가기 같은 규칙)은 `model/`의 순수 함수로 DOM 없이 검사한다. 두 기능이 함께 쓰는 규칙은
-  `screens/ui/model/`과 `screens/ui/__tests__/`에 둔다.
+  `screens/ui/model/`에 둔다. 그 test는 지금 `screens/ui/__tests__/`에 있고, 위치는 위 첫 bullet의 배치를 따른다.
 - story가 렌더·axe의 공통 fixture다(`e2e/storybook/stories.storybook.ts`). 굵기·크기·자리처럼 화면에서만 보이는 성질은 class
   이름 대신 그 기능의 `e2e/storybook/<기능>.storybook.ts`가 계산 style·위치로 본다.
 - e2e의 흐름 case는 화면마다 핵심 흐름 2~3개다. 크기·focus·넘침처럼 화면 성질을 보는 case와 server 응답에서만 보이는
