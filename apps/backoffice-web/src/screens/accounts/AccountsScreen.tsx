@@ -1,25 +1,26 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { AccountListResponse, InvitationCreatedResponse } from '@repo/shared/backoffice';
 import { postBff } from '@/client/bff-client';
 import { withReauthentication } from '@/client/passkeys';
-import { errorMessage } from '@/ui/error-messages';
-import { formatKst } from '@/ui/format';
-import {
-  Button,
-  FormMessage,
-  Section,
-  SecondaryButton,
-  TextAreaField,
-  TextField,
-} from '@/ui/forms';
-import { ROLE_LABELS } from '@/ui/labels';
+import { Button } from '@/ui/Button';
+import { Card } from '@/ui/Card';
+import { formatKstDetail, formatKstShort } from '@/ui/format';
+import { Icon } from '@/ui/icons';
+import { Notice } from '@/ui/Notice';
+import { PageHeader } from '@/ui/PageHeader';
+import { success, useFailure, type ResultMessage } from '@/ui/result-message';
+import { AccountTable } from './AccountTable';
+import { DeactivateDialog } from './DeactivateDialog';
+import { InviteDrawer } from './InviteDrawer';
 
-type Message = { readonly tone: 'error' | 'success'; readonly text: string } | null;
-
-/** Operator accounts and invitations (owner role only, README §4). */
+/**
+ * Operator accounts and invitations (owner role only, README §4): a list with the invitation in a right drawer and the
+ * deactivation confirmed in a dialog (design guide ④ list). A drawer or dialog closes on success and the result shows
+ * under the page title; a failure stays inside it.
+ */
 export function AccountsScreen({
   data,
   selfAccountId,
@@ -30,28 +31,43 @@ export function AccountsScreen({
   readonly canDeactivate: boolean;
 }) {
   const router = useRouter();
+  const failure = useFailure();
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState<Message>(null);
+  const [message, setMessage] = useState<ResultMessage | null>(null);
   const [issued, setIssued] = useState<InvitationCreatedResponse | null>(null);
-  const [deactivating, setDeactivating] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteFailure, setInviteFailure] = useState<ResultMessage | null>(null);
+  const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
+  const [deactivateFailure, setDeactivateFailure] = useState<ResultMessage | null>(null);
+  // After a deactivation the row's button leaves with the refreshed row: focus waits on the result instead of falling
+  // to the page (the dialog gave it back to that button first).
+  const resultRef = useRef<HTMLDivElement>(null);
+  const focusResult = useRef(false);
+  const deactivating = data.accounts.find((account) => account.id === deactivatingId) ?? null;
+  const activeCount = data.accounts.filter((account) => account.status === 'ACTIVE').length;
+  useEffect(() => {
+    if (!message || !focusResult.current) return;
+    focusResult.current = false;
+    resultRef.current?.focus();
+  }, [message]);
 
   async function invite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
+    const form = new FormData(event.currentTarget);
     setPending(true);
-    setMessage(null);
+    setInviteFailure(null);
     const result = await postBff<InvitationCreatedResponse>('/api/accounts/invitations', {
       email: String(form.get('email') ?? ''),
       displayName: String(form.get('displayName') ?? ''),
     });
     setPending(false);
     if (!result.ok) {
-      setMessage({ tone: 'error', text: errorMessage(result.code) });
+      setInviteFailure(failure(result.code));
       return;
     }
-    formElement.reset();
+    setMessage(null);
     setIssued(result.data);
+    setInviteOpen(false);
     router.refresh();
   }
 
@@ -60,11 +76,7 @@ export function AccountsScreen({
     setMessage(null);
     const result = await postBff(`/api/accounts/invitations/${invitationId}/revoke`);
     setPending(false);
-    setMessage(
-      result.ok
-        ? { tone: 'success', text: '초대를 취소했습니다.' }
-        : { tone: 'error', text: errorMessage(result.code) },
-    );
+    setMessage(result.ok ? success('초대를 취소했습니다.') : failure(result.code));
     router.refresh();
   }
 
@@ -72,150 +84,124 @@ export function AccountsScreen({
     event.preventDefault();
     const reason = String(new FormData(event.currentTarget).get('reason') ?? '');
     setPending(true);
-    setMessage(null);
+    setDeactivateFailure(null);
     const result = await withReauthentication(() =>
       postBff(`/api/accounts/${accountId}/deactivate`, { reason }),
     );
     setPending(false);
     if (!result.ok) {
-      setMessage({ tone: 'error', text: errorMessage(result.code) });
+      setDeactivateFailure(failure(result.code));
       return;
     }
-    setDeactivating(null);
-    setMessage({
-      tone: 'success',
-      text: '계정을 비활성화했습니다. 그 계정의 역할과 접속도 끝났습니다.',
-    });
+    setDeactivatingId(null);
+    focusResult.current = true;
+    setMessage(success('계정을 비활성화했습니다. 그 계정의 역할과 접속도 끝났습니다.'));
     router.refresh();
   }
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-slate-900">운영자 계정</h1>
-      {message ? <FormMessage tone={message.tone}>{message.text}</FormMessage> : null}
-
-      <Section id="accounts-list" title="계정">
-        <table className="w-full text-left text-sm">
-          <thead className="text-slate-700">
-            <tr>
-              <th scope="col" className="py-2">
-                이름
-              </th>
-              <th scope="col">이메일</th>
-              <th scope="col">상태</th>
-              <th scope="col">역할</th>
-              <th scope="col">마지막 로그인</th>
-              <th scope="col">
-                <span className="sr-only">작업</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {data.accounts.map((account) => (
-              <tr key={account.id}>
-                <td className="py-2">{account.displayName}</td>
-                <td>{account.email}</td>
-                <td>
-                  {account.status === 'ACTIVE' ? '활성' : '비활성'}
-                  {account.locked ? ' · 잠김' : ''}
-                </td>
-                <td>
-                  {account.roles.length
-                    ? account.roles.map((role) => ROLE_LABELS[role]).join(', ')
-                    : '없음'}
-                </td>
-                <td>{formatKst(account.lastLoginAt)}</td>
-                <td>
-                  {canDeactivate && account.status === 'ACTIVE' && account.id !== selfAccountId ? (
-                    <SecondaryButton disabled={pending} onClick={() => setDeactivating(account.id)}>
-                      비활성화
-                    </SecondaryButton>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {deactivating ? (
-          <form
-            onSubmit={(event) => void deactivate(event, deactivating)}
-            className="flex flex-col gap-3 border-t border-slate-200 pt-4"
-            aria-label="계정 비활성화"
+      <PageHeader
+        title="운영자 계정"
+        meta={`계정 ${data.accounts.length}개 · 활성 ${activeCount}개 · 열린 초대 ${data.invitations.length}개`}
+        actions={
+          <Button
+            disabled={pending}
+            onClick={() => {
+              setInviteFailure(null);
+              setInviteOpen(true);
+            }}
           >
-            <TextAreaField
-              id="deactivate-reason"
-              name="reason"
-              label="비활성화 사유"
-              hint="업무 변경·퇴직 같은 사유만 적고 사용자 개인정보는 쓰지 마세요. passkey로 다시 확인합니다."
-              maxLength={500}
-              required
-            />
-            <div className="flex gap-2">
-              <Button type="submit" disabled={pending}>
-                비활성화
-              </Button>
-              <SecondaryButton disabled={pending} onClick={() => setDeactivating(null)}>
-                닫기
-              </SecondaryButton>
-            </div>
-          </form>
-        ) : null}
-      </Section>
-
-      <Section id="accounts-invitations" title="열린 초대">
-        {data.invitations.length === 0 ? (
-          <p className="text-sm text-slate-700">열린 초대가 없습니다.</p>
-        ) : null}
-        <ul className="flex flex-col gap-2 text-sm">
-          {data.invitations.map((invitation) => (
-            <li key={invitation.id} className="flex flex-wrap items-center gap-3">
-              <span>
-                {invitation.displayName} · {invitation.email} · {formatKst(invitation.expiresAt)}
-                까지
-              </span>
-              <SecondaryButton disabled={pending} onClick={() => void revoke(invitation.id)}>
-                초대 취소
-              </SecondaryButton>
-            </li>
-          ))}
-        </ul>
-      </Section>
-
-      <Section id="accounts-invite" title="운영자 초대">
-        <form
-          onSubmit={(event) => void invite(event)}
-          className="flex flex-col gap-3"
-          aria-label="운영자 초대"
-        >
-          <TextField
-            id="invite-email"
-            name="email"
-            type="email"
-            label="이메일"
-            required
-            maxLength={254}
-          />
-          <TextField id="invite-name" name="displayName" label="이름" required maxLength={80} />
-          <Button type="submit" disabled={pending}>
-            초대 code 만들기
+            <Icon name="plus" className="size-4" />
+            운영자 초대
           </Button>
-        </form>
-        {issued ? (
-          <div
-            role="status"
-            className="flex flex-col gap-1 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
-          >
+        }
+      />
+      {issued ? (
+        // The one-time code stays until the operator leaves the page, also after the drawer closed (README §3).
+        <Notice tone="success" role="status">
+          <span className="flex flex-col gap-1">
             <span>초대 code를 만들었습니다. 이 화면을 떠나면 다시 볼 수 없습니다.</span>
-            <span className="font-mono break-all" data-testid="invitation-code">
+            <span className="font-code break-all" data-testid="invitation-code">
               {issued.code}
             </span>
             <span>
-              {formatKst(issued.expiresAt)}까지 한 번 쓸 수 있습니다. 역할은 등록 뒤 권한 요청으로
-              줍니다.
+              {formatKstDetail(issued.expiresAt)}까지 한 번 쓸 수 있습니다. 역할은 등록 뒤 권한
+              요청으로 줍니다.
             </span>
-          </div>
-        ) : null}
-      </Section>
+          </span>
+        </Notice>
+      ) : null}
+      {message ? (
+        <Notice tone={message.tone} role={message.role} focusRef={resultRef}>
+          {message.text}
+        </Notice>
+      ) : null}
+
+      <Card id="accounts-list" title="계정" flush>
+        <AccountTable
+          accounts={data.accounts}
+          selfAccountId={selfAccountId}
+          canDeactivate={canDeactivate}
+          pending={pending}
+          onDeactivate={(accountId) => {
+            setDeactivateFailure(null);
+            setDeactivatingId(accountId);
+          }}
+        />
+      </Card>
+
+      <Card id="accounts-invitations" title="열린 초대">
+        {data.invitations.length === 0 ? (
+          <p className="text-body text-fg-description">열린 초대가 없습니다.</p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-stroke-row">
+            {data.invitations.map((invitation) => (
+              <li
+                key={invitation.id}
+                className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+              >
+                <div className="flex min-w-0 flex-col">
+                  <span className="text-body font-semibold text-fg-neutral">
+                    {invitation.displayName}
+                  </span>
+                  <span className="wrap-anywhere text-caption text-fg-muted">
+                    {invitation.email} · {formatKstShort(invitation.expiresAt)} KST까지
+                  </span>
+                </div>
+                <Button
+                  tone="secondary"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => void revoke(invitation.id)}
+                >
+                  <Icon name="close" className="size-4" />
+                  초대 취소
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {inviteOpen ? (
+        <InviteDrawer
+          pending={pending}
+          failure={inviteFailure}
+          onSubmit={(event) => void invite(event)}
+          onClose={() => setInviteOpen(false)}
+        />
+      ) : null}
+
+      {deactivating ? (
+        <DeactivateDialog
+          target={deactivating}
+          pending={pending}
+          failure={deactivateFailure}
+          onSubmit={(event) => void deactivate(event, deactivating.id)}
+          onClose={() => setDeactivatingId(null)}
+        />
+      ) : null}
     </>
   );
 }

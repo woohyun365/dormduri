@@ -50,10 +50,69 @@ const ACCESS_REQUEST = {
   createdAt: NOW,
 };
 
+const LEGAL_DRAFT_BODY = {
+  kind: 'AGE_14_OR_ABOVE_NOTICE',
+  contentSchemaVersion: 1,
+  title: '만 14세 이상 확인',
+  summaryItems: [],
+  sections: [{ type: 'paragraph', text: '만 14세 이상만 가입할 수 있습니다.' }],
+  changeSummary: '첫 게시',
+  noticeClass: 'INITIAL',
+  consentRequired: false,
+  proposedEffectiveDate: '2026-06-22',
+};
+const LEGAL_DRAFT = {
+  id: ID,
+  kind: 'AGE_14_OR_ABOVE_NOTICE',
+  status: 'EDITING',
+  revision: 1,
+  basedOnVersionId: null,
+  authorAccountId: ID,
+  content: { ...LEGAL_DRAFT_BODY, appliesUntil: null },
+  contentDigest: 'b'.repeat(64),
+  createdAt: NOW,
+  updatedAt: NOW,
+};
+const LEGAL_REQUEST = {
+  id: ID,
+  kind: 'LEGAL_PUBLISH',
+  status: 'PENDING',
+  contentDigest: 'b'.repeat(64),
+  targetLegalDraftId: ID,
+  targetLegalVersionId: null,
+  requestedByAccountId: ID,
+  requestReason: null,
+  expiresAt: NOW,
+  decidedByAccountId: null,
+  closedAt: null,
+  decisionReason: null,
+  selfApproved: false,
+  createdAt: NOW,
+};
+const LEGAL_VERSION = {
+  id: ID,
+  kind: 'AGE_14_OR_ABOVE_NOTICE',
+  version: 'age-14-or-above-notice-2026-06-22',
+  title: '만 14세 이상 확인',
+  changeSummary: '첫 게시',
+  noticeClass: 'INITIAL',
+  consentRequired: false,
+  effectiveDate: '2026-06-22',
+  appliesUntil: null,
+  contentDigest: 'b'.repeat(64),
+  publishedAt: NOW,
+  withdrawnAt: null,
+  requestedByAccountId: ID,
+  approvedByAccountId: ID,
+  selfApproved: true,
+};
+
 interface RouteSpec {
   readonly access: 'public' | 'session';
   /** Upstream path with every path id set to ID. */
   readonly upstream: string;
+  /** The upstream method when it is not POST (a draft save is a PUT); the browser always posts. */
+  readonly upstreamMethod?: 'PUT';
   readonly body?: unknown;
   /** The upstream's success answer: a JSON body (200) or none (204). */
   readonly upstreamBody?: unknown;
@@ -196,6 +255,65 @@ const EXPECTED_ROUTES: Record<string, RouteSpec> = {
     body: { note: '11월 점검' },
     upstreamBody: { auditEventId: ID },
   },
+  'legal/drafts': {
+    access: 'session',
+    upstream: '/legal/drafts',
+    body: { source: 'import', draft: LEGAL_DRAFT_BODY },
+    upstreamBody: LEGAL_DRAFT,
+  },
+  'legal/drafts/[draftId]': {
+    access: 'session',
+    upstream: `/legal/drafts/${ID}`,
+    upstreamMethod: 'PUT',
+    body: { revision: 1, draft: LEGAL_DRAFT_BODY },
+    upstreamBody: { ...LEGAL_DRAFT, revision: 2 },
+  },
+  'legal/drafts/[draftId]/discard': {
+    access: 'session',
+    upstream: `/legal/drafts/${ID}/discard`,
+    body: { revision: 2 },
+    upstreamBody: { ...LEGAL_DRAFT, status: 'DISCARDED', revision: 3 },
+  },
+  'legal/drafts/[draftId]/publish-requests': {
+    access: 'session',
+    upstream: `/legal/drafts/${ID}/publish-requests`,
+    body: { revision: 2, reason: '첫 게시' },
+    upstreamBody: LEGAL_REQUEST,
+  },
+  'legal/versions/[versionId]/withdraw-requests': {
+    access: 'session',
+    upstream: `/legal/versions/${ID}/withdraw-requests`,
+    body: { reason: '시행일을 다시 정함' },
+    upstreamBody: {
+      ...LEGAL_REQUEST,
+      kind: 'LEGAL_WITHDRAW',
+      targetLegalDraftId: null,
+      targetLegalVersionId: ID,
+    },
+  },
+  'legal/requests/[requestId]/approve': {
+    access: 'session',
+    upstream: `/legal/requests/${ID}/approve`,
+    body: { contentDigest: 'b'.repeat(64), reason: '승인 권한 운영자가 한 명뿐임' },
+    upstreamBody: {
+      request: { ...LEGAL_REQUEST, status: 'APPROVED', decidedByAccountId: ID, selfApproved: true },
+      version: LEGAL_VERSION,
+    },
+  },
+  'legal/requests/[requestId]/reject': {
+    access: 'session',
+    upstream: `/legal/requests/${ID}/reject`,
+    body: { contentDigest: 'b'.repeat(64), reason: '시행일이 너무 이름' },
+    upstreamBody: {
+      request: { ...LEGAL_REQUEST, status: 'REJECTED', decidedByAccountId: ID },
+      version: null,
+    },
+  },
+  'legal/requests/[requestId]/cancel': {
+    access: 'session',
+    upstream: `/legal/requests/${ID}/cancel`,
+    upstreamBody: { ...LEGAL_REQUEST, status: 'CANCELLED' },
+  },
 };
 
 const API = 'http://backoffice-api.test:4310';
@@ -316,7 +434,7 @@ describe('BFF route table', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
       const [url, init] = fetchMock.mock.calls[0]!;
       expect(String(url)).toBe(`${API}${spec.upstream}`);
-      expect(init?.method).toBe('POST');
+      expect(init?.method).toBe(spec.upstreamMethod ?? 'POST');
       expect(init?.body === undefined ? undefined : JSON.parse(String(init.body))).toEqual(
         spec.body,
       );

@@ -1,4 +1,5 @@
 import {
+  LEGAL_LAST_SUCCESS_WRITE_ERROR_CODES,
   OPERATIONAL_EVENT_NAMES,
   OPERATIONAL_EVENT_SCHEMA_VERSION,
   OPERATIONAL_FORBIDDEN_KEY_PARTS,
@@ -9,6 +10,15 @@ import {
   isOperationalEnvironment,
   isOperationalRouteGroup,
 } from './operational-context';
+
+const LEGAL_DOCUMENT_KINDS = [
+  'TERMS_OF_SERVICE',
+  'PRIVACY_POLICY',
+  'PERSONAL_DATA_COLLECTION_USE_CONSENT',
+  'AGE_14_OR_ABOVE_NOTICE',
+];
+const LEGAL_EVENT_VERSION_KEY = /^(?:current|\d{4}-\d{2}-\d{2})$/u;
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 
 type SanitizationOptions = Readonly<{
   allowLogCorrelationFields?: boolean;
@@ -117,6 +127,30 @@ export function sanitizeOperationalEvent(
       typeof value.requestCorrelationPresent !== 'boolean' ||
       (value.requestId !== undefined &&
         (!options.allowLogCorrelationFields || !isNonEmptyString(value.requestId)))
+    ) {
+      return null;
+    }
+    return value as OperationalEvent;
+  }
+
+  if (value.eventName === 'web_legal_last_success') {
+    const served = value.action === 'served';
+    const revisionNotices = value.endpoint === 'revision-notices';
+    if (
+      !['served', 'write_failed'].includes(String(value.action)) ||
+      !['page', 'comparison', 'revision-notices'].includes(String(value.endpoint)) ||
+      (revisionNotices
+        ? value.documentKind !== 'all' || value.versionKey !== 'all'
+        : !LEGAL_DOCUMENT_KINDS.includes(String(value.documentKind)) ||
+          !LEGAL_EVENT_VERSION_KEY.test(String(value.versionKey))) ||
+      (served
+        ? typeof value.checkedAt !== 'string' ||
+          !ISO_INSTANT.test(value.checkedAt) ||
+          value.errorCode !== undefined
+        : value.checkedAt !== undefined ||
+          !(LEGAL_LAST_SUCCESS_WRITE_ERROR_CODES as readonly string[]).includes(
+            String(value.errorCode),
+          ))
     ) {
       return null;
     }

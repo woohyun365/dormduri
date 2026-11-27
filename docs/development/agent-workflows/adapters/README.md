@@ -12,7 +12,7 @@ adapter는 **명시적으로 선택한 현재 host의 실행 세부**만 연결�
 
 같은 역할 이름·packet은 capability 동등성의 증거가 아닙니다. Lead는 현재 loaded instructions·role/tool·권한·source를
 확인합니다. 지원이 없으면 허용된 direct/sequential 작업 또는 bounded blocker를 선택합니다. Prompt로 다른 host의
-모델·권한·runtime state를 가장하지 않습니다. OMX/OMC 설치·선택은 작업 owner의 환경 책임입니다.
+모델·권한·runtime state를 가장하지 않습니다.
 
 ## 공통 계약과 실제 caller
 
@@ -80,3 +80,38 @@ Manifest는 인증·업무 승인·model 설정이 아닙니다. Healthy PreTool
 override 없이 정상 `auto` classifier에 맡깁니다. Hook 부재·crash는 fail-closed 보장이 아니므로 같은 session/tool
 receipt, source·의미 검증과 공통 QA가 완료에 필요합니다. 이 경로만으로 generic native support나 `runtime-qualified`를
 전역 선언하지 않습니다. Cross-CLI bridge는 계속 unsupported입니다.
+
+## Third-party plugin 호환
+
+Third-party plugin은 사용자가 Home·project 설정으로 켠 plugin·skill·MCP server·hook입니다. 저장소 workflow는 그것을
+이름으로 감지·추천·호출하지 않고 그것에 의존하지 않습니다. 켜져 있는지 알려고 Home·plugin 설정을 읽지 않으며, 있는지
+불명확하면 없는 것으로 보고 native 경로로 진행합니다(fail-to-native). 사용을 막거나 다른 도구로 바꾸라고 하지 않습니다.
+Host adapter 문서는 이 규칙을 다시 쓰지 않고 이 절을 가리킵니다.
+
+1. **우선순위와 덮어쓰지 못하는 계약**: 지침은 현재 사용자 요청, 저장소 지침(`AGENTS.md`와 host entry), 공통 workflow
+   계약, host adapter, domain pack, Home·plugin 권장 순서로 앞선 것이 이깁니다. Third-party plugin은 마지막 자리이고 그
+   권장은 다음 native 계약을 바꾸지 못합니다.
+   - mode와 수정 권한
+   - 제품 사실과 정책 고지
+   - 사용자가 정해야 하는 선택(현재 host adapter의 사용자 질문 수단으로 묻습니다)
+   - asset·dependency·network·로컬 script 승인
+   - 단일 writer
+   - 위임 쓰기와 필수 독립 리뷰는 등록된 역할만 합니다
+   - 설치되지 않은 plugin·skill의 이름을 흉내 내지 않습니다
+   - third-party 리뷰 도구와 host 자체 리뷰는 보조 의견이고 필수 독립 리뷰를 대신하지 않습니다
+
+   Third-party skill·도구의 결과는 그 단계 native owner의 완료 기준으로만 채택합니다.
+
+2. **사용자 설정을 덮어쓰지 않음**: workflow는 사용자와 third-party plugin의 설정을 덮어쓰지 않습니다. 한 값만 받는
+   설정(Claude Code `statusLine`·`subagentStatusLine`, Git `core.hooksPath` 등)은 덮지 않고 사용자에게 묻고, 바꾸기로 하면
+   바꾸기 전 값을 백업합니다. 이 규칙은 workflow가 하는 setup과 agent 작업에 적용됩니다. 저장소가 이미 쓰는 개발
+   도구(package manager의 install lifecycle script, Git hook 관리 도구 등)가 정하는 설정은 그 저장소가 소유하므로
+   workflow가 바꾸거나 되돌리지 않습니다. 그런 도구는 install 때 `core.hooksPath` 같은 한 값 설정을 묻지 않고 바꿀 수
+   있습니다.
+3. **모르는 local state root**: 저장소 root에 모르는 항목이 생기면 [layout guard](../workspace-layout.md#layout-guard)의
+   `outside-manifest-root`가 이름 없이 알립니다. 사용자가 켠 도구의 local state면 그 root를 `.git/info/exclude`(추적되지
+   않고 그 clone에만 적용)에 넣을지 사용자에게 묻고, 추적 `.gitignore`와 workspace layout binding은 바꾸지 않습니다.
+   그 파일의 위치는 `git rev-parse --git-path info/exclude`가 내고, linked worktree에서는 `.git`이 파일이라 공통 git dir의
+   그 파일(모든 worktree가 함께 씀)입니다.
+   넣는 줄은 root 자체를 제외하는 꼴(디렉터리 `/<이름>/`, 파일 `/<이름>` 등)이어야 통과하고, 내용만 제외하는
+   `<이름>/*`는 그대로 실패입니다. 전역 exclude(`core.excludesFile`)로만 무시된 root도 실패이고 hint가 같은 질문을 합니다.

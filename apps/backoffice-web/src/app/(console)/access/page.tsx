@@ -19,7 +19,7 @@ export default async function AccessPage({
   const canRequest = hasPermission(session, 'admin:access:request');
   const canApprove = hasPermission(session, 'admin:access:approve');
   if (!canRequest && !canApprove) {
-    return <Forbidden />;
+    return <Forbidden title="권한 요청" />;
   }
   const parsed = accessRequestListQuerySchema.safeParse(flatSearchParams(await searchParams));
   const query = parsed.success ? parsed.data : accessRequestListQuerySchema.parse({});
@@ -32,7 +32,7 @@ export default async function AccessPage({
       : Promise.resolve(null),
   ]);
   if (requests.kind === 'forbidden' || roles.kind === 'forbidden') {
-    return <Forbidden />;
+    return <Forbidden title="권한 요청" />;
   }
   return (
     <AccessScreen

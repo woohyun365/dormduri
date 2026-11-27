@@ -13,6 +13,11 @@ pnpm web:e2e
 - 목적은 public route와 unauthenticated protected-route redirect를 API/DB 없이 확인하는 것이다.
 - auth route smoke는 `/login`, `/signup`, `/password-reset`의 shell 렌더링, 접근성 locator, public handoff link, neutral 안내 copy를 확인한다.
 - API/DB가 없는 lane이므로 `POST /api/auth/session/resolve`는 Playwright route/fetch smoke seam으로 `{ status: "unauthenticated" }`를 반환하게 고정한다.
+- `/privacy`·`/terms`는 API 대신 Web의 법적 문서 마지막 성공본 파일로 그린다. global setup
+  (`e2e/support/legal-last-success-fixture.ts`)이 API legal seed로 만든 시행 중 두 문서를 Web 저장소 형식 그대로
+  OS 임시 디렉터리에 쓰고, server는 `DORMDURI_LEGAL_LAST_SUCCESS_DIR`로 그 디렉터리를 읽는다. 판 주소는 파일이 없어
+  '불러올 수 없음'이다. seed 문서는 Node 자식 과정(TypeScript type stripping)이 만든다: Playwright loader가 `@repo/shared`의
+  ES module build를 CommonJS로 읽다가 실패하기 때문이다.
   실제 이메일 인증 코드 발송, signup/reset happy path, cookie가 필요한 로그인 성공 journey는 full-stack lane 또는 별도 auth E2E에서 다룬다.
 
 ## Full-stack `/main` smoke
@@ -26,6 +31,8 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts
 - `apps/web/playwright.fullstack.config.ts`를 사용한다.
 - local Postgres를 `docker-compose.dev.yml`로 띄우고, Prisma schema push/seed 후 API dev server와 Web dev server를 함께 실행한다.
 - `main-home.fullstack.spec.ts`는 실제 `/login` UI 입력 → session cookie → `/main` handoff smoke 1개를 유지한다.
+- `legal.fullstack.spec.ts`는 seed한 API의 법적 문서 게시본(출처 표지 `published`), 그 응답이 마지막 성공본 파일로 남는 것,
+  시행일 주소와 API에 없는 판 주소를 확인한다. Web dev server는 OS 임시 디렉터리를 마지막 성공본 디렉터리로 받는다.
 - `auth-session.fullstack.spec.ts`는 remember-off browser-session cookie, access 만료 후 renewal rotation, logout 후 unauthenticated 수렴을 실제 BFF/API/DB로 확인한다.
 - Home 상태 matrix는 테스트 전용 `AuthSession`을 DB에 직접 seed해 로그인 rate-limit과 분리하고, 실제 API/BFF/DB/Web render를 함께 확인한다.
 - seed mode 전환은 `apps/web/e2e/support/home-e2e-seed.ts`가 소유한다. spec 종료 시 `HOME_E2E_SEED_MODE=current-matching`으로 복원한다.

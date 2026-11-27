@@ -1,9 +1,9 @@
 # Landing
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-12
-**확인 근거**: [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약, [#706](https://github.com/woohyun365/dormduri/issues/706)(서비스 이름이 바뀔 때의 면책 고지), [#898](https://github.com/woohyun365/dormduri/issues/898)(footer 처리방침 링크 명칭)
-**근거**: [Service boundary](../policies/service-boundary.md), [Support communication](../policies/support-communication.md), [Season lifecycle](../policies/season-lifecycle.md), [Landing 화면 README](../../apps/web/src/screens/landing/README.md)
+**확인일**: 2026-11-26
+**확인 근거**: [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약, [#706](https://github.com/woohyun365/dormduri/issues/706)(서비스 이름이 바뀔 때의 면책 고지), [#898](https://github.com/woohyun365/dormduri/issues/898)(footer 처리방침 링크 명칭), [#1012](https://github.com/woohyun365/dormduri/issues/1012)(법적 문서 개정 예고 띠)
+**근거**: [Service boundary](../policies/service-boundary.md), [Support communication](../policies/support-communication.md), [Season lifecycle](../policies/season-lifecycle.md), [Legal basis](../policies/legal-basis.md), [Landing 화면 README](../../apps/web/src/screens/landing/README.md)
 
 공개 랜딩(`/`)의 기능 영역 문서입니다. 영역의 invariant·품질 기준은 [Intent의 Landing 절](./intent.md#landing), 화면 구성·문구·고지
 배치의 구현 규칙은 [Landing 화면 README](../../apps/web/src/screens/landing/README.md)가 소유합니다.
@@ -32,15 +32,18 @@
 
 ## 범위
 
-- 정적 화면입니다. 시즌 설명은 학기마다 열리는 등록 기간과 시즌 중에만 열리는 기능을 문장으로 설명합니다.
+- 정적 화면입니다. 예외는 법적 문서 개정 예고 하나이고, 요청마다 읽습니다. 시즌 설명은 학기마다 열리는 등록 기간과 시즌 중에만
+  열리는 기능을 문장으로 설명합니다.
 - 정책 고지 일곱 개를 정해진 자리(첫 화면, 시즌, 알아두세요, footer)에 둡니다.
 - 가입·로그인 행동, footer의 이용약관(`/terms`)·개인정보 처리방침(`/privacy`) 링크, 서비스 외부 문의 주소(글)를 둡니다.
+- 개인정보 처리방침·이용약관에 시행 예정 판이 공지되어 있으면 header 위 띠에 문서마다 한 줄(적용일, 문서 이름, 그 판 link)로
+  알립니다. 개정 예고를 읽지 못하면 띠 없이 나머지를 그대로 냅니다.
 - 예시 화면과 예시 답은 예시라고 표시합니다.
 - 320~1440px 폭에서 같은 URL과 같은 코드로 보입니다. 화면은 어두운 판으로 그리고 OS 색 설정을 따르지 않습니다.
 
 ## 비범위
 
-- 지금 시즌 상태·D-day 같은 실시간 data(메인 페이지가 다룹니다). 랜딩은 API를 부르지 않습니다.
+- 지금 시즌 상태·D-day 같은 실시간 data(메인 페이지가 다룹니다). 랜딩은 개정 예고 밖의 API를 부르지 않습니다.
 - 로그인한 사용자를 `/main`으로 보내는 redirect. 로그인한 사용자도 `/`에 머뭅니다.
 - 이용 권한 판단. 기능 허용·거부는 API와 도메인 정책이 판단합니다.
 - 생활패턴 비교의 판정 단계 이름(잘 맞음·조율 가능·조율 필수) 표시. 비교 결과는 "생활패턴 적합도"로 부릅니다.
@@ -49,6 +52,7 @@
 ## 완료 기준
 
 - 390×844 첫 화면에 서비스 설명, 가입 행동, "학교 공식 서비스가 아닙니다"와 "기숙사 배정·호실 선택을 보장하지 않습니다"가 보입니다.
+  개정 예고 띠가 있어도 같습니다.
 - 고지 일곱 개의 뜻과 원본 정책이 정책 문서와 같고, 면책 고지 네 문장은 글자 그대로입니다(서비스 이름이 바뀌면 주어 이름만
   바뀝니다, [Intent](./intent.md#landing)).
 - 시각 품질(첫인상, 구성, AI-slop 같지 않음)은 Owner가 판정합니다. 독립 비평과 측정값은 판정을 돕는 근거입니다.

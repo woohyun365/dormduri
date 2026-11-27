@@ -1,15 +1,16 @@
 # AWS Secrets Manager checklist
 
-이 문서는 API production secret을 AWS Secrets Manager에 묶음으로 저장하고, Lightsail user host의 API 배포 document가
-host credential로 꺼내 read-only 파일로 설치하는 운영 checklist다. 실제 secret 원문은 이 문서, Git commit, issue, CI log,
+이 문서는 API·백오피스 production secret을 AWS Secrets Manager에 묶음으로 저장하고, Lightsail host(user host·백오피스 host)의
+배포 document가 host credential로 꺼내 read-only 파일로 설치하는 운영 checklist다. 실제 secret 원문은 이 문서, Git commit, issue, CI log,
 `.artifacts/`에 남기지 않는다.
 
 ## 책임 용어
 
-- **Secret origin**: 원본과 version을 소유하는 AWS Secrets Manager(아래 묶음 셋과 RDS가 관리하는 master secret).
+- **Secret origin**: 원본과 version을 소유하는 AWS Secrets Manager(아래 묶음 넷과 RDS가 관리하는 master secret).
 - **Secret reader**: user host의 host role. SSM이 hybrid managed node에 주는 1시간 임시 credential이며, release plane 안의
   API 배포 document(`dormduri-api-deploy`)와 관측 배포가 묶음을 꺼낼 때, 그리고 operator의 restore drill Run Command가 복원
-  DB용 secret을 user host 임시 파일로 쓸 때만 쓴다(`infra/runbooks/operations/database/backup-restore.md`).
+  DB용 secret을 user host 임시 파일로 쓸 때만 쓴다(`infra/runbooks/operations/database/backup-restore.md`). 백오피스 묶음은
+  백오피스 host의 host role이 백오피스 배포 document(`dormduri-backoffice-deploy`)에서만 꺼낸다(아래 IAM).
 - **Release principal**: GitHub protected environment가 OIDC로 받는 짧은 수명의 AWS IAM role. SSM document를 부를 뿐 secret을
   읽지 않는다.
 - **Application read source**: API container에 read-only로 mount되는 release별 secret 파일.

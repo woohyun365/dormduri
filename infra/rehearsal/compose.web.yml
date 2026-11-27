@@ -27,6 +27,8 @@ services:
       API_URL: ${WEB_REHEARSAL_API_URL:-http://nginx}
       WEB_OBSERVABILITY_ENVIRONMENT: local
       WEB_RELEASE: ${WEB_REHEARSAL_RELEASE:-local-rehearsal}
+      # 법적 문서 마지막 성공본 디렉터리(Web image가 비 root 사용자 소유로 만든 경로, user host는 named volume).
+      DORMDURI_LEGAL_LAST_SUCCESS_DIR: /var/lib/dormduri/legal
       WEB_BFF_OPERATIONAL_LOGGING_ENABLED: '1'
       WEB_BFF_SUCCESS_SAMPLE_RATE: '1'
     ports:

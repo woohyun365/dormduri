@@ -83,7 +83,8 @@ Production과 Storybook fixture가 있으면 같은 상태·행동 계약인지 
 선택합니다. 실제 화면 변경이 없는 기능 수리는 해당 action/error/privacy 검증과 UI matrix가 불필요한 이유를 남깁니다.
 
 - 프로젝트 이름만 다른 같은 viewport 캡처는 dual-device PASS가 아닙니다. 예를 들어
-  [Legal 모바일 목차 case](../../../../apps/web/e2e/legal.spec.ts)는 두 project에서도 390×844로 override합니다.
+  [Legal 좁은 화면 case](../../../../apps/web/e2e/legal.spec.ts)는 두 project에서도 접힌 목차를 390×844, 표 넘침을 320×568로
+  override합니다.
   다른 case까지 같은 크기라고 일반화하지 말고 실행된 case의 viewport를 확인합니다.
 - 한쪽 evidence가 없으면 그쪽은 미검증입니다. Static screenshot만으로 mutation 완료, 에뮬레이션만으로 실제 OS
   keyboard·모바일 브라우저 전체 동작 PASS를 주장하지 않습니다.

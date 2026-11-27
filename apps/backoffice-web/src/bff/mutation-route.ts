@@ -7,6 +7,7 @@ import { BFF_ERROR_STATUS, type BffErrorCode } from './bff-errors';
 import { checkMutationRequest } from './request-guard';
 import { clearSessionCookie, SESSION_COOKIE_NAME, setSessionCookie } from './session-cookie';
 import { SESSION_ACTIVITY_HEADER } from './session-activity';
+import { MAX_BFF_BODY_BYTES } from './body-limit';
 
 /**
  * Every BFF route (`src/app/api/**`) is a POST built here (README §3). In order: the same-origin
@@ -15,7 +16,6 @@ import { SESSION_ACTIVITY_HEADER } from './session-activity';
  * and the cookie. A refusal before the upstream call never reaches the backoffice API.
  */
 
-const MAX_BODY_BYTES = 64 * 1024;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 const ENDED_SESSION_CODES: ReadonlySet<BackofficeErrorCode> = new Set([
   'session_required',
@@ -39,6 +39,8 @@ export interface BffSuccess {
 export interface BffMutationSpec<TBody, TUpstream> {
   /** Upstream path, built from the route's UUID params when it has any. */
   readonly upstream: string | ((params: Readonly<Record<string, string>>) => string);
+  /** The upstream method; the browser always posts to the BFF (a legal draft save is a PUT upstream). */
+  readonly upstreamMethod?: 'POST' | 'PUT';
   readonly params?: readonly string[];
   /** `public` routes send no token (login, registration); `session` routes need the cookie. */
   readonly access: 'public' | 'session';
@@ -65,10 +67,10 @@ export function bffError(code: BffErrorCode, status?: number): NextResponse {
   return noStore(NextResponse.json({ error: { code } }, { status: resolved }));
 }
 
-/** The body as text, or null past MAX_BODY_BYTES: reading stops there instead of buffering it all. */
+/** The body as text, or null past MAX_BFF_BODY_BYTES: reading stops there instead of buffering it all. */
 async function readCapped(request: NextRequest): Promise<string | null> {
   const declared = Number(request.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+  if (Number.isFinite(declared) && declared > MAX_BFF_BODY_BYTES) {
     return null;
   }
   if (!request.body) {
@@ -83,7 +85,7 @@ async function readCapped(request: NextRequest): Promise<string | null> {
       break;
     }
     total += value.byteLength;
-    if (total > MAX_BODY_BYTES) {
+    if (total > MAX_BFF_BODY_BYTES) {
       await reader.cancel();
       return null;
     }
@@ -171,7 +173,7 @@ export function bffMutation<TBody, TUpstream>(spec: BffMutationSpec<TBody, TUpst
     }
 
     const result = await callBackofficeApi({
-      method: 'POST',
+      method: spec.upstreamMethod ?? 'POST',
       path: typeof spec.upstream === 'function' ? spec.upstream(ids) : spec.upstream,
       token: spec.access === 'session' ? token : undefined,
       body,

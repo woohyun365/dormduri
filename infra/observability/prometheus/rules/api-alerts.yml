@@ -159,3 +159,18 @@ groups:
         annotations:
           summary: 가입 최종 제출 제한이 password hash 시작 대비 비정상적으로 증가했습니다.
           runbook: infra/runbooks/incidents/auth-session.md#sensitive-mutation-admission
+
+      # 공개 법적 문서 읽기 출처: DB 대신 memory 묶음으로 답했거나 답하지 못한 읽기. memory
+      # 응답도 맞는 게시본이지만 DB 읽기가 실패하고 있다는 뜻이다. 원인 경보는 DB·API 경보가 맡는다.
+      - alert: ApiLegalReadDegraded
+        expr: |
+          sum(increase(api_legal_document_reads_total{source="memory"}[10m])) > 0
+          or
+          sum(increase(api_legal_document_reads_total{outcome="unavailable"}[10m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: 공개 법적 문서 읽기가 10분 안에 DB 대신 memory 묶음으로 답했거나 답하지 못했습니다.
+          runbook: docs/runbooks/legal-publication.md#마지막-성공본-확인

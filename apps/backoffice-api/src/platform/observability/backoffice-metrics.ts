@@ -16,6 +16,15 @@ export const SECURITY_EVENTS = [
 ] as const;
 export type SecurityEvent = (typeof SECURITY_EVENTS)[number];
 
+/** Legal request decisions; the kind and notice class are fixed enum values. */
+export const LEGAL_DECISIONS = [
+  'publish_approved',
+  'publish_rejected',
+  'withdraw_approved',
+  'withdraw_rejected',
+] as const;
+export type LegalDecision = (typeof LEGAL_DECISIONS)[number];
+
 export const RETENTION_STEPS = [
   'audit_events',
   'role_assignments',
@@ -33,6 +42,7 @@ export type RetentionFailurePoint = (typeof RETENTION_FAILURE_POINTS)[number];
 export class BackofficeMetrics {
   readonly registry = new Registry();
   private readonly securityEvents: Counter<'event'>;
+  private readonly legalDecisions: Counter<'kind' | 'notice_class' | 'decision'>;
   private readonly retentionRows: Counter<'step'>;
   private readonly retentionFailures: Counter<'step'>;
   private readonly retentionLastSuccess: Gauge;
@@ -45,6 +55,12 @@ export class BackofficeMetrics {
       name: 'backoffice_security_events_total',
       help: 'Backoffice security events by kind (account lock, recovery login, role change, self approval, bootstrap, audit write failure, permission refusal).',
       labelNames: ['event'],
+      registers: [this.registry],
+    });
+    this.legalDecisions = new Counter({
+      name: 'backoffice_legal_decisions_total',
+      help: 'Legal publish and withdraw request decisions, by document kind, notice class and decision.',
+      labelNames: ['kind', 'notice_class', 'decision'],
       registers: [this.registry],
     });
     this.retentionRows = new Counter({
@@ -82,6 +98,10 @@ export class BackofficeMetrics {
 
   securityEvent(event: SecurityEvent): void {
     this.securityEvents.inc({ event });
+  }
+
+  legalDecision(kind: string, noticeClass: string, decision: LegalDecision): void {
+    this.legalDecisions.inc({ kind, notice_class: noticeClass, decision });
   }
 
   retentionProcessed(step: RetentionStep, rows: number): void {

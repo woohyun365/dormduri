@@ -1,8 +1,8 @@
 # Intent
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-12
-**확인 근거**: [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(Landing), [#706](https://github.com/woohyun365/dormduri/issues/706)(서비스 이름이 바뀔 때의 면책 고지), [#898](https://github.com/woohyun365/dormduri/issues/898)(test가 글자로 고정하는 처리방침 링크 명칭)
+**확인일**: 2026-11-26
+**확인 근거**: [#671](https://github.com/woohyun365/dormduri/issues/671) 본문의 결정 요약(Landing), [#706](https://github.com/woohyun365/dormduri/issues/706)(서비스 이름이 바뀔 때의 면책 고지), [#898](https://github.com/woohyun365/dormduri/issues/898)(test가 글자로 고정하는 처리방침 링크 명칭), [#1012](https://github.com/woohyun365/dormduri/issues/1012)(법적 문서 개정 예고의 실시간 상태 예외)
 **근거**: [Product documents](./README.md#intent-기록)
 
 제품 영역마다 PRD에 없는 invariant와 품질 기준을 둡니다. 목적·대상 사용자·흐름·비목표·완료 기준은 영역의 PRD 문서가 소유하고,
@@ -17,7 +17,8 @@ PRD: [Landing](./landing.md)
 - 정책 고지 일곱 개의 뜻과 원본 정책 문서는 화면을 바꿔도 그대로입니다. 면책 고지 네 문장(학교 공식 서비스 아님, 학교 시스템
   미연동, 기숙사 배정·호실 선택 미보장, 생활패턴 설문 면책)은 법적 책임 문구라 글자를 바꾸지 않습니다. 서비스 이름이 바뀌면 주어
   이름만 바꾸고 Owner가 전후 대조를 확인합니다. 그 밖의 글자를 바꿔야 하면 전문가 검토를 먼저 받습니다.
-- 랜딩은 이용 권한을 판단하지 않고 실시간 상태를 말하지 않습니다.
+- 랜딩은 이용 권한을 판단하지 않고 실시간 상태를 말하지 않습니다. 예외는 법이 정한 개정 고지 하나입니다. 개인정보 처리방침·
+  이용약관에 공지된 시행 예정 판이 있으면 그 판의 적용일을 알립니다([legal-basis.md](../policies/legal-basis.md)).
 - 학교 마스코트·이름·상징색을 브랜드로 쓰지 않습니다. 지어낸 수치·후기·출처 없는 연구 주장을 쓰지 않습니다.
 - 생활패턴 비교가 생활 만족이나 배정을 보장한다고 암시하지 않습니다.
 

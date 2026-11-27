@@ -204,7 +204,7 @@ const screensRelativeDepthBlocks = [0, 1, 2, 3, 4, 5, 6].map((depth) => ({
 // (allowlist only), import.meta, /// <reference> directives, aliased require and require.resolve.
 const modelRoot = 'src/screens/*/model';
 const modelTestIgnores = ['src/screens/**/__tests__/**', 'src/screens/**/*.{test,spec}.{ts,tsx}'];
-const modelAllowlist = `같은 model/ 안 상대 경로, @repo/shared/**, zod만 import합니다. ${screensReadme}`;
+const modelAllowlist = `같은 model/ 안 상대 경로, 공용 순수 module src/screens/ui/model/로 가는 상대 경로, @repo/shared/**, zod만 import합니다. ${screensReadme}`;
 const modelAllowlistPattern = {
   regex: String.raw`^(?!\.{1,2}/|@repo/shared/|zod$)`,
   message: `model/은 Next.js·React·React Native·Expo·Node builtin·@/ Web alias·그 밖 package를 import하지 않고 ${modelAllowlist}`,
@@ -260,14 +260,16 @@ const screensModelBlocks = [
     },
   },
   // A file `depth` directories below model/ may climb `depth` levels. A trailing `..` counts as a
-  // level: '../..' from model/sub/ points at the feature root, which exports the React screen.
+  // level: '../..' from model/sub/ points at the feature root, which exports the React screen. The
+  // one way further out is the shared pure modules (D-LU16): exactly `depth + 2` levels up into
+  // ui/model/, with no `..` after it; the `@/screens/ui/model` alias stays an error like every `@/`.
   ...[0, 1, 2, 3, 4].map((depth) => ({
     files: [`${modelRoot}/${'*/'.repeat(depth)}*.{ts,tsx}`],
     ignores: modelTestIgnores,
     rules: {
       'no-restricted-imports': modelImports([
         {
-          regex: String.raw`^(?:\./)?(?:\.\.(?:/|$)){${depth + 1}}`,
+          regex: String.raw`^(?:\./)?(?!(?:\.\./){${depth + 2}}ui/model/(?!(?:.*/)?\.\.(?:/|$)))(?:\.\.(?:/|$)){${depth + 1}}`,
           message: `model/ 밖의 파일은 상대 경로로 import하지 않습니다. model은 ${modelAllowlist}`,
         },
       ]),
@@ -289,6 +291,7 @@ const eslintConfig = defineConfig([
             'postcss.config.mjs',
             'vitest.config.ts',
             'src/styles/tokens/build-tokens.mjs',
+            'src/legal/test-support/legal-seed-source.mjs',
           ],
         },
         tsconfigRootDir: import.meta.dirname,
@@ -313,6 +316,38 @@ const eslintConfig = defineConfig([
     ],
     rules: {
       'no-restricted-imports': 'off',
+    },
+  },
+
+  // The test-only legal seed path (src/legal/test-support) holds the API seed text for tests, stories and the Playwright
+  // fixture. Production code never imports it; no other block sets this rule, so the
+  // screen layer blocks that redefine no-restricted-imports do not drop it.
+  {
+    files: ['src/**/*.{ts,tsx,js,mjs}'],
+    ignores: [
+      'src/**/*.{test,spec}.{ts,tsx}',
+      'src/**/__tests__/**',
+      'src/**/*.stories.{ts,tsx}',
+      'src/**/__stories__/**',
+      'src/auth/stories/**',
+      'src/legal/test-support/**',
+      'src/test-setup.ts',
+    ],
+    rules: {
+      'import/no-restricted-paths': [
+        'error',
+        {
+          basePath: import.meta.dirname,
+          zones: [
+            {
+              target: './src',
+              from: './src/legal/test-support',
+              message:
+                'src/legal/test-support는 test·story 전용 seed 원본입니다. 제품 code는 공개 열람 API 응답만 씁니다(apps/web/src/legal/README.md).',
+            },
+          ],
+        },
+      ],
     },
   },
 

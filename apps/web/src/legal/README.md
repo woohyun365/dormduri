@@ -1,46 +1,85 @@
 # Web legal
 
-`apps/web/src/legal` owns product-facing legal document rendering for `/terms`, `/privacy`, and signup legal consent surfaces.
+`apps/web/src/legal` owns legal document reading for `/terms`, `/privacy` and the landing revision line, and the signup
+legal consent surfaces. The public `/terms`·`/privacy` screens are the new screen layer's
+[`src/screens/legal`](../screens/legal/README.md); their routes call the loaders here and pass each load state to it.
 
-- `api/`: legal document fetch, validation, and UI mapping helpers.
-- `components/`: accessible document layout, TOC, signup consent summary, document dialog, and unavailable states.
-- `content/`: seed-synced fallback documents and user-facing legal copy. Public `/terms` and
-  `/privacy` fallback bodies use formal article headings while signup consent summaries stay short
-  and user-friendly. `content/legal-fallback-documents.ts` is the fallback document source.
-- `model/`: Web-only view models derived from `@repo/shared/legal` contracts. Add `hooks/` or
-  `fixtures/` only when a concrete runtime owner appears; do not create empty owner directories.
+- `api/`: public reading loaders (`legal-document.server.ts`), the last success store
+  (`legal-last-success.store.ts`), response validation, and UI mapping helpers.
+- `components/`: the signup consent summary, the document dialog and its section renderer. The Web keeps no copy of a
+  legal document body.
+- `model/`: Web-only view models and load states derived from `@repo/shared/legal` contracts. Add
+  `hooks/` or `fixtures/` only when a concrete runtime owner appears; do not create empty owner
+  directories.
+- `test-support/`: test-only legal documents built from the API legal seed
+  (`apps/api/prisma/seed-data/reference/`). Tests, stories and the Playwright fixture read their
+  legal text from here; production code may not import it (eslint `import/no-restricted-paths`).
+
+Public reading:
+
+- Each `/terms`·`/privacy` request asks the user API for the page (`/api/legal/documents/:kind/page`,
+  3 s timeout), then for the comparison table of the version on screen
+  (`/versions/:versionKey/comparison`). When the page came from the kept file the API did not answer,
+  so the comparison is read from its kept file only (`lastSuccess: 'only'`) and a stalled API holds
+  the first response about 3 s, not 6 s (Owner 2026-11-27).
+- The landing (`/`) reads the revision notices (`/api/legal/revision-notices`) with 500 ms
+  (`timeoutMs`) so a stalled API does not hold its first response, and keeps no copy and serves none
+  (`lastSuccess: 'none'`): a kept copy can name a version already in force (Owner 2026-11-26).
+- Otherwise a contract response is the published version and is kept as the last success of that request (a
+  file per endpoint, kind and version key, written as a temporary file then renamed in the same
+  directory, `DORMDURI_LEGAL_LAST_SUCCESS_DIR`). The API answers from its database or from its
+  in-memory versions; the Web does not tell them apart.
+- An API `404 LEGAL_DOCUMENT_VERSION_NOT_FOUND` for a version address shows "no such version" and
+  deletes that version's file. A malformed `?version=` shows the same without calling the API.
+- Any other failure (no connection, timeout, error status, a body outside the contract) shows the
+  kept file again after checking it with the shared schema, with the time it was checked; without
+  a valid file the page says the document cannot be loaded. Each answer from a kept file, and each
+  response the Web could not keep, writes one `web_legal_last_success` operational log line
+  (endpoint, kind, version key, and the checked time or the file system error code of the failed
+  write; no text, no reader).
+- The Web never decides which version is in effect or scheduled; the API owns those rules.
+- The kept files live in a runtime volume, so the store's paths carry Turbopack ignore comments:
+  a dynamic path would make the build trace the whole project into the server output.
+- A shown document carries a hidden source mark (`data-dormduri-legal-source`, `published` or
+  `last-success`). The Web deploy smoke keeps a new Web only when both routes are marked
+  `published` (`infra/deploy/user/ssm/deploy.sh`); the public screen (`src/screens/legal`) draws it.
+- Signup needs the active bundle from the API: without it the consent step blocks signup and offers
+  to load again. There is no Web copy of the version ids.
 
 Rules:
 
 - Do not import `apps/web/src/constants/legal/**` from `/terms` or `/privacy` routes.
 - Signup consent must use active legal document ids for `terms`, `personal data collection/use consent`, `age notice`, and shown `privacy policy`.
 - Treat privacy policy as a public notice/read evidence, not as a signup consent checkbox.
-- Do not store full legal document bodies in browser storage.
-- Keep user-facing copy free of plan, issue, internal file-path wording, raw legal version ids, and internal state names.
-- Render public version labels as user-friendly effective-date text, not raw ids such as
-  `privacy-YYYY-MM-DD`.
-- Keep Web fallback legal bodies in sync with the API legal seed source when changing public
-  `/terms` or `/privacy` copy.
-- Keep the public page header regression protected: the brand link shows the service logo
-  (`@/screens/ui/brand`), the secondary navigation action is `이전 화면으로`, and route metadata must
-  not repeat the service name (the root title template adds `돔두리 | `).
+- Do not store full legal document bodies in browser storage. The last success files live on the
+  Web server only and hold public documents only.
+- The public screens' copy, version labels and header rules belong to
+  [`src/screens/legal/README.md`](../screens/legal/README.md). Route metadata must not repeat the
+  service name (the root title template adds `돔두리 | `).
 
 Release handoff:
 
-- The fallback bodies name the Web-stage processors (server, email sending and domain; Landing visit
-  analytics; inquiry email), the overseas transfer table, the privacy officer and the inquiry email.
-  Database, file storage and observability processors are not chosen yet; add them to privacy
-  article 4 when they are. Whether a legal/privacy expert reviews the copy before the real user
-  release is tracked as a GitHub issue rather than inline TODO copy.
+- Legal text changes go through the backoffice draft, approval and publication path
+  (`docs/runbooks/legal-publication.md`); the seed holds the first versions only.
 - Document id, version and effective-date rules belong to
   [legal-basis.md LB-R6](../../../../docs/policies/legal-basis.md).
-- `__tests__/legal-document-source-sync.test.ts` keeps the fallback equal to the API seed and the
-  inquiry email equal to the Landing footer address. It runs only in the Web CI lane, so change the
-  seed and the fallback in the same commit.
+- `__tests__/legal-document-source-sync.test.ts` checks the seed versions in effect and the first
+  revision drafts: the inquiry email equals the footer address the Landing and Legal screens share
+  (`src/screens/ui/model/serviceNotices.ts`), the overseas transfer and retention tables. It runs in the Web CI lane; the change classifier also runs that lane when
+  only an API legal seed file changes (`WEB_TEST_API_SEED_FILES` in
+  `scripts/ci/lanes/classify-changes.mjs`).
 
 Verification surface:
 
-- `/terms` and `/privacy` route tests must keep public access, single `<h1>`, API-first rendering, seed-synced fallback rendering, user-facing version labels, mobile TOC placement, heading hierarchy, and `force-dynamic` behavior covered.
-- Playwright smoke should keep unauthenticated `/terms` and `/privacy` fallback rendering, public document actions, and internal-copy negative assertions covered without requiring an API fixture.
-- Signup legal tests must cover stale legal document ids, fallback ids, no full-body browser storage, and required consent separation from privacy-policy read evidence.
+- The `/terms`·`/privacy` screens, routes and their e2e are listed in the
+  [screens/legal README](../screens/legal/README.md#검사); `__tests__/legal-document-boundary.spec.ts`
+  keeps the routes `force-dynamic` and off the legacy constants.
+- Loader tests cover each failure kind, the 404 file deletion, malformed version keys without an
+  API call, the timeout, an invalid kept file, and a write failure that still shows the published
+  version.
+- Playwright Web-only smoke (no API) renders `/terms` and `/privacy` from last success files the
+  global setup writes from the seed (`e2e/support/legal-last-success-fixture.ts`);
+  `e2e/legal.fullstack.spec.ts` covers the published path against the seeded API.
+- Signup legal tests must cover stale legal document ids, the blocked step without the bundle, no
+  full-body browser storage, and required consent separation from privacy-policy read evidence.
 - Dialog tests should keep the minimum accessibility contract covered: `role="dialog"`, `aria-modal`, ESC/close-button dismissal, focus restoration, focus trap, and mobile scroll/touch-target classes.

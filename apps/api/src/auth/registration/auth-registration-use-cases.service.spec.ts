@@ -1,6 +1,7 @@
 import { LegalDocumentKind } from '@repo/shared/legal';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthRegistrationUseCases } from './auth-registration-use-cases.service.js';
+import { publishedLegalVersionRows } from '../../legal/test-support/published-legal-version-rows.js';
 
 describe('AuthRegistrationUseCases', () => {
   const databaseNow = new Date('2026-04-23T00:00:00.000Z');
@@ -21,7 +22,7 @@ describe('AuthRegistrationUseCases', () => {
       updateMany: vi.fn(),
     },
     legalDocumentVersion: {
-      findFirst: vi.fn(),
+      findMany: vi.fn(),
     },
     legalAcceptanceRecord: {
       createMany: vi.fn(),
@@ -75,18 +76,17 @@ describe('AuthRegistrationUseCases', () => {
     prisma.collegeMaster.findFirst.mockResolvedValue({ code: 'CHUNCHEON_IT' });
     prisma.$queryRawTyped.mockResolvedValue([{ id: 'code-1' }]);
     prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
-    prisma.legalDocumentVersion.findFirst.mockImplementation(
-      ({ where }: { where: { kind: LegalDocumentKind } }) => {
-        const activeVersionIds: Record<LegalDocumentKind, string> = {
-          [LegalDocumentKind.TERMS_OF_SERVICE]: input.legalAcceptances.termsVersionId,
-          [LegalDocumentKind.PRIVACY_POLICY]: input.legalAcceptances.privacyPolicyVersionIdShown,
-          [LegalDocumentKind.PERSONAL_DATA_COLLECTION_USE_CONSENT]:
-            input.legalAcceptances.personalDataConsentVersionId,
-          [LegalDocumentKind.AGE_14_OR_ABOVE_NOTICE]: input.legalAcceptances.ageNoticeVersionId,
-        };
-
-        return Promise.resolve({ id: activeVersionIds[where.kind] });
-      },
+    prisma.legalDocumentVersion.findMany.mockImplementation(
+      publishedLegalVersionRows(
+        (kind) =>
+          ({
+            [LegalDocumentKind.TERMS_OF_SERVICE]: input.legalAcceptances.termsVersionId,
+            [LegalDocumentKind.PRIVACY_POLICY]: input.legalAcceptances.privacyPolicyVersionIdShown,
+            [LegalDocumentKind.PERSONAL_DATA_COLLECTION_USE_CONSENT]:
+              input.legalAcceptances.personalDataConsentVersionId,
+            [LegalDocumentKind.AGE_14_OR_ABOVE_NOTICE]: input.legalAcceptances.ageNoticeVersionId,
+          })[kind],
+      ),
     );
     prisma.legalAcceptanceRecord.createMany.mockResolvedValue({ count: 4 });
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
@@ -95,7 +95,7 @@ describe('AuthRegistrationUseCases', () => {
         collegeMaster: { findFirst: prisma.collegeMaster.findFirst },
         user: { create: prisma.user.create },
         verificationCode: { updateMany: prisma.verificationCode.updateMany },
-        legalDocumentVersion: { findFirst: prisma.legalDocumentVersion.findFirst },
+        legalDocumentVersion: { findMany: prisma.legalDocumentVersion.findMany },
         legalAcceptanceRecord: { createMany: prisma.legalAcceptanceRecord.createMany },
       }),
     );

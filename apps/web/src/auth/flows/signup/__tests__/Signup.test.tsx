@@ -142,7 +142,6 @@ vi.mock('../components/LegalConsentStep', () => ({
             agreeTerms: true,
             agreePersonalDataCollectionUse: true,
             legalAcceptances,
-            legalBundleSource: 'api',
           });
           onNext();
         }}

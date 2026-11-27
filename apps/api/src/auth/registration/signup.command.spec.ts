@@ -4,6 +4,7 @@ import { parseDisplayIdentityNickname } from '@repo/shared/user/identity/display
 import { DisplayIdentityNicknamePolicyError } from '../../users/identity/display/display-identity-nickname-policy.service.js';
 import { signup } from './signup.command.js';
 import { PasswordHashCapacityUnavailableError } from '../credentials/password-hashing/password-hash-admission.service.js';
+import { publishedLegalVersionRows } from '../../legal/test-support/published-legal-version-rows.js';
 
 const passwordHashMocks = vi.hoisted(() => ({
   hashPassword: vi.fn(),
@@ -19,19 +20,6 @@ const activeLegalDocumentIds: Record<LegalDocumentKind, string> = {
   [LegalDocumentKind.AGE_14_OR_ABOVE_NOTICE]: 'age-14-or-above-notice-2026-06-22',
 };
 
-function findFirstKind(args: unknown): LegalDocumentKind {
-  if (typeof args !== 'object' || args === null || !('where' in args)) {
-    throw new Error('legal document findFirst where.kind is required');
-  }
-
-  const where = (args as { where?: { kind?: unknown } }).where;
-  if (typeof where?.kind !== 'string') {
-    throw new Error('legal document findFirst where.kind is required');
-  }
-
-  return where.kind as LegalDocumentKind;
-}
-
 describe('signup command', () => {
   const databaseNow = new Date('2026-04-23T00:00:00.000Z');
   const prisma = {
@@ -44,7 +32,7 @@ describe('signup command', () => {
       findFirst: vi.fn(),
     },
     legalDocumentVersion: {
-      findFirst: vi.fn(),
+      findMany: vi.fn(),
     },
     legalAcceptanceRecord: {
       createMany: vi.fn(),
@@ -116,8 +104,8 @@ describe('signup command', () => {
     vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
     prisma.collegeMaster.findFirst.mockResolvedValue({ code: 'CHUNCHEON_IT' });
-    prisma.legalDocumentVersion.findFirst.mockImplementation((args: unknown) =>
-      Promise.resolve({ id: activeLegalDocumentIds[findFirstKind(args)] }),
+    prisma.legalDocumentVersion.findMany.mockImplementation(
+      publishedLegalVersionRows((kind) => activeLegalDocumentIds[kind]),
     );
     prisma.legalAcceptanceRecord.createMany.mockResolvedValue({ count: 4 });
     prisma.$queryRawTyped.mockResolvedValue([{ id: 'code-1' }]);
@@ -127,7 +115,7 @@ describe('signup command', () => {
         $queryRawTyped: prisma.$queryRawTyped,
         collegeMaster: { findFirst: prisma.collegeMaster.findFirst },
         user: { create: prisma.user.create },
-        legalDocumentVersion: { findFirst: prisma.legalDocumentVersion.findFirst },
+        legalDocumentVersion: { findMany: prisma.legalDocumentVersion.findMany },
         legalAcceptanceRecord: { createMany: prisma.legalAcceptanceRecord.createMany },
         verificationCode: { updateMany: prisma.verificationCode.updateMany },
       }),
@@ -315,7 +303,7 @@ describe('signup command', () => {
 
     expect(nicknamePolicy.validate).toHaveBeenCalledWith(input.nickname);
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
-    expect(prisma.legalDocumentVersion.findFirst).not.toHaveBeenCalled();
+    expect(prisma.legalDocumentVersion.findMany).not.toHaveBeenCalled();
     expect(prisma.legalAcceptanceRecord.createMany).not.toHaveBeenCalled();
     expect(sessionService.prepareSessionIssue).not.toHaveBeenCalled();
   });
@@ -338,7 +326,7 @@ describe('signup command', () => {
 
     expect(nicknamePolicy.validate).toHaveBeenCalledWith('테스터');
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();
-    expect(prisma.legalDocumentVersion.findFirst).toHaveBeenCalledTimes(4);
+    expect(prisma.legalDocumentVersion.findMany).toHaveBeenCalledTimes(4);
     expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
     const createUserCalls = prisma.user.create.mock.calls as unknown as Array<
       [
@@ -451,7 +439,7 @@ describe('signup command', () => {
             $queryRawTyped: prisma.$queryRawTyped,
             collegeMaster: { findFirst: prisma.collegeMaster.findFirst },
             user: { create: prisma.user.create },
-            legalDocumentVersion: { findFirst: prisma.legalDocumentVersion.findFirst },
+            legalDocumentVersion: { findMany: prisma.legalDocumentVersion.findMany },
             legalAcceptanceRecord: { createMany: prisma.legalAcceptanceRecord.createMany },
             verificationCode: { updateMany: prisma.verificationCode.updateMany },
           });
@@ -588,7 +576,7 @@ describe('signup command', () => {
       },
     });
 
-    expect(prisma.legalDocumentVersion.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.legalDocumentVersion.findMany).toHaveBeenCalledTimes(1);
     expect(prisma.user.create).not.toHaveBeenCalled();
     expect(prisma.verificationCode.updateMany).toHaveBeenCalledTimes(1);
     expect(prisma.legalAcceptanceRecord.createMany).not.toHaveBeenCalled();

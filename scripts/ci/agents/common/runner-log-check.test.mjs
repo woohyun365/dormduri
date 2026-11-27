@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
@@ -423,4 +423,500 @@ test('a suggestion copies the token that holds the fragment as a token and leave
     ),
   );
   assert.equal(code, 0);
+});
+
+// OSS-RL P5 RED 3·8: a carried record (`carriedFrom`, the review id of the round that made its log) is taken only with a
+// carry basis that names that round (C1), when the producing round's runner file holds the same record and its outputs
+// are unchanged (C2), its log starts with that round's header (C3), the round diff since that round is changed `.md`
+// files only (C4) and no tracked `scripts/` file names a changed document by path or file name (C5).
+const PRODUCED = 'aaaaaaaa-11111111';
+const OTHER_ROUND = 'cccccccc-33333333';
+const DIGEST_BEFORE = `sha256:${'1'.repeat(64)}`;
+const HEADER_BEFORE = `KNU review snapshot ${DIGEST_BEFORE}`;
+const HEADER_OTHER = `KNU review snapshot sha256:${'3'.repeat(64)}`;
+const OUTPUT_DIGEST = `sha256:${'9'.repeat(64)}`;
+const CARRY_LOG = [
+  '$ node --test scripts/ci/sample.test.mjs',
+  '✔ alpha works (1.25ms)',
+  '✔ beta works (3ms)',
+  'ℹ tests 2',
+  'ℹ suites 0',
+  'ℹ pass 2',
+  'ℹ fail 0',
+  'ℹ duration_ms 12.5',
+  '    at file:///tmp/clone-1/scripts/ci/sample.test.mjs:4:1',
+  'exit=0',
+];
+const carried = (fields = {}) =>
+  record({
+    command: 'node --test scripts/ci/sample.test.mjs',
+    observedResult: 'suite passes `ℹ pass 2`',
+    outputPaths: ['logs/carried.log'],
+    carriedFrom: PRODUCED,
+    ...fields,
+  });
+const producedRound = (patch = {}) => ({
+  header: HEADER_BEFORE,
+  commands: ['node --test scripts/ci/sample.test.mjs'],
+  commandsActuallyRun: [
+    {
+      runner: 'parent',
+      exit: 0,
+      observedResult: 'suite passes `ℹ pass 2`',
+      environment: 'node v24',
+      outputPaths: ['logs/carried.log'],
+    },
+  ],
+  outputDigests: { 'logs/carried.log': { produced: OUTPUT_DIGEST, current: OUTPUT_DIGEST } },
+  roundDiff: [{ path: 'docs/note.md', created: false, deleted: false }],
+  ...patch,
+});
+// A repository with the carried log (made in round PRODUCED), tracked scripts and a carry basis.
+function carryRoot(
+  records,
+  { basis = { [PRODUCED]: producedRound() }, scripts = {}, logHeader = HEADER_BEFORE } = {},
+) {
+  const root = fixture({ runner: 'parent', records });
+  writeFileSync(resolve(root, 'logs/carried.log'), `${[logHeader, ...CARRY_LOG].join('\n')}\n`);
+  mkdirSync(resolve(root, 'scripts'));
+  mkdirSync(resolve(root, 'docs'));
+  writeFileSync(resolve(root, 'docs/note.md'), '# note\n');
+  writeFileSync(resolve(root, 'scripts/plain.mjs'), 'export const unrelated = true;\n');
+  for (const [path, text] of Object.entries(scripts)) writeFileSync(resolve(root, path), text);
+  execFileSync('git', ['add', '.'], { cwd: root });
+  if (basis !== null)
+    writeFileSync(
+      resolve(root, 'basis.json'),
+      JSON.stringify({ schema: 'claude-review-carry-basis/v1', rounds: basis }),
+    );
+  return root;
+}
+const carryCheck = (root, extra = ['--carry-basis', 'basis.json']) =>
+  run(['--json', '--evidence', 'evidence.json', '--header', HEADER, ...extra], root);
+const carryKinds = (out) => json(out).violations.map(({ kind }) => kind);
+
+test('a carried record that meets C1 to C5 has no violation and an uncarried record keeps its rules (OSS-RL P5 RED 3)', () => {
+  const root = carryRoot([carried(), record()]);
+  const { code, out } = carryCheck(root);
+  assert.equal(code, 0, out);
+  assert.deepEqual(json(out).violations, []);
+  // The carried record still needs this round's digest; its log keeps the producing round's header.
+  const wrongDigest = carryCheck(carryRoot([carried({ sourceDigest: DIGEST_BEFORE })]));
+  assert.deepEqual(carryKinds(wrongDigest.out), ['digest-mismatch']);
+});
+
+test('C1: a carried record without a basis or whose round the basis lacks is carry-basis-missing (OSS-RL P5 RED 3·8)', () => {
+  // RED 8: the Codex path runs the check without --carry-basis.
+  const without = carryCheck(carryRoot([carried()], { basis: null }), []);
+  assert.equal(without.code, 1, without.out);
+  assert.deepEqual(carryKinds(without.out), ['carry-basis-missing']);
+  const other = carryCheck(carryRoot([carried()], { basis: { [OTHER_ROUND]: producedRound() } }));
+  assert.equal(other.code, 1, other.out);
+  assert.deepEqual(carryKinds(other.out), ['carry-basis-missing']);
+});
+
+test('C2: a carried record that differs from the producing round runner file or whose output changed is carried-record-mismatch (OSS-RL P5 RED 3)', () => {
+  const run1 = producedRound().commandsActuallyRun[0];
+  for (const [label, records, round] of [
+    ['no runner file record of that name', [carried({ label: 'renamed' })], producedRound()],
+    ['exit', [carried({ exit: 1 })], producedRound()],
+    ['observedResult', [carried({ observedResult: 'suite passes `ℹ tests 2`' })], producedRound()],
+    ['environment', [carried({ environment: 'node v26' })], producedRound()],
+    [
+      'outputPaths',
+      [carried()],
+      producedRound({ commandsActuallyRun: [{ ...run1, outputPaths: ['logs/other.log'] }] }),
+    ],
+    ['purpose and expectedExit', [carried({ purpose: 'red', expectedExit: 1 })], producedRound()],
+    [
+      'purpose only',
+      [carried({ expectedExit: 1 })],
+      producedRound({ commandsActuallyRun: [{ ...run1, purpose: 'red', expectedExit: 1 }] }),
+    ],
+    [
+      'expectedExit',
+      [carried({ purpose: 'red', expectedExit: 1, exit: 0 })],
+      producedRound({
+        commandsActuallyRun: [{ ...run1, purpose: 'red', expectedExit: 2 }],
+      }),
+    ],
+    [
+      'a log line changed after the producing round',
+      [carried()],
+      producedRound({
+        outputDigests: {
+          'logs/carried.log': { produced: OUTPUT_DIGEST, current: `sha256:${'8'.repeat(64)}` },
+        },
+      }),
+    ],
+    [
+      'an output the producing round did not bind',
+      [carried()],
+      producedRound({ outputDigests: {} }),
+    ],
+  ]) {
+    const { code, out } = carryCheck(carryRoot(records, { basis: { [PRODUCED]: round } }));
+    assert.equal(code, 1, `${label}: ${out}`);
+    assert.ok(carryKinds(out).includes('carried-record-mismatch'), `${label}: ${out}`);
+  }
+});
+
+test('C3: a carried log whose first line is not the producing round header is carried-header-mismatch (OSS-RL P5 RED 3)', () => {
+  // The log was made in another round.
+  const other = carryCheck(carryRoot([carried()], { logHeader: HEADER_OTHER }));
+  assert.equal(other.code, 1, other.out);
+  assert.deepEqual(carryKinds(other.out), ['carried-header-mismatch']);
+  // carriedFrom names a round that did not make the log.
+  const notProducer = carryCheck(
+    carryRoot([carried({ carriedFrom: OTHER_ROUND })], {
+      basis: {
+        [OTHER_ROUND]: producedRound({ header: HEADER_OTHER }),
+      },
+    }),
+  );
+  assert.equal(notProducer.code, 1, notProducer.out);
+  assert.deepEqual(carryKinds(notProducer.out), ['carried-header-mismatch']);
+  // The log starts with this round's header: it was run again, not carried.
+  const thisRound = carryCheck(carryRoot([carried()], { logHeader: HEADER }));
+  assert.equal(thisRound.code, 1, thisRound.out);
+  assert.deepEqual(carryKinds(thisRound.out), ['carried-header-mismatch']);
+});
+
+test('C4: a round diff with a non-.md path, a new .md or a removed .md is carry-round-diff-not-docs (OSS-RL P5 RED 3)', () => {
+  for (const [label, roundDiff] of [
+    ['a .json path', [{ path: 'scripts/fixture.json', created: false, deleted: false }]],
+    ['a new .md', [{ path: 'docs/new.md', created: true, deleted: false }]],
+    ['a removed .md', [{ path: 'docs/gone.md', created: false, deleted: true }]],
+  ]) {
+    const { code, out } = carryCheck(
+      carryRoot([carried()], { basis: { [PRODUCED]: producedRound({ roundDiff }) } }),
+    );
+    assert.equal(code, 1, `${label}: ${out}`);
+    assert.deepEqual(carryKinds(out), ['carry-round-diff-not-docs'], label);
+  }
+});
+
+test('C5: a tracked scripts file naming a changed document by path or file name is carry-doc-referenced (OSS-RL P5 RED 3)', () => {
+  for (const [label, scripts] of [
+    ['path', { 'scripts/reads-path.mjs': "readFileSync('docs/note.md');\n" }],
+    ['file name', { 'scripts/reads-name.mjs': "const name = 'note.md';\n" }],
+  ]) {
+    const { code, out } = carryCheck(carryRoot([carried()], { scripts }));
+    assert.equal(code, 1, `${label}: ${out}`);
+    const [violation] = json(out).violations;
+    assert.equal(violation.kind, 'carry-doc-referenced', label);
+    assert.match(violation.detail, /docs\/note\.md/u, label);
+  }
+});
+
+// OSS-RL P5 RED 5 (the comparison unit): the confirm run of each carried record must exist under the same record name,
+// pass this round's runner record check, keep the exit, hold every carried fragment and the same test result lines
+// (name lines with durations masked and the summary counts); lines outside that unit are not compared.
+const CARRY_RECORD = {
+  schema: 'claude-review-carry/v1',
+  reviewId: 'bbbbbbbb-22222222',
+  header: HEADER,
+  confirmPath: 'confirm/evidence.json',
+  records: [
+    {
+      recordName: 'node --test scripts/ci/sample.test.mjs',
+      carriedFrom: PRODUCED,
+      exit: 0,
+      observedResult: 'suite passes `ℹ pass 2`',
+      outputPaths: ['logs/carried.log'],
+    },
+  ],
+};
+function confirmRoot({ lines = CARRY_LOG, header = HEADER, confirm = {}, carry = {} } = {}) {
+  const root = carryRoot([carried()]);
+  mkdirSync(resolve(root, 'confirm'));
+  writeFileSync(resolve(root, 'logs/confirm.log'), `${[header, ...lines].join('\n')}\n`);
+  writeFileSync(
+    resolve(root, 'carry.json'),
+    JSON.stringify({ ...CARRY_RECORD, records: [{ ...CARRY_RECORD.records[0], ...carry }] }),
+  );
+  writeFileSync(
+    resolve(root, 'confirm/evidence.json'),
+    JSON.stringify({
+      runner: 'parent',
+      records: [
+        record({
+          command: 'node --test scripts/ci/sample.test.mjs',
+          observedResult: 'suite passes `ℹ pass 2`',
+          outputPaths: ['logs/confirm.log'],
+          ...confirm,
+        }),
+      ],
+    }),
+  );
+  return root;
+}
+const confirmCheck = (root) =>
+  run(
+    [
+      '--json',
+      '--confirm',
+      'carry.json',
+      '--evidence',
+      'confirm/evidence.json',
+      '--header',
+      HEADER,
+    ],
+    root,
+  );
+const reasonsOf = (out) => json(out).reasons;
+const replaced = (from, to) => CARRY_LOG.map((line) => (line === from ? to : line));
+
+test('the confirm comparison has no reason when only times, stack lines or nothing differ (OSS-RL P5 RED 5)', () => {
+  for (const [label, lines] of [
+    ['all the same', CARRY_LOG],
+    [
+      'times only',
+      replaced('✔ alpha works (1.25ms)', '✔ alpha works (9.5ms)').map((line) =>
+        line === 'ℹ duration_ms 12.5' ? 'ℹ duration_ms 40.1' : line,
+      ),
+    ],
+    [
+      'stack trace clone path only',
+      replaced(
+        '    at file:///tmp/clone-1/scripts/ci/sample.test.mjs:4:1',
+        '    at file:///tmp/clone-2/scripts/ci/sample.test.mjs:4:1',
+      ),
+    ],
+  ]) {
+    const { code, out } = confirmCheck(confirmRoot({ lines }));
+    assert.equal(code, 0, `${label}: ${out}`);
+    assert.deepEqual(reasonsOf(out), [], label);
+  }
+});
+
+test('the confirm comparison names the carried record that is missing or differs (OSS-RL P5 RED 5)', () => {
+  const name = 'node --test scripts/ci/sample.test.mjs';
+  for (const [label, options, reason] of [
+    [
+      'no confirm record of that name',
+      { confirm: { label: 'other run' } },
+      `carry-confirm-missing: ${name}`,
+    ],
+    [
+      'exit differs',
+      { confirm: { exit: 1 }, lines: replaced('exit=0', 'exit=1') },
+      `carry-confirm-mismatch: ${name}`,
+    ],
+    [
+      'a carried fragment is not in the confirm log',
+      {
+        lines: replaced('ℹ pass 2', 'ℹ pass 1'),
+        confirm: { observedResult: 'suite passes `ℹ pass 1`' },
+      },
+      `carry-confirm-mismatch: ${name}`,
+    ],
+    [
+      // Only the fragment differs: the test result lines and the exit are the same.
+      'a carried fragment on a line outside the test result lines is not in the confirm log',
+      {
+        lines: replaced(
+          '$ node --test scripts/ci/sample.test.mjs',
+          '$ node --test scripts/ci/other.test.mjs',
+        ),
+        carry: { observedResult: 'suite runs `--test scripts/ci/sample.test.mjs`' },
+      },
+      `carry-confirm-mismatch: ${name}`,
+    ],
+    [
+      'a test turns from pass to fail',
+      { lines: replaced('✔ beta works (3ms)', '✖ beta works (3ms)') },
+      `carry-confirm-mismatch: ${name}`,
+    ],
+    [
+      'a test name changes',
+      { lines: replaced('✔ beta works (3ms)', '✔ beta renamed (3ms)') },
+      `carry-confirm-mismatch: ${name}`,
+    ],
+    [
+      'a summary count differs',
+      { lines: replaced('ℹ suites 0', 'ℹ suites 1') },
+      `carry-confirm-mismatch: ${name}`,
+    ],
+    [
+      'the confirm log does not start with this round header',
+      { header: HEADER_BEFORE },
+      `carry-confirm-mismatch: ${name}`,
+    ],
+  ]) {
+    const { code, out } = confirmCheck(confirmRoot(options));
+    assert.equal(code, 1, `${label}: ${out}`);
+    assert.ok(reasonsOf(out)?.includes(reason), `${label}: ${out}`);
+  }
+});
+
+// Operator sweep: the carry checks of each record and round, and the confirm comparison of each carried record.
+test('C1: a carriedFrom that is no review id is invalid-record and a basis round that is no object is carry-basis-missing (OSS-RL P5 RED 3)', () => {
+  const notId = carryCheck(carryRoot([carried({ carriedFrom: 'round-one' })]));
+  assert.equal(notId.code, 1, notId.out);
+  assert.deepEqual(carryKinds(notId.out), ['invalid-record']);
+  for (const value of [null, 'round', true]) {
+    const { code, out } = carryCheck(carryRoot([carried()], { basis: { [PRODUCED]: value } }));
+    assert.equal(code, 1, `${value}: ${out}`);
+    assert.deepEqual(carryKinds(out), ['carry-basis-missing'], String(value));
+  }
+});
+
+test('C5: every changed document of the round diff is looked up, and the detail names the scripts file (OSS-RL P5 RED 3)', () => {
+  const roundDiff = [
+    { path: 'docs/note.md', created: false, deleted: false },
+    { path: 'docs/named.md', created: false, deleted: false },
+  ];
+  const root = carryRoot([carried()], {
+    basis: { [PRODUCED]: producedRound({ roundDiff }) },
+    scripts: { 'scripts/reads-named.mjs': "const name = 'named.md';\n" },
+  });
+  writeFileSync(resolve(root, 'docs/named.md'), '# named\n');
+  const { code, out } = carryCheck(root);
+  assert.equal(code, 1, out);
+  const violations = json(out).violations;
+  assert.deepEqual(
+    violations.map(({ kind, path }) => [kind, path]),
+    [['carry-doc-referenced', 'docs/named.md']],
+  );
+  assert.equal(
+    violations[0].detail,
+    'docs/named.md is named by scripts/reads-named.mjs: a check reading it may change',
+  );
+});
+
+// A confirm repository with several carried records and confirm records, each with its own log lines.
+function confirmRootOf({ carriedRecords, confirmRecords, logs }) {
+  const root = carryRoot([carried()]);
+  mkdirSync(resolve(root, 'confirm'));
+  for (const [path, lines] of Object.entries(logs))
+    writeFileSync(resolve(root, path), `${lines.join('\n')}\n`);
+  writeFileSync(
+    resolve(root, 'carry.json'),
+    JSON.stringify({ ...CARRY_RECORD, records: carriedRecords }),
+  );
+  writeFileSync(
+    resolve(root, 'confirm/evidence.json'),
+    JSON.stringify({ runner: 'parent', records: confirmRecords }),
+  );
+  return root;
+}
+const carriedEntry = (name, fields = {}) => ({
+  recordName: name,
+  carriedFrom: PRODUCED,
+  exit: 0,
+  observedResult: 'suite passes `ℹ pass 2`',
+  outputPaths: ['logs/carried.log'],
+  ...fields,
+});
+const confirmEntry = (name, fields = {}) =>
+  record({
+    command: name,
+    observedResult: 'suite passes `ℹ pass 2`',
+    outputPaths: ['logs/confirm.log'],
+    ...fields,
+  });
+
+const TWO_FRAGMENTS = 'suite passes `ℹ pass 2` and runs `--test scripts/ci/sample.test.mjs`';
+test('the confirm comparison goes on after a missing or unreadable carried record and needs every carried fragment (OSS-RL P5 RED 5)', () => {
+  const [first, second, third] = ['node --test a.mjs', 'node --test b.mjs', 'node --test c.mjs'];
+  const root = confirmRootOf({
+    carriedRecords: [
+      carriedEntry(first),
+      carriedEntry(second, { outputPaths: ['logs/removed.log'] }),
+      carriedEntry(third, { observedResult: TWO_FRAGMENTS }),
+    ],
+    confirmRecords: [confirmEntry(second), confirmEntry(third)],
+    // Only the second fragment's line differs: the test result lines and the exit are the same.
+    logs: {
+      'logs/confirm.log': [
+        HEADER,
+        ...replaced(
+          '$ node --test scripts/ci/sample.test.mjs',
+          '$ node --test scripts/ci/other.test.mjs',
+        ),
+      ],
+    },
+  });
+  const { code, out } = confirmCheck(root);
+  assert.equal(code, 1, out);
+  assert.deepEqual(reasonsOf(out).sort(), [
+    `carry-confirm-mismatch: ${second}`,
+    `carry-confirm-mismatch: ${third}`,
+    `carry-confirm-missing: ${first}`,
+  ]);
+  // Every fragment holds and the result unit is the same: the two fragments alone pass.
+  const both = confirmRootOf({
+    carriedRecords: [carriedEntry(third, { observedResult: TWO_FRAGMENTS })],
+    confirmRecords: [confirmEntry(third)],
+    logs: { 'logs/confirm.log': [HEADER, ...CARRY_LOG] },
+  });
+  assert.deepEqual(reasonsOf(confirmCheck(both).out), []);
+});
+
+test('the confirm result unit reads text outputs only and leaves out digest lines (OSS-RL P5 RED 5)', () => {
+  const name = 'node --test scripts/ci/sample.test.mjs';
+  // A JSON output first: it is no text output, so its lines are not compared and the log after it is.
+  const withJson = confirmRootOf({
+    carriedRecords: [carriedEntry(name)],
+    confirmRecords: [confirmEntry(name, { outputPaths: ['logs/report.json', 'logs/confirm.log'] })],
+    logs: {
+      'logs/report.json': ['{', '✔ only in the report', 'ℹ pass 9', '}'],
+      'logs/confirm.log': [HEADER, ...CARRY_LOG],
+    },
+  });
+  const json1 = confirmCheck(withJson);
+  assert.equal(json1.code, 0, json1.out);
+  assert.deepEqual(reasonsOf(json1.out), []);
+  // A carried fragment that the confirm log holds only on a digest line is not in the result unit.
+  const digestOnly = confirmRootOf({
+    carriedRecords: [carriedEntry(name, { observedResult: 'suite passes `marker-7`' })],
+    confirmRecords: [confirmEntry(name)],
+    logs: {
+      'logs/confirm.log': [HEADER, ...CARRY_LOG, `marker-7 sha256:${'5'.repeat(64)}`],
+    },
+  });
+  writeFileSync(
+    resolve(digestOnly, 'logs/carried.log'),
+    `${[HEADER_BEFORE, ...CARRY_LOG, 'marker-7 done'].join('\n')}\n`,
+  );
+  assert.ok(reasonsOf(confirmCheck(digestOnly).out).includes(`carry-confirm-mismatch: ${name}`));
+  // A confirm record whose command is no string is named by its index in the reason of its violation.
+  const unnamed = confirmRootOf({
+    carriedRecords: [carriedEntry(name)],
+    confirmRecords: [confirmEntry(5, { exit: 1 })],
+    logs: { 'logs/confirm.log': [HEADER, ...CARRY_LOG] },
+  });
+  assert.deepEqual(reasonsOf(confirmCheck(unnamed).out).sort(), [
+    'carry-confirm-mismatch: record 0',
+    `carry-confirm-missing: ${name}`,
+  ]);
+});
+
+test('a carry basis or carry record of the wrong shape is an input error (exit 2) (OSS-RL P5 RED 3·5)', () => {
+  const basisRoot = (value) => {
+    const root = carryRoot([carried()]);
+    writeFileSync(resolve(root, 'basis.json'), JSON.stringify(value));
+    return root;
+  };
+  for (const [label, value] of [
+    ['another schema', { schema: 'claude-review-carry-basis/v0', rounds: {} }],
+    ['rounds is text', { schema: 'claude-review-carry-basis/v1', rounds: 'rounds' }],
+  ]) {
+    const { code, err } = carryCheck(basisRoot(value));
+    assert.equal(code, 2, label);
+    assert.match(err, /a carry basis is/u, label);
+  }
+  for (const [label, value] of [
+    ['another schema', { ...CARRY_RECORD, schema: 'claude-review-carry/v0' }],
+    ['records is no array', { ...CARRY_RECORD, records: { recordName: 'x' } }],
+    ['no records', { ...CARRY_RECORD, records: [] }],
+    ['a record without a name', { ...CARRY_RECORD, records: [CARRY_RECORD.records[0], {}] }],
+  ]) {
+    const root = confirmRoot();
+    writeFileSync(resolve(root, 'carry.json'), JSON.stringify(value));
+    const { code, err } = confirmCheck(root);
+    assert.equal(code, 2, label);
+    assert.match(err, /a carry record is/u, label);
+  }
 });

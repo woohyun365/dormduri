@@ -1,6 +1,8 @@
 const DEFAULT_APP_URL = 'http://localhost:3000';
 const DEFAULT_API_UPSTREAM_URL = 'http://localhost:4000';
 const DEFAULT_PUBLIC_API_BASE = '/api';
+// The user host named volume target (infra/deploy/user/compose.yml) the legal reading keeps its last successes in.
+const DEFAULT_LEGAL_LAST_SUCCESS_DIR = '/var/lib/dormduri/legal';
 
 const LOCAL_API_HOSTNAMES = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
 
@@ -84,6 +86,11 @@ export const WEB_ENV_KEYS = [
   },
   { key: 'WEB_RELEASE', scope: 'runtime-server', requirement: 'target-required' },
   {
+    key: 'DORMDURI_LEGAL_LAST_SUCCESS_DIR',
+    scope: 'runtime-server',
+    requirement: 'safe-default',
+  },
+  {
     key: 'WEB_BFF_OPERATIONAL_LOGGING_ENABLED',
     scope: 'runtime-server',
     requirement: 'safe-default',
@@ -147,6 +154,8 @@ export type WebServerEnv = {
   appUrl: string;
   apiUpstreamUrl: string;
   publicApiBase: string;
+  /** Absolute directory of the legal last success files. */
+  legalLastSuccessDirectory: string;
   operationalTelemetry: WebOperationalTelemetryEnv;
   sentry: WebSentryEnv;
 };
@@ -165,6 +174,7 @@ export const webEnvDefaults = {
   appUrl: DEFAULT_APP_URL,
   apiUpstreamUrl: DEFAULT_API_UPSTREAM_URL,
   publicApiBase: DEFAULT_PUBLIC_API_BASE,
+  legalLastSuccessDirectory: DEFAULT_LEGAL_LAST_SUCCESS_DIR,
   operationalTelemetry: {
     environment: 'local',
     release: 'development',
@@ -358,6 +368,22 @@ export function parseWebSentryEnv(rawEnv: RawWebEnv, runtimeMode: WebRuntimeMode
   };
 }
 
+/**
+ * The legal last success directory alone. The legal reading resolves it without the rest of the server env, so an API
+ * address the env rejects is a failure to reach the API and the kept file still answers.
+ */
+export function parseLegalLastSuccessDirectory(rawEnv: RawWebEnv): string {
+  const directory =
+    readEnvValue(rawEnv, 'DORMDURI_LEGAL_LAST_SUCCESS_DIR') ?? DEFAULT_LEGAL_LAST_SUCCESS_DIR;
+  if (!directory.startsWith('/')) {
+    throw new WebEnvValidationError(
+      'DORMDURI_LEGAL_LAST_SUCCESS_DIR must be an absolute path.',
+      'DORMDURI_LEGAL_LAST_SUCCESS_DIR_NOT_ABSOLUTE',
+    );
+  }
+  return directory;
+}
+
 export function parseWebServerEnv(
   rawEnv: RawWebEnv,
   runtimeMode: WebRuntimeMode = normalizeWebRuntimeMode(rawEnv.NODE_ENV),
@@ -383,10 +409,13 @@ export function parseWebServerEnv(
     runtimeMode,
   });
 
+  const legalLastSuccessDirectory = parseLegalLastSuccessDirectory(rawEnv);
+
   return {
     appUrl: appUrl.value,
     apiUpstreamUrl: apiUpstreamUrl.value,
     publicApiBase: normalizePublicApiBase(publicApiBaseInput ?? DEFAULT_PUBLIC_API_BASE),
+    legalLastSuccessDirectory,
     operationalTelemetry: parseOperationalTelemetryEnv(rawEnv, runtimeMode),
     sentry: parseWebSentryEnv(rawEnv, runtimeMode),
   };

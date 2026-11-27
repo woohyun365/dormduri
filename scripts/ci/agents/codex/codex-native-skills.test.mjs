@@ -385,3 +385,25 @@ test('Codex review-run paths are the subject paths and the dispatch steps run be
   );
   assert.ok(!flat.includes('읽기 범위(변경 파일)'), 'the read range is not changed files only');
 });
+
+// OSS-RL P5 RED 1 (L9): the Codex settle skill checks unjudged lines by source and paragraph together, as the Claude one.
+test('the Codex settle skill checks unjudged lines by source and paragraph together (OSS-RL P5 RED 1)', () => {
+  const text = read(skillPath('knu-settle')).replace(/\s+/gu, ' ');
+  const unjudged = text.slice(text.indexOf('`unjudgedBehaviors`(판정하지 않은 동작)'));
+  for (const phrase of [
+    '같은 원천(같은 명령 출력·같은 기록)을 쓰는 주장',
+    '같은 문단의 주장을 한 번에 대조',
+    '`raised`가 하나라도 있으면 그 문단 전체를 다시 대조한 뒤 다음 회차를 요청',
+    '처분 근거 log',
+  ])
+    assert.ok(unjudged.includes(phrase), `Codex knu-settle: ${phrase}`);
+});
+
+// OSS-RL P5 RED 8 (goal 2 (g)): Codex does not carry records forward; its direct runner check has no basis, so a carried
+// record fails as carry-basis-missing.
+test('the Codex runner check step says Codex does not carry records and a carried record fails (OSS-RL P5 RED 8)', () => {
+  const section = dispatchSection(read(skillPath('knu-review')));
+  const step = section.steps.find(({ name }) => name === 'Runner 기록 검사').text;
+  assert.ok(step.includes('Codex는 이어 쓰지 않습니다'), step);
+  assert.ok(step.includes('`carry-basis-missing`'), step);
+});

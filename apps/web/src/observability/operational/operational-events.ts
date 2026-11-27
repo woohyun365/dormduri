@@ -74,13 +74,53 @@ export type WebVitalMeasuredEvent = OperationalEventEnvelope &
     attributionKeys: readonly string[];
   }>;
 
+/**
+ * A legal reading answered from the Web's last success file, or a response the Web could not keep. It names
+ * the request only: the endpoint, the document kind and the version key, never the text or the reader.
+ */
+export type WebLegalLastSuccessEvent = OperationalEventEnvelope &
+  Readonly<{
+    eventName: 'web_legal_last_success';
+    action: 'served' | 'write_failed';
+    endpoint: 'page' | 'comparison' | 'revision-notices';
+    /** A legal document kind, or `all` for the revision notices of every kind. */
+    documentKind: string;
+    /** `current`, a `YYYY-MM-DD` version key, or `all` for the revision notices. */
+    versionKey: string;
+    /** When the served response was read from the API (served only). */
+    checkedAt?: string;
+    /** Why the response could not be kept (write_failed only): a file system code, never the error message. */
+    errorCode?: WebLegalLastSuccessWriteErrorCode;
+  }>;
+
+/** File system codes that tell the volume problems apart (permission, space, read-only, missing directory). */
+export const LEGAL_LAST_SUCCESS_WRITE_ERROR_CODES = [
+  'EACCES',
+  'EPERM',
+  'ENOSPC',
+  'EDQUOT',
+  'EROFS',
+  'ENOENT',
+  'ENOTDIR',
+  'OTHER',
+] as const;
+export type WebLegalLastSuccessWriteErrorCode =
+  (typeof LEGAL_LAST_SUCCESS_WRITE_ERROR_CODES)[number];
+
 export type OperationalEvent =
-  WebRuntimeErrorEvent | WebBffRequestCompletedEvent | WebVitalMeasuredEvent;
+  | WebRuntimeErrorEvent
+  | WebBffRequestCompletedEvent
+  | WebVitalMeasuredEvent
+  | WebLegalLastSuccessEvent;
+
+/** Events the Web server writes as `web_operational` log lines. */
+export type ServerOperationalEvent = WebBffRequestCompletedEvent | WebLegalLastSuccessEvent;
 
 export const OPERATIONAL_EVENT_NAMES = [
   'web_runtime_error',
   'web_bff_request_completed',
   'web_vital_measured',
+  'web_legal_last_success',
 ] as const satisfies readonly OperationalEvent['eventName'][];
 
 export const OPERATIONAL_FORBIDDEN_KEY_PARTS = [

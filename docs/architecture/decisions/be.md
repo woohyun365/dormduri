@@ -1,8 +1,8 @@
 # BE 결정 기록
 
 **상태**: owner-confirmed
-**확인일**: 2026-11-21
-**확인 근거**: [#773](https://github.com/woohyun365/dormduri/issues/773) 본문의 채택 판정과 계획 보강 댓글(application-architecture의 `be.arch.http-adapter`: adapter 채택, `qs` override, 성숙 기간 면제), [#958의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/958#issuecomment-7064557164)(domain-model-invariant의 `be.domain.owner-unit/backoffice`, authn-authz의 `be.auth.session-model/backoffice`, background-integration-performance의 `be.bg.job-runner/backoffice` 실행 위치, 2026-11-04·12·21)
+**확인일**: 2026-11-25
+**확인 근거**: [#773](https://github.com/woohyun365/dormduri/issues/773) 본문의 채택 판정과 계획 보강 댓글(application-architecture의 `be.arch.http-adapter`: adapter 채택, `qs` override, 성숙 기간 면제), [#958의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/958#issuecomment-7064557164)(domain-model-invariant의 `be.domain.owner-unit/backoffice`, authn-authz의 `be.auth.session-model/backoffice`, background-integration-performance의 `be.bg.job-runner/backoffice` 실행 위치, 2026-11-04·12·21), [#996의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/996#issuecomment-7155467337)(api-design-contract의 `be.api.compatibility/legal`, 2026-11-17), [#1000의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/1000#issuecomment-7164201580)(domain-model-invariant의 `be.domain.owner-unit/backoffice`, 2026-11-25)
 **근거**: [platform/http](../../../apps/api/src/platform/http/README.md), [백오피스 API](../../../apps/backoffice-api/README.md), [platform/observability](../../../apps/api/src/platform/observability/README.md), [Domain/SWE/Web/BE pack](../../development/agent-workflows/domain/swe-web/be.md)
 
 `Domain/SWE/Web/BE` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
@@ -17,17 +17,43 @@
 - 상태: validated
 - 고른 선택지: 업무 capability 단위. 백오피스는 사용자 앱과 따로 Next.js BFF(`apps/backoffice-web`)와 NestJS API(`apps/backoffice-api`)를
   두고 공유 DB package(`@repo/database`)와 계약 package(`@repo/shared/backoffice`)를 함께 쓴다. API 안의 owner는 기능 module
-  (`platform`·`audit`·`access-control/roles`·`admin-identity`·`access-control`)이고 의존은 이 순서의 한 방향이다. 예외는 다른 module을
-  import하지 않는 두 파일, route 접근 규칙 decorator(`access-control/route-access.ts`)와 권한 계산(`access-control/permissions.ts`)이고
-  모든 module의 controller와 session이 쓴다. 사용자 API code는 import하지 않는다(ESLint `no-restricted-imports`)
+  (`platform`·`audit`·`access-control/roles`·`admin-identity`·`access-control`·`legal`)이고 의존은 이 순서의 한 방향이다. 예외는
+  다른 module을 import하지 않는 두 파일, route 접근 규칙 decorator(`access-control/route-access.ts`)와 권한 계산
+  (`access-control/permissions.ts`)이고 모든 module의 controller와 session이 쓴다. 사용자 API code는 import하지 않는다(ESLint
+  `no-restricted-imports`)
 - 근거: 관리자 계정·session·감사가 사용자 API image와 session 경계에서 떨어져 사용자 API process가 뚫려도 관리자 기록에 닿지 않는다.
   역할 부여 행은 초대 등록(bootstrap)과 승인 결과가 함께 바꾸므로 한 store(`access-control/roles`)가 소유해 identity와 access-control의
   순환을 끊었다. Module을 다시 나누는 비용은 크지만 DB·계약 package는 그대로 둔다
 - 기각한 대안: 사용자 API에 admin module(user·admin code가 한 image와 session 경계를 나눔), 화면·진입점 단위 owner(같은 승인·감사 규칙이
   진입점마다 복제됨), 사용자 API code import로 재사용(두 app의 배포·권한 경계가 섞임)
-- 재검토 조건: 두 API가 함께 쓸 server code가 생길 때(공유 server package), 백오피스 기능이 legal·RRPD 열람으로 늘 때
-- 출처: #958, Owner 확인 2026-11-04·2026-11-12
+- 이전 선택: 2026-11-12 기능 module 다섯(`platform`부터 `access-control`까지). 바꾼 이유: 공개 법적 문서의 초안·승인이 같은 업무
+  capability 단위의 `legal` module로 들어가 승인 요청 table과 역할·감사 module을 쓰고, 사용자 API의 공개 열람과는 DB의 판 table만
+  함께 씀(재검토 조건 "백오피스 기능이 legal·RRPD 열람으로 늘 때"). 출처 #1000, Owner 확인 2026-11-25
+- 재검토 조건: 두 API가 함께 쓸 server code가 생길 때(공유 server package), 백오피스 기능이 RRPD 열람으로 늘 때
+- 출처: #958, #1000, Owner 확인 2026-11-04·2026-11-12·2026-11-25
 - pack 결정: [be.domain.owner-unit](../../development/agent-workflows/domain/swe-web/be.md#bedomainowner-unit)
+
+## api-design-contract
+
+공개 법적 문서 endpoint와 응답 계약은 [legal README](../../../apps/api/src/legal/README.md)와 공유 계약 `@repo/shared/legal`이
+소유합니다.
+
+#### be.api.compatibility/legal
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: 추가만 하고 제거는 예고 뒤. 공개 법적 문서의 옛 두 endpoint(`documents/:kind/active`, `documents/active-bundle`)는
+  응답 schema·오류·날짜 표기(`effectiveAt`·`lastModifiedAt`은 그 한국 시간 날짜의 `T00:00:00.000Z`)를 그대로 두고 시행 중 판을
+  낸다. 판 열람(`documents/:kind/page`), 조항 대조표(`documents/:kind/versions/:versionKey/comparison`), 개정 예고
+  (`revision-notices`)는 새 endpoint로 더하고 공유 계약에는 schema를 더하기만 한다. 판 주소는 시행일(`YYYY-MM-DD`)이다. 옛
+  endpoint 삭제는 사용처(가입 묶음, 옛 Web)가 0인 것을 확인한 뒤 별도 변경이다
+- 근거: 사용자 API와 Web은 따로 배포되고 한쪽만 되돌릴 수 있어, 같은 승격에서 옛 endpoint를 지우면 배포 사이와 rollback 때
+  화면이 깨진다. 지금 Web은 날짜 문자열의 앞 10자를 날짜로 읽으므로 00:00 한국 시간 시각을 ISO로 내면 전날로 보인다
+- 기각한 대안: 같은 승격에서 바꾸고 옛 endpoint 삭제(api-cd와 web-cd 사이나 한쪽만 rollback한 동안 문서 화면이 깨짐), 판 번호
+  주소(`/privacy/versions/3`처럼 사람이 읽기 어렵고, 시행 전 철회한 판이 있으면 번호가 빔)
+- 재검토 조건: 옛 endpoint 사용처가 0이 될 때, 판 수·문서 크기가 커져 판 열람 응답이 무거울 때
+- 출처: #996, Owner 확인 2026-11-17
+- pack 결정: [be.api.compatibility](../../development/agent-workflows/domain/swe-web/be.md#beapicompatibility)
 
 ## authn-authz
 

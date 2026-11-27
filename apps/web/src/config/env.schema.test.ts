@@ -102,6 +102,7 @@ describe('web env schema', () => {
       appUrl: 'https://app.example.com',
       apiUpstreamUrl: 'https://api.example.com',
       publicApiBase: '/api',
+      legalLastSuccessDirectory: '/var/lib/dormduri/legal',
       operationalTelemetry: {
         environment: 'production',
         release: 'development',
@@ -118,6 +119,18 @@ describe('web env schema', () => {
         tracesSampleRate: 0.1,
       },
     });
+  });
+
+  it('법적 문서 마지막 성공본 디렉터리는 절대 경로만 받는다', () => {
+    const base = { API_URL: 'https://api.example.com', WEB_APP_URL: 'https://app.example.com' };
+
+    expect(
+      parseWebServerEnv({ ...base, DORMDURI_LEGAL_LAST_SUCCESS_DIR: '/tmp/legal' }, 'production')
+        .legalLastSuccessDirectory,
+    ).toBe('/tmp/legal');
+    expect(() =>
+      parseWebServerEnv({ ...base, DORMDURI_LEGAL_LAST_SUCCESS_DIR: 'legal' }, 'production'),
+    ).toThrow(WebEnvValidationError);
   });
 
   it('production Sentry는 privacy, release evidence, HTTPS DSN이 없으면 no-op이다', () => {

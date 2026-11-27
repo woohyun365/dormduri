@@ -49,6 +49,13 @@ export const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] =
       'auth instrumentation measures elapsed duration; it is not a persisted business time.',
   }),
   entry({
+    path: 'src/legal/queries/legal-published-version.reader.ts',
+    owner: 'legal',
+    category: 'date-arithmetic',
+    rationale:
+      'when the database read fails, the memory answer adds monotonic elapsed time to the last database-now; it never reads the server wall clock.',
+  }),
+  entry({
     path: 'src/auth/operations/cleanup/auth-operational-cleanup.service.ts',
     owner: 'auth/operations',
     category: 'date-arithmetic',

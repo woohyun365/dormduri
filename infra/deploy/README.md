@@ -161,7 +161,8 @@ Ingress(`user/ingress/conf.d/dormduri.conf`)는 apex `dormduri.com`만 받는다
   loopback port로 띄운다. `USER_HOST_REHEARSAL_ROOT`가 `acme-webroot`·`tls`·`mode` 폴더가 있는 local 경로를 가리켜야 한다.
 - `pnpm infra:check:static`: rehearsal render가 운영 render와 build·loopback port·host 경로 source에서만 다른지 비교,
   compose 구조 계약(`scripts/infra/user-host/compose-contract.mjs`. Web publish 없음, read-only
-  root, capability 모두 제거, memory Web 320MiB·ingress 96MiB, log 회전), ingress 설정 test, document 생성본 일치.
+  root, capability 모두 제거, memory Web 320MiB·ingress 96MiB, log 회전, Web의 mount는 법적 문서 마지막 성공본 named
+  volume 하나이고 다른 service는 그 volume을 mount하지 않음), ingress 설정 test, document 생성본 일치.
 - `pnpm infra:check:runtime`: ingress image build와 `nginx -t`, stub Web 뒤에서 경로마다 status·title·header를 실제로
   요청하는 smoke, 일회용 container에서 document 실행(입력 거부와 host lock, 그리고 가짜 `docker`·`aws`·`curl` 위에서 배포
   성공·기동 실패와 smoke 실패의 자동 복귀·rollback 입력 대조·첫 배포 실패의 점검 mode, 그리고 rollback 대상 기동 실패·

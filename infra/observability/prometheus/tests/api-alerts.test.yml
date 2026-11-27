@@ -1,0 +1,54 @@
+# promtool test rules(scripts/infra/check/validate-runtime-configs.mjs). 공개 법적 문서 읽기 출처 경보:
+# 사용자 API가 DB 대신 memory 묶음으로 답했거나 답하지 못한 읽기가 10분 창에 하나라도 있으면 울리고, 창이 지나면 그친다.
+# DB로 답한 읽기와 없는 판(not_found)은 울리지 않는다.
+rule_files:
+  - ../rules/api-alerts.yml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'api_legal_document_reads_total{endpoint="page",source="database",outcome="ok"}'
+        values: '0+5x40'
+      - series: 'api_legal_document_reads_total{endpoint="page",source="database",outcome="not_found"}'
+        values: '0+1x40'
+      - series: 'api_legal_document_reads_total{endpoint="page",source="memory",outcome="ok"}'
+        values: '0x4 1x35'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ApiLegalReadDegraded
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: ApiLegalReadDegraded
+        exp_alerts:
+          - exp_labels: { severity: warning, service: api }
+            exp_annotations:
+              summary: 공개 법적 문서 읽기가 10분 안에 DB 대신 memory 묶음으로 답했거나 답하지 못했습니다.
+              runbook: docs/runbooks/legal-publication.md#마지막-성공본-확인
+      - eval_time: 20m
+        alertname: ApiLegalReadDegraded
+        exp_alerts: []
+  # 답하지 못한 읽기: memory 묶음도 없어 503이거나(source memory), DB로 읽었지만 답을 만들지 못했다(source database).
+  - interval: 1m
+    input_series:
+      - series: 'api_legal_document_reads_total{endpoint="page",source="memory",outcome="unavailable"}'
+        values: '0x4 1x20'
+      - series: 'api_legal_document_reads_total{endpoint="active-bundle",source="database",outcome="unavailable"}'
+        values: '0x30 2x20'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: ApiLegalReadDegraded
+        exp_alerts:
+          - exp_labels: { severity: warning, service: api }
+            exp_annotations:
+              summary: 공개 법적 문서 읽기가 10분 안에 DB 대신 memory 묶음으로 답했거나 답하지 못했습니다.
+              runbook: docs/runbooks/legal-publication.md#마지막-성공본-확인
+      - eval_time: 20m
+        alertname: ApiLegalReadDegraded
+        exp_alerts: []
+      - eval_time: 33m
+        alertname: ApiLegalReadDegraded
+        exp_alerts:
+          - exp_labels: { severity: warning, service: api }
+            exp_annotations:
+              summary: 공개 법적 문서 읽기가 10분 안에 DB 대신 memory 묶음으로 답했거나 답하지 못했습니다.
+              runbook: docs/runbooks/legal-publication.md#마지막-성공본-확인

@@ -21,6 +21,9 @@ section 글자는 스크롤로 들어올 때 투명한 흐림에서 또렷해지
 - `line-mask` linear: 제목 줄이 올라오는 동안만 자르는 상자라 속도 곡선이 없음
 - 첫 화면 질문 상자 타이핑(글자 80ms, 지우기 35ms, 멈춤 1800ms): script timer라 CSS 변수를 읽지 않음. motion 줄이기에서는 넘기지
   않습니다
+- 법적 문서 목차 rail의 표시 색 전환 150ms(`motion-safe:duration-150`, `screens/legal/components/Toc.tsx`): 스크롤을 따라 자주
+  바뀌는 상태 색이라 등장용 token(`slow` 320ms 이상)을 쓰면 표시가 읽는 위치보다 늦게 따라옴. `stagger` 80ms는 지연 간격이라
+  전환 시간으로 쓰지 않음. motion 줄이기에서는 `motion-safe`라 바로 바뀝니다. 법적 문서 화면에는 등장 효과가 없습니다
 
 - `reveal-soft`, `reveal-delay-*`: section이 스크롤로 들어올 때 흐림에서 또렷해짐, 단계별 지연
 - `line-rise`, `line-mask`, `enter-delay-*`: 첫 화면 제목 줄이 자기 상자에서 올라옴

@@ -4,6 +4,8 @@ import {
   type SignupLegalAcceptances,
 } from '@repo/shared/legal';
 import type { Prisma } from '@repo/database/client';
+import { currentLegalVersionOf, legalTimelineOf, toLegalVersion } from '../domain/legal-version.js';
+import { findPublishedLegalVersions } from '../repositories/legal-document.repository.js';
 
 export const SIGNUP_LEGAL_ACCEPTANCE_STALE = '[LegalAcceptance] signup legal acceptance stale';
 
@@ -51,23 +53,14 @@ function readRequestedDocumentVersionId(
   return legalAcceptances[field];
 }
 
+/** The version in effect at `now` (database clock), by the same timeline the public reading uses. */
 async function findActiveLegalDocumentId(
   tx: LegalAcceptanceTransactionClient,
   kind: LegalDocumentKind,
   now: Date,
 ): Promise<string | null> {
-  const record = await tx.legalDocumentVersion.findFirst({
-    where: {
-      kind,
-      publishedAt: { not: null, lte: now },
-      effectiveAt: { lte: now },
-      OR: [{ retiredAt: null }, { retiredAt: { gt: now } }],
-    },
-    orderBy: [{ effectiveAt: 'desc' }, { publishedAt: 'desc' }, { id: 'desc' }],
-    select: { id: true },
-  });
-
-  return record?.id ?? null;
+  const versions = (await findPublishedLegalVersions(tx, [kind], now)).map(toLegalVersion);
+  return currentLegalVersionOf(legalTimelineOf(versions, now))?.id ?? null;
 }
 
 export async function resolveSignupLegalAcceptances(

@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LoginScreen } from './LoginScreen';
+import { endedNotice, LoginScreen } from './LoginScreen';
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => router }));
@@ -101,5 +101,30 @@ describe('LoginScreen', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       '백오피스 API가 로그아웃을 확인하지 못했습니다.',
     );
+  });
+
+  it('explains a closed session', () => {
+    render(<LoginScreen ended="closed" />);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '이 접속은 끝났습니다. 다른 창에서 로그아웃했거나 역할·계정 상태가 바뀌었을 수 있습니다. 다시 로그인하세요.',
+    );
+  });
+
+  it('explains a session ended by my own role revoke', () => {
+    render(<LoginScreen ended="self-revoked" />);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '내 역할 회수를 승인해 이 접속이 끝났습니다. 다시 로그인하세요.',
+    );
+  });
+
+  it('keeps only the known ended notices from the query', () => {
+    for (const known of ['idle', 'expired', 'unconfirmed', 'closed', 'self-revoked']) {
+      expect(endedNotice(known)).toBe(known);
+    }
+    for (const unknown of ['', 'revoked', 'constructor', ['closed'], null, undefined]) {
+      expect(endedNotice(unknown)).toBeNull();
+    }
+    render(<LoginScreen ended="revoked" />);
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

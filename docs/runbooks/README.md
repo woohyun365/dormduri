@@ -4,6 +4,7 @@
 소유한다. 일회성 조사 기록은 `.local-docs/analysis/`에 둔다.
 
 - [`season-operation.md`](./season-operation.md): 시즌 운영 절차
+- [`legal-publication.md`](./legal-publication.md): 법적 문서 첫 게시·이전 판 기록·개정·철회와 공개 열람 확인
 - [`observability/`](./observability/): API/Auth workload와 제품 metric 검증
 
 Infrastructure 배포, DB, 관측 stack, incident와 rollback 절차는 `infra/runbooks/`가 소유한다.

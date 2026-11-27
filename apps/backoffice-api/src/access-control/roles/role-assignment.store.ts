@@ -1,6 +1,6 @@
 import type { AdminRole } from '@repo/database/enums';
 import type { BackofficeTransaction } from '../../platform/database/backoffice-prisma.js';
-import { ROLE_CHANGE_APPROVER_ROLES } from '../permissions.js';
+import { LEGAL_APPROVER_ROLES, ROLE_CHANGE_APPROVER_ROLES } from '../permissions.js';
 
 /**
  * Owner of `AdminRoleAssignment` writes (access-control). It depends only on the platform, so the
@@ -52,11 +52,27 @@ export class RoleAssignmentStore {
   }
 
   /** Active accounts that hold a role allowed to decide role grant and revoke requests. */
-  async activeRoleChangeApprovers(tx: BackofficeTransaction): Promise<string[]> {
+  activeRoleChangeApprovers(tx: BackofficeTransaction): Promise<string[]> {
+    return this.activeApprovers(tx, ROLE_CHANGE_APPROVER_ROLES);
+  }
+
+  /** The active approvers of each request kind: role changes, then legal documents (OA-R9). */
+  async activeApproversByKind(tx: BackofficeTransaction): Promise<string[][]> {
+    return [
+      await this.activeApprovers(tx, ROLE_CHANGE_APPROVER_ROLES),
+      await this.activeApprovers(tx, LEGAL_APPROVER_ROLES),
+    ];
+  }
+
+  /**
+   * Active accounts that hold any of `roles`, counted when a request is decided (OA-R9): the
+   * role change approvers, or the legal approvers for a legal request.
+   */
+  async activeApprovers(tx: BackofficeTransaction, roles: readonly AdminRole[]): Promise<string[]> {
     const rows = await tx.adminRoleAssignment.findMany({
       where: {
         revokedAt: null,
-        role: { in: [...ROLE_CHANGE_APPROVER_ROLES] },
+        role: { in: [...roles] },
         account: { status: 'ACTIVE' },
       },
       select: { accountId: true },

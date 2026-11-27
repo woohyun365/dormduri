@@ -37,12 +37,14 @@ export function isIntendedFanOut(rawPath) {
 
 const STORYBOOK_PATTERN =
   /(^|\/)(?:\.storybook|stories|__stories__)(\/|$)|\.stories\.[cm]?[jt]sx?$/;
-// Web sources that the Storybook story check renders (token sources and the new screen layer, plus the
-// globals.css entry that imports the generated token CSS, the PostCSS config that runs Tailwind and the React
-// Compiler config that .storybook/main.ts imports for the Storybook build) and that check's own config and specs.
+// Web sources that the Storybook story check renders (token sources and the new screen layer, the test-only
+// legal seed source the Legal stories read with the API seed files it imports, plus the globals.css entry that
+// imports the generated token CSS, the PostCSS config that runs Tailwind and the React Compiler config that
+// .storybook/main.ts imports for the Storybook build) and that check's own config and specs.
 const STORYBOOK_CHECK_PREFIXES = [
   'apps/web/src/styles/',
   'apps/web/src/screens/',
+  'apps/web/src/legal/test-support/',
   'apps/web/e2e/storybook/',
 ];
 const STORYBOOK_CHECK_PATHS = new Set([
@@ -62,6 +64,17 @@ const WEB_APP_METADATA_FILE =
 const WEB_ENV_COMPOSE_FILES = new Set([
   'infra/deploy/user/compose.yml',
   'infra/rehearsal/compose.web.yml',
+]);
+// API legal seed files that Web tests, stories and the Playwright fixture read through the test-only seed source
+// (apps/web/src/legal/test-support/legal-seed-source.mjs). The Web keeps no copy of the
+// legal text, so a change to one of them alone also runs the web lane. classify-changes.test.mjs derives the list from
+// that file's imports.
+export const WEB_TEST_API_SEED_FILES = Object.freeze([
+  'apps/api/prisma/seed-data/reference/legal-document-seed-data.js',
+  'apps/api/prisma/seed-data/reference/legal/privacy-policy-first-revision.draft.json',
+  'apps/api/prisma/seed-data/reference/legal/privacy-policy-historical-2026-06-22.json',
+  'apps/api/prisma/seed-data/reference/legal/terms-of-service-first-revision.draft.json',
+  'apps/api/prisma/seed-data/reference/legal/version-seed-rows.json',
 ]);
 const WEB_PUBLIC_FILE = /^apps\/web\/public\/(?!\.gitkeep$).+/u;
 
@@ -130,6 +143,7 @@ export const API_TEST_REPOSITORY_INPUTS = {
     'docs/policies/production-runtime-safety.md',
     'docs/policies/season-lifecycle.md',
     'docs/runbooks/README.md',
+    'docs/runbooks/legal-publication.md',
     'docs/runbooks/observability/api-stress-release-runbook.md',
     'docs/runbooks/season-operation.md',
     'infra/README.md',
@@ -166,6 +180,7 @@ export const API_TEST_REPOSITORY_INPUTS = {
     'infra/runbooks/release/components/observability-collector/readiness.md',
     'infra/runbooks/release/components/web-sentry/evidence.md',
     'infra/runbooks/release/components/web-sentry/readiness.md',
+    'infra/runbooks/release/legal-stage-deploy.md',
     'infra/runbooks/release/production-release-evidence.md',
     'infra/runbooks/release/production-release-readiness.md',
     'infra/runbooks/release/web-stage-deploy.md',
@@ -234,14 +249,7 @@ export const AGENT_TEST_PRODUCT_INPUTS = {
     'apps/web/src/components/ui/Button.tsx',
     'apps/web/src/components/ui/Chip.tsx',
     'apps/web/src/legal/README.md',
-    'apps/web/src/legal/__tests__/legal-document-pages.test.tsx',
-    'apps/web/src/legal/api/legal-document.mapper.ts',
-    'apps/web/src/legal/components/LegalDocumentActions.tsx',
-    'apps/web/src/legal/components/LegalDocumentBackButton.tsx',
-    'apps/web/src/legal/components/LegalDocumentLayout.tsx',
-    'apps/web/src/legal/components/LegalDocumentUnavailable.tsx',
-    'apps/web/src/legal/content/legal-copy.ts',
-    'apps/web/src/legal/content/legal-fallback-documents.ts',
+    'apps/web/src/legal/test-support/legal-seed-documents.ts',
     'apps/web/src/main/README.md',
     'apps/web/src/main/hooks/__tests__/useMainProfileState.dom.test.ts',
     'apps/web/src/main/hooks/useMainProfileState.ts',
@@ -261,6 +269,12 @@ export const AGENT_TEST_PRODUCT_INPUTS = {
     'apps/web/src/main/tabs/roommate-list/hooks/__tests__/useRoommateBookmarkList.test.tsx',
     'apps/web/src/main/tabs/roommate-list/hooks/useDesktopRoommateLayout.ts',
     'apps/web/src/screens/README.md',
+    'apps/web/src/screens/legal/LegalDocumentScreen.tsx',
+    'apps/web/src/screens/legal/__tests__/LegalDocumentScreen.test.tsx',
+    'apps/web/src/screens/legal/components/DocumentActions.tsx',
+    'apps/web/src/screens/legal/model/legalDocumentModel.ts',
+    'apps/web/src/screens/legal/model/legalScreenCopy.ts',
+    'apps/web/src/screens/ui/controls/BackButton.tsx',
     'apps/web/src/styles/knu.css',
     'apps/web/src/styles/tokens/README.md',
     'packages/database/prisma/schema.prisma',
@@ -358,6 +372,8 @@ export function classifyChanges(paths) {
     if (path.startsWith('apps/api/')) {
       result.api = true;
       result.repoPolicy ||= isApiTestFile(path);
+      result.web ||= WEB_TEST_API_SEED_FILES.includes(path);
+      result.storybook ||= WEB_TEST_API_SEED_FILES.includes(path);
       matched = true;
     }
 

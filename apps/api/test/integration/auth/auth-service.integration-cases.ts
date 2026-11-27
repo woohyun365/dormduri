@@ -8,6 +8,7 @@ import { hashAuthPersistenceDimension } from '../../../src/auth/persistence/auth
 import { DEFAULT_AUTH_PERSISTENCE_HMAC_SECRET } from '../../../src/auth/config/auth.config.js';
 import { seedBaseSeasonFixtures } from '../_support/fixtures/reference-data.fixture.js';
 import { useIntegrationTestSuite } from '../_support/integration-suite.js';
+import { insertSignupLegalDocumentVersions } from '../_support/fixtures/legal-documents.fixture.js';
 
 const signupLegalDocumentIds = {
   termsVersionId: 'integration-terms',
@@ -362,51 +363,12 @@ export function registerAuthServiceCases(
     }
 
     async function seedSignupLegalDocuments(databaseNow: Date) {
-      const effectiveAt = new Date(databaseNow.getTime() - 60_000);
-      await suite.prisma.legalDocumentVersion.createMany({
-        data: [
-          {
-            id: signupLegalDocumentIds.termsVersionId,
-            kind: 'TERMS_OF_SERVICE',
-            version: 'integration-terms',
-            title: '통합 테스트 이용약관',
-            summaryItems: [],
-            sections: [],
-            publishedAt: effectiveAt,
-            effectiveAt,
-          },
-          {
-            id: signupLegalDocumentIds.privacyPolicyVersionIdShown,
-            kind: 'PRIVACY_POLICY',
-            version: 'integration-privacy',
-            title: '통합 테스트 개인정보 처리방침',
-            summaryItems: [],
-            sections: [],
-            publishedAt: effectiveAt,
-            effectiveAt,
-          },
-          {
-            id: signupLegalDocumentIds.personalDataConsentVersionId,
-            kind: 'PERSONAL_DATA_COLLECTION_USE_CONSENT',
-            version: 'integration-personal-data-consent',
-            title: '통합 테스트 개인정보 수집·이용 동의',
-            summaryItems: [],
-            sections: [],
-            publishedAt: effectiveAt,
-            effectiveAt,
-          },
-          {
-            id: signupLegalDocumentIds.ageNoticeVersionId,
-            kind: 'AGE_14_OR_ABOVE_NOTICE',
-            version: 'integration-age-notice',
-            title: '통합 테스트 연령 확인',
-            summaryItems: [],
-            sections: [],
-            publishedAt: effectiveAt,
-            effectiveAt,
-          },
-        ],
-      });
+      await insertSignupLegalDocumentVersions(
+        suite.databaseSandbox,
+        signupLegalDocumentIds,
+        'integration',
+        databaseNow,
+      );
     }
 
     if (owners.has('credentials')) {

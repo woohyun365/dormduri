@@ -177,14 +177,14 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한 적용은 runner가 실행하고 그 출력을 기록할 때만 효력이
 있습니다. CI는 ignored 입력을 보지 못합니다.
 
-| 검사        | 명령                                                                                                                | 위반 종류                                                                                                                                                                                                                                        |
-| ----------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 인용        | `node scripts/agents/common/citation-check.mjs [--root <repo>] [--json] <md file...>`                               | `unresolved`·`ambiguous`·`invalid-range`·`out-of-range`·`unreadable`·`invalid-expectation`·`content-mismatch`                                                                                                                                    |
-| Runner 기록 | `node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header "<logHeader>" [--root <repo>] [--json]` | `invalid-record`·`missing-output`·`output-missing`·`digest-mismatch`·`header-mismatch`·`exit-mismatch`·`repeated-step-exit-hidden`·`invalid-fragment`·`summary-mismatch`(경고 `absence-without-control`)                                         |
-| RED 사유    | `node scripts/agents/common/red-reason-check.mjs --log <file> --expect <regex> [--expect <regex>...] [--json]`      | `missing-summary`·`no-failure`·`no-failure-blocks`·`unexpected-reason`·`unexpected-signature`                                                                                                                                                    |
-| Mutation    | `node scripts/agents/common/mutation-harness.mjs --spec <JSON> [--link-node-modules] [--root <repo>] [--json]`      | `baseline-failed`·`survived`·`target-missing`·`ambiguous`·`wrong-reason`·`timeout`                                                                                                                                                               |
-| 계획 참조   | `node scripts/agents/common/plan-reference-check.mjs [--root <repo>] [--report-only] [--json] <plan md...>`         | `unresolved`·`unresolved-target`·`duplicate-definition`·`broken-link`                                                                                                                                                                            |
-| 처분 기록   | `node scripts/agents/common/review-adjudication.mjs [--root <repo>] [--json] <adjudication.json...>`                | `invalid-field`·`unknown-key`·`result-unreadable`·`missing-finding`·`duplicate-finding`·`unknown-finding`·`missing-reason`·`missing-origin`·`invalid-duplicate`·`duplicate-result-id`·`missing-unjudged`·`duplicate-unjudged`·`unknown-unjudged` |
+| 검사        | 명령                                                                                                                                                                | 위반 종류                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 인용        | `node scripts/agents/common/citation-check.mjs [--root <repo>] [--json] <md file...>`                                                                               | `unresolved`·`ambiguous`·`invalid-range`·`out-of-range`·`unreadable`·`invalid-expectation`·`content-mismatch`                                                                                                                                                                                                                                                                                            |
+| Runner 기록 | `node scripts/agents/common/runner-log-check.mjs --evidence <JSON> --header "<logHeader>" [--carry-basis <JSON>] [--confirm <carry JSON>] [--root <repo>] [--json]` | `invalid-record`·`missing-output`·`output-missing`·`digest-mismatch`·`header-mismatch`·`exit-mismatch`·`repeated-step-exit-hidden`·`invalid-fragment`·`summary-mismatch`·`carry-basis-missing`·`carried-record-mismatch`·`carried-header-mismatch`·`carry-round-diff-not-docs`·`carry-doc-referenced`(경고 `absence-without-control`, `--confirm` 사유 `carry-confirm-missing`·`carry-confirm-mismatch`) |
+| RED 사유    | `node scripts/agents/common/red-reason-check.mjs --log <file> --expect <regex> [--expect <regex>...] [--json]`                                                      | `missing-summary`·`no-failure`·`no-failure-blocks`·`unexpected-reason`·`unexpected-signature`                                                                                                                                                                                                                                                                                                            |
+| Mutation    | `node scripts/agents/common/mutation-harness.mjs --spec <JSON> [--link-node-modules] [--root <repo>] [--json]`                                                      | `baseline-failed`·`survived`·`target-missing`·`ambiguous`·`wrong-reason`·`timeout`                                                                                                                                                                                                                                                                                                                       |
+| 계획 참조   | `node scripts/agents/common/plan-reference-check.mjs [--root <repo>] [--report-only] [--json] <plan md...>`                                                         | `unresolved`·`unresolved-target`·`duplicate-definition`·`broken-link`                                                                                                                                                                                                                                                                                                                                    |
+| 처분 기록   | `node scripts/agents/common/review-adjudication.mjs [--root <repo>] [--json] <adjudication.json...>`                                                                | `invalid-field`·`unknown-key`·`result-unreadable`·`missing-finding`·`duplicate-finding`·`unknown-finding`·`missing-reason`·`missing-origin`·`invalid-duplicate`·`duplicate-result-id`·`missing-unjudged`·`duplicate-unjudged`·`unknown-unjudged`                                                                                                                                                         |
 
 - Exit 0은 위반 없음, 1은 위반, 2는 입력 오류(option·파일·root 없음, 읽기 실패, 빈 입력, 형식이 틀린 header·regex·spec·JSON,
   git 저장소 밖의 root, 알 수 없는 option·spec key·위치 인자, 지원하지 않는 형식, 만들 수 없는 mutation 사본)입니다. 입력 오류를 통과로 세지 않습니다. `--json`은 summary와 위반 목록을 JSON으로 냅니다(runner 기록은 경고 목록 `warnings`, RED 사유는 읽은 형식 `format`도).
@@ -234,6 +234,38 @@ test가 보호하지만, ignored 입력(계획·증거·runner 기록)에 대한
 - Backtick 조각이 없는 요약은 대조하지 않고 건수(`unverifiedSummaries`)만 셉니다.
 - 한 로그에는 한 실행만 둡니다. 같은 라벨이 echo된 명령 문구나 같은 로그의 이전 실행 출력에 있으면 우연히 일치할 수
   있습니다(known limit).
+
+이어 쓴 record(`carriedFrom`, 그 log를 만든 회차 reviewId)는 Claude `review-run`이 쓴 carry basis(`--carry-basis`,
+`claude-review-carry-basis/v1`)가 있을 때만 받습니다. 그 record의 log 첫 줄은 이번 회차가 아니라 만든 회차 header와 대조하고,
+`sourceDigest`는 이번 회차 digest입니다. Codex 경로의 실행에는 basis가 없어 이어 쓴 record는 늘 `carry-basis-missing`입니다.
+
+- C1 `carry-basis-missing`: basis가 없거나 그 회차가 없습니다.
+- C2 `carried-record-mismatch`: 만든 회차 runner 파일에 같은 record 이름(`command`, label이 있으면 `command (label)`)이 없거나,
+  `exit`·`purpose`·`expectedExit`·`observedResult`·`environment`·`outputPaths`가 그 record와 다르거나, 출력이 만든 회차 입력
+  manifest가 결속한 digest와 지금 다릅니다.
+- C3 `carried-header-mismatch`: log 첫 줄이 basis가 만든 회차 packet snapshot으로 다시 계산한 header가 아닙니다.
+- C4 `carry-round-diff-not-docs`: 만든 회차 범위 기록 뒤 바뀐 경로에 `.md`가 아닌 경로, 새 `.md`, 지운 `.md`가 있거나, 그 회차의 범위
+  기록이 없어(basis에 회차 diff가 없음) 회차 diff를 알 수 없습니다.
+- C5 `carry-doc-referenced: <path>`: tracked `scripts/` 파일이 바뀐 `.md`의 저장소 상대 경로나 파일 이름을 `git grep -F`로 가집니다.
+
+확인 대조(`--confirm <carry.json>`, `claude-review-carry/v1`)는 `--evidence`의 확인 기록을 지금 규칙으로 검사한 뒤 carry 기록의 이어 쓴
+record마다 같은 이름의 확인 record를 찾습니다. 없으면 `carry-confirm-missing: <record>`, 지금 규칙 위반이 있거나 exit·이어 쓴 요약의
+backtick 조각·test 결과 줄이 다르면 `carry-confirm-mismatch: <record>`입니다. Test 결과 줄은 `node --test` reporter의 test 이름 줄(spec
+`✔`·`✖`·`﹣`, TAP `ok`·`not ok`, 시간 `(<n>ms)`을 가린 multiset)과 요약 수(`ℹ tests`·`suites`·`pass`·`fail`·`cancelled`·`skipped`·`todo`)이고,
+`ℹ duration_ms`·stack trace 같은 그 밖의 줄은 대조하지 않습니다. JSON 출력의 `reasons`가 비어 있으면 exit 0입니다.
+
+읽기 trace 도구 `runner-read-trace.mjs`는 명령을 `NODE_OPTIONS`의 `--import` preload로 감싸 자식 node process까지 실행하고 명령
+exit(신호면 128+번호)를 그대로 돌려줍니다.
+
+```text
+node scripts/agents/common/runner-read-trace.mjs --header "<logHeader>" --out <trace.json> --log <log> [--root <repo>] -- <명령…>
+```
+
+Log는 wrapper가 쓰며 첫 줄은 header, 둘째 줄은 `node --version` 값, 그 뒤 명령 출력, 끝 줄은 `exit=<n>`입니다. Trace
+(`runner-read-trace/v1`)에는 header, 감싼 argv, log 경로와 sha256, node process가 읽은 저장소 안 경로(realpath로 풀어 경로마다 한 번,
+종류 `read`·`list`·`exists`·`copy`·`module`), node가 아닌 spawn 수, 보지 못한 호출 목록(`unobserved`: `Worker`, `glob(Sync)`·`watch`의
+저장소 안 호출, trace preload 없이 연 자식 node)을 둡니다. 입력 오류는 명령을 실행하지 않고 exit 2입니다. Trace는 경고
+`evidence-source-outside-read-paths`의 입력이라 빈틈이 판정을 통과시키지 않습니다.
 
 ### RED 사유
 
@@ -468,23 +500,30 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
   `claude:native review`를 `--criteria <id>`(그 사본이 대응하는 실제 경로의 자동 선택 id)와 `--composition e3 --reviewers 2`로
   2회 돌립니다(reviewer 12회). Claude reviewer 모델을 바꾸는 변경은 기준 없음
   arm(`--criteria none --composition e2 --reviewers 2`)도 같은 수로 돌려 기준 없는 리뷰의 값을 다시 잽니다(아래 subject
-  기준선과 다른 값입니다).
+  기준선과 다른 값입니다). 모델 변경 재채점도 판정은 지금 subject 기준선(앞 모델로 잰 값)과 비교해 정하고, 기준 없음 arm 값은
+  판정에 쓰지 않고 사용 기록과 merge 전 Owner 판단의 입력으로 둡니다.
 - 기준선: subject마다 결함별 기준선 재발견 수를 둡니다. 교정 때 지정한 subject의 기준선은 교정 값(모든 칸 재발견, 교정 때
   10/10)입니다. 교체 subject의 기준선은 그 subject를 넣는 재채점에서 정합니다. PR head run에서 그 subject의 결함×반복을 모두
   재발견하면 기준선은 모든 칸 재발견이고 base run을 하지 않습니다. 하나라도 재발견이 아니면 그 subject만 PR base에서 같은
-  구성(`e3` reviewer 2명 × 2회, reviewer 4회)으로 돌려 그 결과를 기준선으로 합니다. 이 규칙 전에 들어온 subject `r13`의
-  기준선은 그 앞 재채점(`ho-003`) 값입니다. 기준선은 사용 기록에 적고 그 subject가 set에 있는 동안 그대로 씁니다.
+  구성(`e3` reviewer 2명 × 2회, reviewer 4회)으로 돌려 그 결과를 기준선으로 합니다. 기준선은 사용 기록에 적고 그 subject가 set에
+  있는 동안 그대로 씁니다.
 - 판정: 결함마다 head 재발견 수가 기준선 재발견 수보다 적으면 그 차이가 더 놓친 칸입니다. 더 놓친 칸이 0이면 통과이고, 하나라도
   있으면 `실패`이며 merge 전 Owner가 판단합니다. 사용 기록과 PR에 주는 놓친 수는 더 놓친 칸 수입니다(`ho-001`~`ho-003`의 놓친
-  수는 재발견이 아닌 칸 수였고 `ho-004`부터 이 뜻입니다).
+  수는 재발견이 아닌 칸 수였고 `ho-004`부터 이 뜻입니다). 기준선 재발견이 0인 subject는 더 놓친 칸을 낼 수 없으므로, 사용 기록과
+  PR 본문 Review evidence에 판정 가능 칸 수(subject마다 기준선 재발견 칸의 합)를 놓친 수와 함께 적습니다.
 - 칸 분류: 칸은 결함 하나의 반복 한 번이고 분류는 교정과 같습니다. `medium` 이상 finding이 있으면 재발견, `low` finding이나
   coverage gap만 있으면 부분, 없으면 놓침입니다. 부분은 재발견으로 세지 않습니다. 결함이 결과의 `unjudgedBehaviors`에만 있고 그
-  결함을 짚은 finding·gap이 없는 칸은 놓침으로 세고, 채점 기록에 "미판정에만 듦" 표시를 남깁니다.
+  결함을 짚은 finding·gap이 없는 칸은 놓침으로 셉니다. 그 가운데 결함 문장을 직접 가리킨 `unjudgedBehaviors` 줄이 있는 칸에만 채점
+  기록에 "미판정에만 듦" 표시를 남기고, 넓은 목록에 이름만 든 줄은 표시하지 않습니다(셈은 둘 다 놓침).
 - 부분 감소: 기준선에서 부분이던 칸이 head에서 놓침으로 내려간 수(부분 감소 칸 수)는 실패로 세지 않고, 사용 기록 줄과 PR 본문
   Review evidence 한 줄에 적으며 merge 전 Owner가 확인합니다. 결함마다 기준선의 재발견·부분 칸 수 합에서 head의 그 합을 뺀 값이
-  양수이면, 거기서 그 결함의 더 놓친 칸 수를 뺀 나머지(양수일 때)를 셉니다.
+  양수이면, 거기서 그 결함의 더 놓친 칸 수를 뺀 나머지(양수일 때)를 셉니다. PR이 바꾼 파일이 그 subject run의 reviewer 입력(prompt
+  원본, 그 subject가 고르는 기준 문서, subject 사본)에 없으면 그 subject의 부분 감소 칸은 "입력 불변"으로 적고 Owner 확인을 요구하지
+  않습니다. 입력이 바뀐 subject의 부분 감소 칸은 merge 전 Owner가 확인합니다. 사용 기록의 부분 감소 칸과 Review evidence 줄은
+  `<수>(입력 불변 <칸 수>)` 모양으로 적습니다.
 - 실행과 채점: 기준을 고친 writer가 아니고 쓰기 작업을 맡지 않은 reader 세션이 writer branch HEAD에서 실행·채점하고, 그동안
-  writer branch를 merge하지 않습니다. writer와 PR에는 통과/실패와 놓친 수, 부분 감소 칸 수만 주고, 결함별 채점은 ignored 증거 위치에만 둡니다. 결함별 결과는 기준 문구·prompt·모델 수정의 근거로 쓰지 않습니다.
+  writer branch를 merge하지 않습니다. writer와 PR에는 통과/실패와 놓친 수, 부분 감소 칸 수, 판정 가능 칸 수만 주고, 결함별 채점은 ignored 증거 위치에만 둡니다. 결함별 결과는 기준 문구·prompt·모델 수정의 근거로 쓰지 않습니다.
+  writer는 사용 기록 파일의 머리 줄만 읽고 set·놓친 수·부분 감소 값은 읽지 않으며, 사용 기록 줄은 재채점 reader가 씁니다.
 - base run: 교체 subject의 base 기준선 run은 PR base commit의 저장소 밖 독립 clone을 작업 디렉터리로 연 별도 Claude 세션이
   등록·호출·정산합니다. hook과 task 등록부가 저장소 root별이고 head code는 base 형식 prompt 등록을 거부하므로 PR head checkout의
   세션은 base 형식 prompt를 등록할 수 없습니다. clone은 Claude 임시 디렉터리 밖에 두고(CLI 2.1.328에서 그 아래를 작업 디렉터리로
@@ -492,8 +531,9 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
   subject와 실행 script만 복사하고 정답표·채점·head run 기록은 넣지 않습니다. 새 디렉터리의 trust 승인은 Owner가 합니다. 읽기
   감사에서 base reviewer가 project 지침 파일을 받았는지 확인하고, 받지 않은 run은 기준선으로 쓰지 않습니다.
 - 사용 기록: 재채점마다 held-out 지정 기록 옆 사용 기록 파일에 한 줄(id·날짜·PR·trigger·set·통과/실패·놓친 수·부분 감소 칸
-  수·`MEMORY.md` sha256)을 더하고, 그 사용의 기록에 run의 리뷰어 입력(`docs/product/intent.md` sha256 포함)을 남깁니다. 끝의 두
-  칸은 줄 끝에 더한 칸이고 머리 줄에 칸 이름을 두며, 앞 줄의 값은 고치지 않습니다. set 칸에는 subject별 기준선과 그 출처(교정, 그
+  수·`MEMORY.md` sha256·판정 가능 칸 수)을 더하고, 그 사용의 기록에 run의 리뷰어 입력(`docs/product/intent.md` sha256 포함)을
+  남깁니다. 끝의 세 칸(`partial_decrease`·`memory_index_sha256`·`judgeable_cells`)은 줄 끝에 더한 칸이고 머리 줄에 칸 이름을 두며,
+  앞 줄의 값은 고치지 않습니다(그 칸이 없던 줄은 비어 있음). set 칸에는 subject별 기준선과 그 출처(교정, 그
   재채점의 head run·base run, 앞 재채점)를 적습니다. `MEMORY.md` sha256은 그 재채점 run 때 auto-memory 색인의 값이고, run 사이에
   달라졌으면 값마다 적으며 run별 값은 그 사용의 기록에 리뷰어 입력과 함께 둡니다. PR 본문 `재채점` 줄은 그 id를 씁니다.
 - 다시 돌리면 `실패` 줄을 지우지 않고 새 사용 기록 id로 줄을 더합니다. `실패` 줄 경고는 남고, Owner 판단은 PR 본문 Review
@@ -514,13 +554,17 @@ README에 숫자 상한 문장('N개 이하'·'최대 N' 등)이 없음, guide·
 - subject 교체: 사용 3회마다 또는 놓친 결함 사례(`원인 PR`로 찾은 결함) 2건이 쌓이면, subject 하나를 그 사례로 만든 놓친 결함
   subject(고친 commit 부모 판의 사본)로 바꾸고 subject 셋을 유지합니다. 기준선 재발견이 0인 subject(결함×반복 어느 칸도 재발견이
   아님)가 있으면 가장 오래 쓴 subject보다 먼저 바꾸고, 여럿이면 그 가운데 오래 쓴 순입니다. 그런 subject가 없으면 가장 오래 쓴
-  subject를 바꿉니다. 동률이면 seeded subject를 놓친 결함 subject보다
-  먼저, seeded끼리는 사본 id(`r03`처럼 사본 디렉터리 이름) 순으로 고릅니다. 사례가 없으면 seeded 방식(그 뒤 merge된 실제 제품 변경의 사본에 결함 둘을 심고,
+  subject를 바꿉니다. 동률이면(기준선 재발견이 0인 subject 사이도) seeded subject를 놓친 결함 subject보다 먼저, seeded끼리와 놓친
+  결함 subject끼리는 사본 id(`r03`처럼 사본 디렉터리 이름) 순으로 고릅니다. 사례가 없으면 seeded 방식(그 뒤 merge된 실제 제품 변경의 사본에 결함 둘을 심고,
   정답표는 run이 끝날 때까지 저장소와 세션 작업 디렉터리 밖에 둠)으로 새 subject를 만듭니다. 교체 subject는 그 재채점을 맡은
   세션이 만들고, 바꾼 subject와 이유는 다음 사용 기록 줄의 set 칸에 적습니다.
 - 오염: run마다 reviewer의 읽기(Read·Grep·Glob 입력)를 감사합니다. 저장소 밖 경로, 사본이 대응하는 실제 저장소 경로, 놓친 결함을
   고친 commit이 바꾼 경로와 그 commit·PR·issue를 인용하는 추적 파일, 계획 디렉터리, run 입력 밖 ignored 증거(교정·재채점 원자료와
   정답표 포함), [교정 evidence](../../../evidence/agent-workflows/review-criteria-calibration.md), auto-memory 디렉터리의 파일을 읽거나 그
-  범위를 덮게 검색한 run은 오염이고 같은 조건으로 한 번 다시 돌립니다. 다시 돈 run도 오염이면 멈추고 Owner에게 묻습니다. 재채점
+  범위를 덮게 검색한 run은 오염이고 같은 조건으로 한 번 다시 돌립니다. 다시 돈 run도 오염이면 멈추고 Owner에게 묻습니다. Reviewer
+  task 기록 `review-read-denials.jsonl`에 있는 호출은 review-read hook이 거부해 실행되지 않았으므로 감사에서 세지 않습니다. 재채점
   세션은 정답표·결함 내용을 memory에 쓰지 않습니다.
+- test 사본 경로: `scripts/ci/agents/common/review-context-inputs.test.mjs`의 held-out 사본 경로는 저장소 binding이 사본 run
+  prompt에 추출 줄을 더하지 않는지 지금 set의 경로(subject 기록의 `paths`)로 봅니다. 그 경로는 다음에 재채점을 도는 PR의 착수가 그때
+  set으로 옮깁니다.
 - 재채점 set은 공개 주장의 근거로 쓰지 않습니다.

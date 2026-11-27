@@ -73,6 +73,8 @@ describe('backoffice login, sessions and recovery (OA-R2~OA-R5)', () => {
         'admin:account:invite',
         'admin:audit:read',
         'admin:audit:review',
+        'admin:legal:approve',
+        'admin:legal:edit',
       ],
       totpConfirmed: false,
       recoveryCodesRemaining: 10,

@@ -36,7 +36,7 @@ Signup은 아래 데이터를 생성하거나 저장하지 않는다.
 현재 회원가입은 5단계다.
 
 1. `StepEmailVerification` — 학교 이메일 인증 코드 발송·확인.
-2. `LegalConsentStep` — active legal bundle 조회, fallback 안내, 필수 동의 수집, stale legal reset.
+2. `LegalConsentStep` — active legal bundle 조회(없으면 가입을 막고 다시 불러오기를 둠), 필수 동의 수집, stale legal reset.
 3. `AccountCredentialsStep` — 비밀번호는 로컬 정책으로 확인하고, 닉네임은 명시적 `중복 확인`을
    통과한 현재 입력값에만 다음 단계 이동을 허용한다. 닉네임 수정·연결 실패·늦은 응답은 이전
    성공 결과를 재사용하지 않는다.
@@ -119,7 +119,7 @@ API 실패는 사용자 문구 비교가 아니라 error code를 `retryable`, `v
 - `AccountCredentialsStep.test.tsx`, `AcademicIdentityStep.test.tsx`
   - 계정 정책 검증과 학교·기본 정보 required fields, current-year based birth year select
 - `LegalConsentStep.test.tsx`
-  - active/fallback legal bundle, stale legal id handling, dialog interaction
+  - active legal bundle, bundle 없음의 가입 막힘·다시 불러오기, stale legal id handling, dialog interaction
 - `SignupCompleteStep.test.tsx`
   - 가입 완료 후 season journey handoff, off-season copy, no `다시 보지 않음`
 - `app/api/auth/__tests__/signup-route.test.ts`

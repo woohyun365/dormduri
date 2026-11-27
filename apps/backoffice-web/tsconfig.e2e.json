@@ -1,5 +1,5 @@
 {
   "extends": "@repo/tsconfig/playwright.json",
-  "include": ["playwright.config.ts", "e2e/**/*.ts"],
+  "include": ["playwright.config.ts", "playwright.storybook.config.ts", "e2e/**/*.ts"],
   "exclude": ["node_modules", ".next", "coverage"]
 }

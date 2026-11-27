@@ -47,13 +47,13 @@
 
 ### W5. Runner 기록의 형식과 진실성
 
-- 질문: runner 기록이 실제 명령·exit·관측 결과·출력 경로·snapshot digest를 그대로 담고, exit를 뒤집거나 다른 회차의 digest를 쓰지 않는가?
+- 질문: runner 기록이 실제 명령·exit·관측 결과·출력 경로·snapshot digest를 그대로 담고, exit를 뒤집거나 다른 회차의 digest를 쓰지 않는가? `runner-log-check`가 받고 정산 전 확인 대조를 지나는 이어 쓴 record(`carriedFrom`)는 예외이고, 그 record는 결과 단위(exit·조각·test 결과 줄)로만 판정 근거에 쓴다
 - 기본 severity: `medium`
 - 적용 조건: 리뷰나 판정에 runner 기록을 넘기는 변경과 그 증거
-- 결함 패턴: 실패를 성공으로 보이게 하는 wrapper로 exit를 바꿈, 수정 전 digest로 만든 기록을 수정 뒤 리뷰에 씀
+- 결함 패턴: 실패를 성공으로 보이게 하는 wrapper로 exit를 바꿈, 수정 전 digest로 만든 기록을 수정 뒤 리뷰에 씀(`runner-log-check`가 받은 이어 쓴 record(`carriedFrom`)는 예외), 이어 쓴 record(`carriedFrom`)를 결과 단위 밖 log 줄(stack trace·측정 출력)로 판정함
 - PASS 근거: runner 기록 검사가 위반 0이고, 기록의 digest가 그 회차 snapshot과 같다
-- 지침: 기록에는 실행한 명령·exit·출력 경로를 그대로 옮기고, 수정한 뒤에는 새 회차 digest로 다시 실행한다
-- 피함: exit를 바꾸는 wrapper, 이전 회차 digest로 만든 기록 재사용
+- 지침: 기록에는 실행한 명령·exit·출력 경로를 그대로 옮기고, 수정한 뒤에는 새 회차 digest로 다시 실행한다. `runner-log-check`가 받은 이어 쓴 record(`carriedFrom`)는 예외이고 결과 단위(exit·조각·test 결과 줄)로만 판정 근거에 쓴다
+- 피함: exit를 바꾸는 wrapper, 이전 회차 digest로 만든 기록 재사용(`runner-log-check`가 받은 이어 쓴 record(`carriedFrom`)는 예외), 확인 대조 없이 앞 회차 log 이어 쓰기
 
 ### W6. 입력 결속과 stale state
 

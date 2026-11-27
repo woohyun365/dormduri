@@ -32,6 +32,15 @@ const ROLE_EFFORT = {
   knu_reviewer: 'xhigh',
 };
 const roleSource = (role) => read(`.claude/agents/${role}.md`);
+// The knu_reviewer frontmatter hook: its Grep and Glob calls go through the review-read guard.
+const REVIEWER_HOOKS = [
+  'hooks:',
+  '  PreToolUse:',
+  "    - matcher: 'Grep|Glob'",
+  '      hooks:',
+  '        - type: command',
+  `          command: 'node "$CLAUDE_PROJECT_DIR/scripts/agents/claude/native-session.mjs" --hook --review-read'`,
+].join('\n');
 const roleBody = (source) => source.replace(/^---\n[\s\S]*?\n---\n/u, '');
 
 test('four project Claude agents declare bounded native tools and a fixed effort', () => {
@@ -42,11 +51,21 @@ test('four project Claude agents declare bounded native tools and a fixed effort
     const source = roleSource(role);
     const frontmatter = /^---\n([\s\S]*?)\n---/u.exec(source)?.[1];
     assert.ok(frontmatter, `${path}: missing YAML frontmatter`);
+    // Top-level keys; knu_reviewer adds its review-read hook block (OSS-REVIEW P6 PR ④), exactly as written here.
     assert.deepEqual(
-      frontmatter.split('\n').map((line) => line.slice(0, line.indexOf(':'))),
-      ['name', 'description', 'tools', 'effort'],
+      frontmatter
+        .split('\n')
+        .filter((line) => !line.startsWith(' '))
+        .map((line) => line.slice(0, line.indexOf(':'))),
+      ['name', 'description', 'tools', 'effort', ...(role === 'knu_reviewer' ? ['hooks'] : [])],
       `${path}: frontmatter keys`,
     );
+    if (role === 'knu_reviewer')
+      assert.equal(
+        frontmatter.slice(frontmatter.indexOf('\nhooks:') + 1),
+        REVIEWER_HOOKS,
+        `${path}: review-read hook`,
+      );
     assert.match(frontmatter, new RegExp(`^name: ${role}$`, 'mu'));
     assert.match(frontmatter, /^description: .+$/mu);
     assert.match(frontmatter, new RegExp(`^effort: ${effort}$`, 'mu'), `${path}: effort`);

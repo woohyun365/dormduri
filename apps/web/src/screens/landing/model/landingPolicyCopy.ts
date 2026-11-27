@@ -1,3 +1,5 @@
+import { serviceIndependentNotice } from '../../ui/model/serviceNotices';
+
 // Landing이 반드시 보이는 정책 고지와 그 원본. 면책 고지 넷(service_independent_notice·school_system_not_connected·
 // room_selection_not_guaranteed·lifestyle_survey_disclaimer)은 법적 책임 문구라 글자를 바꾸지 않는다. 서비스 이름이
 // 바뀌면 주어 이름만 바꾸고 Owner가 전후 대조를 확인한다(README 고지 규칙).
@@ -48,7 +50,9 @@ export const LANDING_SURFACE_SECTION_IDS = {
 export const LANDING_POLICY_COPY = [
   {
     id: 'service_independent_notice',
-    copy: '돔두리는 학교 공식 서비스가 아닙니다.',
+    // 글자는 Legal footer와 함께 쓰는 원본 하나(screens/ui/model/serviceNotices.ts)에 있다. 원본 정책 경로와
+    // 보일 영역은 이 항목이 소유한다(README 고지 규칙).
+    copy: serviceIndependentNotice,
     source: {
       path: 'docs/policies/service-boundary.md',
       section: '면책 고지 시점',

@@ -70,8 +70,11 @@ ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 ENV TZ=Asia/Seoul
 WORKDIR /app
+# 법적 문서 마지막 성공본 디렉터리(user host의 named volume target). 새 volume은 첫 기동 때 이 디렉터리의 소유·권한을 받아
+# read_only root에서도 runtime 사용자만 쓴다.
 RUN groupadd --system dormduri \
-  && useradd --system --gid dormduri --home-dir /app --shell /usr/sbin/nologin dormduri
+  && useradd --system --gid dormduri --home-dir /app --shell /usr/sbin/nologin dormduri \
+  && install -d -o dormduri -g dormduri -m 0700 /var/lib/dormduri/legal
 COPY --from=build --chown=dormduri:dormduri /workspace/apps/web/.next/standalone ./
 USER dormduri
 EXPOSE 3000

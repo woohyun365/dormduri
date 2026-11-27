@@ -7,7 +7,10 @@ import type {
 import { StepHeader } from '@/auth/components/StepHeader';
 import { StepNavigation } from './StepNavigation';
 import { Field, FieldMessage } from '@/auth/components/form/Field';
-import { getSignupLegalDocumentsBundle } from '@/legal/api/legal-documents-bundle.api';
+import {
+  getSignupLegalDocumentsBundle,
+  type SignupLegalDocumentsBundleResult,
+} from '@/legal/api/legal-documents-bundle.api';
 import {
   LegalConsentSummaryCard,
   type LegalConsentSummaryCardHandle,
@@ -22,7 +25,6 @@ export interface LegalConsentData {
   agreeTerms: boolean;
   agreePersonalDataCollectionUse: boolean;
   legalAcceptances?: SignupLegalAcceptances;
-  legalBundleSource?: 'api' | 'fallback';
 }
 
 interface LegalConsentStepProps {
@@ -32,7 +34,7 @@ interface LegalConsentStepProps {
   onBack: () => void;
   refreshNonce?: number;
   requiresReconfirmation?: boolean;
-  legalDocumentsResult?: Awaited<ReturnType<typeof getSignupLegalDocumentsBundle>>;
+  legalDocumentsResult?: SignupLegalDocumentsBundleResult;
 }
 
 function toLegalAcceptances(bundle: ActiveLegalDocumentsBundleResponse): SignupLegalAcceptances {
@@ -64,9 +66,6 @@ function normalizeLegalConsent(legalConsent: LegalConsentData): LegalConsentData
     agreeTerms: legalConsent.agreeTerms,
     agreePersonalDataCollectionUse: legalConsent.agreePersonalDataCollectionUse,
     ...(legalConsent.legalAcceptances ? { legalAcceptances: legalConsent.legalAcceptances } : {}),
-    ...(legalConsent.legalBundleSource
-      ? { legalBundleSource: legalConsent.legalBundleSource }
-      : {}),
   };
 }
 
@@ -81,17 +80,17 @@ export function LegalConsentStep({
 }: LegalConsentStepProps) {
   const [error, setError] = useState('');
   const [invalidSubmitCount, setInvalidSubmitCount] = useState(0);
+  // Without the bundle there are no version ids to agree to, so the step blocks.
   const [bundleState, setBundleState] = useState<
     | { status: 'loading' }
-    | {
-        status: 'ready';
-        source: 'api' | 'fallback';
-        bundle: ActiveLegalDocumentsBundleResponse;
-      }
+    | { status: 'unavailable' }
+    | { status: 'ready'; bundle: ActiveLegalDocumentsBundleResponse }
   >({ status: 'loading' });
+  const [retryCount, setRetryCount] = useState(0);
   const [viewingDocument, setViewingDocument] = useState<LegalDocumentResponse | null>(null);
   const legalConsentRef = useRef(legalConsent);
   const consentSummaryRef = useRef<LegalConsentSummaryCardHandle>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const validationErrorId = useId();
 
   useEffect(() => {
@@ -113,6 +112,18 @@ export function LegalConsentStep({
     bundleRequest.then((result) => {
       if (cancelled) return;
 
+      if (result.status === 'unavailable') {
+        // The checks were given for the version ids that are gone now. Without them the next bundle could not
+        // tell whether its versions changed, so none of the checks is kept.
+        onLegalConsentChange({
+          agreeAge: false,
+          agreeTerms: false,
+          agreePersonalDataCollectionUse: false,
+        });
+        setBundleState({ status: 'unavailable' });
+        return;
+      }
+
       const nextAcceptances = toLegalAcceptances(result.bundle);
       const currentConsent = normalizeLegalConsent(legalConsentRef.current);
       const shouldResetChecks =
@@ -126,23 +137,28 @@ export function LegalConsentStep({
           ? false
           : currentConsent.agreePersonalDataCollectionUse,
         legalAcceptances: nextAcceptances,
-        legalBundleSource: result.source,
       });
-      setBundleState({ status: 'ready', source: result.source, bundle: result.bundle });
+      setBundleState({ status: 'ready', bundle: result.bundle });
     });
 
     return () => {
       cancelled = true;
     };
-  }, [legalDocumentsResult, onLegalConsentChange, refreshNonce]);
+  }, [legalDocumentsResult, onLegalConsentChange, refreshNonce, retryCount]);
 
   const normalizedConsent = normalizeLegalConsent(legalConsent);
   const allAgreed =
     normalizedConsent.agreeAge &&
     normalizedConsent.agreeTerms &&
     normalizedConsent.agreePersonalDataCollectionUse;
-  const isUsingFallback = bundleState.status === 'ready' && bundleState.source === 'fallback';
-  const noticeStatus = requiresReconfirmation ? 'stale' : isUsingFallback ? 'fallback' : null;
+  const isUnavailable = bundleState.status === 'unavailable';
+  const noticeStatus = isUnavailable ? 'unavailable' : requiresReconfirmation ? 'stale' : null;
+  const retryBundle = () => {
+    // The retry button goes away while the bundle loads; the step heading keeps the keyboard position.
+    headingRef.current?.focus();
+    setBundleState({ status: 'loading' });
+    setRetryCount((count) => count + 1);
+  };
 
   const handleAllAgree = (checked: boolean) => {
     onLegalConsentChange({
@@ -173,10 +189,14 @@ export function LegalConsentStep({
         icon={<FileText className="size-8 text-(--knu-primary)" />}
         title="필수 항목 확인"
         description="각 내용을 확인한 뒤 필수 항목에 동의해요."
+        headingRef={headingRef}
       />
 
       {noticeStatus && (
-        <LegalConsentNotice status={noticeStatus} isUsingFallback={isUsingFallback} />
+        <LegalConsentNotice
+          status={noticeStatus}
+          onRetry={isUnavailable ? retryBundle : undefined}
+        />
       )}
 
       <Field invalid={Boolean(error)} className="space-y-4">
@@ -188,7 +208,7 @@ export function LegalConsentStep({
             <p className="font-medium text-(--knu-text-primary)">필수 내용을 불러오고 있어요.</p>
             <p className="mt-1">잠시만 기다려 주세요.</p>
           </div>
-        ) : (
+        ) : bundleState.status === 'unavailable' ? null : (
           <LegalConsentSummaryCard
             ref={consentSummaryRef}
             checks={{
@@ -221,7 +241,7 @@ export function LegalConsentStep({
       <StepNavigation
         onBack={onBack}
         onNext={handleNext}
-        disabled={bundleState.status === 'loading'}
+        disabled={bundleState.status !== 'ready'}
       />
 
       {viewingDocument && (
