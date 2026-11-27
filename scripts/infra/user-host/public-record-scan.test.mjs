@@ -131,6 +131,9 @@ test('a baseline migration name passes, and only the all-zero prefix does', () =
     'Applying migration `000000000000_initial_baseline` in account 210987654321',
     // Twelve zeros with no migration name after them are not a migration directory.
     'prefix 000000000000_ with no name',
+    // A value stuck to the end of the name stays a value: the name takes no digits.
+    'Applying migration `000000000000_initial_baseline_210987654321`',
+    'Applying migration `000000000000_x210987654321`',
   ]) {
     assert.deepEqual(
       scanText(line).map((f) => f.kind),
