@@ -2,7 +2,7 @@
 
 # 백오피스 API image(backoffice-foundation D-BF1·D-BF13·D-BF16). migration을 실행하지 않고(D-SF5, migration owner는 api-cd의
 # migrate image), runtime과 one-off `bootstrap-owner`(dist/cli)를 같은 image로 띄운다. build context는 저장소 root다.
-ARG NODE_IMAGE=node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
+ARG NODE_IMAGE=node:26.13.1-trixie-slim@sha256:abe7e5a82b61a8ef67b315b85497c9e65173387ccf2f4a029248184b8e020be5
 # RDS 서버 인증서를 검증하는 CA(D-AB5). 사용자 API image와 같은 서울 regional bundle과 같은 sha256 원본
 # (infra/deploy/api/rds-ca-bundle.sha256)으로 대조해 단일 루트만 넣는다. 원본이 바뀌면 두 image가 함께 바뀐다.
 ARG RDS_CA_BUNDLE_URL=https://truststore.pki.rds.amazonaws.com/ap-northeast-2/ap-northeast-2-bundle.pem
