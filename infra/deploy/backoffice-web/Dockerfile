@@ -3,7 +3,7 @@
 # 백오피스 Web image(backoffice-foundation D-BF1). Next.js standalone server가 admin ingress 뒤 internal network에서만 듣고,
 # backoffice-api는 BACKOFFICE_API_URL(internal network 주소)로만 부른다. origin `http://localhost:4300`과 Host는 code 상수다.
 # build context는 저장소 root다. browser에 나가는 build 값(NEXT_PUBLIC_*)이 없다.
-ARG NODE_IMAGE=node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
+ARG NODE_IMAGE=node:26.13.1-trixie-slim@sha256:abe7e5a82b61a8ef67b315b85497c9e65173387ccf2f4a029248184b8e020be5
 
 FROM ${NODE_IMAGE} AS base
 ENV PNPM_HOME=/pnpm

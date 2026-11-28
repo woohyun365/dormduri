@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.29@sha256:572cebbc2b15e6f84c077742952674889cb63cd5e9b80abdffcbe587b6f19183
 
-ARG NODE_IMAGE=node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
+ARG NODE_IMAGE=node:26.13.1-trixie-slim@sha256:abe7e5a82b61a8ef67b315b85497c9e65173387ccf2f4a029248184b8e020be5
 # RDS 서버 인증서를 검증하는 CA(D-AB5). AWS 공식 truststore의 서울 regional bundle을 받아, 저장소에 둔 sha256과 대조한 뒤
 # 그 안의 단일 루트(RSA2048 G1)만 image에 넣는다. 값이 바뀌면 rds-ca-bundle.sha256을 고치는 PR로 갱신한다.
 ARG RDS_CA_BUNDLE_URL=https://truststore.pki.rds.amazonaws.com/ap-northeast-2/ap-northeast-2-bundle.pem
