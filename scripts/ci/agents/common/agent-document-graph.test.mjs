@@ -88,6 +88,7 @@ const WEB_CRITERIA = [
   'web-db-migration-seed-compatibility',
   'web-db-index-query',
   'web-db-integrity-retention-lifecycle',
+  'web-infra-repository-structure',
   'web-infra-topology-runtime-config',
   'web-infra-ci-cd',
   'web-infra-observability',
@@ -286,6 +287,7 @@ const PACK_LAYERS = new Map([
     {
       prefix: 'web-infra-',
       sublayers: [
+        'repository-structure',
         'topology-runtime-config',
         'ci-cd',
         'observability',
@@ -809,14 +811,14 @@ test('the binding document has a 센서 table whose rows criteria items referenc
   for (const key of referenced) assert.ok(bindingKeys(binding).has(key), key);
 });
 // #778: the Web build·lint·test configuration row of the area exemption table also covers the React
-// Compiler configuration that sits next to the Vitest configuration it already lists.
+// Compiler configuration that sits next to the ESLint configuration it already lists.
 test('the configuration exemption row covers the React Compiler configuration', () => {
   const rows = parseExemptionTable(readFileSync(resolve(root, BINDING_DOC), 'utf8'), BINDING_DOC);
   const row = rows.find((candidate) => candidate.reason.startsWith('build·lint·test 설정'));
   assert.ok(row, `${BINDING_DOC}: build·lint·test 설정 exemption row is missing`);
-  const vitest = row.include.find((glob) => glob.endsWith('/vitest.config.ts'));
-  assert.ok(vitest, 'the row must list the Vitest configuration');
-  const path = `${dirname(vitest)}/react-compiler.config.ts`;
+  const eslint = row.include.find((glob) => glob.endsWith('/eslint.config.mjs'));
+  assert.ok(eslint, 'the row must list the ESLint configuration');
+  const path = `${dirname(eslint)}/react-compiler.config.ts`;
   assert.ok(
     row.include.some((glob) => matchPathGlob(path, glob)) &&
       !row.exclude.some((glob) => matchPathGlob(path, glob)),

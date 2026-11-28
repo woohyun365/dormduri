@@ -356,6 +356,35 @@ test('the repository catalog loads and picks documents by the Owner overlap rule
   const lockfile = pick('pnpm-lock.yaml');
   assert.ok(lockfile.includes('web-infra-capacity-cost-supply-chain'), lockfile.join());
   assert.deepEqual(pick('apps/web/example/README.md'), ['documents']);
+  // The workspace declaration, the top-level and app e2e projects and the Web app test settings select the
+  // repository structure document with swe. Untracked example paths stand for product files the agent suite
+  // does not read; the Vitest configuration and test setup are named with an example app directory. The API
+  // test settings keep only the BE documents, because the BE configuration key is the more specific layer key.
+  for (const path of [
+    'pnpm-workspace.yaml',
+    'package.json',
+    'e2e/example.spec.ts',
+    'apps/web/e2e/legal.spec.ts',
+    'apps/backoffice-web/e2e/example.spec.ts',
+    'apps/web/playwright.config.ts',
+    'apps/web/playwright.example.ts',
+    'apps/example/vitest.config.ts',
+    'apps/example/src/test-setup.ts',
+  ]) {
+    const picked = pick(path);
+    assert.ok(
+      picked.includes('web-infra-repository-structure') && picked.includes('swe'),
+      `${path}: ${picked.join()}`,
+    );
+  }
+  for (const path of ['apps/api/vitest.config.ts', 'apps/backoffice-api/vitest.config.ts']) {
+    const picked = pick(path);
+    assert.ok(!picked.includes('web-infra-repository-structure'), `${path}: ${picked.join()}`);
+    assert.ok(
+      picked.some((id) => id.startsWith('web-be-')),
+      `${path}: ${picked.join()}`,
+    );
+  }
 });
 
 // Selection reads item headings and `repo-structure.*` rows only: lines added under an item and other

@@ -357,6 +357,12 @@
       "rationale": "web DB integrity-retention-lifecycle 하위 layer의 기준 항목(DB 제약·lock helper·lock 순서, 보존 기한 삭제·비식별 실행, DB 계정 분리와 최소 grant)을 소유한다. data-privacy-secret P3를 상속한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
     },
     {
+      "path": "docs/development/agent-workflows/review-criteria/web-infra-repository-structure.md",
+      "owner": "general development workflow owner",
+      "kind": "domain",
+      "rationale": "web infra repository-structure 하위 layer의 기준 항목(배포 단위·저장소 나눔 근거와 경계 계약, 배포 shell과 domain library 경계, test 층 배치와 project 소속)을 소유한다. swe를 상속해 더 좁은 조건을 보며 저장소 값은 binding 키로만 가리킨다."
+    },
+    {
       "path": "docs/development/agent-workflows/review-criteria/web-infra-topology-runtime-config.md",
       "owner": "general development workflow owner",
       "kind": "domain",
@@ -444,7 +450,7 @@
       "path": "docs/development/agent-workflows/domain/swe-web/infra.md",
       "owner": "general development workflow owner",
       "kind": "domain",
-      "rationale": "infra 하위 layer 5개의 결정 목록과 기준 항목 인용·상속·위험(운영 배포·적용과 운영 DB 쓰기의 사람 승인 지점 포함)·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
+      "rationale": "infra 하위 layer 6개의 결정 목록과 기준 항목 인용·상속·위험(운영 배포·적용과 운영 DB 쓰기의 사람 승인 지점 포함)·binding 키를 소유한다. 항목 문장은 review-criteria가 소유하고 여기서 다시 쓰지 않는다."
     },
     {
       "path": "docs/development/agent-workflows/domain/swe-web/security-privacy.md",

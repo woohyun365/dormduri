@@ -2,10 +2,61 @@
 
 **상태**: owner-confirmed
 **확인일**: 2026-11-27
-**확인 근거**: [#696](https://github.com/woohyun365/dormduri/issues/696)의 Web 단계 결정 기록 댓글(topology-runtime-config의 `infra.topo.runtime-platform`: Lightsail 4 GB host 하나, ci-cd의 `infra.ci.deploy-authority`: 승인 뒤 배포 전용 job), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`infra.topo.runtime-platform`의 managed PostgreSQL 위치, data-durability-recovery의 `infra.dr.backup-mode`), [#890의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/890#issuecomment-6785250115)(ci-cd의 `infra.ci.deploy-authority` API 단계 재검토), [#974의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/974#issuecomment-7081174825)(topology-runtime-config의 `infra.topo.runtime-platform/backoffice`, ci-cd의 `infra.ci.deploy-authority` 백오피스 재검토, 2026-11-04·2026-11-22), [#1023의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/1023#issuecomment-7216168685)(topology-runtime-config의 `infra.arch.repository-shape`·`infra.arch.code-unit`, ci-cd의 `infra.arch.test-placement`, 2026-11-26·2026-11-27)
+**확인 근거**: [#696](https://github.com/woohyun365/dormduri/issues/696)의 Web 단계 결정 기록 댓글(topology-runtime-config의 `infra.topo.runtime-platform`: Lightsail 4 GB host 하나, ci-cd의 `infra.ci.deploy-authority`: 승인 뒤 배포 전용 job), [#886의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/886#issuecomment-6769539474)(`infra.topo.runtime-platform`의 managed PostgreSQL 위치, data-durability-recovery의 `infra.dr.backup-mode`), [#890의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/890#issuecomment-6785250115)(ci-cd의 `infra.ci.deploy-authority` API 단계 재검토), [#974의 결정 기록 근거 댓글](https://github.com/woohyun365/dormduri/issues/974#issuecomment-7081174825)(topology-runtime-config의 `infra.topo.runtime-platform/backoffice`, ci-cd의 `infra.ci.deploy-authority` 백오피스 재검토, 2026-11-04·2026-11-22), [#1023의 결정 기록 댓글](https://github.com/woohyun365/dormduri/issues/1023#issuecomment-7216168685)(repository-structure의 `infra.arch.repository-shape`·`infra.arch.code-unit`·`infra.arch.test-placement`, 2026-11-26·2026-11-27)
 **근거**: [Production runtime topology](../platform/production-runtime-topology.md), [Web 단계 배포](../../../infra/runbooks/release/web-stage-deploy.md), [API 단계 배포](../../../infra/runbooks/release/api-stage-deploy.md), [백오피스 단계 배포](../../../infra/runbooks/release/backoffice-stage-deploy.md), [Production environment](../../deploy/production-environment.md), [Domain/SWE/Web/infra pack](../../development/agent-workflows/domain/swe-web/infra.md)
 
 `Domain/SWE/Web/infra` pack layer의 결정 기록입니다. 형식과 상태 어휘는 [Decision records](./README.md)입니다.
+
+## repository-structure
+
+저장소 모양과 code 단위의 목표 구조는 [Production runtime topology](../platform/production-runtime-topology.md#repository와-deploy-구조-목표)가,
+test 배치 값은 [KNU domain binding](../../development/agent-workflows/domain/knu-binding.md#고른-값)의 `infra.arch.test-placement` 행이 소유합니다.
+
+#### infra.arch.repository-shape
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: 한 저장소와 배포 단위 app. 배포 단위 app 넷(`apps/web`·`apps/api`·`apps/backoffice-web`·`apps/backoffice-api`)과
+  host 묶음 둘(`infra/deploy/user`·`infra/deploy/backoffice`)을 한 저장소의 workspace에 두고, 공유 code는 `packages/`에 둔다.
+  디렉터리 목표는 [Repository와 deploy 구조 목표](../platform/production-runtime-topology.md#repository와-deploy-구조-목표)다
+- 근거: 팀 경계가 하나이고 여러 app에 걸친 변경(공유 계약, BFF와 API)을 한 PR로 검토한다. 배포 단위는 넷이고 service별 독립
+  확장 요구가 없다. 저장소·build pipeline·권한·경계 계약을 모두 다시 나눠야 해서 되돌리기 어렵다(`one-way`)
+- 기각한 대안: 저장소 여러 개(팀 경계가 하나이고 여러 app에 걸친 변경을 한 PR로 검토한다), service마다 독립 배포와 data(배포
+  단위가 넷이고 독립 확장 요구가 없다)
+- 재검토 조건: 팀 경계가 둘 이상이 되거나 service별 독립 배포·확장이 측정한 요구가 될 때
+- 출처: #1023, Owner 확인 2026-11-26(code 구조와 도구 "Nx + domain library")·2026-11-27(한 저장소와 app 넷 확정)
+- pack 결정: [infra.arch.repository-shape](../../development/agent-workflows/domain/swe-web/infra.md#infraarchrepository-shape)
+
+#### infra.arch.code-unit
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: app은 배포 shell, 기능은 domain별 종류 library. app 넷은 진입점·설정·route·조립만 두고, 기능은
+  `packages/<domain>/<type>` library(feature·ui·data-access·util)로 옮긴다. 두 domain 이상이 쓸 때만 `packages/shared/<type>`에
+  두고, 지금 `packages/shared`의 domain별 contract는 그 domain을 옮길 때 `packages/<domain>/contract`로 나눈다. 옮기기는 영역을
+  다시 만들 때 하고 Legal이 첫 영역이다. 그때까지 app 안에는 domain 폴더와 기술 폴더가 섞여 있다
+- 근거: 바뀐 library만 검사해 CI가 가벼워지고, domain 경계를 tag 규칙 lint가 막는다. library마다 설정 파일이 늘어나므로 Legal
+  시범 뒤 나머지 영역의 type 표를 정한다. code·import 경로·build 입력을 다시 써야 해서 되돌리는 비용이 크다(`costly`)
+- 기각한 대안: app 안 기능 폴더(바뀐 부분만 검사하는 단위가 app이라 CI가 줄지 않고 경계는 손으로 쓴 lint뿐이다), domain마다
+  app(`apps/<domain>/{web,api}`. 배포 단위가 domain 수만큼 늘어 route·인증 공유와 CD 비용이 크다)
+- 재검토 조건: Legal library 시범에서 library 설정·build 비용이 바뀐 부분만 검사하는 이득보다 클 때, 저장소 모양을 다시 정할 때
+- 출처: #1023, Owner 확인 2026-11-26(code 구조와 도구 "Nx + domain library")
+- pack 결정: [infra.arch.code-unit](../../development/agent-workflows/domain/swe-web/infra.md#infraarchcode-unit)
+
+#### infra.arch.test-placement
+
+- 판정: Ask
+- 상태: validated
+- 고른 선택지: [Repo binding의 고른 값](../../development/agent-workflows/domain/knu-binding.md#고른-값) `infra.arch.test-placement` 행
+- 근거: 바뀐 code와 그 test가 함께 보이고, 기능을 library로 옮기면 그 test도 같은 project로 옮겨져 바뀐 부분만 검사한다. 여러
+  app·DB를 잇는 흐름은 app 하나에 속하지 않아 최상위 workspace에 둔다. test 파일을 옮기고 수집 범위를 고치면 되므로 되돌리기
+  쉽다(`easy`)
+- 기각한 대안: app마다 source와 같은 모양의 별도 test tree(파일을 옮길 때 두 tree를 함께 옮겨야 하고 test가 빠져도 잘 보이지
+  않는다), 저장소 최상위 test 디렉터리 하나(어느 app·library의 test인지 경로로 알 수 없어 바뀐 부분만 검사하기 어렵다),
+  service·저장소마다 자기 test와 경계 계약 test(저장소 모양이 한 저장소다)
+- 재검토 조건: 저장소 모양이 저장소 여러 개나 service마다 독립 배포로 바뀔 때
+- 출처: #1023, Owner 확인 2026-11-26(unit·component test 위치 "소스 옆, 영역별로 옮김", 교차 e2e "최상위 e2e/ workspace")
+- pack 결정: [infra.arch.test-placement](../../development/agent-workflows/domain/swe-web/infra.md#infraarchtest-placement)
 
 ## topology-runtime-config
 
@@ -56,37 +107,6 @@
   넘을 때
 - 출처: #974, Owner 확인 2026-11-04(공개 ingress 없이 SSM 포트 포워딩)·2026-11-22(수신 gateway를 API 묶음에 두고 API 지표를 대신 긁음)
 - pack 결정: [infra.topo.runtime-platform](../../development/agent-workflows/domain/swe-web/infra.md#infratoporuntime-platform)
-
-#### infra.arch.repository-shape
-
-- 판정: Ask
-- 상태: validated
-- 고른 선택지: 한 저장소와 배포 단위 app. 배포 단위 app 넷(`apps/web`·`apps/api`·`apps/backoffice-web`·`apps/backoffice-api`)과
-  host 묶음 둘(`infra/deploy/user`·`infra/deploy/backoffice`)을 한 저장소의 workspace에 두고, 공유 code는 `packages/`에 둔다.
-  디렉터리 목표는 [Repository와 deploy 구조 목표](../platform/production-runtime-topology.md#repository와-deploy-구조-목표)다
-- 근거: 팀 경계가 하나이고 여러 app에 걸친 변경(공유 계약, BFF와 API)을 한 PR로 검토한다. 배포 단위는 넷이고 service별 독립
-  확장 요구가 없다. 저장소·build pipeline·권한·경계 계약을 모두 다시 나눠야 해서 되돌리기 어렵다(`one-way`)
-- 기각한 대안: 저장소 여러 개(팀 경계가 하나이고 여러 app에 걸친 변경을 한 PR로 검토한다), service마다 독립 배포와 data(배포
-  단위가 넷이고 독립 확장 요구가 없다)
-- 재검토 조건: 팀 경계가 둘 이상이 되거나 service별 독립 배포·확장이 측정한 요구가 될 때
-- 출처: #1023, Owner 확인 2026-11-26(code 구조와 도구 "Nx + domain library")·2026-11-27(한 저장소와 app 넷 확정)
-- pack 결정: [infra.arch.repository-shape](../../development/agent-workflows/domain/swe-web/infra.md#infraarchrepository-shape)
-
-#### infra.arch.code-unit
-
-- 판정: Ask
-- 상태: validated
-- 고른 선택지: app은 배포 shell, 기능은 domain별 종류 library. app 넷은 진입점·설정·route·조립만 두고, 기능은
-  `packages/<domain>/<type>` library(feature·ui·data-access·util)로 옮긴다. 두 domain 이상이 쓸 때만 `packages/shared/<type>`에
-  두고, 지금 `packages/shared`의 domain별 contract는 그 domain을 옮길 때 `packages/<domain>/contract`로 나눈다. 옮기기는 영역을
-  다시 만들 때 하고 Legal이 첫 영역이다. 그때까지 app 안에는 domain 폴더와 기술 폴더가 섞여 있다
-- 근거: 바뀐 library만 검사해 CI가 가벼워지고, domain 경계를 tag 규칙 lint가 막는다. library마다 설정 파일이 늘어나므로 Legal
-  시범 뒤 나머지 영역의 type 표를 정한다. code·import 경로·build 입력을 다시 써야 해서 되돌리는 비용이 크다(`costly`)
-- 기각한 대안: app 안 기능 폴더(바뀐 부분만 검사하는 단위가 app이라 CI가 줄지 않고 경계는 손으로 쓴 lint뿐이다), domain마다
-  app(`apps/<domain>/{web,api}`. 배포 단위가 domain 수만큼 늘어 route·인증 공유와 CD 비용이 크다)
-- 재검토 조건: Legal library 시범에서 library 설정·build 비용이 바뀐 부분만 검사하는 이득보다 클 때, 저장소 모양을 다시 정할 때
-- 출처: #1023, Owner 확인 2026-11-26(code 구조와 도구 "Nx + domain library")
-- pack 결정: [infra.arch.code-unit](../../development/agent-workflows/domain/swe-web/infra.md#infraarchcode-unit)
 
 ## data-durability-recovery
 
@@ -143,18 +163,3 @@ CI와 CD의 책임 경계는 [Monorepo CI](../platform/monorepo-ci.md#책임)가
   "다른 서비스 CD가 같은 DB schema를 쓰게 될 때"가 걸려 다시 보고 같은 선택지를 유지하고 schema gate를 더함), Owner 확인
   2026-10-27·2026-11-04(서비스별 workflow, schema가 바뀐 push는 `api-cd` migrate 뒤 백오피스 rollout)·2026-11-11
 - pack 결정: [infra.ci.deploy-authority](../../development/agent-workflows/domain/swe-web/infra.md#infracideploy-authority)
-
-#### infra.arch.test-placement
-
-- 판정: Ask
-- 상태: validated
-- 고른 선택지: [Repo binding의 고른 값](../../development/agent-workflows/domain/knu-binding.md#고른-값) `infra.arch.test-placement` 행
-- 근거: 바뀐 code와 그 test가 함께 보이고, 기능을 library로 옮기면 그 test도 같은 project로 옮겨져 바뀐 부분만 검사한다. 여러
-  app·DB를 잇는 흐름은 app 하나에 속하지 않아 최상위 workspace에 둔다. test 파일을 옮기고 수집 범위를 고치면 되므로 되돌리기
-  쉽다(`easy`)
-- 기각한 대안: app마다 source와 같은 모양의 별도 test tree(파일을 옮길 때 두 tree를 함께 옮겨야 하고 test가 빠져도 잘 보이지
-  않는다), 저장소 최상위 test 디렉터리 하나(어느 app·library의 test인지 경로로 알 수 없어 바뀐 부분만 검사하기 어렵다),
-  service·저장소마다 자기 test와 경계 계약 test(저장소 모양이 한 저장소다)
-- 재검토 조건: 저장소 모양이 저장소 여러 개나 service마다 독립 배포로 바뀔 때
-- 출처: #1023, Owner 확인 2026-11-26(unit·component test 위치 "소스 옆, 영역별로 옮김", 교차 e2e "최상위 e2e/ workspace")
-- pack 결정: [infra.arch.test-placement](../../development/agent-workflows/domain/swe-web/infra.md#infraarchtest-placement)

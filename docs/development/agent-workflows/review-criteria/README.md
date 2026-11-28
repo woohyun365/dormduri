@@ -31,6 +31,7 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
 | `web-db-migration-seed-compatibility`        | [Web DB migration, seed, and compatibility criteria](./web-db-migration-seed-compatibility.md)                  | DB migration·seed와 그 적용·되돌림 경로 변경                                                  |
 | `web-db-index-query`                         | [Web DB index and query criteria](./web-db-index-query.md)                                                      | DB 조회 pattern·index·raw SQL 변경                                                            |
 | `web-db-integrity-retention-lifecycle`       | [Web DB integrity, retention, and lifecycle criteria](./web-db-integrity-retention-lifecycle.md)                | DB 수준 무결성·잠금, 보존 기한 삭제·익명화, DB 계정·grant 변경                                |
+| `web-infra-repository-structure`             | [Web infra repository structure criteria](./web-infra-repository-structure.md)                                  | 저장소·배포 단위 나눔, 기능 code 위치와 library 구성·의존 규칙, test 층 배치와 수집 범위 변경 |
 | `web-infra-topology-runtime-config`          | [Web infra topology, runtime, and configuration criteria](./web-infra-topology-runtime-config.md)               | 배포 구성·환경 차이, artifact·설정·secret 주입, 실행 설정, 노출 port·권한, 선언형 설정 변경   |
 | `web-infra-ci-cd`                            | [Web infra CI/CD criteria](./web-infra-ci-cd.md)                                                                | CI workflow·lane·cache·경로 분류, 검증·배포 권한과 사람 승인, 배포 pipeline·절차 owner 변경   |
 | `web-infra-observability`                    | [Web infra observability criteria](./web-infra-observability.md)                                                | 관측 data의 수집·저장·보존·접근·alert 경계와 관측 UI·운영 화면 책임 변경                      |
@@ -51,7 +52,7 @@ Severity 정의, gate, 리뷰 회차와 PASS 뒤 처분 같은 공통 규칙은 
   [AGENTS.md 5절](../../../../AGENTS.md#5-implementation-agreements)과 [dependency security policy](../../../policies/dependency-security.md)입니다.
 - 영역 기준 문서(`web-<layer>-<하위 layer>`)를 고르면 `swe`와, 그 문서 머리말이 상속한다고 적은 문서도 함께 고릅니다.
 - 제품 영역(FE·BFF·BE·DB·infra와 cross-cutting security-privacy·operations-release) 기준 문서는 영역 owner와 함께 이 형식으로
-  추가합니다. 지금은 FE 하위 layer 6개, BFF 하위 layer 3개, BE 하위 layer 6개, DB 하위 layer 4개, infra 하위 layer 5개,
+  추가합니다. 지금은 FE 하위 layer 6개, BFF 하위 layer 3개, BE 하위 layer 6개, DB 하위 layer 4개, infra 하위 layer 6개,
   security-privacy 하위 layer 2개, operations-release 하위 layer 2개의 문서가 있습니다. 기준 문서 대신 기존 owner 문서를
   acceptance 근거로 쓸 때(대체)는 영역 plan-authoring guide와
   [visual design review contract](../visual-design/design-review-and-acceptance.md)를 씁니다. 시각 값과 미감은 FE 기준 문서가
