@@ -212,7 +212,7 @@ services:
 
   loki:
     <<: *obs
-    image: grafana/loki:3.7.9@sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28
+    image: grafana/loki:3.7.10@sha256:b43c257ccfc925d4a50b8717cac61a3b51df8c48d01847936057e5c4075a24a7
     user: '10001:10001'
     command: [-config.file=/etc/loki/loki.yml]
     volumes:
@@ -237,7 +237,7 @@ services:
   # 같은 host 단일 신뢰 경계의 위험 수용과 제거 trigger는 production-stack runbook이다. socket 접근 때문에 root(0:473)로 돈다.
   alloy:
     <<: *obs
-    image: grafana/alloy:v1.21.3@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
+    image: grafana/alloy:v1.22.0@sha256:9acc2529bc1edb7f5b2bd801dd8334ebc80c158e3a9e5526ecd7c9a273d43189
     user: '0:473'
     command:
       [
@@ -278,7 +278,7 @@ services:
 
   alertmanager:
     <<: *obs
-    image: prom/alertmanager:v0.34.2@sha256:39d8bb3966c694a124428a3a88fbcffd40bd069129ecd47c059f8a3f17c55f3b
+    image: prom/alertmanager:v0.35.1@sha256:4e3d029e69c7f61dd53a2b31a3dc427a2b81736cffca185c0854075e07969e36
     user: '65534:65534'
     command:
       [
@@ -317,7 +317,7 @@ services:
 
   grafana:
     <<: *obs
-    image: grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205
+    image: grafana/grafana:13.3.2@sha256:81556409ba48b2b922e0adb69a2511337d8ba7578f11962eefa6149a2d815101
     user: '472:0'
     tmpfs: ['/tmp:size=64m,mode=1777']
     environment:
@@ -372,7 +372,7 @@ services:
   # 설정 image의 gateway/nginx.conf다. Lightsail 방화벽은 9480을 열지 않는다(사설 IP 경로만, F7).
   obs-gateway:
     <<: *obs
-    image: nginx:1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+    image: nginx:1.31.9-alpine@sha256:fb4658584bd9a916ffb6f6e365f97c25cfdb2923801f551ea08356e695f14ff7
     user: '101:101'
     entrypoint: []
     command: [nginx, -c, /etc/dormduri-gateway/nginx.conf, -g, 'daemon off;']
